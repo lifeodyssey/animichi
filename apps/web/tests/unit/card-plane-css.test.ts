@@ -47,7 +47,6 @@ describe("the layer is what keeps each family's own modifiers winning", () => {
   });
 
   it.each([
-    ["skeleton pulse", chatCss, ".chat-card--skeleton"],
     ["fallback ground", chatCss, ".chat-card--fallback"],
     ["poster export ground", shioriCss, ".shiori-card--poster-fallback"],
   ])("leaves %s unlayered, so it still beats the plane", (_name, sheet, selector) => {

@@ -35,7 +35,7 @@ describe("C2t departure gate through ChatShell (AC2)", () => {
     renderChatPage();
     sendText("君の名は。のルートを組んで");
     fireEvent.click(screen.getByRole("button", { name: ja.departure.autoChip }));
-    expect(await screen.findByText("君の名は。のルートを組んで")).toBeTruthy();
+    expect(await screen.findAllByText("君の名は。のルートを組んで")).not.toHaveLength(0);
     expect(screen.queryByRole("button", { name: ja.departure.autoChip })).toBeNull();
   });
 });

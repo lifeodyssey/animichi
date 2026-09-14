@@ -5,6 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { RouteTrailMap } from "../../../src/features/chat/components/RouteTrailMap";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
+import { attachFailing, attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { pointPlacements } from "../../../src/features/bubble-map/bubble-geometry";
 import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
@@ -14,14 +15,6 @@ import chatCss from "../../../src/styles/chat.css?raw";
 afterEach(cleanup);
 
 const dict = chatDictFor("ja");
-const attachReady: AttachBasemap = ({ onStatus }) => {
-  onStatus("ready");
-  return () => undefined;
-};
-const attachFailing: AttachBasemap = ({ onStatus }) => {
-  onStatus("fallback");
-  return () => undefined;
-};
 
 function spot(id: string, name: string, lat: number, lng: number): LocatedSpot {
   return { id, name, coord: { lat, lng } };
@@ -91,6 +84,13 @@ describe("degradation", () => {
   it("falls back to the D7 doodle when the basemap fails", () => {
     renderTrail(attachFailing);
     expect(screen.getByText(dict.errorStates.d7Message)).toBeTruthy();
+    expect(screen.getByRole("link", { name: dict.errorStates.d7Open })).toBeTruthy();
     expect(document.querySelector(".chat-route-pin")).toBeNull();
+  });
+
+  it("keeps the fallback quiet when the card already offers a maps exit", () => {
+    render(<RouteTrailMap stations={STATIONS} dimmed={OFF_ROUTE} dict={dict} attach={attachFailing} showMapsLink={false} />);
+    expect(screen.getByText(dict.errorStates.d7Message)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: dict.errorStates.d7Open })).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MessageList } from "../../../src/features/chat/components/MessageList";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { skeletonCopy } from "../../../src/features/chat/skeleton-copy";
 
 const ja = chatDictFor("ja");
 
@@ -66,15 +67,31 @@ describe("MessageList pipeline collapse", () => {
   it("keeps the pipeline inline while the turn is still streaming", () => {
     render(<MessageList messages={[toolMessage()]} dict={ja} status="streaming" />);
     expect(document.querySelector(".chat-settled")).toBeNull();
-    const badge = screen.getByText(ja.toolSteps.labels.resolve_anime);
-    expect(badge.getAttribute("data-tool")).toBe("resolve_anime");
+    const badge = screen.getByText(ja.toolSteps.actions.resolve_anime);
+    expect(badge.closest("[data-tool]")?.getAttribute("data-tool")).toBe("resolve_anime");
+  });
+
+  it("omits a footprint for a turn containing only hidden tool steps", () => {
+    const part = { type: "tool-translate_anime_title", toolCallId: "hidden", state: "output-available", input: {}, output: {} };
+    const message = { id: "hidden", role: "assistant", parts: [part] } as UIMessage;
+    render(<MessageList messages={[message]} dict={ja} status="ready" />);
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(document.querySelector(".chat-step")).toBeNull();
   });
 });
 
 describe("MessageList output progress lifecycle", () => {
+  it("stops presenting unfinished tool work as running after the turn fails", () => {
+    render(<MessageList messages={[retryMessage("input-available")]} dict={ja} status="error" />);
+    expect(statusesOf()).toEqual(["retried", "error"]);
+    expect(screen.queryByText(ja.toolSteps.labels.search_bangumi)).toBeNull();
+    expect(screen.getByText(ja.toolSteps.failed)).toBeTruthy();
+  });
+
   it("removes the busy skeleton when a turn settles without a final envelope", () => {
     render(<MessageList messages={[outputProgressMessage()]} dict={ja} status="error" />);
     expect(document.querySelector('[aria-busy="true"]')).toBeNull();
-    expect(screen.getByText(ja.fallbackCard)).toBeTruthy();
+    expect(document.querySelector(".chat-card--skeleton")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(skeletonCopy(ja.locale).incomplete);
   });
 });

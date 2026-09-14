@@ -14,8 +14,8 @@ const DRAFT_KEY = "animichi:chat-draft";
 beforeEach(() => { sessionStorage.clear(); });
 afterEach(cleanup);
 
-function field(): HTMLInputElement {
-  return screen.getByRole<HTMLInputElement>("textbox");
+function field(): HTMLTextAreaElement {
+  return screen.getByRole<HTMLTextAreaElement>("textbox");
 }
 
 function typeDraft(): void {

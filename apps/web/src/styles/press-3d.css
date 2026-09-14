@@ -5,8 +5,8 @@
  * steps were restated in `anime.css`, `route-detail.css` and `chat.css`, and
  * chat's copy had lost the hover half of the pattern entirely.
  *
- * `:not(:disabled)` guards both interactive rules so a disabled retry stays
- * put; it is inert on the anchors in this list, which can never match it.
+ * `:not(:disabled)` keeps native disabled controls still while interactive
+ * buttons and anchors follow the same motion.
  *
  * `--press-ledge` is the one thing about the depth that IS a family's own: the
  * cream families rest on `--shadow-3d`, the gold bar on its own `--gold-deep`
@@ -26,14 +26,7 @@
  * with a family's own rule, so no layer is needed to hold them apart. */
 .anime-press,
 .route-press,
-.route-goldbar,
-.chat-error-banner__retry,
-.chat-fallback__retry,
-.chat-interruption__retry,
-.chat-session-expired__login,
-.chat-session-expired__resume,
-.chat-budget-exhausted__login,
-.chat-quota-exhausted__login {
+.route-goldbar {
   border-radius: 50px;
   box-shadow: 0 3px 0 0 var(--press-ledge, var(--shadow-3d));
   cursor: pointer;
@@ -42,28 +35,14 @@
 
 .anime-press:hover:not(:disabled),
 .route-press:hover:not(:disabled),
-.route-goldbar:hover:not(:disabled),
-.chat-error-banner__retry:hover:not(:disabled),
-.chat-fallback__retry:hover:not(:disabled),
-.chat-interruption__retry:hover:not(:disabled),
-.chat-session-expired__login:hover:not(:disabled),
-.chat-session-expired__resume:hover:not(:disabled),
-.chat-budget-exhausted__login:hover:not(:disabled),
-.chat-quota-exhausted__login:hover:not(:disabled) {
+.route-goldbar:hover:not(:disabled) {
   transform: translateY(-2px);
   border-color: var(--color-primary);
 }
 
 .anime-press:active:not(:disabled),
 .route-press:active:not(:disabled),
-.route-goldbar:active:not(:disabled),
-.chat-error-banner__retry:active:not(:disabled),
-.chat-fallback__retry:active:not(:disabled),
-.chat-interruption__retry:active:not(:disabled),
-.chat-session-expired__login:active:not(:disabled),
-.chat-session-expired__resume:active:not(:disabled),
-.chat-budget-exhausted__login:active:not(:disabled),
-.chat-quota-exhausted__login:active:not(:disabled) {
+.route-goldbar:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: 0 1px 0 0 var(--press-ledge, var(--shadow-3d));
 }
@@ -74,14 +53,7 @@
 @media (prefers-reduced-motion: reduce) {
   .anime-press,
   .route-press,
-  .route-goldbar,
-  .chat-error-banner__retry,
-  .chat-fallback__retry,
-  .chat-interruption__retry,
-  .chat-session-expired__login,
-  .chat-session-expired__resume,
-  .chat-budget-exhausted__login,
-  .chat-quota-exhausted__login {
+  .route-goldbar {
     transition: none;
   }
 }

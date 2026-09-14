@@ -10,7 +10,6 @@ import {
   parseBlockTokens,
   parseTokens,
   relativeLuminance,
-  ruleDeclaration,
   tokenValue,
   type TokenMap,
 } from "./stylesheet-probe";
@@ -62,24 +61,13 @@ describe("the gold family has one ledge colour, not one per feature", () => {
   });
 });
 
-describe("the recompute action reads on solid gold in both themes", () => {
-  it("paints gold ink on the solid gold ground", () => {
-    expect(ruleDeclaration(chatCss, ".chat-selection-tray__action", "background"))
-      .toBe("var(--color-gold)");
-    expect(ruleDeclaration(chatCss, ".chat-selection-tray__action", "color"))
-      .toBe("var(--color-gold-ink)");
-  });
-
+describe("the solid gold button pair reads in both themes", () => {
   it("clears AA by day", () => {
-    const ink = paintAsHex(dayTokens, ruleDeclaration(chatCss, ".chat-selection-tray__action", "color"));
-    const ground = paintAsHex(dayTokens, ruleDeclaration(chatCss, ".chat-selection-tray__action", "background"));
-    expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(tokenValue(dayTokens, "--color-gold-ink"), tokenValue(dayTokens, "--color-gold"))).toBeGreaterThanOrEqual(AA);
   });
 
   it("clears AA at night", () => {
-    const ink = paintAsHex(nightTokens, ruleDeclaration(chatCss, ".chat-selection-tray__action", "color"));
-    const ground = paintAsHex(nightTokens, ruleDeclaration(chatCss, ".chat-selection-tray__action", "background"));
-    expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(tokenValue(nightTokens, "--color-gold-ink"), tokenValue(nightTokens, "--color-gold"))).toBeGreaterThanOrEqual(AA);
   });
 });
 

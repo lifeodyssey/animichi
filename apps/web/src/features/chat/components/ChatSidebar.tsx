@@ -21,7 +21,7 @@ type Props = Readonly<{
 const SIDEBAR_CLASS = "[display:none] lg:[display:flex] w-[292px] flex-col gap-[var(--chat-rhythm)] rounded-3xl border-[3px] border-ground-ink bg-card p-[var(--chat-gutter)_var(--chat-rhythm)] text-ground-ink shadow-[var(--shadow-press-lg)]";
 const BRAND_CLASS = "flex items-center gap-2.5";
 const BRAND_NAME_CLASS = "text-[21px] font-black leading-[1.1]";
-const BRAND_TAG_CLASS = "text-[11px] font-bold opacity-70";
+const BRAND_TAG_CLASS = "text-xs font-bold opacity-70";
 /** The keyboard ring on the new chrome: ground-ink flips with the theme, so
  * the same outline is the high-contrast ink on day cream and night pine. The
  * library ships its own 2px teal ring on `.animal-btn:focus-visible`; our
@@ -42,7 +42,7 @@ const FOCUS_RING = "focus-visible:outline-[3px] focus-visible:outline-offset-2 f
 const GOLD_PRESS = "[--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-shadow-press:0_4px_0_0_var(--shadow-3d)] [--animal-shadow-press-hover:0_5px_0_0_var(--shadow-3d)] [--animal-shadow-press-active:0_1px_0_0_var(--shadow-3d)]";
 const PAPER_QUIET = "[--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-ground-ink)] [--animal-border-color:var(--color-ground-ink)]";
 const NEW_CLASS = `animal-btn animal-btn-primary animal-btn-block [--animal-border-width:3px] border-ground-ink px-[var(--chat-rhythm)] py-[11px] text-[14.5px] font-black no-underline ${FOCUS_RING} ${GOLD_PRESS}`;
-const RECENT_HEADING_CLASS = "mb-3 text-[11.5px] font-black uppercase tracking-[0.16em] opacity-70";
+const RECENT_HEADING_CLASS = "mb-3 text-xs font-black uppercase tracking-[0.16em] opacity-70";
 const ROW_CLASS = `grid cursor-pointer gap-0.5 rounded-[14px] px-3 py-2.5 no-underline text-ground-ink hover:bg-gold-soft ${FOCUS_RING}`;
 const ROW_ACTIVE_CLASS = "bg-primary-soft shadow-[0_0_0_2px_var(--color-primary)] hover:bg-primary-soft";
 const ROW_TITLE_CLASS = "truncate text-sm font-black";
@@ -54,6 +54,17 @@ const ME_CLASS = "mt-auto flex items-center gap-2.5 border-t-2 border-dashed bor
 function BrandLockup({ dict }: Readonly<{ dict: ChatDict }>) {
   const words = <div><div className={BRAND_NAME_CLASS}>{dict.appbar.brand}</div><div className={BRAND_TAG_CLASS}>{dict.brandTagline}</div></div>;
   return <div className={BRAND_CLASS}><img src="/images/landing/torii.svg" alt="" width={38} height={38} />{words}</div>;
+}
+
+/** The anonymous middle never sits empty: the peeking fox plus one quiet line
+ * about what signing in brings back. Cream/green family only, no new colors. */
+function GuestGuide({ dict }: Readonly<{ dict: ChatDict }>) {
+  return (
+    <div className="grid flex-1 content-center justify-items-center gap-3 py-6 text-center">
+      <img src="/images/mascot/fox-peek-192.webp" srcSet="/images/mascot/fox-peek-192.webp 153w, /images/mascot/fox-peek-512.webp 405w" sizes="120px" alt="" width={153} height={149} className="h-auto w-[120px]" />
+      <p className="m-0 max-w-[22ch] text-balance text-sm font-bold">{dict.sidebarGuestHint}</p>
+    </div>
+  );
 }
 
 /** Fresh conversation: a document navigation, the way the retired app bar's
@@ -112,7 +123,7 @@ function SettingsGear({ dict }: Readonly<{ dict: ChatDict }>) {
 
 function SignedInCard({ dict }: Readonly<{ dict: ChatDict }>) {
   const avatar = <span className="grid size-[38px] flex-none place-items-center rounded-full border-[2.5px] border-ground-ink bg-gold text-[15px] font-black text-gold-ink" role="img" aria-label={dict.appbar.signedIn}>{dict.appbar.brand.charAt(0)}</span>;
-  const who = <div className="min-w-0"><div className="truncate text-[13.5px] font-black">{dict.appbar.brand}</div><div className="truncate text-[11.5px] font-bold opacity-70">{dict.brandTagline}</div></div>;
+  const who = <div className="min-w-0"><div className="truncate text-[13.5px] font-black">{dict.appbar.brand}</div><div className="truncate text-xs font-bold opacity-70">{dict.brandTagline}</div></div>;
   return <>{avatar}{who}</>;
 }
 
@@ -154,7 +165,8 @@ function UserCard({ dict, status }: Readonly<{ dict: ChatDict; status: AuthStatu
 export function ChatSidebar({ dict, status, baseUrl, activeSessionId }: Props) {
   const list = useConversationList(baseUrl, status === "authenticated");
   const recent = <RecentList dict={dict} conversations={list.conversations} activeSessionId={activeSessionId} />;
+  const guide = status === "anonymous" ? <GuestGuide dict={dict} /> : null;
   return (
-    <aside className={SIDEBAR_CLASS}><BrandLockup dict={dict} /><NewJourneyLink dict={dict} />{recent}<UserCard dict={dict} status={status} /></aside>
+    <aside className={SIDEBAR_CLASS}><BrandLockup dict={dict} /><NewJourneyLink dict={dict} />{recent}{guide}<UserCard dict={dict} status={status} /></aside>
   );
 }

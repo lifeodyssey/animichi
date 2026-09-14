@@ -14,6 +14,7 @@ describe("tool-step dictionary coverage", () => {
     const steps = chatDictFor(locale).toolSteps;
     for (const key of TOOL_STEP_KEYS) {
       expect(steps.labels[key].length, `${locale} toolSteps.labels.${key}`).toBeGreaterThan(0);
+      expect(steps.actions[key].length, `${locale} toolSteps.actions.${key}`).toBeGreaterThan(0);
     }
     expect(steps.fallback.length).toBeGreaterThan(0);
   });
@@ -44,6 +45,13 @@ describe("toolStepLabel", () => {
   it("returns the fallback for an unknown tool", () => {
     const dict = chatDictFor("en");
     expect(toolStepLabel(dict, "never_registered")).toBe(dict.toolSteps.fallback);
+  });
+
+  it.each(LOCALES)("uses neutral %s action names after a step stops running", (locale) => {
+    const dict = chatDictFor(locale);
+    expect(toolStepLabel(dict, "web_search", "done")).toBe(dict.toolSteps.actions.web_search);
+    expect(toolStepLabel(dict, "web_search", "error")).toBe(dict.toolSteps.actions.web_search);
+    expect(toolStepLabel(dict, "never_registered", "retried")).toBe(dict.toolSteps.actionFallback);
   });
 });
 

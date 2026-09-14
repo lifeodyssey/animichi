@@ -26,11 +26,10 @@ function renderAppBar(status: AuthStatus) {
 }
 
 describe("mobile top bar brand lockup", () => {
-  it("renders the torii beside the outlined wordmark", () => {
+  it("renders the localized brand without a decorative logo", () => {
     renderAppBar("authenticated");
-    const torii = screen.getAllByAltText("").find((image) => image.getAttribute("src") === "/images/landing/torii.svg");
-    expect(torii?.getAttribute("width")).toBe("26");
     expect(screen.getByText(ja.appbar.brand)).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
   });
 
   it.each(LOCALES)("shows the %s wordmark", (locale) => {
@@ -97,9 +96,12 @@ describe("mobile top bar identity slot", () => {
 
   it("opens and closes the login dialog from the login entry", () => {
     renderAppBar("anonymous");
-    fireEvent.click(screen.getByRole("button", { name: ja.appbar.login }));
+    const trigger = screen.getByRole("button", { name: ja.appbar.login });
+    trigger.focus();
+    fireEvent.click(trigger);
     expect(screen.getByRole("dialog")).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

@@ -23,28 +23,37 @@ function renderWithActions(ui: ReactElement, acted: ChatActions) {
 }
 
 describe("EnvelopeFallback D1 (recognition failure)", () => {
-  it("apologises with the fox subtitle, hints, and the example chips again", () => {
+  it("offers a focused clue entry without duplicate headings or unrelated suggestions", () => {
     renderWithActions(<EnvelopeFallback state="D1" dict={ja} />, actions());
-    expect(screen.getByText(ja.errorStates.d1Subtitle)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d1Title)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d1Hint)).toBeTruthy();
-    for (const chip of ja.chips) expect(screen.getByRole("button", { name: chip.text })).toBeTruthy();
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    expect(screen.getByRole("textbox", { name: ja.errorStates.d1Label })).toBeTruthy();
+    for (const chip of ja.chips) expect(screen.queryByRole("button", { name: chip.text })).toBeNull();
   });
 
-  it("sends a suggestion chip as the next user message", () => {
+  it("sends the user's trimmed clue as the next message and keeps it visible", () => {
     const send = vi.fn();
     renderWithActions(<EnvelopeFallback state="D1" dict={ja} />, actions({ send }));
-    fireEvent.click(screen.getByRole("button", { name: ja.chips[1].text }));
-    expect(send).toHaveBeenCalledWith(ja.chips[1].text);
+    const field = screen.getByRole("textbox", { name: ja.errorStates.d1Label });
+    fireEvent.change(field, { target: { value: "  響け！ユーフォニアム  " } });
+    fireEvent.click(screen.getByRole("button", { name: ja.errorStates.d1Submit }));
+    expect(send).toHaveBeenCalledWith("響け！ユーフォニアム");
+    expect((field as HTMLInputElement).value).toBe("  響け！ユーフォニアム  ");
+    expect(screen.getByRole("status").textContent).toBe(ja.errorStates.d1Sent);
   });
 });
 
 describe("EnvelopeFallback D2 (zero pilgrimage spots)", () => {
-  it("explains the empty catalog and offers neighbouring suggestions", () => {
-    renderWithActions(<EnvelopeFallback state="D2" dict={ja} />, actions());
+  it("accepts a different title or region without claiming the catalog lacks the work", () => {
+    const send = vi.fn();
+    renderWithActions(<EnvelopeFallback state="D2" dict={ja} />, actions({ send }));
     expect(screen.getByText(ja.errorStates.d2Title)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d2Hint)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[0].text })).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: ja.errorStates.d2Label }), { target: { value: "京都" } });
+    fireEvent.click(screen.getByRole("button", { name: ja.errorStates.d2Submit }));
+    expect(send).toHaveBeenCalledWith("京都");
+    expect(document.body.textContent).not.toContain("Anitabi");
   });
 });
 

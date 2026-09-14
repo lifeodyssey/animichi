@@ -42,8 +42,8 @@ describe("animal-island-ui-tailwind lockfile pin", () => {
     const packageSpecifier = webPackage.dependencies?.[dependencyName];
     const lockDependency = webImporter?.dependencies?.[dependencyName];
 
-    expect(packageSpecifier).toBe("^1.7.0");
+    expect(packageSpecifier).toBe("^1.10.0");
     expect(lockDependency?.specifier).toBe(packageSpecifier);
-    expect(lockDependency?.version).toMatch(/^1\.7\.\d+\b/u);
+    expect(lockDependency?.version).toMatch(/^1\.10\.\d+\b/u);
   });
 });

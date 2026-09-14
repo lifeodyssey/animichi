@@ -190,6 +190,7 @@
 .settings-byok__teaser {
   gap: 20px;
   max-width: 38rem;
+  padding: clamp(20px, 4vw, 28px);
 }
 
 .settings-byok__field {
@@ -241,9 +242,9 @@
 .animal-btn.settings-byok__save,
 .animal-btn.settings-byok__signin {
   align-self: flex-start;
-  background: var(--color-primary);
-  border-color: var(--color-primary-active);
-  color: var(--color-primary-ink);
+  background: var(--color-paper);
+  border-color: var(--color-border-soft);
+  color: var(--color-fg);
 }
 
 .animal-btn.settings-byok__clear {

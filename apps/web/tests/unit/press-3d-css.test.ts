@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
+import { animalActionClass, animalButtonClass, chatActionClass } from "../../src/features/chat/components/chat-button-classes";
 import animeCss from "../../src/styles/anime.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import css from "../../src/styles/press-3d.css?raw";
@@ -7,21 +9,13 @@ import { ruleDeclaration, sharedRuleDeclaration } from "./stylesheet-probe";
 
 /**
  * §4.2 of docs/iterations/chat-visual-restore/task.md: pill, ledge, hover lift,
- * pressed sink. Three skins each restated it and chat's copy had only ever
- * declared the sink — the lift, which is the half that tells a pointer user the
- * thing is pressable at all, was missing from all seven of its buttons.
+ * pressed sink. Anime and route retain their shared app rule; chat actions now
+ * consume the Animal Island Button class contract through chat-button-classes.
  */
 const MEMBERS = [
   ".anime-press",
   ".route-press",
   ".route-goldbar",
-  ".chat-error-banner__retry",
-  ".chat-fallback__retry",
-  ".chat-interruption__retry",
-  ".chat-session-expired__login",
-  ".chat-session-expired__resume",
-  ".chat-budget-exhausted__login",
-  ".chat-quota-exhausted__login",
 ];
 
 describe("§4.2 one pill, one ledge, for every family", () => {
@@ -73,6 +67,29 @@ describe("§4.6 the lift and the sink yield to the reduce preference", () => {
   });
 });
 
+describe("chat actions consume the Animal Island press contract", () => {
+  const classes = animalButtonClass();
+
+  it("keeps the library grammar, cream tone, 44px floor and wrapped labels", () => {
+    expect(classes.split(" ")).toEqual(expect.arrayContaining(["animal-btn", "animal-btn-middle", "animal-btn-primary"]));
+    expect(classes).toContain("[--animal-bg-color:var(--color-paper)]");
+    expect(classes).toContain("[--animal-bg-color-secondary:var(--color-muted)]");
+    expect(classes).toContain("[min-height:44px]");
+    expect(classes).toContain("[white-space:normal]");
+  });
+
+  it("uses the library's full resting, hover and pressed depth", () => {
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary", "box-shadow")).toBe("var(--animal-shadow-press)");
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary:hover:not(:disabled)", "box-shadow")).toBe("var(--animal-shadow-press-hover)");
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary:active:not(:disabled)", "box-shadow")).toBe("var(--animal-shadow-press-active)");
+  });
+
+  it("keeps disabled controls still and reduced motion transition-free", () => {
+    expect(sharedRuleDeclaration(animalCss, ".animal-btn:disabled", "box-shadow")).toBe("none");
+    expect(classes).toContain("motion-reduce:transition-none");
+  });
+});
+
 describe("no skin keeps a second copy of the depth", () => {
   /* The opposite call from card-plane.css, and for a concrete reason: every
    * family declares its resting edge with the `border` SHORTHAND in its own
@@ -89,4 +106,42 @@ describe("no skin keeps a second copy of the depth", () => {
       expect(sheet).not.toContain("-press:active");
       expect(sheet).not.toContain("0 3px 0 0 var(--shadow-3d)");
     });
+});
+
+describe("the recovery/planning action family shares one geometry", () => {
+  it("pins the 44px wrap-friendly floor byte-for-byte", () => {
+    expect(chatActionClass()).toBe("[min-height:44px]! [height:auto]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:[transition:none]!");
+  });
+
+  it("raises the planning floor to 48px and the trip submit to 15px", () => {
+    const classes = chatActionClass({ height: 48, fontSize: 15 });
+    expect(classes).toContain("[min-height:48px]!");
+    expect(classes).toContain("[font-size:15px]!");
+  });
+
+  it.each([
+    ["gold", "[--animal-bg-color:var(--color-gold)]"],
+    ["paper", "[--animal-bg-color:var(--color-paper)]"],
+    ["quiet", "[--animal-text-color:var(--color-fg)]"],
+    ["quiet-strong", "[--animal-text-color:var(--color-primary-strong)]"],
+  ] as const)("tones %s through --animal-* vars, never a press override", (tone, token) => {
+    expect(chatActionClass({ tone })).toContain(token);
+    expect(chatActionClass({ tone })).not.toContain("box-shadow");
+  });
+
+  it("keeps the caller's padding and DOM hooks last", () => {
+    const classes = chatActionClass({ tone: "gold", className: "chat-quota-exhausted__login [padding:9px_16px]!" });
+    expect(classes).toContain("]! chat-quota-exhausted__login [padding:9px_16px]!");
+  });
+
+  it("dresses native elements in the structural classes", () => {
+    const classes = animalActionClass({ appearance: "text" });
+    expect(classes.split(" ")).toEqual(expect.arrayContaining(["animal-btn", "animal-btn-text", "animal-btn-middle"]));
+    expect(classes).toContain("[min-height:44px]!");
+  });
+
+  it("defaults native elements to the middle primary grammar, block on request", () => {
+    expect(animalActionClass()).toContain("animal-btn-primary");
+    expect(animalActionClass({ block: true })).toContain("animal-btn-block");
+  });
 });

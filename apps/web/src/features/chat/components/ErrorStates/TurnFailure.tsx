@@ -1,11 +1,9 @@
-import { Link } from "@tanstack/react-router";
 import type { Locale } from "../../../../i18n/locales";
 import type { ChatErrorState } from "../../lib/error-classifier";
 import type { ChatDict } from "../../i18n";
-import { BYOK_SETUP_HASH } from "../../byok-journey";
-import { useChatSessionId } from "../../ChatReturnTarget";
-import { ByokUpsell } from "../ByokUpsell";
 import { BudgetExhausted } from "./BudgetExhausted";
+import { ByokRejected } from "./ByokRejected";
+import { ByokRequiresLogin } from "./ByokRequiresLogin";
 import { QuotaExhausted } from "./QuotaExhausted";
 import { SessionExpired } from "./SessionExpired";
 import { StreamInterruption, type InterruptionShape } from "./StreamInterruption";
@@ -40,41 +38,6 @@ function LimitState({ view, dict, locale }: Readonly<{ view: TurnFailureView; di
   if (view.state === "D12") return <QuotaExhausted dict={dict} locale={locale} resetsAtMs={view.quotaResetsAtMs} />;
   if (view.state === "D11") return <BudgetExhausted dict={dict} />;
   return <SessionExpired dict={dict} onResume={view.onExpiredResume} recovering={view.recovering} />;
-}
-
-/** D13 (#284 T8 touchpoint C): `byok_requires_login` enters the BYOK journey —
- * a short why-line plus the value explainer — not the D8 session story. */
-function ByokRequiresLogin({ dict }: Readonly<{ dict: ChatDict }>) {
-  return (
-    <div className="chat-byok-gate">
-      <p className="chat-byok-gate__message" role="alert">{dict.byok.errorRequiresLogin}</p>
-      <ByokUpsell dict={dict} />
-    </div>
-  );
-}
-
-/** The BYOK setup deep link as a router link, carrying the conversation so the
- * fix does not cost the visitor their turn (#1337). The section comes from
- * `BYOK_SETUP_HASH`, the same constant `BYOK_SETUP_TARGET` is built from. */
-function OpenSettingsAction({ dict }: Readonly<{ dict: ChatDict }>) {
-  const session = useChatSessionId();
-  return (
-    <Link className="chat-byok-rejected__open" to="/settings" search={{ session }} hash={BYOK_SETUP_HASH}>
-      {dict.byok.openSettings}
-    </Link>
-  );
-}
-
-/** D14 (#284 T6-AC7): the provider refused the key. No generic retry —
- * replaying the turn replays the failure; the one action offered is the way
- * to the fix: the dedicated settings page (#480 P2-1). */
-function ByokRejected({ dict }: Readonly<{ dict: ChatDict }>) {
-  return (
-    <div className="chat-byok-rejected" role="alert">
-      <span>{dict.byok.notAccepted}</span>
-      <OpenSettingsAction dict={dict} />
-    </div>
-  );
 }
 
 const LIMIT_STATES = new Set<ChatErrorState>(["D8", "D11", "D12"]);

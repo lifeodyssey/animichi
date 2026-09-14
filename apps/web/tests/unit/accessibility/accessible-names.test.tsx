@@ -32,9 +32,9 @@ describe("accessible names: login form", () => {
         <LoginModal open onClose={() => undefined} />
       </LocaleProvider>,
     );
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    const dialog = screen.getByRole("dialog");
-    expect((dialog.getAttribute("aria-label") ?? "").length).toBeGreaterThan(0);
+    const heading = screen.getByRole("heading");
+    expect(heading.textContent).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: heading.textContent })).toBeTruthy();
   });
 
   it("names the close button", () => {

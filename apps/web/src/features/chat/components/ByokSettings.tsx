@@ -157,7 +157,7 @@ function makeSaveSubmit(view: ByokSettingsView) {
 
 function SettingsForm({ byok, view }: PanelProps) {
   return (
-    <form className="settings-byok__form" onSubmit={makeSaveSubmit(view)} noValidate>
+    <form className="settings-byok__card settings-byok__form" onSubmit={makeSaveSubmit(view)} noValidate>
       <FormBody byok={byok} view={view} />
     </form>
   );
@@ -205,7 +205,7 @@ function TeaserLogin({ byok }: Readonly<{ byok: ChatByokDict }>) {
 
 function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
   return (
-    <div className="settings-byok__teaser">
+    <div className="settings-byok__card settings-byok__teaser">
       <StoredKeyNotice byok={byok} />
       <p>{byok.anonymousTeaser}</p>
       <TeaserLogin byok={byok} />

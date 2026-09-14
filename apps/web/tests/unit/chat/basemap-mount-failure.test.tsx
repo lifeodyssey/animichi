@@ -40,10 +40,10 @@ const settleMount = async (): Promise<void> => {
 };
 
 describe("real basemap mount failure (issue #437 item 1)", () => {
-  it("renders the D7 doodle and map-app link instead of a blank map frame", async () => {
+  it("renders the D7 status and map-app link when the basemap fails", async () => {
     render(<SearchResult spots={toSearchSpots(ONE_CLUSTER)} dict={dict} />);
     await vi.waitFor(() => {
-      expect(document.querySelector(".chat-map-fallback__doodle")).not.toBeNull();
+      expect(screen.getByRole("status").textContent).toBe(dict.errorStates.d7Message);
     });
     expect(screen.getByText(dict.errorStates.d7Message)).toBeTruthy();
     expect(screen.getByRole("link", { name: dict.errorStates.d7Open }).getAttribute("href")).toContain("34.89,135.8");

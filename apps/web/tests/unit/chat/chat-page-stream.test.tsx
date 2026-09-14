@@ -25,7 +25,7 @@ describe("send flow over the recorded search stream", () => {
     server.use(chatStreamHandler("search"));
     renderChatPage();
     sendText("ユーフォ");
-    expect(await screen.findByText("ユーフォ")).toBeTruthy();
+    expect(await screen.findByText("ユーフォ", { selector: ".chat-message--user .chat-bubble" })).toBeTruthy();
     await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
     for (const tool of ["resolve_anime", "search_bangumi", "plan_route"]) {
       const badge = document.querySelector(`.chat-step[data-tool="${tool}"]`);
@@ -75,7 +75,7 @@ describe("A1 entry doors", () => {
   it("sends the entry door's prompt as a user message on click", async () => {
     server.use(chatStreamHandler("clarify"));
     renderChatPage();
-    const door = await screen.findByRole("button", { name: ja.entryAnimeTitle });
+    const door = await screen.findByRole("button", { name: ja.entryAnimePrompt });
     fireEvent.click(door);
     await screen.findByText("どの作品でしょうか？");
     expect(screen.getAllByText(ja.entryAnimePrompt).length).toBeGreaterThan(0);
@@ -86,7 +86,7 @@ describe("A2 query entry", () => {
   it("auto-sends ?q= as an optimistic user bubble without retyping", async () => {
     server.use(chatStreamHandler("clarify"));
     renderChatPage(chatSearch({ q: "ハルヒ" }));
-    expect(await screen.findByText("ハルヒ")).toBeTruthy();
+    expect(await screen.findByText("ハルヒ", { selector: ".chat-message--user .chat-bubble" })).toBeTruthy();
     await screen.findByText("どの作品でしょうか？");
     expect(screen.getByText("115908")).toBeTruthy();
   });
@@ -101,7 +101,7 @@ describe("malformed data-part frames", () => {
       expect(screen.queryByRole("alert")).toBeTruthy();
     });
     expect(document.querySelector('[data-intent="plan_route"]')).toBeNull();
-    expect(document.querySelector(".chat-card--fallback")).toBeTruthy();
+    expect(document.querySelector(".chat-card--incomplete")).toBeTruthy();
   });
 });
 
@@ -123,9 +123,9 @@ describe("stream error", () => {
       expect(screen.queryByRole("alert")).toBeTruthy();
     });
     server.use(chatStreamHandler("search"));
-    fireEvent.click(screen.getByRole("button", { name: ja.retry }));
+    fireEvent.click(screen.getByRole("button", { name: ja.errorStates.d4Retry }));
     await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。");
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.getAllByText("ユーフォ")).toHaveLength(1);
+    expect(screen.getAllByText("ユーフォ", { selector: ".chat-message--user .chat-bubble" })).toHaveLength(1);
   });
 });

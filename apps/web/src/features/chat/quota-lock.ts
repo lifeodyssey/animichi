@@ -63,7 +63,7 @@ function noop(): void {
   return undefined;
 }
 
-const LOCKED_ACTIONS: ChatActions = { send: noop, regenerate: noop, sendWithOrigin: noop };
+const LOCKED_ACTIONS: ChatActions = { send: noop, regenerate: noop, sendWithOrigin: noop, disabled: true };
 
 /**
  * Withhold every turn-starting action while the quota lock holds. The lock

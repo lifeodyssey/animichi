@@ -3,6 +3,7 @@ import { CHAT_DICTIONARIES } from "./chat-dictionaries";
 import { TOOL_STEP_KEYS } from "./tool-steps-i18n";
 import type { ChatDict } from "./chat-dict";
 import type { ToolStepKey } from "./tool-steps-i18n";
+import type { StepStatus } from "./tool-steps";
 
 /**
  * The chat feature's copy registry: which dictionary a locale gets, and the
@@ -35,7 +36,8 @@ function isToolStepKey(name: string): name is ToolStepKey {
   return (TOOL_STEP_KEYS as readonly string[]).includes(name);
 }
 
-export function toolStepLabel(dict: ChatDict, name: string): string {
-  if (isToolStepKey(name)) return dict.toolSteps.labels[name];
-  return dict.toolSteps.fallback;
+export function toolStepLabel(dict: ChatDict, name: string, status: StepStatus = "running"): string {
+  const labels = status === "running" ? dict.toolSteps.labels : dict.toolSteps.actions;
+  if (isToolStepKey(name)) return labels[name];
+  return status === "running" ? dict.toolSteps.fallback : dict.toolSteps.actionFallback;
 }

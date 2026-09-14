@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from "react";
-import type { RefObject } from "react";
-import { type MagicLinkResult, sendMagicLink } from "../../../lib/auth/neon-auth";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
+import { type MagicLinkRequest, type MagicLinkResult, sendMagicLink } from "../../../lib/auth/neon-auth";
 import { sanitizeReturnTarget } from "../../../lib/auth/return-target";
 
 export type ValidationKey = "email_required" | "email_invalid";
-export type FormStatus = "idle" | "submitting" | MagicLinkResult;
+export type FormStatus = "idle" | "submitting" | "failed" | MagicLinkResult;
 
 /** Structural submit handler: React's synthetic form event satisfies it. */
 export type SubmitHandler = (event: { preventDefault: () => void }) => void;
@@ -13,8 +13,10 @@ export interface MagicLinkForm {
   email: string;
   status: FormStatus;
   validation: ValidationKey | null;
+  sentEmail: string | null;
   setEmail: (email: string) => void;
   onSubmit: SubmitHandler;
+  editEmail: () => void;
 }
 
 export function validateEmail(email: string): ValidationKey | null {
@@ -58,31 +60,64 @@ function requestFor(email: string, returnTarget?: string) {
   return { email: email.trim().toLowerCase(), callbackURL: callbackUrl(returnTarget) };
 }
 
-function useSendMagicLink(email: string, onCommitted: RefObject<SendCommitted | undefined>, returnTarget?: string): [FormStatus, () => Promise<void>] {
-  const [status, setStatus] = useState<FormStatus>("idle");
-  const submit = useCallback(async () => {
-    setStatus("submitting");
-    onCommitted.current?.();
-    setStatus(await sendMagicLink(requestFor(email, returnTarget)));
-  }, [email, onCommitted, returnTarget]);
-  return [status, submit];
+interface DeliveryState { status: FormStatus; sentEmail: string | null }
+interface DeliveryControl {
+  busy: RefObject<boolean>; active: RefObject<boolean>;
+  committed: RefObject<SendCommitted | undefined>;
+  setState: Dispatch<SetStateAction<DeliveryState>>;
+}
+
+function useActiveDelivery() {
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  return active;
+}
+
+async function requestLink(request: MagicLinkRequest): Promise<MagicLinkResult | "failed"> {
+  try { return await sendMagicLink(request); }
+  catch { return "failed"; }
+}
+
+function settleLink(control: DeliveryControl, request: MagicLinkRequest, result: MagicLinkResult | "failed") {
+  control.busy.current = false;
+  if (!control.active.current) return;
+  control.setState((previous) => ({ status: result, sentEmail: result === "sent" ? request.email : previous.sentEmail }));
+}
+
+async function dispatchLink(control: DeliveryControl, request: MagicLinkRequest): Promise<void> {
+  if (control.busy.current || !control.active.current) return;
+  control.busy.current = true;
+  control.setState((previous) => ({ ...previous, status: "submitting" }));
+  control.committed.current?.();
+  const result = await requestLink(request);
+  settleLink(control, request, result);
+}
+
+function useSendMagicLink(email: string, committed: RefObject<SendCommitted | undefined>, returnTarget?: string) {
+  const [state, setState] = useState<DeliveryState>({ status: "idle", sentEmail: null });
+  const busy = useRef(false), active = useActiveDelivery();
+  const submit = () => dispatchLink({ busy, active, setState, committed }, requestFor(email, returnTarget));
+  const edit = () => { if (!busy.current) setState({ status: "idle", sentEmail: null }); };
+  return { ...state, submit, edit };
 }
 
 type SetValidation = (validation: ValidationKey | null) => void;
 
-function useSubmit(email: string, setValidation: SetValidation, submit: () => Promise<void>): SubmitHandler {
+function useSubmit(email: string, setValidation: SetValidation, submit: () => Promise<void>, busy: boolean): SubmitHandler {
   return useCallback<SubmitHandler>((event) => {
     event.preventDefault();
+    if (busy) return;
     const invalid = validateEmail(email);
     setValidation(invalid);
     if (!invalid) void submit();
-  }, [email, setValidation, submit]);
+  }, [email, setValidation, submit, busy]);
 }
 
 export function useMagicLinkForm(onSendCommitted?: SendCommitted, returnTarget?: string): MagicLinkForm {
   const [email, setEmail] = useState("");
   const [validation, setValidation] = useState<ValidationKey | null>(null);
-  const [status, submit] = useSendMagicLink(email, useLatest(onSendCommitted), returnTarget);
-  const onSubmit = useSubmit(email, setValidation, submit);
-  return { email, status, validation, setEmail, onSubmit };
+  const delivery = useSendMagicLink(email, useLatest(onSendCommitted), returnTarget);
+  const onSubmit = useSubmit(email, setValidation, delivery.submit, delivery.status === "submitting");
+  const changeEmail = (value: string) => { if (delivery.status === "submitting" || delivery.sentEmail !== null) return; setEmail(value); if (validation) setValidation(validateEmail(value)); };
+  return { email, status: delivery.status, sentEmail: delivery.sentEmail, validation, setEmail: changeEmail, onSubmit, editEmail: delivery.edit };
 }

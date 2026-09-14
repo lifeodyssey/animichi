@@ -14,7 +14,7 @@ it("finishes a cold chat turn before replacing the case's request handlers", asy
   renderChatPage();
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "cold turn" } });
   fireEvent.click(screen.getByRole("button", { name: chatDictFor("en").send }));
-  await screen.findByText("cold turn");
+  await screen.findByText("cold turn", { selector: ".chat-message--user p" });
   const outcome = await drainInFlightRequests();
   server.resetHandlers();
   const nextCase: string[] = [];

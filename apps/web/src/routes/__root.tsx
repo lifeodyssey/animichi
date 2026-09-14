@@ -23,14 +23,14 @@ import globalsUrl from "../styles/globals.css?url";
 // First-screen key-weight faces (C8): with font-display: swap, a late webfont
 // arrival reflows the page (CLS). Preloading the four faces actually
 // referenced on the mobile first screen — Zen Maru Gothic 700
-// (wordmark/bubble/CTA), Noto Serif JP 700 (title), Zen Maru Gothic 500
-// (lead), Nunito 700 (Latin UI) — pulls them into the font cache during
-// HTML parse, so first paint can use the webfont metrics directly. Bounded
-// at four: more preloads just crowd the bandwidth budget while the
+// (wordmark/bubble/CTA), Zen Maru Gothic 900 (display headings), Zen Maru
+// Gothic 500 (lead), Nunito 700 (Latin UI) — pulls them into the font cache
+// during HTML parse, so first paint can use the webfont metrics directly.
+// Bounded at four: more preloads just crowd the bandwidth budget while the
 // metric-aligned fallbacks in fonts.css absorb any remaining swaps.
 const FONT_PRELOADS = [
   { rel: "preload", href: "/fonts/zen-maru-gothic-japanese-700-normal.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-  { rel: "preload", href: "/fonts/noto-serif-jp-japanese-700-normal.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+  { rel: "preload", href: "/fonts/zen-maru-gothic-japanese-900-normal.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/zen-maru-gothic-japanese-500-normal.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/nunito-latin-700-normal.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
 ] as const;
@@ -85,6 +85,18 @@ function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
 export function rootHead() {
   const config = currentRuntimeConfig();
   return { links: ROOT_LINKS, scripts: rootScripts(config), meta: ROOT_META };
+}
+
+/* Browser-chrome tint = the brand ground (globals.css `--color-ground`): the
+ * leaf-green field by day, deep pine at night. Raw <meta> tags, not ROOT_META:
+ * the head pipeline dedupes on `name`, which would drop one media variant. */
+function ThemeColorMeta() {
+  return (
+    <>
+      <meta name="theme-color" content="#6eb68e" media="(prefers-color-scheme: light)" />
+      <meta name="theme-color" content="#1f3d2b" media="(prefers-color-scheme: dark)" />
+    </>
+  );
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -164,7 +176,7 @@ function RootDocument({ children }: RootDocumentProps) {
   const lang = langFromMatches(matches);
   return (
     <html lang={lang}>
-      <head><HeadContent /></head>
+      <head><HeadContent /><ThemeColorMeta /></head>
       <body><Splash hold={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );

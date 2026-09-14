@@ -25,3 +25,26 @@ export const intentRegistry: Record<ChatDataPart["intent"], ComponentType<Intent
   error: ProseCard,
   unknown: ProseCard,
 };
+
+/** Card families; the one classification every intent switch keys off. */
+export type IntentFamily = "search" | "route" | "clarify" | "prose";
+
+const INTENT_FAMILIES: Readonly<Record<ChatDataPart["intent"], IntentFamily>> = {
+  search_bangumi: "search",
+  search_nearby: "search",
+  plan_route: "route",
+  plan_selected: "route",
+  plan_multi: "route",
+  partial: "route",
+  clarify: "clarify",
+  general_qa: "prose",
+  greet_user: "prose",
+  blocked: "prose",
+  error: "prose",
+  unknown: "prose",
+};
+
+/** The family an intent belongs to; mirrors the registry's component mapping. */
+export function intentFamily(intent: ChatDataPart["intent"]): IntentFamily {
+  return INTENT_FAMILIES[intent];
+}

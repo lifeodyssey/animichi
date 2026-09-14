@@ -59,7 +59,7 @@ describe("D10 rate-limited copy", () => {
 
   it("locks the retry while a recovery is in flight", () => {
     renderWithLocale(<StreamInterruption state="D10" dict={ja} onRetry={vi.fn()} recovering />);
-    expect(screen.getByRole("button", { name: ja.errorStates.d10Retry }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: ja.errorStates.d10Retry }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("routes the D10 turn failure to the retry strip, not the login banner", () => {

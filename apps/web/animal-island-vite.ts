@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import type { Alias } from "vite";
 
-type AnimalComponent = "Button" | "Input" | "Radio" | "Select" | "Switch";
+type AnimalComponent = "Button" | "Checkbox" | "Cursor" | "Input" | "Radio" | "Select" | "Switch";
 
 function component(name: AnimalComponent): string {
   return fileURLToPath(new URL(`../../node_modules/animal-island-ui-tailwind/dist/es/components/${name}/${name}.js`, import.meta.url));
@@ -10,6 +10,8 @@ function component(name: AnimalComponent): string {
 /** The package barrel eagerly evaluates an unrelated bundled ReactDOM client. */
 export const animalIslandAliases: readonly Alias[] = [
   { find: "animal-island-ui-tailwind/button", replacement: component("Button") },
+  { find: "animal-island-ui-tailwind/checkbox", replacement: component("Checkbox") },
+  { find: "animal-island-ui-tailwind/cursor", replacement: component("Cursor") },
   { find: "animal-island-ui-tailwind/input", replacement: component("Input") },
   { find: "animal-island-ui-tailwind/radio", replacement: component("Radio") },
   { find: "animal-island-ui-tailwind/select", replacement: component("Select") },

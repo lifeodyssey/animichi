@@ -12,8 +12,8 @@ const DRAFT = "宇治にいきたい";
 beforeEach(() => { sessionStorage.clear(); });
 afterEach(cleanup);
 
-function field(): HTMLInputElement {
-  return screen.getByRole<HTMLInputElement>("textbox");
+function field(): HTMLTextAreaElement {
+  return screen.getByRole<HTMLTextAreaElement>("textbox");
 }
 
 function sendKey(): HTMLButtonElement {
@@ -81,11 +81,12 @@ describe("G4: a running turn keeps the field, not the key", () => {
     expect(field().placeholder).toBe(ja.inputPlaceholder);
   });
 
-  it("dims the pill only while busy", () => {
+  it("announces the send key as busy until the turn completes", () => {
     const view = render(<ChatInput dict={ja} disabled={false} busy onSend={vi.fn()} />);
-    expect(document.querySelector("form")?.className).toContain("opacity-75");
+    expect(sendKey().getAttribute("aria-busy")).toBe("true");
+    expect(field().disabled).toBe(false);
     view.rerender(<ChatInput dict={ja} disabled={false} onSend={vi.fn()} />);
-    expect(document.querySelector("form")?.className).not.toContain("opacity-75");
+    expect(sendKey().getAttribute("aria-busy")).toBeNull();
   });
 
   it("still takes the field away when the page itself is out of service (A5)", () => {
@@ -128,6 +129,35 @@ describe("G5: a failed turn gives the words back", () => {
     const view = render(<ChatInput dict={ja} disabled={false} onSend={vi.fn()} />);
     typeDraft();
     view.rerender(<ChatInput dict={ja} disabled={false} sendFailed onSend={vi.fn()} />);
+    expect(field().value).toBe(DRAFT);
+  });
+});
+
+describe("composer keyboard: Enter sends, Shift+Enter breaks a line", () => {
+  it("sends the draft on Enter and clears the field", () => {
+    const onSend = vi.fn();
+    render(<ChatInput dict={ja} disabled={false} onSend={onSend} />);
+    typeDraft();
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith(DRAFT);
+    expect(field().value).toBe("");
+  });
+
+  it("keeps the draft on Shift+Enter — a line break, not a send", () => {
+    const onSend = vi.fn();
+    render(<ChatInput dict={ja} disabled={false} onSend={onSend} />);
+    typeDraft();
+    fireEvent.keyDown(field(), { key: "Enter", shiftKey: true });
+    expect(onSend).not.toHaveBeenCalled();
+    expect(field().value).toBe(DRAFT);
+  });
+
+  it("never sends an Enter that confirms an IME candidate", () => {
+    const onSend = vi.fn();
+    render(<ChatInput dict={ja} disabled={false} onSend={onSend} />);
+    typeDraft();
+    fireEvent.keyDown(field(), { key: "Enter", isComposing: true });
+    expect(onSend).not.toHaveBeenCalled();
     expect(field().value).toBe(DRAFT);
   });
 });

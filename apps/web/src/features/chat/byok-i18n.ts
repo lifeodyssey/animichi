@@ -28,6 +28,7 @@ export interface ChatByokDict {
   readonly errorRequiresLogin: string;
   readonly errorInvalidRequest: string;
   readonly errorEgressBlocked: string;
+  readonly notAcceptedTitle: string;
   readonly notAccepted: string;
   readonly anonymousTeaser: string;
   readonly signInToSetUp: string;
@@ -38,6 +39,9 @@ export interface ChatByokDict {
   readonly d11UseOwnKey: string;
   readonly upsellTitle: string;
   readonly upsellBenefit: string;
+  readonly upsellCostLabel: string;
+  readonly upsellCost: string;
+  readonly upsellPrivacyLabel: string;
   readonly upsellPrivacy: string;
   readonly upsellAccount: string;
   readonly openSettings: string;
@@ -64,7 +68,8 @@ export const jaByok: ChatByokDict = {
   errorRequiresLogin: "自分のキーを使うにはログインしてね",
   errorInvalidRequest: "入力に不備があるみたい。確認してね",
   errorEgressBlocked: "その接続先には安全のためつなげられないよ",
-  notAccepted: "キーが受け付けられなかったよ。標準のモードでは続けないから、直してね",
+  notAcceptedTitle: "キーが受け付けられなかった",
+  notAccepted: "キーとサービスの設定を確認して、もう一度送ってね。別のモデルには自動で切り替えないよ。",
   anonymousTeaser: "自分のAPIキーを使うと、待たずにたくさん話せるよ",
   signInToSetUp: "ログインして設定する",
   checking: "キーをかくにん中…",
@@ -73,10 +78,13 @@ export const jaByok: ChatByokDict = {
   settingsToggle: "APIキー設定",
   d11UseOwnKey: "自分のキーを使う",
   upsellTitle: "自分のAPIキーでつづける",
-  upsellBenefit: "契約中のプロバイダのキーなら、この画面の上限を気にせず話せるよ",
-  upsellPrivacy: "キーはこのブラウザだけに置かれて、サーバーには保存されないよ",
-  upsellAccount: "設定にはログインが必要だよ",
-  openSettings: "キー設定をひらく",
+  upsellBenefit: "自分で選んだAIサービスで、会話を続けられるよ。",
+  upsellCostLabel: "料金",
+  upsellCost: "利用料はAIサービスのアカウントに請求されるよ。",
+  upsellPrivacyLabel: "キー",
+  upsellPrivacy: "このブラウザのセッション中に保存し、リクエスト時に送信するよ。サーバーには保存しないよ。",
+  upsellAccount: "ログイン後、APIキー設定へ進むよ。",
+  openSettings: "キー設定を見直す",
 };
 
 export const zhByok: ChatByokDict = {
@@ -100,7 +108,8 @@ export const zhByok: ChatByokDict = {
   errorRequiresLogin: "使用自己的密钥需要先登录",
   errorInvalidRequest: "填写的内容好像不对,请检查一下",
   errorEgressBlocked: "出于安全考虑,无法连接这个地址",
-  notAccepted: "密钥没有被接受。不会用默认模式继续,请先修正",
+  notAcceptedTitle: "密钥未被接受",
+  notAccepted: "请检查密钥和服务商设置，再发送这条消息。不会自动换用其他模型。",
   anonymousTeaser: "用你自己的密钥,就不用受限额限制啦",
   signInToSetUp: "登录后设置",
   checking: "正在检查密钥…",
@@ -109,10 +118,13 @@ export const zhByok: ChatByokDict = {
   settingsToggle: "API 密钥设置",
   d11UseOwnKey: "使用自己的密钥",
   upsellTitle: "用自己的 API 密钥继续",
-  upsellBenefit: "用你自己付费的服务商密钥继续对话,不受这里的每日额度限制",
-  upsellPrivacy: "密钥只保存在你的浏览器里,不会存到服务器上",
-  upsellAccount: "设置前需要先登录",
-  openSettings: "打开密钥设置",
+  upsellBenefit: "用你选择的模型服务继续对话。",
+  upsellCostLabel: "费用",
+  upsellCost: "由你的模型服务商账户计费。",
+  upsellPrivacyLabel: "密钥",
+  upsellPrivacy: "在本次浏览器会话中保存；随请求传递，不在服务器保存。",
+  upsellAccount: "登录后前往密钥设置。",
+  openSettings: "修改密钥",
 };
 
 export const enByok: ChatByokDict = {
@@ -136,7 +148,8 @@ export const enByok: ChatByokDict = {
   errorRequiresLogin: "Sign in to use your own key",
   errorInvalidRequest: "Something in that entry looks off — please check it",
   errorEgressBlocked: "That address can't be reached for safety reasons",
-  notAccepted: "Your key was not accepted. We won't continue on the standard mode — please fix it",
+  notAcceptedTitle: "Your key wasn't accepted",
+  notAccepted: "Check your key and provider settings, then send this message again. We won't automatically switch models.",
   anonymousTeaser: "Bring your own key to chat without the daily limit",
   signInToSetUp: "Sign in to set up",
   checking: "Checking your key…",
@@ -145,8 +158,11 @@ export const enByok: ChatByokDict = {
   settingsToggle: "API key settings",
   d11UseOwnKey: "Use your own key",
   upsellTitle: "Continue with your own API key",
-  upsellBenefit: "Use the provider account you already pay for — no daily cap here",
-  upsellPrivacy: "Your key stays in this browser and is never stored on our server",
-  upsellAccount: "You'll need to sign in to set it up",
-  openSettings: "Open key settings",
+  upsellBenefit: "Keep chatting with the AI service you choose.",
+  upsellCostLabel: "Cost",
+  upsellCost: "Usage is billed to your provider account.",
+  upsellPrivacyLabel: "Key",
+  upsellPrivacy: "Saved for this browser session and sent with requests; never stored on our server.",
+  upsellAccount: "Sign in to go to API key settings.",
+  openSettings: "Review key settings",
 };

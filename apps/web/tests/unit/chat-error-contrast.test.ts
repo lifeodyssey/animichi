@@ -1,42 +1,29 @@
 import { describe, expect, it } from "vitest";
-import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
-import { normalizeHex, parseTokens, ruleDeclaration, tokenValue } from "./stylesheet-probe";
+import type { TokenMap } from "./stylesheet-probe";
+import { contrastRatio, parseBlockTokens, parseTokens, tokenValue } from "./stylesheet-probe";
 
-const tokens = parseTokens(globalsCss);
+const day = parseTokens(globalsCss);
+const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
 
-function resolve(declaration: string | null): string {
-  if (declaration === null) throw new Error("missing declaration");
-  const name = /var\((--[\w-]+)\)/u.exec(declaration)?.[1];
-  return normalizeHex(name === undefined ? declaration : tokenValue(tokens, name));
+function contrastIn(palette: TokenMap, ink: string, ground: string): number {
+  return contrastRatio(tokenValue(palette, ink), tokenValue(palette, ground));
 }
 
-function channel(hex: string, at: number): number {
-  const linear = Number.parseInt(hex.slice(at, at + 2), 16) / 255;
-  return linear <= 0.04045 ? linear / 12.92 : ((linear + 0.055) / 1.055) ** 2.4;
-}
+const nightPalette: TokenMap = { ...day, ...night };
 
-function luminance(hex: string): number {
-  return 0.2126 * channel(hex, 1) + 0.7152 * channel(hex, 3) + 0.0722 * channel(hex, 5);
-}
-
-function contrast(foreground: string, background: string): number {
-  const first = luminance(foreground);
-  const second = luminance(background);
-  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
-}
-
-describe("chat error colors meet WCAG AA (>= 4.5:1)", () => {
-  it("keeps the error banner text readable on the banner background", () => {
-    const background = resolve(ruleDeclaration(chatCss, ".chat-error-banner", "background"));
-    const foreground = resolve(ruleDeclaration(chatCss, ".chat-error-banner", "color"));
-    expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5);
+describe("chat inline notice tones meet WCAG AA (>= 4.5:1)", () => {
+  it("keeps the retry tone readable in both palettes", () => {
+    expect(contrastIn(day, "--color-fg", "--color-primary-soft")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastIn(nightPalette, "--color-fg", "--color-primary-soft")).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("keeps the errored tool-step text readable on the card background", () => {
-    const selector = '.chat-step[data-status="error"]';
-    const foreground = resolve(ruleDeclaration(chatCss, selector, "color"));
-    const card = normalizeHex(tokenValue(tokens, "--color-card"));
-    expect(contrast(foreground, card)).toBeGreaterThanOrEqual(4.5);
+  it("keeps the auth tone readable in both palettes", () => {
+    expect(contrastIn(day, "--color-fg", "--color-gold-soft")).toBeGreaterThanOrEqual(4.5);
+    expect(contrastIn(nightPalette, "--color-fg", "--color-gold-soft")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the error tone readable on its tinted ground (banner and tool step)", () => {
+    expect(contrastIn(day, "--color-error-strong", "--color-error-bg")).toBeGreaterThanOrEqual(4.5);
   });
 });

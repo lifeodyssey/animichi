@@ -10,10 +10,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LimitBanner } from "../../../src/features/chat/components/ErrorStates/LimitBanner";
+import { BudgetExhausted } from "../../../src/features/chat/components/ErrorStates/BudgetExhausted";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
 import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { ujiItinerary } from "./_route-fixtures";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
+import { QuotaExhausted } from "../../../src/features/chat/components/ErrorStates/QuotaExhausted";
 import { ChatReturnTargetProvider, chatSessionTarget, returnTargetNamesSession } from "../../../src/features/chat/ChatReturnTarget";
 import { carriesSetupIntent } from "../../../src/lib/auth/return-target";
 import { chatDictFor } from "../../../src/features/chat/i18n";
@@ -95,8 +97,13 @@ describe("the in-chat login walls carry the session back", () => {
 
   const EXPECTED = `http://localhost:3000/auth/callback?next=%2Fchat%3Fsession%3D${SESSION}`;
 
-  it("D11/D12 limit banner sends the visitor back to the session, not to `/`", () => {
-    submitFrom(<LimitBanner block="chat-quota" message="quota" loginLabel="login" />, "login");
+  it("D11's sign-in carries the existing conversation into the callback", () => {
+    submitFrom(<BudgetExhausted dict={dict} />, dict.errorStates.d11Login);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: EXPECTED }));
+  });
+
+  it("D12's own notice carries the current conversation into its login callback", () => {
+    submitFrom(<QuotaExhausted dict={dict} locale="ja" resetsAtMs={undefined} />, dict.errorStates.d12Login);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ callbackURL: EXPECTED }));
   });
 

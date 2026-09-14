@@ -14,6 +14,7 @@ describe("chatDictFor", () => {
     expect(dict.brandTagline.length).toBeGreaterThan(0);
     expect(dict.newJourney.length).toBeGreaterThan(0);
     expect(dict.recentLabel.length).toBeGreaterThan(0);
+    expect(dict.sidebarGuestHint.length).toBeGreaterThan(0);
     expect(dict.crumbJourneys.length).toBeGreaterThan(0);
     expect(dict.titleNewJourney.length).toBeGreaterThan(0);
     expect(dict.autosaved.length).toBeGreaterThan(0);
@@ -22,11 +23,10 @@ describe("chatDictFor", () => {
     expect(dict.entryAnimeTitle.length).toBeGreaterThan(0);
     expect(dict.entryCityTitle.length).toBeGreaterThan(0);
     expect(dict.entryChatTitle.length).toBeGreaterThan(0);
+    expect(dict.coldStartExamples.length).toBeGreaterThan(0);
     expect(dict.entryAnimePrompt.length).toBeGreaterThan(0);
     expect(dict.entryCityPrompt.length).toBeGreaterThan(0);
     expect(dict.entryChatPrompt.length).toBeGreaterThan(0);
-    expect(dict.sampleLink.length).toBeGreaterThan(0);
-    expect(dict.samplePrompt.length).toBeGreaterThan(0);
     expect(dict.errorBanner.length).toBeGreaterThan(0);
     expect(dict.retry.length).toBeGreaterThan(0);
     expect(dict.thinking.length).toBeGreaterThan(0);

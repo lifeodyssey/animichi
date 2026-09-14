@@ -89,12 +89,13 @@ describe("the map stage's two heights are the stylesheet's, not React's", () => 
   });
 
   it("sizes the idle stage off the idle height", () => {
-    expect(ruleDeclaration(css, ".route-map__stage", "min-height")).toBe("var(--route-map-idle)");
+    expect(ruleDeclaration(css, ".route-card:has(> .route-map__stage)", "grid-template-rows"))
+      .toBe("var(--route-map-idle) auto");
   });
 
   it("lets the expanded mode attribute pick the taller one", () => {
-    expect(ruleDeclaration(css, '.route-map__stage[data-mode="expanded"]', "min-height"))
-      .toBe("var(--route-map-expanded)");
+    expect(ruleDeclaration(css, '.route-card:has(> .route-map__stage[data-mode="expanded"])', "grid-template-rows"))
+      .toBe("var(--route-map-expanded) auto");
   });
 });
 
@@ -103,8 +104,8 @@ describe("§4.6 motion honours the FLIP budget and reduced motion", () => {
     const page = parseBlockTokens(css, ".route-detail");
     expect(tokenValue(page, "--route-mode-ms")).toBe(`${String(MODE_TRANSITION_MS)}ms`);
     expect(tokenValue(page, "--route-mode-ease")).toBe(MODE_EASING);
-    expect(ruleDeclaration(css, ".route-map__stage", "transition"))
-      .toBe("min-height var(--route-mode-ms) var(--route-mode-ease)");
+    expect(ruleDeclaration(css, ".route-card:has(> .route-map__stage)", "transition"))
+      .toBe("grid-template-rows var(--route-mode-ms) var(--route-mode-ease)");
   });
 
   it("stills the page for prefers-reduced-motion", () => {

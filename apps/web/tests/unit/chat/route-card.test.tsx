@@ -7,16 +7,14 @@ import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { RouteCard } from "../../../src/features/chat/components/RouteCard";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
+import { attachFailing, attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { parsedPart, routePartRaw, routePoint, ujiItinerary, ujiPoints } from "./_route-fixtures";
 
 afterEach(cleanup);
 
 const dict = chatDictFor("ja");
-const attachReady: AttachBasemap = ({ onStatus }) => {
-  onStatus("ready");
-  return () => undefined;
-};
+
 
 function fullRouteRaw() {
   const offRoute = { id: "x", name: "平等院", latitude: 34.889, longitude: 135.808, screenshot_url: "", episode: -1 };
@@ -29,16 +27,17 @@ function fullRouteRaw() {
   };
 }
 
-function renderRouteCard(raw: unknown = fullRouteRaw()) {
-  return render(<RouteCard part={parsedPart(raw)} dict={dict} attach={attachReady} />);
+function renderRouteCard(raw: unknown = fullRouteRaw(), attach: AttachBasemap = attachReady) {
+  return render(<RouteCard part={parsedPart(raw)} dict={dict} attach={attach} />);
 }
 
 describe("route card composition (S1.5 replaces the stats-only card)", () => {
-  it("renders the timeline, the promoted map, and the spot strip together", () => {
+  it("renders the promoted map and a single timeline containing the scene stills", () => {
     renderRouteCard();
     expect(screen.getByRole("list", { name: dict.route.timelineLabel })).toBeTruthy();
     expect(screen.getByRole("img", { name: dict.route.mapLabel })).toBeTruthy();
-    expect(document.querySelector(".chat-card__spots")).toBeTruthy();
+    expect(document.querySelector(".chat-card__spots")).toBeNull();
+    expect(screen.getByRole("list", { name: dict.route.timelineLabel }).querySelector("img")).toBeTruthy();
   });
 
   it("dims exactly the located result spots the planner left off the route", () => {
@@ -47,22 +46,23 @@ describe("route card composition (S1.5 replaces the stats-only card)", () => {
     expect(document.querySelectorAll(".chat-map-pin--dimmed")).toHaveLength(1);
   });
 
-  it("renders no timeline and no map when the route carries neither", () => {
+  it("keeps an untimed stop list without a map when coordinates are missing", () => {
     renderRouteCard(routePartRaw([{ id: "a", name: "宇治橋" }]));
-    expect(screen.queryByRole("list", { name: dict.route.timelineLabel })).toBeNull();
+    expect(screen.getByRole("list", { name: dict.route.timelineLabel })).toBeTruthy();
+    expect(document.querySelector("time")).toBeNull();
     expect(document.querySelector(".chat-search-map")).toBeNull();
     expect(screen.getByText("宇治橋")).toBeTruthy();
   });
 });
 
 describe("AC5: a 404'd scene still degrades to the D9 placeholder", () => {
-  it("swaps the broken img for the gradient placeholder with episode text", () => {
+  it("swaps the broken img for a quiet placeholder with episode text", () => {
     renderRouteCard();
     const img = document.querySelector("img.chat-scene-thumb");
     expect(img).toBeTruthy();
     fireEvent.error(img as HTMLImageElement);
     expect(document.querySelector("img.chat-scene-thumb")).toBeNull();
-    expect(screen.getByText("第8話").className).toContain("chat-scene-thumb--fallback");
+    expect(screen.getByText("第8話").closest(".chat-scene-thumb--fallback")).toBeTruthy();
   });
 
   it("never renders a thumb or a leaked -1 episode for sentinel rows", () => {
@@ -93,5 +93,15 @@ describe("AC4: a short route still renders the card plus the D3 note", () => {
     expect(screen.getByText(dict.errorStates.d3Notice)).toBeTruthy();
     expect(screen.getByRole("button", { name: dict.errorStates.d3Chip })).toBeTruthy();
     expect(screen.getByText("10:00–10:20")).toBeTruthy();
+  });
+});
+
+describe("D7 fallback keeps a single maps exit", () => {
+  it("hides the banner's inline link while the footer keeps the maps cta", () => {
+    renderRouteCard(fullRouteRaw(), attachFailing);
+    expect(screen.getByText(dict.errorStates.d7Message)).toBeTruthy();
+    const exits = screen.getAllByRole("link", { name: dict.route.openMaps });
+    expect(exits).toHaveLength(1);
+    expect(exits[0]?.getAttribute("href")).toBe("https://maps.example/route");
   });
 });

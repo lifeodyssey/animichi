@@ -4,9 +4,11 @@ import { classifyFailure } from "../lib/error-classifier";
 import type { ChatErrorState } from "../lib/error-classifier";
 import { isIntentOnly, parseChatDataPart } from "../data-parts";
 import type { ChatDict } from "../i18n";
-import { intentRegistry } from "../registry";
+import { intentFamily, intentRegistry } from "../registry";
 import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { ShortRouteNotice } from "./ErrorStates/ShortRouteNotice";
+import { ResultCardSurface } from "./ResultCardSurface";
+import { SkeletonCard } from "./SkeletonCard";
 
 type CardProps = Readonly<{ data: unknown; dict: ChatDict; superseded?: boolean; pending?: boolean }>;
 type PartProps = Readonly<{ part: ChatDataPart; dict: ChatDict; superseded?: boolean }>;
@@ -14,14 +16,6 @@ type IntentProps = PartProps & Readonly<{ appendix?: ReactNode }>;
 
 function FallbackCard({ dict }: Readonly<{ dict: ChatDict }>) {
   return <p className="chat-card chat-card--fallback">{dict.fallbackCard}</p>;
-}
-
-function SkeletonCard({ part, dict }: PartProps) {
-  return (
-    <p className="chat-card chat-card--skeleton" role="status" aria-busy="true" data-intent={part.intent}>
-      {dict.preparing}
-    </p>
-  );
 }
 
 /** E1: a superseded living-document card dims and wears the version badge. */
@@ -35,6 +29,7 @@ function VersionBadge({ dict }: Readonly<{ dict: ChatDict }>) {
 
 function CardMessage({ part }: Readonly<{ part: ChatDataPart }>) {
   if (!part.message) return null;
+  if (part.intent === "clarify") return <h3 className="text-xl font-extrabold leading-snug text-fg [text-wrap:balance]">{part.message}</h3>;
   return <p className="chat-card__message">{part.message}</p>;
 }
 
@@ -43,14 +38,21 @@ function CardBadge({ dict, superseded }: Readonly<{ dict: ChatDict; superseded?:
   return <VersionBadge dict={dict} />;
 }
 
+type SurfaceProps = Pick<PartProps, "part" | "superseded"> & Readonly<{ children: ReactNode }>;
+
+function CardSurface({ part, superseded, children }: SurfaceProps) {
+  if (intentFamily(part.intent) !== "prose") return <ResultCardSurface intent={part.intent} superseded={superseded}>{children}</ResultCardSurface>;
+  return <article className={cardClass(superseded)} data-intent={part.intent}>{children}</article>;
+}
+
 function IntentCard({ part, dict, appendix, superseded }: IntentProps) {
   const Body = intentRegistry[part.intent];
   return (
-    <article className={cardClass(superseded)} data-intent={part.intent}>
+    <CardSurface part={part} superseded={superseded}>
       <CardBadge dict={dict} superseded={superseded} />
       <CardMessage part={part} />
       <Body part={part} dict={dict} />{appendix}
-    </article>
+    </CardSurface>
   );
 }
 
@@ -77,7 +79,7 @@ export function DataPartCard({ data, dict, superseded, pending = true }: CardPro
   if (!part) return <FallbackCard dict={dict} />;
   const state = classifyFailure({ kind: "envelope", part });
   if (isIntentOnly(part) && state === undefined) {
-    return pending ? <SkeletonCard part={part} dict={dict} /> : <FallbackCard dict={dict} />;
+    return <SkeletonCard intent={part.intent} dict={dict} pending={pending} />;
   }
   return <SettledCard part={part} dict={dict} state={state} superseded={superseded} />;
 }

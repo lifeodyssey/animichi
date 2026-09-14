@@ -33,10 +33,11 @@ describe("AC1: station-granularity HH:MM timeline", () => {
     expect(document.querySelectorAll(".chat-itinerary__star")).toHaveLength(1);
   });
 
-  it("renders a visible walk capsule and styles transit legs distinctly", () => {
+  it("keeps walking and transit durations readable in the route order", () => {
     renderTimeline();
-    expect(screen.getByText("徒歩12分").closest("li")?.getAttribute("data-mode")).toBe("walk");
-    expect(screen.getByText("移動8分").closest("li")?.getAttribute("data-mode")).toBe("transit");
+    expect(screen.getByText("徒歩12分").getAttribute("data-mode")).toBe("walk");
+    expect(screen.getByText("移動8分").getAttribute("data-mode")).toBe("transit");
+    expect(screen.getByRole("list", { name: ja.route.timelineLabel }).children).toHaveLength(3);
   });
 });
 
@@ -45,29 +46,28 @@ describe("AC6: pacing pill and CTA row copy per locale", () => {
     renderTimeline("ja");
     expect(screen.getByText("ゆったり").getAttribute("data-pacing")).toBe("chill");
     expect(screen.getByRole("link", { name: ja.route.openMaps }).getAttribute("href")).toBe("https://maps.example/route");
-    expect(screen.getByRole("button", { name: ja.route.walkCta })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.route.saveCta })).toBeTruthy();
   });
 
   it("renders the zh pacing pill and CTA copy", () => {
     const { dict } = renderTimeline("zh");
     expect(screen.getByText("悠闲")).toBeTruthy();
-    expect(screen.getByRole("button", { name: dict.route.walkCta })).toBeTruthy();
+    expect(screen.getByRole("button", { name: dict.route.saveCta })).toBeTruthy();
     expect(screen.getByRole("link", { name: dict.route.openMaps })).toBeTruthy();
   });
 
   it("renders the en pacing pill and CTA copy", () => {
     const { dict } = renderTimeline("en");
     expect(screen.getByText("Chill")).toBeTruthy();
-    expect(screen.getByRole("button", { name: dict.route.walkCta })).toBeTruthy();
+    expect(screen.getByRole("button", { name: dict.route.saveCta })).toBeTruthy();
   });
 });
 
-describe("reserved Walk-mode entry point", () => {
-  it("keeps the Walk CTA a disabled placeholder seam", () => {
+describe("route actions", () => {
+  it("omits the unavailable Walk-mode entry", () => {
     renderTimeline();
-    const walk = screen.getByRole("button", { name: ja.route.walkCta });
-    expect(walk.getAttribute("data-cta")).toBe("walk-mode");
-    expect((walk as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: ja.route.walkCta })).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 });
 
