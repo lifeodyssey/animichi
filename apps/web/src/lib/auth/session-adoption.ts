@@ -13,9 +13,10 @@ import { currentRuntimeConfig } from "../runtime-config/provider";
  *  - the outgoing `anon_<hex>`, which the client **cannot** name. `aid` is an
  *    `HttpOnly`, worker-signed cookie (`workers/edge/identity/auth.ts`),
  *    unreadable from JS by construction. `credentials: "include"` is therefore
- *    the whole mechanism: the browser attaches `aid`, the edge resolves (never
- *    mints) it and forwards the result as a trusted `X-Anon-Id` on this route
- *    alone.
+ *    the whole mechanism: the browser attaches `aid`, and the edge resolves
+ *    (never mints) it in-process for this route alone — #1601 moved adoption
+ *    into the Worker, so the identity is consumed where it is resolved rather
+ *    than forwarded as `X-Anon-Id` to a container.
  *
  * That is also why the base URL is the agent origin resolved by
  * `resolveAgentBaseUrl` rather than a URL of its own — it is the exact origin

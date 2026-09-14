@@ -1,41 +1,56 @@
-import { resolveAnonymousReadOnly } from "./auth.ts";
+import { gatewayRejection } from "../gateway/responses.ts";
 import type { Env } from "../env.ts";
-import { forwardV1 } from "../gateway/forward.ts";
+import { ANON_ID_PREFIX, resolveAnonymousReadOnly } from "./auth.ts";
+import { rejectClientSessionId } from "./session-adoption-boundary.ts";
+import {
+  createSessionAdoptionStore,
+  type SessionAdoptionResult,
+  type SessionAdoptionStore,
+} from "./session-adoption-store.ts";
+
+export { ADOPT_TURN_KEY_PREFIX } from "./session-adoption-marker.ts";
+export { MAX_BODY_BYTES, rejectClientSessionId } from "./session-adoption-boundary.ts";
+export { adoptSessions } from "./session-adoption-store.ts";
+export type { AdoptionNoopClass, SessionAdoptionResult, SessionAdoptionStore } from "./session-adoption-store.ts";
 
 // ── Session adoption (SESSION-2 #960) ──────────────────────────────
 //
-// The only route where the edge forwards a trusted X-Anon-Id: it resolves
-// (never mints) the caller's `aid` cookie into the header the container
-// re-validates. The container runs the Agent-owned AdoptSessions command.
-//
-// **The cookie is deliberately NOT retired afterwards (owner ruling, #507).**
-// Retiring it minted a fresh `anon_<hex>` on the next anonymous turn, which
-// reset the per-identity quota — so "exhaust the anonymous quota -> take the
-// free magic link -> log out -> a brand-new anonymous allowance" became a loop
-// the D12 quota banner itself walks the visitor into. Login-grants-quota is the
-// conversion funnel working as intended and stays; the log-out-for-more leg
-// converts nobody and teaches visitors not to stay signed in.
-//
-// rev5's privacy argument does not survive the adoption it follows: once the
-// UPDATE lands, that anonymous identity owns nothing — every `conversations`
-// row is re-pointed at the account — so a shared browser's next visitor
-// inherits an EMPTY identity. The only thing carried across is the day's quota
-// count, which is precisely the effect being kept. (Clearing cookies or opening
-// a private window still resets identity — `mintAnonymousIdentity` uses
-// `crypto.randomUUID()` with no device binding. That path is unclosable by
-// design and is not what this addresses.)
-//
-// Keeping the cookie also makes a failed adoption recoverable: the anonymous
-// identity, and the work it still owns, survive for a later retry.
+// The edge resolves (never mints) the caller's `aid` cookie and performs the
+// identity-dimensional ownership update itself. The cookie is deliberately
+// not retired afterwards (#507): the anonymous identity keeps its quota bucket
+// even though it no longer owns any sessions.
 
 export const SESSION_ADOPT_PATH = "/v1/sessions/adopt";
 
-export async function handleSessionAdopt(
-  env: Env,
-  request: Request,
-  auth: { userId: string; userType: string },
-  sleep: (ms: number) => Promise<void>,
-): Promise<Response> {
+function verifiedAccount(auth: { userId: string; userType: string }): boolean {
+  return auth.userType === "human" && auth.userId.length > 0 && !auth.userId.startsWith(ANON_ID_PREFIX);
+}
+
+function noAnonymousIdentityResponse(): Response {
+  return Response.json({ adopted: 0, noop_class: "no_anonymous_identity", revisions_bumped: 0 });
+}
+
+async function adoptionRequestRejection(
+  request: Request, auth: { userId: string; userType: string },
+): Promise<Response | null> {
+  const rejected = await rejectClientSessionId(request);
+  if (rejected) return rejected;
+  return verifiedAccount(auth) ? null : gatewayRejection("forbidden", 403, "Anonymous identity cannot adopt sessions.");
+}
+
+async function adoptIdentity(
+  env: Env, request: Request, auth: { userId: string; userType: string }, store?: SessionAdoptionStore,
+): Promise<SessionAdoptionResult | null> {
   const identity = await resolveAnonymousReadOnly(request, env);
-  return forwardV1(env, request, auth, identity?.userId ?? null, sleep);
+  if (!identity) return null;
+  return (store ?? createSessionAdoptionStore(env)).adopt(identity.userId, auth.userId);
+}
+
+export async function handleSessionAdopt(
+  env: Env, request: Request, auth: { userId: string; userType: string }, store?: SessionAdoptionStore,
+): Promise<Response> {
+  const rejected = await adoptionRequestRejection(request, auth);
+  if (rejected) return rejected;
+  const result = await adoptIdentity(env, request, auth, store);
+  return result ? Response.json(result) : noAnonymousIdentityResponse();
 }

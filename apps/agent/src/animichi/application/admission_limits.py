@@ -26,10 +26,9 @@ logger = structlog.get_logger(__name__)
 #: escaping as a user-facing turn failure.
 _METER_ERRORS = Exception
 
-#: The container's re-validation of the edge-forwarded X-User-Id (mirrors
-#: `_ANON_ID_PATTERN` in `interfaces/routes/_deps.py`): anything not matching
-#: this shape is treated as not-an-identity, so quota correctness never
-#: depends on the edge being bug-free.
+#: The container's re-validation of the edge-forwarded X-User-Id: anything not
+#: matching this shape is treated as not-an-identity, so quota correctness
+#: never depends on the edge being bug-free.
 _ANON_ID_PATTERN = re.compile(r"^anon_[0-9a-f]{32}$")
 
 
