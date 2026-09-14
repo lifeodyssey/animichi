@@ -1,7 +1,8 @@
 import type { ChatDict } from "../../i18n";
+import { animalActionClass } from "../chat-button-classes";
 
-type Props = Readonly<{ dict: ChatDict; lat?: number; lng?: number }>;
-const LINK = "chat-map-fallback__open animal-btn animal-btn-text animal-btn-middle [min-height:44px]! [height:auto]! [padding:8px_0]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [text-align:left] [--animal-text-color:var(--color-primary-strong)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+type Props = Readonly<{ dict: ChatDict; lat?: number; lng?: number; showMapsLink?: boolean }>;
+const LINK = animalActionClass({ appearance: "text", className: "chat-map-fallback__open [padding:8px_0]! [text-align:left] [--animal-text-color:var(--color-primary-strong)]" });
 
 function mapAppUrl(lat: number | undefined, lng: number | undefined): string | undefined {
   if (lat === undefined || lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
@@ -22,9 +23,9 @@ function MapAppLink({ dict, lat, lng }: Props) {
 }
 
 /** Missing basemap tiles never stand in for missing places or a verified route. */
-export function MapFallback(props: Props) {
+export function MapFallback({ showMapsLink = true, ...props }: Props) {
   return <figure className="chat-map-fallback m-0 grid min-w-0 grid-cols-[36px_minmax(0,1fr)] items-start gap-3 rounded-2xl bg-muted/50 p-4">
     <MapMark />
-    <figcaption className="grid min-w-0 justify-items-start [overflow-wrap:anywhere]"><p className="pt-1 text-sm font-medium leading-6 text-fg" role="status">{props.dict.errorStates.d7Message}</p><MapAppLink {...props} /></figcaption>
+    <figcaption className="grid min-w-0 justify-items-start [overflow-wrap:anywhere]"><p className="pt-1 text-sm font-medium leading-6 text-fg" role="status">{props.dict.errorStates.d7Message}</p>{showMapsLink ? <MapAppLink {...props} /> : null}</figcaption>
   </figure>;
 }

@@ -78,6 +78,12 @@ describe("MapFallback (D7 map failure)", () => {
     expect(document.querySelector("svg")?.closest('[aria-hidden="true"]')).toBeTruthy();
   });
 
+  it("hides the inline map-app link when the surrounding card keeps its own maps exit", () => {
+    render(<MapFallback dict={ja} lat={34.89} lng={135.8} showMapsLink={false} />);
+    expect(screen.getByText(ja.errorStates.d7Message)).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   it.each([
     { lat: Number.NaN, lng: 135.8 }, { lat: 34.89, lng: Number.POSITIVE_INFINITY },
     { lat: 91, lng: 135.8 }, { lat: 34.89, lng: -181 }, { lat: 34.89 },

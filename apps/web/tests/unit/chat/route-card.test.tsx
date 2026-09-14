@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { RouteCard } from "../../../src/features/chat/components/RouteCard";
-import { attachReady } from "./basemap-fixture";
+import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
+import { attachFailing, attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { parsedPart, routePartRaw, routePoint, ujiItinerary, ujiPoints } from "./_route-fixtures";
 
@@ -26,8 +27,8 @@ function fullRouteRaw() {
   };
 }
 
-function renderRouteCard(raw: unknown = fullRouteRaw()) {
-  return render(<RouteCard part={parsedPart(raw)} dict={dict} attach={attachReady} />);
+function renderRouteCard(raw: unknown = fullRouteRaw(), attach: AttachBasemap = attachReady) {
+  return render(<RouteCard part={parsedPart(raw)} dict={dict} attach={attach} />);
 }
 
 describe("route card composition (S1.5 replaces the stats-only card)", () => {
@@ -92,5 +93,15 @@ describe("AC4: a short route still renders the card plus the D3 note", () => {
     expect(screen.getByText(dict.errorStates.d3Notice)).toBeTruthy();
     expect(screen.getByRole("button", { name: dict.errorStates.d3Chip })).toBeTruthy();
     expect(screen.getByText("10:00–10:20")).toBeTruthy();
+  });
+});
+
+describe("D7 fallback keeps a single maps exit", () => {
+  it("hides the banner's inline link while the footer keeps the maps cta", () => {
+    renderRouteCard(fullRouteRaw(), attachFailing);
+    expect(screen.getByText(dict.errorStates.d7Message)).toBeTruthy();
+    const exits = screen.getAllByRole("link", { name: dict.route.openMaps });
+    expect(exits).toHaveLength(1);
+    expect(exits[0]?.getAttribute("href")).toBe("https://maps.example/route");
   });
 });

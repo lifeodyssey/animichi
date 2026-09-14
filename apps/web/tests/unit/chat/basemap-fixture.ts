@@ -7,3 +7,9 @@ export const attachReady: AttachBasemap = ({ points, onProject, onStatus }) => {
   onStatus("ready");
   return () => undefined;
 };
+
+/** Basemap that never mounts; drives the D7 fallback in DOM tests. */
+export const attachFailing: AttachBasemap = ({ onStatus }) => {
+  onStatus("fallback");
+  return () => undefined;
+};

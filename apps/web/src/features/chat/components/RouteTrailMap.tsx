@@ -14,6 +14,8 @@ type TrailProps = Readonly<{
   dict: ChatDict;
   attach?: AttachBasemap;
   showBadge?: boolean;
+  /** False when the surrounding card keeps its own Google Maps exit. */
+  showMapsLink?: boolean;
 }>;
 
 type SpotsProps = Readonly<{ stations: readonly LocatedSpot[]; dimmed: readonly LocatedSpot[] }>;
@@ -74,9 +76,9 @@ function allCoords({ stations, dimmed }: SpotsProps) {
   return [...stations, ...dimmed].map((spot) => spot.coord);
 }
 
-function TrailFallback({ stations, dict }: Readonly<{ stations: readonly LocatedSpot[]; dict: ChatDict }>) {
+function TrailFallback({ stations, dict, showMapsLink }: Readonly<{ stations: readonly LocatedSpot[]; dict: ChatDict; showMapsLink: boolean }>) {
   const first = stations[0];
-  return <MapFallback dict={dict} lat={first?.coord.lat} lng={first?.coord.lng} />;
+  return <MapFallback dict={dict} lat={first?.coord.lat} lng={first?.coord.lng} showMapsLink={showMapsLink} />;
 }
 
 /**
@@ -84,9 +86,9 @@ function TrailFallback({ stations, dict }: Readonly<{ stations: readonly Located
  * renumbers pins in walking order, dims off-route spots, and shows the gold
  * route pill. Tile failure degrades to D7 like every other basemap surface.
  */
-export function RouteTrailMap({ stations, dimmed, dict, attach = attachBasemap, showBadge = true }: TrailProps) {
+export function RouteTrailMap({ stations, dimmed, dict, attach = attachBasemap, showBadge = true, showMapsLink = true }: TrailProps) {
   const basemap = useBasemap(allCoords({ stations, dimmed }), attach);
-  if (basemap.status === "fallback") return <TrailFallback stations={stations} dict={dict} />;
+  if (basemap.status === "fallback") return <TrailFallback stations={stations} dict={dict} showMapsLink={showMapsLink} />;
   return (
     <MapFrame basemap={basemap} role="img" label={dict.route.mapLabel}>
       <TrailOverlay placements={basemap.placements} routeCount={stations.length} />

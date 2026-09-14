@@ -47,12 +47,12 @@ function offRouteSpots(part: ChatDataPart, stations: readonly LocatedSpot[]): re
   return locatedSpots(toSearchSpots(rows)).filter((spot) => !onRoute.has(spot.id));
 }
 
-type MapGateProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
+type MapGateProps = IntentCardProps & Readonly<{ attach?: AttachBasemap; showMapsLink: boolean }>;
 
-function TrailMapGate({ part, dict, attach }: MapGateProps) {
+function TrailMapGate({ part, dict, attach, showMapsLink }: MapGateProps) {
   const stations = routeStations(part);
   if (stations.length === 0) return null;
-  return <RouteTrailMap stations={stations} dimmed={offRouteSpots(part, stations)} dict={dict} attach={attach} showBadge={false} />;
+  return <RouteTrailMap stations={stations} dimmed={offRouteSpots(part, stations)} dict={dict} attach={attach} showBadge={false} showMapsLink={showMapsLink} />;
 }
 
 function RouteHeader({ part, dict, view }: IntentCardProps & Readonly<{ view: ItineraryView }>) {
@@ -81,7 +81,7 @@ export function RouteCard({ part, dict, attach }: RouteCardProps) {
   return (
     <div className="grid gap-5">
       <RouteHeader part={part} dict={dict} view={view} />
-      <TrailMapGate part={part} dict={dict} attach={attach} />
+      <TrailMapGate part={part} dict={dict} attach={attach} showMapsLink={view.mapsUrl === undefined} />
       <RoutePlan part={part} dict={dict} view={view} scenes={scenes} />
     </div>
   );
