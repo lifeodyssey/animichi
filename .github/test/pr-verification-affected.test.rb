@@ -1,4 +1,5 @@
-# SUT: pr-verification.yml selected-package gates and the workflow-wide Postgres image tag.
+# SUT: pr-verification.yml selected-package gates and the workflow-wide Postgres
+# image tag, which every build step sources from packages/test-postgres/postgres-image.env.
 require "minitest/autorun"
 require "psych"
 
@@ -89,19 +90,28 @@ class PrVerificationPostgresImageTest < Minitest::Test
     run[/#{Regexp.escape(IMAGE_BUILD)} -t (\S+) \./, 1].to_s
   end
 
-  def resolves_the_declared_tag?(run)
-    return true if built_tag(run) == DECLARED_IMAGE
+  # Sourcing after the build would leave the tag unset, so the order matters.
+  def sources_declaration_first?(run)
+    source = run.index(". #{IMAGE_DECLARATION}")
+    build = run.index(IMAGE_BUILD)
+    !source.nil? && !build.nil? && source < build
+  end
 
-    built_tag(run) == IMAGE_REFERENCE && run.include?(". #{IMAGE_DECLARATION}")
+  def builds_from_the_declaration?(run)
+    built_tag(run) == IMAGE_REFERENCE && sources_declaration_first?(run)
+  end
+
+  def unsourced_build_message(run)
+    "pr-verification.yml: the build tagged #{built_tag(run)} must source " \
+      "#{IMAGE_DECLARATION} first and tag with #{IMAGE_REFERENCE}; " \
+      "#{DECLARED_IMAGE} is the tag's one declaration"
   end
 
   def test_image_builds_resolve_one_tag
     assert(!image_build_runs.empty?,
                      "pr-verification.yml: nothing builds the offline Postgres image any more")
     image_build_runs.each do |run|
-      assert(resolves_the_declared_tag?(run),
-                       "pr-verification.yml: the image build tagged #{built_tag(run)} neither sources " \
-                       "#{IMAGE_DECLARATION} nor names the tag it declares (#{DECLARED_IMAGE})")
+      assert(builds_from_the_declaration?(run), unsourced_build_message(run))
     end
   end
 

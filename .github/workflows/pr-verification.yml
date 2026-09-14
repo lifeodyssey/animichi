@@ -173,9 +173,15 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           pulumi-version-file: .pulumi.version
+      # The tag has one declaration (packages/test-postgres/postgres-image.env),
+      # which this builder sources rather than naming a copy of — the shape the
+      # `agent` and `e2e` jobs' builders already use.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
         if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
-        run: docker build -f packages/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: |
+          set -euo pipefail
+          . packages/test-postgres/postgres-image.env
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Run the package's own gates
         env:
           PACKAGE: ${{ matrix.package }}
@@ -486,9 +492,13 @@ jobs:
           version: "v0.30.0"
       - name: Validate the migration directory
         run: atlas migrate validate --dir file://migrations/neon
-      # db-fresh-schema.sh fails closed without the offline image.
+      # db-fresh-schema.sh fails closed without the offline image, and it reads
+      # the tag from the same declaration this builder sources.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        run: docker build -f packages/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: |
+          set -euo pipefail
+          . packages/test-postgres/postgres-image.env
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Apply the whole chain to a disposable database
         run: bash scripts/local-gates/db-fresh-schema.sh
       - name: Prove the migrator still agrees with the chain it bundles
