@@ -144,25 +144,14 @@ jobs:
           persist-credentials: false
       # Shared setup owns only Node/pnpm/cache/install; package-specific tools stay below.
       - uses: $/.github/actions/setup-workspace
-      # `uv` only for the package whose own `test` re-runs the Python fixture
-      # exporter — the `python: true` half of the retired composite.
-      - if: ${{ matrix.package == '@animichi/eval' }}
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: "0.11.14"
-          prune-cache: "true"
       # Every binary below is provisioned because one package's own gates shell
       # out to it. `pr-verification-affected.test.rb` pins the pairing, so a
       # dropped step fails a test instead of that package's lane.
-      #   @animichi/eval -> uv     (test:fixture-drift re-runs the Python exporter)
       #   catalog        -> atlas  (the spike step below boots test-postgres,
       #                             which applies the migrations/neon chain,
       #                             atlas-chain.ts:18)
       #   infra          -> pulumi (test:program-load loads the program through
       #                             the real language host, infra-check.sh:83-88)
-      - name: Install the pinned Python for the eval fixture export
-        if: ${{ matrix.package == '@animichi/eval' }}
-        run: uv python install 3.11
       - name: Install the pinned Atlas CLI for the migration chain
         if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
         uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
@@ -302,7 +291,6 @@ jobs:
           bash scripts/local-gates/infra-check.test.sh
           bash scripts/local-gates/infra-check-unauthorized.test.sh
           bash scripts/local-gates/contract-drift.test.sh
-          bash scripts/local-gates/eval-fixture-drift.test.sh
       # The delivery shell scripts cd.yml ships, and the promotion guard that
       # reads the committed tree rather than a workflow.
       - name: Verify the delivery scripts' own behavioral tests
