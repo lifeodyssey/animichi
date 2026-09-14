@@ -282,6 +282,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby test/repo-config/gitleaks-mutation.test.rb
+          ruby test/repo-config/gitleaks-pin-mutation.test.rb
           ruby test/repo-config/gitleaks.test.rb
           ruby test/repo-config/lint-scope.test.rb
           ruby test/repo-config/makefile.test.rb
@@ -506,6 +507,10 @@ jobs:
           persist-credentials: false
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
+          # gitleaks-action v3.0.0 defaults to 8.24.3 when this is unset — not
+          # the release .pre-commit-config.yaml runs, and not the one whose
+          # default-rule inventory test/repo-config/gitleaks.test.rb binds to.
+          GITLEAKS_VERSION: "8.30.1"
           # No GITLEAKS_LICENSE: the key is required for organization-owned
           # repositories only, and this one belongs to a user account.
           GITHUB_TOKEN: ${{ github.token }}
