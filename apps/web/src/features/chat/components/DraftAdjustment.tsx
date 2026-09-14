@@ -1,5 +1,6 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId, useRef, useState } from "react";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import type { ItineraryDraftPlan } from "../lib/itinerary-draft";
 import type { DraftAdjustmentRequest, DraftAdjustmentStatus } from "../lib/draft-adjustment";
@@ -29,7 +30,7 @@ export interface DraftAdjustmentProps {
   readonly onBack: (draftId: string) => void;
 }
 
-const QUIET = "[min-height:44px]! [height:auto]! [padding:8px_12px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color-secondary:var(--color-primary-soft)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
+const QUIET = chatActionClass({ tone: "quiet-strong", className: "[padding:8px_12px]!" });
 
 function toggleViewpoint(props: DraftAdjustmentProps, apply: (edit: SelectionEdit) => void, place: SelectedPlace, viewpoint: SceneViewpoint) {
   if (props.status === "updating") return;

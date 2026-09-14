@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import type { Locale } from "../../../../i18n/locales";
 import { LoginModal } from "../../../auth/ui/LoginModal";
 import { useChatReturnTarget } from "../../ChatReturnTarget";
+import { chatActionClass } from "../chat-button-classes";
 import type { ChatDict } from "../../i18n";
 
 type Props = Readonly<{ dict: ChatDict; locale: Locale; resetsAtMs: number | undefined }>;
@@ -20,7 +21,7 @@ export function quotaNotice(dict: ChatDict, locale: Locale, resetsAtMs: number |
   return dict.errorStates.d12MessageAt.replace("{time}", time);
 }
 
-const ACTION = "chat-quota-exhausted__login [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+const ACTION = chatActionClass({ tone: "gold", className: "chat-quota-exhausted__login [padding:9px_16px]!" });
 
 function QuotaMark() {
   return <span aria-hidden="true" className="mt-0.5 [display:grid] size-7 shrink-0 place-items-center rounded-full bg-gold-soft text-fg">

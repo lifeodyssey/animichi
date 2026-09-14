@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
-import { animalButtonClass } from "../../src/features/chat/components/chat-button-classes";
+import { animalActionClass, animalButtonClass, chatActionClass } from "../../src/features/chat/components/chat-button-classes";
 import animeCss from "../../src/styles/anime.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import css from "../../src/styles/press-3d.css?raw";
@@ -106,4 +106,42 @@ describe("no skin keeps a second copy of the depth", () => {
       expect(sheet).not.toContain("-press:active");
       expect(sheet).not.toContain("0 3px 0 0 var(--shadow-3d)");
     });
+});
+
+describe("the recovery/planning action family shares one geometry", () => {
+  it("pins the 44px wrap-friendly floor byte-for-byte", () => {
+    expect(chatActionClass()).toBe("[min-height:44px]! [height:auto]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:[transition:none]!");
+  });
+
+  it("raises the planning floor to 48px and the trip submit to 15px", () => {
+    const classes = chatActionClass({ height: 48, fontSize: 15 });
+    expect(classes).toContain("[min-height:48px]!");
+    expect(classes).toContain("[font-size:15px]!");
+  });
+
+  it.each([
+    ["gold", "[--animal-bg-color:var(--color-gold)]"],
+    ["paper", "[--animal-bg-color:var(--color-paper)]"],
+    ["quiet", "[--animal-text-color:var(--color-fg)]"],
+    ["quiet-strong", "[--animal-text-color:var(--color-primary-strong)]"],
+  ] as const)("tones %s through --animal-* vars, never a press override", (tone, token) => {
+    expect(chatActionClass({ tone })).toContain(token);
+    expect(chatActionClass({ tone })).not.toContain("box-shadow");
+  });
+
+  it("keeps the caller's padding and DOM hooks last", () => {
+    const classes = chatActionClass({ tone: "gold", className: "chat-quota-exhausted__login [padding:9px_16px]!" });
+    expect(classes).toContain("]! chat-quota-exhausted__login [padding:9px_16px]!");
+  });
+
+  it("dresses native elements in the structural classes", () => {
+    const classes = animalActionClass({ appearance: "text" });
+    expect(classes.split(" ")).toEqual(expect.arrayContaining(["animal-btn", "animal-btn-text", "animal-btn-middle"]));
+    expect(classes).toContain("[min-height:44px]!");
+  });
+
+  it("defaults native elements to the middle primary grammar, block on request", () => {
+    expect(animalActionClass()).toContain("animal-btn-primary");
+    expect(animalActionClass({ block: true })).toContain("animal-btn-block");
+  });
 });

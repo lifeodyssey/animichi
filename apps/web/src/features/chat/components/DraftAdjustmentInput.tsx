@@ -1,6 +1,7 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
 import type { RefObject, SubmitEvent } from "react";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import type { DraftAdjustmentStatus } from "../lib/draft-adjustment";
 import { draftAdjustmentCopy } from "../draft-adjustment-copy";
@@ -18,8 +19,9 @@ export interface DraftAdjustmentInputProps {
 }
 
 type EditorProps = DraftAdjustmentInputProps & Readonly<{ inputId: string; inputRef: RefObject<HTMLTextAreaElement | null> }>;
-const ACTION = "[min-height:48px]! [height:auto]! [padding:10px_8px]! @min-[25rem]/draft:[padding:10px_14px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
-const QUIET = "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-primary-soft)]";
+const ACTION_PAD = "[padding:10px_8px]! @min-[25rem]/draft:[padding:10px_14px]!";
+const GOLD = chatActionClass({ height: 48, tone: "gold", className: ACTION_PAD });
+const QUIET = chatActionClass({ height: 48, tone: "quiet", className: ACTION_PAD });
 const SUGGESTION = "[min-height:44px]! [height:auto]! [padding:8px_14px]! [font-size:13px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-paper)] [--animal-border-color:var(--color-border-soft)] [--animal-text-color:var(--color-muted-fg)] [--animal-primary-color:var(--color-primary-strong)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
 const INPUT = "animal-input-wrapper animal-input-middle w-full [height:auto]! [padding:0]! [border-radius:16px]! [border:1px_solid_var(--color-border-soft)]! [background:var(--color-paper)]! focus-within:[border-color:var(--color-primary-strong)]! focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong motion-reduce:transition-none";
 
@@ -53,9 +55,9 @@ function AdjustmentFeedback({ status, dict }: DraftAdjustmentInputProps) {
 export function DraftAdjustmentActions(props: DraftAdjustmentInputProps & Readonly<{ onWrite: () => void }>) {
   const copy = draftAdjustmentCopy(props.dict.locale);
   const label = props.status === "updating" ? copy.updating : props.status === "failed" ? copy.retry : copy.submit;
-  return <div className="flex flex-wrap items-center gap-1.5 pb-1 @min-[25rem]/draft:gap-2"><Button type="primary" htmlType="submit" form={props.formId} className={`${ACTION} [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)]`} disabled={!props.canSubmit || props.status === "updating"} aria-busy={props.status === "updating"}>{label}</Button>
-    <Button type="text" htmlType="button" aria-label={copy.back} className={`${ACTION} ${QUIET}`} onClick={props.onBack}><span className="[display:none] @min-[25rem]/draft:[display:inline]">{copy.back}</span><span className="[display:inline] @min-[25rem]/draft:[display:none]">{copy.backShort}</span></Button>
-    <Button type="text" htmlType="button" title={copy.write} aria-label={copy.write} className={`${ACTION} ${QUIET} ml-auto [width:44px]! [padding:0]!`} onClick={props.onWrite}><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14z" /></svg></Button>
+  return <div className="flex flex-wrap items-center gap-1.5 pb-1 @min-[25rem]/draft:gap-2"><Button type="primary" htmlType="submit" form={props.formId} className={GOLD} disabled={!props.canSubmit || props.status === "updating"} aria-busy={props.status === "updating"}>{label}</Button>
+    <Button type="text" htmlType="button" aria-label={copy.back} className={QUIET} onClick={props.onBack}><span className="[display:none] @min-[25rem]/draft:[display:inline]">{copy.back}</span><span className="[display:inline] @min-[25rem]/draft:[display:none]">{copy.backShort}</span></Button>
+    <Button type="text" htmlType="button" title={copy.write} aria-label={copy.write} className={`${QUIET} ml-auto [width:44px]! [padding:0]!`} onClick={props.onWrite}><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14z" /></svg></Button>
   </div>;
 }
 

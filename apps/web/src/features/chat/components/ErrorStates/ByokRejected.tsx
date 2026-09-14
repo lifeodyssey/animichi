@@ -2,10 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { useId } from "react";
 import { BYOK_SETUP_HASH } from "../../byok-journey";
 import { useChatSessionId } from "../../ChatReturnTarget";
+import { animalActionClass } from "../chat-button-classes";
 import type { ChatDict } from "../../i18n";
 
 type Props = Readonly<{ dict: ChatDict }>;
-const ACTION = "chat-byok-rejected__open animal-btn animal-btn-default animal-btn-middle [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+const ACTION = animalActionClass({ appearance: "default", tone: "paper", className: "chat-byok-rejected__open [padding:9px_16px]!" });
 
 function KeyMark() {
   return <span aria-hidden="true" className="mt-0.5 [display:grid] size-7 shrink-0 place-items-center rounded-full bg-error-bg text-error-strong">

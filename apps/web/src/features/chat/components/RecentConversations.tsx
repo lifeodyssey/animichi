@@ -2,6 +2,7 @@ import { useId } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "animal-island-ui-tailwind/button";
 import { chatSessionTarget } from "../ChatReturnTarget";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import { recentConversationsCopy } from "../recent-conversations-copy";
 import type { ConversationListStatus, ConversationSummary } from "../use-conversation-list";
@@ -20,7 +21,7 @@ type RowProps = Pick<RecentConversationsProps, "dict" | "onOpen"> & Readonly<{ c
 const ROW = "animal-btn animal-btn-text [display:flex]! [height:auto]! [min-height:64px]! [width:100%]! [justify-content:flex-start]! [border-radius:16px]! [padding:12px_14px]! [white-space:normal]! [text-align:left]! [text-decoration:none]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
 const ROW_TOKENS = "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-primary-soft)]";
 const ACTIVE = "[background-color:var(--color-primary-soft)]! [--animal-text-color:var(--color-primary-ink)]";
-const RETRY = "[min-height:44px]! [height:auto]! [padding:10px_14px]! [font-size:14px]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color-secondary:var(--color-primary-soft)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
+const RETRY = chatActionClass({ tone: "quiet-strong", className: "[padding:10px_14px]!" });
 
 function openConversation(event: MouseEvent<HTMLAnchorElement>, props: RowProps) {
   if (!props.onOpen || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

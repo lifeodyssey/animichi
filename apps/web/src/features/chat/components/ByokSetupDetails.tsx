@@ -2,11 +2,12 @@ import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import { BYOK_SETUP_TARGET, useLoginDisclosure } from "../byok-journey";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 
 type ByokCopy = ChatDict["byok"];
 const FACT_ROW = "grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-start gap-x-3";
-const ACTION = "chat-byok-upsell__signin [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+const ACTION = chatActionClass({ tone: "paper", className: "chat-byok-upsell__signin [padding:9px_16px]!" });
 
 /** Shared facts keep the discovery and login-required states consistent. */
 export function ByokSetupFacts({ byok, costId }: Readonly<{ byok: ByokCopy; costId: string }>) {

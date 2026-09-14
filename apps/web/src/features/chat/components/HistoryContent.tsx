@@ -1,4 +1,5 @@
 import { Button } from "animal-island-ui-tailwind/button";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import type { HistoryReplayBlock } from "../lib/history-replay";
 import type { ItineraryDraftPlan } from "../lib/itinerary-draft";
@@ -15,7 +16,7 @@ interface Props {
   readonly onContinueDraft?: (draftId: string) => void;
 }
 
-const CONTINUE = "[min-height:48px]! [height:auto]! [padding:10px_16px]! [font-size:14px]! [white-space:normal]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
+const CONTINUE = chatActionClass({ height: 48, tone: "gold", className: "[padding:10px_16px]!" });
 
 function PlacePictures({ place, dict }: Readonly<{ place: SelectedPlace; dict: ChatDict }>) {
   return <section className="grid min-w-0 gap-2.5"><div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><h3 className="text-sm font-bold leading-6">{place.name}</h3>{place.city ? <p className="text-xs leading-5 text-muted-fg">{place.city}</p> : null}</div>

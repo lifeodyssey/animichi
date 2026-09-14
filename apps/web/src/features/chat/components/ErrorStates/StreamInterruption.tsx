@@ -1,5 +1,6 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
+import { chatActionClass } from "../chat-button-classes";
 import type { ChatErrorStatesDict } from "../../error-states-i18n";
 import type { ChatDict } from "../../i18n";
 
@@ -26,7 +27,7 @@ const COPY: Readonly<Record<InterruptionShape, (states: ChatErrorStatesDict) => 
   D18: (s) => ({ message: s.d18Title, hint: s.d18Hint, retry: s.d18Retry }),
 };
 
-const ACTION = "chat-interruption__retry [min-height:44px]! [height:auto]! [padding:9px_14px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)] focus-visible:outline-primary-strong motion-reduce:transition-none";
+const ACTION = chatActionClass({ tone: "gold", className: "chat-interruption__retry [padding:9px_14px]!" });
 const DETAIL_TRIGGER = "w-fit max-w-full cursor-pointer rounded-md py-2.5 text-sm leading-6 text-muted-fg underline-offset-4 hover:text-fg hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong";
 
 function InterruptionMark({ busy, failed }: Readonly<{ busy: boolean; failed: boolean }>) {

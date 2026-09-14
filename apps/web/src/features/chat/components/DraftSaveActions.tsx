@@ -1,4 +1,5 @@
 import { Button } from "animal-island-ui-tailwind/button";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import { draftSaveCopy } from "../draft-save-copy";
 
@@ -19,10 +20,9 @@ export interface DraftSaveActionsProps {
 }
 
 type ResolvedProps = DraftSaveActionsProps & Readonly<{ state: DraftSaveState }>;
-const ACTION = "[min-height:48px]! [height:auto]! [padding:10px_14px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
-const GOLD = "[--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)]";
-const SAVED = "[--animal-bg-color:var(--color-primary-soft)] [--animal-text-color:var(--color-primary-ink)] [--animal-primary-color:var(--color-primary-strong)] [--animal-border-color:var(--color-border-soft)]";
-const QUIET = "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-primary-soft)]";
+const GOLD = chatActionClass({ height: 48, tone: "gold", className: "[padding:10px_14px]!" });
+const SAVED = chatActionClass({ height: 48, className: "[padding:10px_14px]! [--animal-bg-color:var(--color-primary-soft)] [--animal-text-color:var(--color-primary-ink)] [--animal-primary-color:var(--color-primary-strong)] [--animal-border-color:var(--color-border-soft)]" });
+const QUIET = chatActionClass({ height: 48, tone: "quiet", className: "[padding:10px_14px]!" });
 
 function saveLocked(state: DraftSaveState) {
   return state.status === "checking" || state.status === "saving" || state.status === "permanent";
@@ -42,7 +42,7 @@ function SaveIcon({ saved }: Readonly<{ saved: boolean }>) {
 function PrimarySave(props: ResolvedProps) {
   const copy = draftSaveCopy(props.dict.locale), status = props.state.status, saved = status === "saved";
   const labels = { idle: copy.save, checking: copy.checking, "login-required": copy.login, saving: copy.saving, saved: copy.view, retryable: copy.retry, permanent: copy.unavailable };
-  return <Button type={saved ? "default" : "primary"} htmlType="button" className={`${ACTION} ${saved ? SAVED : GOLD}`} disabled={saveLocked(props.state)} aria-busy={status === "saving" || status === "checking"} aria-label={saved ? copy.viewLabel : labels[status]} onClick={() => { activateSave(props); }}>
+  return <Button type={saved ? "default" : "primary"} htmlType="button" className={saved ? SAVED : GOLD} disabled={saveLocked(props.state)} aria-busy={status === "saving" || status === "checking"} aria-label={saved ? copy.viewLabel : labels[status]} onClick={() => { activateSave(props); }}>
     <span className="flex items-center justify-center gap-2">{status === "idle" ? <SaveIcon saved={false} /> : null}{labels[status]}{saved ? <SaveIcon saved /> : null}</span>
   </Button>;
 }
@@ -66,6 +66,6 @@ export function DraftSaveActions(props: DraftSaveActionsProps) {
   const state: DraftSaveState = props.state?.draftId === props.draftId ? props.state : { draftId: props.draftId, status: "idle" };
   const resolved = { ...props, state }, copy = draftSaveCopy(props.dict.locale);
   return <div role="group" aria-label={copy.region} className="grid gap-3"><SaveFeedback {...resolved} /><div className="flex flex-wrap items-center gap-2 pb-1"><PrimarySave {...resolved} />
-    <Button type="text" htmlType="button" className={`${ACTION} ${QUIET}`} disabled={(props.adjustDisabled ?? false) || state.status === "saving"} onClick={() => { props.onAdjust(props.draftId); }}>{copy.adjust}</Button>
+    <Button type="text" htmlType="button" className={QUIET} disabled={(props.adjustDisabled ?? false) || state.status === "saving"} onClick={() => { props.onAdjust(props.draftId); }}>{copy.adjust}</Button>
   </div></div>;
 }

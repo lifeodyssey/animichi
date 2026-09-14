@@ -1,11 +1,12 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
 import type { ReactNode } from "react";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 
 export type TurnstileView = "checking" | "interactive" | "verifying" | "failed";
 type Props = Readonly<{ dict: ChatDict; state: TurnstileView; onRetry?: () => void; children?: ReactNode }>;
-const ACTION = "[min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+const ACTION = chatActionClass({ tone: "paper", className: "[padding:9px_16px]!" });
 
 function VerificationMark({ failed }: Readonly<{ failed: boolean }>) {
   const tone = failed ? "bg-error-bg text-error-strong" : "bg-primary-soft text-primary-strong";

@@ -1,5 +1,6 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useChatActions } from "../../ChatActions";
+import { chatActionClass } from "../chat-button-classes";
 import type { ChatDict } from "../../i18n";
 import type { ChatErrorState } from "../../lib/error-classifier";
 import { ProgressGlyph } from "../ProgressGlyph";
@@ -9,7 +10,7 @@ import { FallbackMessage } from "./FallbackMessage";
 type Props = Readonly<{ state: ChatErrorState; dict: ChatDict }>;
 type DictProps = Readonly<{ dict: ChatDict }>;
 const SURFACE = "grid w-full max-w-[452px] gap-5 py-1 text-fg";
-const RETRY = "justify-self-start [height:auto]! [min-height:44px]! [padding:10px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-fg)] [--animal-border-color:var(--color-border-soft)] focus-visible:outline-primary-strong motion-reduce:transition-none!";
+const RETRY = chatActionClass({ className: "justify-self-start [padding:10px_16px]! [--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-fg)] [--animal-border-color:var(--color-border-soft)]" });
 
 function RecognitionFallback({ dict }: DictProps) {
   const copy = dict.errorStates;

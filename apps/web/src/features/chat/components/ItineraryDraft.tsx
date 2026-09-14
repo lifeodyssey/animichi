@@ -1,6 +1,7 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
 import type { ReactNode, RefObject } from "react";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import type { DraftRevision, ItineraryDraftPlan } from "../lib/itinerary-draft";
 import { draftPlaceCount, itineraryDraftCopy } from "../itinerary-draft-copy";
@@ -19,8 +20,7 @@ export interface ItineraryDraftProps {
 }
 
 type ContentProps = Pick<ItineraryDraftProps, "draft" | "dict">;
-const ACTION = "[min-height:48px]! [height:auto]! [padding:10px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
-const QUIET = "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-primary-soft)]";
+const QUIET_ACTION = chatActionClass({ height: 48, tone: "quiet", className: "[padding:10px_16px]!" });
 
 function DraftConditions({ draft, dict }: ContentProps) {
   const copy = itineraryDraftCopy(dict.locale);
@@ -52,7 +52,7 @@ function RevisionFeedback({ revision, dict }: Pick<ItineraryDraftProps, "revisio
   const copy = itineraryDraftCopy(dict.locale);
   if (!revision) return null;
   if (revision.state === "updating") return <p role="status" className="text-sm leading-6 text-muted-fg">{copy.updating}</p>;
-  return <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p role="status" className="min-w-0 flex-1 text-sm leading-6 text-muted-fg">{copy.failed}</p><Button type="text" htmlType="button" className={`${ACTION} ${QUIET}`} onClick={revision.onRetry}>{copy.retry}</Button></div>;
+  return <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p role="status" className="min-w-0 flex-1 text-sm leading-6 text-muted-fg">{copy.failed}</p><Button type="text" htmlType="button" className={QUIET_ACTION} onClick={revision.onRetry}>{copy.retry}</Button></div>;
 }
 
 function DraftFooter({ draft, dict, revision, saveState, onSave, onAdjust }: ItineraryDraftProps) {
@@ -65,7 +65,7 @@ function DraftFooter({ draft, dict, revision, saveState, onSave, onAdjust }: Iti
 
 function EmptyDraft({ dict, draft, onAdjust }: ItineraryDraftProps) {
   const copy = itineraryDraftCopy(dict.locale);
-  return <div className="grid justify-items-start gap-3 py-4"><p className="text-base font-bold">{copy.empty}</p><p className="text-sm leading-6 text-muted-fg">{copy.emptyBody}</p><Button type="text" htmlType="button" className={`${ACTION} ${QUIET}`} onClick={() => { onAdjust(draft.id); }}>{copy.adjust}</Button></div>;
+  return <div className="grid justify-items-start gap-3 py-4"><p className="text-base font-bold">{copy.empty}</p><p className="text-sm leading-6 text-muted-fg">{copy.emptyBody}</p><Button type="text" htmlType="button" className={QUIET_ACTION} onClick={() => { onAdjust(draft.id); }}>{copy.adjust}</Button></div>;
 }
 
 type DocumentProps = ContentProps & Readonly<{ children?: ReactNode; footer?: ReactNode; feedback?: ReactNode; controls?: DraftPlaceControls; headingRef?: RefObject<HTMLHeadingElement | null> }>;

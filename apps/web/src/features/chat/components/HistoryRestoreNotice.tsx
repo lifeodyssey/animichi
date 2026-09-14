@@ -1,4 +1,5 @@
 import { Button } from "animal-island-ui-tailwind/button";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import type { ConversationHistoryStatus } from "../use-conversation-history";
 import { historyReplayCopy } from "../history-replay-copy";
@@ -11,7 +12,7 @@ interface Props {
   readonly onRetry?: () => void;
 }
 
-const RETRY = "[min-height:44px]! [height:auto]! [padding:10px_14px]! [font-size:14px]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color-secondary:var(--color-primary-soft)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
+const RETRY = chatActionClass({ tone: "quiet-strong", className: "[padding:10px_14px]!" });
 
 function LoadingHistory({ dict, hasEntries }: Pick<Props, "dict" | "hasEntries">) {
   const copy = historyReplayCopy(dict.locale);

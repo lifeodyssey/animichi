@@ -5,6 +5,13 @@
  * chat extras — wrap-friendly sizing, the ground-ink focus ring, palette tones
  * via `--animal-*` vars. `animalButtonClass` is the same set PLUS the
  * structural classes, for native elements (`<a>`) a package Button cannot be.
+ *
+ * `chatActionClass` covers the recovery/planning ACTION family the error
+ * notices and draft footers used to hand-roll per file: an `!`-overridden
+ * 44px/48px floor, wrapped 14px labels (15px on the trip submit) and the
+ * primary-strong focus ring. `animalActionClass` adds the structural classes
+ * for native elements. Padding and one-off hooks stay with the caller through
+ * `className`; the package 3D press depth is never overridden.
  */
 export type ChatButtonTone = "paper" | "primary" | "explore" | "gold";
 export type ChatButtonSize = "small" | "middle";
@@ -47,6 +54,60 @@ export function chatButtonClass(options: ChatButtonStyle = {}): string {
 export function animalButtonClass(options: AnimalButtonStyle = {}): string {
   const structural = ["animal-btn", `animal-btn-${options.appearance ?? "primary"}`, `animal-btn-${options.size ?? "middle"}`, options.block ? "animal-btn-block" : ""];
   return [...structural, chatButtonClass(options)]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export type ChatActionHeight = 44 | 48;
+export type ChatActionFontSize = 14 | 15;
+/* `gold` fills the CTA; `paper` keeps recovery actions on cream with the
+ * accessible teal ink; `quiet`/`quiet-strong` are text buttons taking the
+ * teal-soft hover wash in the default or the stronger teal ink. */
+export type ChatActionTone = "gold" | "paper" | "quiet" | "quiet-strong";
+
+const ACTION_HEIGHT: Readonly<Record<ChatActionHeight, string>> = {
+  44: "[min-height:44px]!",
+  48: "[min-height:48px]!",
+};
+
+const ACTION_FONT_SIZE: Readonly<Record<ChatActionFontSize, string>> = {
+  14: "[font-size:14px]!",
+  15: "[font-size:15px]!",
+};
+
+const ACTION_TONE: Readonly<Record<ChatActionTone, string>> = {
+  gold: "[--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)]",
+  paper: "[--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)]",
+  quiet: "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-primary-soft)]",
+  "quiet-strong": "[--animal-text-color:var(--color-primary-strong)] [--animal-bg-color-secondary:var(--color-primary-soft)]",
+};
+
+const ACTION_FRAME = "[height:auto]!";
+const ACTION_LABEL = "[line-height:1.5]! [white-space:normal]!";
+const ACTION_RING = "focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:[transition:none]!";
+
+export interface ChatActionStyle {
+  readonly height?: ChatActionHeight;
+  readonly fontSize?: ChatActionFontSize;
+  readonly tone?: ChatActionTone;
+  readonly className?: string;
+}
+
+export interface AnimalActionStyle extends ChatActionStyle {
+  readonly appearance?: ChatButtonAppearance;
+  readonly block?: boolean;
+}
+
+export function chatActionClass(options: ChatActionStyle = {}): string {
+  const tone = options.tone === undefined ? "" : ACTION_TONE[options.tone];
+  return [ACTION_HEIGHT[options.height ?? 44], ACTION_FRAME, ACTION_FONT_SIZE[options.fontSize ?? 14], ACTION_LABEL, tone, ACTION_RING, options.className ?? ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function animalActionClass(options: AnimalActionStyle = {}): string {
+  const structural = ["animal-btn", `animal-btn-${options.appearance ?? "primary"}`, "animal-btn-middle", options.block ? "animal-btn-block" : ""];
+  return [...structural, chatActionClass(options)]
     .filter(Boolean)
     .join(" ");
 }

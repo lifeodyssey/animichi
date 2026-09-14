@@ -1,6 +1,7 @@
 import { Button } from "animal-island-ui-tailwind/button";
 import { useId, useState } from "react";
 import type { SubmitEvent } from "react";
+import { chatActionClass } from "./chat-button-classes";
 import type { ChatDict } from "../i18n";
 import { cleanTravelConditions, hasPlanningBasics } from "../lib/trip-conditions";
 import type { TravelConditions } from "../lib/trip-conditions";
@@ -18,7 +19,7 @@ export interface TripConditionsProps {
 }
 
 type FieldsProps = TripConditionsProps & Readonly<{ copy: TripConditionsCopy }>;
-const CONTINUE = "[min-height:48px]! [height:auto]! [padding:10px_20px]! [font-size:15px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] focus-visible:[outline-color:var(--color-primary-strong)] motion-reduce:transition-none";
+const CONTINUE = chatActionClass({ height: 48, fontSize: 15, tone: "gold", className: "[padding:10px_20px]!" });
 
 function MainConditions({ value, busy, copy, onChange }: FieldsProps) {
   return <div className="grid gap-5">
