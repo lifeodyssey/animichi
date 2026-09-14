@@ -23,7 +23,7 @@ describe("quota guidance keeps the composer usable", () => {
   it("preserves editable draft text, withholds sending, and restores focus after login is dismissed", () => {
     const onSend = vi.fn();
     render(draftContext(onSend), { wrapper: LocaleProvider });
-    const input = screen.getByRole<HTMLInputElement>("textbox", { name: dict.inputPlaceholder });
+    const input = screen.getByRole<HTMLTextAreaElement>("textbox", { name: dict.inputPlaceholder });
     fireEvent.change(input, { target: { value: "我还想去代代木。" } });
     expect(input.disabled).toBe(false);
     expect(input.getAttribute("aria-describedby")).toBe(QUOTA_BANNER_ID);
@@ -56,7 +56,7 @@ describe("quota and login delivery remain separate", () => {
     await screen.findByRole("heading", { name: auth.sent_title });
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.getByRole("status").textContent).toContain(copy.d12Title);
-    expect(screen.getByRole<HTMLInputElement>("textbox", { name: dict.inputPlaceholder }).value).toBe("看看代代木。");
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: dict.inputPlaceholder }).value).toBe("看看代代木。");
     expect(screen.getByRole<HTMLButtonElement>("button", { name: dict.send }).disabled).toBe(true);
     expect(onSend).not.toHaveBeenCalled();
   });

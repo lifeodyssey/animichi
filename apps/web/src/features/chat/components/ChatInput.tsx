@@ -1,6 +1,5 @@
 import { Button } from "animal-island-ui-tailwind/button";
-import { Input } from "animal-island-ui-tailwind/input";
-import type { ChangeEvent, ReactNode } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readChatDraft, writeChatDraft } from "../lib/draft-storage";
 import type { ChatDict } from "../i18n";
@@ -25,8 +24,14 @@ type Submittable = Readonly<{ preventDefault: () => void }>;
 
 const COMPOSER_CLASS = "w-full [--animal-font-family:var(--app-font-body)] [--animal-bg-color-secondary:var(--color-muted)]";
 /** Keep the library's input ledge; focus changes only the warm, quiet edge. */
-const PILL_CLASS = "h-auto min-h-16 w-full [gap:0.5rem] rounded-[28px] border-2 border-fg/70 bg-card p-2 text-ground-ink focus-within:border-primary-strong night:focus-within:border-primary sm:[gap:0.75rem] [&_.animal-input-prefix]:m-0 [&_.animal-input-suffix]:m-0 motion-reduce:transition-none";
-const FIELD_CLASS = "[&_.animal-input-control]:h-11 [&_.animal-input-control]:text-base [&_.animal-input-control]:font-semibold [&_.animal-input-control]:leading-6 [&_.animal-input-control]:tracking-normal [&_.animal-input-control]:text-ground-ink [&_.animal-input-control]:caret-primary-strong [&_.animal-input-control]:[-webkit-mask-image:linear-gradient(to_right,black_calc(100%_-_28px),transparent_100%)] [&_.animal-input-control]:[mask-image:linear-gradient(to_right,black_calc(100%_-_28px),transparent_100%)] [&_.animal-input-control::placeholder]:font-normal [&_.animal-input-control::placeholder]:text-muted-fg night:[&_.animal-input-control]:caret-primary";
+const PILL_CLASS = "animal-input-wrapper animal-input-middle h-auto min-h-16 w-full [gap:0.5rem] rounded-[28px] border-2 border-fg/70 bg-card p-2 text-ground-ink focus-within:border-primary-strong night:focus-within:border-primary sm:[gap:0.75rem] [&_.animal-input-prefix]:m-0 [&_.animal-input-suffix]:m-0 motion-reduce:transition-none";
+const FIELD_CLASS = "[&_.animal-input-control]:text-base [&_.animal-input-control]:font-semibold [&_.animal-input-control]:leading-6 [&_.animal-input-control]:tracking-normal [&_.animal-input-control]:text-ground-ink [&_.animal-input-control]:caret-primary-strong [&_.animal-input-control::placeholder]:font-normal [&_.animal-input-control::placeholder]:text-muted-fg night:[&_.animal-input-control]:caret-primary";
+/** The package Input is single-line only, so the composer mirrors its class
+ * structure on a textarea instead: a long draft wraps and the pill grows with
+ * it (capped at three lines, then scrolling) rather than hiding the tail
+ * behind the old edge fade. Browsers without `field-sizing` keep the
+ * one-line field that scrolls, exactly the input's old behavior. */
+const GROW_CLASS = "animal-input-control [height:auto] min-h-11 max-h-[4.5rem] resize-none overflow-y-auto [field-sizing:content]";
 
 function useDraftPersistence(text: string): void {
   useEffect(() => { writeChatDraft(text); }, [text]);
@@ -66,7 +71,7 @@ function useMessageHandoff(onSend: (text: string) => void, sent: { current: stri
 function useComposer(onSend: (text: string) => void, sendFailed: boolean) {
   const [text, setText] = useState(readChatDraft);
   const sent = useRef("");
-  const change = useCallback((event: ChangeEvent<HTMLInputElement>) => { setText(event.target.value); }, []);
+  const change = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => { setText(event.target.value); }, []);
   const commit = useMessageHandoff(onSend, sent, setText);
   useDraftPersistence(text);
   useFailedSendRefill(sendFailed, sent, setText);
@@ -88,6 +93,24 @@ function sendWithheld(text: string, disabled: boolean, busy: boolean, quotaLocke
   return disabled || busy || quotaLocked || text.trim() === "";
 }
 
+/** Desktop starts in the field; touch and narrow screens would lose half the
+ * page to an opening keyboard, so they wait for a tap instead — the focus rule
+ * LoginModal already runs on `(pointer: coarse), (max-width: 640px)`. */
+function useDesktopAutofocus(fieldRef: RefObject<HTMLTextAreaElement | null>): void {
+  useEffect(() => {
+    const narrowOrTouch = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse), (max-width: 640px)").matches;
+    if (!narrowOrTouch) fieldRef.current?.focus();
+  }, [fieldRef]);
+}
+
+/** Enter sends; Shift+Enter breaks a line. An Enter mid-IME-composition
+ * confirms the candidate (ja/zh input) and must never send. */
+function sendOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): void {
+  if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+  event.preventDefault();
+  event.currentTarget.form?.requestSubmit();
+}
+
 function SendGlyph() {
   return (
     <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -107,7 +130,7 @@ function SendKey({ dict, withheld, busy }: Readonly<{ dict: ChatDict; withheld: 
 
 type FieldProps = Readonly<{
   dict: ChatDict; disabled: boolean; busy: boolean; quotaLocked: boolean;
-  text: string; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  text: string; onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   leading: ReactNode; trailing: ReactNode;
 }>;
 
@@ -118,9 +141,12 @@ type FieldProps = Readonly<{
  * D12 banner that is already on screen and already announced as an alert.
  */
 function ComposerField({ dict, disabled, busy, quotaLocked, text, onChange, leading, trailing }: FieldProps) {
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  useDesktopAutofocus(fieldRef);
   const describedby = quotaLocked ? QUOTA_BANNER_ID : undefined;
+  const field = <textarea ref={fieldRef} className={GROW_CLASS} rows={1} value={text} onChange={onChange} onKeyDown={sendOnEnter} disabled={disabled} autoComplete="off" enterKeyHint="send" aria-label={dict.inputPlaceholder} placeholder={placeholderFor(dict, quotaLocked, busy)} aria-describedby={describedby} />;
   return (
-    <Input className={`${PILL_CLASS} ${FIELD_CLASS}`} shadow autoFocus value={text} onChange={onChange} disabled={disabled} prefix={leading} suffix={trailing} aria-label={dict.inputPlaceholder} placeholder={placeholderFor(dict, quotaLocked, busy)} aria-describedby={describedby} />
+    <span className={`${PILL_CLASS} ${FIELD_CLASS}`}>{leading ? <span className="animal-input-prefix">{leading}</span> : null}{field}<span className="animal-input-suffix">{trailing}</span></span>
   );
 }
 

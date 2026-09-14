@@ -96,10 +96,25 @@
 }
 
 /* Map card (spec §5). The map is the card's face; the pill floats over it and
- * the operable row sits under it as the card's foot (§4.5 block divider). */
+ * the operable row sits under it as the card's foot (§4.5 block divider).
+ *
+ * The CARD owns the expansion, not the stage: transitioning `min-height`
+ * repainted every frame of the 360ms budget off a layout property. A grid
+ * track animates the same 9rem ⇄ 18rem growth on the same budget while the
+ * stage simply stretches to fill its track — its own box never transitions. */
+.route-card:has(> .route-map__stage) {
+  display: grid;
+  grid-template-rows: var(--route-map-idle) auto;
+  transition: grid-template-rows var(--route-mode-ms) var(--route-mode-ease);
+}
+
+.route-card:has(> .route-map__stage[data-mode="expanded"]) {
+  grid-template-rows: var(--route-map-expanded) auto;
+}
+
 .route-map__stage {
   position: relative;
-  min-height: var(--route-map-idle);
+  overflow: hidden;
   display: grid;
   gap: 12px;
   place-items: center;
@@ -110,11 +125,6 @@
   color: var(--color-fg-ink);
   font-size: 13px;
   font-weight: 700;
-  transition: min-height var(--route-mode-ms) var(--route-mode-ease);
-}
-
-.route-map__stage[data-mode="expanded"] {
-  min-height: var(--route-map-expanded);
 }
 
 .route-map__pill {
@@ -292,8 +302,8 @@
   }
 
   /* The gold bar's transition is declared in `press-3d.css`, and so is the
-   * reduce switch-off that stills it; only the map stage's own is left here. */
-  .route-map__stage {
+   * reduce switch-off that stills it; only the map expansion's is left here. */
+  .route-card:has(> .route-map__stage) {
     transition: none;
   }
 }

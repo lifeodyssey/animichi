@@ -1,4 +1,5 @@
 import type { Decorator, Preview } from "@storybook/react";
+import { useEffect } from "react";
 import { ChatReviewSurface } from "./chat-chrome/ChatReviewSurface";
 import { StoryProviders } from "./chat-chrome/StoryProviders";
 import { chatDictFor } from "../src/features/chat/i18n";
@@ -13,6 +14,35 @@ function titleOf(context: unknown): string {
   const title = fieldOf(context, "title");
   return typeof title === "string" ? title : "";
 }
+
+function nameOf(context: unknown): string {
+  const name = fieldOf(context, "name");
+  return typeof name === "string" ? name : "";
+}
+
+/* Night review path: stories named Night* (the repo convention, e.g.
+ * ClarifyCard's NightDetails) and any story with the `theme` toolbar set to
+ * night get `data-theme="night"` on the iframe's <html> — exactly where the
+ * app's theme bootstrap puts it — so the review surface and the canvas flip
+ * with the card. A wrapper div proved order-fragile: the review surface
+ * (withProviders) reads its ground var ABOVE any decorator's div. */
+function isNight(context: unknown): boolean {
+  if (fieldOf(fieldOf(context, "globals"), "theme") === "night") return true;
+  return nameOf(context).startsWith("Night");
+}
+
+function applyNightTheme(night: boolean): () => void {
+  if (!night) return () => undefined;
+  const root = document.documentElement;
+  const previous = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "night");
+  return () => { if (previous === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", previous); };
+}
+
+const WithNightGround: Decorator = (Story, context) => {
+  useEffect(() => applyNightTheme(isNight(context)), [context]);
+  return <Story />;
+};
 
 function argsOf(context: unknown): Record<string, unknown> {
   const args = fieldOf(context, "args");
@@ -37,12 +67,17 @@ const withProviders: Decorator = (Story, context) => (
 );
 
 const preview: Preview = {
-  decorators: [withProviders, withChatDict],
+  decorators: [WithNightGround, withProviders, withChatDict],
   globalTypes: {
     locale: {
       description: "UI locale",
       defaultValue: "ja",
       toolbar: { icon: "globe", items: [{ value: "ja", title: "日本語" }, { value: "zh", title: "中文" }, { value: "en", title: "English" }] },
+    },
+    theme: {
+      description: "Day/night token theme",
+      defaultValue: "day",
+      toolbar: { icon: "mirror", items: [{ value: "day", title: "Day" }, { value: "night", title: "Night" }] },
     },
   },
   initialGlobals: { locale: "ja" },

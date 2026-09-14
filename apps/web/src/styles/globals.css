@@ -37,7 +37,13 @@
   --color-muted: #e8ddc8;
   /* Accessible secondary text; clears WCAG AA on cream (#6f6353 on card #f7f3df = 5.25:1). */
   --color-muted-fg: #6f6353;
-  --color-border: #aaa69d;
+  /* The LOUD border — the boundary of anything the visitor can operate, so
+   * WCAG 1.4.11's 3:1 applies in full. #aaa69d (the package primitive) read
+   * 2.18:1 on card and failed that job; #8d8272 keeps the same warm gray one
+   * step darker: 3.38:1 on card, 3.10:1 on the cream floor, 3.53:1 on paper.
+   * It deliberately diverges from `--animal-border-color` (see
+   * design-token-surfaces.test.ts). */
+  --color-border: #8d8272;
   /* The design-sync line colour — a hint of an edge, for surfaces that read as
    * content rather than as an operable control (WCAG 1.4.11 keeps the loud
    * border for anything the user can actually operate). */
@@ -232,10 +238,12 @@ body {
   margin: 0;
   min-width: 320px;
   /* Two overflowing top glows over the page floor, mirroring the design-sync
-   * chat body — the same authoring shape the retired landing used. */
+   * chat body — the same authoring shape the retired landing used. The tints
+   * stay in the brand family: a soft leaf green that echoes the ground and a
+   * warm cream-gold, never the cold blue/pink of the first pass. */
   background:
-    radial-gradient(60% 38% at 84% -6%, #e7f1fb 0%, rgb(231 241 251 / 0%) 60%),
-    radial-gradient(50% 34% at 10% -2%, #fbe6ef 0%, rgb(251 230 239 / 0%) 58%),
+    radial-gradient(60% 38% at 84% -6%, #e0edd6 0%, rgb(224 237 214 / 0%) 60%),
+    radial-gradient(50% 34% at 10% -2%, #f7ecd2 0%, rgb(247 236 210 / 0%) 58%),
     var(--color-bg);
   color: var(--color-fg);
   font-family: var(--app-font-body);
@@ -662,10 +670,11 @@ button, input, select, textarea, [role="button"] {
   to { opacity: 1; transform: none; }
 }
 
-/* Home hero fox: one authored spring entrance, then still (emil: rare,
- * first-time animations may delight; never loop). */
+/* Home hero fox: one authored entrance, then still (emil: rare, first-time
+ * animations may delight; never loop). Expo ease-out — a fast rise that
+ * settles clean, no overshoot bounce. */
 .home-fox {
-  animation: fox-pop 520ms cubic-bezier(0.34, 1.56,  0.64, 1) both;
+  animation: fox-pop 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes fox-pop {
   from { opacity: 0; transform: translateY(14px) scale(0.92); }

@@ -24,7 +24,9 @@ const alignment: TokenMap = {
   "--color-bg": "--animal-bg-color-secondary",
   "--color-paper": "--animal-bg-color",
   "--color-card": "--animal-bg-color-content",
-  "--color-border": "--animal-border-color",
+  /* Deliberately divergent, not drift: `--color-border` is darkened one step
+   * past `--animal-border-color` so operable boundaries clear WCAG 1.4.11's
+   * 3:1 (measured values in the token's globals.css comment). */
   "--color-border-soft": "--animal-border-color-light",
   "--color-focus": "--animal-focus-yellow",
   "--color-success-fg": "--animal-success-color",
