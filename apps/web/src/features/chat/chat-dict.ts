@@ -47,6 +47,8 @@ export interface ChatDict {
   readonly newJourney: string;
   /** Sidebar section label above the past-conversation rows. */
   readonly recentLabel: string;
+  /** Anonymous sidebar guidance under the fox: what signing in brings back. */
+  readonly sidebarGuestHint: string;
   /** In-panel header breadcrumb above the journey title. */
   readonly crumbJourneys: string;
   /** In-panel header title for a fresh journey. */

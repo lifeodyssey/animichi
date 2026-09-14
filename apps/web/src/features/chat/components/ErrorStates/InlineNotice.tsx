@@ -12,8 +12,10 @@ const TONE: Readonly<Record<InlineNoticeTone, string>> = {
   error: "border-error-strong bg-error-bg text-error-strong",
 };
 
+/* A full 2px tone ring, never a tinted side tab: the border IS the tone cue,
+ * the same 2px line the card language draws around every other surface. */
 const GEOMETRY =
-  "flex flex-wrap items-center gap-3 rounded-[14px] border-l-4 px-4 py-2.5 text-sm font-medium";
+  "flex flex-wrap items-center gap-3 rounded-[14px] border-2 px-4 py-2.5 text-sm font-medium";
 
 type Props = Readonly<{
   tone: InlineNoticeTone;
@@ -30,7 +32,7 @@ type Props = Readonly<{
 }>;
 
 /**
- * The one inline notice of the chat error family: a left-accented strip whose
+ * The one inline notice of the chat error family: a tone-ringed strip whose
  * tone is the only visual difference between an interruption, an auth gate
  * and a failure. The actions slot sits right of the message on wide rows and
  * wraps to a full-width row on narrow ones.

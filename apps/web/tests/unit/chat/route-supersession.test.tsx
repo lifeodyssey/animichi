@@ -55,8 +55,10 @@ describe("AC7: regenerating the route replaces the card per the E1 rule", () => 
     expect(flags).toEqual([true, true, false]);
   });
 
-  it("pins the E1 dim to opacity .55 in the stylesheet", () => {
-    expect(ruleDeclaration(chatCss, ".chat-card--superseded", "opacity")).toBe("0.55");
+  it("pins the E1 dim to muted tokens — never an opacity wash that sinks text under AA", () => {
+    expect(ruleDeclaration(chatCss, ".chat-card--superseded", "opacity")).toBeNull();
+    expect(ruleDeclaration(chatCss, ".chat-card--superseded", "--color-fg")).toBe("var(--color-muted-fg)");
+    expect(ruleDeclaration(chatCss, ".chat-card--superseded .chat-card__version-badge", "color")).toBe("var(--color-fg-ink)");
   });
 });
 

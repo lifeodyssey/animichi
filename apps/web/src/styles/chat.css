@@ -43,6 +43,13 @@
   transform: translateY(-2px);
 }
 
+/* The one keyboard ring of the direction-E chrome: ground-ink flips with the
+ * theme, so it is the high-contrast ink on day cream and night pine alike. */
+.chat-chip:focus-visible {
+  outline: 3px solid var(--color-ground-ink);
+  outline-offset: 2px;
+}
+
 .chat-chip:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: 0 1px 0 var(--shadow-3d);
@@ -91,7 +98,7 @@
 .chat-route-pill {
   border-radius: 50px;
   padding: 3px 10px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -168,7 +175,7 @@
   border-radius: 50%;
   background: var(--color-primary);
   color: var(--color-primary-ink);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
@@ -265,14 +272,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 1.375rem;
+  height: 1.375rem;
   transform: translate(-50%, -50%);
   border: 2px solid var(--color-paper);
   border-radius: 50%;
   background: var(--color-map-pin-teal);
   color: var(--color-primary-ink);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -290,12 +297,27 @@
 
 /* --- E1 living document: superseded cards (issues #271/#273) --- */
 
+/* "Old version" without the opacity wash: the body ink drops one ramp step to
+ * the muted pair (still ≥4.5:1 on the tinted ground) and the plane takes a
+ * muted tint, so the card reads settled while every control on it keeps its
+ * own full-strength tone. The unlayered ground wins over card-plane.css and
+ * the animal-card surface var the same way `.chat-card--fallback`'s does. */
 .chat-card--superseded {
-  opacity: 0.55;
+  --color-fg: var(--color-muted-fg);
+  --animal-bg-color-content: color-mix(in srgb, var(--color-paper) 55%, var(--color-muted));
+  background: color-mix(in srgb, var(--color-paper) 55%, var(--color-muted));
 }
 
-/* The badge's ink is the body ink, not the muted one: at pill size the muted
-   pair reads 4.35:1 on the muted ground, just under AA. */
+/* The badge keeps the ramp's strong ink: remapped to the muted pair it would
+ * read 4.35:1 on the muted pill, just under AA. */
+.chat-card--superseded .chat-card__version-badge {
+  color: var(--color-fg-ink);
+}
+
+/* The badge's ink is the strong body ink, not the muted one: at pill size the
+   muted pair reads 4.35:1 on the muted ground, just under AA. Inside a
+   superseded card the scoped rule above re-points it at the ramp's fg-ink,
+   because there the body tone itself drops to the muted pair. */
 .chat-card__version-badge {
   align-self: flex-start;
   background: var(--color-muted);
@@ -327,8 +349,24 @@
   cursor: pointer;
 }
 
-.chat-departure__chip:hover {
+.chat-departure__chip:hover:not(:disabled) {
   background: var(--color-primary-soft);
+}
+
+.chat-departure__chip:focus-visible {
+  outline: 3px solid var(--color-ground-ink);
+  outline-offset: 2px;
+}
+
+/* No ledge to press into on this flat pill, so the press answers with the
+   muted ground instead of a translate. */
+.chat-departure__chip:active:not(:disabled) {
+  background: var(--color-muted);
+}
+
+.chat-departure__chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .chat-departure {

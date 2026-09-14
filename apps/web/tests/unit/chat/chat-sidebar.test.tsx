@@ -26,7 +26,7 @@ const ROWS: readonly ConversationListRowFixture[] = [
 
 afterEach(cleanup);
 
-function renderSidebar(status: "anonymous" | "authenticated" = "authenticated", activeSessionId?: string, sessionId?: string, seeded?: QueryClient) {
+function renderSidebar(status: "anonymous" | "authenticated" | "pending" = "authenticated", activeSessionId?: string, sessionId?: string, seeded?: QueryClient) {
   const client = seeded ?? new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <AppRouterContext>
@@ -121,6 +121,23 @@ describe("ChatSidebar identity card", () => {
     renderSidebar("anonymous");
     expect(screen.getByRole("button", { name: ja.appbar.login })).toBeTruthy();
     expect(screen.queryByRole("img", { name: ja.appbar.signedIn })).toBeNull();
+  });
+
+  it("fills the anonymous middle with the fox and one quiet sign-in hint", () => {
+    authHeaders.mockResolvedValue({});
+    renderSidebar("anonymous");
+    expect(screen.getByText(ja.sidebarGuestHint)).toBeTruthy();
+    const sources = screen.getAllByAltText("").map((img) => img.getAttribute("src") ?? "");
+    expect(sources.some((src) => src.includes("fox-peek"))).toBe(true);
+  });
+
+  it("keeps the guest guidance out of the signed-in and pending sidebars", () => {
+    authHeaders.mockResolvedValue({});
+    renderSidebar("authenticated");
+    expect(screen.queryByText(ja.sidebarGuestHint)).toBeNull();
+    cleanup();
+    renderSidebar("pending");
+    expect(screen.queryByText(ja.sidebarGuestHint)).toBeNull();
   });
 
   it("marks the signed-in visitor's card with the labelled avatar", () => {

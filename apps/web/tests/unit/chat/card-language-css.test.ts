@@ -66,7 +66,7 @@ describe("§4.3 pill label: one geometry, many grounds", () => {
     expect(chatCss).toContain(`${PILL_FAMILY} {`);
     expect(ruleDeclaration(chatCss, PILL_FAMILY, "border-radius")).toBe("50px");
     expect(ruleDeclaration(chatCss, PILL_FAMILY, "padding")).toBe("3px 10px");
-    expect(ruleDeclaration(chatCss, PILL_FAMILY, "font-size")).toBe("11.5px");
+    expect(ruleDeclaration(chatCss, PILL_FAMILY, "font-size")).toBe("12px");
     expect(ruleDeclaration(chatCss, PILL_FAMILY, "font-weight")).toBe("900");
     expect(ruleDeclaration(chatCss, PILL_FAMILY, "white-space")).toBe("nowrap");
   });

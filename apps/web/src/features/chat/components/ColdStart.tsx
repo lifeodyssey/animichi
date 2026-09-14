@@ -6,7 +6,10 @@ type Props = Readonly<{ dict: ChatDict; onChip: (text: string) => void; disabled
 type Example = Readonly<{ label: string; prompt: string; primary?: boolean }>;
 const ACTION = "[display:flex]! w-full [min-height:44px]! [height:auto]! [white-space:normal]! [text-align:left]! [padding:14px_18px]! [font-size:15px]! [line-height:1.6]! [&>span]:w-full focus-visible:outline-primary-strong focus-visible:outline-offset-4 motion-reduce:[transition:none]!";
 const FEATURED = "[--animal-bg-color:var(--color-primary-soft)] [--animal-text-color:var(--color-primary-strong)] [--animal-border-color:var(--color-primary-strong)]";
-const QUIET = "[--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-muted)]";
+/* The quiet rows wear the chat family's paper tone (chat-button-classes): a
+ * paper fill, the soft line and the ledge every operable chip gets, so they
+ * read as buttons at rest rather than bare text. */
+const QUIET = "[--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-fg)] [--animal-border-color:var(--color-border-soft)] [--animal-primary-color:var(--color-primary-strong)]";
 
 function SendArrow() {
   return <svg aria-hidden="true" className="size-[18px] shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M4 10h12m-5-5 5 5-5 5" /></svg>;
@@ -15,7 +18,7 @@ function SendArrow() {
 /** The question on the button is the exact message sent; the label only gives context. */
 function ExampleButton({ example, disabled, onChip }: Readonly<{ example: Example; disabled: boolean; onChip: Props["onChip"] }>) {
   const id = useId();
-  return <Button htmlType="button" type={example.primary ? "default" : "text"} className={ACTION + " " + (example.primary ? FEATURED : QUIET)} disabled={disabled} aria-labelledby={id + "-prompt"} aria-describedby={id + "-label"} onClick={() => { onChip(example.prompt); }}>
+  return <Button htmlType="button" type="default" className={ACTION + " " + (example.primary ? FEATURED : QUIET)} disabled={disabled} aria-labelledby={id + "-prompt"} aria-describedby={id + "-label"} onClick={() => { onChip(example.prompt); }}>
     <span className="[display:grid] grid-cols-[minmax(0,1fr)_18px] items-center gap-4"><span className="[display:grid] min-w-0 gap-1"><span id={id + "-label"} className="text-xs font-medium">{example.label}</span><span id={id + "-prompt"} className="font-semibold [overflow-wrap:anywhere]">{example.prompt}</span></span><SendArrow /></span>
   </Button>;
 }

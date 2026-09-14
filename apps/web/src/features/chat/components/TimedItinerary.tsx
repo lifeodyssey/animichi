@@ -32,7 +32,7 @@ function stopClass(station: ItineraryStation): string {
 function StopRail({ index, last }: Readonly<{ index: number; last: boolean }>) {
   return (
     <div className="flex flex-col items-center" aria-hidden="true">
-      <span className="grid size-6 flex-none place-items-center rounded-full border-2 border-paper bg-[var(--color-map-pin-teal)] text-xs font-bold tabular-nums text-[var(--color-primary-ink)]">{index + 1}</span>
+      <span className="grid size-6 flex-none place-items-center rounded-full border-2 border-paper bg-map-pin-teal text-xs font-bold tabular-nums text-primary-ink">{index + 1}</span>
       {last ? null : <span className="w-0 flex-1 border-l border-dashed border-border-soft" />}
     </div>
   );
@@ -55,7 +55,7 @@ function StationHeading({ station, dict }: Readonly<{ station: ItineraryStation;
 
 function StationDetails({ station, dict }: Readonly<{ station: ItineraryStation; dict: ChatDict }>) {
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <StationHeading station={station} dict={dict} />
       <StopTime station={station} />
     </div>

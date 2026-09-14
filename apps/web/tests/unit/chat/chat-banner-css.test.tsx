@@ -16,7 +16,7 @@ import { ruleDeclaration } from "../stylesheet-probe";
 
 const dict = chatDictFor("ja");
 
-const GEOMETRY = ["flex", "flex-wrap", "items-center", "gap-3", "rounded-[14px]", "border-l-4", "px-4", "py-2.5", "text-sm", "font-medium"];
+const GEOMETRY = ["flex", "flex-wrap", "items-center", "gap-3", "rounded-[14px]", "border-2", "px-4", "py-2.5", "text-sm", "font-medium"];
 const ERROR = ["border-error-strong", "bg-error-bg", "text-error-strong"];
 
 beforeEach(() => { setLanguages(["ja"]); });

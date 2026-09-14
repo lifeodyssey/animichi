@@ -19,7 +19,10 @@ function useSceneDialog() {
 function PreviewImage({ src, name, failureMessage }: Pick<Props, "src" | "name" | "failureMessage">) {
   const [failed, setFailed] = useState(false);
   if (failed) return <p role="status" className="grid min-h-48 place-items-center px-6 text-center text-base text-muted-fg">{failureMessage}</p>;
-  return <img src={src} alt={name} className="block max-h-[65dvh] w-full object-contain" onError={() => { setFailed(true); }} />;
+  /* The 16:9 box (the ratio the dialog's own width cap assumes) is reserved
+   * before the image arrives, so the dialog never shifts on load; other ratios
+   * letterbox inside it through object-contain. */
+  return <img src={src} alt={name} className="block aspect-video max-h-[65dvh] w-full object-contain" onError={() => { setFailed(true); }} />;
 }
 
 function PreviewHeader({ name, caption, closeLabel, onClose, titleId }: Omit<Props, "src" | "failureMessage"> & Readonly<{ titleId: string }>) {

@@ -15,7 +15,7 @@ interface LoginModalProps {
 }
 
 const MASK = "login-modal__mask fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-fg/40 p-4";
-const PANEL = "login-modal relative my-auto grid w-full max-w-[420px] [max-height:calc(100dvh_-_32px)] overflow-y-auto overscroll-contain rounded-3xl bg-paper p-6 text-left text-fg shadow-[0_24px_72px_-20px_color-mix(in_srgb,var(--color-fg)_45%,transparent)] outline-none";
+const PANEL = "login-modal relative my-auto grid w-full max-w-[420px] [max-height:calc(100dvh_-_32px)] overflow-y-auto overscroll-contain rounded-3xl bg-paper p-6 text-left text-fg shadow-[0_24px_72px_-20px_color-mix(in_srgb,var(--color-fg)_45%,transparent)] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ground-ink";
 const CLOSE = "absolute right-3 top-4 [height:40px]! [width:40px]! [min-width:40px]! [padding:0]! [--animal-text-color:var(--color-muted-fg)] focus-visible:outline-primary-strong motion-reduce:transition-none";
 
 function useEscapeToClose(open: boolean, onClose: () => void): void {
