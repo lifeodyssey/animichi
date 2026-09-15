@@ -7,7 +7,8 @@
 
 export { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
 export { applyAtlasChain } from "./atlas-chain.ts";
-export { createCleanDatabase } from "./clean-database.ts";
+export { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
+export { uniqueDatabaseName } from "./database-name.ts";
 export {
   isStartingUp,
   PostgresStartupWait,

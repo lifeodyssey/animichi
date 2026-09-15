@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { startTestPostgres, SPIKE_SETUP_BUDGET, hookTimeoutMs } from "@animichi/test-postgres";
+import { dropCleanDatabase, hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres, uniqueDatabaseName } from "@animichi/test-postgres";
 import pg from "pg";
 import { FIXED_NOW } from "../migrate.worker.helpers";
 import { nativeApp, TARGET, APP_MIGRATION_COUNT } from "./prisma-fixture";
@@ -13,18 +13,27 @@ let app: Awaited<ReturnType<typeof nativeApp>>;
 let databaseDsn: string;
 const resources: { server?: typeof server; client?: pg.Client } = {};
 let caseNumber = 0;
+/** Each case's clone, dropped by the case that created it: the server is shared
+ * (#1663), so a leftover would collide with the next run of this lane. */
+let caseDatabase = "";
 
 beforeAll(async () => { server = resources.server = await startTestPostgres({ database: "native_delivery", budget: SPIKE_SETUP_BUDGET }); }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterAll(async () => { await resources.server?.stop(); });
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
-  const dsn = databaseDsn = await clonePrismaDatabase(server.dsn, `native_delivery_case_${String(caseNumber++)}`);
+  caseDatabase = uniqueDatabaseName(`native_delivery_case_${String(caseNumber++)}`);
+  const dsn = databaseDsn = await clonePrismaDatabase(server.dsn, caseDatabase);
   client = resources.client = new pg.Client(dsn);
   await client.connect();
   servePrismaPostgres(dsn);
   app = await nativeApp(dsn);
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
-afterEach(async () => { await resources.client?.end(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(async () => {
+  await resources.client?.end();
+  await dropCleanDatabase(server.dsn, caseDatabase);
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 it("previews native operations through authenticated HTTP without initializing the marker", async () => {
   const response = await app.preview();

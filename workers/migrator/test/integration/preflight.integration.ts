@@ -111,6 +111,6 @@ it("refuses the genuine Atlas --baseline revision", async () => {
     expect(after).toBe(before);
     await saveEvidence("native-atlas-baseline", { nativeRows: native.rows, before, after });
   } finally {
-    await baseline.client.end();
+    await baseline.stop();
   }
 });
