@@ -1,4 +1,5 @@
 import type { AgentHarness, HarnessEvent, HookInvocation } from '@earendil-works/pi-agent-core';
+import type { Usage } from '@earendil-works/pi-ai';
 import { incrementEvalMetric, setEvalAttribute } from 'logfire/evals';
 
 /** Subscribe before business hooks so the witness keeps the tool's unchanged result. */
@@ -17,6 +18,14 @@ function recordUsage(
   usage: Extract<HarnessEvent, { type: 'usage' }>[],
 ) {
   usage.push(event);
-  setEvalAttribute('pi.usage.status', 'measured');
+  if (priced(event.row.usage)) setEvalAttribute('pi.usage.status', 'measured');
   incrementEvalMetric('pi.cost.total', event.row.usage.cost.total);
+}
+
+/**
+ * A provider outage still produces a zeroed usage row, so `measured` must mean a
+ * real priced call happened. Pricing that row as zero would hide the outage.
+ */
+function priced(usage: Usage): boolean {
+  return usage.totalTokens > 0 || usage.cost.total > 0;
 }

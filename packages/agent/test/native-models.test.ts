@@ -50,6 +50,14 @@ void test("blank keys and non-exact provider endpoints fail before a request", a
   await assert.rejects(createOperationModels({ ...model, baseUrl: "http://api.openai.com/v1" }, "key"), /endpoint/);
 });
 
+void test("the egress allowlist admits the published OpenCode Go endpoint and nothing near it", async () => {
+  const opencodeGo: Model<"openai-completions"> = { ...model, provider: "opencode-go", baseUrl: "https://opencode.ai/zen/go/v1" };
+  await assert.doesNotReject(createOperationModels(opencodeGo, "key", () => Promise.resolve(completion())));
+  await assert.rejects(createOperationModels({ ...opencodeGo, baseUrl: "https://opencode.ai.evil.test/zen/go/v1" }, "key"), /endpoint/);
+  await assert.rejects(createOperationModels({ ...opencodeGo, baseUrl: "https://api.opencode.ai/zen/go/v1" }, "key"), /endpoint/);
+  await assert.rejects(createOperationModels({ ...opencodeGo, baseUrl: "https://opencode.ai:8443/zen/go/v1" }, "key"), /endpoint/);
+});
+
 void test("redirect errors never echo credentials and cannot reach the next host", async () => {
   let calls = 0;
   const models = await createOperationModels(model, "private-key", () => { calls += 1; return Promise.resolve(new Response("private-key", { status: 302, headers: { Location: "https://evil.test" } })); });
@@ -86,4 +94,15 @@ void test("caller options cannot override the key or forward unrelated credentia
   assert.equal(requests[0]?.headers.get("authorization"), "Bearer caller-key");
   assert.equal(requests[0].headers.get("cookie"), null);
   assert.equal(requests[0].headers.get("x-api-key"), null);
+});
+
+void test("the operation's own headers reach the provider and no request header can replace them", async () => {
+  const requests: Request[] = [];
+  const models = await createOperationModels(model, "caller-key",
+    (request) => { requests.push(new Request(request)); return Promise.resolve(completion()); },
+    { "x-opencode-session": "operation-session" });
+  await models.completeSimple(model, prompt, { headers: { "x-opencode-session": "caller-session", Cookie: "private-cookie" } });
+  assert.equal(requests[0]?.headers.get("x-opencode-session"), "operation-session");
+  assert.equal(requests[0].headers.get("cookie"), null);
+  assert.equal(requests[0].headers.get("authorization"), "Bearer caller-key");
 });

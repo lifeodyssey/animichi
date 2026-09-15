@@ -1,4 +1,4 @@
-import { createModels, createProvider, InMemoryCredentialStore, type Model, type ProviderStreams, type ProviderAuth } from "@earendil-works/pi-ai";
+import { createModels, createProvider, InMemoryCredentialStore, type Model, type ProviderHeaders, type ProviderStreams, type ProviderAuth } from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
 import { stream as anthropicStream, streamSimple as anthropicSimple } from "@earendil-works/pi-ai/api/anthropic-messages";
 import { providerFetch, validateProviderEndpoint } from "./provider-fetch.ts";
@@ -8,23 +8,31 @@ const APIS: Readonly<Record<"openai-completions" | "anthropic-messages", Provide
   "anthropic-messages": { stream: anthropicStream, streamSimple: anthropicSimple },
 };
 
-/** Each operation owns native ephemeral credentials and Models. Logout removes the key; no ambient lookup exists. */
-export async function createOperationModels(model: Model<keyof typeof APIS>, key: string, fetch: typeof globalThis.fetch = globalThis.fetch) {
+/**
+ * Each operation owns native ephemeral credentials, request headers and Models. Logout removes the
+ * key; no ambient lookup exists. `headers` are the operation's own provider headers — a binding that
+ * needs one (for example OpenCode Go's session routing) declares it here, never per call.
+ */
+export async function createOperationModels(model: Model<keyof typeof APIS>, key: string, fetch: typeof globalThis.fetch = globalThis.fetch, headers: ProviderHeaders = {}) {
   if (!key.trim()) throw new Error("A non-empty operation credential is required");
   validateProviderEndpoint(model.provider, new URL(model.baseUrl));
   const credentials = new InMemoryCredentialStore();
   await credentials.modify(model.provider, () => Promise.resolve({ type: "api_key", key }));
   const models = createModels({ credentials, authContext: { env: () => Promise.resolve(undefined), fileExists: () => Promise.resolve(false) } });
-  const api = guardedProviderApi(APIS[model.api], providerFetch(model.provider, fetch));
+  const api = guardedProviderApi(APIS[model.api], providerFetch(model.provider, fetch), headers);
   models.setProvider(createProvider({ id: model.provider, models: [model], auth: operationAuth(credentials, model.provider), api }));
   return models;
 }
 
-/** Public provider callbacks apply the same egress policy to normal, simple and SDK retry requests. */
-function guardedProviderApi(api: ProviderStreams, fetch: typeof globalThis.fetch): ProviderStreams {
+/**
+ * Public provider callbacks apply the same egress policy to normal, simple and SDK retry requests.
+ * Only the operation's own headers reach the wire: request-level options are replaced, so a caller
+ * can neither forward ambient credentials nor edit the routing headers the operation declares.
+ */
+function guardedProviderApi(api: ProviderStreams, fetch: typeof globalThis.fetch, headers: ProviderHeaders): ProviderStreams {
   return {
-    stream: (model, context, options) => api.stream({ ...model, headers: undefined }, context, { ...options, headers: {}, fetch }),
-    streamSimple: (model, context, options) => api.streamSimple({ ...model, headers: undefined }, context, { ...options, headers: {}, fetch }),
+    stream: (model, context, options) => api.stream({ ...model, headers: undefined }, context, { ...options, headers: { ...headers }, fetch }),
+    streamSimple: (model, context, options) => api.streamSimple({ ...model, headers: undefined }, context, { ...options, headers: { ...headers }, fetch }),
   };
 }
 
