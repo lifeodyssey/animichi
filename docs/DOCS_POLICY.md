@@ -101,7 +101,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Design tokens / system | `apps/web/` (animal-island-ui-tailwind); ref `docs/design/animal-island-ref/` | |
 | Full product user journey | [User journey](design/user-journey.md) | Discovery, planning, walking and sharing; original implementation-status notes are historical |
 | Chat journey and interaction decisions | [Chat journey component map](design/chat-journey-component-map.md) | Current Chat decisions, user-task/component mapping and handoff gaps; distinguish confirmed decisions, drafts and observed implementation |
-| Eval | `packages/eval/src/native/` + `packages/eval/AGENTS.md` | Native task/observations; statistical oracles and exported source fixtures remain preserved; native assertions and suite migration are separate work |
+| Eval | `packages/eval/src/native/` + `packages/eval/AGENTS.md` + `packages/eval/NATIVE.md` | Native task/observations and the documented in-process CLI; statistical oracles and exported source fixtures remain preserved; native assertions and suite migration are separate work |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |

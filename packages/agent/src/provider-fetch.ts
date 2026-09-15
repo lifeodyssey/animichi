@@ -1,5 +1,6 @@
 const HOSTS: Readonly<Record<string, string>> = {
-  openai: "api.openai.com", anthropic: "api.anthropic.com", google: "generativelanguage.googleapis.com", xiaomi: "api.xiaomimimo.com",
+  openai: "api.openai.com", anthropic: "api.anthropic.com", google: "generativelanguage.googleapis.com",
+  xiaomi: "api.xiaomimimo.com", "opencode-go": "opencode.ai",
 };
 
 export function validateProviderEndpoint(provider: string, url: URL): void {
