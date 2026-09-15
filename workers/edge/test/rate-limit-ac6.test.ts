@@ -62,15 +62,18 @@ function nativeEnv(binding: unknown) {
   } as never;
 }
 
+// The synthetic read is the allowlisted public catalog read: it is the one
+// remaining cacheable public route, so it rides the same native cell and the
+// same connecting-IP key the retired `/v1/search/preview` did.
 void test("native tier isolates by connecting IP (two IPs never share allowance)", async () => {
   const d = nativeDouble();
   const env = nativeEnv(d.binding);
   const app = createWorkerApp({});
   const ipA = { headers: { "CF-Connecting-IP": "203.0.113.1" } };
   const ipB = { headers: { "CF-Connecting-IP": "203.0.113.2" } };
-  await app.request("/v1/search/preview?q=a", ipA, env, stubCtx);
-  const second = await app.request("/v1/search/preview?q=b", ipB, env, stubCtx);
-  const denied = await app.request("/v1/search/preview?q=a", ipA, env, stubCtx);
+  await app.request("/catalog/public/anime-overview/123", ipA, env, stubCtx);
+  const second = await app.request("/catalog/public/anime-overview/123", ipB, env, stubCtx);
+  const denied = await app.request("/catalog/public/anime-overview/123", ipA, env, stubCtx);
   assert.equal(second.status, 200, "a different IP is not limited");
   assert.equal(denied.status, 429, "reusing the same IP beyond its slot is limited");
 });
@@ -86,8 +89,8 @@ void test("multi-PoP: two app isolates sharing one native binding see one counte
   const appA = createWorkerApp({});
   const appB = createWorkerApp({});
   const env = nativeEnv(d.binding);
-  const first = await appA.request("/v1/search/preview?q=x", {}, env, stubCtx);
-  const second = await appB.request("/v1/search/preview?q=x", {}, env, stubCtx);
+  const first = await appA.request("/catalog/public/anime-overview/123", {}, env, stubCtx);
+  const second = await appB.request("/catalog/public/anime-overview/123", {}, env, stubCtx);
   assert.equal(first.status, 200);
   assert.equal(second.status, 429, "PoP B must see PoP A's spent slot (no per-isolate reset)");
 });

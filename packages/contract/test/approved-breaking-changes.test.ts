@@ -87,4 +87,19 @@ describe("the approval this card lands", () => {
       approved: "2026-09-15",
     });
   });
+
+  // #1597 retires the three uncalled catalog reads. Each name is exact, so a
+  // typo cannot silently drop the approval the vet needs.
+  it("records the three retired catalog reads for #1597", () => {
+    for (const path of ["/v1/search/preview", "/v1/bangumi/{bangumi_id}/guide", "/v1/bangumi/nearby"]) {
+      expect(APPROVED_BREAKING_CHANGES).toContainEqual({
+        document: "agent-openapi.json",
+        method: "GET",
+        path,
+        kind: "endpoint-removed",
+        issue: "#1597",
+        approved: "2026-09-15",
+      });
+    }
+  });
 });

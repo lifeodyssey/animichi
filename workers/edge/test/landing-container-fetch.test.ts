@@ -68,8 +68,10 @@ void test("the retired root never reaches the container fetch seam", async () =>
 });
 
 void test("the /v1 forward still rides the seam, so the spy is live", async () => {
-  const app = createWorkerApp({});
-  const res = await app.request("/v1/search/preview?q=test", {}, countingEnv(), stubCtx);
+  const app = createWorkerApp({
+    authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
+  });
+  const res = await app.request("/v1/conversations", {}, countingEnv(), stubCtx);
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "container");
   assert.equal(seam.calls, 1, "/v1 must ride fetchContainerResilient");

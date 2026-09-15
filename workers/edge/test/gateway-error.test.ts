@@ -45,8 +45,12 @@ function recordsIn(lines: string[]): Record<string, unknown>[] {
   return lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
+/** The edge's own verdict for a verified caller: `GET /v1/conversations` is an
+ * unmanaged read, so only the verification stands between it and the binding. */
+const verified = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
+
 async function failingRequest(): Promise<Response> {
-  return createWorkerApp({}).request("/v1/search/preview?q=chichibu", {}, throwingEnv(), stubCtx);
+  return createWorkerApp({ authenticate: verified }).request("/v1/conversations", {}, throwingEnv(), stubCtx);
 }
 
 void test("an unexpected throw answers the shared envelope, not Hono's plain-text 500", async () => {

@@ -100,18 +100,20 @@ void test("a cacheable public read FAILS OPEN and ALERTS when the native damper 
   }
 });
 
+// The allowlisted public catalog read is the surviving native cell: no
+// `/v1` read is credential-free any more (#1597), so the synthetic read is it.
 void test("a denied native damper on a public read returns a typed 429", async () => {
   const binding = { limit: () => Promise.resolve({ success: false }) };
   const app = createWorkerApp({});
-  const res = await app.request("/v1/search/preview?q=test", {}, nativeEnv(binding), stubCtx);
+  const res = await app.request("/catalog/public/anime-overview/123", {}, nativeEnv(binding), stubCtx);
   assert.equal(res.status, 429);
   const body = (await res.json()) as { error: { code: string } };
   assert.equal(body.error.code, "rate_limited");
 });
 
-void test("a public v1 guide read with no damper binding still succeeds (fail open)", async () => {
+void test("a public read with no damper binding still succeeds (fail open)", async () => {
   const app = createWorkerApp({});
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: allowGuard(), CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) } } as never;
-  const res = await app.request("/v1/bangumi/485/guide", {}, env, stubCtx);
+  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: allowGuard(), CATALOG: { fetch: () => Promise.resolve(new Response("cat")) } } as never;
+  const res = await app.request("/catalog/public/anime-overview/123", {}, env, stubCtx);
   assert.equal(res.status, 200);
 });

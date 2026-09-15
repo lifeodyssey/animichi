@@ -13,7 +13,7 @@ import { z } from "zod";
  * (#1285).
  *
  * The path -> class classification lives in the edge's
- * `workers/edge/src/gateway/routing-policy.ts` (PUBLIC_V1 / ANON_V1); this
+ * `workers/edge/src/gateway/routing-policy.ts` (ANON_V1); this
  * contract owns the classes and their numbers only.
  */
 
