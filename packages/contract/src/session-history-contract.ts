@@ -153,10 +153,12 @@ export type ConversationListRow = z.infer<typeof ConversationListRow>;
 /**
  * The `GET /v1/conversations` payload: the caller's own conversations, newest
  * first, capped at the 30 rows the container's `list_sessions` returned
- * before this card moved the route. An array and not an envelope — the
- * browser client parses the top level as a list
+ * before this card moved the route. That cap is the response's own ceiling —
+ * the statement hands back at most 30 rows, so a longer body is a defect on
+ * this side and is refused rather than forwarded. An array and not an
+ * envelope — the browser client parses the top level as a list
  * (`apps/web/src/features/chat/use-conversation-list.ts`), and that is the
  * body it has always been served.
  */
-export const ListConversationsResponse = z.array(ConversationListRow);
+export const ListConversationsResponse = z.array(ConversationListRow).max(30);
 export type ListConversationsResponse = z.infer<typeof ListConversationsResponse>;

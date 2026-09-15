@@ -18,10 +18,12 @@ const CONVERSATION_LIST_ROW = {
 } as const;
 
 /** The one statement behind the list: the caller's own rows, newest first,
- * capped at 30. */
+ * capped at 30. `updated_at` is nullable, and PostgreSQL sorts NULL first
+ * under `DESC` — without `NULLS LAST` one unstamped row leads the sidebar and
+ * pushes a recent conversation out of the 30-row window. */
 function conversationListStatement(db: AdmissionDatabase, identityId: string) {
   return db.raw.sql`SELECT id AS session_id, title, first_query, created_at, updated_at
-    FROM sessions WHERE user_id = ${identityId} ORDER BY updated_at DESC LIMIT ${CONVERSATION_LIST_LIMIT}`
+    FROM sessions WHERE user_id = ${identityId} ORDER BY updated_at DESC NULLS LAST LIMIT ${CONVERSATION_LIST_LIMIT}`
     .returnsRow(CONVERSATION_LIST_ROW).build();
 }
 

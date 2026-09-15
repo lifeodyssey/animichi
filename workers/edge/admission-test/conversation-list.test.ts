@@ -30,6 +30,15 @@ function insertSession(id: string, owner: string, updatedAt: string, title: stri
   );
 }
 
+/** A row whose ordering column was never stamped: `updated_at` is nullable in
+ * the table, so an explicit NULL is a row the list really meets. */
+function insertUnstampedSession(id: string, owner: string) {
+  return pool.query(
+    "INSERT INTO sessions (id, user_id, first_query, created_at, updated_at) VALUES ($1, $2, $3, $4, NULL)",
+    [id, owner, `query for ${id}`, "2026-09-10T00:00:00Z"],
+  );
+}
+
 void test("the list is the caller's newest 30 rows and drops everything beyond the cap", async () => {
   await clearListRows();
   await pool.query("INSERT INTO sessions (id, user_id, first_query, created_at, updated_at) SELECT 'list-cap-' || lpad(n::text, 2, '0'), 'list-cap', 'query ' || n, TIMESTAMPTZ '2026-09-10T00:00:00Z' + n * INTERVAL '1 second', TIMESTAMPTZ '2026-09-10T00:00:00Z' + n * INTERVAL '1 second' FROM generate_series(1, 31) AS n");
@@ -57,6 +66,20 @@ void test("the list carries the caller's rows and never another user's, in eithe
   assert.deepEqual(mine.map((row) => row.session_id), ["list-mine-2", "list-mine-1"]);
   assert.deepEqual(theirs.map((row) => row.session_id), ["list-theirs-2", "list-theirs-1"]);
   assert.deepEqual(await listConversations(database, "list-nobody"), [], "no conversations is an empty list, never a leak");
+});
+
+void test("an unstamped row sorts after every dated one instead of leading the list", async () => {
+  await clearListRows();
+  await insertSession("list-dated-newer", "list-nulls", "2026-09-10T00:00:02Z");
+  await insertSession("list-dated-older", "list-nulls", "2026-09-10T00:00:01Z");
+  // PostgreSQL sorts NULL FIRST under `DESC`, so without `NULLS LAST` this row
+  // would be the sidebar's newest and push a recent conversation out of the
+  // 30-row window; it must be listed last instead, never dropped.
+  await insertUnstampedSession("list-unstamped", "list-nulls");
+
+  const rows = await listConversations(database, "list-nulls");
+  assert.deepEqual(rows.map((row) => row.session_id), ["list-dated-newer", "list-dated-older", "list-unstamped"]);
+  assert.deepEqual(ListConversationsResponse.parse(rows), rows, "an unstamped row is a row the declared body still admits");
 });
 
 void test("a conversation the native tier admitted lists untitled, then titled once it settles", async () => {
