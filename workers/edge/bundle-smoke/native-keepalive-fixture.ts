@@ -28,6 +28,9 @@ export async function nativeWorker(context: TestContext) {
   return worker;
 }
 
+/** Real-time budget for one alarm delivery: the mocked clock inside the probe cannot advance it. */
+export const ALARM_BUDGET_MS = 5_000;
+
 /** Start consuming each returned body immediately, including the independently pending drive response. */
 export async function request(worker: Miniflare, path: string) {
   const response = await worker.dispatchFetch(`https://probe.test${path}`);
@@ -38,6 +41,12 @@ export async function request(worker: Miniflare, path: string) {
 
 export async function inspect(worker: Miniflare, path = "/inspect") {
   return JSON.parse(await request(worker, path)) as Observation;
+}
+
+/** Make the deadline due and wait for its real alarm callback, so a stalled delivery reports its state. */
+export async function fireDeadlineAlarm(worker: Miniflare) {
+  await request(worker, "/fire");
+  return inspect(worker, `/callback?budgetMs=${String(ALARM_BUDGET_MS)}`);
 }
 
 export async function releaseAndRestore(worker: Miniflare, drive: Promise<string>) {

@@ -21,8 +21,9 @@ export function keepaliveState() {
   return {
     resources: nativeResources(), cleanup: cleanupObservation(),
     clock: { realNow: Date.now, now: Math.ceil(Date.now() / 1000) * 1000 + 60_000 },
-    deadline: { id: "", time: 0 }, callback: Promise.withResolvers<undefined>(),
+    deadline: { id: "", time: 0 }, firing: false,
     calls: { count: 0, active: false, duringDrive: false, result: "pending" },
+    delivered: Promise.withResolvers<undefined>(),
   };
 }
 
@@ -41,6 +42,18 @@ export function observeCleanup(ctx: DurableObjectState, cleanup: ReturnType<type
     if (cleanup.collecting) cleanup.promises.push(promise);
     waitUntil(promise);
   };
+}
+
+/**
+ * Keep the physical alarm in the past while the fired deadline is undelivered.
+ *
+ * The probe freezes `Date.now`, so an SDK re-arm landing after the fire recomputes its heartbeat ~70 s
+ * into the real future; without this clamp that write displaces the due deadline and it is never delivered.
+ */
+export function clampDueAlarm(ctx: DurableObjectState, state: ReturnType<typeof keepaliveState>) {
+  const storage = ctx.storage;
+  const setAlarm = storage.setAlarm.bind(storage);
+  storage.setAlarm = (time: number | Date) => setAlarm(state.firing && state.calls.count === 0 ? state.clock.realNow() : time);
 }
 
 export function releaseProvider(state: ReturnType<typeof keepaliveState>) {
