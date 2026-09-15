@@ -1,5 +1,12 @@
 /**
- * The shared container's two contracts (#1663), against a real Docker daemon.
+ * The shared container's three contracts (#1663), against a real Docker daemon.
+ *
+ * The chain witness — three calls started AT ONCE, and the reason applies are
+ * serialized on this cluster — comes first, and has to stay first: it needs the
+ * cluster-global roles absent, which is the state of a container no chain has
+ * run on yet, and the contracts below leave them behind. On a container whose
+ * chain has already run, nothing can race, because every later apply skips the
+ * role block.
  *
  * AC1 — two `startTestPostgres` calls with the SAME suite name land on ONE
  * server, in two distinct databases, each with the committed chain applied.
@@ -21,6 +28,10 @@ import { SPIKE_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "../../
 
 const FIRST_SUITE = "shared_plane_first";
 const SECOND_SUITE = "shared_plane_second";
+const CONCURRENT_SUITE = "shared_plane_concurrent";
+/** Every caller applies the whole chain, so any two of them that overlap are the
+ * race; three bodies make that overlap the common case, not a coincidence. */
+const CONCURRENT_CALLS = 3;
 
 /** The chain's length, read from the committed directory: the migrations are
  * the source of truth for "the full chain", not a number written here. */
@@ -66,8 +77,8 @@ function adminDsn(planeDsn: string): string {
 async function assertOneServerTwoMigratedDatabases(first: TestPostgres, second: TestPostgres): Promise<void> {
   assert.deepEqual(await clusterIdentity(first.dsn), await clusterIdentity(second.dsn));
   assert.notEqual(new URL(first.dsn).pathname, new URL(second.dsn).pathname);
-  assert.equal(await appliedRevisions(first.dsn), chainLength());
-  assert.equal(await appliedRevisions(second.dsn), chainLength());
+  await assertFullChain(first.dsn);
+  await assertFullChain(second.dsn);
 }
 
 async function assertOnlyOwnDatabaseDropped(first: TestPostgres, second: TestPostgres): Promise<void> {
@@ -80,6 +91,36 @@ async function assertOnlyOwnDatabaseDropped(first: TestPostgres, second: TestPos
 function request(suite: string) {
   return { database: suite, budget: SPIKE_SETUP_BUDGET };
 }
+
+/** Every caller starts at once. Each plane is recorded the moment it lands, so a
+ * start that fails cannot strand the ones that succeeded. */
+async function startAllAtOnce(landed: TestPostgres[]): Promise<void> {
+  const requests = Array.from({ length: CONCURRENT_CALLS }, () => request(CONCURRENT_SUITE));
+  await Promise.all(requests.map(async (each) => {
+    landed.push(await startTestPostgres(each));
+  }));
+}
+
+/** The whole chain on the database this call owns: one applied revision per
+ * committed migration. */
+async function assertFullChain(dsn: string): Promise<void> {
+  assert.equal(await appliedRevisions(dsn), chainLength());
+}
+
+/** The role block of `20260826000001_roles.sql` is cluster-global and not atomic
+ * — it reads `pg_roles` and then creates — so two applies that reach it together
+ * both read an empty catalog and the second one to commit dies on
+ * `pg_authid_rolname_index`. That is exactly how CI's edge lane failed once
+ * every caller shared one container. */
+void test("three calls started at once each land a fully migrated database (#1663)", async () => {
+  const landed: TestPostgres[] = [];
+  try {
+    await startAllAtOnce(landed);
+    await Promise.all(landed.map((plane) => assertFullChain(plane.dsn)));
+  } finally {
+    await Promise.allSettled(landed.map((plane) => plane.stop()));
+  }
+});
 
 void test("two calls with one suite name share the container, each in its own migrated database (AC1)", async () => {
   const first = await startTestPostgres(request(FIRST_SUITE));

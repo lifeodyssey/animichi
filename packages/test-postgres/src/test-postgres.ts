@@ -13,11 +13,13 @@
  * failure after the database exists drops it too, instead of the server.
  *
  * The bind and the two waits draw on ONE wall-clock deadline (#1318), so they
- * cannot sum past the hook that holds them.
+ * cannot sum past the hook that holds them. The chain apply holds the cluster's
+ * turn while it runs, because the chain writes cluster-global roles (#1663).
  */
 import pg from "pg";
 import { GenericContainer, Wait, type StartedTestContainer, type WaitStrategy } from "testcontainers";
 import { applyAtlasChain } from "./atlas-chain.ts";
+import { ChainApplyTurn } from "./chain-apply-turn.ts";
 import { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
 import { uniqueDatabaseName } from "./database-name.ts";
 import { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
@@ -114,7 +116,7 @@ async function migrateCleanDatabase(own: OwnDatabase, deadline: SetupDeadline): 
   await awaitSessions(own.admin, deadline);
   const dsn = await createCleanDatabase(own.admin, own.name);
   await awaitSessions(dsn, deadline);
-  await applyAtlasChain(dsn);
+  await new ChainApplyTurn(own.admin).hold(() => applyAtlasChain(dsn));
   return { dsn, stop: () => own.drop() };
 }
 

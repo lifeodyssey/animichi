@@ -139,3 +139,9 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
 - **Never bundled.** `test/never-bundled.test.ts` scans both consumers' `src/` trees for all four
   module-load shapes. A `bundle-smoke`-style gate would prove nothing — the package is never in a
   bundle to smoke.
+- **Chain applies are serialized, not parallel.** The chain's role block is cluster-global and not
+  atomic (`IF NOT EXISTS` then `CREATE ROLE`), so `startTestPostgres` holds one session-level
+  `pg_advisory_lock` on the admin connection for the whole apply (#1663): two applies that reach that
+  block together — two calls in one process, two arms, two worktrees — would otherwise both read an
+  empty `pg_roles` and the second would die on `pg_authid_rolname_index`, which is how CI's edge lane
+  failed.
