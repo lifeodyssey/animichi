@@ -10,16 +10,12 @@ import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 // The RATE-limit classification (which route is cost-bearing/mutation and how
 // it is metered) lives in ONE place: `rate-policy.ts` `classifyRatePolicy`.
 // Those cells drive the guard seam; this module is only the identity-class
-// routing tables (public vs anonymous) the request surface needs to decide
-// whether it must authenticate before forwarding.
+// routing table (anonymous) the request surface needs to decide whether it
+// must authenticate before forwarding.
 
-/** Identity-class tables: subsets of the AGENT_PATHS inventory. */
-export const PUBLIC_V1_PATHS = [
-  "/v1/search/preview",
-  "/v1/bangumi/{bangumi_id}/guide",
-] as const;
-
-/** Cost-free read surfaces the edge serves without a credential. */
+// Identity-class tables: subsets of the AGENT_PATHS inventory. There is no
+// credential-free `/v1` identity class left (#1597 retired the last three
+// public reads), so the only table is the anonymous one.
 export const ANON_V1_PATHS = [
   "/v1/chat",
   "/v1/photo-search",
@@ -41,12 +37,7 @@ function pathPattern(path: string): RegExp {
   return new RegExp(`^` + parametric + `$`);
 }
 
-const PUBLIC_V1 = PUBLIC_V1_PATHS.map(inventoryPath).map(pathPattern);
 const ANON_V1 = ANON_V1_PATHS.map(inventoryPath).map(pathPattern);
-
-export function isPublicV1(pathname: string): boolean {
-  return PUBLIC_V1.some((pattern) => pattern.test(pathname));
-}
 
 export function isAnonymousV1(pathname: string): boolean {
   return ANON_V1.some((pattern) => pattern.test(pathname));

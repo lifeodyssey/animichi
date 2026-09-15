@@ -27,13 +27,6 @@ void test("every AGENT_PATHS operation classifies (never undefined)", () => {
   }
 });
 
-void test("credential-free public reads are low-cost, native-tier, fail-open", () => {
-  for (const path of ["/v1/search/preview", "/v1/bangumi/485/guide"]) {
-    const p = classify("GET", path);
-    assert.deepEqual(p, { cost: "low", quota: "none", limiter: "native", failure: "fail-open-alert" });
-  }
-});
-
 void test("the allowlisted public catalog read is a native fail-open cacheable read", () => {
   const p = classify("GET", "/catalog/public/anime-overview/123");
   assert.deepEqual(p, { cost: "low", quota: "none", limiter: "native", failure: "fail-open-alert" });
@@ -67,7 +60,7 @@ void test("feedback is a mutation class: durable fail-closed, low cost", () => {
 });
 
 void test("authenticated reads stay unmanaged (GET conversation surfaces)", () => {
-  for (const path of ["/v1/conversations", "/v1/conversations/abc/messages", "/v1/conversations/abc/routes", "/v1/bangumi/nearby"]) {
+  for (const path of ["/v1/conversations", "/v1/conversations/abc/messages", "/v1/conversations/abc/routes"]) {
     assert.equal(classify("GET", path).limiter, "none");
   }
 });

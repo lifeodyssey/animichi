@@ -20,9 +20,11 @@ export type UserType = "human" | "anonymous";
  * The explicit identity matrix (AUTH-1 #945): how a /v1 request is classified
  * and the numeric configuration each class is governed by.
  *
- *  - `"public"`       — allowlisted read routes (PUBLIC_V1 in
- *                       gateway/routing-policy.ts): no credential, no limiter,
- *                       no quota, no budget.
+ *  - `"public"`       — allowlisted read routes: no credential, no limiter,
+ *                       no quota, no budget. No `/v1` path reaches this class
+ *                       since #1597 retired the last three public reads; the
+ *                       class stays in the deployed matrix (and its
+ *                       `wrangler.toml` pin) until the matrix itself retires.
  *  - `"anonymous"`    — no credential + the anonymous allowlist (ANON_V1):
  *                       worker-minted identity, burst-limited, daily-quota'd,
  *                       daily-budgeted.
@@ -146,7 +148,7 @@ function bearerToken(request: Request): string | null {
  * an identity (`"human"`); any legacy API-key credential is `"invalid"` — the
  * API-key mint/verify path and its backing table are deleted, so nothing here
  * ever consults them. The matrix's other classes are produced by the caller:
- * `"public"` never reaches this function (routing-policy), and `"anonymous"`
+ * `"public"` never reaches this function, and `"anonymous"`
  * is minted downstream by `handleAnonymousV1` only for `"absent"`.
  */
 export async function authenticate(

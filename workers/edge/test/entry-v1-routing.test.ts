@@ -4,25 +4,21 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { envWithContainer, stubCtx } from "../src/container/entry-env.ts";
 
-void test("/v1 public route -> container, no auth called", async () => {
-  let authCalled = false;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
-  const app = createWorkerApp({ authenticate });
-  const cap: { req?: Request } = {};
-  const res = await app.request("/v1/search/preview?q=test", {}, envWithContainer(cap), stubCtx);
-  assert.equal(await res.text(), "container");
-  assert.equal(authCalled, false);
-});
+// #1599: the two container-forward cases below probe `PATCH
+// /v1/conversations/{session_id}` (the rename route). `GET /v1/conversations` is
+// the edge's own conversation index now (`{ kind: "list" }` in
+// `routing-policy.ts`), so it never reaches `forwardV1`; rename is still
+// container-served, and `envWithContainer` binds `alwaysAllowGuard` for its
+// durable limiter, leaving the forward's identity handling as the thing under test.
 
-void test("/v1 guide route (regex) is public -> container, no auth, client X-User stripped", async () => {
+void test("/v1 private route -> container once the edge verified the caller", async () => {
   let authCalled = false;
-  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
+  const authenticate = () => { authCalled = true; return Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const); };
   const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
-  const res = await app.request("/v1/bangumi/12345/guide", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/conversations/s-1", { method: "PATCH" }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
-  assert.equal(authCalled, false);
-  assert.equal(cap.req?.headers.get("X-User-Id"), null);
+  assert.equal(authCalled, true, "the private /v1 branch must verify the caller itself");
 });
 
 void test("/v1 authed route without creds -> 401, container not hit", async () => {
@@ -51,15 +47,18 @@ void test("client-forged identity headers cannot override the native authenticat
   assert.equal(calls[0].request.headers.get("X-User-Id"), "forged");
 });
 
-void test("public route strips caller identity and bearer before container forwarding", async () => {
-  const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
+void test("the container forward carries the edge-verified identity, never the caller's headers", async () => {
+  const app = createWorkerApp({
+    authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
+  });
   const cap: { req?: Request } = {};
   const headers = { Authorization: "Bearer private", "X-User-Id": "forged" };
-  const res = await app.request("/v1/search/preview?q=test", { headers }, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/conversations/s-1", { method: "PATCH", headers }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
   assert.ok(cap.req);
-  assert.equal(cap.req.headers.get("X-User-Id"), null);
   assert.equal(cap.req.headers.get("Authorization"), null);
+  assert.equal(cap.req.headers.get("X-User-Id"), "u1", "the caller's forged id must not survive the forward");
+  assert.equal(cap.req.headers.get("X-User-Type"), "human");
 });
 
 void test("/v1/users with valid auth -> USERS gets X-User identity, no Authorization", async () => {

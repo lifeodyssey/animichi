@@ -13,14 +13,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { alwaysAllowGuard, stubCtx } from "../src/container/entry-env.ts";
 
 /** A server-side message of exactly the kind that must never reach a client. */
 const THROWN_MESSAGE = "connect ECONNREFUSED postgres://svc:hunter2@db.internal/agent";
 
+/** A CONTAINER binding whose fetch rejects with the server-side `TypeError`.
+ * `EDGE_GUARD` is the always-allow double: the probed route is durable-guarded,
+ * so without it the limiter fails closed and the `TypeError` under test is
+ * never reached. */
 function throwingEnv(): never {
   return {
     EDGE_SHOWCASE_MODE: "false",
+    EDGE_GUARD: alwaysAllowGuard,
     CONTAINER: {
       idFromName: () => "id",
       get: () => ({ fetch: () => Promise.reject(new TypeError(THROWN_MESSAGE)) }),
@@ -45,8 +50,15 @@ function recordsIn(lines: string[]): Record<string, unknown>[] {
   return lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
+/** The edge's own verdict for a verified caller: `PATCH
+ * /v1/conversations/{session_id}` is container-served, so only the verification
+ * (and the stubbed-open limiter) stands between it and the binding. */
+const verified = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
+
 async function failingRequest(): Promise<Response> {
-  return createWorkerApp({}).request("/v1/search/preview?q=chichibu", {}, throwingEnv(), stubCtx);
+  return createWorkerApp({ authenticate: verified }).request(
+    "/v1/conversations/s-1", { method: "PATCH" }, throwingEnv(), stubCtx,
+  );
 }
 
 void test("an unexpected throw answers the shared envelope, not Hono's plain-text 500", async () => {
