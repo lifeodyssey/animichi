@@ -4,7 +4,7 @@
 import { renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackendHealth } from "../../../src/features/chat/use-backend-health";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
@@ -54,5 +54,24 @@ describe("A2 auto-send health gate", () => {
     renderChatPage(chatSearch({ q: "ハルヒ" }), false);
     await screen.findByRole("alert");
     expect(screen.queryByText("ハルヒ")).toBeNull();
+  });
+});
+
+// #1596: the warm-up hook existed only to wake the agent container, and the
+// edge answers `/healthz` itself now (`workers/edge/src/gateway/request.ts`),
+// so the chat page's own-origin probe would only waste a request — the real
+// backend probe goes to `TEST_ORIGIN`. This is the network-log half of the
+// card's browser AC, at the unit seam; the deployed-origin recording is
+// deferred to staging.
+describe("the chat page's network surface", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("issues no warm-up request to the page's own origin", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderChatPage();
+    const warmupCalls = fetchSpy.mock.calls.filter(([input]) => input === "/healthz");
+    expect(warmupCalls).toEqual([]);
   });
 });

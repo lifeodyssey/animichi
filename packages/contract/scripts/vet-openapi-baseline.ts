@@ -22,8 +22,11 @@
  * way is unreadable. `git cat-file -e <merge-base>:<path>` cannot be used: it
  * also fails when the blob alone is missing, which would read as "absent".
  *
- * The approval flag is never passed here — an approved breaking change is an
- * explicit `pnpm run vet:openapi … --allow-breaking` a human runs and argues.
+ * The approval flag is never passed here, and neither is any record but the
+ * committed one: an intentional breaking change is approved by adding a dated
+ * entry to `src/approved-breaking-changes.ts` for the document it lands in —
+ * the record the vet CLI reads — or, for a one-off human investigation, by
+ * running `pnpm run vet:openapi … --allow-breaking` by hand.
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
@@ -64,7 +67,7 @@ function writeBaseline(directory: string, base: string, document: string): strin
 
 function vetDocument(baseline: string, document: string): boolean {
   const candidate = join(PACKAGE_ROOT, document);
-  const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate];
+  const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate, "--document", document];
   return spawnSync(process.execPath, args, { cwd: PACKAGE_ROOT, stdio: "inherit" }).status === 0;
 }
 

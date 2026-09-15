@@ -1,8 +1,8 @@
 """Unit tests for GetServiceMetadata (CONTRACT-1 #938).
 
-Covers the pure mapper over the generated boundary models: every
-ServiceMetadata field, the runtime-adapter class-name derivation, the
-Literal["ok"] status enforcement, and the RootMetadata endpoints.
+Covers the pure mapper over the generated boundary model: every
+ServiceMetadata field, the runtime-adapter class-name derivation, and the
+Literal["ok"] status enforcement.
 """
 
 from __future__ import annotations
@@ -79,14 +79,3 @@ def test_service_metadata_rejects_non_ok_status() -> None:
             db_adapter="SimpleNamespace",
             session_store="InMemorySessionStore",
         )
-
-
-def test_root_metadata_maps_service_banner() -> None:
-    metadata = GetServiceMetadata().root_metadata(_settings())
-
-    assert metadata.service == "animichi-runtime"
-    assert metadata.status == "ok"
-    assert metadata.app_env == "test-env"
-    assert metadata.endpoints.healthz == "/healthz"
-    assert metadata.endpoints.runtime == "/v1/runtime"
-    assert metadata.endpoints.feedback == "/v1/feedback"

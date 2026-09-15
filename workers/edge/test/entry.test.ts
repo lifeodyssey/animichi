@@ -4,18 +4,16 @@ import { createWorkerApp } from "../src/app.ts";
 import { catalogOutbound } from "../src/gateway/forward.ts";
 import { envWithCatalog, stubCtx } from "../src/container/entry-env.ts";
 
-void test("GET /healthz reaches the container, not OpenNext", async () => {
+// #1596: the readiness probe is the edge's own answer. Its Env carries NO
+// CONTAINER binding on purpose — the smoke (`staging-smoke-check.sh`) probes
+// this origin, so a deploy whose container application never starts must still
+// report a healthy gateway. Restoring the container forward makes this throw
+// on the missing binding, so the test goes red.
+void test("GET /healthz is answered by the edge with no CONTAINER binding", async () => {
   const app = createWorkerApp({});
-  let wasContainerHit = false;
-  const env = {
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({ fetch: () => { wasContainerHit = true; return Promise.resolve(new Response("ok")); } }),
-    },
-  };
-  const res = await app.request("/healthz", {}, env, stubCtx);
-  assert.equal(wasContainerHit, true);
-  assert.equal(await res.text(), "ok");
+  const res = await app.request("/healthz", {}, {}, stubCtx);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { status: "ok" });
 });
 
 // The old name for this said "/catalog/* is NOT publicly routed", which was

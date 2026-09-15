@@ -1,4 +1,4 @@
-"""Health and root endpoint routes."""
+"""Health endpoint route."""
 
 from __future__ import annotations
 
@@ -66,12 +66,6 @@ _GIT_COMMIT = _git_info(
 _GIT_BRANCH = _git_info(
     _BUILT_GIT_BRANCH, "GIT_BRANCH", ["git", "branch", "--show-current"]
 )
-
-
-@router.get("/")
-async def handle_root(request: Request) -> JSONResponse:
-    settings = _get_settings_from_request(request)
-    return _json_response(_service_metadata.root_metadata(settings).model_dump())
 
 
 @router.get("/healthz")

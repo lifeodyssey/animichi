@@ -1,10 +1,18 @@
-"""Unit tests for the BYOK credential-stripping middleware (X3, Task 2).
+"""The BYOK credential-stripping middleware's registration order (X3, Task 2).
 
 Spec: docs/specs/2026-07-28-284-byok-design.md — Task 2.
+
+The middleware always redacts what a *nested* endpoint sees, wherever stripping
+sits in the stack; ordering only matters for an outer, header-inspecting layer,
+which observes whatever layer is registered last. These cases drive that
+behaviourally (AC-8) instead of pinning an index — including the production call
+order inside ``create_fastapi_app`` itself, which the synthetic stand-ins cannot
+detect. Header-level handling is pinned in ``test_byok_redaction_headers.py``.
 """
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,75 +26,9 @@ import animichi.interfaces.fastapi_service as fastapi_service_module
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._middleware import (
-    SENSITIVE_HEADERS,
-    _split_sensitive_headers,
     get_raw_sensitive_header,
     register_credential_stripping_middleware,
 )
-
-FAKE_KEY = b"sk-test-0000000000000000000000000000"
-
-# ── AC-3: null/empty header handling (unit) ─────────────────────────────────
-
-
-class TestAC3NullAndEmptyHeaders:
-    def test_no_byok_headers_leaves_headers_unchanged(self) -> None:
-        headers = [(b"host", b"example.com"), (b"accept", b"*/*")]
-
-        raw_values, scrubbed = _split_sensitive_headers(headers)
-
-        assert raw_values == {}
-        assert scrubbed == headers
-
-    def test_empty_sensitive_header_value_is_not_redacted_or_stashed(self) -> None:
-        headers = [(b"x-byok-key", b""), (b"host", b"example.com")]
-
-        raw_values, scrubbed = _split_sensitive_headers(headers)
-
-        assert raw_values == {}
-        assert scrubbed == headers
-        assert b"[redacted]" not in [value for _, value in scrubbed]
-
-    def test_present_sensitive_header_is_redacted_and_stashed(self) -> None:
-        headers = [(b"x-byok-key", FAKE_KEY)]
-
-        raw_values, scrubbed = _split_sensitive_headers(headers)
-
-        assert raw_values == {b"x-byok-key": FAKE_KEY}
-        assert scrubbed == [(b"x-byok-key", b"[redacted]")]
-
-    def test_header_name_set_is_unchanged_by_redaction(self) -> None:
-        headers = [(b"x-byok-key", FAKE_KEY), (b"host", b"example.com")]
-
-        _, scrubbed = _split_sensitive_headers(headers)
-
-        assert [name for name, _ in scrubbed] == [name for name, _ in headers]
-
-    def test_sensitive_headers_set_covers_byok_and_auth(self) -> None:
-        assert SENSITIVE_HEADERS == frozenset(
-            {"x-byok-key", "x-byok-base-url", "authorization", "cf-turnstile-response"}
-        )
-
-    def test_authorization_header_is_redacted_not_dropped(self) -> None:
-        """Regression pin (#441's expired/invalid-JWT guard runs at the edge
-        worker, not this container, but a future change here that *drops*
-        Authorization instead of redacting it would silently change what any
-        container-side consumer of this header set observes)."""
-        headers = [(b"authorization", b"Bearer eyJ.fake.jwt")]
-
-        raw_values, scrubbed = _split_sensitive_headers(headers)
-
-        assert scrubbed == [(b"authorization", b"[redacted]")]
-        assert raw_values == {b"authorization": b"Bearer eyJ.fake.jwt"}
-
-
-# ── AC-8: registration order is enforced behaviourally, not by index ───────
-#
-# The endpoint always sees redacted headers regardless of relative order (the
-# scope mutation happens before `call_next` is awaited, wherever stripping
-# sits). The ordering rule only matters for an *outer* layer — one that
-# inspects headers before delegating downstream, as `observability_middleware`
-# could in the future. `_build_outer_probe_app` stands in for that position.
 
 
 def _build_outer_probe_app(
@@ -170,8 +112,6 @@ def test_get_raw_sensitive_header_reads_only_the_stashed_value() -> None:
         async with AsyncClient(transport=transport, base_url="https://test") as client:
             await client.get("/probe", headers={"X-BYOK-Key": "SECRET-VALUE"})
 
-    import asyncio
-
     asyncio.run(_run())
 
     assert captured["raw"] == b"SECRET-VALUE"
@@ -217,6 +157,6 @@ async def test_real_app_registration_order_redacts_before_observability_slot(
 
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="https://test") as client:
-        await client.get("/", headers={"X-BYOK-Key": "SECRET-VALUE"})
+        await client.get("/healthz", headers={"X-BYOK-Key": "SECRET-VALUE"})
 
     assert seen == ["[redacted]"]

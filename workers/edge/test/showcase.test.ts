@@ -122,12 +122,12 @@ void test("AC: showcase=true — every other functional route is 403 and touches
 // ── showcase=true: the landing's own surface stays reachable ────────────────
 
 // test-type: unit
-void test("AC: showcase=true — /healthz still reaches the container", async () => {
+void test("AC: showcase=true — /healthz is still answered by the edge, touching no binding", async () => {
   const touched = { count: 0 };
   const app = createWorkerApp({});
   const res = await app.request("/healthz", {}, functionalEnv(touched), stubCtx);
-  assert.equal(await res.text(), "container");
-  assert.equal(touched.count, 1);
+  assert.deepEqual(await res.json(), { status: "ok" });
+  assert.equal(touched.count, 0, "the readiness probe must not start a container, in showcase mode or any other");
 });
 
 // test-type: unit
@@ -185,7 +185,7 @@ void test("AC: a missing EDGE_SHOWCASE_MODE denies functional routes but keeps /
   assert.equal(res.status, 403, "an unset variable must never silently open the backend");
   assert.equal(touched.count, 0);
   const health = await app.request("/healthz", {}, env, stubCtx);
-  assert.equal(await health.text(), "container");
+  assert.deepEqual(await health.json(), { status: "ok" });
 });
 
 // test-type: unit

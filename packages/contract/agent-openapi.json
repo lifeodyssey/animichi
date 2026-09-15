@@ -5,19 +5,9 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/": {
-      "get": {
-        "summary": "service banner",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
     "/healthz": {
       "get": {
-        "summary": "health and service metadata",
+        "summary": "gateway readiness",
         "responses": {
           "200": {
             "description": "Successful response"

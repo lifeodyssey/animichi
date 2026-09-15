@@ -73,13 +73,13 @@ After the workspace link lands, switch to `@animichi/contract/models`.
 
 ## OpenAPI compatibility gate (`/v1`)
 
-`scripts/vet-openapi.ts` (`pnpm run vet:openapi <baseline.json> <candidate.json>`,
-issue #1005 AC4/AC5) classifies a published-baseline → candidate OpenAPI change
-across endpoints, schemas (including request/response schema presence),
-requiredness (properties and the request-body `required` flag), enum members,
-and error responses. Breaking changes exit 1, additive changes exit 0, and a
-future major path (`/v2/…`) is rejected unless its superseded `/v1` operation
-carries `deprecated: true` + `x-sunset`.
+`scripts/vet-openapi.ts` (`pnpm run vet:openapi <baseline.json> <candidate.json>
+--document <name>`, issue #1005 AC4/AC5) classifies a published-baseline → candidate
+OpenAPI change across endpoints, schemas (including request/response schema
+presence), requiredness (properties and the request-body `required` flag), enum
+members, and error responses. Breaking changes exit 1, additive changes exit 0,
+and a future major path (`/v2/…`) is rejected unless its superseded `/v1`
+operation carries `deprecated: true` + `x-sunset`.
 
 The affected contract lane in `pr-verification.yml` runs the gate for every
 published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
@@ -92,13 +92,29 @@ published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
   lands, merge-base is the post-cut contract and the fallback cannot trigger.
 - **Candidate** = the regenerated document (byte-stable emission; drift fails
   first).
-- The **normal gate never passes `--allow-breaking`**. Unapproved breaking
-  `/v1` changes fail closed; additive changes pass. An approved breaking
-  change (for example the pre-go-live phantom hard cut) is reviewed and
-  approved explicitly — it is never wired into the normal PR path silently.
+- **Approval** = `src/approved-breaking-changes.ts`, the committed record, and the
+  only approval the gate reads. An entry names one intentional breaking change
+  exactly — document, method, path, kind — with the issue that argued it and the
+  date it was approved, and it applies only to the document the run names. A near
+  miss approves nothing, and no entry can approve a category. An entry is valid
+  while its removal is realised in the document being vetted — an
+  `endpoint-removed` path answers no method, a `method-removed` method+path is
+  absent — so a landed approval stays valid once its change has left the diff
+  and needs no cleanup commit, while an entry whose operation
+  is still advertised fails the run: an approval cannot precede the removal it
+  names.
+  Only operation removals are recordable, because they are the breaking kinds
+  whose realised state the document itself can confirm
+  (`test/approved-breaking-changes.test.ts` holds the entry hygiene).
+- The **normal gate never passes `--allow-breaking`**. Unapproved breaking `/v1`
+  changes fail closed; additive changes pass. That flag is the manual human
+  override — it waives every breaking change in one run, never reads the record,
+  and is never wired into the normal PR path silently.
 
 The wiring is pinned by `test/vet-gate.test.ts` (workflow invariant + CLI
-behavior) and the classifier by `test/openapi-diff-endpoints.test.ts`,
+behavior), the record by `test/openapi-approvals.test.ts`,
+`test/approved-breaking-changes.test.ts` and `test/vet-record-cli.test.ts`, and
+the classifier by `test/openapi-diff-endpoints.test.ts`,
 `test/openapi-diff-schemas.test.ts`, `test/openapi-diff-errors.test.ts`,
 and `test/openapi-gate.test.ts`, so the enforcement cannot silently
 disappear.

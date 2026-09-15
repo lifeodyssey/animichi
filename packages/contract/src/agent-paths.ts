@@ -35,8 +35,7 @@ export interface AgentPath {
 }
 
 export const AGENT_PATHS: AgentPath[] = [
-  { method: "GET", path: "/", summary: "service banner" },
-  { method: "GET", path: "/healthz", summary: "health and service metadata" },
+  { method: "GET", path: "/healthz", summary: "gateway readiness" },
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
   { method: "POST", path: "/v1/feedback", summary: "submit feedback" },

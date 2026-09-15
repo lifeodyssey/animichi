@@ -18,6 +18,7 @@ export * from "./session-history-contract.js";
 export * from "./agent-paths.js";
 export * from "./operation-set.js";
 export * from "./openapi-changes.js";
+export * from "./openapi-approvals.js";
 export * from "./openapi-schema-diff.js";
 export * from "./openapi-diff.js";
 export * from "./openapi-vet.js";

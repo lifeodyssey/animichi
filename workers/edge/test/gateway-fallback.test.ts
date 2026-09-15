@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 import { createWorkerApp } from "../src/app.ts";
+import { envWithContainer } from "../src/container/entry-env.ts";
 
 // Issue #537: the edge Worker no longer bundles the legacy Next.js app, so
 // there is no HTML renderer left to fall back to. An unmatched path is now a
@@ -44,6 +45,20 @@ void test("a non-allowlisted /catalog/public path answers the same 404 envelope"
     error: { code: "not_found", message: "No route matches this request." },
   });
   assert.equal(wasCatalogHit, false);
+});
+
+// #1596: the container's JSON service banner at `/` is retired with its
+// container landing forward, so the root is an unmatched path like any other —
+// 404 in the shared envelope, never a wake-up call to the container.
+void test("the retired root is a hard 404, not a container banner", async () => {
+  const captured: { req?: Request } = {};
+  const app = createWorkerApp({});
+  const res = await app.request("/", {}, envWithContainer(captured), stubCtx);
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    error: { code: "not_found", message: "No route matches this request." },
+  });
+  assert.equal(captured.req, undefined, "/ must never wake the container");
 });
 
 void test("the deleted /v1/session/migrate path is a hard 404, never forwarded (SESSION-2 #960)", async () => {

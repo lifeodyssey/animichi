@@ -7,7 +7,7 @@
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run test:node && pnpm run test:chat-answer-part && pnpm run test:bundle-smoke && pnpm run test:ratelimit-namespace",
-    "test:node": "node --import tsx --test \"test/*.test.ts\"",
+    "test:node": "node --experimental-test-module-mocks --import tsx --test \"test/*.test.ts\"",
     "test:chat-answer-part": "pnpm --filter @animichi/contract exec vitest run test/chat-answer-part.test.ts",
     "test:bundle-smoke": "node --test \"bundle-smoke/*.test.ts\"",
     "test:ratelimit-namespace": "bash scripts/check-edge-ratelimit-namespace.test.sh && bash scripts/check-edge-ratelimit-namespace.sh",
