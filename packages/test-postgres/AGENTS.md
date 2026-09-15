@@ -14,29 +14,61 @@ here.
 
 - `pnpm run test` — `node --test` over `test/*.test.ts` (Node's native TS type stripping; no bundler,
   no Docker, no clock).
+- `pnpm run test:integration` — `node --test` over `test/integration/*.test.ts`: the shared
+  container's own contracts. This one needs Docker and the local image.
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
-- Pre-push runs all three when a changed file lands in this package
+- Pre-push runs all four when a changed file lands in this package
   (`scripts/local-gates/pre-push-affected.sh`), which is also how CI's affected matrix runs them.
 
-There is no Docker suite here. The arms that boot the container prove it in their own gates:
+`test` stays Docker-free on purpose (the #1473 rule): the container contracts live in
+`test:integration`, alongside the arms that boot it in their own gates —
 `pnpm --filter catalog run test:spike` and `pnpm --filter edge-worker run test:agent-db`.
 
 ## The API
 
 | Export | Is |
 |---|---|
-| `startTestPostgres({ database, budget })` | the whole recipe: boot → wait → clean database → Atlas chain → `{ dsn, stop }` |
+| `startTestPostgres({ database, budget })` | the whole recipe: reuse or boot → wait → clean database → Atlas chain → `{ dsn, stop }` |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
 | `SetupDeadline` | what is LEFT of that allowance, and what a phase may spend of it (#1318) |
 | `OFFLINE_POSTGRES_IMAGE` | the image tag, read from `postgres-image.env` |
 | `PostgresStartupWait` · `StartupWaitLimits` · `isStartingUp` · `Pause` | the bounded first-session probe (#1324) |
-| `createCleanDatabase` · `applyAtlasChain` | the two steps, for an arm that needs them apart |
+| `createCleanDatabase` · `dropCleanDatabase` · `applyAtlasChain` | the three steps, for an arm that needs them apart |
+| `uniqueDatabaseName` | the per-call database name, for an arm that creates databases of its own |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | the container's credentials, for building a second DSN |
 
 `src/setup-budget.ts`, `src/setup-deadline.ts`, `src/postgres-image.ts` and
 `src/postgres-startup-wait.ts` are also reachable as subpath exports, so a consumer that only wants
 a number does not load `testcontainers` to get it.
+
+## One shared container, one database per call (#1663)
+
+`.withReuse()` keys the container on the image and the create options, so every arm in every
+worktree on this host shares ONE server for the pinned image: the emulated initdb (~62 s on arm64)
+is paid once instead of once per arm, and a killed run leaves a container the next run picks up
+rather than an orphan.
+
+The isolation unit is therefore the **database**, not the container. Every `startTestPostgres` call
+creates a uniquely named database — `uniqueDatabaseName(suite)`: the suite name plus 12 hex
+characters, inside PostgreSQL's 63-byte identifier ceiling — from pristine `template1`, waits for
+it, and applies the chain, exactly as before. The `stop()` it hands back drops THAT database with
+`DROP DATABASE ... WITH (FORCE)` and leaves the server running; a failure after the database exists
+drops it too. A consumer that creates databases of its own (`workers/migrator`, `pi-session-neon`)
+names them with `uniqueDatabaseName` and drops them with `dropCleanDatabase`.
+
+Reuse is on unless `TESTCONTAINERS_REUSE_ENABLE=false`. Testcontainers' creation lock is in-process
+only (`async-lock`), so two processes booting at the same moment may each create a container: the
+loser's is left for a later run to meet. Pre-push runs packages serially, so no duplicate is
+measured on this host — add a cross-process lock only if one appears.
+
+**Removing the shared container.** A new image tag, or a testcontainers upgrade, changes the hash
+in the container's `org.testcontainers.container-hash` label: the old container is left behind.
+
+```bash
+docker ps -a --filter label=org.testcontainers.container-hash --format '{{.ID}}\t{{.Image}}\t{{.Status}}'
+docker rm -f $(docker ps -aq --filter label=org.testcontainers.container-hash)
+```
 
 ## One deadline, two ceilings (`src/setup-budget.ts`, `src/setup-deadline.ts`)
 
@@ -50,7 +82,7 @@ offered `remainingMs()`, and each wait converts what survives into attempts.
 
 | | catalog spike | edge agent-db |
 |---|---|---|
-| containers | one, for the whole suite | one **per file**, run serially |
+| containers | one shared per host | one shared per host |
 | `deadlineMs` | 240 s | 240 s |
 | `firstSession` | 30 × 1 s | 60 × 1 s (may queue behind another boot) |
 | `chainMarginMs` | 60 s | 60 s |
@@ -101,8 +133,9 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
 - **Atlas is never applied to the image's own database.** The postgis image pre-initialises it with
   the tiger/topology schemas, which the chain's clean-check refuses. Every arm gets a database
   created from pristine `template1` — the same rule as `apps/agent`'s `conftest_db.py`.
-- **`startTestPostgres` stops the container on any failure after `.start()`**, so a red gate run
-  leaves nothing behind. Do not add a code path that returns a plane without that guarantee.
+- **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
+  drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
+  returns a plane without that guarantee.
 - **Never bundled.** `test/never-bundled.test.ts` scans both consumers' `src/` trees for all four
   module-load shapes. A `bundle-smoke`-style gate would prove nothing — the package is never in a
   bundle to smoke.

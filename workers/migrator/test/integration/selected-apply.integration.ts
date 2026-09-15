@@ -12,7 +12,7 @@ let captures: SqlCapture[];
 
 beforeAll(async () => { plane = await startTestPostgres({ database: "selected_apply", budget: SPIKE_SETUP_BUDGET }); }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 beforeEach(async () => { database = await selectedDatabase(plane.dsn); captures = []; });
-afterEach(async () => { await runtime?.dispose(); await database.client.end(); });
+afterEach(async () => { await runtime?.dispose(); await database.stop(); });
 afterAll(async () => { await plane.stop(); });
 
 async function worker() {

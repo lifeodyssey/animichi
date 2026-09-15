@@ -17,7 +17,8 @@
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "test:integration": "node --test \"test/integration/*.test.ts\""
   },
   "dependencies": {
     "pg": "^8.22.0",

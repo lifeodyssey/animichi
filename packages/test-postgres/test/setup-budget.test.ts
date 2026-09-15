@@ -2,9 +2,10 @@
  * The two arms' budgets, and the proof that each still spends its own.
  *
  * #1326 merged two data-plane fixtures onto one recipe. The numbers were NOT
- * merged with them — the catalog spike keeps 30 x 1 s because it boots one
- * container for the whole suite, the edge agent-db lane keeps 60 x 1 s because
- * it boots one per file. Pinning the values here is only half of it: the other
+ * merged with them — the catalog spike keeps 30 x 1 s (#1324), the edge
+ * agent-db lane keeps 60 x 1 s (#1318) because its first session can queue
+ * behind the shared container's creation, by another lane or another worktree.
+ * Pinning the values here is only half of it: the other
  * half is that the deadline is derived, never re-written — #1318's arm file
  * used to do the deriving, and since the native rewrite (#1582) retired that
  * arm, `startTestPostgres` derives from whatever budget the caller hands it.

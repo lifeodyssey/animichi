@@ -11,6 +11,8 @@ class PrVerificationAffectedTest < Minitest::Test
     ["catalog", "ariga/setup-atlas"],
     ["migrator", "ariga/setup-atlas"],
     ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
+    ["@animichi/test-postgres", "ariga/setup-atlas"],
+    ["@animichi/test-postgres", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/agent", "ariga/setup-atlas"],
     ["@animichi/agent", "docker build -f packages/test-postgres/Dockerfile"],
     ["edge-worker", "ariga/setup-atlas"],

@@ -3,9 +3,10 @@ import { promisify } from "node:util";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pg from "pg";
-import { createCleanDatabase, startTestPostgres, SPIKE_SETUP_BUDGET } from "@animichi/test-postgres";
+import { startTestPostgres, SPIKE_SETUP_BUDGET, type TestPostgres } from "@animichi/test-postgres";
 import { expect, vi } from "vitest";
 import type { RevisionFixture } from "../preflight-fixtures";
+import { openOwnedDatabase, useOwnedDatabase, type OwnedDatabase } from "./owned-database";
 
 const FIXTURE_DIR = new URL("../fixtures/preflight-chain/", import.meta.url);
 const SCHEMA_SQL = `SELECT n.nspname, c.relname, c.relkind, a.attname,
@@ -22,33 +23,45 @@ async function applyFixture(dsn: string, extra: string[] = []): Promise<void> {
     "--url", dsn, "--revisions-schema", "public", ...extra], { env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" } });
 }
 
+/** A second database from pristine template1, for the `--baseline` refusal:
+ * named per call and dropped by its owner, because the server is shared (#1663). */
 export async function nativeBaselineDatabase(baseDsn: string) {
-  const dsn = await createCleanDatabase(baseDsn, "preflight_native_baseline");
-  const client = new pg.Client(dsn);
-  await client.connect();
-  try {
-    await client.query("CREATE TABLE public.preflight_example (id integer PRIMARY KEY)");
-    await applyFixture(dsn, ["--baseline", "20260101000000"]);
-    return { dsn, client };
-  } catch (error) {
-    await client.end();
-    throw error;
-  }
+  const owned = await openOwnedDatabase(baseDsn, "preflight_native_baseline");
+  return useOwnedDatabase(owned, () => applyBaselineFixture(owned));
 }
 
-export async function startPreflightDatabase() {
+/** The example table, and the `--baseline` apply the driver has to refuse. */
+async function applyBaselineFixture(owned: OwnedDatabase): Promise<OwnedDatabase> {
+  await owned.client.query("CREATE TABLE public.preflight_example (id integer PRIMARY KEY)");
+  await applyFixture(owned.dsn, ["--baseline", "20260101000000"]);
+  return owned;
+}
+
+/** Boot the shared plane, open this file's database on it, write the revisions
+ * snapshot the measured interval reads, and hand back one handle for both. */
+export async function startPreflightDatabase(): Promise<OwnedDatabase> {
   const plane = await startTestPostgres({ database: "preflight_chain_validation", budget: SPIKE_SETUP_BUDGET });
-  try {
-    const dsn = await createCleanDatabase(plane.dsn, "preflight_fixture");
-    await applyFixture(dsn);
-    const client = new pg.Client(dsn);
-    await client.connect();
-    await client.query("CREATE TABLE public.saved_revisions AS TABLE public.atlas_schema_revisions");
-    return { dsn, client, stop: async () => { await client.end(); await plane.stop(); } };
-  } catch (error) {
-    await plane.stop();
-    throw error;
-  }
+  const owned = await useOwnedDatabase(plane, () => openPreflightFixture(plane.dsn));
+  return { dsn: owned.dsn, client: owned.client, stop: () => giveBack(plane, owned) };
+}
+
+/** The fixture database on `baseDsn`, owned before anything can fail on it. */
+async function openPreflightFixture(baseDsn: string): Promise<OwnedDatabase> {
+  const owned = await openOwnedDatabase(baseDsn, "preflight_fixture");
+  return useOwnedDatabase(owned, () => writePreflightFixture(owned));
+}
+
+/** The committed chain, then the snapshot the measured interval reads. */
+async function writePreflightFixture(owned: OwnedDatabase): Promise<OwnedDatabase> {
+  await applyFixture(owned.dsn);
+  await owned.client.query("CREATE TABLE public.saved_revisions AS TABLE public.atlas_schema_revisions");
+  return owned;
+}
+
+/** Give back the fixture database, then the plane it was created on. */
+async function giveBack(plane: TestPostgres, owned: OwnedDatabase): Promise<void> {
+  await owned.stop();
+  await plane.stop();
 }
 
 /** Fixture setup writes occur before the measured preflight interval. */

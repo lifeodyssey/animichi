@@ -7,9 +7,9 @@ No object has two migration owners; preserve all applied Atlas SQL byte for byte
 
 - `pnpm run lint` — type-aware oxlint, warnings denied.
 - `pnpm run typecheck` — TypeScript 7.
-- `pnpm run test:integration` — Node's test runner, one disposable test-postgres container.
-  `--test-isolation=none` shares the imported setup and serial tests; each test resets that
-  disposable database. Never point these tests at a live Neon database.
+- `pnpm run test:integration` — Node's test runner, one reused test-postgres container and a
+  disposable database of its own. `--test-isolation=none` shares the imported setup and serial
+  tests; each test resets that database. Never point these tests at a live Neon database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 
 The owner approved two declaration-style exceptions on 2026-09-10: generated

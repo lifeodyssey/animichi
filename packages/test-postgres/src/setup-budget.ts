@@ -14,10 +14,10 @@
  * whole setup must allow.
  *
  * The two arms differ in exactly one number, and deliberately:
- * `workers/catalog`'s spike suite boots ONE container for the whole suite and
- * probes 30 × 1 s (#1324); `workers/edge`'s agent-db lane boots one PER FILE,
- * serially, so its first session can queue behind another boot and it keeps
- * 60 × 1 s (#1318). Do not harmonise them.
+ * `workers/catalog`'s spike suite probes 30 × 1 s (#1324); `workers/edge`'s
+ * agent-db lane keeps 60 × 1 s (#1318) because its first session can queue
+ * behind the shared container's creation, by another lane or another worktree.
+ * Do not harmonise them.
  */
 import type { StartupWaitLimits } from "./postgres-startup-wait.ts";
 
@@ -39,14 +39,15 @@ const DEADLINE_MS = 240_000;
 const CHAIN_MARGIN_MS = 60_000;
 const ATTEMPT_INTERVAL_MS = 1_000;
 
-/** The catalog spike suite's budget: one container for every spike file. */
+/** The catalog spike suite's budget: one database for the whole suite. */
 export const SPIKE_SETUP_BUDGET: SetupBudget = {
   deadlineMs: DEADLINE_MS,
   firstSession: { attemptCeiling: 30, pauseMs: ATTEMPT_INTERVAL_MS },
   chainMarginMs: CHAIN_MARGIN_MS,
 };
 
-/** The edge agent-db lane's budget: one container per lane fixture. */
+/** The edge agent-db lane's budget: one database per lane fixture, on the
+ * shared container — and its first one may wait for that container to exist. */
 export const AGENT_DB_SETUP_BUDGET: SetupBudget = {
   deadlineMs: DEADLINE_MS,
   firstSession: { attemptCeiling: 60, pauseMs: ATTEMPT_INTERVAL_MS },
