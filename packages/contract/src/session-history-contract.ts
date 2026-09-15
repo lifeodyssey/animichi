@@ -9,7 +9,7 @@
  * (`apps/agent/.../get_session_history.py` and
  * `workers/edge/src/agent/retrieval/`), and every consumer of these five
  * schemas wants exactly this route. `agent-contract.ts` keeps the shapes that
- * have no such home — health, the turn request, photo search, feedback.
+ * have no such home — health, the turn request, photo search.
  *
  * Emitted like every other boundary model: `scripts/emit-agent-python.ts`
  * reads these declarations, `test/agent-boundary.test.ts` fails on drift, and

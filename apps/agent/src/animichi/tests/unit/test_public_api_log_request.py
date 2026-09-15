@@ -26,8 +26,8 @@ def _db() -> MagicMock:
     db.usage.accumulate_usage_on = AsyncMock(return_value=None)
     db.anon_quota = MagicMock()
     db.anon_quota.increment_and_count_on = AsyncMock(return_value=1)
-    db.feedback = MagicMock()
-    db.feedback.insert_request_log_on = AsyncMock(return_value=None)
+    db.request_log = MagicMock()
+    db.request_log.insert_request_log_on = AsyncMock(return_value=None)
     db.session = AsyncMock()
     return db
 
@@ -53,7 +53,7 @@ def _applier(db: MagicMock) -> SettlementApplier:
         SettlementInputs(
             usage_repo=db.usage,
             anon_quota_repo=db.anon_quota,
-            request_audit_repo=db.feedback,
+            request_audit_repo=db.request_log,
             messages_repo=db.session,
             prices=UsagePrices(0.0, 0.0),
         )
@@ -73,7 +73,7 @@ async def test_audit_warns_when_persist_user_message_fails() -> None:
 
 async def test_audit_warns_when_audit_insert_fails() -> None:
     db = _db()
-    db.feedback.insert_request_log_on = AsyncMock(
+    db.request_log.insert_request_log_on = AsyncMock(
         side_effect=RuntimeError("audit down")
     )
     with testing.capture_logs() as captured:
@@ -91,7 +91,7 @@ async def test_dispatcher_applies_row_payload_and_marks_success() -> None:
         SettlementInputs(
             usage_repo=db.usage,
             anon_quota_repo=db.anon_quota,
-            request_audit_repo=db.feedback,
+            request_audit_repo=db.request_log,
             messages_repo=db.session,
             prices=UsagePrices(0.0, 0.0),
         )
@@ -105,7 +105,7 @@ async def test_dispatcher_applies_row_payload_and_marks_success() -> None:
         payload=payload.to_json(),
     )
     assert await dispatcher.apply_session(object(), row) is True
-    db.feedback.insert_request_log_on.assert_awaited_once()
+    db.request_log.insert_request_log_on.assert_awaited_once()
 
 
 async def test_dispatcher_rejects_a_malformed_payload() -> None:
@@ -117,7 +117,7 @@ async def test_dispatcher_rejects_a_malformed_payload() -> None:
         SettlementInputs(
             usage_repo=db.usage,
             anon_quota_repo=db.anon_quota,
-            request_audit_repo=db.feedback,
+            request_audit_repo=db.request_log,
             messages_repo=db.session,
             prices=UsagePrices(0.0, 0.0),
         )
@@ -141,7 +141,7 @@ async def test_dispatcher_applies_only_the_row_kind_effect() -> None:
         SettlementInputs(
             usage_repo=db.usage,
             anon_quota_repo=db.anon_quota,
-            request_audit_repo=db.feedback,
+            request_audit_repo=db.request_log,
             messages_repo=db.session,
             prices=UsagePrices(0.0, 0.0),
         )
@@ -173,7 +173,7 @@ async def test_dispatcher_applies_only_the_row_kind_effect() -> None:
     )
     assert await dispatcher.apply_session(object(), quota_row) is True
     db.anon_quota.increment_and_count_on.assert_awaited_once()
-    db.feedback.insert_request_log_on.assert_not_awaited()
+    db.request_log.insert_request_log_on.assert_not_awaited()
 
     usage_row = OutboxRow(
         id="r-u", session_id="s1", turn_key="turn-4", kind="usage", payload=dict(base)

@@ -3,9 +3,8 @@
 List, messages and rename share one identity rule — a missing ``X-User-Id`` is a
 400, another user's session is a 404 — so their shape assertions live together;
 the seeding and cleanup they need comes from ``_api_contract_client.py``. The
-feedback and health endpoints are pinned in ``test_api_contract_feedback.py``
-and ``test_api_contract_health.py``, and the shared error envelope in
-``test_api_contract_error_shape.py``.
+health endpoint is pinned in ``test_api_contract_health.py``, and the shared
+error envelope in ``test_api_contract_error_shape.py``.
 """
 
 from __future__ import annotations

@@ -24,8 +24,8 @@ from animichi.application.outbox_port import OutboxRow
 from animichi.infrastructure.persistence.repositories.anon_quota import (
     SQLModelAnonQuotaRepository,
 )
-from animichi.infrastructure.persistence.repositories.feedback import (
-    SQLModelFeedbackRepository,
+from animichi.infrastructure.persistence.repositories.request_log import (
+    SQLModelRequestLogRepository,
 )
 from animichi.infrastructure.persistence.repositories.session import (
     SQLModelSessionRepository,
@@ -50,7 +50,7 @@ class SettlementInputs:
         *,
         usage_repo: SQLModelUsageRepository | None,
         anon_quota_repo: SQLModelAnonQuotaRepository | None,
-        request_audit_repo: SQLModelFeedbackRepository | None,
+        request_audit_repo: SQLModelRequestLogRepository | None,
         messages_repo: SQLModelSessionRepository | None,
         prices: UsagePrices,
         today: date | None = None,

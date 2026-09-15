@@ -57,10 +57,10 @@ class TestGreetingPersistence:
         db.session.create = AsyncMock()
         db.session.upsert_session = AsyncMock()
         db.session.insert_message = AsyncMock()
-        # #663: the real repo lives at `db.feedback`, not a flat
+        # #663: the real repo lives at `db.request_log`, not a flat
         # `db.insert_request_log` — that was the production bug. Settle enqueues
         # the audit row; the drain writes the request log (AC5).
-        db.feedback.insert_request_log_on = AsyncMock()
+        db.request_log.insert_request_log_on = AsyncMock()
         outbox = MemoryOutbox()
         db.outbox = outbox
 
@@ -82,7 +82,7 @@ class TestGreetingPersistence:
                 SettlementInputs(
                     usage_repo=db.usage,
                     anon_quota_repo=None,
-                    request_audit_repo=db.feedback,
+                    request_audit_repo=db.request_log,
                     messages_repo=db.session,
                     prices=UsagePrices(0.0, 0.0),
                 )
@@ -97,7 +97,7 @@ class TestGreetingPersistence:
         session_store.set.assert_awaited_once()
         db.session.upsert_session.assert_awaited_once()
         db.session.insert_message.assert_awaited()
-        db.feedback.insert_request_log_on.assert_awaited_once()
+        db.request_log.insert_request_log_on.assert_awaited_once()
 
 
 class TestRuntimeAPISession:
@@ -141,8 +141,8 @@ class TestSQLModelRepositoryInjection:
     def db_without_repos(self) -> MagicMock:
         db = MagicMock()
         db.session = None
-        db.feedback = MagicMock()
-        db.feedback.insert_request_log = AsyncMock()
+        db.request_log = MagicMock()
+        db.request_log.insert_request_log = AsyncMock()
         return db
 
     async def test_injected_session_repo_owns_persistence(

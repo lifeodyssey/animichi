@@ -117,16 +117,6 @@ class SessionListRow(TypedDict, total=False):
     updated_at: object
 
 
-class FeedbackBadRow(TypedDict, total=False):
-    """One unfavourable-feedback operator row (``fetch_bad_feedback``)."""
-
-    id: str
-    query_text: str
-    intent: object
-    comment: object
-    created_at: object
-
-
 class RequestLogUnscoredRow(TypedDict, total=False):
     """One awaiting-score request-log row (``fetch_request_log_unscored``)."""
 
@@ -174,7 +164,6 @@ __all__ = [
     "BangumiCandidateRow",
     "BangumiRow",
     "BangumiTitleRow",
-    "FeedbackBadRow",
     "NearbyPointRow",
     "PointRow",
     "RequestLogUnscoredRow",

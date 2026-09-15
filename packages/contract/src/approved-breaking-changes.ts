@@ -39,4 +39,12 @@ export const APPROVED_BREAKING_CHANGES: readonly ApprovedBreakingChange[] = [
     issue: "#1596",
     approved: "2026-09-15",
   },
+  {
+    document: "agent-openapi.json",
+    method: "POST",
+    path: "/v1/feedback",
+    kind: "endpoint-removed",
+    issue: "#1595",
+    approved: "2026-09-15",
+  },
 ];

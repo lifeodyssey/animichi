@@ -55,6 +55,16 @@ void test("the retired root matches no inventory and classifies as unmanaged", (
   assert.equal(classifyRatePolicy("GET", "/").limiter, "none", "a retired path must not be classified into a guarded cell");
 });
 
+// #1595: `/v1/feedback` was retired with the feature behind it, so it is out of
+// the inventory, unclassified by the rate table, and outside both identity
+// allowlists — the shape every retirement is pinned to.
+void test("retired /v1/feedback is absent, unmanaged and outside both allowlists", () => {
+  assert.equal(inventoryPaths.has("/v1/feedback"), false);
+  assert.equal(classifyRatePolicy("POST", "/v1/feedback").limiter, "none", "a retired path must not be classified into a guarded cell");
+  assert.equal(isPublicV1("/v1/feedback"), false);
+  assert.equal(isAnonymousV1("/v1/feedback"), false);
+});
+
 void test("the guide route pattern derives from the inventory's parameter template", () => {
   assert.equal(isPublicV1("/v1/bangumi/485/guide"), true);
   assert.equal(isPublicV1("/v1/bangumi/guide"), false, "the parameter segment is required");
@@ -66,7 +76,6 @@ void test("anonymous allowlist membership matches the inventory's paths", () => 
   assert.equal(isAnonymousV1("/v1/chat"), true);
   assert.equal(isAnonymousV1("/v1/photo-search"), true);
   assert.equal(isAnonymousV1("/v1/photo-search/confirm"), true);
-  assert.equal(isAnonymousV1("/v1/feedback"), false);
 });
 
 void test("the retired staging prefix route remains outside public allowlists", () => {

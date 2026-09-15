@@ -143,7 +143,7 @@ void test("a non-allowlisted /v1 path 401s without ever raising a challenge", as
   const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
   const res = await armedApp(captured, recordingGate(calls, SOLVED)).request(
-    "/v1/feedback", chat(), anonEnv(captured), stubCtx,
+    "/v1/byok/probe", chat(), anonEnv(captured), stubCtx,
   );
   assert.equal(res.status, 401);
   assert.equal(calls.length, 0);

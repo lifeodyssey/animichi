@@ -62,10 +62,6 @@ void test("photo-search and confirm are durable fail-closed high-cost/mutation c
   assert.equal(classify("POST", "/v1/photo-search/confirm").failure, "fail-closed");
 });
 
-void test("feedback is a mutation class: durable fail-closed, low cost", () => {
-  assert.deepEqual(classify("POST", "/v1/feedback"), { cost: "low", quota: "none", limiter: "durable", failure: "fail-closed" });
-});
-
 void test("authenticated reads stay unmanaged (GET conversation surfaces)", () => {
   for (const path of ["/v1/conversations", "/v1/conversations/abc/messages", "/v1/conversations/abc/routes", "/v1/bangumi/nearby"]) {
     assert.equal(classify("GET", path).limiter, "none");
