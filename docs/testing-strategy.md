@@ -178,7 +178,7 @@ protected-lineage check.
 Offline recipe (network-free after the immutable image and Atlas are cached):
 
 ```bash
-docker build -f apps/agent/docker/test-postgres/Dockerfile \
+docker build -f packages/test-postgres/Dockerfile \
   -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
 ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
 ```

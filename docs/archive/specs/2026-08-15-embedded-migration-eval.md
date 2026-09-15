@@ -1,6 +1,10 @@
 # Embedded Migrations on App Boot (Flyway-style Atlas) — Evaluation
 
-- Status: DESIGN EVALUATION — research only; no code change; decisions below are open choices for the owner
+- Status: Archived 2026-09-15 (#1649) — held as the historical record of the rejected app-boot option.
+  The open choices below were resolved by the chosen platform-side executor: the
+  [migration executor spec](../../specs/2026-08-16-migration-executor-spec.md) rejects Flyway-style
+  app-boot migration (option B) and supersedes this evaluation (#1039 → #1046). The research-only
+  body is unchanged.
 - Tracking: GitHub Issue #1039 "Flyway-style embedded migrations / app-boot Atlas — CI holds no DB credentials" (child of #1004)
 - Context: owner decision 2026-08-15 to move the schema-migrate point from "CI deploy job uses a migrator DSN" to "the agent container applies the chain at boot with its own runtime-scoped DSN"
 - Related security work: #831 (roles matrix), #855 (production least-privilege cutover), #1001 (#1004's staging cutover Phase D)

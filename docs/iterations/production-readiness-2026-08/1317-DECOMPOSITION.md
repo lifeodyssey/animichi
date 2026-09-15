@@ -156,13 +156,14 @@ Plus one path the inventory does not carry: `POST /v1/turnstile/verify`
 
 These are not surfaces, but each one turns the pipeline red if the card is executed literally.
 
-1. **`apps/agent/docker/test-postgres/Dockerfile` is shared infrastructure, not agent code.**
-   Built by five CI lanes and one local gate: `.github/workflows/pr-verification.yml:178` (the
+1. **`packages/test-postgres/Dockerfile` is shared infrastructure, not agent code.**
+   Built at four CI sites and one local gate: `.github/workflows/pr-verification.yml:178` (the
    affected matrix for `catalog`, `edge-worker`, `@animichi/agent`, `@animichi/test-postgres`,
-   `migrator`, `@animichi/pi-session-neon` — see `:177`), `:361`, `:429`, `:481`, and
+   `migrator`, `@animichi/pi-session-neon` and `@animichi/prisma-geography` — see `:177`),
+   `:370` (the `agent` job), `:438` (the `e2e` browser job), `:490` (the `db` schema job), and
    `scripts/local-gates/db-fresh-schema.sh:46`. The image tag contract lives in
    `packages/test-postgres/postgres-image.env:8`. The repo's own audit already carved it out:
-   `docs/specs/2026-09-05-repo-smell-audit.md:426` — "注意 `apps/agent/docker/test-postgres/Dockerfile` 不随 agent 删".
+   `docs/specs/2026-09-05-repo-smell-audit.md:426` — "注意 `packages/test-postgres/Dockerfile` 不随 agent 删".
 
 2. **`packages/eval` reads `apps/agent` at runtime, and that read is inside `pnpm test`.**
    `packages/eval/package.json:11` makes `test` = unit tests **and** `test:fixture-drift`;
@@ -217,7 +218,7 @@ These are not surfaces, but each one turns the pipeline red if the card is execu
 | "`make check` green with **no uv arm**" | See §3.5 — `make check` is 100% Python, and uv stays in CI for semgrep and sqlfluff. |
 | "Keep: `packages/eval` fixtures and oracles (frozen)" / "move the oracle fixtures' regeneration story to *frozen at W3-5*" | W3-5 never produced a Python baseline (row 1), so there is no "frozen at W3-5" state to point at. And freezing is not a docs change — see §3.2. |
 | AC1: "`rg -n 'apps/agent\|uv run\|RuntimeContainer\|\[\[containers\]\]' .` empty outside `docs/archive` + the spec" | Unachievable as written: `[[containers]]` is legitimately present in `workers/migrator/wrangler.toml` until #1589 lands, and `uv run` legitimately survives in `pr-verification.yml`'s semgrep/sqlfluff steps and `.pre-commit-config.yaml:127`. |
-| "Delete `apps/agent/` and everything **only it needed**" | The Dockerfile at `apps/agent/docker/test-postgres/` is needed by five other lanes (§3.1) — the card gives no carve-out, and the repo's own audit already wrote one (`docs/specs/2026-09-05-repo-smell-audit.md:426`). |
+| "Delete `apps/agent/` and everything **only it needed**" | The Dockerfile at `packages/test-postgres/Dockerfile` is needed by four CI sites and one local gate (§3.1) — the card gives no carve-out, and the repo's own audit already wrote one (`docs/specs/2026-09-05-repo-smell-audit.md:426`). |
 | Constraints: "**One PR**" | Not satisfiable. Eleven live surfaces, one of which (photo search) has no TS implementation and needs a schema migration. |
 
 ---
@@ -533,19 +534,19 @@ requirement) and `:13` (the `containers` reseal); `.github/lib/release/snapshot.
 ### Card K (#1602) — `ci(repo): move the test-postgres image out of the agent tree` (60 chars)
 
 **No predecessors.** **Epic:** #1259 · **Track:** repo · **Authority:**
-`docs/specs/2026-09-05-repo-smell-audit.md:426` — "注意 `apps/agent/docker/test-postgres/Dockerfile`
-不随 agent 删". Five CI lanes and one local gate build it.
+`docs/specs/2026-09-05-repo-smell-audit.md:426` — "注意 `packages/test-postgres/Dockerfile`
+不随 agent 删". Four CI sites and one local gate build it.
 
 **Outcome.** The test-Postgres image is built from `packages/test-postgres/`, whose package already
 owns the image tag, the readiness wait and the Atlas chain
 (`packages/test-postgres/package.json:5`, `postgres-image.env:8`). Nothing under `apps/agent`
 remains on any lane that is not a Python lane.
 
-**Scope.** Move `apps/agent/docker/test-postgres/` under `packages/test-postgres/`; update
-`.github/workflows/pr-verification.yml:178,361,429,481`, `scripts/local-gates/db-fresh-schema.sh:46`,
+**Scope.** Move the Dockerfile to `packages/test-postgres/`; update
+`.github/workflows/pr-verification.yml:178,370,438,490`, `scripts/local-gates/db-fresh-schema.sh:46`,
 `packages/test-postgres/postgres-image.env:8`, `packages/test-postgres/AGENTS.md:85`,
 `docs/ops/neon-test-infra.md:30`, `docs/testing-strategy.md:181`, and the contract tests that pin
-the literal build command: `.github/test/pr-verification-affected.test.rb:13,15,17,19,69`,
+the literal build command: `.github/test/pr-verification-affected.test.rb:13,15,17,19,75`,
 `pr-verification-browser.test.rb:51`, `scripts/local-gates/db-fresh-schema.test.sh:94`.
 **Search for both names** — the old path and the new one — before declaring the list complete.
 

@@ -162,9 +162,15 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           pulumi-version-file: .pulumi.version
+      # The tag has one declaration (packages/test-postgres/postgres-image.env),
+      # which this builder sources rather than naming a copy of — the shape the
+      # `agent` and `e2e` jobs' builders already use.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
         if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
-        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: |
+          set -euo pipefail
+          . packages/test-postgres/postgres-image.env
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Run the package's own gates
         env:
           PACKAGE: ${{ matrix.package }}
@@ -278,6 +284,7 @@ jobs:
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
           ruby test/repo-config/sqlfluff.test.rb
+          ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
       # only runner was quality.sh, which #1371 deleted with the pre-push
       # orchestrator; neither the affected matrix nor any package script can
@@ -319,12 +326,14 @@ jobs:
           bash scripts/local-gates/check-agents-refs.test.sh
           bash scripts/local-gates/check-docs-paths.test.sh
           bash scripts/local-gates/check-root-allowlist.test.sh
-      - name: Check AGENTS.md references, docs paths and the root allowlist
+          bash scripts/local-gates/check-spec-references.test.sh
+      - name: Check AGENTS.md references, docs paths, the root allowlist and docs/specs liveness
         run: |
           set -euo pipefail
           bash scripts/local-gates/check-agents-refs.sh
           bash scripts/local-gates/check-docs-paths.sh
           bash scripts/local-gates/check-root-allowlist.sh
+          bash scripts/local-gates/check-spec-references.sh
 
   agent:
     name: CI / agent
@@ -357,7 +366,7 @@ jobs:
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env
-          docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       # One command, and it is the one pre-push runs: `make check` is ruff +
       # ruff-format + vulture, mypy, the unit suite under the 87% floor
       # (apps/agent/pyproject.toml addopts) and the integration suite. CI no
@@ -425,7 +434,7 @@ jobs:
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env
-          docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       # `animichi-e2e` is outside the affected matrix because its `test` is the
       # served-Worker lane: it builds apps/web and starts `wrangler dev` itself
       # (e2e/playwright.config.ts `webServer`). Everything this job needs is
@@ -475,9 +484,13 @@ jobs:
           version: "v0.30.0"
       - name: Validate the migration directory
         run: atlas migrate validate --dir file://migrations/neon
-      # db-fresh-schema.sh fails closed without the offline image.
+      # db-fresh-schema.sh fails closed without the offline image, and it reads
+      # the tag from the same declaration this builder sources.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: |
+          set -euo pipefail
+          . packages/test-postgres/postgres-image.env
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Apply the whole chain to a disposable database
         run: bash scripts/local-gates/db-fresh-schema.sh
       - name: Prove the migrator still agrees with the chain it bundles

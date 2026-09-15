@@ -134,7 +134,8 @@ Explicitly not tested: Atlas CLI internals; container image build (CI build is t
 
 ## Out of Scope
 
-- **App-boot (Flyway-style) migration** — evaluated in #1039 and rejected; the evaluation doc remains as the record.
+- **App-boot (Flyway-style) migration** — evaluated in #1039 and rejected; the evaluation is archived
+  as `docs/archive/specs/2026-08-15-embedded-migration-eval.md`, which remains the record.
 - **#1001's auth-roster rebuild** — executed in the same window as the cutover wave but owned by #1001.
 - **Migrating deploys off GitHub Actions onto Workers Builds** — the only path that would eliminate the Cloudflare deploy token itself; noted as a possible future, not pursued.
 - **Switching migration tools** (e.g. Drizzle's TS migrator to avoid the container) — rejected: it would discard the Atlas chain, checksums, lint, and ledger for marginal benefit and weaker locking.
