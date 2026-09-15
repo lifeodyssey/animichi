@@ -120,6 +120,9 @@ jobs:
     if: ${{ github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' && needs.snapshot.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: release-dispatch-${{ github.run_id }}
+      cancel-in-progress: false
     permissions:
       actions: write # dispatch cd.yml for this run's own snapshot; nothing else
     steps:
