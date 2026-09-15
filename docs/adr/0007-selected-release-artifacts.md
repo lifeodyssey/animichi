@@ -7,10 +7,11 @@ Activation requires the platform evidence listed in the [deployment runbook](../
 
 ## Decision
 
-A push to main builds a complete release snapshot and publishes its immutable GitHub artifact ID.
-It does not deploy. The trusted main-only `cd.yml` controller accepts an explicit existing
-`artifact_id`, deploys it to staging, records what staging tested, and promotes the same artifact
-after its production environment approval. There is one deployment controller and no tag path.
+A push to main builds a complete release snapshot and publishes its immutable GitHub artifact ID;
+the builder then selects that snapshot for staging. A manual dispatch still selects any other
+artifact. The trusted main-only `cd.yml` controller accepts an explicit existing `artifact_id`,
+deploys it to staging, records what staging tested, and promotes the same artifact after its
+production environment approval. There is one deployment controller and no tag path.
 
 For main history A → B → C, selecting B includes A's catalog, schema and foundation prerequisites.
 A may be skipped and C may remain undeployed. The release source SHA must belong to the controller's
@@ -74,3 +75,23 @@ and environments; the promoted identity is the original release artifact and ima
   explicit platform prerequisites. A local build, YAML audit or Wrangler dry run proves none of them.
 - Platform probes must establish real cross-run artifact verification, registry access, concurrent
   staging/production behavior and approval enforcement before the story is considered complete.
+
+## Amendment 2026-09-15: a main push selects its own snapshot for staging
+
+Owner decision 2026-09-15: every push to main deploys to staging automatically again; production
+keeps its approval.
+
+`release-build.yml` gains a second job after `snapshot`, for `refs/heads/main` of
+`lifeodyssey/animichi` only. It holds `actions: write` and nothing else, and it dispatches `cd.yml`
+on `main` with that run's own artifact ID through the official `gh workflow run`. The builder still
+does not deploy; it starts the controller for the snapshot it just published, and it never re-derives
+the ID. GitHub states that a `workflow_dispatch` event performed with the repository's `GITHUB_TOKEN`
+still creates a workflow run ([triggering a workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)),
+and the write-only Actions permission is the dispatch endpoint's own requirement
+([create a workflow dispatch event](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)).
+
+Nothing else in the decision above changes. `cd.yml` keeps `workflow_dispatch` with `artifact_id` as
+its only trigger, so manual dispatch still selects an older artifact, a re-deploy or a rollback. The
+independent `cd-staging` / `cd-production` locks already removed the push-ordering problem that made
+staging manual: a superseding push replaces a pending staging selection, while an in-flight staging
+or production chain finishes under its own lock.

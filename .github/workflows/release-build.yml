@@ -17,6 +17,8 @@ jobs:
     permissions:
       contents: read
       id-token: write # main-only release-build identity for registry credentials
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
@@ -112,3 +114,18 @@ jobs:
           ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
           ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
         run: printf 'Artifact ID %s\n\nDigest %s\n' "$ARTIFACT_ID" "$ARTIFACT_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+  dispatch-cd:
+    name: Release / dispatch staging CD
+    needs: [snapshot]
+    if: ${{ github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' && needs.snapshot.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write # dispatch cd.yml for this run's own snapshot; nothing else
+    steps:
+      - name: Dispatch CD for this snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.snapshot.outputs.artifact_id }}
+        # No checkout in this job, so name the repository instead of letting gh resolve it from a git remote.
+        run: gh workflow run cd.yml --repo lifeodyssey/animichi --ref main -f artifact_id="$ARTIFACT_ID"
