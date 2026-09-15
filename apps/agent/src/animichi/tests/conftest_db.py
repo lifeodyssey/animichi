@@ -41,11 +41,27 @@ from animichi.tests.neon_api import Branch, NeonApi
 
 ROOT = Path(__file__).resolve().parents[5]
 SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
-OFFLINE_IMAGE = "animichi-test-postgres:18-3.6-pgvector-0.8.5"
+# The tag is declared once, in `packages/test-postgres/postgres-image.env`, because
+# its consumers do not share a language (#1326): the TypeScript fixtures read that
+# file, `scripts/local-gates/db-fresh-schema.sh` sources it, and the reader below
+# resolves it for this fixture module.
+OFFLINE_IMAGE_DECLARATION = ROOT / "packages" / "test-postgres" / "postgres-image.env"
 OFFLINE_DOCKERFILE = ROOT / "packages" / "test-postgres" / "Dockerfile"
 NEON_LOCAL_IMAGE = "neondatabase/neon_local:latest"
 WAKE_TIMEOUT_SECONDS = 91.0
 CONNECT_TIMEOUT_SECONDS = 10.0
+
+
+def _declared_offline_image() -> str:
+    """The offline image tag, read from its one declaration (#1326)."""
+    assignment = "TEST_POSTGRES_IMAGE="
+    for line in OFFLINE_IMAGE_DECLARATION.read_text(encoding="utf-8").splitlines():
+        if line.startswith(assignment):
+            return line.removeprefix(assignment).strip()
+    raise RuntimeError(f"{OFFLINE_IMAGE_DECLARATION} declares no TEST_POSTGRES_IMAGE")
+
+
+OFFLINE_IMAGE = _declared_offline_image()
 
 
 @dataclass(frozen=True)
@@ -95,14 +111,17 @@ def _offline_build_command() -> str:
 
 
 def _offline_image_present() -> bool:
+    # The resolved tag is compared in Python rather than handed to docker: ruff S603
+    # rejects a computed argv element, and the local repository:tag listing answers
+    # the same question the literal `docker image inspect <tag>` did.
     result = subprocess.run(
-        # literal (not OFFLINE_IMAGE): ruff S603 requires fully-literal subprocess args.
-        ["docker", "image", "inspect", "animichi-test-postgres:18-3.6-pgvector-0.8.5"],
+        ["docker", "image", "ls", "--format", "{{.Repository}}:{{.Tag}}"],
         capture_output=True,
+        text=True,
         timeout=10,
         check=False,
     )
-    return result.returncode == 0
+    return OFFLINE_IMAGE in result.stdout.split()
 
 
 def _require_docker_available() -> None:

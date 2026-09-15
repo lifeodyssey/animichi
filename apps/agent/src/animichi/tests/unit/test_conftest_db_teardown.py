@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import cast
 
@@ -105,7 +106,7 @@ def test_require_offline_image_missing_image_names_build_command(
         RuntimeError,
         match=(
             r"docker build -f packages/test-postgres/Dockerfile -t "
-            r"animichi-test-postgres:18-3\.6-pgvector-0\.8\.5 \."
+            rf"{re.escape(conftest_db.OFFLINE_IMAGE)} \."
         ),
     ):
         conftest_db._require_offline_image()

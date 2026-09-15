@@ -26,9 +26,11 @@ DB-backed Python integration lane runs the offline Docker arm (`TEST_DB=docker`)
 in the single CI workflow's affected agent lane.
 
 ```bash
-# One-time image build; this step needs network.
-docker build -f packages/test-postgres/Dockerfile \
-  -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+# One-time image build; this step needs network. The tag is declared once (for the
+# TypeScript fixtures and the Python agent fixture too), so source that declaration
+# instead of copying it: packages/test-postgres/postgres-image.env (#1326).
+. packages/test-postgres/postgres-image.env
+docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
 
 # Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.
 ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
@@ -42,7 +44,7 @@ ATLAS_VERSION=0.30.0 TEST_DB=neon \
 
 The offline arm does not cover neon-http behavior, and the Neon arm is not offline. Unit tests
 still make no database connection at all; the pre-push agent/db gates use the offline Docker arm
-(`animichi-test-postgres:18-3.6-pgvector-0.8.5`) and never the live Neon arm — see
+(the tag declared in `packages/test-postgres/postgres-image.env`) and never the live Neon arm — see
 `docs/ops/local-gates.md` for the exact commands.
 
 ## Agent-only Neon Local development
