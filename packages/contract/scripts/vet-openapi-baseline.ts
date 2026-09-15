@@ -24,7 +24,7 @@
  *
  * The approval flag is never passed here, and neither is any record but the
  * committed one: an intentional breaking change is approved by adding a dated
- * entry to `src/approved-breaking-changes.ts` for the document it lands in —
+ * entry to `approved-breaking-changes/` for the document it lands in —
  * the record the vet CLI reads — or, for a one-off human investigation, by
  * running `pnpm run vet:openapi … --allow-breaking` by hand.
  */

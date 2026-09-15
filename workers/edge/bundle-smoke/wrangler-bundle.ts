@@ -10,6 +10,28 @@ import { promisify } from "node:util";
 
 export interface WranglerBundle { readonly code: string; readonly metafile: Metafile }
 
+/** Bound the official build so a stalled Wrangler names itself instead of consuming its caller's budget. */
+const BUILD_TIMEOUT_MS = 60_000;
+
+/** Node's `timeout` option kills the child and says so; every other rejection is the build's own failure. */
+function killedByTimeout(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const failure = error as Error & { killed?: unknown; signal?: unknown };
+  return failure.killed === true && failure.signal !== null && failure.signal !== undefined;
+}
+
+async function runWrangler(config: string, directory: string, outfile: string, metafile: string) {
+  const args = ["exec", "wrangler", "deploy", "--dry-run", "--config", config, "--outdir", directory, "--metafile", metafile];
+  const env = { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: `${outfile}.build.log` };
+  try {
+    await promisify(execFile)("pnpm", args, { env, maxBuffer: 5 * 1024 * 1024, timeout: BUILD_TIMEOUT_MS });
+  } catch (error) {
+    if (!killedByTimeout(error)) throw error;
+    const bound = String(BUILD_TIMEOUT_MS / 1_000);
+    throw new Error(`Wrangler did not finish its dry-run build within ${bound} seconds`, { cause: error });
+  }
+}
+
 export async function bundleLikeWrangler(entry: string, outfile: string): Promise<WranglerBundle> {
   const directory = dirname(outfile);
   const config = `${outfile}.config.json`;
@@ -17,9 +39,7 @@ export async function bundleLikeWrangler(entry: string, outfile: string): Promis
   const runtime = deployedRuntime();
   await writeFile(config, JSON.stringify({ name: "native-bundle-probe", main: entry,
     compatibility_date: runtime.compatibilityDate, compatibility_flags: runtime.compatibilityFlags }));
-  await promisify(execFile)("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--config", config, "--outdir", directory, "--metafile", metafile], {
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: `${outfile}.build.log` }, maxBuffer: 5 * 1024 * 1024,
-  });
+  await runWrangler(config, directory, outfile, metafile);
   const generated = join(directory, basename(entry).replace(/\.[cm]?ts$/, ".js"));
   const code = await readFile(generated, "utf8");
   await writeFile(outfile, code);

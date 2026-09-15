@@ -31,7 +31,7 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
   additive ones, and rejects a future major path unless its superseded operation
   carries `deprecated: true` + `x-sunset`. The run names the published document it
   vets, because the only approval it reads is that document's committed record
-  (`src/approved-breaking-changes.ts`, #1596). `--allow-breaking` is the manual human
+  (`approved-breaking-changes/`, one file per entry, #1673). `--allow-breaking` is the manual human
   override — it waives every breaking change in one run, never reads the record, and
   is never passed by the normal CI gate.
 
@@ -40,8 +40,11 @@ every contract change and commit all three outputs. `pnpm test` reruns emission 
 committed drift (`scripts/local-gates/contract-drift.sh`), then runs `vet:openapi` for each document
 against the merge-base baseline (the published contract) through `scripts/vet-openapi-baseline.ts` —
 unapproved breaking `/v1` changes fail closed there, locally and in CI alike. An intentional breaking
-change is approved by adding a dated entry to `src/approved-breaking-changes.ts` that names it exactly
-(document, method, path, kind) with the issue that argued it; nothing else approves one. An entry is
+change is approved by adding a dated entry file to `approved-breaking-changes/` that names it exactly
+(document, method, path, kind) with the issue that argued it; nothing else approves one. Each entry has
+its own file, so two cards adding an approval never edit the same lines: name it
+`<issue>-<method>-<path-slug>-<kind>.json`, and `src/approved-breaking-changes.ts` reads the directory
+without a list any new entry would have to register itself in. An entry is
 valid while its removal is realised in the document being vetted — an `endpoint-removed` path answers
 no method, a `method-removed` method+path is absent — so it stays valid once its own
 change has landed and needs no cleanup commit, while an entry whose operation is still advertised
@@ -102,7 +105,9 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 - `scripts/emit-openapi.ts` — deterministic OpenAPI emitter.
 - `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (baseline vs candidate, record vs document) ·
   `scripts/vet-openapi-baseline.ts` — the merge-base baseline the package's `test` vets against ·
-  `src/approved-breaking-changes.ts` — the committed approval record the CLI reads (#1596).
+  `approved-breaking-changes/` — the committed approval record, one JSON entry per file (#1673) ·
+  `src/approved-breaking-changes.ts` — `readApprovedBreakingChanges`, the loader the CLI reads it
+  through (the record is filesystem data, not a module: nothing that ships to a Worker imports it).
 - `openapi.json` · `users-openapi.json` · `agent-openapi.json` — committed generated wire artifacts.
 - `src/openapi-changes.ts` · `src/openapi-approvals.ts` · `src/openapi-schema-diff.ts` ·
   `src/openapi-diff.ts` ·
