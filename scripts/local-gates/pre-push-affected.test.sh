@@ -196,5 +196,17 @@ expect_status "sibling dir" 0 "$STATUS"
 expect "sibling dir" "packages: catalog" "$OUT"
 ok "a sibling directory sharing a package's name prefix selects no package"
 
+# 10. The owner table decides the spec-reference gate's verdict, so a change to
+#     it alone must run that gate — `scripts/**` needs no package, which would
+#     otherwise let the table move without the gate ever re-reading it.
+new_repo
+commit_change feature scripts/local-gates/spec-reference-exceptions.txt
+run_gate < /dev/null
+expect_status "owner table" 0 "$STATUS"
+expect "owner table" "docs=1" "$OUT"
+expect "owner table" "check-spec-references" "$RECORDED"
+refute "owner table" "--filter" "$RECORDED"
+ok "an owner-table-only change selects the docs bucket"
+
 [ "$failures" = 0 ] || { printf '%s case(s) failed\n' "$failures" >&2; exit 1; }
 printf 'pre-push-affected.test.sh: all green\n'
