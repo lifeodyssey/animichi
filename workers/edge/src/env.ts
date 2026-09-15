@@ -2,14 +2,16 @@
 // The Worker's binding/context types, imported by every concern folder.
 import type { SessionAgent } from "./agent/host/session-agent.ts";
 import type { GuardNamespace } from "./protect/guard-store.ts";
-import type { TileBucket } from "./proxy/tiles.ts";
+import type { R2ObjectBucket } from "./proxy/private-r2-object.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
   USERS: { fetch: (req: Request) => Promise<Response> };
   CONTAINER: DurableObjectNamespace;
   EDGE_GUARD: GuardNamespace;
-  MAP_TILES?: TileBucket;
+  MAP_TILES?: R2ObjectBucket;
+  /** The private docs-asset bucket (#1650); absent fails `/img/docs` closed. */
+  DOCS_ASSETS?: R2ObjectBucket;
   /** Neon Auth branch JWKS URL — the edge's only identity source (AUTH-2 #950).
    * Empty/absent fails closed: no JWKS, no verified bearer. */
   NEON_AUTH_JWKS_URL?: string;

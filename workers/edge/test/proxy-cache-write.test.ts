@@ -4,21 +4,22 @@
  * The image proxy left `ctx.waitUntil(cache.put(...))` unhandled and the tile
  * proxy swallowed the same rejection with `.catch(() => undefined)` — the exact
  * pair the catalog worker was already caught with (08-26 §2.4). A cache tier
- * that is silently failing looks like a slow origin, so both proxies now write
+ * that is silently failing looks like a slow origin, so every proxy writes
  * through one `cacheWrite` that records the failure.
+ *
+ * The cache global and the context whose promises a case can await are shared
+ * doubles (`doubles/cache-api-double.ts`, `collectingCtx`) — the same seam the
+ * docs-asset cases use.
  *
  * test-type: unit
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp } from "../src/app.ts";
+import { collectingCtx } from "../src/container/entry-env.ts";
 import { cacheWrite } from "../src/proxy/cache-write.ts";
-
-type CachePut = (key: Request, response: Response) => Promise<void>;
-
-function collectingCtx(settled: Promise<unknown>[]): { waitUntil(promise: Promise<unknown>): void } {
-  return { waitUntil: (promise) => { settled.push(promise); } };
-}
+import { withImageOrigin } from "./doubles/docs-asset-doubles.ts";
+import { noHitCache, withCacheDouble, type CachePut } from "./doubles/cache-api-double.ts";
+import { edgeAppRequest } from "./doubles/edge-app-request.ts";
 
 async function withWarnSpy(run: () => Promise<unknown>): Promise<string[]> {
   const lines: string[] = [];
@@ -27,23 +28,7 @@ async function withWarnSpy(run: () => Promise<unknown>): Promise<string[]> {
   try {
     await run();
     return lines;
-  } finally {
-    console.warn = original;
-  }
-}
-
-/** Installs a `caches.default` whose `put` behaves as the test says, for the
- * duration of one run — the global is absent under node:test otherwise. */
-async function withCache(put: CachePut, run: () => Promise<Response> | Response): Promise<Response> {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, "caches");
-  const value = { default: { match: () => Promise.resolve(undefined), put } };
-  Object.defineProperty(globalThis, "caches", { configurable: true, value });
-  try {
-    return await run();
-  } finally {
-    if (previous) Object.defineProperty(globalThis, "caches", previous);
-    else Reflect.deleteProperty(globalThis, "caches");
-  }
+  } finally { console.warn = original; }
 }
 
 const rejectingPut: CachePut = () => Promise.reject(new RangeError("cache api down"));
@@ -72,30 +57,24 @@ void test("a tile whose cache write fails is still served, and the failure is lo
   const settled: Promise<unknown>[] = [];
   const env = {
     MAP_TILES: { get: () => Promise.resolve({ body: new Response("mvt").body, etag: "t", size: 3 }) },
-  } as never;
+  };
   const lines = await withWarnSpy(async () => {
-    const response = await withCache(rejectingPut, () =>
-      createWorkerApp({}).request("/tiles/14/135/892.mvt", {}, env, collectingCtx(settled) as never));
+    const response = await withCacheDouble(noHitCache(rejectingPut), () =>
+      edgeAppRequest("/tiles/14/135/892.mvt", env, {}, collectingCtx(settled)));
     assert.equal(response.status, 200);
     await Promise.all(settled);
   });
   assert.equal(lines.includes('{"event":"edge_tile_cache_write_failed","error":"RangeError"}'), true);
 });
 
-void test("an image whose cache write fails is still served, and the failure is logged", async () => {
+void test("an image whose cache write fails is still served, and the failure is logged", async (t) => {
   const settled: Promise<unknown>[] = [];
-  const upstream = new Response("jpeg-bytes", { status: 200 });
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = () => Promise.resolve(upstream);
-  try {
-    const lines = await withWarnSpy(async () => {
-      const response = await withCache(rejectingPut, () =>
-        createWorkerApp({}).request("/img/p1.jpg", {}, {}, collectingCtx(settled) as never));
-      assert.equal(response.status, 200);
-      await Promise.all(settled);
-    });
-    assert.equal(lines.includes('{"event":"edge_image_cache_write_failed","error":"RangeError"}'), true);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const upstreamFetch = () => Promise.resolve(new Response("jpeg-bytes", { status: 200 }));
+  const lines = await withWarnSpy(async () => {
+    const response = await withCacheDouble(noHitCache(rejectingPut), () =>
+      withImageOrigin(t, upstreamFetch, () => edgeAppRequest("/img/p1.jpg", {}, {}, collectingCtx(settled))));
+    assert.equal(response.status, 200);
+    await Promise.all(settled);
+  });
+  assert.equal(lines.includes('{"event":"edge_image_cache_write_failed","error":"RangeError"}'), true);
 });

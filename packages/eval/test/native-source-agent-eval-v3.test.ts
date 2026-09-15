@@ -4,14 +4,17 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
+import { FROZEN_SIBLING_CASE_COUNT, frozenDataset } from '../src/dataset-sets.ts';
+
 /** Regression proofs for the #1557 source-format migration of agent_eval_v3:
  * the checked-in native source file and its task-gap sidecar must carry the
- * original 662 IDs 1:1, in order, with nothing from the other 546 corpus
- * cases and no seeded session payload dropped. */
-const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
-const SOURCE_FILE = join(REPO_ROOT, 'packages/eval/datasets/source/agent_eval_v3.json');
-const SIDECAR_FILE = join(REPO_ROOT, 'packages/eval/datasets/source/agent_eval_v3.task-gaps.json');
-const ORIGINALS_DIR = join(REPO_ROOT, 'apps/agent/src/animichi/tests/eval/datasets');
+ * frozen `agent_eval_v3` IDs 1:1, in order, with nothing from the sibling
+ * datasets and no seeded session payload dropped. The originals are read from
+ * this package's frozen copy (#1603), so the proof survives `apps/agent`. */
+const PACKAGE_DIR = fileURLToPath(new URL('../', import.meta.url));
+const SOURCE_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.json');
+const SIDECAR_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.task-gaps.json');
+const ORIGINALS_DIR = join(PACKAGE_DIR, 'datasets/canonical');
 const SIBLING_DATASETS = [
   'agent_eval_heldout_v1',
   'injection_g1_v1',
@@ -21,6 +24,9 @@ const SIBLING_DATASETS = [
   'runtime_journey_v1',
   'translation_v1',
 ] as const;
+
+/** The declared freeze of the set this file migrates. */
+const AGENT_EVAL_V3 = frozenDataset('agent_eval_v3');
 
 interface OriginalCase {
   readonly id: string;
@@ -72,9 +78,9 @@ function gapOf(entry: OriginalCase): string {
   return 'none';
 }
 
-void test('all 662 v3 IDs are present exactly once', () => {
-  assert.equal(source.length, 662);
-  assert.equal(new Set(source.map((entry) => entry.name)).size, 662);
+void test('all the frozen v3 IDs are present exactly once', () => {
+  assert.equal(source.length, AGENT_EVAL_V3.caseCount);
+  assert.equal(new Set(source.map((entry) => entry.name)).size, AGENT_EVAL_V3.caseCount);
 });
 
 void test('the source names map 1:1 onto the original IDs by order', () => {
@@ -84,7 +90,7 @@ void test('the source names map 1:1 onto the original IDs by order', () => {
   );
 });
 
-void test('no ID from the other 546 corpus cases leaked in', () => {
+void test('no ID from a sibling dataset leaked in', () => {
   const sourceIds = new Set(source.map((entry) => entry.name));
   const leaked = SIBLING_DATASETS
     .flatMap((name) => originalCases(name).map((entry) => entry.id))
@@ -92,9 +98,13 @@ void test('no ID from the other 546 corpus cases leaked in', () => {
   assert.deepEqual(leaked, []);
 });
 
-void test('the whole corpus still counts 1,208 IDs (662 + 546 siblings)', () => {
+void test('the corpus is still the frozen v3 set plus every sibling case', () => {
   const siblings = SIBLING_DATASETS.reduce((total, name) => total + originalCases(name).length, 0);
-  assert.equal(original.length + siblings, 1208);
+  assert.equal(siblings, FROZEN_SIBLING_CASE_COUNT);
+  assert.equal(
+    original.length + siblings,
+    AGENT_EVAL_V3.caseCount + FROZEN_SIBLING_CASE_COUNT,
+  );
 });
 
 void test('every case carries its query as prompt and its locale, nothing else', () => {
@@ -128,7 +138,7 @@ void test('cases stay preserved records: null expected_output, empty evaluator l
   for (const entry of source) assert.equal(entry.expected_output, null);
 });
 
-void test('the sidecar lists all 662 cases in order with the right gap', () => {
+void test('the sidecar lists every frozen v3 case, in order, with the right gap', () => {
   assert.deepEqual(
     sidecar.cases,
     original.map((entry) => ({ id: entry.id, required_task_shape: gapOf(entry) })),

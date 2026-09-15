@@ -15,7 +15,6 @@ rather than a re-derivation, which makes this an oracle for W3-2's `dataKeysOf`
 as well.
 
 Run: `cd apps/agent && uv run python -m animichi.tests.eval.evaluator_oracle`
-(the export script does it for you; the fixture-drift gate then compares).
 """
 
 from __future__ import annotations

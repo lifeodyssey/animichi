@@ -23,16 +23,16 @@
  *
  * Run from packages/eval/ (writes datasets/, never calls a model):
  *   node --import tsx scripts/generate-agent-eval-v3-source.ts
+ *
+ * The canonical input is the frozen copy in `datasets/canonical/` (#1603);
+ * this script no longer reaches into `apps/agent`.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PACKAGE_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const ORIGINAL_FILE = join(
-  PACKAGE_DIR,
-  '../../apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json',
-);
+const ORIGINAL_FILE = join(PACKAGE_DIR, 'datasets/canonical/agent_eval_v3.json');
 const SOURCE_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.json');
 const SIDECAR_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.task-gaps.json');
 
@@ -243,7 +243,7 @@ function buildSidecar(cases: readonly V3Case[]): SidecarDoc {
     shapeCases.filter((entry) => entry.required_task_shape === shape).length;
   return {
     dataset: 'agent_eval_v3',
-    source_of_truth: 'apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json',
+    source_of_truth: 'packages/eval/datasets/canonical/agent_eval_v3.json',
     note: [
       'SOURCE FORMAT ONLY: the source file preserves the corpus; these are the native',
       'task shapes still missing per case. The E1 CLI (command-task.ts) consumes',
