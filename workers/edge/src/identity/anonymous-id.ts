@@ -101,10 +101,11 @@ export async function resolveAnonymous(
  * Resolve-only variant for the session-adoption route (SESSION-2 #960,
  * re-P2-1): verifies an existing `aid` cookie but never mints one. A missing
  * or tampered cookie returns null rather than a fresh identity, so a request
- * with no anonymous history forwards no `X-Anon-Id` — minting here would
- * silently give the adoption endpoint side effects no other route has. The
- * route sets no cookie at all: it does not mint one, and (per the #507 owner
- * ruling reversing S1.7 rev5 P2-b) it no longer retires one either.
+ * with no anonymous history adopts nothing (the route answers
+ * `no_anonymous_identity` without a write) — minting here would silently give
+ * the adoption endpoint side effects no other route has. The route sets no
+ * cookie at all: it does not mint one, and (per the #507 owner ruling
+ * reversing S1.7 rev5 P2-b) it no longer retires one either.
  */
 export async function resolveAnonymousReadOnly(
   request: Request, env: AnonymousEnv,

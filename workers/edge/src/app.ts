@@ -8,6 +8,7 @@ import { HandleGatewayRequest, gatewayFailure, type GatewayDeps } from "./gatewa
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 import { neonAgentTurnTier, type AgentTurnTier } from "./gateway/agent-turn.ts";
+import type { SessionAdoptionStore } from "./identity/session-adopt.ts";
 
 /** The main Worker app: a pure API and asset gateway. Every request —
  * `/healthz`, the image and private R2 tile proxies, the one allowlisted
@@ -32,6 +33,7 @@ export interface WorkerDeps {
   /** Injectable agent tier (W1-7 #1256): the production one opens a Neon pool
    * and two Durable Object stubs, so tests substitute it to stay hermetic. */
   agentTurns?: AgentTurnTier;
+  sessionAdoption?: SessionAdoptionStore;
 }
 
 function realSleep(ms: number): Promise<void> {
@@ -48,6 +50,7 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
     showcaseMode: deps.showcaseMode ?? createShowcaseMode(),
     sleep: deps.sleep ?? realSleep,
     agentTurns: deps.agentTurns ?? neonAgentTurnTier(),
+    sessionAdoption: deps.sessionAdoption,
   };
 }
 

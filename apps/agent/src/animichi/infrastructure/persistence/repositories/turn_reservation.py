@@ -20,8 +20,8 @@ from datetime import datetime
 from pydantic_core import to_jsonable_python
 from sqlalchemy.sql.dml import ReturningDelete, ReturningUpdate
 
-from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_admission_port import (
+    ADOPT_TURN_KEY_PREFIX,
     ReservationOutcome,
     ReserveRequest,
 )
