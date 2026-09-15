@@ -1,8 +1,8 @@
 /**
  * The approval record for intentional breaking OpenAPI changes (#1596, #1005 AC5).
  *
- * The record this module evaluates is the committed table in
- * `approved-breaking-changes.ts`: a breaking change passes the vet only when an
+ * The record this module evaluates is the committed directory
+ * `approved-breaking-changes/`: a breaking change passes the vet only when an
  * entry names it exactly — same document, method, path and kind — so a near
  * miss approves nothing and no entry can approve a whole category.
  *
