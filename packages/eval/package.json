@@ -8,9 +8,8 @@
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"test/*.test.ts\" && pnpm run test:fixture-drift",
-    "test:native": "node --import tsx --test \"test/native-*.test.ts\"",
-    "test:fixture-drift": "bash scripts/export-fixtures.sh && bash ../../scripts/local-gates/eval-fixture-drift.sh"
+    "test": "node --import tsx --test \"test/*.test.ts\"",
+    "test:native": "node --import tsx --test \"test/native-*.test.ts\""
   },
   "dependencies": {
     "@animichi/agent": "workspace:*",

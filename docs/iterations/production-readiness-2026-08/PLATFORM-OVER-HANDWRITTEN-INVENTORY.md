@@ -99,7 +99,7 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Container egress denylist as IP-literal globs | `workers/edge/src/container/container-env.ts:59-140` | ~82 | `deniedHosts` is hostname glob — no CIDR, no DNS |
 | Root-directory allowlist gate | `scripts/local-gates/check-root-allowlist.sh` | 81 | No linter enforces it |
 | Container cold-start fetch retry | `workers/edge/src/gateway/container-fetch.ts:14-87` | 74 | `@cloudflare/containers` retries container **start**, never the subsequent `tcpPort.fetch()` |
-| Regenerate-and-diff drift checks | `scripts/local-gates/contract-drift.sh` + `eval-fixture-drift.sh` | 75 | No tool does "regenerate X, diff against the committed copy" |
+| Regenerate-and-diff drift checks | `scripts/local-gates/contract-drift.sh` · ~~`eval-fixture-drift.sh`~~ | 75 | No tool does "regenerate X, diff against the committed copy" |
 | Single-key snapshot pointer | `workers/catalog/src/publish/pointer.ts` | 56 | R2 has only atomic single-key PUT |
 | Cycle-safe deep equality | `apps/web/src/features/chat/tool-steps.ts:44-72` | 29 | No deep-equal among adopted deps |
 | TOML extraction for `pyproject.toml` | `test/repo-config/lint-scope.test.rb:34-58` | ~24 | No TOML gem in the Ruby toolchain |
@@ -107,6 +107,11 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Periodic SSE keep-alive | `workers/edge/src/agent/views/watch-response.ts:27-43` | 17 | AI SDK `createUIMessageStream` has no heartbeat |
 | jsdom `matchMedia`/`ResizeObserver` stubs | `apps/web/tests/setup/viewport-hermetic.ts` | 16 | jsdom implements neither |
 | Cron-string → job-kind lookup | `workers/catalog/src/import/schedule.ts:22-29` | 8 | `ScheduledController` exposes only the cron string |
+
+**One row is no longer live.** `eval-fixture-drift.sh` was deleted by #1603 when the eval oracle
+fixtures were frozen inside `packages/eval/`, so the live regenerate-and-diff gate is
+`scripts/local-gates/contract-drift.sh` alone; the 75 lines above are still the 2026-09-12
+snapshot's count across both scripts.
 
 ## Excluded from A/B/C — recorded decisions
 

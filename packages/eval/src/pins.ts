@@ -4,16 +4,19 @@ import { fileURLToPath } from 'node:url';
 /**
  * pydantic-evals (Python, writer) and logfire/evals (TS, reader) are one
  * coupled pin set — the same rule `packages/contract` applies to zod/oRPC.
- * `PINS.json` is where the pair is declared compatible; the manifests are
- * where each side is actually installed. Drift between them is a red gate,
- * not a silent upgrade.
+ * `PINS.json` is the single declaration of the pair; the manifests are where
+ * each side is actually installed, except pydantic-evals, which has no TS
+ * manifest and whose version is the one the frozen oracle fixtures were
+ * exported with. Since #1603 that declaration is the only copy in the tree:
+ * the `apps/agent/uv.lock` read is gone and no code holds a second string.
+ * Drift between the declared pair and the frozen bytes is an Eval Story, not a
+ * silent upgrade — see the `comment` in `PINS.json`.
  */
 export interface EvalFrameworkPins {
   logfire: string;
   'pydantic-evals': string;
 }
 
-const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const PACKAGE_DIR = fileURLToPath(new URL('../', import.meta.url));
 
 function readJson(path: string): Record<string, unknown> {
@@ -47,23 +50,4 @@ export function installedLogfireVersion(): string {
     throw new Error(`${path}: no dependencies block`);
   }
   return requireString(dependencies as Record<string, unknown>, 'logfire', path);
-}
-
-function lockedBlock(lock: string, name: string, path: string): string {
-  const block = lock.split('[[package]]').find((entry) => entry.includes(`\nname = "${name}"\n`));
-  if (block === undefined) {
-    throw new Error(`${path}: no locked package named "${name}"`);
-  }
-  return block;
-}
-
-/** The pydantic-evals version uv resolved for `apps/agent` (a pydantic-ai extra). */
-export function installedPydanticEvalsVersion(): string {
-  const path = `${REPO_ROOT}apps/agent/uv.lock`;
-  const block = lockedBlock(readFileSync(path, 'utf8'), 'pydantic-evals', path);
-  const version = /\nversion = "([^"]+)"/.exec(block)?.[1];
-  if (version === undefined) {
-    throw new Error(`${path}: locked "pydantic-evals" block carries no version`);
-  }
-  return version;
 }
