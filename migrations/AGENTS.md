@@ -69,6 +69,7 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | `runs` | **agent** | One row per agent turn (#1250); written by the edge's intake + AgentSession DO from W1 on. `readonly` may SELECT — no user content |
 | `run_steps` | **agent** | One row per tool step of a run (#1250); the alarm-retry replay log. NOT granted to `readonly` — tool input/result carry visitor text |
 | `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
+| `photo_offers` | **agent** | Sessionless photo-offer namespace (#1600, Card F): one candidate offer per recognition turn, keyed by its own id and never by a session. 10-minute TTL on `expires_at`; sweep/eviction reads `idx_photo_offers_expiry`. No reader yet |
 | `daily_usage`, `anon_daily_message_count` | **agent** (write) | Quota / metering |
 | `request_log`, `feedback`, `api_keys` | **agent** / platform | Operational |
 | `user_memory` | **users** when awake | Dropped once; reintroduce under Users BC only |
