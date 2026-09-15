@@ -220,7 +220,6 @@ def test_runtime_endpoint():
 - POST /v1/runtime — with real DB, verify session creation and message persistence
 - POST /v1/runtime/stream — SSE event stream completeness
 - GET /v1/conversations — session list correctness
-- POST /v1/feedback — feedback written to DB
 - Auth header validation — missing header → 400, bad token → 401
 
 ---

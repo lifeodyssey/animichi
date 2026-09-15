@@ -12,7 +12,7 @@
  * owns, each with one use case on each tier
  * (`apps/agent/.../get_session_history.py` and
  * `workers/edge/src/agent/views/`). `agent-contract.ts` keeps the shapes that
- * have no such home — health, the turn request, photo search, feedback.
+ * have no such home — health, the turn request, photo search.
  *
  * The transcript shapes are emitted like every other boundary model:
  * `scripts/emit-agent-python.ts` reads these declarations,

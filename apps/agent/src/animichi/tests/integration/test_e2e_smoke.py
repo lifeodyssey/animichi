@@ -81,19 +81,3 @@ class TestRuntimeEndpoint:
     async def test_missing_text_returns_error(self) -> None:
         status, _body = await _post("/v1/runtime", {"locale": "ja"})
         assert status in (400, 422)
-
-
-class TestFeedbackEndpoint:
-    """Smoke test for the /v1/feedback POST endpoint."""
-
-    async def test_submit_feedback(self) -> None:
-        status, body = await _post(
-            "/v1/feedback",
-            {
-                "query_text": "test query",
-                "intent": "search_bangumi",
-                "rating": "good",
-            },
-        )
-        # 200 or 201 depending on implementation
-        assert status in (200, 201, 204)

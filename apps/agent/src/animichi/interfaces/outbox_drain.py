@@ -36,7 +36,7 @@ def _outbox_inputs(
     return SettlementInputs(
         usage_repo=runtime_db.usage,
         anon_quota_repo=runtime_db.anon_quota,
-        request_audit_repo=runtime_db.feedback,
+        request_audit_repo=runtime_db.request_log,
         messages_repo=runtime_db.session,
         prices=UsagePrices(
             input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,

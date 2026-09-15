@@ -12,7 +12,7 @@
  * It lives here, apart from `agent-contract.ts`, precisely because of that
  * runtime read: this table is plain data with no schema in it, while its old
  * home imports zod, and a value import from a zod module pulls the whole of
- * zod into the Worker bundle for fourteen strings (`workers/edge/bundle-smoke/
+ * zod into the Worker bundle for the inventory's strings (`workers/edge/bundle-smoke/
  * entry-bundle.test.ts` is the gate). Nothing is generated and nothing is
  * mirrored: this is the ONE declaration, and the OpenAPI emitter, the Python
  * model emitter, the edge and the contract's own drift tests
@@ -40,7 +40,6 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/healthz", summary: "gateway readiness" },
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
-  { method: "POST", path: "/v1/feedback", summary: "submit feedback" },
   { method: "GET", path: "/v1/conversations", summary: "list conversations", runtime: "edge" },
   { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
   { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },

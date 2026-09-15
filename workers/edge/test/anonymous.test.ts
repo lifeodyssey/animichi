@@ -69,7 +69,7 @@ void test("a client-forged X-User-Id cannot survive the anonymous branch", async
 void test("non-allowlisted /v1 paths still 401 for anonymous callers", async () => {
   const captured: NativeAgentCall[] = [];
   const res = await anonApp(captured).request(
-    "/v1/feedback", chat(), anonEnv(), stubCtx,
+    "/v1/byok/probe", chat(), anonEnv(), stubCtx,
   );
   assert.equal(res.status, 401);
   assert.equal(captured.length, 0);

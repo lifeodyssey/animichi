@@ -32,10 +32,10 @@ def mock_db():
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.insert_message = AsyncMock()
-    # #663: the real repos are nested (db.session / db.feedback), not flat
+    # #663: the real repos are nested (db.session / db.request_log), not flat
     # db.insert_message / db.insert_request_log — that flat shape was the
     # production bug.
-    db.feedback.insert_request_log = AsyncMock()
+    db.request_log.insert_request_log = AsyncMock()
     return db
 
 

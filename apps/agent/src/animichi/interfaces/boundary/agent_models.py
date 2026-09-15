@@ -195,23 +195,10 @@ class GetSessionHistoryResponse(BaseModel):
     steps: list[GetSessionHistoryResponseSteps] | None = None
 
 
-class SubmitFeedbackRequest(BaseModel):
-    session_id: str | None = None
-    query_text: str
-    intent: str | None = None
-    rating: Literal["good", "bad"]
-    comment: str | None = None
-
-
-class SubmitFeedbackResult(BaseModel):
-    feedback_id: str
-
-
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/healthz", "gateway readiness"),
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
-    ("POST", "/v1/feedback", "submit feedback"),
     ("PATCH", "/v1/conversations/{session_id}", "rename conversation"),
     ("GET", "/v1/conversations/{session_id}/messages", "conversation messages"),
     ("POST", "/v1/photo-search", "photo search"),
