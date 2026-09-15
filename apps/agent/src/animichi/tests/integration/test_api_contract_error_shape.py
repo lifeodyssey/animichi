@@ -21,7 +21,7 @@ class TestErrorShape:
     """All error responses must follow {error: {code, message}} shape."""
 
     _ERROR_CASES = [
-        ("PATCH", "/v1/conversations/sess-error-shape", None, None, 400),
+        ("GET", "/v1/conversations/sess-error-shape/messages", None, None, 400),
     ]
 
     @pytest.mark.parametrize(

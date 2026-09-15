@@ -46,16 +46,6 @@
         }
       }
     },
-    "/v1/conversations/{session_id}": {
-      "patch": {
-        "summary": "rename conversation",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
     "/v1/conversations/{session_id}/messages": {
       "get": {
         "summary": "conversation messages",

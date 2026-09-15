@@ -61,10 +61,9 @@ void test("authenticated reads stay unmanaged (GET conversation surfaces)", () =
   }
 });
 
-void test("PATCH (rename conversation) is a durable fail-closed mutation", () => {
+void test("retired conversation rename is unmanaged", () => {
   const p = classify("PATCH", "/v1/conversations/abc");
-  assert.equal(p.limiter, "durable");
-  assert.equal(p.failure, "fail-closed");
+  assert.equal(p.limiter, "none");
 });
 
 void test("users GET is unmanaged; users POST/DELETE are durable fail-closed mutations", () => {
