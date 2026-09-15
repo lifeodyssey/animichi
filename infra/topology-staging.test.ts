@@ -101,10 +101,11 @@ test("an ordinary input on this same stack is NOT sealed", () => {
 
 test("staging buckets are isolated from production and stay private", () => {
   const buckets = ofType(built, "cloudflare:index/r2Bucket:R2Bucket");
-  assert.equal(buckets.length, 3);
+  assert.equal(buckets.length, 4);
   assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), [
     "catalog-media-staging",
     "map-tiles-staging",
+    "docs-assets-staging",
     "catalog-snapshots-staging",
   ]);
   assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);

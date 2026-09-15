@@ -50,9 +50,19 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 4. Prefer linking to code paths over hardcoding volatile counts.
 5. Planning docs may contain process detail; README and architecture docs should not.
 6. Put operational docs under `docs/ops/` and iteration artifacts under `docs/iterations/`.
-7. Docs images >1MB: never commit. Upload to the private R2 bucket and link through the edge
-   `/img` proxy (`workers/edge/src/proxy/image-proxy.ts` — upstreams `image.anitabi.cn` today; R2-backed
-   serving is a listed edge extension). Legacy >1MB assets under `docs/archive/` are W6 strip candidates.
+7. Docs images >1MB: never commit. They live in the private `docs-assets` R2 bucket (binding
+   `DOCS_ASSETS`; staging uses `docs-assets-staging`) and are served only through the edge `/img`
+   proxy (`workers/edge/src/proxy/image-proxy.ts` → `docs-assets.ts`), which is also the gate:
+   only `archive/**` keys with a raster-image extension (`png`, `jpg`, `jpeg`, `webp`, `gif`) reach
+   the bucket, every path segment matches `^[A-Za-z0-9_][A-Za-z0-9._-]*$`, and a key is at most 256
+   characters. **Canonical URL `https://animichi.com/img/docs/<key>`; the object key is the asset's
+   repository path with its leading `docs/` segment dropped** — a repository path
+   `docs/archive/<directory>/<asset>.<ext>` is stored as `archive/<directory>/<asset>.<ext>` and
+   linked as `https://animichi.com/img/docs/archive/<directory>/<asset>.<ext>`. Anything else
+   inside that namespace — the bare `/img/docs` prefix, another prefix, traversal, a non-image
+   extension, an encoded separator or a second encoding level — answers the image proxy's existing
+   400 rather than falling through to `image.anitabi.cn`. Legacy >1MB assets under
+   `docs/archive/` are the strip candidates this bucket exists for (#915 P7).
 
 ## Agent-docs Network
 

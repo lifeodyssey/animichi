@@ -16,6 +16,7 @@
     "topology-runtime-secrets-missing.test.ts",
     "topology-runtime-secret-bindings.test.ts",
     "topology-disabled.test.ts",
+    "topology-docs-assets.test.ts",
     "topology-legacy-redirect.test.ts",
     "topology-prod.test.ts",
     "topology-prod-database-access.test.ts",

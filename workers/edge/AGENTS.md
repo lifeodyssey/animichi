@@ -2,8 +2,10 @@
 
 TypeScript Cloudflare Worker (Hono + `@cloudflare/containers`): the **request gateway**. Owns
 identity/rate-limit/turnstile enforcement, routing + forwarding to Catalog / Users / the agent
-container, and the image/tile proxies. **No pilgrimage domain model** — it is Gateway tier, never
-`src/domain/`. The HTML surface lives in `apps/web`.
+container, and the image/tile proxies — the `map-tiles` and `docs-assets` arms read private R2
+objects through `/tiles/*` and `/img/docs/*` (the docs key form is `docs/DOCS_POLICY.md` rule 7).
+**No pilgrimage domain model** — it is Gateway tier, never `src/domain/`. The HTML surface lives in
+`apps/web`.
 Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `../users/AGENTS.md`.
 
 Native tools, facts and deterministic selection rules are consumed through `@animichi/agent`
