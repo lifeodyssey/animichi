@@ -139,6 +139,7 @@
     "/v1/sessions/adopt": {
       "post": {
         "summary": "adopt anonymous sessions",
+        "x-runtime": "edge",
         "responses": {
           "200": {
             "description": "Successful response"

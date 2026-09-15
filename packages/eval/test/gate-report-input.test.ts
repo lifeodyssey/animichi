@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { Case, Dataset, Evaluator, type EvaluatorContext } from 'logfire/evals';
 
 import { bootstrapGate } from '../src/gate/bootstrap-gate.ts';
+import type { CaseScores } from '../src/gate/metric-gate.ts';
 import { aggregateScores, gateInputFromReport } from '../src/gate/report-gate-input.ts';
 import { oracleEntryNamed, readStatsOracle } from '../src/gate/stats-oracle.ts';
 
@@ -74,6 +75,21 @@ void test('a Python-written baseline gates that TS report', async () => {
   assert.deepEqual(outcome.failures, real.failures);
 });
 
+/**
+ * The frozen oracle is load-bearing, not decoration (#1603): the gate it feeds
+ * is only a gate if a moved input moves its verdict. The regeneration path is
+ * gone, so this is what still shows a perturbed fixture goes red — zeroing
+ * every score turns every metric into a regression, and the failing metrics
+ * cannot come back as the ones the committed fixture records.
+ */
+void test('a deliberately perturbed input no longer reproduces Python\'s verdict', () => {
+  const outcome = bootstrapGate(zeroedScores(real.current_cases), real.baseline, {
+    iterations: real.iterations,
+    strata: real.strata,
+  });
+  assert.notDeepEqual(failedMetrics(outcome.failures), failedMetrics(real.failures));
+});
+
 void test('a boolean evaluator still reaches the gate, as one and zero', async () => {
   const report = await runDataset([makeCase('a', { metric: 0.5 })]);
   assert.deepEqual(gateInputFromReport(report).cases, { a: { metric: 0.5, Answered: 1 } });
@@ -121,4 +137,19 @@ function counts(input: { evaluatedCount: number; erroredCount: number; total: nu
 function dropAssertion(scores: Readonly<Scores>): Scores {
   const { Answered: _answered, ...rest } = scores;
   return rest;
+}
+
+function zeroedScores(cases: CaseScores): CaseScores {
+  const entries = Object.entries(cases).map(([name, scores]) => [name, zeroed(scores)] as const);
+  return Object.fromEntries(entries);
+}
+
+function zeroed(scores: Readonly<Scores>): Scores {
+  return Object.fromEntries(Object.keys(scores).map((metric) => [metric, 0]));
+}
+
+/** The metric each gate failure names, so a moved number is not mistaken for a
+ * moved verdict. */
+function failedMetrics(failures: readonly string[]): string[] {
+  return failures.map((failure) => failure.split(':')[0] ?? failure).sort();
 }

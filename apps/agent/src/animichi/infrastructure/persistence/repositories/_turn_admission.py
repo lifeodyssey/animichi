@@ -15,6 +15,7 @@ from sqlalchemy.sql.dml import Delete, ReturningDelete, ReturningInsert, Returni
 from sqlalchemy.sql.selectable import Select
 
 from animichi.application.turn_admission_port import (
+    ADOPT_TURN_KEY_PREFIX,
     ReservationOutcome,
     ReserveRequest,
 )
@@ -73,7 +74,7 @@ def _prune_keep(session_id: str | None) -> Select:
         .where(
             reservation_table.c.session_id.is_not_distinct_from(session_id),
             reservation_table.c.status == "completed",
-            ~reservation_table.c.turn_key.like("adopt:%"),
+            ~reservation_table.c.turn_key.like(f"{ADOPT_TURN_KEY_PREFIX}%"),
         )
         .order_by(reservation_table.c.revision.desc())
         .limit(_KEEP_REVISIONS)
@@ -84,7 +85,7 @@ def _prune_statement(session_id: str | None) -> Delete:
     return delete(reservation_table).where(
         reservation_table.c.session_id.is_not_distinct_from(session_id),
         reservation_table.c.status == "completed",
-        ~reservation_table.c.turn_key.like("adopt:%"),
+        ~reservation_table.c.turn_key.like(f"{ADOPT_TURN_KEY_PREFIX}%"),
         reservation_table.c.id.not_in(_prune_keep(session_id)),
     )
 

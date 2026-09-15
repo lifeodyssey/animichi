@@ -17,6 +17,9 @@ from typing import Literal, Protocol
 
 from animichi.application.identity import UsageScope
 
+# Python mirrors the edge protocol; the parity test fails when either literal drifts.
+ADOPT_TURN_KEY_PREFIX = "adopt:"
+
 AdmissionStatus = Literal[
     "admitted",
     "in_flight",

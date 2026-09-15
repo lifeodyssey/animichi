@@ -1,5 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
-import { accountId, mediaBucketName, mapTilesBucketName, snapshotBucketName } from "./config.ts"
+import { accountId, docsAssetsBucketName, mediaBucketName, mapTilesBucketName, snapshotBucketName } from "./config.ts"
 
 // ── Catalog: R2 media bucket ──────────────────────────────────────────────────
 // catalog Worker uses MEDIA_BUCKET (see workers/catalog/src/media/r2.ts) for
@@ -27,6 +27,19 @@ export const catalogMediaBucket = new cloudflare.R2Bucket(
 export const mapTilesBucket = new cloudflare.R2Bucket(
   "map-tiles",
   { accountId, name: mapTilesBucketName, location: "apac" },
+  bucketOpts,
+);
+
+// Documentation assets are private R2 objects as well (#1650): the edge Worker
+// serves approved assets through the `/img/docs/*` arm of its image proxy, and
+// like the map tiles there is intentionally no R2 public bucket/domain here, so
+// no client can read the bucket directly. The approved key form is `archive/**`
+// with an image extension; the allowlist is enforced in
+// `workers/edge/src/proxy/docs-assets.ts` and the canonical URL/object form is
+// in `docs/DOCS_POLICY.md`.
+export const docsAssetsBucket = new cloudflare.R2Bucket(
+  "docs-assets",
+  { accountId, name: docsAssetsBucketName, location: "apac" },
   bucketOpts,
 );
 

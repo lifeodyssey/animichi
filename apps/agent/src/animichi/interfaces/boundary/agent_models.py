@@ -220,5 +220,4 @@ AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/v1/search/preview", "search preview"),
     ("POST", "/v1/photo-search", "photo search"),
     ("POST", "/v1/photo-search/confirm", "confirm photo offer"),
-    ("POST", "/v1/sessions/adopt", "adopt anonymous sessions"),
 )

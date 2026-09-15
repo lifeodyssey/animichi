@@ -43,9 +43,6 @@ from animichi.interfaces.routes._middleware import (
     register_observability_middleware,
 )
 from animichi.interfaces.routes.admission import build_startup_turn_outcome
-from animichi.interfaces.routes.adopt_sessions import (
-    router as adopt_sessions_router,
-)
 from animichi.interfaces.routes.bangumi import router as bangumi_router
 from animichi.interfaces.routes.byok import router as byok_router
 from animichi.interfaces.routes.chat import router as chat_router
@@ -284,7 +281,6 @@ def create_fastapi_app(
     app.include_router(bangumi_router)
     app.include_router(search_preview_router)
     app.include_router(photo_search_router)
-    app.include_router(adopt_sessions_router)
     return app
 
 

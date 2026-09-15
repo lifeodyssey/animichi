@@ -20,6 +20,7 @@ import {
 import { publicReadKey } from "./read-key.ts";
 import { isAnonymousV1, isPublicV1, turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
+import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
 //
@@ -65,6 +66,7 @@ function authenticationRejection(request: Request, auth: AuthFailure): Response 
 
 export interface GatewayDeps extends AgentTierGates {
   showcaseMode: ShowcaseMode;
+  sessionAdoption?: SessionAdoptionStore;
 }
 
 export function HandleGatewayRequest(
@@ -135,7 +137,7 @@ function landingResponse(
 ): Promise<Response> {
   if (asset === "healthz") return Promise.resolve(healthzResponse());
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
-  return handleImageProxy(request, ctx);
+  return handleImageProxy(request, ctx, env.DOCS_ASSETS);
 }
 
 /** The readiness probe is this Worker's own answer (#1596): the CD smoke
@@ -188,7 +190,7 @@ async function adoptResponse(
     authRateLimitConfigFrom(env),
   );
   if (guarded !== null) return guarded;
-  return handleSessionAdopt(env, request, auth, deps.sleep);
+  return handleSessionAdopt(env, request, auth, deps.sessionAdoption);
 }
 
 async function agentV1Response(

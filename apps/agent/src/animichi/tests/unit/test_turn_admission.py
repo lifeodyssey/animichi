@@ -15,6 +15,7 @@ from animichi.application.turn_admission import (
     AdmissionVerdict,
     TurnAdmission,
 )
+from animichi.application.turn_admission_port import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_outcome_port import TurnRef
 from animichi.interfaces.routes.admission import (
     DIGEST_MISMATCH_MESSAGE,
@@ -167,12 +168,10 @@ async def test_blank_turn_key_is_rejected_before_any_store_call() -> None:
 
 
 async def test_adopt_namespaced_turn_key_is_rejected_before_any_store_call() -> None:
-    """SESSION-2 #960: the `adopt:` turn_key namespace is reserved for the
-    synthetic adoption marker rows; a client key in it must never replay a
-    marker's completed status."""
+    """SESSION-2 #960: `adopt:` is reserved for synthetic marker rows."""
     store = FakeTurnReservationStore()
     with pytest.raises(InvalidInputError):
-        await _admission(store)(_request(turn_key="adopt:s-1"))
+        await _admission(store)(_request(turn_key=f"{ADOPT_TURN_KEY_PREFIX}s-1"))
     assert len(store.reservations) == 0
 
 
