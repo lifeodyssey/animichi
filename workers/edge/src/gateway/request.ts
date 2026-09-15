@@ -21,6 +21,7 @@ import {
 import { publicReadKey } from "./read-key.ts";
 import { isAnonymousV1, isPublicV1, turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
+import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
 //
@@ -66,6 +67,7 @@ function authenticationRejection(request: Request, auth: AuthFailure): Response 
 
 export interface GatewayDeps extends AgentTierGates {
   showcaseMode: ShowcaseMode;
+  sessionAdoption?: SessionAdoptionStore;
 }
 
 export function HandleGatewayRequest(
@@ -196,7 +198,7 @@ async function adoptResponse(
     authRateLimitConfigFrom(env),
   );
   if (guarded !== null) return guarded;
-  return handleSessionAdopt(env, request, auth, deps.sleep);
+  return handleSessionAdopt(env, request, auth, deps.sessionAdoption);
 }
 
 async function agentV1Response(

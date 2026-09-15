@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import re
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, cast
@@ -132,45 +131,6 @@ def _require_trusted_user(
     if auth.user_id is None:
         raise HTTPException(status_code=400, detail="X-User-Id header required.")
     return auth
-
-
-def _require_non_anonymous_user(
-    auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
-) -> TrustedAuthContext:
-    """Reject-anonymous, not allow-list (adopt_sessions, SESSION-2 #960).
-
-    Delegates to `is_anonymous_identity` — the single canonical predicate,
-    also `usage_metering.scope_for_identity`'s classification — rather than
-    re-deriving the same "typed marker or `anon_` id prefix" union inline
-    (issue #741 sibling cleanup: a second hand-written copy of that union is
-    exactly how a divergent third definition creeps in). There is no
-    ``"user"`` literal anywhere in the system — real humans are stamped
-    ``"human"`` (the legacy API-key ``"agent"`` class was deleted in
-    AUTH-1 #945) — so this must not be an allow-list, which would 403 every
-    genuine caller.
-    """
-    if auth.user_id is None:
-        raise HTTPException(status_code=400, detail="X-User-Id header required.")
-    if is_anonymous_identity(auth.user_id, auth.user_type):
-        raise HTTPException(
-            status_code=403, detail="Anonymous identity cannot adopt sessions."
-        )
-    return auth
-
-
-#: The container's own re-validation of the edge-forwarded X-Anon-Id (re-P3):
-#: anything not matching this shape is treated as missing, not as an identity,
-#: so structural safety does not depend on the edge being bug-free.
-_ANON_ID_PATTERN = re.compile(r"^anon_[0-9a-f]{32}$")
-
-
-def _get_trusted_anon_id(
-    x_anon_id: Annotated[str | None, Header(alias="X-Anon-Id")] = None,
-) -> str | None:
-    value = _normalize_optional_header(x_anon_id)
-    if value is None or not _ANON_ID_PATTERN.fullmatch(value):
-        return None
-    return value
 
 
 def _raw_byok_headers(

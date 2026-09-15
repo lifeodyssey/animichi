@@ -22,7 +22,6 @@ from animichi.application.admission_limits import (
     anonymous_budget_verdict,
     anonymous_quota_verdict,
 )
-from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.errors import InvalidInputError
 from animichi.application.identity import (
     UsageScope,
@@ -30,6 +29,7 @@ from animichi.application.identity import (
     scope_for_identity,
 )
 from animichi.application.turn_admission_port import (
+    ADOPT_TURN_KEY_PREFIX,
     AdmissionStatus,
     ReservationOutcome,
     ReserveRequest,
