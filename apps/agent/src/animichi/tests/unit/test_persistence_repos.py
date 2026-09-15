@@ -20,14 +20,14 @@ from animichi.infrastructure.persistence.repositories.bangumi import (
 from animichi.infrastructure.persistence.repositories.composite import (
     PersistenceRepos,
 )
-from animichi.infrastructure.persistence.repositories.feedback import (
-    SQLModelFeedbackRepository,
-)
 from animichi.infrastructure.persistence.repositories.memory import (
     SQLModelMemoryStore,
 )
 from animichi.infrastructure.persistence.repositories.points import (
     SQLModelPointsRepository,
+)
+from animichi.infrastructure.persistence.repositories.request_log import (
+    SQLModelRequestLogRepository,
 )
 from animichi.infrastructure.persistence.repositories.session import (
     SQLModelSessionRepository,
@@ -52,7 +52,7 @@ def test_build_composes_every_repository_over_one_session_factory() -> None:
     assert isinstance(aggregate.points, SQLModelPointsRepository)
     assert isinstance(aggregate.usage, SQLModelUsageRepository)
     assert isinstance(aggregate.anon_quota, SQLModelAnonQuotaRepository)
-    assert isinstance(aggregate.feedback, SQLModelFeedbackRepository)
+    assert isinstance(aggregate.request_log, SQLModelRequestLogRepository)
     assert isinstance(aggregate.memory, SQLModelMemoryStore)
 
 

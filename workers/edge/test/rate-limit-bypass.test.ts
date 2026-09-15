@@ -92,7 +92,7 @@ void test("another isolate cannot reset an identity's spent window", async () =>
 
 // AC2 (review REJECT #680): the AUTH cost path previously consulted only
 // isAuthRateLimited (which matched /v1/chat + /v1/byok/*), leaving
-// authenticated /v1/feedback, PATCH /v1/conversations/*, /v1/photo-search
+// authenticated PATCH /v1/conversations/*, /v1/photo-search
 // and /v1/photo-search/confirm unguarded. They now route through the SAME
 // policy-driven guard as chat/BYOK: prove it by spending the one-request
 // AUTH window on that class and seeing the second the caller shares reject.
@@ -113,14 +113,6 @@ void test("authenticated POST /v1/photo-search/confirm is guarded by the policy 
   assert.equal((await app.request("/v1/photo-search/confirm", POST, e, stubCtx)).status, 200);
   const second = await app.request("/v1/photo-search/confirm", POST, e, stubCtx);
   assert.equal(second.status, 429, "an authenticated photo-search confirm must fail closed on the shared window");
-});
-
-void test("authenticated POST /v1/feedback is guarded by the policy path", async () => {
-  const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
-  assert.equal((await app.request("/v1/feedback", POST, e, stubCtx)).status, 200);
-  const second = await app.request("/v1/feedback", POST, e, stubCtx);
-  assert.equal(second.status, 429, "an authenticated feedback write must spend the identity's window");
 });
 
 void test("authenticated PATCH /v1/conversations/* is guarded by the policy path", async () => {

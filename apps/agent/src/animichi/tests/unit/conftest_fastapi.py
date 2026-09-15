@@ -37,7 +37,7 @@ def build_stub_db() -> PersistenceRepos:
         points=MagicMock(),
         usage=MagicMock(),
         anon_quota=MagicMock(),
-        feedback=MagicMock(),
+        request_log=MagicMock(),
         memory=MagicMock(),
         outbox=MagicMock(),
     )
@@ -49,7 +49,6 @@ def build_stub_db() -> PersistenceRepos:
     )
     db.session.list_sessions = AsyncMock(return_value=[])
     db.session.update_title = AsyncMock(return_value=True)
-    db.feedback.save_feedback = AsyncMock(return_value="fb-001")
     return db
 
 
