@@ -15,7 +15,6 @@ rather than a re-derivation, which makes this an oracle for W3-2's `dataKeysOf`
 as well.
 
 Run: `cd apps/agent && uv run python -m animichi.tests.eval.evaluator_oracle`
-(the export script did it for you — both are retired with the freeze, #1603).
 """
 
 from __future__ import annotations
