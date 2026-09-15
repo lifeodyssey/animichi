@@ -188,11 +188,12 @@ database, not the arguments it was called with.
 Test timeouts are budgets, not defaults (#1594). `test/test-timeout-budget.ts`
 declares one number per suite kind with the measurement that justifies it: the
 unit arm keeps vitest's tight 5 s for plain in-process tests, the workerd
-suites carry their own `describe(…, { timeout })`, and the
-integration config is package-wide because every file there provisions a
-container. `test/vitest-config-timeout.test.ts` globs every
-`vitest*.config.{ts,mts,cts,js,mjs,cjs}` in the package — every extension Vite
-loads a config from, because a review probe renaming one to `.mts` slipped past
-a `.ts`-only glob with the suite still green — and fails a config that declares
-no budget or an undeclared number, so a new arm cannot inherit the 5 s default; `pinsSuiteBudget` does the
-same for a suite whose scoped budget is removed. No retries, no flaky marker.
+suites carry their own `describe(…, { timeout })`, and the integration config
+is package-wide because every file there provisions a database of its own on
+the shared container (#1663) and migrates it. `test/vitest-config-timeout.test.ts`
+globs every `vitest*.config.{ts,mts,cts,js,mjs,cjs}` in the package — every
+extension Vite loads a config from, because a review probe renaming one to
+`.mts` slipped past a `.ts`-only glob with the suite still green — and fails a
+config that declares no budget or an undeclared number, so a new arm cannot
+inherit the 5 s default; `pinsSuiteBudget` does the same for a suite whose
+scoped budget is removed. No retries, no flaky marker.
