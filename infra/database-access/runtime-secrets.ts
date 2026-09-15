@@ -86,9 +86,10 @@ function runtimeSecretSources(): Record<string, pulumi.Input<string>> {
 }
 
 // ANON_ID_SECRET keeps `retainOnDelete`: turning anonymous access off must not
-// DELETE the live seed from the store. Because the value is generated, a later
-// re-declaration rotates it instead of importing the retained copy — the
-// owner-accepted rotation (#1676) recorded in docs/ops/secrets.md.
+// DELETE the live seed from the store. A Secrets Store secret name is unique
+// within its store and create does not adopt one, so turning access back on
+// must first import the retained secret (`<account_id>/<store_id>/<secret_id>`)
+// or delete it — re-declaring the name fails instead of rotating the value.
 const secrets = Object.entries(runtimeSecretSources()).map(([name, value]) =>
   new cloudflare.SecretsStoreSecret(`${name}${suffix}`, {
     accountId,
