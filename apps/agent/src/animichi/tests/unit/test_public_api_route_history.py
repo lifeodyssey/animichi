@@ -113,10 +113,10 @@ async def test_request_log_called_after_response(
     )
     db = MagicMock()
     db.session.upsert_session = AsyncMock()
-    # #663: the real repo lives at `db.feedback`, not a flat
+    # #663: the real repo lives at `db.request_log`, not a flat
     # `db.insert_request_log` — that was the production bug. Settle enqueues
     # the audit row; the drain writes the request log (AC5).
-    db.feedback.insert_request_log_on = AsyncMock(return_value="log-1")
+    db.request_log.insert_request_log_on = AsyncMock(return_value="log-1")
     outbox = MemoryOutbox()
     db.outbox = outbox
 
@@ -128,15 +128,15 @@ async def test_request_log_called_after_response(
             SettlementInputs(
                 usage_repo=db.usage,
                 anon_quota_repo=None,
-                request_audit_repo=db.feedback,
+                request_audit_repo=db.request_log,
                 messages_repo=db.session,
                 prices=UsagePrices(0.0, 0.0),
             )
         )
     )
 
-    kwargs = db.feedback.insert_request_log_on.call_args.kwargs
-    assert db.feedback.insert_request_log_on.await_count == 1
+    kwargs = db.request_log.insert_request_log_on.call_args.kwargs
+    assert db.request_log.insert_request_log_on.await_count == 1
     assert (kwargs["query_text"], kwargs["locale"], kwargs["intent"]) == (
         "吹響の聖地",
         "ja",

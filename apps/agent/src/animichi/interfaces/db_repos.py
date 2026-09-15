@@ -58,7 +58,6 @@ from animichi.domain.ports import (
     AnonQuotaCounter,
     BangumiRepo,
     ConversationLog,
-    RequestAudit,
     SessionRepo,
     UsageMeter,
 )
@@ -119,12 +118,6 @@ def messages_repo(db: object) -> ConversationLog | None:
     """
     repo = _wired_sub_repo(db, "session", "insert_message")
     return cast(ConversationLog, repo) if repo is not None else None
-
-
-def request_audit_repo(db: object) -> RequestAudit | None:
-    """Return *db*'s request-audit log, or ``None`` if it is not wired for use."""
-    repo = _wired_sub_repo(db, "feedback", "insert_request_log")
-    return cast(RequestAudit, repo) if repo is not None else None
 
 
 def turn_reservation_store(db: object) -> TurnOutcomeStore | None:

@@ -99,8 +99,8 @@ def make_db() -> tuple[MagicMock, MemoryOutbox]:
     db.anon_quota = MagicMock()
     db.anon_quota.increment_and_count = AsyncMock(return_value=1)
     db.anon_quota.increment_and_count_on = AsyncMock(return_value=1)
-    db.feedback = MagicMock()
-    db.feedback.insert_request_log_on = AsyncMock(return_value=None)
+    db.request_log = MagicMock()
+    db.request_log.insert_request_log_on = AsyncMock(return_value=None)
     return db, outbox
 
 
