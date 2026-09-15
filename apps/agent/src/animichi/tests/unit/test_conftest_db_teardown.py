@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import cast
 
@@ -101,5 +102,11 @@ def test_require_offline_image_missing_image_names_build_command(
 ) -> None:
     monkeypatch.setattr(conftest_db, "_docker_available", lambda: True)
     monkeypatch.setattr(conftest_db, "_offline_image_present", lambda: False)
-    with pytest.raises(RuntimeError, match="docker build"):
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            r"docker build -f packages/test-postgres/Dockerfile -t "
+            rf"{re.escape(conftest_db.OFFLINE_IMAGE)} \."
+        ),
+    ):
         conftest_db._require_offline_image()

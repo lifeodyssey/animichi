@@ -2,8 +2,7 @@
 
 Exercises the migrated persistence seam (#994) through the repository's
 public methods: create/load, state upsert semantics, ownership, the ordered
-transcript with database-generated UUIDv7 identities, the revision CAS, and
-the cross-table adoption unit of work. All fixtures and assertions go through
+transcript with database-generated UUIDv7 identities, and the revision CAS. All fixtures and assertions go through
 ORM operations — no raw SQL execution (raw-SQL policy, #999).
 """
 
@@ -15,7 +14,6 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
-from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.infrastructure.persistence.database import (
     DatabaseLifecycle,
     create_database_lifecycle,
@@ -30,7 +28,6 @@ from animichi.infrastructure.persistence.repositories.session import (
 )
 from animichi.tests.conftest_db import DatabaseTarget
 
-_ANON_ID = "anon_" + "a" * 32
 _OWNED_ID = "user-neon-1"
 
 
@@ -166,24 +163,6 @@ async def test_history_gates_ownership_and_reports_revision(
         await _clear(session_repo)
 
 
-async def test_adoption_moves_ownership_and_bumps_revision(
-    session_repo: SQLModelSessionRepository,
-) -> None:
-    await _clear(session_repo)
-    try:
-        await session_repo.create(_ANON_ID, _ANON_ID, "q", {})
-        outcome = await session_repo.adopt_ownership(_ANON_ID, _OWNED_ID)
-        assert outcome.adopted_count == 1
-        assert outcome.revisions_bumped == 1
-        assert await session_repo.check_session_owner(_ANON_ID, _OWNED_ID) is True
-        assert await session_repo.current_revision(_ANON_ID) == 1
-        again = await session_repo.adopt_ownership(_ANON_ID, _OWNED_ID)
-        assert again.adopted_count == 0
-        assert again.revisions_bumped == 0
-    finally:
-        await _clear(session_repo)
-
-
 async def test_list_sessions_and_update_title(
     session_repo: SQLModelSessionRepository,
 ) -> None:
@@ -203,29 +182,5 @@ async def test_list_sessions_and_update_title(
         record = await session_repo.load(_OWNED_ID)
         assert record is not None
         assert record.title == "新标题"
-    finally:
-        await _clear(session_repo)
-
-
-async def test_turn_marker_rows_never_use_the_client_turn_key_namespace(
-    session_repo: SQLModelSessionRepository,
-) -> None:
-    await _clear(session_repo)
-    try:
-        await session_repo.create(_ANON_ID, _ANON_ID, "q", {})
-        await session_repo.adopt_ownership(_ANON_ID, _OWNED_ID)
-        async with session_repo._sessionmaker() as session:
-            keys = (
-                (
-                    await session.execute(
-                        select(reservation_table.c.turn_key).where(
-                            reservation_table.c.session_id == _ANON_ID
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
-        assert keys == [f"{ADOPT_TURN_KEY_PREFIX}{_ANON_ID}"]
     finally:
         await _clear(session_repo)

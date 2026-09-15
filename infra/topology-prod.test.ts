@@ -146,10 +146,11 @@ test("HSTS is on with a deliberate no-preload policy", () => {
 
 test("production buckets are private and use the stable Wrangler names", () => {
   const buckets = ofType(built, "cloudflare:index/r2Bucket:R2Bucket");
-  assert.equal(buckets.length, 3);
+  assert.equal(buckets.length, 4);
   assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), [
     "catalog-media",
     "map-tiles",
+    "docs-assets",
     "catalog-snapshots",
   ]);
   assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);
@@ -158,8 +159,8 @@ test("production buckets are private and use the stable Wrangler names", () => {
 test("production declares no R2 custom domain, so all buckets stay private", () => {
   // An R2 bucket is public only when an R2CustomDomain is attached. Asserting
   // none exist across the stack is the privacy invariant: catalog-media,
-  // map-tiles, and the new catalog-snapshots bucket are served only through
-  // the edge/catalog Workers, never directly.
+  // map-tiles, docs-assets and the new catalog-snapshots bucket are served
+  // only through the edge/catalog Workers, never directly.
   const customDomains = ofType(built, "cloudflare:index/r2CustomDomain:R2CustomDomain");
   assert.deepEqual(customDomains, []);
 });

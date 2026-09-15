@@ -14,28 +14,41 @@ import * as pulumi from "@pulumi/pulumi";
 export const config = new pulumi.Config();
 export const stack = pulumi.getStack();
 
-/** Prod uses stable names; other stacks get a stack suffix. */
+/** One naming scheme for every bucket: production names are stable (the matching
+ * wrangler environment consumes them by name), and any other stack carries its
+ * own suffix so a preview can neither read nor overwrite a live bucket. The
+ * per-bucket functions below are what the topology tests and `buckets.ts` read;
+ * four copies of the ladder was four places for the scheme to drift (#1650
+ * review S17). */
+export function bucketNameFor(prodName: string, stackName: string): string {
+  return stackName === "prod" ? prodName : `${prodName}-${stackName}`;
+}
+
+/** Catalog media, served through the catalog Worker's `MEDIA_BUCKET`. */
 export function mediaBucketNameFor(stackName: string): string {
-  return stackName === "prod" ? "catalog-media" : `catalog-media-${stackName}`;
+  return bucketNameFor("catalog-media", stackName);
 }
 
-/** Staging has a fixed name; unknown preview stacks get an isolated suffix. */
+/** Private map tiles, served only through the edge Worker's `/tiles/*` arm. */
 export function mapTilesBucketNameFor(stackName: string): string {
-  if (stackName === "prod") return "map-tiles";
-  if (stackName === "staging") return "map-tiles-staging";
-  return `map-tiles-${stackName}`;
+  return bucketNameFor("map-tiles", stackName);
 }
 
-/** Immutable-snapshot bucket follows the media naming scheme (issue #1012). */
+/** Immutable catalog snapshots (issue #1012). */
 export function snapshotBucketNameFor(stackName: string): string {
-  if (stackName === "prod") return "catalog-snapshots";
-  if (stackName === "staging") return "catalog-snapshots-staging";
-  return `catalog-snapshots-${stackName}`;
+  return bucketNameFor("catalog-snapshots", stackName);
+}
+
+/** Private documentation assets (#1650), served only through the edge Worker's
+ * `/img/docs/*` arm. */
+export function docsAssetsBucketNameFor(stackName: string): string {
+  return bucketNameFor("docs-assets", stackName);
 }
 
 export const mediaBucketName = mediaBucketNameFor(stack);
 export const mapTilesBucketName = mapTilesBucketNameFor(stack);
 export const snapshotBucketName = snapshotBucketNameFor(stack);
+export const docsAssetsBucketName = docsAssetsBucketNameFor(stack);
 export const accountId = config.require("cloudflareAccountId");
 export const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 

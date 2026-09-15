@@ -67,6 +67,8 @@ data/raw/
 !supabase/templates/*.html
 !docs/archive/mockups-demo/**/*.html
 !docs/archive/design-sync/**/*.html
+# The one archived spec that is an HTML visual rather than markdown (#1649).
+!docs/archive/specs/cicd-pipeline-visual.html
 
 # QA/debug screenshots dumped at repo root (root-level only; docs/ assets unaffected)
 /*.png
