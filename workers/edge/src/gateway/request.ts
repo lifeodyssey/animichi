@@ -11,14 +11,14 @@ import type { ShowcaseMode } from "../proxy/showcase.ts";
 import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
-import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
+import { authenticatedForward, forwardPublicCatalog, forwardUsers } from "./forward.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
 import {
   credentialsRequired, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized,
 } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
-import { isAnonymousV1, isPublicV1, turnRoutePolicy } from "./routing-policy.ts";
+import { isAnonymousV1, turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
 import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 
@@ -199,16 +199,7 @@ async function agentV1Response(
   if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
   const edgeTier = turnRoutePolicy().select(request.method, pathname);
   if (edgeTier !== null) return agentTierResponse(env, request, ctx, pathname, edgeTier, deps);
-  if (isPublicV1(pathname)) return publicAgentV1Response(env, request, pathname, deps.sleep);
   return privateAgentV1Response(env, request, ctx, pathname, deps);
-}
-
-async function publicAgentV1Response(
-  env: Env, request: Request, pathname: string, sleep: (ms: number) => Promise<void>,
-): Promise<Response> {
-  const policy = classifyRatePolicy(request.method, pathname);
-  const guarded = await guardPolicy(env, policy, publicReadKey(request), authRateLimitConfigFrom(env));
-  return guarded ?? forwardV1(env, request, undefined, undefined, sleep);
 }
 
 async function privateAgentV1Response(

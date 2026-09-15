@@ -1,12 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PATHS } from "@animichi/contract/agent-paths";
-import {
-  ANON_V1_PATHS,
-  PUBLIC_V1_PATHS,
-  isAnonymousV1,
-  isPublicV1,
-} from "../src/gateway/routing-policy.ts";
+import { ANON_V1_PATHS, isAnonymousV1 } from "../src/gateway/routing-policy.ts";
 import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 
 // EDGE-1 #963: the edge's route tables derive from the AGENT_PATHS inventory
@@ -15,7 +10,7 @@ import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 // so a retired path can never silently re-enter an allowlist.
 //
 // Rate-limit classification itself is one decision table in
-// `rate-policy.ts`; this file only pins the identity-class tables in the
+// `rate-policy.ts`; this file only pins the identity-class table in the
 // routing policy.
 
 const inventoryPaths = new Set(AGENT_PATHS.map((entry) => entry.path));
@@ -29,10 +24,6 @@ function assertEveryEntryInInventory(paths: readonly string[], table: string): v
     );
   }
 }
-
-void test("every PUBLIC_V1 table entry exists in the AGENT_PATHS inventory", () => {
-  assertEveryEntryInInventory(PUBLIC_V1_PATHS, "PUBLIC_V1");
-});
 
 void test("every ANON_V1 table entry exists in the AGENT_PATHS inventory", () => {
   assertEveryEntryInInventory(ANON_V1_PATHS, "ANON_V1");
@@ -55,11 +46,23 @@ void test("the retired root matches no inventory and classifies as unmanaged", (
   assert.equal(classifyRatePolicy("GET", "/").limiter, "none", "a retired path must not be classified into a guarded cell");
 });
 
-void test("the guide route pattern derives from the inventory's parameter template", () => {
-  assert.equal(isPublicV1("/v1/bangumi/485/guide"), true);
-  assert.equal(isPublicV1("/v1/bangumi/guide"), false, "the parameter segment is required");
-  assert.equal(isPublicV1("/v1/bangumi/485/guide/"), false, "trailing slash must not extend the template");
-  assert.equal(isPublicV1("/v1/bangumi/485/guide/extra"), false, "an anchored template must not prefix-match");
+// #1597: the three uncalled catalog reads leave the inventory, the tables
+// derived from it and the rate policy together, so each is pinned at the same
+// shape as the retired `/v1/runtime` paths above: nothing advertises it and no
+// limiter cell classifies it. The inventory is keyed by the template each was
+// advertised as, the classifier's matcher by a concrete path; with the last
+// three gone, no `/v1` read is served without a credential.
+void test("the three retired catalog reads match no inventory and no limiter cell", () => {
+  assert.equal(inventoryPaths.has("/v1/search/preview"), false);
+  assert.equal(
+    classifyRatePolicy("GET", "/v1/search/preview").limiter,
+    "none",
+    "a retired path must not be classified into a guarded cell",
+  );
+  assert.equal(inventoryPaths.has("/v1/bangumi/{bangumi_id}/guide"), false);
+  assert.equal(classifyRatePolicy("GET", "/v1/bangumi/485/guide").limiter, "none");
+  assert.equal(inventoryPaths.has("/v1/bangumi/nearby"), false);
+  assert.equal(classifyRatePolicy("GET", "/v1/bangumi/nearby").limiter, "none");
 });
 
 void test("anonymous allowlist membership matches the inventory's paths", () => {
@@ -69,9 +72,8 @@ void test("anonymous allowlist membership matches the inventory's paths", () => 
   assert.equal(isAnonymousV1("/v1/feedback"), false);
 });
 
-void test("the retired staging prefix route remains outside public allowlists", () => {
+void test("the retired staging prefix route remains outside every allowlist", () => {
   assert.equal(inventoryPaths.has("/v1/staging/sessions/{session_id}/prefix"), false);
-  assert.equal(isPublicV1("/v1/staging/sessions/s-1/prefix"), false);
   assert.equal(isAnonymousV1("/v1/staging/sessions/s-1/prefix"), false);
   assert.equal(classifyRatePolicy("POST", "/v1/staging/sessions/s-1/prefix").limiter, "none");
 });
