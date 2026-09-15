@@ -288,6 +288,7 @@ jobs:
           ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
+          ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
       # only runner was quality.sh, which #1371 deleted with the pre-push
       # orchestrator; neither the affected matrix nor any package script can
@@ -330,12 +331,14 @@ jobs:
           bash scripts/local-gates/check-agents-refs.test.sh
           bash scripts/local-gates/check-docs-paths.test.sh
           bash scripts/local-gates/check-root-allowlist.test.sh
-      - name: Check AGENTS.md references, docs paths and the root allowlist
+          bash scripts/local-gates/check-spec-references.test.sh
+      - name: Check AGENTS.md references, docs paths, the root allowlist and docs/specs liveness
         run: |
           set -euo pipefail
           bash scripts/local-gates/check-agents-refs.sh
           bash scripts/local-gates/check-docs-paths.sh
           bash scripts/local-gates/check-root-allowlist.sh
+          bash scripts/local-gates/check-spec-references.sh
 
   agent:
     name: CI / agent

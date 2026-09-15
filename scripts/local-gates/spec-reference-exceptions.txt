@@ -1,0 +1,17 @@
+# docs/specs files the liveness gate (check-spec-references.sh, #1649) accepts
+# as unreferenced, each with the canonical owner that keeps it that way.
+#
+# One entry per line: <docs/specs path>|<canonical owner>
+#
+# The owner is the document or surface that is the reason the file stays in
+# docs/specs without a live reference — a spec whose decision is still awaiting
+# an owner is not an exception; it is a spec that has to be linked or archived.
+# Free text: a path, an issue number or a surface name all count, and the gate
+# requires only that an owner is named.
+# A blank owner, an entry outside docs/specs/, a stale entry (path no longer
+# tracked) or a line without the `|` separator fails the gate closed.
+#
+# Empty on purpose as of 2026-09-15: #1649 archived the four zero-reference
+# files the 2026-09-14 sweep found, so every remaining spec has a live
+# reference. Add an entry only when a spec must stay unreferenced, and name
+# what owns it.

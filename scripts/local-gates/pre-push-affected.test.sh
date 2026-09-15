@@ -3,7 +3,7 @@
 #
 # Hermetic: every case builds a throwaway git repository under one temp root
 # with its own `origin/main`, a fake `pnpm` / `make` / `atlas` on PATH and the
-# three documentation checks stubbed. No real suite, container or network call.
+# four documentation checks stubbed. No real suite, container or network call.
 # The fake pnpm does double duty — it answers `ls -r --depth -1 --json` and
 # records every `run` asked of it: the selected set, the serial flag and the
 # absent `...` closure are read off it. GATE_UNDER_TEST points at a mutant.
@@ -52,7 +52,7 @@ STUB
   for tool in make atlas; do
     printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$INVOCATIONS"\n' "$tool" > "$BIN/$tool"
   done
-  for check in agents-refs docs-paths root-allowlist; do
+  for check in agents-refs docs-paths root-allowlist spec-references; do
     printf '#!/usr/bin/env bash\nprintf "check-%s\\n" >> "$INVOCATIONS"\n' "$check" \
       > "$REPO/scripts/local-gates/check-$check.sh"
   done
@@ -133,7 +133,7 @@ commit_change feature docs/a.md .github/workflows/x.yml test/repo-config/gitleak
 run_gate < /dev/null
 expect_status "docs" 0 "$STATUS"
 expect "docs" "packages: (none)" "$OUT"
-for check in agents-refs docs-paths root-allowlist; do
+for check in agents-refs docs-paths root-allowlist spec-references; do
   expect "docs" "check-$check" "$RECORDED"
 done
 refute "docs" "--filter" "$RECORDED"

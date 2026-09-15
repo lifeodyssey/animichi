@@ -65,4 +65,4 @@ for name in $packages; do
 done
 [ "$agent" = 0 ] || make check
 [ "$schema" = 0 ] || atlas migrate validate --dir file://migrations/neon
-[ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist; do bash "scripts/local-gates/check-$c.sh"; done
+[ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done
