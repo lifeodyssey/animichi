@@ -46,6 +46,11 @@ void test("the retired root matches no inventory and classifies as unmanaged", (
   assert.equal(classifyRatePolicy("GET", "/").limiter, "none", "a retired path must not be classified into a guarded cell");
 });
 
+void test("the conversation index is a gateway-owned inventory entry, not a Python route", () => {
+  const index = AGENT_PATHS.find((entry) => entry.method === "GET" && entry.path === "/v1/conversations");
+  assert.equal(index?.runtime, "edge", "the container does not mount the list; this Worker serves it");
+});
+
 // #1595: `/v1/feedback` was retired with the feature behind it, so it is out of
 // the inventory, unclassified by the rate table, and outside every allowlist —
 // the shape every retirement is pinned to.
