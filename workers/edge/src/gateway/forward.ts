@@ -54,9 +54,11 @@ function stripUntrustedHeaders(headers: Headers): void {
  *
  * The fetch itself rides `fetchContainerResilient` (issue #1220): the
  * cold-start startup retry `/healthz` already had, plus a 60s head-of-response
- * timeout — see `gateway/container-fetch.ts`, which the two landing forwards
- * joined in EG-21 (#1343). `sleep` is threaded down from
- * `GatewayDeps` so tests can drive the retry's backoff without real waits. */
+ * timeout — see `gateway/container-fetch.ts`. EG-21 (#1343) extended the same
+ * bound to the two landing forwards; #1596 moved the readiness probe into the
+ * edge and retired `GET /`, so this forward is the only caller left. `sleep`
+ * is threaded down from `GatewayDeps` so tests can drive the retry's backoff
+ * without real waits. */
 export function forwardV1(
   env: Env,
   request: Request,

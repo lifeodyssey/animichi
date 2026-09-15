@@ -23,7 +23,7 @@ const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 const USERS_PREFIX = USERS_BINDING_PREFIX;
 
 export type RequestClass =
-  | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
+  | { kind: "landing"; asset: "healthz" | "tiles" | "img" }
   | { kind: "public-catalog" }
   | { kind: "users" }
   | { kind: "adopt" }
@@ -31,14 +31,17 @@ export type RequestClass =
   | { kind: "retired" }
   | { kind: "not-found" };
 
-/** The landing surface, which the showcase gate never denies. */
+/** The landing surface, which the showcase gate never denies. The readiness
+ * probe is served by this Worker itself (#1596), so no landing class reads the
+ * CONTAINER binding. */
 function landingClass(method: string, pathname: string): RequestClass | null {
   if (pathname === "/healthz" && method === "GET") return { kind: "landing", asset: "healthz" };
-  // The agent's JSON service banner at the root (CONTRACT-1 #938). Not an HTML
-  // page — #537 retired the page renderer, not the container's root JSON — so
-  // forwarding it to the container keeps every advertised Agent operation
-  // reachable through the CONTAINER binding (#1005 AC1).
-  if (pathname === "/" && method === "GET") return { kind: "landing", asset: "banner" };
+  // The container's JSON service banner at `/` is RETIRED (#1596): the edge
+  // answered it by waking the container, and nothing consumed it — the smoke
+  // probes `/healthz`, and `AGENT_PATHS` no longer advertises `/`.
+  // `workers/edge/test/operation-reachability.test.ts` enforces the other
+  // half: an advertised operation the edge 404s is a phantom surface, so the
+  // retirement had to be a removal from the inventory, not a 404 behind it.
   if (pathname.startsWith("/tiles/")) return { kind: "landing", asset: "tiles" };
   if (pathname.startsWith("/img/")) return { kind: "landing", asset: "img" };
   return null;

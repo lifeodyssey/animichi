@@ -26,17 +26,28 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
   only need those values. `test/agent-tool-schemas.test.ts` fails on committed drift,
   the way the OpenAPI documents do; `test/chat-answer-part.test.ts` parses what the edge's
   projection actually emits. Never hand-edit the generated file.
-- `pnpm run vet:openapi <baseline.json> <candidate.json>` — OpenAPI compat gate
-  (issue #1005 AC4/AC5): fails on unapproved breaking changes, approves additive
-  ones, and rejects a future major path unless its superseded operation carries
-  `deprecated: true` + `x-sunset`. `--allow-breaking` is the explicit approval
-  flag — never pass it in the normal CI gate.
+- `pnpm run vet:openapi <baseline.json> <candidate.json> --document <name>` — OpenAPI
+  compat gate (issue #1005 AC4/AC5): fails on unapproved breaking changes, approves
+  additive ones, and rejects a future major path unless its superseded operation
+  carries `deprecated: true` + `x-sunset`. The run names the published document it
+  vets, because the only approval it reads is that document's committed record
+  (`src/approved-breaking-changes.ts`, #1596). `--allow-breaking` is the manual human
+  override — it waives every breaking change in one run, never reads the record, and
+  is never passed by the normal CI gate.
 
 OpenAPI emission is byte-stable: JSON is pretty-printed with one trailing newline. Regenerate on
 every contract change and commit all three outputs. `pnpm test` reruns emission and fails on
 committed drift (`scripts/local-gates/contract-drift.sh`), then runs `vet:openapi` for each document
 against the merge-base baseline (the published contract) through `scripts/vet-openapi-baseline.ts` —
-unapproved breaking `/v1` changes fail closed there, locally and in CI alike. The baseline is always
+unapproved breaking `/v1` changes fail closed there, locally and in CI alike. An intentional breaking
+change is approved by adding a dated entry to `src/approved-breaking-changes.ts` that names it exactly
+(document, method, path, kind) with the issue that argued it; nothing else approves one. An entry is
+valid while its removal is realised in the document being vetted — an `endpoint-removed` path answers
+no method, a `method-removed` method+path is absent — so it stays valid once its own
+change has landed and needs no cleanup commit, while an entry whose operation is still advertised
+fails the run: an approval cannot precede the removal it names. Only
+operation removals are recordable, because they are the breaking kinds whose realised state the
+document itself can confirm. The baseline is always
 the merge base's own copy of the document, never the source head's: a document the merge base does
 not carry is brand-new, so it gets an empty `{"paths": {}}` baseline that approves every operation in
 it as additive, while a merge base the repository cannot read at all — missing tree or blob, shallow
@@ -89,14 +100,19 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 - `src/users-contract.ts` — users-service procedures and errors.
 - `src/errors.ts` — canonical catalog error registry.
 - `scripts/emit-openapi.ts` — deterministic OpenAPI emitter.
-- `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (baseline vs candidate) ·
-  `scripts/vet-openapi-baseline.ts` — the merge-base baseline the package's `test` vets against.
+- `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (baseline vs candidate, record vs document) ·
+  `scripts/vet-openapi-baseline.ts` — the merge-base baseline the package's `test` vets against ·
+  `src/approved-breaking-changes.ts` — the committed approval record the CLI reads (#1596).
 - `openapi.json` · `users-openapi.json` · `agent-openapi.json` — committed generated wire artifacts.
-- `src/openapi-changes.ts` · `src/openapi-schema-diff.ts` · `src/openapi-diff.ts` ·
+- `src/openapi-changes.ts` · `src/openapi-approvals.ts` · `src/openapi-schema-diff.ts` ·
+  `src/openapi-diff.ts` ·
   `src/openapi-vet.ts` · `test/openapi-diff-endpoints.test.ts` ·
   `test/openapi-diff-schemas.test.ts` · `test/openapi-diff-errors.test.ts` ·
-  `test/openapi-gate.test.ts` · `test/vet-gate.test.ts` — change vocabulary, classifier,
-  gate decisions, and the package-script wiring of the compat gate.
+  `test/openapi-gate.test.ts` · `test/vet-gate.test.ts` · `test/openapi-approvals.test.ts` ·
+  `test/approved-breaking-changes.test.ts` · `test/vet-record-cli.test.ts` — change vocabulary
+  (including the operation identity every change carries), the approval record's matching and
+  realisation rules, the classifier, gate decisions, the record's hygiene rules, and the
+  package-script wiring of the compat gate.
 
 ## Pitfalls
 

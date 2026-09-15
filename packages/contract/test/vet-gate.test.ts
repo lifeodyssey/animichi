@@ -5,12 +5,14 @@
  *
  *  1. The vet CLI (`scripts/vet-openapi.ts`) behaves as the gate expects:
  *     unapproved breaking changes exit 1, additive changes exit 0, and the
- *     future-major deprecation/sunset rule holds even for additive runs.
+ *     future-major deprecation/sunset rule holds even for additive runs. The run
+ *     names the document it vets; that document's committed approval record is
+ *     the only approval it reads (#1596).
  *
  *  2. The package's own `test` script invokes that CLI against an explicit
  *     merge-base baseline (`scripts/vet-openapi-baseline.ts`, #1358 — the gate
  *     used to live in a CI-only shell script, so only a pull request could run
- *     it), and never passes `--allow-breaking`.
+ *     it), passes the document being vetted, and never passes `--allow-breaking`.
  */
 
 import { spawnSync } from "node:child_process";
@@ -28,6 +30,7 @@ const MANIFEST_PATH = join(PACKAGE_ROOT, "package.json");
 const BASELINE_GATE = join(PACKAGE_ROOT, "scripts", "vet-openapi-baseline.ts");
 const N_MINUS_ONE_FIXTURE = join(PACKAGE_ROOT, "test", "fixtures", "users-contract-n-1.json");
 const CURRENT_USERS_DOC = join(PACKAGE_ROOT, "users-openapi.json");
+const USERS_DOCUMENT = "users-openapi.json";
 
 interface CliResult {
   readonly status: number | null;
@@ -36,12 +39,9 @@ interface CliResult {
 }
 
 function runVet(baseline: string, candidate: string, flag?: string): CliResult {
-  const args = flag === undefined ? [] : [flag];
-  const result = spawnSync(process.execPath, ["--import", "tsx", VET_SCRIPT, baseline, candidate, ...args], {
-    cwd: PACKAGE_ROOT,
-    encoding: "utf8",
-  }) as CliResult;
-  return { status: result.status, stderr: result.stderr, stdout: result.stdout };
+  const flags = flag === undefined ? [] : [flag];
+  const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate, "--document", USERS_DOCUMENT, ...flags];
+  return spawnSync(process.execPath, args, { cwd: PACKAGE_ROOT, encoding: "utf8" }) as CliResult;
 }
 
 function runBaselineGate(baseRef: string): CliResult {
@@ -165,7 +165,7 @@ describe("the compat gate is the contract package's own test script", () => {
 
   it("invokes the vet CLI rather than a second copy of its decisions", () => {
     expect(gate).toContain('join(PACKAGE_ROOT, "scripts", "vet-openapi.ts")');
-    expect(gate).toContain('const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate];');
+    expect(gate).toContain('const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate, "--document", document];');
   });
 
   it("gates all three documents and never passes the approval flag", () => {

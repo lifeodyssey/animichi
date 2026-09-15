@@ -12,7 +12,8 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 // gateway — an advertised operation the edge 404s is a phantom surface. This
 // test drives the real gateway (createWorkerApp) for every operation in the
 // committed generated documents and asserts the request reaches the intended
-// binding (CONTAINER for Agent, USERS for the Users service).
+// binding (CONTAINER for Agent, USERS for the Users service), with the
+// explicitly named edge-native exceptions partitioned out above.
 
 const PACKAGE_DIR = fileURLToPath(new URL("../../../packages/contract", import.meta.url));
 const HTTP_METHODS = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace"]);
@@ -74,14 +75,67 @@ function usersBinding(reached: { value: boolean }) {
   };
 }
 
-async function assertAgentOperationReachable(operation: AdvertisedOperation): Promise<void> {
+/** The operations the edge answers itself — advertised Agent operations that
+ * deliberately never reach the agent tier. `GET /healthz` became the
+ * gateway's own readiness answer in #1596: the CD smoke probes this origin,
+ * so a container application that has not started (or was stopped) must still
+ * report a healthy deploy. Every OTHER advertised operation keeps the strict
+ * phantom-surface rule: exactly one agent receiver, never zero. */
+const EDGE_NATIVE_OPERATIONS = new Set(["GET /healthz"]);
+
+function operationKey(operation: AdvertisedOperation): string {
+  return `${operation.method} ${operation.path}`;
+}
+
+function agentOperations(): AdvertisedOperation[] {
+  return operations(readDocument("agent-openapi.json"));
+}
+
+/** The advertised Agent operations the agent tier must serve. */
+function forwardedAgentOperations(): AdvertisedOperation[] {
+  return agentOperations().filter((operation) => !EDGE_NATIVE_OPERATIONS.has(operationKey(operation)));
+}
+
+/** The advertised Agent operations the edge answers itself. */
+function nativeAgentOperations(): AdvertisedOperation[] {
+  return agentOperations().filter((operation) => EDGE_NATIVE_OPERATIONS.has(operationKey(operation)));
+}
+
+/** Drive the real gateway once and count the agent receivers the request
+ * reached: the CONTAINER binding and the native agent tier (W1-7 #1256). */
+async function agentReceivers(operation: AdvertisedOperation): Promise<number> {
   const captured: { req?: Request } = {};
   const calls: NativeAgentCall[] = [];
   const app = createWorkerApp({ authenticate: authed, agentTurns: nativeAgentReceiver(calls) });
   const res = await app.request(concretePath(operation.path), { method: operation.method }, envWithContainer(captured), stubCtx);
-  assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
-  assert.equal(Number(captured.req !== undefined) + calls.length, 1, `${operation.method} ${operation.path} must reach exactly one agent receiver`);
+  assert.equal(res.status !== 404, true, `${operationKey(operation)} must not 404`);
+  return Number(captured.req !== undefined) + calls.length;
 }
+
+void test("every edge-native operation is still advertised in the Agent document", () => {
+  const advertised = new Set(agentOperations().map(operationKey));
+  assert.ok(EDGE_NATIVE_OPERATIONS.size > 0, "the edge-native table must name an operation, or this loop is vacuous");
+  for (const key of EDGE_NATIVE_OPERATIONS) {
+    assert.equal(advertised.has(key), true, `${key} is edge-native but no longer advertised — retire the entry here with it`);
+  }
+});
+
+void test("every advertised edge-native operation is answered without the agent tier", async () => {
+  const native = nativeAgentOperations();
+  assert.ok(native.length > 0, "the edge-native table must name an advertised operation, or this loop is vacuous");
+  assert.equal(native.length, EDGE_NATIVE_OPERATIONS.size, "each edge-native entry must name an advertised operation");
+  for (const operation of native) {
+    assert.equal(await agentReceivers(operation), 0, `${operationKey(operation)} is the edge's own answer, not the agent tier's`);
+  }
+});
+
+void test("every advertised forwarded Agent operation reaches exactly one agent receiver", async () => {
+  const forwarded = forwardedAgentOperations();
+  assert.ok(forwarded.length > 0, "agent-openapi.json must advertise an operation the agent tier serves");
+  for (const operation of forwarded) {
+    assert.equal(await agentReceivers(operation), 1, `${operationKey(operation)} must reach exactly one agent receiver`);
+  }
+});
 
 async function assertUsersOperationReachable(operation: AdvertisedOperation): Promise<void> {
   assert.equal(operation.path.startsWith(USERS_BINDING_PREFIX), true);
@@ -92,14 +146,6 @@ async function assertUsersOperationReachable(operation: AdvertisedOperation): Pr
   assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
   assert.equal(reached.value, true, `${operation.method} ${operation.path} must reach the USERS binding`);
 }
-
-void test("every Agent OpenAPI operation reaches its gateway receiver", async () => {
-  const agentOps = operations(readDocument("agent-openapi.json"));
-  assert.ok(agentOps.length > 0, "agent-openapi.json must advertise operations");
-  for (const operation of agentOps) {
-    await assertAgentOperationReachable(operation);
-  }
-});
 
 void test("every Users OpenAPI operation is reachable through the USERS binding", async () => {
   const usersOps = operations(readDocument("users-openapi.json"));

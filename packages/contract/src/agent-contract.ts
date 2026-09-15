@@ -28,24 +28,7 @@ export const ServiceMetadata = z.object({
 });
 export type ServiceMetadata = z.infer<typeof ServiceMetadata>;
 
-/** The `GET /` payload: service banner and its endpoint map. */
-export const EndpointMap = z.object({
-  healthz: z.string(),
-  runtime: z.string(),
-  feedback: z.string(),
-});
-export type EndpointMap = z.infer<typeof EndpointMap>;
-
-export const RootMetadata = z.object({
-  service: z.string(),
-  status: z.literal("ok"),
-  app_env: z.string(),
-  endpoints: EndpointMap,
-});
-export type RootMetadata = z.infer<typeof RootMetadata>;
-
-/**
- * The `POST /v1/byok/probe` success body (D5, #953): one bounded
+/** The `POST /v1/byok/probe` success body (D5, #953): one bounded
  * vision-capability probe's verdict. `error_code` is a null-or-opaque-string
  * field — the server deliberately collapses every non-auth failure to
  * `provider_unreachable`, so the emitted Pydantic model must keep it nullable
