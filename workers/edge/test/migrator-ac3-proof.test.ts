@@ -55,6 +55,7 @@ void test("Atlas owns the timestamped canonical baseline chain", () => {
     "20260829000000_fix_coordinate_sync_precedence.sql",
     "20260902000000_agent_runs.sql",
     "20260904000000_platform_usage_scope.sql",
+    "20260915060017_photo_offers.sql",
   ]);
   const sum = readFileSync(MIGRATIONS + "atlas.sum", "utf8");
   assert.ok(sum.length > 0, "atlas.sum must exist");

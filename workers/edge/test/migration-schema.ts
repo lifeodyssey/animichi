@@ -6,8 +6,8 @@
  * Deliberately narrow: it understands the statement forms this repository's
  * migrations use — `CREATE TABLE public.x (...)` with one column or constraint
  * per line, `ALTER TABLE public.x ADD COLUMN ...`, `ALTER TABLE public.x ADD
- * CONSTRAINT ... CHECK ...`, `CREATE UNIQUE INDEX ...` — and nothing else. It
- * is a reader, never a DDL authority.
+ * CONSTRAINT ... CHECK ...`, `CREATE UNIQUE INDEX ...`, `GRANT ... ON TABLE
+ * public.x TO role` — and nothing else. It is a reader, never a DDL authority.
  *
  * `ALTER` is read AFTER `CREATE TABLE`, so a CHECK a later migration drops and
  * re-adds (#1292 widened `daily_usage_scope_check`) reads as the vocabulary in
@@ -35,6 +35,8 @@ export interface TableSchema {
   readonly uniqueKeys: Map<string, readonly string[]>;
   /** CHECK constraint name -> the literals its `ARRAY[...]` admits. */
   readonly checkVocabularies: Map<string, readonly string[]>;
+  /** Role -> the table privileges the chain grants it, in declaration order. */
+  readonly grants: Map<string, readonly string[]>;
 }
 
 const TABLE_BODY = /CREATE TABLE public\.(\w+) \(\n([\s\S]*?)\n\);/g;
@@ -42,6 +44,7 @@ const ADDED_COLUMN = /^ALTER TABLE public\.(\w+) ADD COLUMN (\w+) (.+);$/gm;
 const ADDED_CONSTRAINT = /^ALTER TABLE public\.(\w+) ADD (CONSTRAINT .+);$/gm;
 const UNIQUE_INDEX = /CREATE UNIQUE INDEX (\w+) ON public\.(\w+) \(([^)]*)\)/g;
 const UNIQUE_CONSTRAINT = /^CONSTRAINT (\w+) UNIQUE \(([^)]*)\)$/;
+const TABLE_GRANT = /^GRANT ([A-Z]+(?:, [A-Z]+)*) ON TABLE public\.(\w+) TO (\w+);$/gm;
 const PRIMARY_KEY = /^PRIMARY KEY \(([^)]*)\)$/;
 const CHECK_CONSTRAINT = /^CONSTRAINT (\w+) CHECK .*?ARRAY\[([^\]]*)\]/;
 const QUOTED_LITERAL = /'([^']*)'/g;
@@ -60,7 +63,7 @@ function parseColumn(declaration: string): ColumnSchema {
 }
 
 function emptyTable(): TableSchema {
-  return { columns: new Map(), primaryKey: [], uniqueKeys: new Map(), checkVocabularies: new Map() };
+  return { columns: new Map(), primaryKey: [], uniqueKeys: new Map(), checkVocabularies: new Map(), grants: new Map() };
 }
 
 function tableOf(schema: Map<string, TableSchema>, name: string): TableSchema {
@@ -118,6 +121,14 @@ function readUniqueIndexes(schema: Map<string, TableSchema>, chain: string): voi
   }
 }
 
+/** A later grant replaces an earlier one for the same role; a REVOKE is not read, for the
+ * same reason a dropped CHECK is not: the declared privilege set is what the tests compare. */
+function readGrants(schema: Map<string, TableSchema>, chain: string): void {
+  for (const [, privileges = "", name = "", role = ""] of chain.matchAll(TABLE_GRANT)) {
+    tableOf(schema, name).grants.set(role, privileges.split(", "));
+  }
+}
+
 /** Every table the migration directory declares, keyed by table name. */
 export function readMigrationSchema(directory: string): Map<string, TableSchema> {
   const files = readdirSync(directory).filter((file) => file.endsWith(".sql")).sort();
@@ -127,5 +138,6 @@ export function readMigrationSchema(directory: string): Map<string, TableSchema>
   readAddedColumns(schema, chain);
   readAddedConstraints(schema, chain);
   readUniqueIndexes(schema, chain);
+  readGrants(schema, chain);
   return schema;
 }
