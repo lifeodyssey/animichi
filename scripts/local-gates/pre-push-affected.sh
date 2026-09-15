@@ -9,6 +9,9 @@ cd "$(git rev-parse --show-toplevel)"
 
 NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
+# The spec-reference gate reads these three files, so a change to them has to
+# run the docs bucket even though `scripts/**` needs no package.
+SPEC_REFERENCES='^scripts/local-gates/(check-spec-references(\.test)?\.sh|spec-reference-exceptions\.txt)$'
 ZERO=0000000000000000000000000000000000000000
 
 # What is gated is HEAD's diff, and the pushed refs are read to prove that is
@@ -46,7 +49,7 @@ while read -r dir name; do
 done <<<"$projects"
 agent=$(grep -cE '^(apps/agent|packages/contract)/' <<<"$changed" || true)
 schema=$(grep -cE '^migrations/neon/' <<<"$changed" || true)
-docs=$(grep -cE '^(docs/|\.claude/|[^/]+\.md$)' <<<"$changed" || true)
+docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES" <<<"$changed" || true)
 printf 'pre-push: packages:%s | agent=%s schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$agent" "$schema" "$deps" "$docs"
 
 # Every changed path must be owned by a selected package, a bucket that fired or
@@ -65,4 +68,4 @@ for name in $packages; do
 done
 [ "$agent" = 0 ] || make check
 [ "$schema" = 0 ] || atlas migrate validate --dir file://migrations/neon
-[ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist; do bash "scripts/local-gates/check-$c.sh"; done
+[ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done

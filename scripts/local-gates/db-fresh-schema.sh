@@ -43,7 +43,7 @@ fi
 # shellcheck source=../../packages/test-postgres/postgres-image.env
 . "$ROOT/packages/test-postgres/postgres-image.env"
 IMAGE="$TEST_POSTGRES_IMAGE"
-BUILD_CMD="docker build -f apps/agent/docker/test-postgres/Dockerfile -t $IMAGE ."
+BUILD_CMD="docker build -f packages/test-postgres/Dockerfile -t $IMAGE ."
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   echo "missing offline test image; build it first (one-time, needs network):" >&2

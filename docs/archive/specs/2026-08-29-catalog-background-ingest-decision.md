@@ -1,6 +1,12 @@
 # Catalog background ingest execution — decision spec
 
-- Status: PROPOSED — decision-ready analysis for owner sign-off; not yet dual-reviewed. Written 2026-08-29.
+- Status: Archived 2026-09-15 (#1649) — the recommended option C landed and #1229 is closed, so the
+  decision needs no live spec: the request path parks `status: "pending"` intent
+  (`workers/catalog/src/ingest/jobs.ts`), `runPendingDrainJob` drains it in both environments
+  (staging via `PENDING_DRAIN_CRON`, production rides `TTL_REFRESH_CRON`;
+  `workers/catalog/src/scheduled/ingest-schedule.ts`), and staging carries the explicit hourly
+  trigger. Retained as the historical record of the alternatives weighed (A/B/C). The analysis body
+  is unchanged.
 - Tracking: #1229 (silent waitUntil ingest death). Refs: #1227 (fixed by #1228 — guard now reports dead running rows as ready), #1228, `docs/specs/2026-08-26-system-health-audit.md`.
 - Scope: one decision — **where the per-work ingest pipeline runs when the trigger is a user request**. No code in this document; implementation tickets follow sign-off.
 
