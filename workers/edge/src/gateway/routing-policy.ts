@@ -43,10 +43,13 @@ export function isAnonymousV1(pathname: string): boolean {
   return ANON_V1.some((pattern) => pattern.test(pathname));
 }
 
-/** Native agent routes are always served by this Worker. */
+/** Native agent routes are always served by this Worker. `list` is the
+ * conversation index (Card E of the #1317 decomposition) and carries no
+ * session of its own; `transcript`/`stream` name one in their path. */
 export type EdgeTierRoute =
   | { readonly kind: "turn" }
   | { readonly kind: "probe" }
+  | { readonly kind: "list" }
   | { readonly kind: "transcript" | "stream"; readonly sessionId: string };
 
 /** Classify the native agent surface; other APIs have their own gateway routes. */
@@ -56,6 +59,7 @@ export interface TurnRoutePolicy {
 
 const TURN_PATH = inventoryPath("/v1/chat");
 const PROBE_PATH = inventoryPath("/v1/byok/probe");
+const LIST_PATH = inventoryPath("/v1/conversations");
 const TRANSCRIPT_PATH = inventoryPath("/v1/conversations/{session_id}/messages");
 const TRANSCRIPT = pathPattern(TRANSCRIPT_PATH);
 const CONVERSATION_SESSION = /^\/v1\/conversations\/([^/]+)\/(?:messages|stream)$/;
@@ -75,6 +79,7 @@ function conversationSessionId(pathname: string): string | null {
 function edgeTierRoute(method: string, pathname: string): EdgeTierRoute | null {
   if (method === "POST" && pathname === TURN_PATH) return { kind: "turn" };
   if (method === "POST" && pathname === PROBE_PATH) return { kind: "probe" };
+  if (method === "GET" && pathname === LIST_PATH) return { kind: "list" };
   return method === "GET" ? conversationReadRoute(pathname) : null;
 }
 

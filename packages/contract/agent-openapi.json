@@ -38,6 +38,7 @@
     "/v1/conversations": {
       "get": {
         "summary": "list conversations",
+        "x-runtime": "edge",
         "responses": {
           "200": {
             "description": "Successful response"

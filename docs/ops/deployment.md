@@ -11,9 +11,11 @@ and rotation impact, see [`secrets.md`](./secrets.md).
 There are three workflow responsibilities:
 
 - `pr-verification.yml` verifies pull requests and merge groups.
-- `release-build.yml` builds a complete immutable snapshot on every main push.
-- The main-only `cd.yml` dispatch deploys an explicitly selected existing artifact ID, then promotes
-  that same release after the actual production job's environment approval.
+- `release-build.yml` builds a complete immutable snapshot on every main push and, once the upload
+  has succeeded, dispatches `cd.yml` on `main` with that snapshot's own artifact ID.
+- The main-only `cd.yml` controller deploys the selected existing artifact ID to staging, then
+  promotes that same release after the actual production job's environment approval. A manual
+  dispatch still selects any other eligible artifact, such as an older release or a re-deploy.
 
 There is no tag-triggered or local deploy path. The protected branch still requires `PR Verification`
 and `Security`, resolved review threads and the repository's review discipline.
@@ -50,9 +52,13 @@ dependencies with `always()` and fail on any failed or cancelled one.
 
 ### Build once, select an immutable artifact
 
-A → B → C on main does not require three deployments. Select B's artifact ID to deploy B's full
-snapshot, including A's catalog/schema/foundation prerequisites; C remains undeployed until selected.
-The trusted controller checks out its dispatch SHA. B's release SHA must be in that main history,
+Each successful main push selects its own snapshot: the builder dispatches `CD` on `main` with the
+artifact ID it just uploaded, so staging needs no manual action while production keeps its approval.
+Manual dispatch remains for a different release.
+
+A → B → C on main deploys each push's own snapshot; selecting B's artifact ID instead deploys B's
+full snapshot, including A's catalog/schema/foundation prerequisites, and does not require C. The
+trusted controller checks out its dispatch SHA. B's release SHA must be in that main history,
 but it need not equal the controller SHA or the latest remote main commit.
 
 GitHub's official artifact API and pinned `actions/download-artifact` validate the explicit ID,
@@ -72,8 +78,9 @@ Artifact files cannot replace controller scripts or actions, and publication run
 One `stage` job holds `cd-staging` from preflight through foundation, migration, Worker publication,
 smoke and receipt. One `promote-production` job holds `cd-production` and owns `environment:
 production`. Its approval does not hold staging's lock. Both set `cancel-in-progress: false`; GitHub
-retains its native single pending selection, so a pending selection may be replaced. Active chains
-finish coherently. There is no workflow-wide lock, commit-order queue or `queue: max` exception.
+retains its native single pending selection, so a pending selection may be replaced — including by
+the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
+commit-order queue or `queue: max` exception.
 
 Before any Pulumi apply or Worker publication, both jobs inspect the real remote agent image manifest
 and linux/amd64 configuration with Docker, then read actual migration compatibility from
@@ -389,8 +396,9 @@ proxy only (`/v1/*`, `/healthz`, `/img/*`, `/tiles/*`, one public catalog read).
 
 ## Deploy Sequence
 
-There is one workflow-backed deploy path: an explicit artifact ID dispatch to `CD` on main.
-The builder never deploys and tags never trigger deployment.
+There is one workflow-backed deploy path: an artifact ID dispatch to `CD` on main — automatic for
+each successful main push's own snapshot, manual for any other selected artifact. The builder never
+deploys and tags never trigger deployment.
 
 ### Schema change policy
 
@@ -479,10 +487,12 @@ Local code and database tests do not replace the pending live bootstrap observat
 
 ### Select and promote (`.github/workflows/cd.yml`)
 
-1. Inspect a successful `Release build` run on main and its final `release-snapshot-<sha>-<attempt>`
-   artifact. Use the artifact ID and digest shown in its summary. Intermediate or old cohort artifacts
-   are not eligible.
-2. Dispatch `CD` with `--ref main` and that `artifact_id`, for example
+1. Every successful `Release build` run on main dispatches `CD` for its own
+   `release-snapshot-<sha>-<attempt>` artifact, so staging needs no manual action; the artifact ID
+   and digest are still shown in that run's summary. Intermediate or old cohort artifacts are not
+   eligible.
+2. To deploy a different release instead — an older artifact, a re-deploy, a rollback — dispatch
+   `CD` with `--ref main` and that `artifact_id`, for example
    `gh workflow run cd.yml --ref main -f artifact_id=<existing-id>`. The workflow verifies provenance
    and the complete snapshot before opening environment credentials.
 3. Staging publishes the complete selected snapshot, smokes the edge and web workers.dev surfaces,
@@ -494,7 +504,8 @@ Local code and database tests do not replace the pending live bootstrap observat
 
 Rejecting production affects that run only. It does not block another staging selection. Rerunning
 uses the same selected artifact; if its artifact or receipt expired, select an available eligible
-release explicitly. A new main push alone does not deploy a correction.
+release explicitly. A new main push deploys its own correction to staging and still needs its own
+production approval.
 
 ### Activation evidence required for #1564
 
@@ -878,9 +889,9 @@ catalog has no public host, which is why this runbook names the edge and web URL
 ### After any recovery
 
 Release artifacts are retained for 14 days. If the selected artifact has expired, land a reviewed
-revert on `main` and let `release-build.yml` publish a new immutable artifact, then explicitly select
-its artifact ID in `CD`. Revert the bad change on `main` so the next release restores trunk state —
-a rolled-back Worker is behind `main` until you do.
+revert on `main` and let `release-build.yml` publish a new immutable artifact, which dispatches `CD`
+for itself; promote that run through the production approval. Revert the bad change on `main` so the
+next release restores trunk state — a rolled-back Worker is behind `main` until you do.
 
 For Pulumi, inspect the failed update in Pulumi Cloud's stack history and roll back from there: read
 the last-good version number out of `pulumi stack history`, then `pulumi stack export --version
