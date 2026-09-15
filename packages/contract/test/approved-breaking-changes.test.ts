@@ -1,27 +1,20 @@
 /**
- * The committed approval record (#1596, #1005 AC5).
- *
- * The record is hand-written data a reviewer reads, so its own hygiene is
- * gated: every entry names a published document, a removal kind, an uppercase
- * method, a route path, the issue that argued the change and an ISO approval
- * date, and no entry hides behind a duplicate. An entry that fails any of these
- * can never approve its change — the gate reads the record, so a typo would
- * silently drop an approval rather than fail loudly. The kinds are the
- * operation removals and nothing else: they are the only breaking kinds whose
- * realised state the vetted document itself can confirm (#1596).
- *
- * Each rule asserts the record is non-empty before looping over it, so the
- * suite cannot pass by the record having quietly become `[]`; the exact-entry
- * case below is the same pin from the other side.
+ * The approval record's hygiene, gated because a typo would silently drop an
+ * approval rather than fail loudly. Each rule asserts the record is non-empty
+ * before looping, so the suite cannot pass by the record having become `[]`.
  *
  * test-type: unit.
  */
 
-import { describe, expect, it } from "vitest";
-import { APPROVED_BREAKING_CHANGES } from "../src/approved-breaking-changes.js";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readApprovedBreakingChanges } from "../src/approved-breaking-changes.js";
 import { change } from "../src/openapi-changes.js";
 import { REMOVAL_KINDS, type ApprovedBreakingChange } from "../src/openapi-approvals.js";
 
+const RECORD = readApprovedBreakingChanges();
 const PUBLISHED_DOCUMENTS = ["openapi.json", "users-openapi.json", "agent-openapi.json"];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ISSUE_REFERENCE = /^#\d+$/;
@@ -32,13 +25,13 @@ function entryKey(entry: ApprovedBreakingChange): string {
 
 describe("every entry names exactly one breaking change", () => {
   it("names a published document", () => {
-    expect(APPROVED_BREAKING_CHANGES.length).toBeGreaterThan(0);
-    for (const entry of APPROVED_BREAKING_CHANGES) expect(PUBLISHED_DOCUMENTS).toContain(entry.document);
+    expect(RECORD.length).toBeGreaterThan(0);
+    for (const entry of RECORD) expect(PUBLISHED_DOCUMENTS).toContain(entry.document);
   });
 
   it("names a removal kind, the only kind the document itself can confirm", () => {
-    expect(APPROVED_BREAKING_CHANGES.length).toBeGreaterThan(0);
-    for (const entry of APPROVED_BREAKING_CHANGES) {
+    expect(RECORD.length).toBeGreaterThan(0);
+    for (const entry of RECORD) {
       const severity = change(entry.kind, "", { method: entry.method, path: entry.path });
       expect(severity.breaking).toBe(true);
       expect(REMOVAL_KINDS).toContain(entry.kind);
@@ -50,8 +43,8 @@ describe("every entry names exactly one breaking change", () => {
   });
 
   it("names an uppercase method and a route path", () => {
-    expect(APPROVED_BREAKING_CHANGES.length).toBeGreaterThan(0);
-    for (const entry of APPROVED_BREAKING_CHANGES) {
+    expect(RECORD.length).toBeGreaterThan(0);
+    for (const entry of RECORD) {
       expect(entry.method).toBe(entry.method.toUpperCase());
       expect(entry.method.length).toBeGreaterThan(0);
       expect(entry.path.startsWith("/")).toBe(true);
@@ -59,8 +52,8 @@ describe("every entry names exactly one breaking change", () => {
   });
 
   it("carries the issue that argued it and the date it was approved", () => {
-    expect(APPROVED_BREAKING_CHANGES.length).toBeGreaterThan(0);
-    for (const entry of APPROVED_BREAKING_CHANGES) {
+    expect(RECORD.length).toBeGreaterThan(0);
+    for (const entry of RECORD) {
       expect(entry.issue).toMatch(ISSUE_REFERENCE);
       expect(entry.approved).toMatch(ISO_DATE);
       // A UTC round trip rejects impossible days (`2026-02-31`), which `Date.parse` normalises.
@@ -70,7 +63,7 @@ describe("every entry names exactly one breaking change", () => {
   });
 
   it("appears once, so no entry can hide behind a duplicate", () => {
-    const keys = APPROVED_BREAKING_CHANGES.map(entryKey);
+    const keys = RECORD.map(entryKey);
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys.length).toBeGreaterThan(0);
   });
@@ -78,7 +71,7 @@ describe("every entry names exactly one breaking change", () => {
 
 describe("the approval this card lands", () => {
   it("records the retired agent root for #1596", () => {
-    expect(APPROVED_BREAKING_CHANGES).toContainEqual({
+    expect(RECORD).toContainEqual({
       document: "agent-openapi.json",
       method: "GET",
       path: "/",
@@ -92,7 +85,7 @@ describe("the approval this card lands", () => {
   // typo cannot silently drop the approval the vet needs.
   it("records the three retired catalog reads for #1597", () => {
     for (const path of ["/v1/search/preview", "/v1/bangumi/{bangumi_id}/guide", "/v1/bangumi/nearby"]) {
-      expect(APPROVED_BREAKING_CHANGES).toContainEqual({
+      expect(RECORD).toContainEqual({
         document: "agent-openapi.json",
         method: "GET",
         path,
@@ -101,5 +94,52 @@ describe("the approval this card lands", () => {
         approved: "2026-09-15",
       });
     }
+  });
+});
+
+describe("a file that is not an entry fails the record, naming that file", () => {
+  let directory: string;
+
+  beforeEach(() => {
+    directory = mkdtempSync(join(tmpdir(), "approval-entry-"));
+  });
+
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  function directoryWithEntry(entry: object): string {
+    writeFileSync(join(directory, "bad-entry.json"), JSON.stringify(entry), "utf8");
+    return directory;
+  }
+
+  // The record is read, never compiled: a file that is not an entry would
+  // approve nothing, so the read fails loudly and names the file.
+  it("rejects a file that lost its issue", () => {
+    const lost = { document: "agent-openapi.json", method: "GET", path: "/",
+      kind: "endpoint-removed", approved: "2026-09-15" };
+    expect(() => readApprovedBreakingChanges(directoryWithEntry(lost))).toThrow(/bad-entry\.json/);
+  });
+
+  it("rejects a file approved on a day that does not exist", () => {
+    const impossible = { document: "agent-openapi.json", method: "GET", path: "/",
+      kind: "endpoint-removed", issue: "#1596", approved: "2026-02-31" };
+    expect(() => readApprovedBreakingChanges(directoryWithEntry(impossible))).toThrow(/bad-entry\.json/);
+  });
+
+  it("rejects a file whose kind is not an operation removal", () => {
+    const unknown = { document: "agent-openapi.json", method: "GET", path: "/",
+      kind: "path-removed", issue: "#1596", approved: "2026-09-15" };
+    expect(() => readApprovedBreakingChanges(directoryWithEntry(unknown))).toThrow(/bad-entry\.json/);
+  });
+
+  it("rejects a file that is not JSON", () => {
+    writeFileSync(join(directory, "bad-entry.json"), "{ not json", "utf8");
+    expect(() => readApprovedBreakingChanges(directory)).toThrow(/bad-entry\.json/);
+  });
+
+  it("rejects a stray file, which no run would ever read as an entry", () => {
+    writeFileSync(join(directory, "notes.md"), "one .json file per entry\n", "utf8");
+    expect(() => readApprovedBreakingChanges(directory)).toThrow(/notes\.md/);
   });
 });

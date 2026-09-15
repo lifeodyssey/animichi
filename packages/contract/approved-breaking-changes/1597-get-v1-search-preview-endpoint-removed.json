@@ -1,0 +1,8 @@
+{
+  "document": "agent-openapi.json",
+  "method": "GET",
+  "path": "/v1/search/preview",
+  "kind": "endpoint-removed",
+  "issue": "#1597",
+  "approved": "2026-09-15"
+}
