@@ -4,21 +4,18 @@
 aggregate against the fresh-schema manifest: ``sessions`` (state envelope,
 metadata, AND ownership in one row), ``messages`` (the ordered transcript),
 and ``turn_reservations`` (the durable revision CAS). It implements create,
-load, commit, history, and adoption so AgentTurn, GetSessionHistory, and
-AdoptSessions speak one repository — no second-root store exists.
+load, commit, and history so AgentTurn and GetSessionHistory speak one
+repository — no second-root store exists.
 
 The repository is a thin composition of private capability mixins (1-10-50):
 lifecycle + state live in ``_session_store``, the data records/scalar
 coercion in ``_session_records``, the transcript/history in
-``_session_messages``, and adoption in ``_session_adoption``.
+``_session_messages`` and the session lifecycle/state mixins.
 """
 
 from __future__ import annotations
 
 from animichi.infrastructure.persistence.database import AsyncSessionFactory
-from animichi.infrastructure.persistence.repositories._session_adoption import (
-    _SessionAdoptionMixin,
-)
 from animichi.infrastructure.persistence.repositories._session_messages import (
     _SessionHistoryMixin,
     _SessionMessagesMixin,
@@ -41,7 +38,6 @@ class SQLModelSessionRepository(
     _SessionMutationMixin,
     _SessionLifecycleMixin,
     _SessionStateMixin,
-    _SessionAdoptionMixin,
 ):
     """The sole Session aggregate repository against the fresh-schema manifest."""
 

@@ -4,6 +4,7 @@ import pg from "pg";
 import contractJson from "../../src/contract.json" with { type: "json" };
 import type { Contract } from "../../src/contract.d.ts";
 import geographyRuntimeDescriptor from "../../src/geography/runtime.ts";
+import { createTrigramIndex } from "./evidence.ts";
 import { FILLER_SQL, KNOWN_POINTS } from "./fixtures.ts";
 import { prisma } from "./prisma-cli.ts";
 import { QueryLog, recordingPool } from "./recording-pool.ts";
@@ -56,6 +57,7 @@ function createDatabaseClient(driverPool: pg.Pool, queryLog: QueryLog): Postgres
 async function seed(db: PostgresClient<Contract>, pool: pg.Pool): Promise<void> {
   for (const point of KNOWN_POINTS) await db.orm.public.GeoPoint.create(point);
   await pool.query(FILLER_SQL);
+  await createTrigramIndex(pool);
   await pool.query("ANALYZE geo_points");
 }
 

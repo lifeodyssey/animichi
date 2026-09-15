@@ -1,5 +1,9 @@
 # Spec: Unified Spot Display System
 
+- Status: Archived 2026-09-15 (#1649) — retained as historical design evidence. This spec targets
+  the retired `frontend/` surface (#537); the active web rebuild target is the
+  [frontend rebuild spec](../../specs/2026-07-06-frontend-rebuild-spec.md).
+
 ## Problem
 
 Three pages show pilgrimage spot data but with completely different design languages:

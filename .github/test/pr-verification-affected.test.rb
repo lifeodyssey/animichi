@@ -8,7 +8,6 @@ class PrVerificationAffectedTest < Minitest::Test
   CI_FILE = File.join(ROOT, ".github", "workflows", "pr-verification.yml")
   PACKAGE_SCRIPTS = %w[lint typecheck test test:integration].freeze
   MATRIX_TOOLCHAINS = [
-    ["@animichi/eval", "uv python install"],
     ["catalog", "ariga/setup-atlas"],
     ["migrator", "ariga/setup-atlas"],
     ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
@@ -60,6 +59,19 @@ class PrVerificationAffectedTest < Minitest::Test
 
   def provisions?(step, package, tool)
     step.is_a?(Hash) && step["if"].to_s.include?(package) && "#{step['uses']}#{step['run']}".include?(tool)
+  end
+
+  # `@animichi/eval`'s own `test` re-ran the Python fixture exporter, which is
+  # the only reason the matrix carried a uv arm; the fixtures are frozen bytes
+  # now and nothing in the package shells out to uv (#1603). Both halves are
+  # pinned: no eval-scoped uv step, and no uv install in the matrix at all —
+  # the second is what keeps the first from passing vacuously.
+  def test_eval_needs_no_uv_toolchain
+    steps = @ci.dig("jobs", "affected", "steps").to_a
+    refute(steps.any? { |step| provisions?(step, "@animichi/eval", "uv") },
+                   "pr-verification.yml: no step may provision a toolchain for @animichi/eval")
+    refute(steps.any? { |step| step["uses"].to_s.start_with?("astral-sh/setup-uv@") },
+                   "pr-verification.yml: the affected matrix must not install uv")
   end
 
   def test_matrix_provisions_toolchains

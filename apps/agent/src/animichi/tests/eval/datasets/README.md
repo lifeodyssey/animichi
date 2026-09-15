@@ -1,8 +1,9 @@
 # Eval datasets
 
-The canonical sets `eval_harness.py` loads (`EVAL_DATASET`) and
-`packages/eval/scripts/export-fixtures.sh` exports into `packages/eval/fixtures/`.
-Per-set notes live beside the set as `<set>.README.md`.
+The canonical sets `eval_harness.py` loads (`EVAL_DATASET`). `@animichi/eval` carries a frozen
+copy of this directory in `packages/eval/datasets/canonical/`; the Python-to-TS export script and
+its drift gate were retired with that freeze (#1603), so a change here has to update the copy in
+the same commit. Per-set notes live beside the set as `<set>.README.md`.
 
 **Every case runs from an empty session on both sides.** The `context.last_search_data`
 and `context.last_location` seeds that 76 cases carried were retired in #1398 — Python's

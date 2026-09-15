@@ -5,8 +5,9 @@ import { oneTimePinIdentityProviderId } from "./access-identity-provider.ts"
 
 // ── Staging: the Cloudflare Access front door (D3 #1369) ─────────────────────
 // Staging runs the same app as production *with anonymous access on*
-// (`ANON_ACCESS_ENABLED = "true"`, root wrangler.toml), so there is no login of
-// its own keeping strangers out. Access is that login: humans sign in against
+// (`ANON_ACCESS_ENABLED = "true"` in `workers/edge/wrangler.toml`
+// `[env.staging.vars]`), so there is no login of its own keeping strangers out.
+// Access is that login: humans sign in against
 // the identity policy below, automation presents the service token, and both
 // are decided by Cloudflare before a request is billed as a Worker invocation.
 //

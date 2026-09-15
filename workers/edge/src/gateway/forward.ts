@@ -46,11 +46,12 @@ function stripUntrustedHeaders(headers: Headers): void {
  * `X-BYOK-*` headers, and the container names this one in CORS only
  * (apps/agent/src/animichi/interfaces/fastapi_service.py), so nothing may set
  * it; on authed paths it injects the worker-verified identity.
- * A trusted `X-Anon-Id` is set only
- * when the caller passes one explicitly (the session-adoption route,
- * SESSION-2 #960 / re-P2-1) — every other route forwards none. `x-session-id` is
- * intentionally forwarded: chat session continuity needs it, so the
- * container must never treat it as a trust signal.
+ * No route passes a trusted `X-Anon-Id` any more: session adoption
+ * (SESSION-2 #960 / re-P2-1) was the only caller that ever did, and it now
+ * runs in this Worker instead of forwarding (#1601), so every call site passes
+ * `undefined` and the `trustedAnonId` parameter never sets the header.
+ * `x-session-id` is intentionally forwarded: chat session continuity needs it,
+ * so the container must never treat it as a trust signal.
  *
  * The fetch itself rides `fetchContainerResilient` (issue #1220): the
  * cold-start startup retry `/healthz` already had, plus a 60s head-of-response

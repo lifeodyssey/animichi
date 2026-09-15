@@ -143,8 +143,23 @@ Paths outside every pnpm project would otherwise be invisible to the join:
 |---|---|
 | `apps/agent/**` or `packages/contract/**` | `make check` — ruff + ruff-format + vulture, mypy, the unit suite under the canonical 87 floor (`apps/agent/pyproject.toml` `addopts`), and the offline Docker-arm integration suite. This is the one Docker use the hook itself makes. `packages/contract` is here because the agent consumes the contract and CI's `agent` job is routed the same way (#1323). |
 | `migrations/neon/**` | `atlas migrate validate --dir file://migrations/neon` — no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
-| `docs/**`, `.claude/**`, root-level `*.md` | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh` — the same three the CI `docs` job runs. |
+| `docs/**`, `.claude/**`, root-level `*.md`, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. |
+
+### docs/specs liveness (#1649)
+
+A spec nobody names cannot be found, reviewed or superseded. `check-spec-references.sh` requires
+every tracked file under `docs/specs/` to appear by basename, as a whole word, in another tracked
+file outside `docs/archive/` — the 2026-09-14 sweep that opened the card found four that did not,
+three of them describing surfaces already gone. (Two specs sharing a basename still count as named
+either is; none in the tree does.) A file that has to stay unreferenced goes in
+`scripts/local-gates/spec-reference-exceptions.txt` with the canonical owner that justifies it —
+the owner is free text (a path, an issue number or a surface name), and the gate requires only
+that it is named. An entry with no owner, outside `docs/specs/`, naming an untracked path, or
+written without the `|` separator fails the gate closed, and the gate's own files are never a
+reference, so an entry cannot justify itself. Those three files — the gate, its behavioral test
+and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate, and
+CI's `docs` job runs the same gate on every pull request.
 
 ### The whitelist, and failing closed
 
@@ -207,8 +222,9 @@ passed 43/43 on its own (2026-09-08).
   (#1473); CI's `catalog` matrix lane runs it as a step of its own, and `make check-full` runs it
   locally.
 - **The repository tests** (`.github/test/*.test.rb` and `test/repo-config/*.test.rb`) and the gate scripts' own behavioral
-  tests — CI's `contracts` job runs them unconditionally, on every pull request, so pre-push does
-  not need a copy. `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
+  tests — CI runs them unconditionally, on every pull request, so pre-push does not need a copy:
+  `contracts` runs these plus the delivery suites, and `docs` runs the four docs-hygiene
+  `check-*.test.sh` suites. `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
   shell check under `scripts/` and `.github/scripts/` is invoked by its exact path, and that every invoked
   repository script still exists. Deleting a check also requires deleting its CI invocation.
 
@@ -231,17 +247,18 @@ with the offline `animichi-test-postgres` image (the agent bucket's integration 
 
 - `scripts/local-gates/pre-push-affected.sh` — the pre-push gate
 - `scripts/local-gates/oxlint-changed.sh` — pre-commit oxlint dispatch (staged)
-- `scripts/local-gates/check-agents-refs.sh` / `check-docs-paths.sh` / `check-root-allowlist.sh` —
-  the documentation hygiene checks, shared with CI's `docs` job
+- `scripts/local-gates/check-agents-refs.sh` / `check-docs-paths.sh` / `check-root-allowlist.sh` /
+  `check-spec-references.sh` — the documentation hygiene checks, shared with CI's `docs` job
+- `scripts/local-gates/spec-reference-exceptions.txt` — the docs/specs files allowed to stay
+  unreferenced, each with its canonical owner
 - `scripts/local-gates/db-fresh-schema.sh` — disposable fresh-schema apply (CI's `db` job,
   `make check-full`)
 - `scripts/local-gates/infra-check.sh` — credential-free Pulumi program load (`infra`'s own `test`)
 - `scripts/local-gates/contract-drift.sh` — staged-snapshot OpenAPI drift (`@animichi/contract`'s
   own `test`)
-- `scripts/local-gates/eval-fixture-drift.sh` — staged-snapshot eval-fixture drift (`@animichi/eval`'s
-  own `test`)
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
-  and the stub harness they share; CI's `contracts` job runs them
+  and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
+  job runs the four `check-*.test.sh` suites
 - `commitlint.config.js` — the commit-message and PR-title rules
 - `.pre-commit-config.yaml` — hook wiring for all three stages
 - This document — the contract

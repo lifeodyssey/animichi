@@ -7,8 +7,9 @@ import { UNSTRATIFIED } from './paired-bootstrap.ts';
 /**
  * `stats.py`'s `load_case_strata`: case id → behaviour path.
  *
- * The strata come from the **canonical** dataset in `apps/agent`, not from the
- * exported fixture this package reads elsewhere. `Dataset.to_file` keeps only
+ * The strata come from the **canonical** dataset frozen inside this package
+ * (`datasets/canonical/`, #1603), not from the exported fixture this package
+ * reads elsewhere. `Dataset.to_file` keeps only
  * the fields of `AgentExpected` (`acceptable_stages`, `data_keys`,
  * `expect_nonempty`), so a row's `path` does not survive the export — measured
  * on `fixtures/agent_eval_v3.json`, whose 662 cases carry no `path` anywhere.
@@ -31,7 +32,7 @@ import { UNSTRATIFIED } from './paired-bootstrap.ts';
  */
 
 export const CANONICAL_DATASETS_DIR = fileURLToPath(
-  new URL('../../../../apps/agent/src/animichi/tests/eval/datasets/', import.meta.url),
+  new URL('../../datasets/canonical/', import.meta.url),
 );
 
 export function canonicalDatasetPath(setName: string): string {

@@ -4,7 +4,8 @@
 # Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
 # every HTML surface now, so this Worker is API + asset proxy only):
 #   src/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
-#                   + /img/* (image proxy) + /tiles/* (private R2 proxy)
+#                   + /img/* (image proxy: docs assets from private R2, then Anitabi)
+#                   + /tiles/* (private R2 proxy)
 #                   + /healthz + one public catalog read
 #                   → everything else: JSON 404, no page renderer
 #
@@ -142,6 +143,16 @@ service = "users"
 [[r2_buckets]]
 binding = "MAP_TILES"
 bucket_name = "map-tiles-staging"
+
+# Documentation assets (#1650) are private R2 objects served by the image
+# proxy's `/img/docs/*` arm; there is no public bucket/domain for them either.
+# The default ring points at the staging bucket for the same reason MAP_TILES
+# does: a command without an explicit production environment must not be able
+# to read production assets. Object keys and the canonical URL form are
+# defined in docs/DOCS_POLICY.md.
+[[r2_buckets]]
+binding = "DOCS_ASSETS"
+bucket_name = "docs-assets-staging"
 
 [[containers]]
 name = "animichi-runtimecontainer"
@@ -319,6 +330,10 @@ service = "users"
 binding = "MAP_TILES"
 bucket_name = "map-tiles"
 
+[[env.production.r2_buckets]]
+binding = "DOCS_ASSETS"
+bucket_name = "docs-assets"
+
 [[env.production.containers]]
 class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
@@ -413,6 +428,10 @@ preview_urls = false
 [[env.staging.r2_buckets]]
 binding = "MAP_TILES"
 bucket_name = "map-tiles-staging"
+
+[[env.staging.r2_buckets]]
+binding = "DOCS_ASSETS"
+bucket_name = "docs-assets-staging"
 
 [env.staging.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see
