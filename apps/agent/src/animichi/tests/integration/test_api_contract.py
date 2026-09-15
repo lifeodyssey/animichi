@@ -205,32 +205,6 @@ class TestRoot:
         assert isinstance(body["endpoints"], dict)
 
 
-# ── GET /v1/conversations ────────────────────────────────────────────────────
-
-
-class TestConversations:
-    async def test_returns_200_list(self, tc_db: PersistenceRepos) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.get(
-                "/v1/conversations",
-                headers={"X-User-Id": "user-1"},
-            )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert isinstance(body, list)
-
-    async def test_missing_user_header_returns_400_error_shape(
-        self, tc_db: PersistenceRepos
-    ) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.get("/v1/conversations")
-        assert resp.status_code == 400
-        body = resp.json()
-        assert "error" in body
-        assert "code" in body["error"]
-        assert "message" in body["error"]
-
-
 # ── GET /v1/conversations/{id}/messages ──────────────────────────────────────
 
 
@@ -375,30 +349,14 @@ class TestFeedback:
 class TestErrorShape:
     """All error responses must follow {error: {code, message}} shape."""
 
-    _ERROR_CASES = [
-        ("GET", "/v1/conversations", None, None, 400),
-        ("POST", "/v1/feedback", {"rating": "good", "query_text": "  "}, None, 422),
-    ]
-
-    @pytest.mark.parametrize(
-        ("method", "path", "json_body", "headers", "expected_status"),
-        _ERROR_CASES,
-        ids=[f"{m} {p}" for m, p, *_ in _ERROR_CASES],
-    )
     async def test_error_responses_have_standard_shape(
-        self,
-        tc_db: PersistenceRepos,
-        method: str,
-        path: str,
-        json_body: dict[str, object] | None,
-        headers: dict[str, str] | None,
-        expected_status: int,
+        self, tc_db: PersistenceRepos
     ) -> None:
         async with _build_app(db=tc_db) as client:
-            resp = await client.request(
-                method, path, json=json_body, headers=headers or {}
+            resp = await client.post(
+                "/v1/feedback", json={"rating": "good", "query_text": "  "}
             )
-        assert resp.status_code == expected_status
+        assert resp.status_code == 422
         body = resp.json()
         assert "error" in body
         error = body["error"]
@@ -430,7 +388,8 @@ class TestDBConnectionFailure:
             transport=transport, base_url="https://test"
         ) as client:
             resp = await client.get(
-                "/v1/conversations", headers={"X-User-Id": "user-1"}
+                "/v1/conversations/sess-unknown/messages",
+                headers={"X-User-Id": "user-1"},
             )
         # Should get a 500 error, not a silent success
         assert resp.status_code == 500

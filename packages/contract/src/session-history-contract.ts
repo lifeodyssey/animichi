@@ -1,20 +1,28 @@
 /**
- * The `GET /v1/conversations/{id}/messages` boundary (SESSION-1 #959), which
- * is one page of a session read back: its transcript, its revision, the state
- * of its latest run (W1-5 #1254) and the params its runs' tools executed with
- * (E-2 #1381).
+ * The conversation-read boundaries of the Agent HTTP surface.
+ *
+ * `GET /v1/conversations/{id}/messages` (SESSION-1 #959) is one page of a
+ * session read back: its transcript, its revision, the state of its latest run
+ * (W1-5 #1254) and the params its runs' tools executed with (E-2 #1381).
+ * `GET /v1/conversations` (Card E of the #1317 decomposition) is the index
+ * that page belongs to.
  *
  * It is its own module rather than a section of `agent-contract.ts` because it
- * is its own surface: one route, one use case on each tier
+ * is its own surface: the reads the browser makes of conversations it already
+ * owns, each with one use case on each tier
  * (`apps/agent/.../get_session_history.py` and
- * `workers/edge/src/agent/retrieval/`), and every consumer of these five
- * schemas wants exactly this route. `agent-contract.ts` keeps the shapes that
+ * `workers/edge/src/agent/views/`). `agent-contract.ts` keeps the shapes that
  * have no such home — health, the turn request, photo search, feedback.
  *
- * Emitted like every other boundary model: `scripts/emit-agent-python.ts`
- * reads these declarations, `test/agent-boundary.test.ts` fails on drift, and
+ * The transcript shapes are emitted like every other boundary model:
+ * `scripts/emit-agent-python.ts` reads these declarations,
+ * `test/agent-boundary.test.ts` fails on drift, and
  * `packages/contract/src/index.ts` re-exports them so the root import path is
- * unchanged.
+ * unchanged. The list shapes below are deliberately NOT emitted: the route
+ * they describe is edge-owned (`agent-paths.ts` marks it `runtime: "edge"`) and
+ * the FastAPI list route was deleted with it, so there is no Python route for a
+ * generated model to serve — the position the native stream boundary already
+ * holds.
  */
 
 import { z } from "zod";
@@ -114,3 +122,41 @@ export const GetSessionHistoryResponse = z.object({
   steps: z.array(SessionHistoryStep).nullable().optional(),
 });
 export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
+
+/**
+ * One `sessions` row of the `GET /v1/conversations` index (Card E of the
+ * #1317 decomposition): the summary the browser sidebar lists, read straight
+ * from the table admission owns (`workers/edge/src/agent/admission/session-owner.ts`).
+ *
+ * `title` and `first_query` are nullable, and the null is a real wire value
+ * rather than defensiveness. #1608 taught the native tier to write both — the
+ * intake stores the caller's first query verbatim, and the first successful
+ * settlement fills `title` with its first 20 characters — but between
+ * admission and that settlement the conversation exists with `title` unset,
+ * and every row created before #1608 has neither column. A key that is absent
+ * instead of null is not a shape this route emits.
+ *
+ * `created_at`/`updated_at` travel as the database renders them (the driver's
+ * own `pg/timestamptz-string@1` text, not a normalised ISO instant) and are
+ * nullable because the columns are. The sidebar reads neither: what the
+ * payload's order carries — newest `updated_at` first — is the semantic.
+ */
+export const ConversationListRow = z.object({
+  session_id: z.string(),
+  title: z.string().nullable(),
+  first_query: z.string().nullable(),
+  created_at: z.string().nullable(),
+  updated_at: z.string().nullable(),
+});
+export type ConversationListRow = z.infer<typeof ConversationListRow>;
+
+/**
+ * The `GET /v1/conversations` payload: the caller's own conversations, newest
+ * first, capped at the 30 rows the container's `list_sessions` returned
+ * before this card moved the route. An array and not an envelope — the
+ * browser client parses the top level as a list
+ * (`apps/web/src/features/chat/use-conversation-list.ts`), and that is the
+ * body it has always been served.
+ */
+export const ListConversationsResponse = z.array(ConversationListRow);
+export type ListConversationsResponse = z.infer<typeof ListConversationsResponse>;

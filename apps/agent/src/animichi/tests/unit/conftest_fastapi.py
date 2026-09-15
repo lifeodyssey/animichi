@@ -47,7 +47,6 @@ def build_stub_db() -> PersistenceRepos:
     db.session.load = AsyncMock(
         return_value=SessionRecord(session_id="s-1", user_id="user-1")
     )
-    db.session.list_sessions = AsyncMock(return_value=[])
     db.session.update_title = AsyncMock(return_value=True)
     db.feedback.save_feedback = AsyncMock(return_value="fb-001")
     return db

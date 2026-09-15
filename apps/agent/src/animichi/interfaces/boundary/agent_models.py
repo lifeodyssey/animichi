@@ -232,7 +232,6 @@ AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
     ("POST", "/v1/feedback", "submit feedback"),
-    ("GET", "/v1/conversations", "list conversations"),
     ("PATCH", "/v1/conversations/{session_id}", "rename conversation"),
     ("GET", "/v1/conversations/{session_id}/messages", "conversation messages"),
     ("GET", "/v1/bangumi/{bangumi_id}/guide", "work guide points"),

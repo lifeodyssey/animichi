@@ -45,6 +45,11 @@ void test("retired /v1/runtime paths match no inventory and classify as unmanage
   assert.equal(classifyRatePolicy("POST", "/v1/runtime/stream").limiter, "none");
 });
 
+void test("the conversation index is a gateway-owned inventory entry, not a Python route", () => {
+  const index = AGENT_PATHS.find((entry) => entry.method === "GET" && entry.path === "/v1/conversations");
+  assert.equal(index?.runtime, "edge", "the container does not mount the list; this Worker serves it");
+});
+
 void test("the guide route pattern derives from the inventory's parameter template", () => {
   assert.equal(isPublicV1("/v1/bangumi/485/guide"), true);
   assert.equal(isPublicV1("/v1/bangumi/guide"), false, "the parameter segment is required");

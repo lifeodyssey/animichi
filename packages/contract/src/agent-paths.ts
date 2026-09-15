@@ -1,8 +1,10 @@
 /**
  * Complete Agent HTTP path inventory (CONTRACT-1 #938; extracted #1285).
  *
- * The inventory mirrors `fastapi_service.py`'s router registrations, and it is
- * read at RUNTIME by the edge gateway's routing and rate tables
+ * The inventory mirrors `fastapi_service.py`'s router registrations — except
+ * the entries marked `runtime: "edge"`, which this Worker serves and the
+ * container never mounts (the Python inventory emitter drops them). It is read
+ * at RUNTIME by the edge gateway's routing and rate tables
  * (`workers/edge/src/gateway/routing-policy.ts`, `rate-policy.ts`), which
  * derive their allowlists from it rather than hand-maintaining a second
  * vocabulary.
@@ -40,7 +42,7 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
   { method: "POST", path: "/v1/feedback", summary: "submit feedback" },
-  { method: "GET", path: "/v1/conversations", summary: "list conversations" },
+  { method: "GET", path: "/v1/conversations", summary: "list conversations", runtime: "edge" },
   { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
   { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },
   { method: "GET", path: "/v1/conversations/{session_id}/stream", summary: "resume the native conversation stream", runtime: "edge" },

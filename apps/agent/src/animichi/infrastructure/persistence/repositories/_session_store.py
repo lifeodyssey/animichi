@@ -1,6 +1,6 @@
 """Session lifecycle + state mixins for the Session repository (#994).
 
-``_SessionLifecycleMixin`` wraps create/load/list/rename, and
+``_SessionLifecycleMixin`` wraps create/load/rename, and
 ``_SessionStateMixin`` wraps the state get/upsert/delete operations; both
 delegate to the module-level statement+flow helpers in ``_session_state``
 (1-10-50).
@@ -8,7 +8,7 @@ delegate to the module-level statement+flow helpers in ``_session_state``
 
 from __future__ import annotations
 
-from animichi.domain.repo_types import SessionListRow, SessionMetadata, SessionStateData
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
 from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.repositories._session_messages import (
     _session_owned,
@@ -20,7 +20,6 @@ from animichi.infrastructure.persistence.repositories._session_state import (
     _create,
     _delete_state,
     _get_state,
-    _list,
     _load,
     _update_title,
     _upsert,
@@ -82,13 +81,6 @@ async def _upsert_session(
             await _upsert(session, session_id, state, metadata, user_id)
 
 
-async def _list_sessions(
-    sessionmaker: AsyncSessionFactory, user_id: str, limit: int
-) -> list[SessionListRow]:
-    async with read_only(sessionmaker) as session:
-        return await _list(session, user_id, limit)
-
-
 async def _update_title_session(
     sessionmaker: AsyncSessionFactory,
     session_id: str,
@@ -138,7 +130,7 @@ class _SessionLifecycleMixin:
 
 
 class _SessionMutationMixin:
-    """Upsert/list/rename/ownership operations for the session store."""
+    """Upsert/rename/ownership operations for the session store."""
 
     _sessionmaker: AsyncSessionFactory
 
@@ -160,11 +152,6 @@ class _SessionMutationMixin:
 
     async def check_session_owner(self, session_id: str, user_id: str) -> bool:
         return await _session_owned(self._sessionmaker, session_id, user_id)
-
-    async def list_sessions(
-        self, user_id: str, *, limit: int = 30
-    ) -> list[SessionListRow]:
-        return await _list_sessions(self._sessionmaker, user_id, limit)
 
     async def update_title(
         self,

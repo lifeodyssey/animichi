@@ -50,7 +50,6 @@ def _aggregate_double() -> PersistenceRepos:
 def mock_db() -> PersistenceRepos:
     db = _aggregate_double()
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.session.list_sessions = AsyncMock(return_value=[])
     db.session.load = AsyncMock(
         return_value=SessionRecord(session_id="sess-1", user_id="user-1")
     )
@@ -76,25 +75,6 @@ def test_root_endpoint_returns_service_info(mock_db: MagicMock) -> None:
     body = response.json()
     assert body["service"] == "animichi-runtime"
     assert body["endpoints"]["healthz"] == "/healthz"
-
-
-def test_missing_user_header_returns_structured_invalid_request_error_on_conversations(
-    mock_db: MagicMock,
-) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/v1/conversations")
-
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-    assert body["error"]["message"] == "X-User-Id header required."
 
 
 def test_messages_route_returns_structured_404_when_ownership_mismatch(

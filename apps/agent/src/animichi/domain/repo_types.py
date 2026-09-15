@@ -107,16 +107,6 @@ class BangumiCandidateRow(TypedDict, total=False):
     points_count: int
 
 
-class SessionListRow(TypedDict, total=False):
-    """Compact session summary row (``list_sessions``)."""
-
-    session_id: str
-    title: object
-    first_query: object
-    created_at: object
-    updated_at: object
-
-
 class FeedbackBadRow(TypedDict, total=False):
     """One unfavourable-feedback operator row (``fetch_bad_feedback``)."""
 
@@ -179,7 +169,6 @@ __all__ = [
     "PointRow",
     "RequestLogUnscoredRow",
     "ResponseData",
-    "SessionListRow",
     "SessionMetadata",
     "SessionStateData",
 ]
