@@ -41,7 +41,6 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
   { method: "GET", path: "/v1/conversations", summary: "list conversations", runtime: "edge" },
-  { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
   { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },
   { method: "GET", path: "/v1/conversations/{session_id}/stream", summary: "resume the native conversation stream", runtime: "edge" },
   { method: "POST", path: "/v1/photo-search", summary: "photo search" },

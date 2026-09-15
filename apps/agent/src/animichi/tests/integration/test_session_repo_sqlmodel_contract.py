@@ -161,24 +161,3 @@ async def test_history_gates_ownership_and_reports_revision(
         assert page.revision == 0
     finally:
         await _clear(session_repo)
-
-
-async def test_update_title_scopes_the_rename_to_the_owner(
-    session_repo: SQLModelSessionRepository,
-) -> None:
-    await _clear(session_repo)
-    try:
-        await session_repo.create(_OWNED_ID, "user-1", "q", {})
-        assert (
-            await session_repo.update_title(_OWNED_ID, "新标题", user_id="user-1")
-            is True
-        )
-        assert (
-            await session_repo.update_title(_OWNED_ID, "no", user_id="intruder")
-            is False
-        )
-        record = await session_repo.load(_OWNED_ID)
-        assert record is not None
-        assert record.title == "新标题"
-    finally:
-        await _clear(session_repo)

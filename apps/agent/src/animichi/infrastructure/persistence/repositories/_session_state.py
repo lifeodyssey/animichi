@@ -1,18 +1,18 @@
 """Session-state statement + flow helpers (#994).
 
-The create/load/upsert/delete/rename statements for the Session aggregate,
+The create/load/upsert/delete statements for the Session aggregate,
 split out of ``session.py`` (1-10-50). Every statement is a typed SQLAlchemy
 expression (raw-SQL policy, #999).
 """
 
 from __future__ import annotations
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.postgresql.dml import Insert as PgInsert
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.dml import Insert, ReturningUpdate
+from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.selectable import Select
 
 from animichi.domain.repo_types import SessionMetadata, SessionStateData
@@ -190,29 +190,3 @@ async def _upsert(
     await session.execute(
         _upsert_statement(session_id, session_state, metadata, user_id),
     )
-
-
-def _title_statement(
-    session_id: str, title: str, user_id: str | None
-) -> ReturningUpdate:
-    statement = (
-        update(session_table)
-        .where(session_table.c.id == session_id)
-        .values(title=title, updated_at=func.now())
-        .returning(session_table.c.id)
-    )
-    if user_id is not None:
-        statement = statement.where(session_table.c.user_id == user_id)
-    return statement
-
-
-async def _update_title(
-    session: AsyncSession,
-    session_id: str,
-    title: str,
-    user_id: str | None,
-) -> bool:
-    result = await session.execute(
-        _title_statement(session_id, title, user_id),
-    )
-    return result.scalar_one_or_none() is not None

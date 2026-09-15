@@ -243,7 +243,7 @@ def create_fastapi_app(
         CORSMiddleware,
         allow_origins=[resolved_settings.cors_allowed_origin],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=[
             "Content-Type",
             "Authorization",

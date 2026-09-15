@@ -37,12 +37,11 @@ void test("every route under /v1/byok/ counts, by prefix, not by an exact list",
   assert.equal(isLimited("POST", "/v1/byok/anything-future"), true, "new BYOK routes are covered without an edit here");
 });
 
-void test("authenticated reads are NOT limited; writes are", () => {
+void test("authenticated reads are NOT limited", () => {
   assert.equal(isLimited("GET", "/v1/conversations"), false);
   assert.equal(isLimited("GET", "/v1/conversations/abc/messages"), false);
   assert.equal(isLimited("GET", "/v1/conversations/abc/routes"), false);
   assert.equal(isLimited("GET", "/v1/users/profile"), false);
-  assert.equal(isLimited("PATCH", "/v1/conversations/abc"), true, "a PATCH write is a guarded mutation class");
 });
 
 void test("a sibling path is not mistaken for a byok route by a naive substring check", () => {

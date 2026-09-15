@@ -199,7 +199,6 @@ AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/healthz", "gateway readiness"),
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
-    ("PATCH", "/v1/conversations/{session_id}", "rename conversation"),
     ("GET", "/v1/conversations/{session_id}/messages", "conversation messages"),
     ("POST", "/v1/photo-search", "photo search"),
     ("POST", "/v1/photo-search/confirm", "confirm photo offer"),

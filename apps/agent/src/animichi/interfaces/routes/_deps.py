@@ -11,7 +11,6 @@ import structlog
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, field_validator
 
 from animichi.agents.byok_models import (
     ByokCredential,
@@ -64,18 +63,6 @@ _MESSAGE_CONTENT_FIELDS = frozenset(
 class TrustedAuthContext:
     user_id: str | None
     user_type: str | None
-
-
-class ConversationPatchRequest(BaseModel):
-    title: str
-
-    @field_validator("title")
-    @classmethod
-    def validate_title(cls, value: str) -> str:
-        title = value.strip()
-        if not title:
-            raise ValueError("title must be a non-empty string.")
-        return title
 
 
 def _normalize_optional_header(value: str | None) -> str | None:
