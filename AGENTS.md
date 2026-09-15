@@ -57,9 +57,10 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (`block-local-deploy`, an owner-local rule — see Harness) — CD only: a push to
-  `main` builds a complete immutable release snapshot. The main-only CD dispatch selects an existing
-  `artifact_id`, deploys it to staging, then promotes the same digests after the actual production
-  job's GitHub environment approval. Main commits may be skipped; there is no tag deployment path.
+  `main` builds a complete immutable release snapshot and dispatches CD for that snapshot's own
+  artifact ID; a manual dispatch can still select another existing `artifact_id`. CD deploys it to
+  staging, then promotes the same digests after the actual production job's GitHub environment
+  approval. Main commits may be skipped; there is no tag deployment path.
   Platform activation prerequisites and operator steps → `docs/ops/deployment.md`.
 
 ## Commit and PR hygiene

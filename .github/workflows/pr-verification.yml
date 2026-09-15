@@ -251,6 +251,7 @@ jobs:
           ruby .github/test/release-config.test.rb
           ruby .github/test/release-consumer-cli.test.rb
           ruby .github/test/release-container-observation.test.rb
+          ruby .github/test/release-dispatch.test.rb
           ruby .github/test/release-migration-request.test.rb
           ruby .github/test/release-observation.test.rb
           ruby .github/test/release-publish-services.test.rb
