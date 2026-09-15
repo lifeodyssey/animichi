@@ -44,14 +44,13 @@
 # MIMO_API_KEY directly and keeps ZEN_GO_API_KEY for provider failover.
 # Production keeps
 # the settings default (no fallback) while its chat surface is disabled; the
-# DeepSeek and generic OpenAI-compat fallbacks stay wired but disabled:
+# generic OpenAI-compat fallback stays wired but disabled:
 #   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN, bound from the Secrets
 #                                Store in BOTH deployed environments (staging
 #                                #912 follow-up, production W4-1 #1314);
 #                                the only DSN read by apps/agent settings
 #   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
 #   MIMO_API_KEY               — staging fallback key for direct MiMo routing
-#   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
 #   #656 retired the standalone Gemini vision provider in favor of the main
 #   agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
@@ -289,11 +288,6 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # so production declares neither identity nor Turnstile bindings. Existing legacy Worker
 # copies are left for an explicitly reviewed cleanup after cutover.
 [[env.production.secrets_store_secrets]]
-binding = "DEEPSEEK_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "DEEPSEEK_API_KEY_PROD"
-
-[[env.production.secrets_store_secrets]]
 binding = "MIMO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "MIMO_API_KEY_PROD"
@@ -518,11 +512,6 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # store. Production's own entry in this one shared store is the "_PROD"-suffixed
 # name bound in [env.production] above (W4-1, #1314). Staging also requires
 # its existing anonymous identity seed; enabling access must preserve it.
-[[env.staging.secrets_store_secrets]]
-binding = "DEEPSEEK_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "DEEPSEEK_API_KEY"
-
 [[env.staging.secrets_store_secrets]]
 binding = "MIMO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"

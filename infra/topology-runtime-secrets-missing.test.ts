@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { RUNTIME_KEYS } from "./testing/runtime-secrets.ts";
+import { RUNTIME_KEYS, VENDOR_KEYS, runtimeConfig } from "./testing/runtime-secrets.ts";
 
-for (const name of RUNTIME_KEYS) {
+// Only the vendor keys are stack config; TURNSTILE_SECRET comes from the
+// adopted widget and ANON_ID_SECRET is generated, so deleting either of those
+// from config must stay a no-op (a `requireSecret` for either would turn this
+// file red through the staging build in topology-runtime-secrets-staging).
+for (const name of VENDOR_KEYS) {
   test(`missing ${name} fails the Pulumi program instead of omitting its resource`, () => {
     const script = `import { buildRuntimeSecrets, runtimeConfig } from "./testing/runtime-secrets.ts";
       const config = runtimeConfig();
@@ -16,6 +20,14 @@ for (const name of RUNTIME_KEYS) {
     assert.match(result.stderr, new RegExp(`Missing required configuration variable 'animichi-neon-secrets:${name}'`));
   });
 }
+
+// The staging build in its own file runs on this exact config, so a
+// `requireSecret` for either generated name would fail there with
+// ConfigMissingError.
+test("no generated runtime secret is required from stack config", () => {
+  const configured = Object.keys(runtimeConfig()).map((key) => key.split(":")[1] ?? "");
+  assert.deepEqual(configured.filter((name) => RUNTIME_KEYS.includes(name)), VENDOR_KEYS);
+});
 
 test("a blank runtime config fails instead of provisioning an unusable credential", () => {
   const script = `import { buildRuntimeSecrets, runtimeConfig } from "./testing/runtime-secrets.ts";

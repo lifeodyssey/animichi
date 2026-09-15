@@ -10,7 +10,7 @@ const config = fileURLToPath(new URL("../workers/edge/wrangler.toml", import.met
 
 for (const [environment, stack, suffix, enabled] of [["staging", "staging", "", true], ["production", "prod", "_PROD", false]] as const) {
   const expectedKeys = enabled ? RUNTIME_KEYS : [
-    "DEEPSEEK_API_KEY", "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
+    "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
   ];
   test(`${environment} binds each runtime secret to its own Secrets Store name`, () => {
     const document = parse(readFileSync(config, "utf8")) as {
@@ -22,6 +22,9 @@ for (const [environment, stack, suffix, enabled] of [["staging", "staging", "", 
       binding: name, store_id: "66c9bb0faef644b4a0671bb7d90d98bd", secret_name: `${name}${suffix}`,
     })));
     assert.equal(bindings.some((binding) => binding.binding === "SUPABASE_DB_URL"), false);
+    // Retired with the MiMo-only runtime: leaving this binding behind would
+    // dangle once the Pulumi program stops provisioning the store secret.
+    assert.equal(bindings.some((binding) => binding.binding === "DEEPSEEK_API_KEY"), false);
   });
 
   test(`${stack} imports its explicitly assigned ESC environment without inline runtime values`, () => {

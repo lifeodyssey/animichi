@@ -91,7 +91,6 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc role DSN (asyncpg) — the required agent-container data-plane connection (#912). The legacy `SUPABASE_DB_URL` name is still provisioned as the transitional container-DSN name pending the #855 prod cutover |
 | `MIMO_API_KEY` | Primary model provider key |
-| `DEEPSEEK_API_KEY` | Required by edge container-env for agent boot (forwarded into the container) |
 
 **Worker edge:** `NEON_AUTH_JWKS_URL` (the edge's ONLY identity source — AUTH-2 #950; verifies
 Neon Auth EdDSA JWTs against the branch JWKS; production stays unset/fails closed until its branch

@@ -21,7 +21,7 @@ import {
 // shape (compare ANON_DAILY_COST_BUDGET_USD).
 
 function requiredContainerEnv(): Record<string, string> {
-  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
+  return { MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
 }
 
 void test("APP_ENV is listed in CONTAINER_ENV_KEYS (standard forwarding allowlist shape)", () => {
@@ -120,7 +120,7 @@ void test("buildContainerEnvVars throws when APP_ENV is an empty string, not jus
 // Mutation guard: no hardcoded "production" seed survives — buildContainerEnvVars
 // must never invent a value for a key it wasn't given.
 void test("mutation guard: buildContainerEnvVars never seeds APP_ENV on its own", () => {
-  assert.throws(() => buildContainerEnvVars({ DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x" }));
+  assert.throws(() => buildContainerEnvVars({ MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x" }));
 });
 
 // wrangler.toml three-touchpoint check (feedback_env_var_three_touchpoints):

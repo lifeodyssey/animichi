@@ -30,7 +30,7 @@ Cloudflare Edge (Worker: workers/edge/src/entry.ts)
        ├─ agent-domain Postgres (SUPABASE_DB_URL)
        ├─ catalog.internal (private) ─────────────▶ CATALOG service binding
        │    (no public /catalog/* browser route)
-       └─ MiMo/DeepSeek model provider (MIMO_API_KEY / DEEPSEEK_API_KEY) —
+       └─ MiMo model provider (MIMO_API_KEY) —
           photo-search recognition rides this same chat model (#656)
 ```
 
@@ -134,7 +134,7 @@ Operational guidance:
 
 If AI Gateway is enabled later:
 
-- place it between the container and the upstream model provider (MiMo / DeepSeek)
+- place it between the container and the upstream model provider (MiMo)
 - do not place it in the browser
 - do not place it in the Worker
 
@@ -373,8 +373,8 @@ Three separate limits, stated precisely rather than glossed:
    (`/etc/cloudflare/certs/cloudflare-containers-ca.crt`), which the container's Python process
    must be configured to trust (`httpx`/`certifi` does not trust arbitrary system CAs by default).
    Flipping this on without first wiring that trust — and verifying it in a real deploy, which this
-   task cannot do — would silently break **every** production HTTPS call (MiMo, the DeepSeek
-   fallback, any BYOK provider), not just close a gap. That is a materially worse failure mode than
+   task cannot do — would silently break **every** production HTTPS call (MiMo, any BYOK provider),
+   not just close a gap. That is a materially worse failure mode than
    the gap it would close, given the exact AC error-path scenario in the spec uses
    `http://169.254.169.254/` (plain HTTP) — already covered — and real cloud-metadata IMDS
    endpoints are HTTP-only in practice.
@@ -502,9 +502,9 @@ checklist, in order:
    land in Task 4/5 (`feat/284-t45-exemption-probe`, unmerged at the time of writing) and will
    change this bound once merged — re-check this item then.
 
-Production today is **MiMo-only** (the DeepSeek fallback is provisioned but disabled) — "the MiMo
-provider call" above, not "two live provider hops"; re-word this bullet if/when DeepSeek is
-re-enabled.
+Production is **MiMo-only** (owner decision 2026-09-15: no DeepSeek secret is provisioned, bound,
+or forwarded) — "the MiMo provider call" above, not "two live provider hops"; re-word this bullet if
+a second provider is ever wired.
 
 ### Residual risk (T12), and the AGENTS.md convention that backs it
 

@@ -43,6 +43,9 @@ export interface Built {
   type: string;
   name: string;
   inputs: Record<string, unknown>;
+  /** The physical identifier the resource is adopted/read through, when the
+   * program passed one (a Pulumi `import` option arrives here). */
+  id?: string;
 }
 
 /** Install mocks + stack config, then import `index.ts`. Returns every

@@ -19,7 +19,7 @@ type PortsOrOptions = NonNullable<StartAndWaitForPortsArgs[0]>;
 type OptionsObject = Exclude<PortsOrOptions, number | number[]>;
 
 function requiredEnv(): Record<string, string> {
-  return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
+  return { MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
 }
 
 void test("ANON_DAILY_MESSAGE_QUOTA reaches the container (issue #282) — wrangler.toml alone is not the whole contract", () => {
