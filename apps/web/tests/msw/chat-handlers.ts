@@ -173,8 +173,8 @@ export function conversationMessagesErrorHandler(sessionId: string, status: numb
   return http.get(url, () => new HttpResponse(null, { status }));
 }
 
-/** GET /v1/conversations rows: the compact SessionListRow shape the agent's
- * SQLModel repository returns (total=False domain row — nulls included). */
+/** GET /v1/conversations rows: the compact list row the gateway's view
+ * publishes (the contract's `ConversationListRow` — nulls included). */
 export interface ConversationListRowFixture {
   readonly session_id: string;
   readonly title: string | null;

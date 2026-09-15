@@ -1,4 +1,5 @@
 import { nativeHistoryResponse } from "./native-history.ts";
+import { nativeConversationListResponse } from "./native-conversation-list.ts";
 import { nativeStreamResponse } from "./native-stream.ts";
 import type { Env } from "../env.ts";
 import { ByokRejection } from "../agent/byok/byok-credential.ts";
@@ -11,11 +12,15 @@ import { anonymousMessageAllowance } from "../agent/intake/anonymous-message-all
 export { submissionOf, MESSAGE_MAX_CHARS } from "./native-submission.ts";
 
 export interface TurnIdentity { readonly userId: string; readonly userType: string }
+/** What this Worker's own agent tier serves, one method per route the gateway
+ * routes to it. Every route is handed the request — only some read it — so a
+ * route that starts needing the URL does not have to change this seam. */
 export interface AgentTurnTier {
   chat(env: Env, request: Request, identity: TurnIdentity): Promise<Response>;
   probe(request: Request, identity: TurnIdentity): Promise<Response>;
   transcript(env: Env, request: Request, identity: TurnIdentity, sessionId: string): Promise<Response>;
   stream(env: Env, request: Request, identity: TurnIdentity, sessionId: string): Promise<Response>;
+  list(env: Env, request: Request, identity: TurnIdentity): Promise<Response>;
 }
 
 function byokLoginRefusal(request: Request, identity: TurnIdentity) {
@@ -57,5 +62,6 @@ export function neonAgentTurnTier(probe: ByokProbe = new ByokProbe()): AgentTurn
   return { chat: (env, request, identity) => refusable(() => chatResponse(env, request, identity)),
     probe: (request, identity) => refusable(() => probeResponse(probe, request, identity)),
     transcript: (env, request, identity, sessionId) => nativeHistoryResponse(env, request, identity.userId, sessionId),
-    stream: (env, request, identity, sessionId) => nativeStreamResponse(env, request, identity.userId, sessionId) };
+    stream: (env, request, identity, sessionId) => nativeStreamResponse(env, request, identity.userId, sessionId),
+    list: (env, _request, identity) => nativeConversationListResponse(env, identity.userId) };
 }

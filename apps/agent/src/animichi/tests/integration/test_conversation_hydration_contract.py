@@ -9,8 +9,6 @@ data pipeline: agent → AgentResult → persistence → hydration.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
@@ -99,33 +97,3 @@ async def test_persisted_greeting_response_hydrates_correctly(real_db) -> None:
 
     assert result.intent == "greet_user"
     assert result.message
-
-
-@pytest.mark.integration
-async def test_conversations_list_api(real_db) -> None:
-    """GET /v1/conversations should return conversation list."""
-    import httpx
-
-    from animichi.infrastructure.session import InMemorySessionStore
-    from animichi.interfaces.fastapi_service import create_fastapi_app
-    from animichi.interfaces.public_api import RuntimeAPI
-
-    runtime_api = RuntimeAPI(
-        real_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-    )
-    app = create_fastapi_app(runtime_api=runtime_api, db=real_db)
-    # Bypass lifespan — set app state directly (same pattern as test_api_contract)
-    app.state.runtime_api = runtime_api
-    app.state.db_client = real_db
-
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="https://test"
-    ) as client:
-        resp = await client.get(
-            "/v1/conversations",
-            headers={"X-User-Id": "test-hydration-user", "X-User-Type": "human"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert isinstance(data, list) or "conversations" in data

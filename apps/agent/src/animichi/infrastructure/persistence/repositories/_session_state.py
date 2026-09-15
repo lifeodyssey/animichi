@@ -1,13 +1,11 @@
 """Session-state statement + flow helpers (#994).
 
-The create/load/upsert/delete/list/rename statements for the Session
-aggregate, split out of ``session.py`` (1-10-50). Every statement is a
-typed SQLAlchemy expression (raw-SQL policy, #999).
+The create/load/upsert/delete/rename statements for the Session aggregate,
+split out of ``session.py`` (1-10-50). Every statement is a typed SQLAlchemy
+expression (raw-SQL policy, #999).
 """
 
 from __future__ import annotations
-
-from typing import cast
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -17,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import Insert, ReturningUpdate
 from sqlalchemy.sql.selectable import Select
 
-from animichi.domain.repo_types import SessionListRow, SessionMetadata, SessionStateData
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
 from animichi.infrastructure.persistence.models import session_table
 from animichi.infrastructure.persistence.repositories._session_records import (
     SessionRecord,
@@ -192,33 +190,6 @@ async def _upsert(
     await session.execute(
         _upsert_statement(session_id, session_state, metadata, user_id),
     )
-
-
-def _list_columns() -> Select:
-    "The session list columns read back in order."
-    return select(
-        session_table.c.id.label("session_id"),
-        session_table.c.title,
-        session_table.c.first_query,
-        session_table.c.created_at,
-        session_table.c.updated_at,
-    )
-
-
-def _list_statement(user_id: str, limit: int) -> Select:
-    return (
-        _list_columns()
-        .where(session_table.c.user_id == user_id)
-        .order_by(session_table.c.updated_at.desc())
-        .limit(limit)
-    )
-
-
-async def _list(
-    session: AsyncSession, user_id: str, limit: int
-) -> list[SessionListRow]:
-    rows = await session.execute(_list_statement(user_id, limit))
-    return [cast(SessionListRow, dict(row._mapping)) for row in rows.all()]
 
 
 def _title_statement(

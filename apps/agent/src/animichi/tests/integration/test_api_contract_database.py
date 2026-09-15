@@ -41,7 +41,8 @@ class TestDBConnectionFailure:
             transport=transport, base_url="https://test"
         ) as client:
             resp = await client.get(
-                "/v1/conversations", headers={"X-User-Id": "user-1"}
+                "/v1/conversations/sess-unknown/messages",
+                headers={"X-User-Id": "user-1"},
             )
         # Should get a 500 error, not a silent success
         assert resp.status_code == 500

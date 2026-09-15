@@ -1,7 +1,7 @@
 """The conversation endpoints' HTTP contract.
 
-List, messages and rename share one identity rule — a missing ``X-User-Id`` is a
-400, another user's session is a 404 — so their shape assertions live together;
+Messages and rename share one identity rule — a missing ``X-User-Id`` is a 400,
+another user's session is a 404 — so their shape assertions live together;
 the seeding and cleanup they need comes from ``_api_contract_client.py``. The
 health endpoint is pinned in ``test_api_contract_health.py``, and the shared
 error envelope in ``test_api_contract_error_shape.py``.
@@ -18,29 +18,6 @@ from animichi.tests.integration._api_contract_client import (
     seed_conversation,
     seed_message,
 )
-
-
-class TestConversations:
-    async def test_returns_200_list(self, tc_db: PersistenceRepos) -> None:
-        async with contract_client(db=tc_db) as client:
-            resp = await client.get(
-                "/v1/conversations",
-                headers={"X-User-Id": "user-1"},
-            )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert isinstance(body, list)
-
-    async def test_missing_user_header_returns_400_error_shape(
-        self, tc_db: PersistenceRepos
-    ) -> None:
-        async with contract_client(db=tc_db) as client:
-            resp = await client.get("/v1/conversations")
-        assert resp.status_code == 400
-        body = resp.json()
-        assert "error" in body
-        assert "code" in body["error"]
-        assert "message" in body["error"]
 
 
 class TestConversationMessages:

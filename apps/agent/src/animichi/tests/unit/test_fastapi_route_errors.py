@@ -44,18 +44,6 @@ def _app_with_db(db: PersistenceRepos):
     )
 
 
-def test_missing_user_header_returns_structured_invalid_request_error_on_conversations(
-    mock_db: PersistenceRepos,
-) -> None:
-    with TestClient(_app_with_db(mock_db)) as client:
-        response = client.get("/v1/conversations")
-
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-    assert body["error"]["message"] == "X-User-Id header required."
-
-
 def test_messages_route_returns_structured_404_when_ownership_mismatch(
     mock_db: PersistenceRepos,
 ) -> None:

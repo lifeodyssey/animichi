@@ -60,10 +60,13 @@ export interface AgentTierGates {
 function servedByTier(
   env: Env, request: Request, identity: TurnIdentity, route: EdgeTierRoute, gates: AgentTierGates,
 ): Promise<Response> {
-  if (route.kind === "turn") return gates.agentTurns.chat(env, request, identity);
-  if (route.kind === "probe") return gates.agentTurns.probe(request, identity);
-  if (route.kind === "stream") return gates.agentTurns.stream(env, request, identity, route.sessionId);
-  return gates.agentTurns.transcript(env, request, identity, route.sessionId);
+  switch (route.kind) {
+    case "turn": return gates.agentTurns.chat(env, request, identity);
+    case "probe": return gates.agentTurns.probe(request, identity);
+    case "list": return gates.agentTurns.list(env, request, identity);
+    case "transcript": return gates.agentTurns.transcript(env, request, identity, route.sessionId);
+    case "stream": return gates.agentTurns.stream(env, request, identity, route.sessionId);
+  }
 }
 
 /** The authenticated limiter still runs first: moving a turn onto this tier
@@ -81,14 +84,29 @@ async function authenticatedTierResponse(
 }
 
 /**
+ * The tier routes an unauthenticated caller may still reach: the anonymous
+ * pipeline below runs Turnstile, the limiter and the budget latch on the way
+ * to them. That is the deliberate widening this module documents — a turn,
+ * the transcript read and its stream.
+ *
+ * Everything else keeps the container path's wall. `/v1/byok/probe` was
+ * already behind it (#1289: spending a caller's key is the opposite of a
+ * cost-free read), and `list` joins it (Card E of #1317): the conversation
+ * index is one account's own list, so an unauthenticated caller gets a flat
+ * 401 BEFORE anything opens the database it would have been scoped by.
+ */
+const ANONYMOUS_TIER_KINDS: readonly EdgeTierRoute["kind"][] = ["turn", "transcript", "stream"];
+
+function admitsAnonymous(route: EdgeTierRoute): boolean {
+  return ANONYMOUS_TIER_KINDS.includes(route.kind);
+}
+
+/**
  * Serve one agent-tier route to whichever identity the ladder resolves.
  *
- * `/v1/byok/probe` never reaches the anonymous pipeline (#1289). It is absent
- * from `ANON_V1_PATHS`, so the CONTAINER position answers an unauthenticated
- * probe with a flat 401 (`test/byok-probe-auth.test.ts`), and the flag's
- * contract is that moving a route onto this tier does not move it out from
- * behind a wall. The deliberate widening above is the transcript READ and only
- * that; spending a caller's key is the opposite of a cost-free read.
+ * Nothing below re-verifies anything; the identity resolved here is the one
+ * the intake commits, and `admitsAnonymous` is the only thing that decides
+ * whether an absent credential reaches the pipeline at all.
  */
 export async function agentTierResponse(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string,
@@ -97,7 +115,7 @@ export async function agentTierResponse(
   const auth = await gates.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedTierResponse(env, request, auth, pathname, route, gates);
   if (auth.reason === "invalid") return unauthorized(pathname);
-  if (route.kind === "probe") return credentialsRequired();
+  if (!admitsAnonymous(route)) return credentialsRequired();
   const anonymous = await handleAnonymousV1(
     env, request, Date.now(), gates.turnstileGate, gates.sleep,
     (identity) => servedByTier(env, request, { userId: identity.userId, userType: "anonymous" }, route, gates),

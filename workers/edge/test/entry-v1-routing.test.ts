@@ -4,12 +4,19 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { envWithContainer, stubCtx } from "../src/container/entry-env.ts";
 
+// #1599: the two container-forward cases below probe `PATCH
+// /v1/conversations/{session_id}` (the rename route). `GET /v1/conversations` is
+// the edge's own conversation index now (`{ kind: "list" }` in
+// `routing-policy.ts`), so it never reaches `forwardV1`; rename is still
+// container-served, and `envWithContainer` binds `alwaysAllowGuard` for its
+// durable limiter, leaving the forward's identity handling as the thing under test.
+
 void test("/v1 private route -> container once the edge verified the caller", async () => {
   let authCalled = false;
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const); };
   const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
-  const res = await app.request("/v1/conversations", {}, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/conversations/s-1", { method: "PATCH" }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
   assert.equal(authCalled, true, "the private /v1 branch must verify the caller itself");
 });
@@ -46,7 +53,7 @@ void test("the container forward carries the edge-verified identity, never the c
   });
   const cap: { req?: Request } = {};
   const headers = { Authorization: "Bearer private", "X-User-Id": "forged" };
-  const res = await app.request("/v1/conversations", { headers }, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/conversations/s-1", { method: "PATCH", headers }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
   assert.ok(cap.req);
   assert.equal(cap.req.headers.get("Authorization"), null);

@@ -163,14 +163,12 @@ async def test_history_gates_ownership_and_reports_revision(
         await _clear(session_repo)
 
 
-async def test_list_sessions_and_update_title(
+async def test_update_title_scopes_the_rename_to_the_owner(
     session_repo: SQLModelSessionRepository,
 ) -> None:
     await _clear(session_repo)
     try:
         await session_repo.create(_OWNED_ID, "user-1", "q", {})
-        listed = await session_repo.list_sessions("user-1")
-        assert [item["session_id"] for item in listed] == [_OWNED_ID]
         assert (
             await session_repo.update_title(_OWNED_ID, "新标题", user_id="user-1")
             is True
