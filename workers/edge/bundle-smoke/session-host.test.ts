@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { TURN_DEADLINE_MS } from "../src/agent/host/turn-deadline.ts";
 import { Miniflare } from "miniflare";
 
 async function nativeWorker(context: TestContext) {
@@ -56,6 +57,34 @@ void test("client cancellation leaves native work alive and conversation data ou
   assert.equal(result.status, "completed");
   assert.match(result.persisted, /wakeSession/);
   assert.doesNotMatch(result.persisted, /host-payload-sentinel-943/);
+});
+
+void test("a provider call that outruns the turn budget stops the run before the next model request", async (context) => {
+  const worker = await nativeWorker(context);
+  const response = await worker.dispatchFetch("https://probe.test/deadline-between-requests");
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: TURN_DEADLINE_MS, requests: 1 });
+});
+
+void test("a wake that arrives after the turn budget settles the run without any model request", async (context) => {
+  const worker = await nativeWorker(context);
+  const response = await worker.dispatchFetch("https://probe.test/deadline-before-drive");
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: null, requests: 0 });
+});
+
+void test("a spent turn whose deadline refusal cannot persist still aborts before the next model request", async (context) => {
+  const worker = await nativeWorker(context);
+  const response = await worker.dispatchFetch("https://probe.test/deadline-refused");
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: TURN_DEADLINE_MS, requests: 1, refusals: 1 });
+});
+
+void test("a spent turn whose deadline refusal write rejects still aborts before the next model request", async (context) => {
+  const worker = await nativeWorker(context);
+  const response = await worker.dispatchFetch("https://probe.test/deadline-unpersistable");
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: TURN_DEADLINE_MS, requests: 1, refusals: 1 });
 });
 
 void test("acknowledgment retains one operation wake alongside the independent recurring scan", async (context) => {
