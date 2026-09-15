@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import pg from "pg";
-import { createCleanDatabase } from "@animichi/test-postgres";
 import { Response as WorkerResponse, type Request as WorkerRequest } from "miniflare";
+import { openOwnedDatabase, useOwnedDatabase, type OwnedDatabase } from "./owned-database";
 
 const CHAIN = new URL("../fixtures/preflight-three-chain/", import.meta.url);
 interface Query { query: string; params: string[] }
@@ -15,12 +14,17 @@ export async function applyNativeFixture(dsn: string, amount: string[] = []): Pr
     "--url", dsn, "--revisions-schema", "public", ...amount], { env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" } });
 }
 
+/** A database of this case's own, plus the drop that gives it back to the
+ * shared server (#1663) — the reason the name is per call, not a constant. */
 export async function selectedDatabase(baseDsn: string) {
-  const dsn = await createCleanDatabase(baseDsn, `selected_${randomUUID().replaceAll("-", "")}`);
-  await applyNativeFixture(dsn, ["1"]);
-  const client = new pg.Client(dsn);
-  await client.connect();
-  return { dsn, client };
+  const owned = await openOwnedDatabase(baseDsn, "selected");
+  return useOwnedDatabase(owned, () => applySelectedFixture(owned));
+}
+
+/** The chain's first migration, applied to the case's own database. */
+async function applySelectedFixture(owned: OwnedDatabase): Promise<OwnedDatabase> {
+  await applyNativeFixture(owned.dsn, ["1"]);
+  return owned;
 }
 
 async function queriesOn(client: pg.Client, queries: Query[]): Promise<pg.QueryResult<unknown[]>[]> {

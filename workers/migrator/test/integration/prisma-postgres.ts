@@ -4,16 +4,27 @@ import { expect, vi } from "vitest";
 interface Query { query: string; params: unknown[] }
 interface Batch { queries: Query[] }
 
-/** Native database cloning keeps each test isolated without replaying Atlas. */
+/** Native database cloning keeps each test isolated without replaying Atlas.
+ *
+ * The template comes from the DSN, not from a name written here: the shared
+ * container names each call's database per call (#1663), so a hard-coded
+ * `native_delivery` is a database that no longer exists. */
 export async function clonePrismaDatabase(serverDsn: string, name: string): Promise<string> {
   const url = new URL(serverDsn);
-  url.pathname = "/postgres";
-  const admin = new pg.Client(url.toString());
-  await admin.connect();
-  try { await admin.query(`CREATE DATABASE "${name}" TEMPLATE "native_delivery"`); }
+  const admin = await adminClient(url);
+  try { await admin.query(`CREATE DATABASE "${name}" TEMPLATE "${url.pathname.slice(1)}"`); }
   finally { await admin.end(); }
   url.pathname = `/${name}`;
   return url.toString();
+}
+
+/** A session on the same server's admin database, where a clone is created. */
+async function adminClient(url: URL): Promise<pg.Client> {
+  const adminUrl = new URL(url);
+  adminUrl.pathname = "/postgres";
+  const client = new pg.Client(adminUrl.toString());
+  await client.connect();
+  return client;
 }
 
 async function query(client: pg.Client, statement: Query) {
