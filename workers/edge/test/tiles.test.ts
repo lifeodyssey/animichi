@@ -1,13 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import type { TileBucket } from "../src/proxy/tiles.ts";
-
-const ctx = {
-  waitUntil: () => undefined,
-  passThroughOnException: () => undefined,
-  props: {},
-} as unknown as ExecutionContext;
+import { stubCtx } from "../src/container/entry-env.ts";
+import type { R2ObjectBucket } from "../src/proxy/private-r2-object.ts";
+import { withCacheDouble } from "./doubles/cache-api-double.ts";
 
 type RecordedGet = Readonly<{ key: string; options?: Readonly<{ range?: Readonly<Record<string, number>> }> }>;
 
@@ -21,7 +17,7 @@ const tileObject = (body = "tile", range?: Readonly<{ offset: number; length: nu
   };
 };
 
-const envFor = (get: TileBucket["get"]): never => ({ MAP_TILES: { get } } as never);
+const envFor = (get: R2ObjectBucket["get"]): never => ({ MAP_TILES: { get } } as never);
 
 void test("GET serves a same-origin vector asset with cache-safe headers", async () => {
   let seen: RecordedGet | undefined;
@@ -33,7 +29,7 @@ void test("GET serves a same-origin vector asset with cache-safe headers", async
       seen = { key, options: options as RecordedGet["options"] };
       return Promise.resolve(tileObject("mvt-bytes"));
     }),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Type"), "application/vnd.mapbox-vector-tile");
@@ -48,7 +44,7 @@ void test("a missing vector asset is an empty tile, not a storage failure", asyn
     "/tiles/0/0/0.mvt",
     {},
     envFor(() => Promise.resolve(null)),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 204);
   assert.equal(await response.text(), "");
@@ -60,7 +56,7 @@ void test("a missing glyph or style asset is a hard 404", async () => {
     "/tiles/fonts/Noto%20Sans/0-255.pbf",
     {},
     envFor(() => Promise.resolve(null)),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 404);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
@@ -74,8 +70,8 @@ void test("the asset allowlist rejects unscoped objects and invalid tile coordin
     reads += 1;
     return Promise.resolve(tileObject());
   };
-  const unscoped = await app.request("/tiles/private.json", {}, envFor(get), ctx);
-  const invalid = await app.request("/tiles/23/0/0.mvt", {}, envFor(get), ctx);
+  const unscoped = await app.request("/tiles/private.json", {}, envFor(get), stubCtx);
+  const invalid = await app.request("/tiles/23/0/0.mvt", {}, envFor(get), stubCtx);
   assert.equal(unscoped.status, 404);
   assert.equal(invalid.status, 404);
   assert.equal(reads, 0);
@@ -91,7 +87,7 @@ void test("Range requests pass through to R2 and return 206", async () => {
       seen = { key, options: options as RecordedGet["options"] };
       return Promise.resolve(tileObject("directory", { offset: 8, length: 8 }));
     }),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 206);
   assert.equal(response.headers.get("Content-Range"), "bytes 8-15/9");
@@ -108,7 +104,7 @@ void test("suffix Range requests use the R2 suffix form and return 206", async (
       seen = { key, options: options as RecordedGet["options"] };
       return Promise.resolve(tileObject("tail", { offset: 6, length: 4 }, 10));
     }),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 206);
   assert.equal(response.headers.get("Content-Range"), "bytes 6-9/10");
@@ -121,7 +117,7 @@ void test("HEAD returns metadata without a response body", async () => {
     "/tiles/uji-kyoto.pmtiles",
     { method: "HEAD" },
     envFor(() => Promise.resolve(tileObject("archive"))),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Length"), "7");
@@ -131,35 +127,19 @@ void test("HEAD returns metadata without a response body", async () => {
 void test("cache writes are GET-only and HEAD uses the GET cache key", async () => {
   const matches: string[] = [];
   const puts: string[] = [];
-  const previous = Object.getOwnPropertyDescriptor(globalThis, "caches");
-  Object.defineProperty(globalThis, "caches", {
-    configurable: true,
-    value: {
-      default: {
-        match: (request: Request) => {
-          matches.push(request.method);
-          return Promise.resolve(null);
-        },
-        put: (request: Request) => {
-          puts.push(request.method);
-          return Promise.resolve();
-        },
-      },
-    },
-  });
-  try {
-    const app = createWorkerApp({});
-    const get = () => Promise.resolve(tileObject("archive"));
-    const head = await app.request("/tiles/uji-kyoto.pmtiles", { method: "HEAD" }, envFor(get), ctx);
-    const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, envFor(get), ctx);
+  const app = createWorkerApp({});
+  const get = () => Promise.resolve(tileObject("archive"));
+  const response = await withCacheDouble({
+    match: (request) => { matches.push(request.method); return Promise.resolve(undefined); },
+    put: (request) => { puts.push(request.method); return Promise.resolve(); },
+  }, async () => {
+    const head = await app.request("/tiles/uji-kyoto.pmtiles", { method: "HEAD" }, envFor(get), stubCtx);
     assert.equal(head.status, 200);
-    assert.equal(response.status, 200);
-    assert.deepEqual(matches, ["GET", "GET"]);
-    assert.deepEqual(puts, ["GET"]);
-  } finally {
-    if (previous) Object.defineProperty(globalThis, "caches", previous);
-    else Reflect.deleteProperty(globalThis, "caches");
-  }
+    return app.request("/tiles/uji-kyoto.pmtiles", {}, envFor(get), stubCtx);
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(matches, ["GET", "GET"]);
+  assert.deepEqual(puts, ["GET"]);
 });
 
 void test("invalid paths and methods cannot read arbitrary R2 objects", async () => {
@@ -169,9 +149,11 @@ void test("invalid paths and methods cannot read arbitrary R2 objects", async ()
     reads += 1;
     return Promise.resolve(tileObject());
   };
-  const traversal = await app.request("/tiles/%2e%2e/secrets.json", {}, envFor(get), ctx);
-  const method = await app.request("/tiles/uji-kyoto.pmtiles", { method: "POST" }, envFor(get), ctx);
+  const traversal = await app.request("/tiles/%2e%2e/secrets.json", {}, envFor(get), stubCtx);
+  const separator = await app.request("/tiles/14%2f135%2f892.mvt", {}, envFor(get), stubCtx);
+  const method = await app.request("/tiles/uji-kyoto.pmtiles", { method: "POST" }, envFor(get), stubCtx);
   assert.equal(traversal.status, 404);
+  assert.equal(separator.status, 404);
   assert.equal(method.status, 405);
   assert.equal(reads, 0);
 });
@@ -182,7 +164,7 @@ void test("R2 failures are a retryable 503 for MapLibre fallback", async () => {
     "/tiles/uji-kyoto.pmtiles",
     {},
     envFor(() => Promise.reject(new Error("r2 unavailable"))),
-    ctx,
+    stubCtx,
   );
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
@@ -191,7 +173,7 @@ void test("R2 failures are a retryable 503 for MapLibre fallback", async () => {
 
 void test("a missing binding fails closed instead of falling through to another origin", async () => {
   const app = createWorkerApp({});
-  const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, {}, ctx);
+  const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, {}, stubCtx);
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { error: { code: "tile_storage_unavailable" } });

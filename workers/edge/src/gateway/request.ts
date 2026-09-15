@@ -136,7 +136,7 @@ function landingResponse(
 ): Promise<Response> {
   if (asset === "healthz" || asset === "banner") return containerLanding(env, request, sleep);
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
-  return handleImageProxy(request, ctx);
+  return handleImageProxy(request, ctx, env.DOCS_ASSETS);
 }
 
 /** The two landing surfaces the container serves — `GET /healthz` (the CD
