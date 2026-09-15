@@ -423,7 +423,7 @@ owner 先读的五件事:(1) §1.1 edge 租约按 DO id 判归属、只在工具
 
 ### 7.6 随 W4 消亡,不开卡(写进 #1317 checklist,免得有人去修)
 
-ARCH-14 的 Python 数字、ARCH-08 的 `CONTAINER_ENV_KEYS`、ARCH-04 的 Python 半、§4 #1/#7/#10/#23/#27、EG-13 的 `max_instances`、EG-26、ARCH-18 的 Python 侧、ARCH-11 的容器管线(`[[containers]]` ×3、`RuntimeContainer`、`src/container/*`、`apps/agent/Dockerfile`、`build-release-unit` 的容器构建、`Makefile` 的 35 个目标、`setup` 的 uv arm)。注意 `apps/agent/docker/test-postgres/Dockerfile` 不随 agent 删——catalog、edge、db 三条 lane 都在构建它(`pr-verification.yml:222-224`),C2 合成一份 fixture 之后再决定它的归属。
+ARCH-14 的 Python 数字、ARCH-08 的 `CONTAINER_ENV_KEYS`、ARCH-04 的 Python 半、§4 #1/#7/#10/#23/#27、EG-13 的 `max_instances`、EG-26、ARCH-18 的 Python 侧、ARCH-11 的容器管线(`[[containers]]` ×3、`RuntimeContainer`、`src/container/*`、`apps/agent/Dockerfile`、`build-release-unit` 的容器构建、`Makefile` 的 35 个目标、`setup` 的 uv arm)。注意 `packages/test-postgres/Dockerfile` 不随 agent 删——配方已随 #1602 落在 `packages/test-postgres/`(该包本就拥有镜像 tag、就绪等待和 Atlas 链),归属不再是待决项;四条 lane 都在构建它(`pr-verification.yml:178,370,438,490`)。
 
 ### 7.7 横切 DoD(每张卡都带,不单开卡)
 

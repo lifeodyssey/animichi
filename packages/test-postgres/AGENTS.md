@@ -77,17 +77,17 @@ bash. `test/image-tag-contract.test.ts` resolves it **both ways** — it runs th
 than reading the shell — and then checks that no consumer kept a tag of its own to drift with.
 
 Building the image is the one step that needs network, and it is the fourth consumer
-(`.github/workflows/pr-verification.yml`). A workflow `run:` sources the declaration like any other
-shell, so that step names no tag either:
+(`.github/workflows/pr-verification.yml`). Every `run:` that builds it — the affected matrix,
+`agent`, `e2e` and `db` jobs — sources the declaration like any other shell and names no tag:
 
 ```bash
 . packages/test-postgres/postgres-image.env
-docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
 ```
 
 `test/image-tag-contract.test.ts` does **not** read the workflow (card B2 / #1360): pipeline text
 belongs to `.github/test/pr-verification-affected.test.rb`, which reads `postgres-image.env` itself
-and fails any build step that neither sources it nor names the tag it declares.
+and fails any build step that does not source it first and tag from `$TEST_POSTGRES_IMAGE`.
 
 ## Pitfalls
 
