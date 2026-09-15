@@ -7,12 +7,6 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-class EndpointMap(BaseModel):
-    healthz: str
-    runtime: str
-    feedback: str
-
-
 class ServiceMetadata(BaseModel):
     status: Literal["ok"]
     service: str
@@ -23,19 +17,6 @@ class ServiceMetadata(BaseModel):
     observability_enabled: bool
     db_adapter: str
     session_store: str
-
-
-class RootMetadataEndpoints(BaseModel):
-    healthz: str
-    runtime: str
-    feedback: str
-
-
-class RootMetadata(BaseModel):
-    service: str
-    status: Literal["ok"]
-    app_env: str
-    endpoints: RootMetadataEndpoints
 
 
 class ByokProbeResponse(BaseModel):
@@ -227,8 +208,7 @@ class SubmitFeedbackResult(BaseModel):
 
 
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
-    ("GET", "/", "service banner"),
-    ("GET", "/healthz", "health and service metadata"),
+    ("GET", "/healthz", "gateway readiness"),
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
     ("POST", "/v1/feedback", "submit feedback"),

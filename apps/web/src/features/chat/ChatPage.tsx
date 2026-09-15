@@ -41,7 +41,6 @@ import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 import { assignedSessionId, useChatEntry, usePublishSessionId } from "./conversation-address";
-import { useAgentWarmup } from "../../lib/agent-warmup";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
@@ -245,7 +244,6 @@ function withProviders(entry: ChatSearch, page: PageState) {
 }
 
 export function ChatPage(props: ChatPageProps) {
-  useAgentWarmup();
   const entry = useChatEntry(props.search);
   return withProviders(entry, useChatPage(entry));
 }

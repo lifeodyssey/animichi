@@ -88,7 +88,8 @@ Native correctness, required assertions and pass^k remain independent Eval work;
 part of this task implementation. Old HTTP transcript and staging-prefix seed adapters are removed.
 
 Existing Python code, exported corpora and statistical oracle fixtures remain historical or
-other-service inputs, not the native Eval execution path. Complete E1 command/configuration,
-recorded native prefix forks, production suite rosters and authorized real-model evidence are
-still separate acceptance work. Public browser/platform verification and deployment evidence
-must be reported explicitly rather than inferred from deterministic local tests.
+other-service inputs, not the native Eval execution path. The E1 command and its configuration
+are documented in `packages/eval/NATIVE.md`; recorded native prefix forks, production suite
+rosters and authorized real-model evidence remain separate acceptance work. Public
+browser/platform verification and deployment evidence must be reported explicitly rather than
+inferred from deterministic local tests.

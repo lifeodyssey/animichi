@@ -22,6 +22,13 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 // all. Their expected receiver is derived from the production route policy, not
 // a path list kept here.
 //
+// Issue #1596 added the edge's own readiness answer, which that marker cannot
+// express: the container keeps its own richer `/healthz` and still mounts it, so
+// `GET /healthz` must stay in the generated Python inventory — the marker means
+// "not a Python runtime route" and would strip it (see
+// `apps/agent/src/animichi/tests/unit/test_agent_route_parity.py`). It is named
+// in the table below instead, and pinned to the document by its own test.
+//
 // Each receiver class is a partition with its own test and its own straight-line
 // assertions: an operation never picks which assertion runs.
 
@@ -92,6 +99,18 @@ function usersBinding(reached: { value: boolean }) {
   };
 }
 
+/** The advertised Agent operations the edge answers itself *without* the
+ * `x-runtime: "edge"` marker. `GET /healthz` became the gateway's own readiness
+ * answer in #1596: the CD smoke probes this origin, so a container application
+ * that has not started (or was stopped) must still report a healthy deploy.
+ * Every OTHER advertised operation keeps the strict phantom-surface rule:
+ * exactly one agent receiver, never zero. */
+const EDGE_NATIVE_OPERATIONS = new Set(["GET /healthz"]);
+
+function operationKey(operation: AdvertisedOperation): string {
+  return `${operation.method} ${operation.path}`;
+}
+
 /** Whether the production route policy serves this operation on the edge's
  * own native agent tier (`/v1/chat`, the probe, the transcript and the stream). */
 function isNativeTierRoute(operation: AdvertisedOperation): boolean {
@@ -99,11 +118,12 @@ function isNativeTierRoute(operation: AdvertisedOperation): boolean {
 }
 
 /** Who serves an advertised Agent operation: the Python container, the edge's
- * native agent tier, or the edge in process (the `x-runtime: "edge"` marker
- * with no native-tier route). */
+ * native agent tier, or the edge in process — the `x-runtime: "edge"` marker
+ * with no native-tier route, plus the marker-less edge-native table above. */
 type AgentReceiver = "container" | "nativeTier" | "inProcess";
 
 function agentReceiver(operation: AdvertisedOperation): AgentReceiver {
+  if (EDGE_NATIVE_OPERATIONS.has(operationKey(operation))) return "inProcess";
   if (operation.runtime !== "edge") return "container";
   return isNativeTierRoute(operation) ? "nativeTier" : "inProcess";
 }
@@ -147,6 +167,14 @@ async function assertInProcessReceiver(operation: AdvertisedOperation): Promise<
   assert.equal(captured.req, undefined, `${label} is edge-owned and must not reach the agent container`);
   assert.equal(calls.length, 0, `${label} is served in process and must reach no native receiver`);
 }
+
+void test("every edge-native operation is still advertised in the Agent document", () => {
+  const advertised = new Set(operations(readDocument("agent-openapi.json")).map(operationKey));
+  assert.ok(EDGE_NATIVE_OPERATIONS.size > 0, "the edge-native table must name an operation, or this loop is vacuous");
+  for (const key of EDGE_NATIVE_OPERATIONS) {
+    assert.equal(advertised.has(key), true, `${key} is edge-native but no longer advertised — retire the entry here with it`);
+  }
+});
 
 void test("every container-forwarded Agent operation reaches exactly one agent receiver", async () => {
   const { container } = receiverPartitions();

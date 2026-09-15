@@ -13,6 +13,10 @@
  * wire differ (schema presence, request-body requiredness, error contract);
  * the recursive schema-node differ lives in `openapi-schema-diff.ts` and the
  * change vocabulary / vet decision in `openapi-changes.ts` / `openapi-vet.ts`.
+ *
+ * Every change is recorded through the `ChangeSink` of the operation it was
+ * found under, so a change carries the operation identity an approval record
+ * names (#1596) even when the classification happened inside a schema node.
  */
 
 import {
@@ -24,7 +28,7 @@ import {
   type WireOperation,
   type WireSchema,
 } from "./operation-set.js";
-import { change, type ApiChange } from "./openapi-changes.js";
+import { change, type ApiChange, type ChangeSink } from "./openapi-changes.js";
 import { diffSchema } from "./openapi-schema-diff.js";
 
 /** The classification outcome split by severity. */
@@ -62,8 +66,8 @@ export interface ViewPair {
   readonly candidate: Map<string, WireOperation>;
 }
 
-function pushChange(out: ApiChange[], kind: ApiChange["kind"], key: string, suffix: string): void {
-  out.push(change(kind, `${key} ${suffix}`));
+function pushChange(sink: ChangeSink, kind: ApiChange["kind"], key: string, suffix: string): void {
+  sink.out.push(change(kind, `${key} ${suffix}`, sink.operation));
 }
 
 function schemaOf(operation: WireOperation, media: Media): WireSchema | undefined {
@@ -99,61 +103,61 @@ function requirednessKind(pair: OperationPair): ApiChange["kind"] | null {
   return null;
 }
 
-function diffRequestRequiredness(pair: OperationPair, key: string, out: ApiChange[]): void {
+function diffRequestRequiredness(pair: OperationPair, key: string, sink: ChangeSink): void {
   const kind = requirednessKind(pair);
   if (kind === null) return;
   const suffix = kind === "request-body-required" ? "request body became required" : "request body became optional";
-  pushChange(out, kind, key, suffix);
+  pushChange(sink, kind, key, suffix);
 }
 
-function diffSchemaPresence(pair: SchemaPair, at: string, media: Media, out: ApiChange[]): void {
+function diffSchemaPresence(pair: SchemaPair, at: string, media: Media, sink: ChangeSink): void {
   if (pair.baseline !== undefined && pair.candidate !== undefined) {
-    diffSchema(pair.baseline, pair.candidate, at, out);
+    diffSchema(pair.baseline, pair.candidate, at, sink);
   } else if (pair.candidate !== undefined) {
-    pushChange(out, `${media}-schema-added`, at, "schema was added");
+    pushChange(sink, `${media}-schema-added`, at, "schema was added");
   } else if (pair.baseline !== undefined) {
-    pushChange(out, `${media}-schema-removed`, at, "schema was removed");
+    pushChange(sink, `${media}-schema-removed`, at, "schema was removed");
   }
 }
 
-function diffEndpointSchema(pair: OperationPair, key: string, media: Media, out: ApiChange[]): void {
+function diffEndpointSchema(pair: OperationPair, key: string, media: Media, sink: ChangeSink): void {
   const at = `${key}.${media}`;
   const schemas: SchemaPair = { baseline: schemaOf(pair.baseline, media), candidate: schemaOf(pair.candidate, media) };
-  diffSchemaPresence(schemas, at, media, out);
+  diffSchemaPresence(schemas, at, media, sink);
 }
 
-function diffOperationSchemas(pair: OperationPair, key: string, out: ApiChange[]): void {
-  diffEndpointSchema(pair, key, "request", out);
-  diffRequestRequiredness(pair, key, out);
-  diffEndpointSchema(pair, key, "response", out);
+function diffOperationSchemas(pair: OperationPair, key: string, sink: ChangeSink): void {
+  diffEndpointSchema(pair, key, "request", sink);
+  diffRequestRequiredness(pair, key, sink);
+  diffEndpointSchema(pair, key, "response", sink);
 }
 
 function difference(from: ReadonlySet<string>, without: ReadonlySet<string>): string[] {
   return [...from].filter((item) => !without.has(item));
 }
 
-function diffErrorStatusSet(statuses: SetPair, key: string, out: ApiChange[]): void {
+function diffErrorStatusSet(statuses: SetPair, key: string, sink: ChangeSink): void {
   for (const status of difference(statuses.baseline, statuses.candidate)) {
-    pushChange(out, "error-response-removed", key, `lost ${status} error response`);
+    pushChange(sink, "error-response-removed", key, `lost ${status} error response`);
   }
   for (const status of difference(statuses.candidate, statuses.baseline)) {
-    pushChange(out, "error-response-added", key, `gained ${status} error response`);
+    pushChange(sink, "error-response-added", key, `gained ${status} error response`);
   }
 }
 
-function flagRenumbering(statuses: SetPair, key: string, out: ApiChange[]): void {
+function flagRenumbering(statuses: SetPair, key: string, sink: ChangeSink): void {
   const removed = difference(statuses.baseline, statuses.candidate).length > 0;
   const added = difference(statuses.candidate, statuses.baseline).length > 0;
-  if (removed && added) pushChange(out, "error-status-changed", key, "renumbered its error responses");
+  if (removed && added) pushChange(sink, "error-status-changed", key, "renumbered its error responses");
 }
 
-function diffErrorContract(pair: OperationPair, key: string, out: ApiChange[]): void {
+function diffErrorContract(pair: OperationPair, key: string, sink: ChangeSink): void {
   const statuses: SetPair = {
     baseline: new Set(errorStatuses(pair.baseline)),
     candidate: new Set(errorStatuses(pair.candidate)),
   };
-  diffErrorStatusSet(statuses, key, out);
-  flagRenumbering(statuses, key, out);
+  diffErrorStatusSet(statuses, key, sink);
+  flagRenumbering(statuses, key, sink);
 }
 
 // Operation-set orchestration: endpoint/method adds and removals, then the
@@ -181,11 +185,10 @@ export function operationViews(document: ApiDocument): Map<string, WireOperation
 function pushRemovedOperation(
   baselineOp: ApiOperation,
   candidatePaths: Set<string>,
-  key: string,
   out: ApiChange[],
 ): void {
   const kind = candidatePaths.has(baselineOp.path) ? "method-removed" : "endpoint-removed";
-  out.push(change(kind, `${key} was removed`));
+  out.push(change(kind, `${operationKey(baselineOp)} was removed`, baselineOp));
 }
 
 /** The operation maps, documents, and change sink shared by the orchestrators. */
@@ -211,7 +214,7 @@ function diffRemovedOperations(diff: OperationDiff): void {
   const candidatePaths = pathSet(diff.candidate);
   for (const [key, baselineOp] of diff.baselineOps) {
     if (diff.candidateOps.has(key)) continue;
-    pushRemovedOperation(baselineOp, candidatePaths, key, diff.out);
+    pushRemovedOperation(baselineOp, candidatePaths, diff.out);
   }
 }
 
@@ -222,17 +225,19 @@ function operationPair(views: ViewPair, key: string): OperationPair | null {
   return { baseline, candidate };
 }
 
-function diffSharedOperation(views: ViewPair, key: string, out: ApiChange[]): void {
+function diffSharedOperation(views: ViewPair, operation: ApiOperation, out: ApiChange[]): void {
+  const key = operationKey(operation);
   const pair = operationPair(views, key);
   if (pair === null) return;
-  diffErrorContract(pair, key, out);
-  diffOperationSchemas(pair, key, out);
+  const sink: ChangeSink = { operation, out };
+  diffErrorContract(pair, key, sink);
+  diffOperationSchemas(pair, key, sink);
 }
 
 function diffSharedOperations(diff: OperationDiff): void {
   const views: ViewPair = { baseline: operationViews(diff.baseline), candidate: operationViews(diff.candidate) };
-  for (const key of diff.baselineOps.keys()) {
-    if (diff.candidateOps.has(key)) diffSharedOperation(views, key, diff.out);
+  for (const [key, operation] of diff.baselineOps) {
+    if (diff.candidateOps.has(key)) diffSharedOperation(views, operation, diff.out);
   }
 }
 
@@ -241,7 +246,7 @@ function diffAddedOperations(diff: OperationDiff): void {
   for (const [key, candidateOp] of diff.candidateOps) {
     if (diff.baselineOps.has(key)) continue;
     const kind = baselinePaths.has(candidateOp.path) ? "method-added" : "endpoint-added";
-    pushChange(diff.out, kind, key, "was added");
+    diff.out.push(change(kind, `${key} was added`, candidateOp));
   }
 }
 

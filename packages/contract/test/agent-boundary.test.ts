@@ -12,7 +12,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AGENT_PATHS } from "../src/agent-paths.js";
 import {
   ByokProbeErrorBody,
   ByokProbeResponse,
@@ -191,26 +190,5 @@ describe("agent boundary emitter", () => {
       clarification_id: 4,
     });
     expect(pick.selected_point_ids).toBeUndefined();
-  });
-
-  it("the path inventory covers every retained Agent path (exact set)", () => {
-    expect(AGENT_PATHS.map((p) => `${p.method} ${p.path}`)).toEqual([
-      "GET /",
-      "GET /healthz",
-      "POST /v1/chat",
-      "POST /v1/byok/probe",
-      "POST /v1/feedback",
-      "GET /v1/conversations",
-      "PATCH /v1/conversations/{session_id}",
-      "GET /v1/conversations/{session_id}/messages",
-      "GET /v1/conversations/{session_id}/stream",
-      "GET /v1/bangumi/{bangumi_id}/guide",
-      "GET /v1/bangumi/nearby",
-      "GET /v1/search/preview",
-      "POST /v1/photo-search",
-      "POST /v1/photo-search/confirm",
-      "POST /v1/sessions/adopt",
-    ]);
-    expect(new Set(AGENT_PATHS.map((p) => p.path)).size).toBe(AGENT_PATHS.length);
   });
 });

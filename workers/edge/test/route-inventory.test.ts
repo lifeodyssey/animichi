@@ -45,6 +45,16 @@ void test("retired /v1/runtime paths match no inventory and classify as unmanage
   assert.equal(classifyRatePolicy("POST", "/v1/runtime/stream").limiter, "none");
 });
 
+// #1596: the container's JSON banner at `/` was retired with its landing
+// forward, so the root is out of the inventory the same way `/v1/runtime` is —
+// and with it out of every derived table, at no rate-limit cell. `/v1/runtime`
+// also has its `/v1/runtime/stream` sibling retired beside it, so that case pins
+// both paths; the root has no sibling surface, so one pin is the whole set.
+void test("the retired root matches no inventory and classifies as unmanaged", () => {
+  assert.equal(inventoryPaths.has("/"), false);
+  assert.equal(classifyRatePolicy("GET", "/").limiter, "none", "a retired path must not be classified into a guarded cell");
+});
+
 void test("the conversation index is a gateway-owned inventory entry, not a Python route", () => {
   const index = AGENT_PATHS.find((entry) => entry.method === "GET" && entry.path === "/v1/conversations");
   assert.equal(index?.runtime, "edge", "the container does not mount the list; this Worker serves it");

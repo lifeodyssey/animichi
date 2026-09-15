@@ -12,7 +12,6 @@ import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
-import { fetchContainerResilient } from "./container-fetch.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
 import {
@@ -123,7 +122,7 @@ export function gatewayFailure(error: unknown, request: Request): Response {
 
 function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps): Promise<Response> {
   switch (route.kind) {
-    case "landing": return landingResponse(env, request, ctx, route.asset, deps.sleep);
+    case "landing": return landingResponse(env, request, ctx, route.asset);
     case "public-catalog": return publicCatalogResponse(env, request);
     case "users": return usersResponse(env, request, ctx, deps);
     case "adopt": return adoptResponse(env, request, ctx, deps);
@@ -134,28 +133,21 @@ function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerEx
 }
 
 function landingResponse(
-  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "banner" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
+  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "tiles" | "img",
 ): Promise<Response> {
-  if (asset === "healthz" || asset === "banner") return containerLanding(env, request, sleep);
+  if (asset === "healthz") return Promise.resolve(healthzResponse());
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
   return handleImageProxy(request, ctx, env.DOCS_ASSETS);
 }
 
-/** The two landing surfaces the container serves — `GET /healthz` (the CD
- * smoke's readiness probe, which must keep answering the container's own
- * `{"status":"ok"}` verbatim) and `GET /` (its JSON service banner).
- *
- * Both ride the same bounded fetch as `/v1` (EG-21, issue #1343). They used to
- * be the exception: the probe had the cold-start retry but no head timeout and
- * the banner had neither, so a hung container left the Worker request running
- * long after the smoke's own `--max-time 15` had given up. Nothing argued that
- * exemption — the head-timeout comment in `container-fetch.ts` argues the
- * `/v1` bound — and the banner gains the retry for the same reason the probe
- * has it: the request that wakes a cold container should not be the one that
- * fails. */
-function containerLanding(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
-  const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
-  return fetchContainerResilient((inner) => container.fetch(inner), request, sleep);
+/** The readiness probe is this Worker's own answer (#1596): the CD smoke
+ * (`staging-smoke-check.sh`) reads `GET /healthz` from the edge origin and
+ * requires 200 with `status == "ok"`, so the deploy is judged by the gateway
+ * that fronts it, not by a container application that may never wake. It is
+ * the whole body — the container's richer `ServiceMetadata` stays where it is
+ * still served, on the container's own `/healthz`. */
+function healthzResponse(): Response {
+  return Response.json({ status: "ok" });
 }
 
 async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {

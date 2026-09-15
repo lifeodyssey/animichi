@@ -1,0 +1,152 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { Case, Dataset } from 'logfire/evals';
+import type { LaneSnapshot } from '@earendil-works/pi-agent-core';
+import { FROZEN_DATASET_COUNTS, frozenDataset, type FrozenDatasetCount } from '../dataset-sets.ts';
+import type { NativeCaseMetadata, NativeTaskInput } from './evaluation-types.ts';
+
+const PACKAGE_URL = new URL('../../', import.meta.url);
+const SMOKE_CASES = 3;
+
+/**
+ * Preserved corpus sets the native loader cannot express as a prompt task yet: their
+ * cases carry journey expectations and translation fields rather than prompt/locale.
+ * Naming them keeps "not migrated" distinct from a caller's typo, and reports the
+ * uncovered corpus separately from source preservation and evaluated coverage.
+ */
+const UNMIGRATED_CORPUS_SETS: readonly string[] = ['runtime_journey_v1', 'translation_v1'];
+
+export interface LoadedNativeDataset {
+  readonly dataset: Dataset<NativeTaskInput, LaneSnapshot, NativeCaseMetadata>;
+  readonly sourceCaseCount: number;
+  readonly selectedCaseCount: number;
+  readonly unsupportedShapes: Readonly<Record<string, number>>;
+}
+
+/** Load a preserved export and make the source shape explicit to the native SDK. */
+export async function loadNativeDataset(name: string, smoke: boolean): Promise<LoadedNativeDataset> {
+  if (UNMIGRATED_CORPUS_SETS.includes(name)) throw new RangeError(unmigrated(name));
+  const frozen = frozenDataset(name);
+  const parsed = await readFrozenCases(frozen);
+  return toLoadedDataset(frozen.name, parsed, smoke);
+}
+
+/** Read the frozen fixture and hold it to its declared case count. */
+async function readFrozenCases(frozen: FrozenDatasetCount): Promise<readonly ParsedCase[]> {
+  const raw = JSON.parse(await readFile(datasetPath(frozen.name), 'utf8')) as unknown;
+  const document = readDocument(raw, frozen.name);
+  if (document.cases.length !== frozen.caseCount) {
+    throw new Error(`${frozen.name}: expected ${String(frozen.caseCount)} cases, got ${String(document.cases.length)}`);
+  }
+  return document.cases.map(parseCase);
+}
+
+/** The selected cases as a dataset, with the shape refusal applied to exactly that selection. */
+function toLoadedDataset(name: string, parsed: readonly ParsedCase[], smoke: boolean): LoadedNativeDataset {
+  const selected = selectCases(name, parsed, smoke);
+  rejectUnsupported(name, selected);
+  return {
+    dataset: new Dataset({ name, cases: selected.map(toCase) }),
+    sourceCaseCount: parsed.length,
+    selectedCaseCount: selected.length,
+    unsupportedShapes: countUnsupported(parsed),
+  };
+}
+
+function selectCases(name: string, parsed: readonly ParsedCase[], smoke: boolean): readonly ParsedCase[] {
+  if (!smoke) return parsed;
+  const selected = parsed.slice(0, SMOKE_CASES);
+  if (selected.length !== SMOKE_CASES) throw new Error(`${name}: smoke requires ${String(SMOKE_CASES)} cases`);
+  return selected;
+}
+
+interface Document {
+  readonly cases: readonly Record<string, unknown>[];
+}
+
+interface ParsedCase {
+  readonly name: string;
+  readonly inputs: NativeTaskInput;
+  readonly metadata: NativeCaseMetadata;
+  readonly shape: string;
+}
+
+function unmigrated(name: string): string {
+  return `${name} is a preserved corpus set without a native task/expectation migration yet — `
+    + `available sets: ${FROZEN_DATASET_COUNTS.map((set) => set.name).join(', ')}`;
+}
+
+function datasetPath(name: string): URL {
+  return name === 'agent_eval_v3'
+    ? new URL('datasets/source/agent_eval_v3.json', PACKAGE_URL)
+    : new URL(`fixtures/${name}.json`, PACKAGE_URL);
+}
+
+function readDocument(raw: unknown, name: string): Document {
+  const record = objectOf(raw, name);
+  const cases = record.cases;
+  if (!Array.isArray(cases)) throw new TypeError(`${name}: cases must be an array`);
+  return { cases: cases.map((entry, index) => objectOf(entry, `${name} case ${String(index)}`)) };
+}
+
+function parseCase(record: Record<string, unknown>, index: number): ParsedCase {
+  const where = `case ${String(index)}`;
+  const name = stringOf(record.name, `${where}.name`);
+  const inputRecord = objectOf(record.inputs, `${where}.inputs`);
+  const prompt = textOf(inputRecord.prompt ?? inputRecord.query, `${where}.inputs.prompt`);
+  const locale = stringOf(inputRecord.locale, `${where}.inputs.locale`);
+  const metadata = objectOf(record.metadata ?? {}, `${where}.metadata`);
+  const shape = taskShape(inputRecord, metadata);
+  return { name, inputs: { prompt, locale }, metadata, shape };
+}
+
+function taskShape(input: Record<string, unknown>, metadata: Record<string, unknown>): string {
+  if (metadata.seeded_context !== undefined || input.context !== null && input.context !== undefined) {
+    return 'session-preseed';
+  }
+  const selected = metadata.seeded_selected_point_ids ?? input.selected_point_ids;
+  if (Array.isArray(selected) && selected.length > 0) return 'selection-prefix';
+  return 'none';
+}
+
+function countUnsupported(cases: readonly ParsedCase[]): Readonly<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const entry of cases) if (entry.shape !== 'none') counts[entry.shape] = (counts[entry.shape] ?? 0) + 1;
+  return counts;
+}
+
+function rejectUnsupported(name: string, cases: readonly ParsedCase[]): void {
+  const unsupported = countUnsupported(cases);
+  if (Object.keys(unsupported).length > 0) {
+    const summary = Object.entries(unsupported).map(([shape, count]) => `${shape}=${String(count)}`).join(', ');
+    const examples = cases.filter((entry) => entry.shape !== 'none').slice(0, 3).map((entry) => entry.name).join(', ');
+    throw new Error(`${name}: unsupported native task shapes (${summary}); examples: ${examples}`);
+  }
+  const empty = cases.find((entry) => entry.inputs.prompt.trim() === '');
+  if (empty) throw new TypeError(`${name}: case ${empty.name}.inputs.prompt: expected a non-empty string`);
+}
+
+function toCase(entry: ParsedCase): Case<NativeTaskInput, LaneSnapshot, NativeCaseMetadata> {
+  return new Case({ name: entry.name, inputs: entry.inputs, metadata: entry.metadata });
+}
+
+function objectOf(value: unknown, where: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${where}: expected an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function stringOf(value: unknown, where: string): string {
+  if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${where}: expected a non-empty string`);
+  return value;
+}
+
+function textOf(value: unknown, where: string): string {
+  if (typeof value !== 'string') throw new TypeError(`${where}: expected a string`);
+  return value;
+}
+
+export function nativeDatasetRoot(): string {
+  return fileURLToPath(PACKAGE_URL);
+}
