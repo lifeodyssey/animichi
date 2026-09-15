@@ -35,16 +35,6 @@
         }
       }
     },
-    "/v1/feedback": {
-      "post": {
-        "summary": "submit feedback",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
     "/v1/conversations": {
       "get": {
         "summary": "list conversations",
@@ -79,36 +69,6 @@
       "get": {
         "summary": "resume the native conversation stream",
         "x-runtime": "edge",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/v1/bangumi/{bangumi_id}/guide": {
-      "get": {
-        "summary": "work guide points",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/v1/bangumi/nearby": {
-      "get": {
-        "summary": "nearby points",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/v1/search/preview": {
-      "get": {
-        "summary": "search preview",
         "responses": {
           "200": {
             "description": "Successful response"

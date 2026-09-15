@@ -103,7 +103,6 @@ from animichi.domain.ports import (
     BangumiRepo,
     CatalogLookup,
     ConversationLog,
-    RequestAudit,
     SessionRepo,
     UsageMeter,
 )
@@ -122,7 +121,6 @@ from animichi.interfaces.db_repos import (
     bangumi_repo,
     messages_repo,
     outbox_repo,
-    request_audit_repo,
     session_repo,
     turn_reservation_store,
     usage_repo,
@@ -715,10 +713,6 @@ class RuntimeAPI:
         if self._session_repo_override is not None:
             return cast(ConversationLog, self._session_repo_override)
         return messages_repo(self._db)
-
-    @cached_property
-    def _request_audit_repo(self) -> RequestAudit | None:
-        return request_audit_repo(self._db)
 
     @cached_property
     def _outbox(self) -> OutboxStore | None:

@@ -16,10 +16,6 @@ from animichi.infrastructure.persistence.models.bangumi import (
     BangumiModel,
     bangumi_table,
 )
-from animichi.infrastructure.persistence.models.feedback import (
-    FeedbackModel,
-    feedback_table,
-)
 from animichi.infrastructure.persistence.models.memory import (
     AgentMemoryModel,
     AgentMemoryOperationModel,
@@ -61,7 +57,6 @@ __all__ = [
     "AnonDailyMessageCountModel",
     "BangumiModel",
     "DailyUsageModel",
-    "FeedbackModel",
     "MessageModel",
     "PointModel",
     "RequestLogModel",
@@ -71,7 +66,6 @@ __all__ = [
     "anon_quota_table",
     "bangumi_table",
     "daily_usage_table",
-    "feedback_table",
     "memory_operations_table",
     "memory_table",
     "message_table",

@@ -6,7 +6,7 @@ exercised and the ``tc_db`` fixture as the real aggregate. The app and client
 construction lives here once: ``contract_app`` replaces the production lifespan
 with a no-op (the ASGI transport and the container's asyncpg pool would
 otherwise mismatch event loops, so the state is set directly), and the seeding
-and cleanup the conversation and feedback cases need live here too.
+and cleanup the conversation cases need live here too.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from sqlalchemy import delete
 
 from animichi.config.settings import Settings
 from animichi.infrastructure.persistence.models import (
-    feedback_table,
     message_table,
     session_table,
 )
@@ -94,9 +93,4 @@ async def cleanup_test_data(db: PersistenceRepos) -> None:
             )
             await session.execute(
                 delete(session_table).where(session_table.c.id.like("sess-%"))
-            )
-            await session.execute(
-                delete(feedback_table).where(
-                    feedback_table.c.query_text.in_(["京吹", "test", "  "])
-                )
             )

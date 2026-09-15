@@ -4,7 +4,7 @@
 repository over one session factory — the structural successor of the
 deleted asyncpg ``SupabaseClient`` facade. It keeps the same attribute shape
 (``session``, ``turn_reservation``, ``bangumi``, ``points``, ``usage``,
-``anon_quota``, ``feedback``) so the narrow repo extractors in
+``anon_quota``, ``request_log``) so the narrow repo extractors in
 ``interfaces.db_repos`` and the route seam resolve the same protocols they
 always did, now over SQLModel/SQLAlchemy operations only.
 
@@ -24,15 +24,15 @@ from animichi.infrastructure.persistence.repositories.anon_quota import (
 from animichi.infrastructure.persistence.repositories.bangumi import (
     SQLModelBangumiRepository,
 )
-from animichi.infrastructure.persistence.repositories.feedback import (
-    SQLModelFeedbackRepository,
-)
 from animichi.infrastructure.persistence.repositories.memory import (
     SQLModelMemoryStore,
 )
 from animichi.infrastructure.persistence.repositories.outbox import SQLModelOutboxStore
 from animichi.infrastructure.persistence.repositories.points import (
     SQLModelPointsRepository,
+)
+from animichi.infrastructure.persistence.repositories.request_log import (
+    SQLModelRequestLogRepository,
 )
 from animichi.infrastructure.persistence.repositories.session import (
     SQLModelSessionRepository,
@@ -61,7 +61,7 @@ class PersistenceRepos:
     points: SQLModelPointsRepository
     usage: SQLModelUsageRepository
     anon_quota: SQLModelAnonQuotaRepository
-    feedback: SQLModelFeedbackRepository
+    request_log: SQLModelRequestLogRepository
     memory: SQLModelMemoryStore
     outbox: SQLModelOutboxStore
 
@@ -93,7 +93,7 @@ def _assign_agent(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) ->
     repos.turn_reservation = SQLModelTurnReservationStore(sessionmaker)
     repos.usage = SQLModelUsageRepository(sessionmaker)
     repos.anon_quota = SQLModelAnonQuotaRepository(sessionmaker)
-    repos.feedback = SQLModelFeedbackRepository(sessionmaker)
+    repos.request_log = SQLModelRequestLogRepository(sessionmaker)
     repos.memory = SQLModelMemoryStore(sessionmaker)
     repos.outbox = SQLModelOutboxStore(sessionmaker)
 

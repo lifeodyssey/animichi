@@ -301,7 +301,6 @@ transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 | (none) | `chat/ChatInputV2` | HIGH — needs 3D shadow + overflow story |
 | (none) | `chat/WelcomeScreen` | HIGH — needs unique identity |
 | (none) | `chat/MessageBubble` | MEDIUM — verify bubble radius pattern |
-| (none) | `chat/FeedbackButtons` | HIGH — currently renders blank |
 | (none) | `chat/ResultAnchor` | HIGH — too tight, needs redesign |
 | (none) | `chat/ToolPartRenderer` | HIGH — style inconsistency |
 | (none) | `generative/Clarification` | MEDIUM — spacing fix |

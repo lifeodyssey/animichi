@@ -25,6 +25,7 @@ function anonEnv(captured: { requests: Request[] }, extra: Record<string, string
     ...extra,
     EDGE_GUARD: fakeGuard(NOW).namespace,
     CONTAINER: containerStub(captured),
+    CATALOG: { fetch: () => Promise.resolve(new Response("cat")) },
   } as never;
 }
 
@@ -143,7 +144,7 @@ void test("a non-allowlisted /v1 path 401s without ever raising a challenge", as
   const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
   const res = await armedApp(captured, recordingGate(calls, SOLVED)).request(
-    "/v1/feedback", chat(), anonEnv(captured), stubCtx,
+    "/v1/byok/probe", chat(), anonEnv(captured), stubCtx,
   );
   assert.equal(res.status, 401);
   assert.equal(calls.length, 0);
@@ -180,11 +181,11 @@ void test("the confirm ping is challenged on the anonymous path too", async () =
   assert.equal(captured.requests.length + captured.calls.length, 0);
 });
 
-void test("a public /v1 path is not challenged either", async () => {
+void test("a credential-free public read is not challenged either", async () => {
   const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
   const res = await armedApp(captured, recordingGate(calls, SOLVED)).request(
-    "/v1/search/preview", { method: "GET" }, anonEnv(captured), stubCtx,
+    "/catalog/public/anime-overview/123", { method: "GET" }, anonEnv(captured), stubCtx,
   );
   assert.equal(res.status, 200);
   assert.equal(calls.length, 0);

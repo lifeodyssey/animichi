@@ -19,11 +19,11 @@ def build_persistence_double() -> MagicMock:
     Wires only the shared persistence writes; callers set their own read
     doubles. SESSION-3 (#961): the transcript port resolves from the sole
     Session repository, so the message insert lives on ``db.session``; the
-    request-audit port resolves from ``db.feedback`` (#663).
+    request-audit port resolves from ``db.request_log`` (#663).
     """
     db = MagicMock()
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
     db.session.insert_message = AsyncMock()
-    db.feedback.insert_request_log = AsyncMock()
+    db.request_log.insert_request_log = AsyncMock()
     return db

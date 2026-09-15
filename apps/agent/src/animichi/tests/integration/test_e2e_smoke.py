@@ -99,19 +99,3 @@ class TestConversationsEndpoint:
         status, body = await _get("/v1/conversations")
         assert status == 200
         assert isinstance(body, list)
-
-
-class TestFeedbackEndpoint:
-    """Smoke test for the /v1/feedback POST endpoint."""
-
-    async def test_submit_feedback(self) -> None:
-        status, body = await _post(
-            "/v1/feedback",
-            {
-                "query_text": "test query",
-                "intent": "search_bangumi",
-                "rating": "good",
-            },
-        )
-        # 200 or 201 depending on implementation
-        assert status in (200, 201, 204)

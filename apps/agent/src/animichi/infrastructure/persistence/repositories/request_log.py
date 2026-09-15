@@ -1,9 +1,9 @@
-"""SQLModel feedback + request-audit repository (#995).
+"""SQLModel request-audit repository (#995).
 
-Replaces the asyncpg ``FeedbackRepository``: the same feedback-write, audit
-write, and operator read/score contracts against ``feedback`` and
-``request_log``, expressed with SQLModel/SQLAlchemy statements. Both tables
-own database-generated UUIDv7 ids returned by ``RETURNING``.
+Replaces the asyncpg request-audit repository: the same audit write and
+operator read/score contracts against ``request_log``, expressed with
+SQLModel/SQLAlchemy statements. The table owns a database-generated UUIDv7 id
+returned by ``RETURNING``.
 
 The select/insert builders are module-level pure functions (1-10-50); the
 write/read mixins are thin wrappers around module-level flow functions.
@@ -19,46 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import ReturningInsert, Update
 from sqlalchemy.sql.selectable import Select
 
-from animichi.domain.repo_types import FeedbackBadRow, RequestLogUnscoredRow
+from animichi.domain.repo_types import RequestLogUnscoredRow
 from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
-from animichi.infrastructure.persistence.models import feedback_table, request_log_table
+from animichi.infrastructure.persistence.models import request_log_table
 
 
 def _require_id(raw: object, *, operation: str) -> str:
     if raw is None:
         raise RuntimeError(f"Database did not return a row for {operation}")
     return str(raw)
-
-
-def _feedback_values(
-    session_id: str | None,
-    query_text: str,
-    intent: str | None,
-    rating: str,
-    comment: str | None,
-) -> dict[str, object]:
-    "The insert columns for one feedback row."
-    return {
-        "session_id": session_id,
-        "query_text": query_text,
-        "intent": intent,
-        "rating": rating,
-        "comment": comment,
-    }
-
-
-def _feedback_insert(
-    session_id: str | None,
-    query_text: str,
-    intent: str | None,
-    rating: str,
-    comment: str | None,
-) -> ReturningInsert:
-    return (
-        pg_insert(feedback_table)
-        .values(**_feedback_values(session_id, query_text, intent, rating, comment))
-        .returning(feedback_table.c.id)
-    )
 
 
 def _request_log_values(
@@ -102,27 +71,6 @@ def _request_log_insert(
     )
 
 
-def _bad_feedback_columns() -> Select:
-    "The operator-read columns for one bad-feedback row."
-    return select(
-        feedback_table.c.id,
-        feedback_table.c.query_text,
-        feedback_table.c.intent,
-        feedback_table.c.comment,
-        feedback_table.c.created_at,
-    )
-
-
-def _bad_feedback_select(limit: int) -> Select:
-    "Most recent bad feedback, newest first."
-    return (
-        _bad_feedback_columns()
-        .where(feedback_table.c.rating == "bad")
-        .order_by(feedback_table.c.created_at.desc())
-        .limit(limit)
-    )
-
-
 def _unscored_columns() -> Select:
     "The operator-read columns for one unscored log row."
     return select(
@@ -154,25 +102,6 @@ def _score_update(log_id: str, score: float) -> Update:
         .where(request_log_table.c.id == log_id)
         .values(plan_quality_score=score)
     )
-
-
-async def _save_feedback(
-    sessionmaker: AsyncSessionFactory,
-    session_id: str | None,
-    query_text: str,
-    intent: str | None,
-    rating: str,
-    comment: str | None,
-) -> str:
-    "Insert one feedback row; returns the feedback UUID."
-    async with sessionmaker() as session:
-        async with session.begin():
-            raw = (
-                await session.execute(
-                    _feedback_insert(session_id, query_text, intent, rating, comment)
-                )
-            ).scalar_one_or_none()
-    return _require_id(raw, operation="save_feedback")
 
 
 async def _insert_request_log(
@@ -213,15 +142,6 @@ async def _insert_request_log_on(
     return _require_id(raw, operation="insert_request_log")
 
 
-async def _fetch_bad_feedback(
-    sessionmaker: AsyncSessionFactory, limit: int
-) -> list[FeedbackBadRow]:
-    "Operator read: most recent bad feedback, newest first."
-    async with read_only(sessionmaker) as session:
-        rows = await session.execute(_bad_feedback_select(limit))
-    return [cast(FeedbackBadRow, dict(row._mapping)) for row in rows.all()]
-
-
 async def _fetch_unscored(
     sessionmaker: AsyncSessionFactory, limit: int
 ) -> list[RequestLogUnscoredRow]:
@@ -240,23 +160,10 @@ async def _update_score(
             await session.execute(_score_update(log_id, score))
 
 
-class _FeedbackWriteMixin:
-    """Feedback + audit write operations over one session factory."""
+class _RequestLogWriteMixin:
+    """Request-audit write operations over one session factory."""
 
     _sessionmaker: AsyncSessionFactory
-
-    async def save_feedback(
-        self,
-        session_id: str | None,
-        query_text: str,
-        intent: str | None,
-        rating: str,
-        comment: str | None = None,
-    ) -> str:
-        """Insert one feedback row; returns the feedback UUID."""
-        return await _save_feedback(
-            self._sessionmaker, session_id, query_text, intent, rating, comment
-        )
 
     async def insert_request_log(
         self,
@@ -304,14 +211,10 @@ class _FeedbackWriteMixin:
         )
 
 
-class _FeedbackReadMixin:
-    """Operator feedback + request-log read operations."""
+class _RequestLogReadMixin:
+    """Operator request-log read operations."""
 
     _sessionmaker: AsyncSessionFactory
-
-    async def fetch_bad_feedback(self, *, limit: int = 100) -> list[FeedbackBadRow]:
-        """Operator read: most recent bad feedback, newest first."""
-        return await _fetch_bad_feedback(self._sessionmaker, limit)
 
     async def fetch_request_log_unscored(
         self, *, limit: int = 200
@@ -324,11 +227,11 @@ class _FeedbackReadMixin:
         await _update_score(self._sessionmaker, log_id, score)
 
 
-class SQLModelFeedbackRepository(_FeedbackWriteMixin, _FeedbackReadMixin):
-    """Feedback and request-log persistence (AGENT-3 #962, #663)."""
+class SQLModelRequestLogRepository(_RequestLogWriteMixin, _RequestLogReadMixin):
+    """Request-audit persistence (#663)."""
 
     def __init__(self, sessionmaker: AsyncSessionFactory) -> None:
         self._sessionmaker = sessionmaker
 
 
-__all__ = ["SQLModelFeedbackRepository"]
+__all__ = ["SQLModelRequestLogRepository"]

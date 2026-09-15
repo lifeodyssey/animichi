@@ -21,6 +21,6 @@ void test("native routes remain exact about HTTP methods", () => {
 });
 
 void test("other gateway surfaces are not mistaken for native turns", () => {
-  const others = ["/v1/photo-search", "/v1/conversations", "/v1/search/preview"];
+  const others = ["/v1/photo-search", "/v1/conversations", "/v1/feedback"];
   assert.deepEqual(others.map((path) => turnRoutePolicy().select("POST", path)), [null, null, null]);
 });

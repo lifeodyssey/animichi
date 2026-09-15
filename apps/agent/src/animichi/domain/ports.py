@@ -175,22 +175,3 @@ class ConversationLog(Protocol):
         content: str,
         response_data: ResponseData | None = None,
     ) -> None: ...
-
-
-class RequestAudit(Protocol):
-    """Request-log persistence used by ``RuntimeAPI._log_request``.
-
-    New protocol (iter6 C4 / issue #663).
-    """
-
-    async def insert_request_log(
-        self,
-        *,
-        session_id: str | None,
-        query_text: str,
-        locale: str,
-        plan_steps: list[str] | None,
-        intent: str | None,
-        status: str,
-        latency_ms: int | None,
-    ) -> str: ...
