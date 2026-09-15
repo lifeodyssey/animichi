@@ -4,16 +4,20 @@ import { startDatabaseFixture, stopDatabaseFixture, type DatabaseFixture } from 
 import {
   changeSrid,
   createGistIndex,
+  createTrigramIndex,
   dropGistIndex,
+  dropTrigramIndex,
   explain,
   formattedColumn,
   nearbyRows,
   ormPoint,
+  type PoolQuery,
   sqlPoint,
+  trigramRows,
 } from "./support/evidence.ts";
 import { EXPECTED_NEAREST } from "./support/fixtures.ts";
 import { prisma, prismaFailure } from "./support/prisma-cli.ts";
-import { assertGistRadiusAndOrder, assertSequentialScan } from "./support/query-plan.ts";
+import { assertGistRadiusAndOrder, assertSequentialScan, assertTrigramIndex } from "./support/query-plan.ts";
 
 let fixture: DatabaseFixture;
 let fixtureStarted = false;
@@ -39,11 +43,11 @@ void test("the verifier detects an out-of-band SRID mutation", async () => {
 void test("typed operations filter and project metres in KNN order", async () => {
   const rows = await nearbyRows(fixture);
   assert.deepEqual(rows.map((row) => row.id), [...EXPECTED_NEAREST]);
-  assert.ok(distanceAt(rows, 0) < 500);
-  assert.ok(distanceAt(rows, 1) > 6_000);
-  assert.ok(distanceAt(rows, 1) < 7_500);
-  assert.ok(distanceAt(rows, 2) > 25_000);
-  assert.ok(distanceAt(rows, 2) < 30_000);
+  assert.ok(metricAt(rows, 0, "distanceM") < 500);
+  assert.ok(metricAt(rows, 1, "distanceM") > 6_000);
+  assert.ok(metricAt(rows, 1, "distanceM") < 7_500);
+  assert.ok(metricAt(rows, 2, "distanceM") > 25_000);
+  assert.ok(metricAt(rows, 2, "distanceM") < 30_000);
 });
 
 void test("ORM and db.sql reads decode structured coordinates", async () => {
@@ -53,7 +57,18 @@ void test("ORM and db.sql reads decode structured coordinates", async () => {
 });
 
 void test("one GiST node serves radius and KNN ordering", async () => {
-  await assertIndexMutation();
+  await assertIndexMutation(GIST_MUTATION);
+});
+
+void test("typed operations project similarity and filter with the match operator", async () => {
+  const rows = await trigramRows(fixture);
+  assert.deepEqual(rows.map((row) => row.id), ["shibuya", "shibuya-station", "shibuya-crossing"]);
+  assert.equal(metricAt(rows, 0, "similarity"), 1);
+  assert.ok(metricAt(rows, 1, "similarity") > metricAt(rows, 2, "similarity"));
+});
+
+void test("the trigram match predicate uses its GIN index", async () => {
+  await assertIndexMutation(TRIGRAM_MUTATION);
 });
 
 async function assertVerifierMutation(): Promise<void> {
@@ -78,33 +93,64 @@ async function assertSridDrift(): Promise<void> {
   assert.match(drift.stdout, /geography\(Point,4269\)/u);
 }
 
-async function assertIndexMutation(): Promise<void> {
-  await nearbyRows(fixture);
-  const statement = fixture.queryLog.lastMatching("ST_DWithin");
-  assertGistRadiusAndOrder(await explain(fixture.pool, statement));
-  await assertDroppedIndexPlan(statement);
-  assertGistRadiusAndOrder(await explain(fixture.pool, statement));
+interface IndexMutation {
+  readonly needle: string;
+  readonly assertion: RegExp;
+  readonly run: (fixture: DatabaseFixture) => Promise<unknown>;
+  readonly assertIndexed: (payload: unknown) => void;
+  readonly drop: PoolQuery;
+  readonly create: PoolQuery;
 }
 
-async function assertDroppedIndexPlan(statement: Parameters<typeof explain>[1]): Promise<void> {
-  await dropGistIndex(fixture.pool);
+const GIST_MUTATION: IndexMutation = {
+  needle: "ST_DWithin",
+  assertion: /GiST index/u,
+  run: nearbyRows,
+  assertIndexed: assertGistRadiusAndOrder,
+  drop: dropGistIndex,
+  create: createGistIndex,
+};
+
+const TRIGRAM_MUTATION: IndexMutation = {
+  needle: "similarity",
+  assertion: /GIN index/u,
+  run: trigramRows,
+  assertIndexed: assertTrigramIndex,
+  drop: dropTrigramIndex,
+  create: createTrigramIndex,
+};
+
+async function assertIndexMutation(mutation: IndexMutation): Promise<void> {
+  await mutation.run(fixture);
+  const statement = fixture.queryLog.lastMatching(mutation.needle);
+  mutation.assertIndexed(await explain(fixture.pool, statement));
+  await assertDroppedIndexPlan(mutation, statement);
+  mutation.assertIndexed(await explain(fixture.pool, statement));
+}
+
+async function assertDroppedIndexPlan(mutation: IndexMutation, statement: Parameters<typeof explain>[1]): Promise<void> {
+  await mutation.drop(fixture.pool);
   try {
-    await assertPlanWithoutIndex(statement);
+    assertPlanWithoutIndex(mutation, await explain(fixture.pool, statement));
   } finally {
-    await createGistIndex(fixture.pool);
+    await mutation.create(fixture.pool);
   }
 }
 
-async function assertPlanWithoutIndex(statement: Parameters<typeof explain>[1]): Promise<void> {
-  const withoutIndex = await explain(fixture.pool, statement);
+function assertPlanWithoutIndex(mutation: IndexMutation, payload: unknown): void {
   assert.throws(() => {
-    assertGistRadiusAndOrder(withoutIndex);
-  }, /GiST index/u);
-  assertSequentialScan(withoutIndex);
+    mutation.assertIndexed(payload);
+  }, mutation.assertion);
+  assertSequentialScan(payload);
 }
 
-function distanceAt(rows: readonly { readonly distanceM: number }[], index: number): number {
-  const row = rows[index];
-  assert.ok(row, `missing distance row ${String(index)}`);
-  return row.distanceM;
+interface MetricRow {
+  readonly distanceM?: number;
+  readonly similarity?: number;
+}
+
+function metricAt(rows: readonly MetricRow[], index: number, metric: "distanceM" | "similarity"): number {
+  const value = rows[index]?.[metric];
+  assert.ok(value !== undefined, `missing ${metric} row ${String(index)}`);
+  return value;
 }
