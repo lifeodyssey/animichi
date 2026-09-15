@@ -1,6 +1,6 @@
 {
   "dataset": "agent_eval_v3",
-  "source_of_truth": "apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json",
+  "source_of_truth": "packages/eval/datasets/canonical/agent_eval_v3.json",
   "note": "SOURCE FORMAT ONLY: the source file preserves the corpus; these are the native task shapes still missing per case. The E1 CLI (command-task.ts) consumes {prompt, locale} only — session-preseed needs a seeded-session task extension and selection-prefix needs deterministic selection state (#1557).",
   "counts": {
     "none": 627,
