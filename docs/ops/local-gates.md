@@ -238,8 +238,6 @@ with the offline `animichi-test-postgres` image (the agent bucket's integration 
 - `scripts/local-gates/infra-check.sh` — credential-free Pulumi program load (`infra`'s own `test`)
 - `scripts/local-gates/contract-drift.sh` — staged-snapshot OpenAPI drift (`@animichi/contract`'s
   own `test`)
-- `scripts/local-gates/eval-fixture-drift.sh` — staged-snapshot eval-fixture drift (`@animichi/eval`'s
-  own `test`)
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs them
 - `commitlint.config.js` — the commit-message and PR-title rules

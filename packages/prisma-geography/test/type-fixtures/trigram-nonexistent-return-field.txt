@@ -1,0 +1,11 @@
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
+import type { Contract } from "../../../src/contract.d.ts";
+
+declare const db: PostgresClient<Contract>;
+
+const plan = db.sql.public.geo_points
+  .select("id")
+  .select("similarity", (fields, operations) => operations.trigramSimilarity(fields.name, "shibuya"))
+  .build();
+
+void db.runtime().query(plan).then((rows) => rows[0]?.missingSimilarity);

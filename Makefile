@@ -1,11 +1,15 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck typecheck-ty check check-full clean build db-new db-list db-hash db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck typecheck-ty check check-full clean build db-new db-list db-hash db-lint db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
 ATLAS_VERSION ?= 0.30.0
 export ATLAS_VERSION
+
+# What apps/agent/uv.lock resolves. `:=` so no environment variable can move the binary the
+# sanctioned lint command installs; CI runs that command rather than pinning its own copy.
+SQLFLUFF_VERSION := 4.2.2
 PYTHON ?= .venv/bin/python
 PYTEST ?= $(PYTHON) -m pytest
 
@@ -41,6 +45,7 @@ help:
 	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
 	@echo "  make db-list        List checked-in Atlas migrations"
 	@echo "  make db-hash        Regenerate migrations/neon/atlas.sum"
+	@echo "  make db-lint        Lint migrations/neon (the command CI runs)"
 	@echo "  make db-validate    Validate Atlas checksums and SQL"
 	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
 	@echo "  make db-push        Apply Atlas migrations against Neon"
@@ -167,6 +172,12 @@ db-list:
 
 db-hash:
 	atlas migrate hash --dir $(ATLAS_MIGRATIONS)
+
+# The one migration lint command, and the one CI's security job runs. `--config` is explicit
+# because sqlfluff discovers `db/.sqlfluff` only for targets under `db/`; `env -u UV_CACHE_DIR`
+# keeps the cache export at the top of this file out of a job that never had it.
+db-lint:
+	env -u UV_CACHE_DIR uvx --no-build "sqlfluff==$(SQLFLUFF_VERSION)" lint migrations/neon --config db/.sqlfluff
 
 db-validate:
 	atlas migrate validate --dir $(ATLAS_MIGRATIONS)

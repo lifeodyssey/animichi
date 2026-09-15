@@ -38,6 +38,30 @@ void test("the compiler rejects a nonexistent return field", async () => {
   await assertCompileFailure("nonexistent-return-field", /Property 'missingDistance' does not exist/u);
 });
 
+void test("a matched typed trigram program compiles", async () => {
+  assert.deepEqual(await compileFixture("trigram-valid"), { exitCode: 0, output: "" });
+});
+
+void test("the compiler rejects a wrong trigram operation name", async () => {
+  await assertCompileFailure("trigram-wrong-operation", /Property 'trigramSimilarityScore' does not exist/u);
+});
+
+void test("the compiler rejects a wrong trigram argument name", async () => {
+  await assertCompileFailure("trigram-wrong-argument-name", /Property 'nmae' does not exist/u);
+});
+
+void test("the compiler rejects a wrong trigram argument type", async () => {
+  await assertCompileFailure("trigram-wrong-argument-type", /not assignable to parameter of type/u);
+});
+
+void test("the compiler rejects a missing trigram argument", async () => {
+  await assertCompileFailure("trigram-missing-argument", /Expected 2 arguments, but got 1/u);
+});
+
+void test("the compiler rejects a nonexistent trigram return field", async () => {
+  await assertCompileFailure("trigram-nonexistent-return-field", /Property 'missingSimilarity' does not exist/u);
+});
+
 async function assertCompileFailure(name: string, diagnostic: RegExp): Promise<void> {
   const result = await compileFixture(name);
   assert.equal(result.exitCode, 1, result.output);
