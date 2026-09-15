@@ -1,7 +1,7 @@
 import { getAgentByName } from "agents";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
-import { keepaliveState, composition, observeCleanup, releaseProvider, drainCleanup, observeDrive, alarmSnapshot } from "./native-keepalive-state.ts";
+import { keepaliveState, composition, observeCleanup, clampDueAlarm, releaseProvider, drainCleanup, observeDrive, alarmSnapshot } from "./native-keepalive-state.ts";
 
 /** Real SDK scheduling and drive, with a public faux-provider response barrier. */
 export class KeepaliveProbe extends SessionAgent {
@@ -9,6 +9,7 @@ export class KeepaliveProbe extends SessionAgent {
   readonly #state = keepaliveState();
   override async onStart() {
     observeCleanup(this.ctx, this.#state.cleanup);
+    clampDueAlarm(this.ctx, this.#state);
     Date.now = () => this.#state.clock.now;
     const session = await this.#state.resources.repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
@@ -29,7 +30,7 @@ export class KeepaliveProbe extends SessionAgent {
       this.#state.calls.duringDrive = this.#state.calls.active;
       this.#state.calls.result = (await lane.getResult("held", context))?.status ?? "missing";
       this.#state.calls.count += 1;
-      this.#state.callback.resolve(undefined);
+      this.#state.delivered.resolve(undefined);
     });
   }
   async inspect() {
@@ -40,23 +41,37 @@ export class KeepaliveProbe extends SessionAgent {
   releaseProvider() { releaseProvider(this.#state); }
   drainCleanup() { return drainCleanup(this.#state); }
   restoreClock() { Date.now = this.#state.clock.realNow; }
-  waitForCallback() { return this.#state.callback.promise; }
-  async fireDeadline() { this.#state.clock.now = this.#state.deadline.time + 1; await this.ctx.storage.setAlarm(this.#state.clock.realNow()); }
+  async fireDeadline() {
+    this.#state.clock.now = this.#state.deadline.time + 1;
+    this.#state.firing = true;
+    await this.ctx.storage.setAlarm(this.#state.clock.realNow());
+  }
+
+  /** Await the delivered callback; the bound is real time and only turns a stalled delivery into the observation. */
+  async awaitDeadlineCallback(budgetMs: number) {
+    await Promise.race([this.#state.delivered.promise, new Promise((resolve) => setTimeout(resolve, budgetMs))]);
+    return this.inspect();
+  }
 }
 
-async function probeResponse(host: DurableObjectStub<KeepaliveProbe>, path: string): Promise<Response> {
-  if (path === "/drive") return Response.json(await host.startDrive());
-  if (path === "/entered") { await host.waitForProvider(); return new Response("entered"); }
-  if (path === "/release") { await host.releaseProvider(); return new Response("released"); }
-  if (path === "/drain") { await host.drainCleanup(); return new Response("drained"); }
-  if (path === "/fire") { await host.fireDeadline(); return new Response("armed"); }
-  if (path === "/callback") { await host.waitForCallback(); return Response.json(await host.inspect()); }
-  if (path === "/restore") { await host.restoreClock(); return new Response("restored"); }
+async function probeResponse(host: DurableObjectStub<KeepaliveProbe>, url: URL): Promise<Response> {
+  if (url.pathname === "/drive") return Response.json(await host.startDrive());
+  if (url.pathname === "/entered") { await host.waitForProvider(); return new Response("entered"); }
+  if (url.pathname === "/release") { await host.releaseProvider(); return new Response("released"); }
+  if (url.pathname === "/drain") { await host.drainCleanup(); return new Response("drained"); }
+  if (url.pathname === "/fire") { await host.fireDeadline(); return new Response("armed"); }
+  if (url.pathname === "/restore") { await host.restoreClock(); return new Response("restored"); }
+  if (url.pathname === "/callback") return Response.json(await host.awaitDeadlineCallback(callbackBudgetMs(url)));
   return Response.json(await host.inspect());
+}
+
+/** The fixture decides how long a delivery may take; the worker only enforces it. */
+function callbackBudgetMs(url: URL) {
+  return Number(url.searchParams.get("budgetMs") ?? 10_000);
 }
 
 export default {
   async fetch(request: Request, env: { SESSION: DurableObjectNamespace<KeepaliveProbe> }) {
-    return probeResponse(await getAgentByName(env.SESSION, "keepalive", { locationHint: "apac" }), new URL(request.url).pathname);
+    return probeResponse(await getAgentByName(env.SESSION, "keepalive", { locationHint: "apac" }), new URL(request.url));
   },
 };

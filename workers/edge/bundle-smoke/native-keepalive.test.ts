@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Miniflare } from "miniflare";
-import { nativeWorker, request, inspect, releaseAndRestore, type Observation } from "./native-keepalive-fixture.ts";
+import { nativeWorker, request, inspect, fireDeadlineAlarm, releaseAndRestore, type Observation } from "./native-keepalive-fixture.ts";
 
 async function activeKeepalive(worker: Miniflare, drive: Promise<string>) {
   await Promise.race([request(worker, "/entered"), drive.then(() => assert.fail("Drive must remain pending behind the provider barrier"))]);
@@ -25,14 +25,14 @@ async function disposedKeepalive(worker: Miniflare, drive: Promise<string>, acti
 }
 
 async function deadlineCallback(worker: Miniflare) {
-  await request(worker, "/fire");
-  const completed = await inspect(worker, "/callback");
-  assert.equal(completed.callbackCount, 1);
+  const completed = await fireDeadlineAlarm(worker);
+  assert.equal(completed.callbackCount, 1, `The deadline alarm never reached its callback: ${JSON.stringify(completed)}`);
   assert.equal(completed.callbackDuringDrive, false);
   assert.equal(completed.completedStatus, "completed");
 }
 
-void test("active native keepalive preserves a deadline through cleanup and its actual alarm callback", { timeout: 30_000 }, async (context) => {
+// The build, the drive and the alarm delivery each bound themselves; this timeout is only the backstop.
+void test("active native keepalive preserves a deadline through cleanup and its actual alarm callback", { timeout: 120_000 }, async (context) => {
   const worker = await nativeWorker(context);
   const drive = request(worker, "/drive");
   try {
