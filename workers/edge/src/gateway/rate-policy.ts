@@ -1,6 +1,5 @@
 import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
-import { isPublicV1 } from "./routing-policy.ts";
 
 /**
  * The single rate route policy (issue #680 AC1).
@@ -115,7 +114,6 @@ function normalizePathname(pathname: string): { readonly path: string; readonly 
 
 export function classifyRatePolicy(method: string, pathname: string): RatePolicy {
   const { path: normalized, decodable } = normalizePathname(pathname);
-  if (isPublicV1(normalized)) return NATIVE_PUBLIC_READ;
   if (PUBLIC_CATALOG_PATTERN.test(normalized)) return NATIVE_PUBLIC_READ;
   if (pathname.startsWith(USERS_BINDING_PREFIX)) {
     return method === "GET" ? UNMANAGED_READ : DURABLE_USER_MUTATION;
