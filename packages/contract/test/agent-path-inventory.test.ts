@@ -19,7 +19,6 @@ const RETAINED_AGENT_PATHS = [
   "GET /healthz",
   "POST /v1/chat",
   "POST /v1/byok/probe",
-  "POST /v1/feedback",
   "GET /v1/conversations",
   "PATCH /v1/conversations/{session_id}",
   "GET /v1/conversations/{session_id}/messages",

@@ -15,5 +15,6 @@ export function nativeAgentReceiver(calls: NativeAgentCall[] = [], response = ()
   return { chat: (_env, request, identity) => receive(request, identity),
     probe: (request, identity) => receive(request, identity),
     transcript: (_env, request, identity, sessionId) => receive(request, identity, sessionId),
-    stream: (_env, request, identity, sessionId) => receive(request, identity, sessionId) };
+    stream: (_env, request, identity, sessionId) => receive(request, identity, sessionId),
+    list: (_env, request, identity) => receive(request, identity) };
 }

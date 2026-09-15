@@ -48,7 +48,7 @@ async def test_fresh_settle_enqueues_and_drain_applies_once() -> None:
     # The drain applies usage + quota exactly once via the store transaction.
     dispatcher = make_dispatcher(
         db,
-        audit_repo=db.feedback,
+        audit_repo=db.request_log,
         messages_repo=db.session,
         prices=UsagePrices(0.0, 0.0),
     )

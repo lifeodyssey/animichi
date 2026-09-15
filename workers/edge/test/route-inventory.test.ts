@@ -46,6 +46,20 @@ void test("the retired root matches no inventory and classifies as unmanaged", (
   assert.equal(classifyRatePolicy("GET", "/").limiter, "none", "a retired path must not be classified into a guarded cell");
 });
 
+void test("the conversation index is a gateway-owned inventory entry, not a Python route", () => {
+  const index = AGENT_PATHS.find((entry) => entry.method === "GET" && entry.path === "/v1/conversations");
+  assert.equal(index?.runtime, "edge", "the container does not mount the list; this Worker serves it");
+});
+
+// #1595: `/v1/feedback` was retired with the feature behind it, so it is out of
+// the inventory, unclassified by the rate table, and outside every allowlist —
+// the shape every retirement is pinned to.
+void test("retired /v1/feedback is absent, unmanaged and outside every allowlist", () => {
+  assert.equal(inventoryPaths.has("/v1/feedback"), false);
+  assert.equal(classifyRatePolicy("POST", "/v1/feedback").limiter, "none", "a retired path must not be classified into a guarded cell");
+  assert.equal(isAnonymousV1("/v1/feedback"), false);
+});
+
 // #1597: the three uncalled catalog reads leave the inventory, the tables
 // derived from it and the rate policy together, so each is pinned at the same
 // shape as the retired `/v1/runtime` paths above: nothing advertises it and no
@@ -69,7 +83,6 @@ void test("anonymous allowlist membership matches the inventory's paths", () => 
   assert.equal(isAnonymousV1("/v1/chat"), true);
   assert.equal(isAnonymousV1("/v1/photo-search"), true);
   assert.equal(isAnonymousV1("/v1/photo-search/confirm"), true);
-  assert.equal(isAnonymousV1("/v1/feedback"), false);
 });
 
 void test("the retired staging prefix route remains outside every allowlist", () => {

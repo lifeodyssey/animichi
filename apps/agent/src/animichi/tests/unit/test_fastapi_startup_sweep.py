@@ -69,7 +69,7 @@ def _db(store: _SweepStore) -> PersistenceRepos:
         points=MagicMock(),
         usage=MagicMock(),
         anon_quota=MagicMock(),
-        feedback=MagicMock(),
+        request_log=MagicMock(),
         memory=MagicMock(),
         outbox=MagicMock(),
     )

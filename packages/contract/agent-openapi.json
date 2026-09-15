@@ -35,19 +35,10 @@
         }
       }
     },
-    "/v1/feedback": {
-      "post": {
-        "summary": "submit feedback",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
     "/v1/conversations": {
       "get": {
         "summary": "list conversations",
+        "x-runtime": "edge",
         "responses": {
           "200": {
             "description": "Successful response"

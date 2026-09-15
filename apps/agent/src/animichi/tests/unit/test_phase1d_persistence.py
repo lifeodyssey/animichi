@@ -78,10 +78,10 @@ def _db() -> MagicMock:
     db = MagicMock()
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
-    # #663: the real repo lives at `db.session`/`db.feedback`, not a flat
+    # #663: the real repo lives at `db.session`/`db.request_log`, not a flat
     # `db.insert_message`/`db.insert_request_log` — that was the production bug.
     db.session.insert_message = AsyncMock()
-    db.feedback.insert_request_log = AsyncMock()
+    db.request_log.insert_request_log = AsyncMock()
     return db
 
 

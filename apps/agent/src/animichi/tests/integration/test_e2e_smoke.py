@@ -46,15 +46,6 @@ async def _post(path: str, body: dict[str, object]) -> tuple[int, dict[str, obje
     return resp.status_code, cast(dict[str, object], resp.json())
 
 
-async def _get(path: str) -> tuple[int, object]:
-    """GET from the API and return (status, body)."""
-    import httpx
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{_API_URL}{path}", headers=_headers())
-    return resp.status_code, resp.json()
-
-
 class TestHealthCheck:
     """Verify the health endpoint is reachable."""
 
@@ -90,28 +81,3 @@ class TestRuntimeEndpoint:
     async def test_missing_text_returns_error(self) -> None:
         status, _body = await _post("/v1/runtime", {"locale": "ja"})
         assert status in (400, 422)
-
-
-class TestConversationsEndpoint:
-    """Smoke tests for the /v1/conversations GET endpoint."""
-
-    async def test_list_conversations(self) -> None:
-        status, body = await _get("/v1/conversations")
-        assert status == 200
-        assert isinstance(body, list)
-
-
-class TestFeedbackEndpoint:
-    """Smoke test for the /v1/feedback POST endpoint."""
-
-    async def test_submit_feedback(self) -> None:
-        status, body = await _post(
-            "/v1/feedback",
-            {
-                "query_text": "test query",
-                "intent": "search_bangumi",
-                "rating": "good",
-            },
-        )
-        # 200 or 201 depending on implementation
-        assert status in (200, 201, 204)

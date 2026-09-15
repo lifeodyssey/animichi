@@ -81,18 +81,6 @@ class SessionHistoryAdapter:
         return await self._session.current_revision(session_id)
 
 
-@router.get("/conversations")
-async def handle_get_conversations(
-    request: Request,
-    auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
-) -> JSONResponse:
-    if auth.user_id is None:
-        return _unauthorized()
-    repo = _session_repo(request)
-    sessions_obj: object = await repo.list_sessions(auth.user_id)
-    return _json_response(sessions_obj)
-
-
 @router.patch("/conversations/{session_id}")
 async def handle_patch_conversation(
     session_id: str,

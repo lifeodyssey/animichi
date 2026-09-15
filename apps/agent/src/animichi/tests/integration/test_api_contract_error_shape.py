@@ -3,9 +3,8 @@
 Every error response any endpoint answers must be ``{error: {code, message}}``
 with both members strings: the frontend branches on the code, and a shape
 drifting here is what makes one endpoint's failure look different from
-another's. One case per rejection family — a missing identity (400) and a
-validation failure (422) — drives the envelope through the client in
-``_api_contract_client.py``.
+another's. One case per rejection family — a missing identity (400) — drives the
+envelope through the client in ``_api_contract_client.py``.
 """
 
 from __future__ import annotations
@@ -22,8 +21,7 @@ class TestErrorShape:
     """All error responses must follow {error: {code, message}} shape."""
 
     _ERROR_CASES = [
-        ("GET", "/v1/conversations", None, None, 400),
-        ("POST", "/v1/feedback", {"rating": "good", "query_text": "  "}, None, 422),
+        ("PATCH", "/v1/conversations/sess-error-shape", None, None, 400),
     ]
 
     @pytest.mark.parametrize(

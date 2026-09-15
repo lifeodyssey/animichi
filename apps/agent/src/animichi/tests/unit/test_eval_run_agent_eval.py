@@ -107,7 +107,7 @@ async def test_fullstack_target_runs_shared_byo_preflight_before_build(
             points=MagicMock(),
             usage=MagicMock(),
             anon_quota=MagicMock(),
-            feedback=MagicMock(),
+            request_log=MagicMock(),
             memory=MagicMock(),
             outbox=MagicMock(),
         )

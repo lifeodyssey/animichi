@@ -31,7 +31,8 @@ revision rather than mutable checkout state.
   closure, remote image manifests and the migration ledger before mutations. One `stage` job holds
   the staging lock through foundation, migration, services, web, smoke and receipt. Production has
   its own approval and lock and promotes the same verified digest. Pending selections may be
-  superseded; pushes never deploy automatically. No local or tag-triggered deploy path.
+  superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its
+  approval. No local or tag-triggered deploy path.
 - **Build and deploy jobs use uncached native setup steps.** Their environment credentials follow
   artifact/config verification. The PR-only cached composite and its exact approved actionlint
   diagnostic exception must not expand to CD or the builder. New builder OIDC identities require
