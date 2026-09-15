@@ -4,8 +4,14 @@ export const TOKYO_STATION = geographyPoint(139.7671, 35.6812);
 export const RADIUS_METERS = 30_000;
 export const EXPECTED_NEAREST = ["marunouchi", "shibuya", "yokohama"] as const;
 
+// `osaka` and the two Shibuya-named trigram rows share this point on purpose: it sits outside
+// TOKYO_STATION's KNN radius, so only the marunouchi/shibuya/yokohama rows can reach EXPECTED_NEAREST.
+const OUTSIDE_KNN_RADIUS = geographyPoint(135.5023, 34.6937);
+
 export const KNOWN_POINTS = [
-  { id: "osaka", name: "Osaka", location: geographyPoint(135.5023, 34.6937) },
+  { id: "osaka", name: "Osaka", location: OUTSIDE_KNN_RADIUS },
+  { id: "shibuya-station", name: "Shibuya Station", location: OUTSIDE_KNN_RADIUS },
+  { id: "shibuya-crossing", name: "Shibuya Crossing", location: OUTSIDE_KNN_RADIUS },
   { id: "yokohama", name: "Yokohama", location: geographyPoint(139.622, 35.466) },
   { id: "shibuya", name: "Shibuya", location: geographyPoint(139.7016, 35.658) },
   { id: "marunouchi", name: "Marunouchi", location: geographyPoint(139.764, 35.681) },

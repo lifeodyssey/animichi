@@ -5,6 +5,7 @@ A private, temporary Prisma 8 extension pack for PostGIS `geography(Point,4326)`
 - `geo.Geography(4326)` contract authoring;
 - structured `{ type: "Point", coordinates: [longitude, latitude], srid: 4326 }` values;
 - `dwithinMeters`, `distanceMeters`, and true KNN `<->` ordering.
+- typed `pg_trgm` `trigramSimilarity` and `trigramMatches` operations for text fields.
 
 Load `@animichi/prisma-geography/control` in Prisma configuration and the distinct
 `@animichi/prisma-geography/runtime` descriptor in the Postgres client. Nothing in the current catalog or

@@ -17,9 +17,9 @@
  *
  * **Adding or removing a scenario is a two-file change by design** — the Python
  * producer (`evaluator_oracle_cases.py`, `gate_oracle.py`, `strata_oracle.py`,
- * `stats_oracle.py`), then this list — after which
- * `bash packages/eval/scripts/export-fixtures.sh` re-exports and the drift gate
- * agrees.
+ * `stats_oracle.py`), then this list and the re-exported fixture. The exporter
+ * and its drift gate retired with the freeze (#1603), so the second half is now
+ * a deliberate edit to `fixtures/` with the same review weight.
  */
 
 /** The named case lists `stats_oracle.py` writes, one generated test each. */

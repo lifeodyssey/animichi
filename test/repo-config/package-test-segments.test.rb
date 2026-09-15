@@ -17,7 +17,7 @@ class PackageTestSegmentsTest < Minitest::Test
     "packages/agent" => [%r{node --import tsx --test}],
     "packages/pi-session-neon" => ["node --test", "test/contract-types.test.ts"],
     "packages/prisma-geography" => ["node --test", "test/*.unit.test.ts"],
-    "packages/eval" => [%r{node --import tsx --test}, "test:fixture-drift"],
+    "packages/eval" => [%r{node --import tsx --test}],
     "packages/test-postgres" => ["node --test"],
     "infra" => ["node --test", "test:program-load"],
     "apps/web" => ["vitest run"],
@@ -39,7 +39,6 @@ class PackageTestSegmentsTest < Minitest::Test
     ["workers/edge", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
     ["workers/catalog", "test:spike"] => "vitest.spike.config.ts",
     ["packages/contract", "test:openapi-drift"] => "contract-drift.sh",
-    ["packages/eval", "test:fixture-drift"] => "eval-fixture-drift.sh",
     ["infra", "test:program-load"] => "infra-check.sh"
   }.freeze
 

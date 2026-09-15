@@ -25,11 +25,15 @@ of real-model quality or deployed authorization and quota behavior.
 
 ## Commands
 
-- `pnpm test`: Node tests through tsx, then the Python fixture export/drift check.
+- `pnpm test`: Node tests through tsx.
 - `pnpm run test:native`: the native task, production composition and resource tests.
 - `pnpm run typecheck`: strict TypeScript 7, including dependency declarations.
 - `pnpm run lint`: type-aware oxlint with warnings denied.
-- `pnpm run test:fixture-drift`: regenerate Python oracle fixtures and compare committed bytes.
+
+The Python fixture export and its drift gate are gone (#1603). `fixtures/` are frozen bytes
+with no regeneration path; the canonical sets they were exported from now live in
+`datasets/canonical/`, and nothing in this package shells out to `uv`, Python or apps/agent —
+`pnpm test` runs on Node alone.
 
 The old `eval:staging`, `eval:gate` and HTTP prefix-capture commands are retired with their
 obsolete consumers. The native CLI/configuration, independent correctness/assertions and
@@ -43,8 +47,12 @@ by this minimum consumer closure. Never run paid evaluations without explicit au
 modules retain their source behavior until an Eval Story replaces or retires them.
 `fixtures/` retains Python-exported datasets and statistical oracle material. These files
 are source inputs and expected values, not completed native suite rosters or successful runs.
+`datasets/canonical/` holds the frozen canonical datasets the strata and the
+`agent_eval_v3` source migration read; `PINS.json` declares the pydantic-evals version they were
+exported with, so the package has no path into apps/agent at runtime or in tests.
 
-Keep the original input-guard, injection and translation cases and their export sources.
+Keep the original input-guard, injection and translation cases and their canonical copies in
+`datasets/canonical/`.
 Do not reduce coverage by relabeling a migrated subset as the full corpus. Source migration,
 retirement decisions and their evidence belong to the full Eval work, separate from deletion
 of the obsolete runtime consumers. Root type, coverage and test-quality rules still apply.

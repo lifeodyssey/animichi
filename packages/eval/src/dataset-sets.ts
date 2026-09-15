@@ -1,34 +1,52 @@
 /**
- * The exported dataset sets and the case count each one must keep.
+ * The six canonical datasets that were exported from Python, and the frozen
+ * counts each one must keep.
  *
  * The counts are a tripwire, not a derived value: a fixture that silently
  * shrinks (a truncated export, an `EVAL_MAX_CASES` leak into the exporter)
- * would otherwise still load and still deep-equal itself.
- *
- * Producer: `scripts/export-eval-fixtures.sh`, one `EVAL_DATASET` per set.
+ * would otherwise still load and still deep-equal itself. There is no exporter
+ * any more (#1603) — the fixtures are frozen bytes and the canonical sets they
+ * were produced from live in `datasets/canonical/` — so these numbers are the
+ * only remaining check that a set is the size it was frozen at. `stratumCount`
+ * is the same tripwire for the canonical set's `path` column: one stratum for a
+ * set with no `path` at all, the distinct behaviour-family count otherwise.
+ * The two canonical sets that were never exported (`runtime_journey_v1`,
+ * `translation_v1`) have no row here; `test/gate-case-strata.test.ts` names
+ * them as pooled instead.
  */
-export interface ExportedDataset {
+export interface FrozenDatasetCount {
   readonly caseCount: number;
   readonly name: string;
+  readonly stratumCount: number;
 }
 
-export const EXPORTED_DATASETS: readonly ExportedDataset[] = [
-  { caseCount: 662, name: 'agent_eval_v3' },
-  { caseCount: 33, name: 'agent_eval_heldout_v1' },
-  { caseCount: 23, name: 'injection_g1_v1' },
-  { caseCount: 15, name: 'input_guard_v1' },
-  { caseCount: 13, name: 'long_context_v1' },
-  { caseCount: 5, name: 'phase1c_selection_v1' },
+export const FROZEN_DATASET_COUNTS: readonly FrozenDatasetCount[] = [
+  { caseCount: 662, name: 'agent_eval_v3', stratumCount: 66 },
+  { caseCount: 33, name: 'agent_eval_heldout_v1', stratumCount: 12 },
+  { caseCount: 23, name: 'injection_g1_v1', stratumCount: 1 },
+  { caseCount: 15, name: 'input_guard_v1', stratumCount: 1 },
+  { caseCount: 13, name: 'long_context_v1', stratumCount: 1 },
+  { caseCount: 5, name: 'phase1c_selection_v1', stratumCount: 1 },
 ];
 
 /**
- * The set name a runner was asked for, refused with the list rather than
- * guessed at. A typo that fell through to `Dataset.fromFile` would surface as
- * ENOENT on a path nobody typed; naming the six is what makes the refusal
- * actionable — and it lives here because this is where the six are declared.
+ * The seven canonical sets beside `agent_eval_v3`, totalled: the sibling half
+ * of the corpus the v3 source migration must not move. Not a seventh row of
+ * the table above — two of the seven (`runtime_journey_v1`,
+ * `translation_v1`) were never exported and own no freeze row.
  */
-export function checkedDatasetName(name: string): string {
-  const known = EXPORTED_DATASETS.map((set) => set.name);
-  if (known.includes(name)) return name;
+export const FROZEN_SIBLING_CASE_COUNT = 546;
+
+/**
+ * The frozen declaration for this name: its case and stratum counts.
+ *
+ * A typo is refused with the list rather than guessed at: it would otherwise
+ * surface as ENOENT on a path nobody typed — and naming the six is what makes
+ * the refusal actionable, so it lives here, where the six are declared.
+ */
+export function frozenDataset(name: string): FrozenDatasetCount {
+  const set = FROZEN_DATASET_COUNTS.find((candidate) => candidate.name === name);
+  if (set !== undefined) return set;
+  const known = FROZEN_DATASET_COUNTS.map((candidate) => candidate.name);
   throw new RangeError(`unknown dataset "${name}" — one of: ${known.join(", ")}`);
 }
