@@ -80,6 +80,13 @@ void test("a spent turn whose deadline refusal cannot persist still aborts befor
   assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: TURN_DEADLINE_MS, requests: 1, refusals: 1 });
 });
 
+void test("a spent turn whose deadline refusal write rejects still aborts before the next model request", async (context) => {
+  const worker = await nativeWorker(context);
+  const response = await worker.dispatchFetch("https://probe.test/deadline-unpersistable");
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.deepEqual(await response.json(), { kind: "settled", status: "aborted", budget: TURN_DEADLINE_MS, requests: 1, refusals: 1 });
+});
+
 void test("acknowledgment retains one operation wake alongside the independent recurring scan", async (context) => {
   const worker = await nativeWorker(context);
   const response = await worker.dispatchFetch("https://probe.test/ack-wake");

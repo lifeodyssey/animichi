@@ -25,10 +25,15 @@ export class HostFaultRepo extends MemorySessionRepo {
   }
 }
 
-/** A business database that refuses every permanent rejection; the count proves the deadline path asked. */
+/** Business databases that refuse every permanent rejection; the count proves the deadline path asked. */
 export class RefusingAdmission {
+  /** The refusal-probe DO names; `databases` below is keyed by the same two names. */
+  static readonly paths = new Set(["/deadline-refused", "/deadline-unpersistable"]);
   attempts = 0;
-  readonly database = { transaction: () => { this.attempts += 1; return Promise.resolve(false); } } as unknown as AdmissionDatabase;
+  readonly databases: Record<string, AdmissionDatabase | undefined> = {
+    "/deadline-refused": { transaction: () => { this.attempts += 1; return Promise.resolve(false); } } as unknown as AdmissionDatabase,
+    "/deadline-unpersistable": { transaction: () => { this.attempts += 1; return Promise.reject(new Error("Injected rejection outage")); } } as unknown as AdmissionDatabase,
+  };
 }
 
 function interceptCommit(session: Session, lose: (writes: Write[]) => boolean) {

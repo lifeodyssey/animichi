@@ -31,7 +31,7 @@ export class HostProbe extends SessionAgent {
     models.setProvider(provider.provider);
     this.bindSession(this.repo, session.metadata, (opened) => ({ models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 1000 },
       toolContext: { session: opened, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("Unexpected catalog request"))),
-        assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }), this.name === "/deadline-refused" ? this.#refusing.database : undefined);
+        assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }), this.#refusing.databases[this.name]);
     await super.onStart();
   }
 
@@ -107,7 +107,7 @@ export class HostProbe extends SessionAgent {
     } finally { clock.restore(); }
   }
 
-  /** The refusal case binds a database whose rejection write cannot commit; the spent turn must still end. */
+  /** The refusal cases bind a database whose rejection write cannot commit, or rejects; the spent turn must still end. */
   async deadlineRefusedPersist() {
     return { ...await this.deadlineBetweenRequests(), refusals: this.#refusing.attempts };
   }
@@ -177,7 +177,7 @@ export default {
     if (path === "/ack-wake") return Response.json(await host.acknowledgeAcceptedOperation());
     if (path === "/retry") return Response.json(await host.retryPass());
     if (path === "/deadline-between-requests") return Response.json(await host.deadlineBetweenRequests());
-    if (path === "/deadline-refused") return Response.json(await host.deadlineRefusedPersist());
+    if (RefusingAdmission.paths.has(path)) return Response.json(await host.deadlineRefusedPersist());
     if (path === "/deadline-before-drive") return Response.json(await host.deadlineBeforeDrive());
     if (path === "/persistence") return Response.json({ status: await host.disconnectedTurn(), persisted: await host.persistedData() });
     if (path === "/lost-accept" || path === "/lost-terminal") {

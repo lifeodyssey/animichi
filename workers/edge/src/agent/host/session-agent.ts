@@ -255,12 +255,14 @@ export class SessionAgent extends Agent<Env> {
     return { streamOptions: { timeoutMs: configured === undefined ? budget : Math.min(configured, budget) } };
   }
 
-  /** One terminal path for both boundaries; the durable business reason precedes the SDK cancellation. */
+  /** One terminal path for both boundaries; the durable business reason precedes the SDK cancellation, which no failed write may suppress. */
   async #expireTurn(lane: AgentLane, turn: TurnWindow, context: Context) {
     const operation = { sessionId: this.name, operationId: turn.operationId };
-    if (this.#business) await persistPermanentRejection(this.#business, operation, "deadline_exceeded");
-    const aborted = await lane.requestAbort(turn.operationId, context);
-    if (!aborted.ok) throw aborted.error;
+    let abort: Awaited<ReturnType<AgentLane["requestAbort"]>>;
+    try {
+      if (this.#business) await persistPermanentRejection(this.#business, operation, "deadline_exceeded");
+    } finally { abort = await lane.requestAbort(turn.operationId, context); }
+    if (!abort.ok) throw abort.error;
   }
 
   async #driveAndSchedule(lane: AgentLane, operationId: string, context: Context) {
