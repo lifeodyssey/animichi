@@ -29,7 +29,7 @@ function container(env: Record<string, unknown>) {
 }
 
 const LOCAL_ENV = {
-  DEEPSEEK_API_KEY: "local-deepseek", MIMO_API_KEY: "local-mimo",
+  MIMO_API_KEY: "local-mimo",
   APP_ENV: "development",
 };
 
@@ -56,7 +56,7 @@ void test("a failed store read prevents starting a process with stale credential
 
 void test("container startup uses the role DSN without a retired database credential", async () => {
   const runtime = container({
-    DEEPSEEK_API_KEY: "local-deepseek", MIMO_API_KEY: "local-mimo", APP_ENV: "development",
+    MIMO_API_KEY: "local-mimo", APP_ENV: "development",
     AGENT_SVC_DATABASE_URL: { get: () => Promise.resolve("postgresql://agent_svc@local/test") },
   });
   await runtime.start();

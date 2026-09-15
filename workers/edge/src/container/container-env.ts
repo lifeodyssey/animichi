@@ -11,7 +11,7 @@
  */
 
 export const CONTAINER_ENV_KEYS = [
-  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "ZEN_GO_API_KEY", "CATALOG_API_URL",
+  "MIMO_API_KEY", "ZEN_GO_API_KEY", "CATALOG_API_URL",
   // #912 follow-up: the DSN is a Secrets Store binding in both deployed
   // environments (staging #912, production W4-1 #1314). `buildContainerEnvVars`
   // only copies strings; `resolveContainerEnvVars` unwraps `.get()` first (#1157).
@@ -49,7 +49,12 @@ export const CONTAINER_ENV_KEYS = [
 // should break the deploy loudly, not fall back to a silently-wrong value —
 // this repo was already reviewed back for the opposite ("can't parse it, so
 // treat it as false") fail-open pattern once (#441/#443).
-export const CONTAINER_REQUIRED_KEYS = ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "APP_ENV"];
+//
+// The DeepSeek credential left both lists with the MiMo-only runtime (owner
+// decision 2026-09-15): it is neither required nor forwarded, so a container
+// with only MiMo credentials starts. The Python provider code stays, but no
+// key is wired to it.
+export const CONTAINER_REQUIRED_KEYS = ["MIMO_API_KEY", "APP_ENV"];
 
 // Container-level egress URL-hostname denylist (#284 Task 7). Split out for the
 // same reason as the env-var allowlist above: a plain `node --test` importer

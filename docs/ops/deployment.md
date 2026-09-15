@@ -75,6 +75,13 @@ The controller validates the archive boundary, required components, file digests
 and infrastructure source closure. Wrangler's pinned native parser seals and verifies configurations.
 Artifact files cannot replace controller scripts or actions, and publication runs with `--no-bundle`.
 
+The Turnstile site key is public configuration, not a sealed value. The staging `database-access`
+stack adopts the account's one widget (`animichi.com (Spin)`, #1676) through its
+`<account_id>/<sitekey>` import identity, so that widget's site key is committed as a `RUNTIME_CONFIG`
+field in `apps/web/wrangler.jsonc` and every artifact byte stays exactly as built. The committed value
+cannot drift unless the widget itself is replaced, and the CI lanes keep their own always-passing
+Turnstile test keys (`e2e/playwright.config.ts`, `apps/web/tests/native-server.ts`).
+
 One `stage` job holds `cd-staging` from preflight through foundation, migration, Worker publication,
 smoke and receipt. One `promote-production` job holds `cd-production` and owns `environment:
 production`. Its approval does not hold staging's lock. Both set `cancel-in-progress: false`; GitHub
@@ -163,8 +170,6 @@ Browser
                                                             ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
-                                                               └─ DeepSeek fallback temporarily disabled
-                                                                  (`DEEPSEEK_API_KEY` remains provisioned)
 ```
 
 The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
@@ -196,7 +201,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT auth, identity injection | `NEON_AUTH_JWKS_URL` |
-| Container runtime | Backend service, DB, model/provider calls | `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
@@ -248,8 +253,8 @@ Required:
   via the edge Worker's Secrets Store binding and forwarded into the container. The legacy
   `SUPABASE_DB_URL` name remains only as a **transitional container-DSN env name** (a Neon DSN,
   not a live Supabase plane) pending the #855 rename; see `docs/ops/prod-dsn-cutover.md`.
-- `MIMO_API_KEY` for the primary `mimo-v2.5` model
-- `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
+- `MIMO_API_KEY` for the primary `mimo-v2.5` model — the runtime is MiMo-only (owner decision
+  2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
   `staging` / `production`), NOT a GitHub secret. Fail-closed since issue #498: the Worker throws at
   container-start if it is missing rather than seeding a hardcoded default, because a silent default
@@ -276,9 +281,9 @@ Required:
   this: it asks staging for `/healthz` and the SSR shell, both of which stay reachable in showcase
   mode by design. Production's 403 is the owner's own check after a promotion.
 
-Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
-recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
-provisioned fallback path.
+Production runs **MiMo-only** (owner decision 2026-09-15): no DeepSeek secret is provisioned, bound,
+or forwarded to the container, so `FALLBACK_AGENT_MODEL` stays empty. Wiring a DeepSeek fallback
+back in means provisioning the credential and its binding again (the Python provider code remains).
 
 Common runtime config:
 
@@ -349,7 +354,6 @@ Run the image locally:
 docker run --rm -p 8080:8080 \
   -e AGENT_SVC_DATABASE_URL \
   -e MIMO_API_KEY \
-  -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
   seichijunrei-runtime
 ```

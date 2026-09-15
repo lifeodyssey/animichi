@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveContainerEnvVars } from "../src/container/container-env.ts";
+import { buildContainerEnvVars, resolveContainerEnvVars } from "../src/container/container-env.ts";
 
 const LOCAL_ENV = {
-  DEEPSEEK_API_KEY: "local-deepseek", MIMO_API_KEY: "local-mimo",
+  MIMO_API_KEY: "local-mimo",
   APP_ENV: "development",
 };
 
@@ -14,7 +14,7 @@ void test("the container reads its MiMo credential from a Secrets Store binding"
   assert.equal(env.MIMO_API_KEY, "store-mimo");
 });
 
-for (const name of ["DEEPSEEK_API_KEY", "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN"]) {
+for (const name of ["MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN"]) {
   void test(`the container receives ${name} from its native binding`, async () => {
     const env = await resolveContainerEnvVars({ ...LOCAL_ENV, [name]: { get: () => Promise.resolve(`store-${name}`) } });
     assert.equal(env[name], `store-${name}`);
@@ -46,4 +46,25 @@ void test("the retired database binding is not read or forwarded", async () => {
     ...LOCAL_ENV, SUPABASE_DB_URL: { get: () => Promise.reject(new Error("retired credential must not be read")) },
   });
   assert.equal(Object.hasOwn(env, "SUPABASE_DB_URL"), false);
+});
+
+void test("the retired DeepSeek binding is not read or forwarded (MiMo-only runtime)", async () => {
+  const env = await resolveContainerEnvVars({
+    ...LOCAL_ENV, DEEPSEEK_API_KEY: { get: () => Promise.reject(new Error("retired credential must not be read")) },
+  });
+  assert.equal(Object.hasOwn(env, "DEEPSEEK_API_KEY"), false);
+});
+
+void test("the container env builds from MiMo credentials alone (MiMo-only runtime)", () => {
+  const env = buildContainerEnvVars({ MIMO_API_KEY: "local-mimo", APP_ENV: "development" });
+  assert.deepEqual(env, {
+    SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080", MIMO_API_KEY: "local-mimo", APP_ENV: "development",
+  });
+});
+
+void test("a missing MIMO_API_KEY refuses to build the container env", () => {
+  assert.throws(
+    () => buildContainerEnvVars({ APP_ENV: "development" }),
+    /Missing required container env: MIMO_API_KEY/,
+  );
 });

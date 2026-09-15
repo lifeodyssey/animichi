@@ -91,7 +91,6 @@ make db-push           # NEON_DATABASE_URL に適用
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc ロール DSN（asyncpg)——agent コンテナが必要とするデータ面接続（#912）。旧称 `SUPABASE_DB_URL` は #855 プロダクション切替まで暫定の容器-DSN 名として残る |
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
-| `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
 **Worker エッジ:** `NEON_AUTH_JWKS_URL`（エッジの**唯一の** identity ソース — AUTH-2 #950。Neon Auth の EdDSA JWT をブランチ JWKS で検証。本番はブランチ準備まで未設定＝ fail-closed）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
