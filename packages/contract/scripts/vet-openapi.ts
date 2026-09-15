@@ -7,9 +7,9 @@
  * operation to carry explicit `deprecated: true` + `x-sunset` metadata.
  *
  * A breaking change is approved only by the committed record
- * (`src/approved-breaking-changes.ts`) naming it exactly for the document the
- * run names: the entry's method, path and kind must be the change's own, and
- * its removal must be realised in the candidate document — an `endpoint-removed`
+ * (`approved-breaking-changes/`) naming it exactly for the document the run
+ * names: the entry's method, path and kind must be the change's own, and its
+ * removal must be realised in the candidate document — an `endpoint-removed`
  * path answers no method, a `method-removed` method+path is absent. An entry
  * whose operation is still advertised fails the run, so an
  * approval cannot precede the removal it names, while a landed approval stays
@@ -29,7 +29,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { APPROVED_BREAKING_CHANGES } from "../src/approved-breaking-changes.js";
+import { readApprovedBreakingChanges } from "../src/approved-breaking-changes.js";
 import { approvalProvenance } from "../src/openapi-approvals.js";
 import type { ApiChange } from "../src/openapi-changes.js";
 import { vetOpenApiDiff, type VetResult } from "../src/openapi-vet.js";
@@ -83,7 +83,7 @@ if (options === null) {
 
 const result = vetOpenApiDiff(readDocument(options.baselinePath), readDocument(options.candidatePath), {
   allowBreaking: options.allowBreaking,
-  record: { document: options.document, approvals: APPROVED_BREAKING_CHANGES },
+  record: { document: options.document, approvals: readApprovedBreakingChanges() },
 });
 
 for (const line of approvedLines(result, options.allowBreaking)) {

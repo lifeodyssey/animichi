@@ -92,11 +92,15 @@ published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
   lands, merge-base is the post-cut contract and the fallback cannot trigger.
 - **Candidate** = the regenerated document (byte-stable emission; drift fails
   first).
-- **Approval** = `src/approved-breaking-changes.ts`, the committed record, and the
-  only approval the gate reads. An entry names one intentional breaking change
-  exactly — document, method, path, kind — with the issue that argued it and the
-  date it was approved, and it applies only to the document the run names. A near
-  miss approves nothing, and no entry can approve a category. An entry is valid
+- **Approval** = the committed record under `approved-breaking-changes/`, one file
+  per entry (#1673), and the only approval the gate reads. An entry names one
+  intentional breaking change exactly — document, method, path, kind — with the
+  issue that argued it and the date it was approved, and it applies only to the
+  document the run names. A near
+  miss approves nothing, and no entry can approve a category. Adding an approval
+  is adding a file named `<issue>-<method>-<path-slug>-<kind>.json`:
+  `src/approved-breaking-changes.ts` reads the directory, so two cards approving
+  a change at the same time never touch the same file. An entry is valid
   while its removal is realised in the document being vetted — an
   `endpoint-removed` path answers no method, a `method-removed` method+path is
   absent — so a landed approval stays valid once its change has left the diff
