@@ -288,6 +288,7 @@ jobs:
           ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
+          ruby test/repo-config/sqlfluff.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
       # only runner was quality.sh, which #1371 deleted with the pre-push
       # orchestrator; neither the affected matrix nor any package script can
@@ -623,14 +624,11 @@ jobs:
           version: "0.11.14"
           enable-cache: false
           prune-cache: "true"
+      # The target owns the `--config db/.sqlfluff` link and the uv pin, and this
+      # step adds nothing to it: the contract test pins both sides, including the
+      # absence of an `env` override here (test/repo-config/sqlfluff.test.rb).
       - name: Lint the migrations
-        env:
-          # The version apps/agent/uv.lock resolves, so local and CI agree.
-          SQLFLUFF_VERSION: 4.2.2
-        run: |
-          set -euo pipefail
-          uv tool install --no-build "sqlfluff==$SQLFLUFF_VERSION"
-          "$HOME/.local/bin/sqlfluff" lint migrations/neon --dialect postgres --config db/.sqlfluff
+        run: make db-lint
 
   commits:
     name: CI / commits
