@@ -2,7 +2,7 @@ import { lockOwnedConversation } from "./session-owner.ts";
 import type { AdmissionDatabase } from "./types.ts";
 import type { ModelOperation } from "./reconcile-model-admission.ts";
 
-export type PermanentRejectionReason = "authorization_revoked" | "quota_exhausted" | "byok_credentials_lost";
+export type PermanentRejectionReason = "authorization_revoked" | "quota_exhausted" | "byok_credentials_lost" | "deadline_exceeded";
 
 /** The business decision must commit before a documented SDK hook throws. */
 export function persistPermanentRejection(db: AdmissionDatabase, operation: ModelOperation, reason: PermanentRejectionReason) {

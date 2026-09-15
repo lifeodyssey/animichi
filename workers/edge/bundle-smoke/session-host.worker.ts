@@ -1,9 +1,10 @@
 import { getAgentByName } from "agents";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/pi-agent-core/harness/context";
-import { createModels, fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
+import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type FauxProviderHandle } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
-import { HostFaultRepo } from "./session-host-faults.ts";
+import { TURN_DEADLINE_MS } from "../src/agent/host/turn-deadline.ts";
+import { HostFaultRepo, RefusingAdmission } from "./session-host-faults.ts";
 
 /** Test-only domain seam. Native repository, lane, scheduler and Agent execute all runtime behavior. */
 export class HostProbe extends SessionAgent {
@@ -12,6 +13,9 @@ export class HostProbe extends SessionAgent {
   maxWriters = 0;
   operations: string[] = [];
   completed: string[] = [];
+  #provider?: FauxProviderHandle;
+  #requestBudget?: number;
+  readonly #refusing = new RefusingAdmission();
   #resolveEntered?: () => void;
   #resolveReleased?: () => void;
   readonly #entered = new Promise<void>((resolve) => { this.#resolveEntered = resolve; });
@@ -21,12 +25,13 @@ export class HostProbe extends SessionAgent {
     const session = await this.repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
     const provider = fauxProvider();
+    this.#provider = provider;
     provider.setResponses(this.name === "/retry" ? [fauxAssistantMessage("", { stopReason: "error", errorMessage: "429 rate limit" }), fauxAssistantMessage("retried")] : [fauxAssistantMessage("first"), fauxAssistantMessage("second")]);
     const models = createModels();
     models.setProvider(provider.provider);
     this.bindSession(this.repo, session.metadata, (opened) => ({ models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 1000 },
       toolContext: { session: opened, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("Unexpected catalog request"))),
-        assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }));
+        assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }), this.name === "/deadline-refused" ? this.#refusing.database : undefined);
     await super.onStart();
   }
 
@@ -62,6 +67,49 @@ export class HostProbe extends SessionAgent {
     const schedules = await this.listSchedules();
     return { writers: this.maxWriters, operations: this.operations, completed: this.completed,
       scanCount: schedules.filter((schedule) => schedule.callback === "wakeSession" && schedule.type === "interval").length };
+  }
+
+  /** The fake clock models both the slow provider call and the deadline; nothing here waits on wall time. */
+  #fakeClock() {
+    const realNow = Date.now;
+    let clock = Math.ceil(realNow() / 1000) * 1000 + 250;
+    Date.now = () => clock;
+    return { pass: () => { clock += TURN_DEADLINE_MS; }, restore: () => { Date.now = realNow; } };
+  }
+
+  async #deadlineReport(between: () => void) {
+    return this.withSession(async (_session, lane, context) => {
+      const accepted = await lane.accept({ kind: "prompt", operationId: "deadline", prompt: "Hold this turn open" }, context);
+      if (!accepted.ok) throw accepted.error;
+      between();
+      const driven = await this.driveLane(lane, "deadline", context);
+      const terminal = await lane.getResult("deadline", context);
+      return { kind: driven.ok ? driven.value.kind : "error", status: terminal?.status ?? null, budget: this.#requestBudget ?? null, requests: this.#provider?.state.callCount ?? -1 };
+    });
+  }
+
+  /** One provider call outruns the whole turn budget before the run needs a second one. */
+  async deadlineBetweenRequests() {
+    const clock = this.#fakeClock();
+    try {
+      this.#provider?.setResponses([(_context, options) => { this.#requestBudget = options?.timeoutMs; clock.pass(); return fauxAssistantMessage(fauxToolCall("search_nearby", {}), { stopReason: "toolUse" }); },
+        fauxAssistantMessage("a request past the deadline must never be issued")]);
+      return await this.#deadlineReport(() => undefined);
+    } finally { clock.restore(); }
+  }
+
+  /** The wake reaches a live instance after the budget is gone: the turn must not start a request at all. */
+  async deadlineBeforeDrive() {
+    const clock = this.#fakeClock();
+    try {
+      this.#provider?.setResponses([fauxAssistantMessage("a request past the deadline must never be issued")]);
+      return await this.#deadlineReport(clock.pass);
+    } finally { clock.restore(); }
+  }
+
+  /** The refusal case binds a database whose rejection write cannot commit; the spent turn must still end. */
+  async deadlineRefusedPersist() {
+    return { ...await this.deadlineBetweenRequests(), refusals: this.#refusing.attempts };
   }
 
   async loseResponse(stage: "accept" | "terminal") {
@@ -128,6 +176,9 @@ export default {
     const host = await getAgentByName(env.SESSION, path, { locationHint: "apac" });
     if (path === "/ack-wake") return Response.json(await host.acknowledgeAcceptedOperation());
     if (path === "/retry") return Response.json(await host.retryPass());
+    if (path === "/deadline-between-requests") return Response.json(await host.deadlineBetweenRequests());
+    if (path === "/deadline-refused") return Response.json(await host.deadlineRefusedPersist());
+    if (path === "/deadline-before-drive") return Response.json(await host.deadlineBeforeDrive());
     if (path === "/persistence") return Response.json({ status: await host.disconnectedTurn(), persisted: await host.persistedData() });
     if (path === "/lost-accept" || path === "/lost-terminal") {
       const failed = await host.loseResponse(path === "/lost-accept" ? "accept" : "terminal").then(() => false, () => true);
