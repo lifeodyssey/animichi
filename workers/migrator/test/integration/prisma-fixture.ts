@@ -13,7 +13,7 @@ export const MIGRATIONS = fileURLToPath(import.meta.resolve("@animichi/pi-sessio
  * count assertions pin this, never a literal that drifts with the next migration. */
 export const APP_MIGRATION_COUNT = readdirSync(`${MIGRATIONS}/app`, { withFileTypes: true })
   .filter((entry) => entry.isDirectory()).length;
-export const requestMetadata = { expectedHead: "20260904000000_platform_usage_scope",
+export const requestMetadata = { expectedHead: "20260915060017_photo_offers",
   atlasSum: productionChain.atlasSum(), stagingOnlyBaseline: false, expectedPrismaRef: TARGET };
 
 export async function nativeApp(dsn: string, directory = MIGRATIONS) {

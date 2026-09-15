@@ -12,6 +12,9 @@ ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
 SPEC_REFERENCES='^scripts/local-gates/(check-spec-references(\.test)?\.sh|spec-reference-exceptions\.txt)$'
+# An agent-context document is a documentation change wherever it lives; the
+# nested ones a workspace package owns are covered, `migrations/AGENTS.md` is not.
+AGENT_CONTEXT='^(.*/)?(AGENTS|CLAUDE|CONTEXT)\.md$'
 ZERO=0000000000000000000000000000000000000000
 
 # What is gated is HEAD's diff, and the pushed refs are read to prove that is
@@ -49,7 +52,7 @@ while read -r dir name; do
 done <<<"$projects"
 agent=$(grep -cE '^(apps/agent|packages/contract)/' <<<"$changed" || true)
 schema=$(grep -cE '^migrations/neon/' <<<"$changed" || true)
-docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES" <<<"$changed" || true)
+docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES|$AGENT_CONTEXT" <<<"$changed" || true)
 printf 'pre-push: packages:%s | agent=%s schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$agent" "$schema" "$deps" "$docs"
 
 # Every changed path must be owned by a selected package, a bucket that fired or
@@ -58,6 +61,7 @@ printf 'pre-push: packages:%s | agent=%s schema=%s deps=%s docs=%s\n' "${package
 [ "$deps" = 0 ] || covered="$covered|$ROOT_MANIFEST"
 [ "$agent" = 0 ] || covered="$covered|^(apps/agent|packages/contract)/"
 [ "$schema" = 0 ] || covered="$covered|^migrations/neon/"
+[ "$docs" = 0 ] || covered="$covered|$AGENT_CONTEXT"
 loose="$(grep -vE "$covered" <<<"$changed" || true)"
 [ -z "$loose" ] || { printf 'pre-push: no gate covers:\n%s\n' "$loose" >&2; exit 1; }
 closure="..."; [ "$deps" = 0 ] || closure=""  # every package is already selected

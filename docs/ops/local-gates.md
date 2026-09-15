@@ -72,7 +72,7 @@ held a valid subject, it reports Passed — that run says nothing about the file
 
 ## pre-push (`scripts/local-gates/pre-push-affected.sh`)
 
-One hook, 68 lines — over the ≤40 the card asked for, and the reason is written into the script:
+One hook — over the ≤40 the card asked for, and the reason is written into the script:
 reading the pushed refs (below) and checking every path for an owner both take real code, and
 shrinking them back would mean deleting a guard rather than tightening one.
 
@@ -143,7 +143,7 @@ Paths outside every pnpm project would otherwise be invisible to the join:
 |---|---|
 | `apps/agent/**` or `packages/contract/**` | `make check` — ruff + ruff-format + vulture, mypy, the unit suite under the canonical 87 floor (`apps/agent/pyproject.toml` `addopts`), and the offline Docker-arm integration suite. This is the one Docker use the hook itself makes. `packages/contract` is here because the agent consumes the contract and CI's `agent` job is routed the same way (#1323). |
 | `migrations/neon/**` | `atlas migrate validate --dir file://migrations/neon` — no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
-| `docs/**`, `.claude/**`, root-level `*.md`, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
+| `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. |
 
 ### docs/specs liveness (#1649)

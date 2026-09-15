@@ -208,5 +208,15 @@ expect "owner table" "check-spec-references" "$RECORDED"
 refute "owner table" "--filter" "$RECORDED"
 ok "an owner-table-only change selects the docs bucket"
 
+# 11. A nested agent-context document outside a workspace package
+#     (`migrations/AGENTS.md`) must fire the docs bucket, not fail closed.
+new_repo
+commit_change feature migrations/AGENTS.md
+run_gate < /dev/null
+expect_status "nested agent doc" 0 "$STATUS"
+expect "nested agent doc" "docs=1" "$OUT"
+refute "nested agent doc" "no gate covers" "$OUT"
+ok "a nested agent-context document fires the docs bucket instead of failing closed"
+
 [ "$failures" = 0 ] || { printf '%s case(s) failed\n' "$failures" >&2; exit 1; }
 printf 'pre-push-affected.test.sh: all green\n'
