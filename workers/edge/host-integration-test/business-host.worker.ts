@@ -3,8 +3,8 @@ import contractJson from "@animichi/pi-session-neon/contract" with { type: "json
 import type { Contract } from "@animichi/pi-session-neon/types";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
-import type { SessionMetadata } from "@earendil-works/pi-agent-core/harness/session";
-import { createModels, fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
+import type { Session, SessionMetadata } from "@earendil-works/pi-agent-core/harness/session";
+import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type AssistantMessage, type FauxProviderHandle, type FauxResponseStep } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
@@ -12,8 +12,29 @@ import { persistPermanentRejection } from "../src/agent/admission/permanent-reje
 import { gateNativeResultReads, loseNativeReply } from "./lost-reply.ts";
 import type { ModelAdmissionRequest } from "../src/agent/admission/types.ts";
 
+/** The lifecycle cases authorize no tool; the deadline case needs one permitted, locally-answerable call. */
+function lifecycleTools(session: Session) {
+  return { session, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("No catalog call expected"))),
+    assertAuthorized: () => Promise.reject(new Error("No tool invocation authorized in this lifecycle case")),
+    reserveToolUsage: () => Promise.reject(new Error("No tool reservation expected")) };
+}
+
+function deadlineTools(session: Session) {
+  return { session, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("No catalog call expected"))),
+    assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() };
+}
+
+/** One provider call stays out past the shortened budget; the next boundary is what must end the turn. */
+function deadlineResponses(): FauxResponseStep[] {
+  const slow = () => new Promise<AssistantMessage>((resolve) => {
+    setTimeout(() => { resolve(fauxAssistantMessage(fauxToolCall("search_nearby", {}), { stopReason: "toolUse" })); }, 600);
+  });
+  return [slow, fauxAssistantMessage("a request past the deadline must never be issued")];
+}
+
 /** Only runtime resources/provider transport are supplied here; production submit/wake own every business action. */
 export class BusinessHost extends SessionAgent {
+  #provider?: FauxProviderHandle;
   #lost = false;
   #failReattach = false;
   #evidenceBlocked = false;
@@ -33,6 +54,33 @@ export class BusinessHost extends SessionAgent {
   async reportEvidenceFailure() { await this.#evidenceFailed.promise; return this.#evidenceFailures; }
   releaseEvidenceReads() { this.#evidenceBlocked = false; return Promise.resolve(); }
 
+  /** The deadline lane shortens the ONE turn budget; every other case runs the production constant. */
+  protected override turnDeadlineMs() {
+    const configured = this.env.TEST_TURN_DEADLINE_MS;
+    return configured === undefined ? super.turnDeadlineMs() : Number(configured);
+  }
+
+  providerRequests() { return { requests: this.#provider?.state.callCount ?? -1 }; }
+
+  /** Only this lane's binding picks the slow script; every other lifecycle case keeps the shared one. */
+  #providerScript(): FauxResponseStep[] {
+    if (this.env.TEST_TURN_DEADLINE_MS !== undefined) return deadlineResponses();
+    return this.env.TEST_RETRY === "true"
+      ? [fauxAssistantMessage("", { stopReason: "error", errorMessage: "429 rate limit" }), fauxAssistantMessage("Retried")]
+      : [fauxAssistantMessage("Completed"), fauxAssistantMessage("Second completed")];
+  }
+
+  #toolsFor(session: Session) {
+    return this.env.TEST_TURN_DEADLINE_MS === undefined ? lifecycleTools(session) : deadlineTools(session);
+  }
+
+  /** A client that leaves mid-turn: the watch view is cancelled, the turn itself stays with the session. */
+  async abandonTurn(request: ModelAdmissionRequest) {
+    const streamed = await this.submitChat(request, { anonymousAllowance: 2, now: Date.now() });
+    await streamed.body?.cancel();
+    return Response.json({ status: streamed.status });
+  }
+
   protected configureDatabase(db: PostgresClient<Contract>) { return db; }
 
   protected override async initializeSession() {
@@ -44,9 +92,8 @@ export class BusinessHost extends SessionAgent {
     const nativeMetadata = created?.metadata ?? metadata?.metadata as unknown as SessionMetadata;
     await created?.close(BACKGROUND_CONTEXT);
     const provider = fauxProvider();
-    provider.setResponses(this.env.TEST_RETRY === "true"
-      ? [fauxAssistantMessage("", { stopReason: "error", errorMessage: "429 rate limit" }), fauxAssistantMessage("Retried")]
-      : [fauxAssistantMessage("Completed"), fauxAssistantMessage("Second completed")]);
+    this.#provider = provider;
+    provider.setResponses(this.#providerScript());
     const models = createModels();
     models.setProvider(provider.provider);
     this.bindNeonSession(db, nativeMetadata, (session) => {
@@ -57,10 +104,7 @@ export class BusinessHost extends SessionAgent {
       });
       gateNativeResultReads(session, () => this.#evidenceBlocked, () => { this.#evidenceFailures += 1; this.#evidenceFailed.resolve(undefined); });
       return { models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 60_000 },
-      toolContext: { session, branch: "main", locale: "en",
-        catalog: createCatalogClient(() => Promise.reject(new Error("No catalog call expected"))),
-        assertAuthorized: () => Promise.reject(new Error("No tool invocation authorized in this lifecycle case")),
-        reserveToolUsage: () => Promise.reject(new Error("No tool reservation expected")) } }; });
+        toolContext: this.#toolsFor(session) }; });
     if (this.env.TEST_REJECT === "true") await this.withSession((_session, lane, _context, harness) => {
       harness.hooks.on("before_drive", async (_event, context) => {
         const current = (await lane.inspectExecution(context)).current;
@@ -83,6 +127,8 @@ export default {
     const host = await sessionAgentStub(env.SESSION, input.sessionId);
     if (new URL(request.url).pathname === "/initialize") return new Response("initialized");
     if (new URL(request.url).pathname === "/retry-report") return Response.json(await host.retrySchedules());
+    if (new URL(request.url).pathname === "/provider-report") return Response.json(await host.providerRequests());
+    if (new URL(request.url).pathname === "/abandon") return host.abandonTurn(input);
     if (new URL(request.url).pathname === "/reopen-report") return Response.json(await host.reportReopenFailures());
     if (new URL(request.url).pathname === "/evidence-failure") return Response.json(await host.reportEvidenceFailure());
     if (new URL(request.url).pathname === "/restore-evidence") { await host.releaseEvidenceReads(); return new Response("restored"); }

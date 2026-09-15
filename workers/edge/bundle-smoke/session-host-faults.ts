@@ -1,3 +1,4 @@
+import type { AdmissionDatabase } from "../src/agent/admission/types.ts";
 import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import { MemorySessionRepo, operationResult, type Session, type SessionMetadata, type SessionMutationCallback, type Write } from "@earendil-works/pi-agent-core/harness/session";
 
@@ -22,6 +23,17 @@ export class HostFaultRepo extends MemorySessionRepo {
     if (lose) this.loseCommit = undefined;
     return lose;
   }
+}
+
+/** Business databases that refuse every permanent rejection; the count proves the deadline path asked. */
+export class RefusingAdmission {
+  /** The refusal-probe DO names; `databases` below is keyed by the same two names. */
+  static readonly paths = new Set(["/deadline-refused", "/deadline-unpersistable"]);
+  attempts = 0;
+  readonly databases: Record<string, AdmissionDatabase | undefined> = {
+    "/deadline-refused": { transaction: () => { this.attempts += 1; return Promise.resolve(false); } } as unknown as AdmissionDatabase,
+    "/deadline-unpersistable": { transaction: () => { this.attempts += 1; return Promise.reject(new Error("Injected rejection outage")); } } as unknown as AdmissionDatabase,
+  };
 }
 
 function interceptCommit(session: Session, lose: (writes: Write[]) => boolean) {

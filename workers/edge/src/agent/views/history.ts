@@ -2,6 +2,7 @@ import { historySteps } from "./history-steps.ts";
 import { historyOperations } from "./history-operations.ts";
 import { ChatResponseDataPart } from "@animichi/contract";
 import type { GetSessionHistoryResponse, SessionHistoryMessage, SessionRunStatus } from "@animichi/contract/session-history-contract";
+import { RunFailureReason } from "@animichi/contract/session-history-contract";
 import { NeonStorage } from "@animichi/pi-session-neon";
 import { branchTip, laneState, operationResult, type Entry, type Storage, type Session } from "@earendil-works/pi-agent-core/harness/session";
 import { BACKGROUND_CONTEXT, type Context } from "@earendil-works/pi-agent-core/harness/context";
@@ -18,8 +19,23 @@ export async function readNativeHistory(db: AdmissionDatabase, sessionId: string
   const owners = await db.runtime().query(db.raw.sql`SELECT user_id AS owner FROM sessions WHERE id = ${sessionId}`.returnsRow({ owner: { codecId: "pg/text@1", nullable: true } }).build());
   if (owners[0]?.owner !== identityId) return null;
   const storage = new NeonStorage(db, { sessionId });
-  try { return await readHistoryStorage(storage, page, BACKGROUND_CONTEXT); }
-  finally { await storage.close(BACKGROUND_CONTEXT); }
+  try {
+    const history = await readHistoryStorage(storage, page, BACKGROUND_CONTEXT);
+    return { ...history, run: await admittedRun(db, history.run ?? null) };
+  } finally { await storage.close(BACKGROUND_CONTEXT); }
+}
+
+/** A terminal run keeps the reason the business record committed; the browser never sees free text. */
+export function publicRunReason(run: SessionRunStatus | null, rejectionReason: string | null | undefined): SessionRunStatus | null {
+  if (run?.status !== "failed" || rejectionReason === null || rejectionReason === undefined) return run;
+  const parsed = RunFailureReason.safeParse(rejectionReason);
+  return parsed.success ? { run_id: run.run_id, status: run.status, reason: parsed.data } : run;
+}
+
+async function admittedRun(db: AdmissionDatabase, run: SessionRunStatus | null): Promise<SessionRunStatus | null> {
+  if (run?.status !== "failed") return run;
+  const row = await db.orm.public.AgentAdmission.where({ operationId: run.run_id }).first();
+  return publicRunReason(run, row?.rejectionReason);
 }
 
 export async function readHistoryStorage(storage: Storage | Session, page: HistoryPage, context: Context): Promise<GetSessionHistoryResponse> {
