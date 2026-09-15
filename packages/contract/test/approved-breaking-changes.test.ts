@@ -63,7 +63,9 @@ describe("every entry names exactly one breaking change", () => {
     for (const entry of APPROVED_BREAKING_CHANGES) {
       expect(entry.issue).toMatch(ISSUE_REFERENCE);
       expect(entry.approved).toMatch(ISO_DATE);
-      expect(Number.isNaN(Date.parse(entry.approved))).toBe(false);
+      // A UTC round trip rejects impossible days (`2026-02-31`), which `Date.parse` normalises.
+      expect(new Date(`${entry.approved}T00:00:00.000Z`).toISOString().slice(0, 10))
+        .toBe(entry.approved);
     }
   });
 

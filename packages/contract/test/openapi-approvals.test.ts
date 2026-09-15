@@ -136,10 +136,20 @@ describe("an entry is valid while the removal it names is realised", () => {
 });
 
 describe("the gate reports an unrealised approval with the removal it awaits", () => {
-  it("names the entry, its issue, its date, and the operation still advertised", () => {
-    expect(unrealisedApprovalMessage(recordedRootRemoval())).toBe(
+  it("names the path, not the absent method, when another method keeps the path", () => {
+    const record = approvalRecord(AGENT_DOCUMENT, [recordedRootRemoval()]);
+    const outcome = evaluateApprovals(record, ROOT_REMOVAL, ROOT_AS_POST_OPERATIONS);
+    expect(outcome.unrealised.map(unrealisedApprovalMessage)).toEqual([
       "unrealised approval: GET / endpoint-removed in agent-openapi.json (approved 2026-09-15 for #1596): " +
-        "GET / is still advertised; an approval cannot precede the removal it names — delete the entry, or land the removal",
+        "path / is still advertised; an approval cannot precede the removal it names — delete the entry, or land the removal",
+    ]);
+  });
+
+  it("names the method and path a method removal awaits", () => {
+    const entry = recordedRootRemoval({ path: "/v1/chat", kind: "method-removed" });
+    expect(unrealisedApprovalMessage(entry)).toBe(
+      "unrealised approval: GET /v1/chat method-removed in agent-openapi.json (approved 2026-09-15 for #1596): " +
+        "GET /v1/chat is still advertised; an approval cannot precede the removal it names — delete the entry, or land the removal",
     );
   });
 });

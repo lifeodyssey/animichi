@@ -163,12 +163,15 @@ export function evaluateApprovals(
 }
 
 /** The violation an entry earns while the removal it names has not happened:
- * the document under vetting still advertises that operation. */
+ * the document under vetting still advertises the entry's path
+ * (`endpoint-removed`) or its method+path (`method-removed`) — the subject
+ * `isRealised` read there, so the message never names an absent operation. */
 export function unrealisedApprovalMessage(entry: ApprovedBreakingChange): string {
   const operation = `${entry.method} ${entry.path}`;
+  const advertised = entry.kind === "endpoint-removed" ? `path ${entry.path}` : operation;
   return (
     `unrealised approval: ${operation} ${entry.kind} in ${entry.document} ` +
-    `(approved ${entry.approved} for ${entry.issue}): ${operation} is still advertised; ` +
+    `(approved ${entry.approved} for ${entry.issue}): ${advertised} is still advertised; ` +
     "an approval cannot precede the removal it names — delete the entry, or land the removal"
   );
 }
