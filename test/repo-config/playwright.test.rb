@@ -1,5 +1,7 @@
-# SUT: e2e/playwright.config.ts; tests check service-token scope without starting a browser.
+# SUT: e2e/playwright.config.ts and the wrangler pin its served-Worker lane runs on; tests check
+# service-token scope and the lane's server floor without starting a browser.
 require "minitest/autorun"
+require "json"
 
 class PlaywrightConfigTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -33,6 +35,18 @@ class PlaywrightConfigTest < Minitest::Test
   # The KEY, not the word: the config's own comment quotes Playwright's advice
   # in order to reject it, and that must not read as setting it.
   REUSE_EXISTING_SERVER_KEY = /^\s*reuseExistingServer:/
+  # The lane's server is `wrangler dev`, so the root pin decides whether ONE
+  # dropped loopback connection is fatal to it. 4.114.0 exited on the first one:
+  # the port went unbound with an empty `✘ [ERROR]`, and every spec after it
+  # failed with ERR_CONNECTION_REFUSED — the shape #1703 records and #1711's CI
+  # run reproduced (17 passed, 26 failed). cloudflare/workers-sdk#15252, first
+  # released in 4.129.1, retries the affected GET/HEAD and keeps the server
+  # serving; 4.132.0 additionally makes the message name its cause. A pin below
+  # this floor restores the red lane and the inscrutable failure, so the floor is
+  # part of what the pin must satisfy rather than an incidental number.
+  WRANGLER_DEV_SERVER_FLOOR = Gem::Version.new("4.129.1")
+  ROOT_PACKAGE = File.join(ROOT, "package.json")
+  EXACT_VERSION = /\A\d+\.\d+\.\d+\z/
 
   def test_the_lane_port_belongs_to_its_checkout
     config = File.read(PLAYWRIGHT_CONFIG)
@@ -50,6 +64,18 @@ class PlaywrightConfigTest < Minitest::Test
     assert(config.include?(INSPECTOR_PORT),
            "e2e/playwright.config.ts: wrangler's inspector must not stay on its default :9229, " \
            "which two concurrent lanes collide on even when their serving ports differ")
+  end
+
+  def test_the_lane_server_is_a_wrangler_whose_dev_server_survives_a_dropped_connection
+    declared = JSON.parse(File.read(ROOT_PACKAGE)).dig("devDependencies", "wrangler").to_s
+    assert_match(EXACT_VERSION, declared,
+                 "package.json: the root wrangler pin must be an exact version — see " \
+                 ".github/test/cd-publish.test.rb, which owns that contract, and adapt both to the " \
+                 "catalog shape if #1672 lands")
+    assert_operator(Gem::Version.new(declared), :>=, WRANGLER_DEV_SERVER_FLOOR,
+                    "package.json: wrangler #{declared} predates #{WRANGLER_DEV_SERVER_FLOOR} — its dev " \
+                    "server exits when one proxied request loses its connection, and the rest of the " \
+                    "browser lane fails with ERR_CONNECTION_REFUSED (#1703)")
   end
 
   def test_the_lane_claims_its_port_before_playwright_can
