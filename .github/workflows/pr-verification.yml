@@ -249,6 +249,7 @@ jobs:
           ruby .github/test/pr-verification-agent.test.rb
           ruby .github/test/pr-verification-browser.test.rb
           ruby .github/test/pr-verification-gates.test.rb
+          ruby .github/test/pr-verification-login.test.rb
           ruby .github/test/pr-verification-plan.test.rb
           ruby .github/test/pr-verification-schema.test.rb
           ruby .github/test/pr-verification-workspace.test.rb
@@ -289,6 +290,8 @@ jobs:
           ruby test/repo-config/gitleaks-mutation.test.rb
           ruby test/repo-config/gitleaks-pin-mutation.test.rb
           ruby test/repo-config/gitleaks.test.rb
+          ruby test/repo-config/e2e-no-skip.test.rb
+          ruby test/repo-config/e2e-no-skip-mutation.test.rb
           ruby test/repo-config/lint-scope.test.rb
           ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
@@ -461,6 +464,35 @@ jobs:
           for script in lint typecheck test; do
             pnpm --filter animichi-e2e run "$script"
           done
+      # The live login proof is NOT in this lane, and this is where that is
+      # reported rather than left to look like coverage (#1690). The lane owns
+      # only `lint typecheck test`, and `test` is hermetic (every transport
+      # stubbed, an unroutable Neon Auth stand-in): it never selects
+      # `web-neon-login.spec.ts`, so nothing here is skipping — the proof simply
+      # does not run in PR CI. It cannot: this workflow holds no credentials of
+      # any kind, by committed contract (`.github/test/workflow-credentials.test.rb`
+      # rejects `secrets.*` anywhere under `.github/`), and the login proof needs
+      # the staging QA identity. The spec itself is fail-closed — selecting it
+      # without those variables fails and names them — so the unrun proof is
+      # reported here instead of being counted as a pass. Nothing in this step
+      # can fail the lane: it reports a fact about the lane, not a verdict.
+      - name: Report the live login proof as not-run in this lane
+        run: |
+          set -euo pipefail
+          {
+            echo "### Live login proof: NOT RUN in PR CI"
+            echo ""
+            echo "\`e2e/web-neon-login.spec.ts\` is the only end-to-end proof of the Neon Auth"
+            echo "login chain, and it does not run here. It needs the staging QA identity"
+            echo "(\`QA_NEON_USER_EMAIL\` + \`QA_NEON_USER_PASSWORD\`), and this workflow holds no"
+            echo "credentials — pinned by \`.github/test/workflow-credentials.test.rb\`, which rejects"
+            echo "any \`secrets.*\` under \`.github/\`. The spec is fail-closed, so it cannot skip"
+            echo "its way to green; its lane simply is not this one."
+            echo ""
+            echo "Run it locally: \`pnpm --filter animichi-e2e run test:login\`"
+            echo "(\`.env.test\` supplies the credentials; see docs/ops/auth-migration-neon.md §4 Path A)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Live login proof not run::e2e/web-neon-login.spec.ts does not run in PR CI (this workflow holds no credentials). Locally: pnpm --filter animichi-e2e run test:login"
 
   # The schema gate (card B5 / #1363). `migrations/neon/` sits outside every
   # pnpm project, so the affected matrix cannot see it: without this job a

@@ -12,6 +12,14 @@ class PlaywrightConfigTest < Minitest::Test
   ACCESS_TOKEN_LOOPBACK_REFUSAL = /function loopbackRefusal\(\): string \{/
   CROSS_ORIGIN_REFUSAL = "if (foreign.length > 0) throw new Error(crossOriginRefusal(foreign));"
   CROSS_ORIGIN_VARS = %w[NEON_AUTH_BASE_URL VITE_NEON_AUTH_BASE_URL].freeze
+  # The names and the resolution rule are declared once, in the module both the
+  # config and the login spec read (#1701 review): a second copy of either is
+  # how the two sites drifted apart.
+  NEON_AUTH_ORIGIN_MODULE = File.join("e2e", "helpers", "neon-auth-origin.ts").freeze
+  SHARED_RESOLUTION = "declaredNeonAuthOrigin(process.env)"
+  CROSS_ORIGIN_LIST_IS_SHARED = "const CROSS_ORIGIN_BASE_URL_VARS = NEON_AUTH_ORIGIN_ENV_VARS;"
+  LOGIN_SPEC = File.join(ROOT, "e2e", "web-neon-login.spec.ts")
+  RETIRED_SPEC_FALLBACK = /\?\?\s*process\.env\.VITE_NEON_AUTH_BASE_URL/
   LOOPBACK_RULE_MODULE = "isLoopbackHostname"
   LANE_PORT_MODULE = '"./lane-port"'
   LANE_PORT_DERIVATION = "emittedWorkerPort(process.env, worktreeRoot)"
@@ -118,16 +126,40 @@ class PlaywrightConfigTest < Minitest::Test
     assert(config.include?(CROSS_ORIGIN_REFUSAL),
                      "e2e/playwright.config.ts: use.extraHTTPHeaders is context-wide — the run must be " \
                      "refused when a configured origin sits off the target host")
-    declared = cross_origin_vars_of(config)
+    assert(config.include?(CROSS_ORIGIN_LIST_IS_SHARED),
+                     "e2e/playwright.config.ts: CROSS_ORIGIN_BASE_URL_VARS must BE the shared declaration " \
+                     "in #{NEON_AUTH_ORIGIN_MODULE} — a second copy of the names is how the refusal and " \
+                     "the resolution drift apart (#1701 review)")
+    declared = declared_neon_auth_origin_vars
     CROSS_ORIGIN_VARS.each do |name|
       assert(declared.include?(name),
-                       "e2e/playwright.config.ts: #{name} names an origin the browser reaches, so it " \
-                       "must be in CROSS_ORIGIN_BASE_URL_VARS (got #{declared.join(', ')})")
+                       "#{NEON_AUTH_ORIGIN_MODULE}: #{name} names an origin the browser reaches, so the " \
+                       "one declaration must carry it (got #{declared.join(', ')})")
     end
   end
 
-  def cross_origin_vars_of(config)
-    literal = config[/const CROSS_ORIGIN_BASE_URL_VARS = \[(.*?)\]/m, 1]
+  # One value, one rule (#1701 review): the config and the login spec both
+  # resolve the Neon Auth origin through the same declaration. With the primary
+  # variable declared EMPTY and a valid `VITE_` value, two rules disagree — the
+  # config points the app under test at the `VITE_` origin while the spec takes
+  # the empty string and fails before login for a reason unrelated to login.
+  def test_the_auth_origin_has_one_resolution_rule
+    config = File.read(PLAYWRIGHT_CONFIG)
+    spec = File.read(LOGIN_SPEC)
+    assert(config.include?(SHARED_RESOLUTION),
+                     "e2e/playwright.config.ts: must resolve the Neon Auth origin through " \
+                     "#{SHARED_RESOLUTION} in #{NEON_AUTH_ORIGIN_MODULE}")
+    assert(spec.include?(SHARED_RESOLUTION),
+                     "e2e/web-neon-login.spec.ts: must resolve the Neon Auth origin through the same " \
+                     "#{SHARED_RESOLUTION} the config reads, not a rule of its own")
+    refute_match(RETIRED_SPEC_FALLBACK, spec,
+                     "e2e/web-neon-login.spec.ts: the `??` fallback is the second resolution rule — " \
+                     "it takes an empty primary where the config skips it (#1701 review)")
+  end
+
+  def declared_neon_auth_origin_vars
+    source = File.read(File.join(ROOT, NEON_AUTH_ORIGIN_MODULE))
+    literal = source[/export const NEON_AUTH_ORIGIN_ENV_VARS = \[(.*?)\]/m, 1]
     return [] if literal.nil?
 
     literal.scan(/"([A-Z0-9_]+)"/).flatten

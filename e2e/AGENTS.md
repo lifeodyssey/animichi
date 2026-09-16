@@ -14,8 +14,10 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 - `make e2e` — run the complete Playwright suite against an app you started.
 - From `e2e/`: `pnpm test` · `pnpm run test:headed` · `pnpm run test:web`.
 
-`pnpm test` is the CI browser lane, not the whole suite: it runs `lane-port.test.ts` first (Node's
-own runner — the port derivation is a specification, not a comment), then builds `apps/web`, serves
+`pnpm test` is the CI browser lane, not the whole suite: it runs its hermetic Node-runner
+specifications first (`lane-port.test.ts` — the port derivation is a specification, not a comment —
+and `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two),
+then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
 `webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the ten specs the lane owns —
 `web-404`, `web-maplibre-canary`, `web-chat-anonymous`, `web-hero-query`,
@@ -70,6 +72,25 @@ run in #1692 AC1 found: two lanes can each own their serving port and still figh
 the loser's server exiting before a spec runs. The server command passes `--inspector-port 0`, so the
 OS assigns one per lane — the same recipe `packages/agent`'s integration harness uses.
 
+
+`pnpm run test:login` is the **live login lane**, kept out of `test` because its inputs are
+different in kind: it serves the emitted Worker pointed at a real Neon Auth branch
+(`NEON_AUTH_BASE_URL`, the staging branch `workers/edge/wrangler.toml` verifies) and drives the
+real password sign-in and `/auth/callback` redeem. Credentials come from local `.env.test`
+(Path A, `docs/ops/auth-migration-neon.md` §4). **PR CI cannot run it and says so:** no
+pull-request job may hold a credential (`.github/test/workflow-credentials.test.rb` rejects
+`secrets.*` anywhere under `.github/`), so the browser job reports the proof as `NOT RUN` in its
+step summary and as a run annotation — never as a silent absence, and never as a green check.
+Moving it into CI means a CD/staging lane opening the QA identity from Pulumi ESC under an
+environment-bound OIDC identity.
+
+**No spec in the always-run suite may skip itself (#1690).** A skipped spec is indistinguishable
+from a passing one in a summary, so the rule has two halves: `reporters/no-skipped-tests.ts` fails
+the run and names every skipped case (Playwright's own exit code counts a skip as success), and
+`test/repo-config/e2e-no-skip.test.rb` refuses one at review time. A lane that cannot run must fail
+and name what it needs, or be reported as not-run — never pass quietly. The opt-in `visual` project
+and the MCP `seed` scaffold are the only exemptions, both by name and for a stated reason.
+
 ## Conventions
 
 - Start `make dev-local` first if you want the real backend behind the stubbed edges, then run
@@ -98,8 +119,10 @@ OS assigns one per lane — the same recipe `packages/agent`'s integration harne
   `VITE_NEON_AUTH_BASE_URL` — sits on a different host from the target. Playwright has no
   per-origin header option; a `context.route` interceptor was the alternative and was
   rejected because it has to be right on every request forever and fails OPEN when it is
-  not, whereas a config that will not start cannot leak. Add any new origin variable to
-  `CROSS_ORIGIN_BASE_URL_VARS` when you add it to a spec.
+  not, whereas a config that will not start cannot leak. The names are declared once, in
+  `helpers/neon-auth-origin.ts` (`NEON_AUTH_ORIGIN_ENV_VARS`), and the config's refusal list **is**
+  that declaration rather than a copy of it: add a new origin variable there when you add it to a
+  spec, and the resolution and the refusal both follow it.
   Get the values with `esc env open lifeodyssey/animichi/staging
   environmentVariables.CF_ACCESS_CLIENT_ID --format string` (and the secret likewise);
   CI takes them from the same ESC environment. `test/repo-config/playwright.test.rb`
@@ -117,6 +140,9 @@ OS assigns one per lane — the same recipe `packages/agent`'s integration harne
 ## Key files + entrypoints
 
 - `playwright.config.ts` — Chromium project, origins, timeouts, trace/screenshot policy.
+- `helpers/neon-auth-origin.ts` — the one resolution rule for the Neon Auth origin, shared by the
+  config and `web-neon-login.spec.ts`: the first declared name after trimming, so an empty primary
+  falls through to the `VITE_` name (`??` would take the empty string and disagree with the app).
 - `lane-port.ts` — which checkout gets which port, and why two checkouts cannot get the same one.
 - `lane-port-check.ts` — the up-front claim: a stranded listener on the derived port stops the lane
   before a spec runs, naming the port and the process holding it.
@@ -124,8 +150,9 @@ OS assigns one per lane — the same recipe `packages/agent`'s integration harne
 - `web-chat-*.spec.ts` — `apps/web` chat anonymous / error-state / selection / login-wall flows.
 - `web-neon-login.spec.ts` — **live** Neon Auth login round-trip (AUTH-2 #950): password sign-in
   against the real Neon Auth origin via `context.request`, then the app's `/auth/callback`
-  exchange. Self-skips without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` + `QA_NEON_USER_PASSWORD`
-  (Path A, `docs/ops/auth-migration-neon.md` §4).
+  exchange. **Fails by name** without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` +
+  `QA_NEON_USER_PASSWORD` (Path A, `docs/ops/auth-migration-neon.md` §4) — it no longer skips
+  itself, and `pnpm run test:login` is the recipe that supplies them.
 - `web-cwv.spec.ts` — CWV observer spec for `apps/web` (CLS gate + LCP warn), sharing thresholds
   from `apps/web/web-cwv.config.ts`.
 - `../scripts/e2e-setup.sh` — dependency + browser install; no Supabase/Mailpit preparation.

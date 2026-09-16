@@ -10,7 +10,9 @@ set -euo pipefail
 # and the web app supplies the surface.
 #
 # The one live-auth spec (e2e/web-neon-login.spec.ts) talks to the real Neon
-# Auth origin and self-skips unless QA creds + a base URL are provided — no
+# Auth origin and FAILS — never skips — unless QA creds + a base URL are
+# provided (#1690): an unrun proof must not be summarised as a pass. Run it
+# with `pnpm --filter animichi-e2e run test:login`. No
 # Supabase, no Mailpit, no email edge function anywhere in the picture.
 #
 # Usage: make e2e-setup    (or: bash scripts/e2e-setup.sh)
@@ -41,11 +43,12 @@ fi
 echo ""
 
 echo "=== 3/3 Auth E2E readiness ==="
-echo "The live Neon login spec (web-neon-login.spec.ts) needs all three, or it skips:"
+echo "The live Neon login spec (web-neon-login.spec.ts) needs all three — it fails without them:"
 echo "  NEON_AUTH_BASE_URL (or VITE_NEON_AUTH_BASE_URL in apps/web/.env)"
 echo "  QA_NEON_USER_EMAIL"
 echo "  QA_NEON_USER_PASSWORD"
 echo "  (See docs/ops/auth-migration-neon.md §4 Path A for what these are.)"
+echo "  Run it: pnpm --filter animichi-e2e run test:login"
 echo ""
 
 echo "========================================="
