@@ -314,3 +314,31 @@ jobs:
           path: receipt.json
           if-no-files-found: error
           retention-days: 14
+
+  # Nothing told anyone when a deploy failed (#678 AC1): this job turns one failed
+  # run into one deduplicated alert issue, and every sibling job's result is in its
+  # `needs` so a failure in any of them reaches it. It publishes through the run's
+  # own token — the alert needs no new credential.
+  alert-failure:
+    name: Ops / failure alert
+    needs: [select, stage, promote-production]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The alerter reads the open alerts and then creates or updates one, so two
+    # runs sharing a dedup key must not interleave or both would create. This
+    # group is the key's own (workflow, ref) prefix; a per-run group would give
+    # every run its own and let same-key runs race (#678 AC1).
+    concurrency:
+      group: ops-alert-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, issues: write} # read this run's jobs; publish the alert issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish the failure alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_SELF_JOB: Ops / failure alert
+        run: ruby .github/scripts/alert/failure-alert.rb
