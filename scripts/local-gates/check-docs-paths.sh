@@ -37,7 +37,12 @@ sanitize() {
   c="${c%%#*}"
   c="${c%%@*}"
   c="${c%%\?*}"
+  # A `:line` suffix is one or more digits, and a glob cannot say "one or more":
+  # the next pattern strips two-or-more, this case the lone trailing digit.
   c="${c%%:[0-9][0-9]*}"
+  case "${c}" in
+    *:[0-9]) c="${c%:[0-9]}" ;;
+  esac
   while [[ "${c}" == ../* ]]; do c="${c#../}"; done
   while [ -n "${c}" ] && [[ "${c}" != [A-Za-z0-9_./-]* ]]; do c="${c#?}"; done
   while [ -n "${c}" ] && [[ "${c}" != *[A-Za-z0-9_./-] ]]; do c="${c%?}"; done
