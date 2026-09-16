@@ -17,11 +17,17 @@ function cleanupObservation() {
   return { collecting: false, promises: new Array<Promise<unknown>>() };
 }
 
+/** The fired deadline's callback, and the observer's handshake with the delivery it must witness. */
+function callbackBoundary() {
+  return { arrived: Promise.withResolvers<undefined>(), released: Promise.withResolvers<undefined>() };
+}
+
 export function keepaliveState() {
   return {
     resources: nativeResources(), cleanup: cleanupObservation(),
     clock: { realNow: Date.now, now: Math.ceil(Date.now() / 1000) * 1000 + 60_000 },
-    deadline: { id: "", time: 0 }, firing: false,
+    deadline: { id: "", time: 0 }, firing: false, firedAt: null as number | null,
+    alarmAtCallbackEntry: null as number | null, boundary: callbackBoundary(),
     calls: { count: 0, active: false, duringDrive: false, result: "pending" },
     delivered: Promise.withResolvers<undefined>(),
   };
@@ -75,5 +81,6 @@ export async function observeDrive(state: ReturnType<typeof keepaliveState>, dri
 
 export function alarmSnapshot(state: ReturnType<typeof keepaliveState>, deadlineId: string | null, alarm: number | null) {
   return { deadlineId, deadlineTime: state.deadline.time, alarm, callbackCount: state.calls.count,
-    callbackDuringDrive: state.calls.duringDrive, driveActive: state.calls.active, completedStatus: state.calls.result };
+    callbackDuringDrive: state.calls.duringDrive, driveActive: state.calls.active, completedStatus: state.calls.result,
+    physicalNow: state.clock.realNow(), firedAt: state.firedAt, alarmAtCallbackEntry: state.alarmAtCallbackEntry };
 }
