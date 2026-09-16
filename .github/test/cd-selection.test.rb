@@ -21,6 +21,18 @@ class CdSelectionTest < Minitest::Test
     steps(job).index(step(job, name))
   end
 
+  # The only step this contract lets precede checkout is the repository's variable
+  # refusal: it declares no action and no inputs, and its `run` is nothing but the
+  # `for key in NAME` guard loop, so it cannot fetch code or touch the workspace.
+  # Every other step must follow the checkout that fixes the tree under test.
+  def refusal_only?(step)
+    return false unless step["uses"].nil? && step["with"].nil?
+    lines = step["run"].to_s.lines.map(&:strip).reject(&:empty?)
+    lines.length == 3 && lines[0].match?(/\Afor key in [A-Z0-9_ ]+; do\z/) &&
+      lines[1] == '[ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }' &&
+      lines[2] == "done"
+  end
+
   def test_main_dispatch_is_the_only_deploy_trigger
     events = @cd["on"] || @cd[true]
     assert_equal ["workflow_dispatch"], events.keys
@@ -32,8 +44,12 @@ class CdSelectionTest < Minitest::Test
     %w[select stage promote-production].each do |job|
       assert_includes @cd.dig("jobs", job, "if"), "github.repository == 'lifeodyssey/animichi'"
       assert_includes @cd.dig("jobs", job, "if"), "github.ref == 'refs/heads/main'"
-      assert_equal "${{ github.sha }}", steps(job).first.dig("with", "ref")
-      assert_equal 0, steps(job).first.dig("with", "fetch-depth")
+      checkout = steps(job).index { |step| step["uses"].to_s.start_with?("actions/checkout@") }
+      refute_nil checkout, "#{job}: the job must check out the main controller code"
+      assert_equal "${{ github.sha }}", steps(job).fetch(checkout).dig("with", "ref")
+      assert_equal 0, steps(job).fetch(checkout).dig("with", "fetch-depth")
+      assert_empty steps(job).take(checkout).reject { |step| refusal_only?(step) },
+                   "#{job}: nothing that could fetch code or change the tree may run before checkout"
       assert_equal "read", @cd.dig("jobs", job, "permissions", "actions")
       assert_equal "ruby .github/scripts/release/resolve.rb", step(job, "Resolve the selected artifact")["run"]
     end
