@@ -28,12 +28,42 @@ behavioral controls, not evidence of real-model quality or deployed authorizatio
 behavior, and `NATIVE.md` keeps source preservation, runnable binding and evaluated coverage
 as three separate claims.
 
+## Recorded prefix corpora (#1558)
+
+`fixtures/prefix-corpus/` holds recorded native prefix sources: for each case a frozen
+format-4 session produced by the production harness, plus a `Dataset`-format manifest whose
+case inputs carry `prefix` (the frozen source) and whose metadata carries `recording`
+(provenance), `prefix_state` (the pending selection, its revision, its durable search
+reference and the application scalars the case needs) and `expected_next_action`.
+
+`src/native/prefix-corpus.ts` loads a corpus with the official `Dataset.fromObject` and
+refuses a case whose declared source is missing — never a prompt that silently drops its
+prefix. `src/native/prefix-replay.ts` copies the frozen bytes into a scratch
+`JsonlSessionRepo`, opens and `fork({ scope: "tree" })` them; the application scalars are
+the tree fork's, because a branch fork drops every non-`pi.*` value, and list elements are
+the SDK's documented tree-fork gap — no copier is added. `src/native/prefix-task.ts`
+runs the production harness on a tree fork for corpora whose suffix is a model call, and
+`src/native/expected-action.ts` judges that suffix against `expected_next_action` using the
+native `after_tool` observations and the committed `animichi.selection` domain entry. `src/native/prefix-cases.ts` derives the
+case plans from `datasets/canonical/phase1c_selection_v1.json` (the inputs may be reused;
+the trajectories may not).
+
+The committed corpus was recorded deterministically: `provider: faux` and
+`catalog: deterministic-case-fixture` are in its provenance, so it is never mistaken for a
+real-model recording. The recorder canonicalizes every session-minted identifier and clock
+reading before it freezes bytes (`src/native/prefix-canonical.ts`), so a frozen source is
+zero-entropy and a re-record of the same commit rewrites the same bytes; a value the
+canonicalizer does not classify is refused rather than rewritten. A real-model recording and
+a real evaluation run of these cases are separate, authorization-gated work.
+
 ## Commands
 
 - `pnpm test`: Node tests through tsx.
 - `pnpm run test:native`: the native task, production composition and resource tests.
 - `pnpm run typecheck`: strict TypeScript 7, including dependency declarations.
 - `pnpm run lint`: type-aware oxlint with warnings denied.
+- `pnpm run eval:record-captures`: record a prefix corpus with the production harness; `EVAL_RECORD_MODE=deterministic` records the committed fixture without provider or catalog egress, and the default path needs the selected binding's credential and `CATALOG_API_URL`.
+- `pnpm run eval:prefix-selection`: replay `phase1c_selection_v1`'s deterministic selection from its recorded forks against the real catalog (no model call).
 - `pnpm run eval:native`: the documented real in-process run (`NATIVE.md`). `EVAL_PROVIDER`
   selects the published provider binding explicitly (`xiaomi` by default, else `opencode-go`) and
   never falls back; it refuses to start without that binding's credential and `CATALOG_API_URL`,

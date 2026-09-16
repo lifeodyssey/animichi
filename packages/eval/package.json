@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"test/*.test.ts\"",
     "test:native": "node --import tsx --test \"test/native-*.test.ts\"",
-    "eval:native": "node --import tsx --import ./scripts/instrument-evals.ts ./scripts/command-task.ts"
+    "eval:native": "node --import tsx --import ./scripts/instrument-evals.ts ./scripts/command-task.ts",
+    "eval:record-captures": "node --import tsx ./scripts/record-captures.ts",
+    "eval:prefix-selection": "node --import tsx ./scripts/replay-prefix-selection.ts"
   },
   "dependencies": {
     "@animichi/agent": "workspace:*",
