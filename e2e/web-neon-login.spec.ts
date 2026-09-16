@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { declaredNeonAuthOrigin } from "./helpers/neon-auth-origin";
 
 /**
  * Live Neon Auth login round-trip (AUTH-2 #950). The retired landing is not a
@@ -16,7 +17,12 @@ import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
  * credential (`.github/test/workflow-credentials.test.rb`), so PR CI reports this
  * proof as `NOT RUN` rather than selecting it; nothing here decides that.
  */
-const authBaseUrl = process.env.NEON_AUTH_BASE_URL ?? process.env.VITE_NEON_AUTH_BASE_URL;
+// The one resolution rule, shared with `playwright.config.ts` (#1701 review).
+// A `??` fallback here disagreed with the config exactly when the primary
+// variable was declared but empty: the app under test was pointed at the
+// `VITE_` origin while this proof took the empty string, so it failed before
+// login for a reason that had nothing to do with login.
+const authBaseUrl = declaredNeonAuthOrigin(process.env);
 const qaEmail = process.env.QA_NEON_USER_EMAIL;
 const qaPassword = process.env.QA_NEON_USER_PASSWORD;
 const appBaseUrl = process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000";

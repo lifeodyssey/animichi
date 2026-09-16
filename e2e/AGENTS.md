@@ -14,8 +14,10 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 - `make e2e` — run the complete Playwright suite against an app you started.
 - From `e2e/`: `pnpm test` · `pnpm run test:headed` · `pnpm run test:web`.
 
-`pnpm test` is the CI browser lane, not the whole suite: it runs `lane-port.test.ts` first (Node's
-own runner — the port derivation is a specification, not a comment), then builds `apps/web`, serves
+`pnpm test` is the CI browser lane, not the whole suite: it runs its hermetic Node-runner
+specifications first (`lane-port.test.ts` — the port derivation is a specification, not a comment —
+and `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two),
+then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
 `webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the ten specs the lane owns —
 `web-404`, `web-maplibre-canary`, `web-chat-anonymous`, `web-hero-query`,
@@ -117,8 +119,10 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
   `VITE_NEON_AUTH_BASE_URL` — sits on a different host from the target. Playwright has no
   per-origin header option; a `context.route` interceptor was the alternative and was
   rejected because it has to be right on every request forever and fails OPEN when it is
-  not, whereas a config that will not start cannot leak. Add any new origin variable to
-  `CROSS_ORIGIN_BASE_URL_VARS` when you add it to a spec.
+  not, whereas a config that will not start cannot leak. The names are declared once, in
+  `helpers/neon-auth-origin.ts` (`NEON_AUTH_ORIGIN_ENV_VARS`), and the config's refusal list **is**
+  that declaration rather than a copy of it: add a new origin variable there when you add it to a
+  spec, and the resolution and the refusal both follow it.
   Get the values with `esc env open lifeodyssey/animichi/staging
   environmentVariables.CF_ACCESS_CLIENT_ID --format string` (and the secret likewise);
   CI takes them from the same ESC environment. `test/repo-config/playwright.test.rb`
@@ -136,6 +140,9 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
 ## Key files + entrypoints
 
 - `playwright.config.ts` — Chromium project, origins, timeouts, trace/screenshot policy.
+- `helpers/neon-auth-origin.ts` — the one resolution rule for the Neon Auth origin, shared by the
+  config and `web-neon-login.spec.ts`: the first declared name after trimming, so an empty primary
+  falls through to the `VITE_` name (`??` would take the empty string and disagree with the app).
 - `lane-port.ts` — which checkout gets which port, and why two checkouts cannot get the same one.
 - `lane-port-check.ts` — the up-front claim: a stranded listener on the derived port stops the lane
   before a spec runs, naming the port and the process holding it.

@@ -6,6 +6,7 @@ import {
   accessServiceTokenHeaders,
   isLoopbackHostname,
 } from "@animichi/contract/access-service-token";
+import { NEON_AUTH_ORIGIN_ENV_VARS, declaredNeonAuthOrigin } from "./helpers/neon-auth-origin";
 import { CLAIMED_PORT_ENV, claimedPort, emittedWorkerPort } from "./lane-port";
 
 // The Playwright MCP test server (the agent tool surface) runs as
@@ -82,12 +83,12 @@ const unroutableOrigin = "http://127.0.0.1:9";
 // runtime config and the client build cannot disagree about which branch the
 // app under test targets; unset (every other lane) keeps the unroutable
 // stand-in above. The value is a branch URL, not a secret.
-const declaredAuthOrigin = (
-  ["NEON_AUTH_BASE_URL", "VITE_NEON_AUTH_BASE_URL"] as const
-)
-  .map((name) => process.env[name]?.trim())
-  .find((value) => value !== undefined && value !== "");
-const appNeonAuthBaseUrl = declaredAuthOrigin ?? unroutableOrigin;
+//
+// Resolved through the one rule in `helpers/neon-auth-origin.ts`, which
+// `web-neon-login.spec.ts` reads too: the app under test and the proof that
+// signs in to it must not disagree about the branch, and they did whenever the
+// primary variable was declared but empty (#1701 review).
+const appNeonAuthBaseUrl = declaredNeonAuthOrigin(process.env) ?? unroutableOrigin;
 // The SSR `RUNTIME_CONFIG` var apps/web parses per request
 // (apps/web/src/lib/runtime-config/provider.ts). Public placeholder values
 // only; `wrangler dev --var KEY:VALUE` keeps everything after the first colon
@@ -141,7 +142,10 @@ function isLoopbackTarget(rawUrl: string): boolean {
  * to be correct on every request forever, adds a runtime hook to every spec, and
  * fails OPEN when it is wrong. A config that will not start cannot leak.
  */
-const CROSS_ORIGIN_BASE_URL_VARS = ["NEON_AUTH_BASE_URL", "VITE_NEON_AUTH_BASE_URL"] as const;
+// The names are the shared declaration the resolution above reads, not a second
+// copy of them: the refusal and the resolution cannot disagree about which
+// variables declare an origin the browser reaches (#1701 review).
+const CROSS_ORIGIN_BASE_URL_VARS = NEON_AUTH_ORIGIN_ENV_VARS;
 
 function otherConfiguredOrigins(targetHost: string): readonly string[] {
   const declared = CROSS_ORIGIN_BASE_URL_VARS.map((name) => process.env[name] ?? "");
