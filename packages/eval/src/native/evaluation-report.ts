@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { logfireConfig } from '@pydantic/logfire-node';
 import type { Api, Model } from '@earendil-works/pi-ai';
-import { renderReport, type EvaluationReport } from 'logfire/evals';
+import { renderReport, type EvaluationReport, type ReportCase } from 'logfire/evals';
 import { plannedCases, type LoadedNativeDataset } from './evaluation-dataset.ts';
 import { recordedPlanCases } from './pass-caret-k-report.ts';
 import type { NativeCaseMetadata, NativeOutput, NativeTaskInput } from './evaluation-types.ts';
@@ -26,7 +26,45 @@ export async function writeEvaluationReport<I, O, M>(
 ): Promise<string> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  return renderReport(report, { includeInput: true, includeOutput: true, includeFailures: true });
+  return renderEvaluationReport(report);
+}
+
+/**
+ * The rendered companion the run prints. The SDK's `renderReport` renders name, duration, input,
+ * output, scores, labels and assertions but has no attributes column, so per-case run facts
+ * (`pi.usage.status`, observed tool calls) would be invisible in the text even
+ * though the artifact carries them. This appends that column rather than reimplementing the SDK.
+ */
+export function renderEvaluationReport<I, O, M>(report: EvaluationReport<I, O, M>): string {
+  const rendered = renderReport(report, { includeInput: true, includeOutput: true, includeFailures: true });
+  if (report.cases.length === 0) return rendered;
+  return `${rendered}\n\n${attributeTable(report.cases)}`;
+}
+
+interface AttributeRow {
+  readonly attributes: string;
+  readonly name: string;
+}
+
+function attributeTable(cases: readonly ReportCase[]): string {
+  const rows: readonly AttributeRow[] = cases.map((entry) =>
+    ({ name: entry.name, attributes: attributeSummary(entry.attributes) }));
+  const header = 'name';
+  const width = Math.max(header.length, ...rows.map((row) => row.name.length));
+  return [`Attributes: ${String(rows.length)}`, `${header.padEnd(width)}  attributes`,
+    ...rows.map((row) => `${row.name.padEnd(width)}  ${row.attributes}`)].join('\n');
+}
+
+/** One case's attributes as the SDK renders scores: a `key=value` list, `-` when empty. */
+function attributeSummary(attributes: Readonly<Record<string, unknown>>): string {
+  const entries = Object.entries(attributes);
+  if (entries.length === 0) return '-';
+  return entries.map(([name, value]) => `${name}=${attributeValue(value)}`).join(', ');
+}
+
+function attributeValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value) || String(value);
 }
 
 /** The provenance every native report records for this run. */

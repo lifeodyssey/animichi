@@ -7,22 +7,26 @@ harness and repository in `finally`; `Dataset.evaluate` owns repetition and
 concurrency. There is no gateway, staging login, agent database, old run store,
 transcript converter, importer, or lifecycle registry in this path.
 
-Run a three-case smoke before the complete held-out set:
+Run the offline plan check, the three-case smoke, then the complete held-out set:
 
 ```sh
+EVAL_SMOKE=1 EVAL_DRY_RUN=1 pnpm --filter @animichi/eval eval:native
 EVAL_SMOKE=1 pnpm --filter @animichi/eval eval:native
 pnpm --filter @animichi/eval eval:native
 ```
 
 The default dataset is `agent_eval_heldout_v1` (all 33 cases). `EVAL_SMOKE=1`
 selects exactly the first three while retaining the source count in the plan
-and report. `EVAL_REPEAT` and `EVAL_MAX_CONCURRENCY` map directly to
-`Dataset.evaluate`; `EVAL_REPEAT` defaults to 1 and task retries are disabled
-with `retryTask: { retries: 0 }`, so a failed attempt is never silently
-replaced. The repeat sampling semantics are recorded as `sampling: iid` in the
-native report metadata. `EVAL_DRY_RUN=1` prints the validated plan and stops
-before any binding is required, which is how the documented command is
-exercised by a test without a credential.
+and report. `EVAL_DRY_RUN=1` prints the validated plan and stops before any
+binding is required, so the first line above is the whole documented invocation
+with no credential, and `test/native-documented-command.test.ts` runs that
+exact line. Every control is an environment variable: the script accepts no
+command-line arguments, so a trailing `-- --dataset <set>` is refused instead
+of silently running the default set. `EVAL_REPEAT` and `EVAL_MAX_CONCURRENCY`
+map directly to `Dataset.evaluate`; `EVAL_REPEAT` defaults to 1 and task retries
+are disabled with `retryTask: { retries: 0 }`, so a failed attempt is never
+silently replaced. The repeat sampling semantics are recorded as `sampling:
+iid` in the native report metadata.
 
 The command requires one provider credential and a real catalog origin. `EVAL_PROVIDER` names
 the binding explicitly and is never inferred or fallen back to: `xiaomi` (the default) reads
@@ -65,7 +69,9 @@ native `EvaluationReport` artifact. Set `EVAL_REPORT_PATH` to choose the JSON
 path; otherwise the artifact is written to `native-<dataset>.json` in the
 operating system's temporary directory. The artifact is the SDK report itself
 and includes model, tested commit, repeat, sampling, source/selected counts,
-native tool observations, and per-call Pi cost metrics.
+native tool observations, and per-call Pi cost metrics. The printed report adds
+the attributes column the SDK renderer omits, so a case's run facts are visible
+without opening the artifact.
 
 Known cost is summed from native `pi.cost.total`, never re-priced from
 aggregate tokens. `actual_spend_status` is `measured` only when every reported

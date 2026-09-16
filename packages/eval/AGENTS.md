@@ -58,7 +58,9 @@ a real evaluation run of these cases are separate, authorization-gated work.
 
 ## Commands
 
-- `pnpm test`: Node tests through tsx.
+- `pnpm test`: Node tests through tsx. It also runs the documented `eval:native` invocation offline
+  (`test/native-documented-command.test.ts`), which derives its command line from
+  `src/native/native-command.ts` and fails if `NATIVE.md` drifts from it.
 - `pnpm run test:native`: the native task, production composition and resource tests.
 - `pnpm run typecheck`: strict TypeScript 7, including dependency declarations.
 - `pnpm run lint`: type-aware oxlint with warnings denied.

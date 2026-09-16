@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { rejectArguments } from '../src/native/native-command.ts';
 import { readRunConfig, runNativeEvaluation, type NativeRunResult } from '../src/native/native-run.ts';
 
 const isMain = process.argv[1] !== undefined
@@ -8,6 +9,7 @@ const isMain = process.argv[1] !== undefined
 if (isMain) void main().catch(reportError);
 
 async function main(): Promise<void> {
+  rejectArguments(process.argv.slice(2));
   const result = await runNativeEvaluation(readRunConfig());
   if (result.dryRun) writeDryRunPlan(result);
 }
