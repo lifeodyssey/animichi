@@ -1,0 +1,504 @@
+{
+  "name": "phase1c_selection_v1",
+  "cases": [
+    {
+      "name": "D3_multi_success_two",
+      "inputs": {
+        "prompt": "Route both selected anime",
+        "locale": "en",
+        "prefix": {
+          "file": "D3_multi_success_two.jsonl",
+          "session_id": "D3_multi_success_two",
+          "boundary": "pending_anime_ambiguity"
+        },
+        "selection": {
+          "candidateIds": [
+            "115908",
+            "11291"
+          ]
+        }
+      },
+      "metadata": {
+        "recording": {
+          "sdk": "0.85.1",
+          "provider": "faux",
+          "model": "faux-model",
+          "prompt": "sha256:71f39cd29661",
+          "tools": [
+            "resolve_anime",
+            "search_bangumi",
+            "search_nearby",
+            "plan_route",
+            "translate_anime_title",
+            "web_search",
+            "respond"
+          ],
+          "commit": "88d077ebb1613abba122e1dae70d9e4528ad15be",
+          "boundary": "pending_anime_ambiguity",
+          "catalog": "deterministic-case-fixture",
+          "recorded_at": "1970-01-01T00:00:00.000Z"
+        },
+        "expected_next_action": {
+          "tool": "none",
+          "domain_entry": "animichi.selection",
+          "arguments": [
+            {
+              "kind": "set",
+              "argument": "candidateIds",
+              "values": [
+                "115908",
+                "11291"
+              ],
+              "max_items": 2
+            }
+          ],
+          "forbidden": {
+            "tools": [
+              "respond",
+              "search_bangumi",
+              "search_nearby",
+              "plan_route"
+            ],
+            "arguments": []
+          }
+        },
+        "prefix_state": {
+          "kind": "pending_selection",
+          "reason": "anime_ambiguity",
+          "clarification_id": 50,
+          "entry_id": "entry-0005",
+          "candidates": [
+            {
+              "id": "115908",
+              "title": "Sound Euphonium"
+            },
+            {
+              "id": "11291",
+              "title": "Haruhi Suzumiya"
+            }
+          ],
+          "references": [
+            {
+              "kind": "search_result",
+              "entry_id": "entry-0003",
+              "tool": "search_bangumi"
+            }
+          ],
+          "scalars": [
+            {
+              "namespace": "animichi.operation.input",
+              "key": "D3_multi_success_two",
+              "value": {
+                "locale": "en"
+              }
+            }
+          ]
+        },
+        "expected_selection": {
+          "status": "ok",
+          "expect_nonempty": true
+        }
+      }
+    },
+    {
+      "name": "D3_multi_success_single",
+      "inputs": {
+        "prompt": "Route the selected anime",
+        "locale": "ja",
+        "prefix": {
+          "file": "D3_multi_success_single.jsonl",
+          "session_id": "D3_multi_success_single",
+          "boundary": "pending_anime_ambiguity"
+        },
+        "selection": {
+          "candidateIds": [
+            "160209"
+          ]
+        }
+      },
+      "metadata": {
+        "recording": {
+          "sdk": "0.85.1",
+          "provider": "faux",
+          "model": "faux-model",
+          "prompt": "sha256:71f39cd29661",
+          "tools": [
+            "resolve_anime",
+            "search_bangumi",
+            "search_nearby",
+            "plan_route",
+            "translate_anime_title",
+            "web_search",
+            "respond"
+          ],
+          "commit": "88d077ebb1613abba122e1dae70d9e4528ad15be",
+          "boundary": "pending_anime_ambiguity",
+          "catalog": "deterministic-case-fixture",
+          "recorded_at": "1970-01-01T00:00:00.000Z"
+        },
+        "expected_next_action": {
+          "tool": "none",
+          "domain_entry": "animichi.selection",
+          "arguments": [
+            {
+              "kind": "set",
+              "argument": "candidateIds",
+              "values": [
+                "160209",
+                "269235"
+              ],
+              "max_items": 2
+            }
+          ],
+          "forbidden": {
+            "tools": [
+              "respond",
+              "search_bangumi",
+              "search_nearby",
+              "plan_route"
+            ],
+            "arguments": []
+          }
+        },
+        "prefix_state": {
+          "kind": "pending_selection",
+          "reason": "anime_ambiguity",
+          "clarification_id": 50,
+          "entry_id": "entry-0005",
+          "candidates": [
+            {
+              "id": "160209",
+              "title": "君の名は。"
+            },
+            {
+              "id": "269235",
+              "title": "天気の子"
+            }
+          ],
+          "references": [
+            {
+              "kind": "search_result",
+              "entry_id": "entry-0003",
+              "tool": "search_bangumi"
+            }
+          ],
+          "scalars": [
+            {
+              "namespace": "animichi.operation.input",
+              "key": "D3_multi_success_single",
+              "value": {
+                "locale": "ja"
+              }
+            }
+          ]
+        },
+        "expected_selection": {
+          "status": "ok",
+          "expect_nonempty": true
+        }
+      }
+    },
+    {
+      "name": "D3_multi_terminal_empty",
+      "inputs": {
+        "prompt": "Route both selected anime",
+        "locale": "en",
+        "prefix": {
+          "file": "D3_multi_terminal_empty.jsonl",
+          "session_id": "D3_multi_terminal_empty",
+          "boundary": "pending_anime_ambiguity"
+        },
+        "selection": {
+          "candidateIds": [
+            "999001",
+            "999002"
+          ]
+        }
+      },
+      "metadata": {
+        "recording": {
+          "sdk": "0.85.1",
+          "provider": "faux",
+          "model": "faux-model",
+          "prompt": "sha256:71f39cd29661",
+          "tools": [
+            "resolve_anime",
+            "search_bangumi",
+            "search_nearby",
+            "plan_route",
+            "translate_anime_title",
+            "web_search",
+            "respond"
+          ],
+          "commit": "88d077ebb1613abba122e1dae70d9e4528ad15be",
+          "boundary": "pending_anime_ambiguity",
+          "catalog": "deterministic-case-fixture",
+          "recorded_at": "1970-01-01T00:00:00.000Z"
+        },
+        "expected_next_action": {
+          "tool": "none",
+          "domain_entry": "animichi.selection",
+          "arguments": [
+            {
+              "kind": "set",
+              "argument": "candidateIds",
+              "values": [
+                "999001",
+                "999002"
+              ],
+              "max_items": 2
+            }
+          ],
+          "forbidden": {
+            "tools": [
+              "respond",
+              "search_bangumi",
+              "search_nearby",
+              "plan_route"
+            ],
+            "arguments": []
+          }
+        },
+        "prefix_state": {
+          "kind": "pending_selection",
+          "reason": "anime_ambiguity",
+          "clarification_id": 50,
+          "entry_id": "entry-0005",
+          "candidates": [
+            {
+              "id": "999001",
+              "title": "Missing One"
+            },
+            {
+              "id": "999002",
+              "title": "Missing Two"
+            }
+          ],
+          "references": [
+            {
+              "kind": "search_result",
+              "entry_id": "entry-0003",
+              "tool": "search_bangumi"
+            }
+          ],
+          "scalars": [
+            {
+              "namespace": "animichi.operation.input",
+              "key": "D3_multi_terminal_empty",
+              "value": {
+                "locale": "en"
+              }
+            }
+          ]
+        },
+        "expected_selection": {
+          "status": "empty",
+          "expect_nonempty": false
+        }
+      }
+    },
+    {
+      "name": "D3_multi_partial_success",
+      "inputs": {
+        "prompt": "Route the available selected anime",
+        "locale": "zh",
+        "prefix": {
+          "file": "D3_multi_partial_success.jsonl",
+          "session_id": "D3_multi_partial_success",
+          "boundary": "pending_anime_ambiguity"
+        },
+        "selection": {
+          "candidateIds": [
+            "115908",
+            "999001"
+          ]
+        }
+      },
+      "metadata": {
+        "recording": {
+          "sdk": "0.85.1",
+          "provider": "faux",
+          "model": "faux-model",
+          "prompt": "sha256:71f39cd29661",
+          "tools": [
+            "resolve_anime",
+            "search_bangumi",
+            "search_nearby",
+            "plan_route",
+            "translate_anime_title",
+            "web_search",
+            "respond"
+          ],
+          "commit": "88d077ebb1613abba122e1dae70d9e4528ad15be",
+          "boundary": "pending_anime_ambiguity",
+          "catalog": "deterministic-case-fixture",
+          "recorded_at": "1970-01-01T00:00:00.000Z"
+        },
+        "expected_next_action": {
+          "tool": "none",
+          "domain_entry": "animichi.selection",
+          "arguments": [
+            {
+              "kind": "set",
+              "argument": "candidateIds",
+              "values": [
+                "115908",
+                "999001"
+              ],
+              "max_items": 2
+            }
+          ],
+          "forbidden": {
+            "tools": [
+              "respond",
+              "search_bangumi",
+              "search_nearby",
+              "plan_route"
+            ],
+            "arguments": []
+          }
+        },
+        "prefix_state": {
+          "kind": "pending_selection",
+          "reason": "anime_ambiguity",
+          "clarification_id": 50,
+          "entry_id": "entry-0005",
+          "candidates": [
+            {
+              "id": "115908",
+              "title": "吹响悠风号"
+            },
+            {
+              "id": "999001",
+              "title": "缺失作品"
+            }
+          ],
+          "references": [
+            {
+              "kind": "search_result",
+              "entry_id": "entry-0003",
+              "tool": "search_bangumi"
+            }
+          ],
+          "scalars": [
+            {
+              "namespace": "animichi.operation.input",
+              "key": "D3_multi_partial_success",
+              "value": {
+                "locale": "zh"
+              }
+            }
+          ]
+        },
+        "expected_selection": {
+          "status": "ok",
+          "expect_nonempty": true
+        }
+      }
+    },
+    {
+      "name": "D3_place_selection_radius",
+      "inputs": {
+        "prompt": "Use Uji",
+        "locale": "ja",
+        "prefix": {
+          "file": "D3_place_selection_radius.jsonl",
+          "session_id": "D3_place_selection_radius",
+          "boundary": "pending_place_ambiguity"
+        },
+        "selection": {
+          "candidateIds": [
+            "seed:uji"
+          ]
+        }
+      },
+      "metadata": {
+        "recording": {
+          "sdk": "0.85.1",
+          "provider": "faux",
+          "model": "faux-model",
+          "prompt": "sha256:71f39cd29661",
+          "tools": [
+            "resolve_anime",
+            "search_bangumi",
+            "search_nearby",
+            "plan_route",
+            "translate_anime_title",
+            "web_search",
+            "respond"
+          ],
+          "commit": "88d077ebb1613abba122e1dae70d9e4528ad15be",
+          "boundary": "pending_place_ambiguity",
+          "catalog": "deterministic-case-fixture",
+          "recorded_at": "1970-01-01T00:00:00.000Z"
+        },
+        "expected_next_action": {
+          "tool": "none",
+          "domain_entry": "animichi.selection",
+          "arguments": [
+            {
+              "kind": "set",
+              "argument": "candidateIds",
+              "values": [
+                "seed:uji",
+                "seed:tokyo"
+              ],
+              "max_items": 2
+            }
+          ],
+          "forbidden": {
+            "tools": [
+              "respond",
+              "search_bangumi",
+              "search_nearby",
+              "plan_route"
+            ],
+            "arguments": []
+          }
+        },
+        "prefix_state": {
+          "kind": "pending_selection",
+          "reason": "place_ambiguity",
+          "clarification_id": 50,
+          "entry_id": "entry-0005",
+          "candidates": [
+            {
+              "id": "seed:uji",
+              "title": "宇治(京都府)",
+              "lat": 34.8843,
+              "lng": 135.7997,
+              "effective_radius_m": 10000
+            },
+            {
+              "id": "seed:tokyo",
+              "title": "東京(東京都)",
+              "lat": 35.6762,
+              "lng": 139.6503,
+              "effective_radius_m": 10000
+            }
+          ],
+          "references": [
+            {
+              "kind": "search_result",
+              "entry_id": "entry-0003",
+              "tool": "search_nearby"
+            }
+          ],
+          "scalars": [
+            {
+              "namespace": "animichi.operation.input",
+              "key": "D3_place_selection_radius",
+              "value": {
+                "locale": "ja"
+              }
+            }
+          ]
+        },
+        "expected_selection": {
+          "status": "ok",
+          "expect_nonempty": true
+        }
+      }
+    }
+  ]
+}

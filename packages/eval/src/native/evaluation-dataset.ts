@@ -16,6 +16,13 @@ const SMOKE_CASES = 3;
  */
 const UNMIGRATED_CORPUS_SETS: readonly string[] = ['runtime_journey_v1', 'translation_v1'];
 
+/**
+ * Sets whose native task is a recorded prefix fork rather than a flat prompt.
+ * Loading the flat export would silently drop the pending selection the case
+ * is about (#1558), so the flat loader refuses them by name.
+ */
+const PREFIX_CORPUS_SETS: readonly string[] = ['phase1c_selection_v1'];
+
 export interface LoadedNativeDataset {
   readonly dataset: Dataset<NativeTaskInput, LaneSnapshot, NativeCaseMetadata>;
   readonly sourceCaseCount: number;
@@ -26,6 +33,7 @@ export interface LoadedNativeDataset {
 /** Load a preserved export and make the source shape explicit to the native SDK. */
 export async function loadNativeDataset(name: string, smoke: boolean): Promise<LoadedNativeDataset> {
   if (UNMIGRATED_CORPUS_SETS.includes(name)) throw new RangeError(unmigrated(name));
+  if (PREFIX_CORPUS_SETS.includes(name)) throw new RangeError(prefixCorpus(name));
   const frozen = frozenDataset(name);
   const parsed = await readFrozenCases(frozen);
   return toLoadedDataset(frozen.name, parsed, smoke);
@@ -69,6 +77,11 @@ interface ParsedCase {
   readonly inputs: NativeTaskInput;
   readonly metadata: NativeCaseMetadata;
   readonly shape: string;
+}
+
+function prefixCorpus(name: string): string {
+  return `${name} is evaluated from recorded native prefix forks, not from the flat export — `
+    + `run its deterministic selection (pnpm --filter @animichi/eval eval:prefix-selection) instead`;
 }
 
 function unmigrated(name: string): string {

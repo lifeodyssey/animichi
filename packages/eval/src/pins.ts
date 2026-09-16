@@ -43,11 +43,19 @@ export function declaredPins(): EvalFrameworkPins {
 
 /** The logfire version this package's manifest installs — exact, never a range. */
 export function installedLogfireVersion(): string {
+  return declaredDependency('logfire');
+}
+
+/** The pinned Pi SDK version every native session and recorded prefix was written with. */
+export function installedPiAgentVersion(): string {
+  return declaredDependency('@earendil-works/pi-agent-core');
+}
+
+function declaredDependency(name: string): string {
   const path = `${PACKAGE_DIR}package.json`;
-  const raw = readJson(path);
-  const dependencies = raw.dependencies;
+  const dependencies = readJson(path).dependencies;
   if (dependencies === null || typeof dependencies !== 'object') {
     throw new Error(`${path}: no dependencies block`);
   }
-  return requireString(dependencies as Record<string, unknown>, 'logfire', path);
+  return requireString(dependencies as Record<string, unknown>, name, path);
 }

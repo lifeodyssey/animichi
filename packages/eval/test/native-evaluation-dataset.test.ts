@@ -19,6 +19,11 @@ void test('a known dataset typo is refused before any model setup', async () => 
   await assert.rejects(loadNativeDataset('not-a-dataset', false), /unknown dataset/);
 });
 
+void test('phase1c_selection_v1 is refused as a flat prompt because its cases own recorded prefix forks', async () => {
+  await assert.rejects(loadNativeDataset('phase1c_selection_v1', false),
+    /phase1c_selection_v1 is evaluated from recorded native prefix forks/);
+});
+
 void test('runtime_journey_v1 is refused as an unmigrated preserved corpus set', async () => {
   await assert.rejects(loadNativeDataset('runtime_journey_v1', false), /runtime_journey_v1 is a preserved corpus set/);
 });

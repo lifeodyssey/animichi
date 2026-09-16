@@ -103,3 +103,56 @@ outcomes and actual spend. The command refuses to start when the selected
 binding's credential or `CATALOG_API_URL` is missing, and `NativeRunPorts` is a
 test-only seam: the documented command always supplies the published provider
 and real egress.
+
+## Recorded prefix corpora (#1558)
+
+`fixtures/prefix-corpus/<name>.json` is a `Dataset`-format manifest beside a directory of
+frozen format-4 sessions. Each case's inputs declare `prefix` (its own source and boundary),
+and its metadata carries the recording provenance, the frozen pending selection with its
+revision, durable search reference and required application scalars, and the
+`expected_next_action` constraint set. The sources are recorded through the production
+harness on a real `JsonlSessionRepo`; a case whose declared source is missing fails to load
+rather than running as a prompt without its prefix. The recorder canonicalizes before it
+freezes bytes: `src/native/prefix-canonical.ts` rewrites every session-minted identifier to
+an ordered, human-readable placeholder and every classified clock reading to the recording
+epoch, and refuses any identifier or clock it does not classify — so a frozen source carries
+no session identifier, no wall-clock reading and no entropy a secret scanner has to judge,
+and a re-record of the same commit rewrites the same bytes.
+
+A corpus whose suffix is a model call is run by `src/native/prefix-task.ts`: it opens the
+case's frozen source in a scratch `JsonlSessionRepo`, forks `{ scope: "tree" }` and runs the
+production harness on the fork, recording the native `after_tool` witness for
+`expected_next_action`.
+
+`EVAL_DATASET=phase1c_selection_v1` is refused by `eval:native`: those five cases own
+recorded prefix forks, and the flat export has no pending selection. Their deterministic
+suffix is replayed instead:
+
+```sh
+CATALOG_API_URL=https://catalog.example.com pnpm --filter @animichi/eval eval:prefix-selection
+```
+
+That command calls no model (`model_calls: 0`), forking each case's frozen source and running
+the production `executeSelection`, then writing a `deterministic-selection-replay` report
+with each case's candidates, revision, durable reference and selection result. It requires a
+catalog origin, never a model credential. In its absence the corpus can still be recorded
+without egress:
+
+```sh
+EVAL_RECORD_MODE=deterministic EVAL_DATASET=phase1c_selection_v1 \
+  pnpm --filter @animichi/eval eval:record-captures
+```
+
+The committed corpus was written that way and says so: `provider: faux`, `model: faux-model`,
+`catalog: deterministic-case-fixture`. Recording with the published provider binding and the
+real catalog is the same command without `EVAL_RECORD_MODE`, with the binding's credential
+and `CATALOG_API_URL` set; that produces a real-model corpus whose provenance records the
+provider, model, prompt hash, tool identity and tested commit.
+
+### Prefix evidence boundary
+
+The deterministic replay proves the frozen forks carry the recorded state (entries, scalars,
+pending revision, durable references) and that the production selection resolves them without
+`SELECTION_EXPIRED`. It is not a model evaluation: a real-model run of these cases, and a
+real-model recording of the corpus, must still be recorded separately with their exact
+model, commit, repeat/sampling settings and actual spend.
