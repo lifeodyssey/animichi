@@ -1,9 +1,12 @@
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { defineConfig } from "@playwright/test";
 import {
   accessServiceTokenFrom,
   accessServiceTokenHeaders,
   isLoopbackHostname,
 } from "@animichi/contract/access-service-token";
+import { CLAIMED_PORT_ENV, claimedPort, emittedWorkerPort } from "./lane-port";
 
 // The Playwright MCP test server (the agent tool surface) runs as
 // `npx playwright run-test-mcp-server`; every other invocation is the plain
@@ -27,9 +30,46 @@ const seedProjectEnabled = isMcpTestServer || process.env.E2E_SEED_PROJECT === "
 // step, a background `wrangler dev` and a curl readiness loop. Every other
 // invocation targets an app someone else started (`make dev-local` on :3000,
 // staging through E2E_WEB_BASE_URL), so the server is opt-in.
-const emittedWorkerPort = "8799";
-const emittedWorkerOrigin = `http://localhost:${emittedWorkerPort}`;
+//
+// The port is this checkout's own, never a shared constant (#1692):
+// `E2E_EMITTED_WORKER_PORT` pins it, otherwise it is the checkout's ordinal in
+// `git worktree list` — the main clone, a lone human and CI keep :8799, and two
+// linked worktrees get two ports because they are two ordinals. `lane-port.ts`
+// owns the derivation and the argument for why it cannot collide.
+//
+// The claim happens HERE, while the config loads, and not inside the server
+// command: Playwright checks `webServer.url` itself before it runs that
+// command, answers a taken port with a message that names no process, and
+// advises `reuseExistingServer: true` — attaching to another checkout's server,
+// which is the bug rather than the cure. Refusing at config load is earlier,
+// and says who holds the port. The runner is the only process that claims: the
+// workers re-require this file once the server is up, so for them the port is
+// legitimately taken (the claim is re-exported as `CLAIMED_PORT_ENV`, which is
+// also what keeps them on the port the server is actually on if a worktree is
+// added while this lane builds).
+const worktreeRoot = resolve(__dirname, "..");
 const servesEmittedWorker = process.env.E2E_SERVE_EMITTED_WORKER === "1";
+const claimed = claimedPort(process.env);
+const lanePort = claimed ?? emittedWorkerPort(process.env, worktreeRoot);
+if (servesEmittedWorker && claimed === null) {
+  claimLanePort(lanePort);
+  process.env[CLAIMED_PORT_ENV] = String(lanePort);
+}
+const emittedWorkerOrigin = `http://localhost:${String(lanePort)}`;
+
+/** Refuses this run while the port is still a config-load error, quoting
+ *  `lane-port-check.ts` — the probe that names the holder. */
+function claimLanePort(port: number): void {
+  const check = spawnSync(process.execPath, [resolve(__dirname, "lane-port-check.ts"), String(port)], {
+    encoding: "utf8",
+  });
+  if (check.status === 0) {
+    console.log(check.stdout.trim());
+    return;
+  }
+  throw new Error(check.stderr.trim());
+}
+
 // Cloudflare's always-passing test site key, and an unroutable stand-in for
 // the agent and Neon Auth origins: the specs stub every transport with
 // `page.route`, so the lane needs the shapes, not reachable services.
@@ -162,7 +202,7 @@ export default defineConfig({
         webServer: {
           command:
             `pnpm --filter web run build && pnpm --filter web exec wrangler dev ` +
-            `--port ${emittedWorkerPort} --var 'RUNTIME_CONFIG:${emittedWorkerRuntimeConfig}'`,
+            `--port ${String(lanePort)} --inspector-port 0 --var 'RUNTIME_CONFIG:${emittedWorkerRuntimeConfig}'`,
           url: emittedWorkerOrigin,
           timeout: 300_000,
           env: {
