@@ -149,7 +149,8 @@ Worker becomes active before container configuration is processed and the deploy
 transactional. The
 [Wrangler container commands](https://developers.cloudflare.com/workers/wrangler/commands/containers/)
 define `containers delete` as application deletion, while image deletion is a separate command.
-Pinned Wrangler 4.114.0's `deployContainers` path only creates or updates applications that remain
+Wrangler's `deployContainers` path — 4.114.0 when this was measured; re-check it against the
+current pin, which #1703 raised to 4.132.0 — only creates or updates applications that remain
 in configuration, so omission does not establish application deletion; `deleteCommand` invokes
 `ApplicationsService.deleteApplication` explicitly. Its generated application-list client uses
 `GET /containers/dash/applications`, sends `page_token`, and returns
