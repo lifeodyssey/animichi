@@ -9,6 +9,7 @@ require 'open3'
 class ReleaseContainerObservationTest < Minitest::Test
   READ = 'read'
   SLEEP = 'sleep'
+  READ_FAILURE = 'containers info 11111111-1111-4111-8111-111111111111 did not answer within 1000ms'
 
   def setup
     @image = "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}"
@@ -34,10 +35,11 @@ class ReleaseContainerObservationTest < Minitest::Test
     Open3.capture3('node', '--input-type=module', '-e', source, [@application, @version, @container, @image, 'edge-staging'].to_json)
   end
 
-  # Drives the bounded wait with a fake reader that serves `images` in order and
+  # Drives the bounded wait with a fake reader that serves `outcomes` in order and
   # repeats the last one, plus a fake sleep, so nothing here depends on wall time.
-  # Every read and sleep is appended to a log the test asserts on.
-  def poll(images, attempts: 3, delay_ms: 1000)
+  # A nil outcome is a read the caller's timeout killed: the reader raises instead
+  # of answering. Every read and sleep is appended to a log the test asserts on.
+  def poll(outcomes, attempts: 3, delay_ms: 1000)
     source = <<~JS
       import {appendFileSync} from 'node:fs';
       import {awaitContainerImage, containerIdentity} from #{library.to_json};
@@ -45,14 +47,16 @@ class ReleaseContainerObservationTest < Minitest::Test
       let reads = 0;
       const read = () => {
         appendFileSync(input.log, 'read\\n');
-        return {...input.application, configuration: {image: input.images[Math.min(reads++, input.images.length - 1)]}};
+        const outcome = input.outcomes[Math.min(reads++, input.outcomes.length - 1)];
+        if (outcome === null) throw new Error(input.readFailure);
+        return {...input.application, configuration: {image: outcome}};
       };
       const sleep = () => appendFileSync(input.log, 'sleep\\n');
       const application = awaitContainerImage(read, input.image, {attempts: input.attempts, delayMs: input.delayMs, sleep});
       console.log(JSON.stringify(containerIdentity(application, input.version, input.container, input.image, 'edge-staging')));
     JS
     payload = { 'application' => @application, 'version' => @version, 'container' => @container, 'image' => @image,
-                'images' => images, 'attempts' => attempts, 'delayMs' => delay_ms, 'log' => @log }
+                'outcomes' => outcomes, 'readFailure' => READ_FAILURE, 'attempts' => attempts, 'delayMs' => delay_ms, 'log' => @log }
     Open3.capture3('node', '--input-type=module', '-e', source, payload.to_json)
   end
 
@@ -112,15 +116,46 @@ class ReleaseContainerObservationTest < Minitest::Test
     assert_equal [READ, SLEEP, READ, SLEEP, READ], poll_trace
   end
 
-  def test_unconverged_application_fails_with_both_digests_and_the_attempt_count
-    output, error, status = poll([previous_image], attempts: 4, delay_ms: 250)
+  # #1683 review: the first read is immediate, so `attempts` reads contain only
+  # `attempts - 1` waits. The failure message must state that implemented number:
+  # the declared production wait is 12 reads and 11 x 15 s = 165 s, not 180 s.
+  def test_unconverged_application_fails_with_both_digests_and_the_implemented_budget
+    output, error, status = poll([previous_image], attempts: 12, delay_ms: 15_000)
     refute status.success?
-    assert_equal [READ, SLEEP, READ, SLEEP, READ, SLEEP, READ], poll_trace
+    assert_equal ([READ, SLEEP] * 11) + [READ], poll_trace
     assert_empty output
     assert_includes error, "expected #{@image}"
     assert_includes error, "last observed #{previous_image}"
-    assert_includes error, '4 attempts'
-    assert_includes error, '1s budget'
+    assert_includes error, '12 attempts'
+    assert_includes error, '165s wait budget'
+  end
+
+  # #1683 review: `wrangler containers info` is run under a bounded timeout, and
+  # a read that timeout kills is one failed attempt — the poll re-reads — rather
+  # than a crash that ends the receipt.
+  def test_a_killed_read_is_one_failed_attempt_and_the_poll_re_reads
+    output, error, status = poll([nil, nil, @image], attempts: 4)
+    assert status.success?, error
+    assert_equal @image, JSON.parse(output).fetch('image')
+    assert_equal [READ, SLEEP, READ, SLEEP, READ], poll_trace
+  end
+
+  def test_reads_that_never_answer_are_never_reported_as_converged
+    output, error, status = poll([nil], attempts: 3)
+    refute status.success?
+    assert_empty output
+    assert_equal [READ, SLEEP, READ, SLEEP, READ], poll_trace
+    assert_includes error, "expected #{@image}"
+    assert_includes error, 'last observed none'
+    assert_includes error, READ_FAILURE
+  end
+
+  def test_a_killed_read_keeps_the_last_observed_digest_in_the_diagnostic
+    output, error, status = poll([previous_image, nil], attempts: 2)
+    refute status.success?
+    assert_empty output
+    assert_includes error, "last observed #{previous_image}"
+    assert_includes error, READ_FAILURE
   end
 
   def test_convergence_never_trades_away_the_namespace_check

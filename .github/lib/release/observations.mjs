@@ -31,22 +31,42 @@ export function containerIdentity(application, version, container, image, script
 export function awaitContainerImage(read, image, options) {
   const { attempts, delayMs, sleep = pause } = options;
   assert.ok(Number.isInteger(attempts) && attempts > 0 && Number.isInteger(delayMs) && delayMs > 0, 'container wait needs positive integer attempts and delayMs');
-  let application = read();
-  for (let attempt = 1; application?.configuration?.image !== image; attempt += 1) {
-    assert.ok(attempt < attempts, convergenceFailure(application, image, attempts, delayMs));
+  let observation = attemptRead(read);
+  for (let count = 1; observation.application?.configuration?.image !== image; count += 1) {
+    assert.ok(count < attempts, convergenceFailure(observation, image, attempts, delayMs));
     sleep(delayMs);
-    application = read();
+    observation = attemptRead(read, observation.application);
   }
-  return application;
+  return observation.application;
+}
+
+// The first read is immediate, so `attempts` reads contain only `attempts - 1`
+// waits; that product is the wait budget the failure message states. It is
+// exported so the caller can hold its per-read timeout below it (#1683 review).
+export function containerWaitBudgetMs(attempts, delayMs) {
+  return (attempts - 1) * delayMs;
+}
+
+// A read the caller's timeout killed is one failed attempt, not the end of the
+// receipt: the next attempt re-reads. The last application that did answer is
+// carried forward, so `last observed` never describes a read that never
+// happened (#1683 review).
+function attemptRead(read, application) {
+  try {
+    return { application: read() };
+  } catch (error) {
+    return { application, error };
+  }
 }
 
 function pause(milliseconds) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
-function convergenceFailure(application, image, attempts, delayMs) {
-  const observed = application?.configuration?.image ?? 'none';
-  const rollout = application?.active_rollout_id ?? 'none';
-  return `container image did not converge after ${attempts} attempts (${(attempts * delayMs) / 1000}s budget): ` +
-    `expected ${image}, last observed ${observed}, active rollout ${rollout}`;
+function convergenceFailure(observation, image, attempts, delayMs) {
+  const observed = observation.application?.configuration?.image ?? 'none';
+  const rollout = observation.application?.active_rollout_id ?? 'none';
+  const failed = observation.error ? `, last read failed: ${observation.error.message}` : '';
+  return `container image did not converge after ${attempts} attempts (${containerWaitBudgetMs(attempts, delayMs) / 1000}s wait budget): ` +
+    `expected ${image}, last observed ${observed}, active rollout ${rollout}${failed}`;
 }
