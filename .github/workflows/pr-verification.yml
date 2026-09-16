@@ -287,6 +287,7 @@ jobs:
           ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
+          ruby test/repo-config/pre-push-routing.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
@@ -294,11 +295,14 @@ jobs:
       # orchestrator; neither the affected matrix nor any package script can
       # see scripts/local-gates or scripts/delivery, so without this step they
       # would be committed tests nothing runs. Each is hermetic (stubbed PATH,
-      # throwaway git trees) and takes under six seconds.
+      # throwaway git trees) with one deliberate exception: pre-push-commitlint's
+      # cases run the workspace's real commitlint. All six take about twenty
+      # seconds.
       - name: Verify the local gate scripts' own behavioral tests
         run: |
           set -euo pipefail
           bash scripts/local-gates/pre-push-affected.test.sh
+          bash scripts/local-gates/pre-push-commitlint.test.sh
           bash scripts/local-gates/db-fresh-schema.test.sh
           bash scripts/local-gates/infra-check.test.sh
           bash scripts/local-gates/infra-check-unauthorized.test.sh
