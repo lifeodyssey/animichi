@@ -152,6 +152,9 @@ jobs:
       - name: Record observed deployment identities
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
+          CONTAINER_ATTEMPTS: "12"
+          CONTAINER_RETRY_DELAY: "15"
+          CONTAINER_READ_TIMEOUT: "30"
         run: |
           bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging
@@ -286,6 +289,9 @@ jobs:
       - name: Record observed deployment identities
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          CONTAINER_ATTEMPTS: "12"
+          CONTAINER_RETRY_DELAY: "15"
+          CONTAINER_READ_TIMEOUT: "30"
         run: |
           bash .github/scripts/release/schema-preflight.sh production
           node .github/scripts/release/record-receipt.mjs production

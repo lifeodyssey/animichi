@@ -2,17 +2,56 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { unstable_readConfig } from 'wrangler';
-import { deploymentIdentity, containerIdentity } from '../../lib/release/observations.mjs';
+import { deploymentIdentity, containerIdentity, awaitContainerImage, containerWaitBudgetMs } from '../../lib/release/observations.mjs';
+
+// #1683: every staging CD failed because `containers info` was read once, before
+// the application's asynchronous rollout reported the selected image. The knobs
+// live in cd.yml's step env (CONTAINER_ATTEMPTS / CONTAINER_RETRY_DELAY /
+// CONTAINER_READ_TIMEOUT, in seconds); these defaults only cover a manual run.
+// The first read is immediate, so the wait budget is (12 - 1) x 15s = 165s, and
+// it is that size on purpose: run 35045881568 still read the previous digest 24s
+// after the modify returned, and one container rollout step plus its health gate
+// can take minutes.
+const CONTAINER_WAIT_ATTEMPTS = Number(process.env.CONTAINER_ATTEMPTS ?? 12);
+const CONTAINER_WAIT_DELAY_MS = Number(process.env.CONTAINER_RETRY_DELAY ?? 15) * 1000;
+// #1683 review: `wrangler containers info` (Wrangler 4.114.0) documents no
+// request timeout — its containers client builds an AbortController for caller
+// cancellation only and never arms it — so a hung read would otherwise stall
+// this step until the 120-minute job timeout with no diagnostic. Each read is
+// capped below the wait budget, and the poll counts a killed read as one failed
+// attempt that the next attempt re-reads.
+const CONTAINER_READ_TIMEOUT_MS = Number(process.env.CONTAINER_READ_TIMEOUT ?? 30) * 1000;
+const CONTAINER_WAIT_BUDGET_MS = containerWaitBudgetMs(CONTAINER_WAIT_ATTEMPTS, CONTAINER_WAIT_DELAY_MS);
+assert.ok(CONTAINER_READ_TIMEOUT_MS < CONTAINER_WAIT_BUDGET_MS,
+  `CONTAINER_READ_TIMEOUT (${CONTAINER_READ_TIMEOUT_MS}ms) must stay below the container wait budget ((CONTAINER_ATTEMPTS - 1) x CONTAINER_RETRY_DELAY = ${CONTAINER_WAIT_BUDGET_MS}ms)`);
+
+const WRANGLER_EXEC = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] };
 
 function wrangler(...args) {
-  return JSON.parse(execFileSync('pnpm', ['exec', 'wrangler', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }));
+  return executeWrangler({}, ...args);
+}
+
+// The poll's read, and only the poll's read: a killed call is caught by the wait
+// and retried, while every other wrangler call in this receipt is single-shot.
+function containersInfo(id) {
+  try {
+    return executeWrangler({ timeout: CONTAINER_READ_TIMEOUT_MS }, 'containers', 'info', id);
+  } catch (error) {
+    const detail = error?.code === 'ETIMEDOUT' ? `did not answer within ${CONTAINER_READ_TIMEOUT_MS}ms` : error.message;
+    throw new Error(`containers info ${id} ${detail}`, { cause: error });
+  }
+}
+
+function executeWrangler(exec, ...args) {
+  return JSON.parse(execFileSync('pnpm', ['exec', 'wrangler', ...args], { ...WRANGLER_EXEC, ...exec }));
 }
 
 function observeContainers(config, version, applications, image) {
   return (config.containers ?? []).map((container) => {
     const listed = applications.find((application) => application.name === container.name);
     assert.ok(listed, 'deployed container application is unavailable');
-    const application = wrangler('containers', 'info', listed.id);
+    const read = () => containersInfo(listed.id);
+    const application = awaitContainerImage(read, image, { attempts: CONTAINER_WAIT_ATTEMPTS, delayMs: CONTAINER_WAIT_DELAY_MS });
     return containerIdentity(application, version, container, image, config.name);
   });
 }
