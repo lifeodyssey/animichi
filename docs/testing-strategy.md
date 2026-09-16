@@ -189,8 +189,12 @@ network once; the Neon arm always needs network and consumes a temporary branch.
 `docs/ops/neon-test-infra.md` for operator details.
 
 `supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
-login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, self-skipping), and `make e2e-setup`
-installs deps only. The agent backend's local Postgres in `make dev-local` comes from Neon Local
+login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, **fail-closed** — #1690 removed the
+self-skip that made every run green while asserting nothing; without the QA identity its lane fails
+and names the variables), and `make e2e-setup`
+installs deps only. Its lane is local (`pnpm --filter animichi-e2e run test:login`): no pull-request
+job holds a credential, so the browser job reports the proof as `NOT RUN` instead of implying it.
+The agent backend's local Postgres in `make dev-local` comes from Neon Local
 (`make dev-db`); `supabase/` is **archived history** (issue #1000), so `supabase start` is no longer used
 as the backend database or for migration tooling. **`supabase start` is an auth appliance, not a test database.**
 
@@ -615,6 +619,18 @@ trajectories against MiMo through `https://opencode.ai/zen/go/v1` — was delete
 affected-matrix rewrite, so no pull-request or merge-queue job holds a provider credential of any
 kind. `EVAL_SMOKE=1` is a local recipe now (`apps/agent/AGENTS.md`); the capped run was always
 report-only, and removing it changed no merge verdict.
+
+**No pull-request job holds any credential at all** — provider or otherwise. That is not an
+observation, it is a contract: `.github/test/workflow-credentials.test.rb` rejects a `secrets.*`
+read (or `secrets: inherit`) anywhere under `.github/`, so a PR lane cannot present the staging QA
+identity. #1690 settled what follows for the one proof that wanted it: the live Neon Auth login
+lane is a **local** lane (`pnpm --filter animichi-e2e run test:login`, credentials from
+`.env.test`), and the browser job reports it as `NOT RUN` in its step summary and as a run
+annotation rather than letting the summary imply coverage — the spec is fail-closed, so it can
+never skip its way to green, and it is never selected by a lane that cannot run it. Moving that
+proof into CI would mean a CD/staging lane that opens the QA identity from Pulumi ESC under an
+environment-bound OIDC identity (the `cd.yml` + `agent-eval-nightly.yml` pattern) — an owner
+decision, recorded in `docs/ops/auth-migration-neon.md` §7.2.
 
 The uncapped L1 trajectory suite is the only model-backed lane left. It runs nightly and on
 `workflow_dispatch` in `agent-eval-nightly.yml`, which spells its own steps out since the shared
