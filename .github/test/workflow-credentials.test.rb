@@ -26,7 +26,9 @@ class WorkflowCredentialsTest < Minitest::Test
                     .reject(&:empty?)
       define_method("test_#{name}_#{id}_guards_every_export_before_spending_it") do
         guarded = steps.flat_map { |step| step["run"].to_s.scan(/for key in ([A-Z0-9_ ]+); do/) }.flatten.flat_map(&:split)
-        assert_equal opened.sort, guarded.sort, "#{name}:#{id}: ESC only warns on missing values"
+        # The safety property is that no export is left unguarded; a job may also
+        # guard a repository variable that is not an ESC export (#1686).
+        assert_empty opened - guarded, "#{name}:#{id}: ESC only warns on missing values"
       end unless opened.empty?
     end
   end

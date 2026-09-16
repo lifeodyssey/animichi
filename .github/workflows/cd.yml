@@ -241,6 +241,15 @@ jobs:
           for key in CLOUDFLARE_API_TOKEN; do
             [ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }
           done
+      # The variable is not created yet (owner console action, #1686): until it is,
+      # an absent URL must fail here, named, instead of reaching a later step empty.
+      - name: Require the production migrator URL
+        env:
+          MIGRATOR_PRODUCTION_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+        run: |
+          for key in MIGRATOR_PRODUCTION_URL; do
+            [ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }
+          done
       - run: bash .github/scripts/release/registry-login.sh pull
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Inspect remote image manifests

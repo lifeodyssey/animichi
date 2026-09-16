@@ -271,6 +271,7 @@ jobs:
           ruby .github/test/workflow-credentials.test.rb
           ruby .github/test/workflow-execution.test.rb
           ruby .github/test/workflow-invocations.test.rb
+          ruby .github/test/workflow-variables.test.rb
           ruby .github/test/workflow-workspace.test.rb
       - name: Verify Orca delivery tools
         run: |
