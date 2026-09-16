@@ -81,7 +81,10 @@ retired run engine and envelope paths have no forwarding modules.
   `src/gateway/forward.ts` injects the identity headers.
 - Policy stays in pure functions (`routing-policy.ts`, `catalog-policy.ts`) so it runs under
   node:test with no Cloudflare bindings; `app.ts` only wires them up. New public paths go in the
-  policy tables, not the container class.
+  policy tables, not the container class. The public catalog surface — its path matcher and the
+  query parameters each route accepts — is declared ONCE in `@animichi/contract/public-catalog`
+  and read by this Worker's gateway and the catalog Worker's public middleware alike (#1691); an
+  undeclared parameter is rejected before anything is forwarded.
 - `src/container/container-env.ts` owns the container env allowlist/required keys and the
   `DENIED_EGRESS_HOSTS` glob list — it is read verbatim by docs/security guards (see
   `docs/ops/secrets.md`, `docs/ops/cloudflare-hardening.md`); keep paths and key names in lockstep.

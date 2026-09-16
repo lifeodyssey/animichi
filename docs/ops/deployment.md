@@ -394,7 +394,9 @@ Routing defined by `wrangler.toml`:
 
 - `/v1/*` and `/healthz` run through the Worker and proxy to `CONTAINER`
 - `/v1/users/*` goes to the `USERS` service binding, trusting only the edge-forwarded identity headers (it no longer verifies its own JWT — AUTH-2 #950)
-- `/catalog/public/anime-overview/:id` is the one allowlisted anonymous catalog read
+- `/catalog/public/*` is the one anonymous catalog surface: the edge zone route sends it to the
+  edge Worker, which forwards only the two allowlisted reads — `anime-overview/:id` and `popular`
+  (declared once in `packages/contract/src/public-catalog.ts`) — to the private `CATALOG` binding
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`
 

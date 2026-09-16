@@ -66,6 +66,29 @@ void test("public anime overview rejects unexpected query parameters", async () 
   assert.equal(cap.req, undefined);
 });
 
+void test("the popularity ranking forwards anonymously with its declared limit", async () => {
+  let wasAuthCalled = false;
+  const authenticate = () => { wasAuthCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
+  const app = createWorkerApp({ authenticate });
+  const cap: { req?: Request } = {};
+  const res = await app.request("/catalog/public/popular?limit=4", {}, envWithCatalog(cap), stubCtx);
+  assert.equal(await res.text(), "cat");
+  assert.equal(wasAuthCalled, false);
+  assert.ok(cap.req);
+  // The declared parameter must reach the CATALOG binding untouched: the cache
+  // key is the request URL, so a dropped `limit=4` would serve the 8-item
+  // default to a caller that asked for four.
+  assert.equal(new URL(cap.req.url).search, "?limit=4");
+});
+
+void test("the popularity ranking rejects an undeclared query parameter", async () => {
+  const app = createWorkerApp({});
+  const cap: { req?: Request } = {};
+  const res = await app.request("/catalog/public/popular?spoof=1", {}, envWithCatalog(cap), stubCtx);
+  assert.equal(res.status, 400);
+  assert.equal(cap.req, undefined);
+});
+
 async function assertPublicCatalogRejected(path: string, method = "GET"): Promise<void> {
   const app = createWorkerApp({});
   const cap: { req?: Request } = {};

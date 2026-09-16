@@ -40,6 +40,13 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - `index.ts` — the R2 buckets (catalog media, map tiles, docs assets, catalog snapshots), flag-gated web Custom Domains, edge routes, www redirect, the staging per-host WAF config override, exported catalog DB secret, and the Neon Auth staging declarations (JWKS/issuer derivation + QA login, AUTH-2 #950).
 - `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration. Its Neon provider SDK is generated at release time and gitignored, so the complete program needs that generated dependency; `topology-prod-database-access.test.ts` pins the prod stack's role/secret derivations from the source. `runtime-secrets.ts` uses the installed native Cloudflare SDK and has isolated resource-graph tests; four shared runtime ESC config keys are required (the vendor keys no provider can mint). `anonymousAccessEnabled` additionally provisions the environment's Turnstile secret and durable identity seed, but neither is ESC config any more: the staging stack adopts the account's single `cloudflare.TurnstileWidget` through its import identity, any other stack reads it through the `getTurnstileWidget` data source, and the identity seed is a `random.RandomPassword` — the flag must still match the Worker. The widget's public site key is not a secret: it stays committed in `apps/web/wrangler.jsonc` as the adopted widget's own site key. Staging's first Store cutover permits the owner-authorized identity reset documented in the secrets runbook.
+- `src/web-routes.ts` — the edge Worker's zone route table (the hostname plus `/v1/*`,
+  `/catalog/public/*`, `/img/*`, `/tiles/*`, `/healthz`), the legacy-domain redirects and the www
+  redirect. `topology-edge-route-coverage.test.ts` cross-checks every path `apps/web` resolves
+  through the edge against this table, derived from the contract declarations the edge reads
+  (`packages/contract/src/public-catalog.ts` and friends) — a path the web resolves that the table
+  does not declare fails there, which is how #1691 shipped a `/catalog/public/*` route the record
+  had always assumed.
 - `src/staging-access.ts` — the whole staging front door (D3 #1369): one
   `ZeroTrustAccessApplication` over `stagingDomain` plus the two `animichi-*-staging`
   workers.dev origins, a `non_identity` (Service Auth) policy carrying the
@@ -70,11 +77,13 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - Never run a production apply outside CD; its single `production` environment approval is the
   mandatory human gate after the complete affected cohort reaches staging.
 - `webRoutesEnabled` defaults false. **Flipping it publishes the site**, and does so atomically on
-  purpose: the Custom Domain and the narrowed `/v1/*`, `/img/*`, `/healthz` edge routes appear
+  purpose: the Custom Domain and the narrowed `/v1/*`, `/catalog/public/*`, `/img/*`, `/tiles/*`,
+  `/healthz` edge routes appear
   together. Splitting them is the bug this gate exists to prevent — a hostname that resolves before
   its routes are narrowed answers a browser navigation with the edge Worker's JSON 404. Every stack
-  gets the same Custom-Domain-plus-three-routes shape (staging included: `apps/web` calls `/v1/*`
-  relative to its own origin, so a staging hostname pointed wholly at the web Worker has no chat).
+  gets the same Custom-Domain-plus-five-routes shape (staging included: `apps/web` calls `/v1/*` and
+  `/catalog/public/*` relative to its own origin, so a staging hostname pointed wholly at the web
+  Worker has no chat and no anime page).
   Prod additionally gets the www placeholder and redirect, and so requires `wwwDomain` on top of
   `cloudflareZoneId` + `webDomain`; other stacks require `cloudflareZoneId` + `stagingDomain`.
   Do not flip it as routine cleanup.

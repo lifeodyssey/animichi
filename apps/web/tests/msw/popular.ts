@@ -4,8 +4,11 @@ import { TEST_ORIGIN } from "./fixtures";
 
 /**
  * MSW swimlane for the catalog `GET /catalog/public/popular` endpoint
- * (spec S5.5: an existing public endpoint this train does not migrate, so it
- * has no oRPC contract — the fixtures mirror its `{ bangumi: [...] }` shape).
+ * (`catalogContract.popular`; the fixture mirrors its `{ bangumi: [...] }`
+ * output). The hook sends the contract's declared `limit` query parameter
+ * (`?limit=8`), which the edge gateway and the catalog Worker both accept from
+ * the one allowlist in `@animichi/contract/public-catalog` (#1691). MSW matches
+ * on the path, so the query does not appear in `POPULAR_URL`.
  */
 export const POPULAR_URL = `${TEST_ORIGIN}/catalog/public/popular`;
 
