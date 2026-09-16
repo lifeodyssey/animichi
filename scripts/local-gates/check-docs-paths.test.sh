@@ -161,6 +161,23 @@ test_test_script_exempt() {
   echo "PASS: .github/scripts/*.test.sh fixtures are exempt"
 }
 
+# ── Case 11: a single-digit `:<line>` suffix strips, like a multi-digit one ─
+# The suffix glob needed two digits, so `…spec.md:4` kept its `:4` and was
+# reported as a missing file. The count assertion also pins that the citation
+# was actually seen — skipping the token would pass the exit code alone.
+test_single_digit_line_suffix() {
+  local repo out=/tmp/docs-path-case11.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/docs/specs"
+  printf 'x\n' > "${repo}/docs/specs/2026-08-16-migration-executor-spec.md"
+  printf 'AGENTS.md\n`docs/specs/2026-08-16-migration-executor-spec.md:4`\n' > "${repo}/AGENTS.md"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -eq 0 ] || fail_test "single-digit :line suffix must strip, got exit ${rc}: $(cat "${out}")"
+  grep -q "1 docs/ references, all resolve" "${out}" || fail_test "the ref must count as one and resolve: $(cat "${out}")"
+  echo "PASS: a single-digit :line suffix strips and the ref still counts"
+}
+
 test_good_refs_pass
 test_missing_ref_fails
 test_external_urls_skipped
@@ -171,5 +188,6 @@ test_suffix_stripping
 test_glob_skipped
 test_parent_escape_fails
 test_test_script_exempt
+test_single_digit_line_suffix
 
 echo "All check-docs-paths.sh behavioral tests passed."
