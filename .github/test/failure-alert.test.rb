@@ -111,10 +111,15 @@ class FailureAlertWiringTest < Minitest::Test
     end
   end
 
-  def test_pull_request_verification_does_not_alert
-    workflow = documents.fetch("pr-verification.yml")
-    assert_nil workflow.fetch("jobs")[JOB],
-               "pr-verification.yml: a PR failure is already on the pull request, so it must not open an alert"
+  # `pr-verification.yml` runs on `push` too (#1715), so it is unattended and the
+  # alerter belongs in it — but a pull request failure is already on the pull
+  # request, which is the surface this workflow's other events have. The alert
+  # must therefore be gated to the one event left with no human-facing surface,
+  # and this is what pins that gate rather than the job's absence.
+  def test_pull_request_verification_alerts_only_on_the_merged_commit
+    condition = alerter(documents.fetch("pr-verification.yml"), "pr-verification.yml").fetch("if")
+    assert_includes condition, "github.event_name == 'push'",
+                    "pr-verification.yml: a PR failure is already on the pull request, so the alert is push-only"
   end
 
   def test_the_alerter_reads_no_credential_beyond_the_run_identity

@@ -16,11 +16,63 @@
 # B5, B4 and B3 (#1361) rewrote or replaced each in place — CodeQL analysis
 # is GitHub's default setup now, and the ruleset's code_scanning rule consumes
 # its results directly.
+#
+# The merged-commit lane (#1715). `merge_group` never fires here — there is no
+# merge queue — so without a `push` trigger nothing ran against the commit a squash
+# merge produces.
+#
+# The ruleset's `strict_required_status_checks_policy` is what makes the ordinary
+# case safe: a branch must contain the current `main` tip before it can merge, so a
+# normal squash merge produces exactly the tree its pull_request run gated. This
+# lane exists for what can still diverge from that — an owner-bypass merge or a
+# direct push to `main`, a verdict that changes with time (the osv advisory data),
+# and a run cut short before it reported. #1695's workflow and #678's whole-tree
+# contract each passed their own gate and failed eight tests once they met; the
+# strict policy forces the rebase that surfaces that class of collision, and this
+# lane covers the merges that never rebase.
+#
+# A merged commit cannot be amended, so this lane runs the whole matrix except
+# `commits`: the whole-repository lanes — `contracts`, `docs`, and the six security
+# jobs behind `Security` — the lanes `plan` routes by the merged diff — `affected`,
+# `agent`, `e2e`, `db` — and the two aggregates that carry the required contexts.
+# When the merge's bytes differ from the pull request's, it is exactly what those
+# diff-selected lanes read that changed, so gating them off would leave their
+# failure with no verdict at all. `plan` therefore routes the merge's own diff: on
+# a push `github.event.before` is the trunk tip it landed on and `github.sha` is
+# the squash commit. Only `commits` is gated off, and it has no subject here at all
+# (no PR title, and a merge-base range of zero commits).
+#
+# The one gate is `github.event_name != 'push'`.
+# `.github/test/merged-commit-lane.test.rb` pins the trigger and that selection,
+# and its tables must cover every job in this file, so a job added later cannot
+# reach a merged commit by default.
+#
+# What happens when this lane goes red: `alert-failure` below publishes one
+# deduplicated issue, because a `push` run is unattended by
+# `.github/test/failure-alert.test.rb`'s own definition — the same job, entry,
+# permissions and (workflow, ref) concurrency group the three existing unattended
+# workflows use, with its `if:` narrowed to the push event so a pull-request
+# failure stays on the pull request. A run the concurrency group supersedes while
+# it is still pending is cancelled and alerts nothing; the run that replaced it
+# reads a tree containing the same bytes. Recovery is a reviewed revert on `main`
+# (docs/ops/deployment.md, "After any recovery"), which `release-build.yml` turns
+# into a new immutable snapshot. Nothing reverts `main` automatically: a red lane
+# can be the fault of either of the two changes that landed together, and an
+# unreviewed write to `main` is what the ruleset exists to prevent.
+#
+# A red run here does not stop the deploy. `release-build.yml` fires on the same
+# push, builds that commit and dispatches `cd.yml`, which stages it and waits for
+# the production approval; nothing in CD reads this run. The approver has to check
+# the alert or this run for the SHA before approving.
 name: CI
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   merge_group:
+    branches: [main]
+  # The merged-commit lane: the squash result on trunk, which `merge_group` would
+  # have covered had this repository a merge queue.
+  push:
     branches: [main]
 
 permissions:
@@ -31,6 +83,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Routing only: it answers which packages a diff touches. On a push the diff it
+  # routes is the merge's own — `github.event.before` to `github.sha` — so a merge
+  # whose bytes differ from the pull request's still reaches the package lanes it
+  # changed.
   plan:
     name: CI / plan
     runs-on: ubuntu-latest
@@ -57,13 +113,14 @@ jobs:
           node-version: "24"
       # The paths outside any pnpm project (migrations/, .github/) and the root
       # dependency files, which pnpm answers with the root project alone.
-      # base/ref are read only on merge_group: on pull_request the action asks
-      # the API for the PR's file list and ignores them.
+      # base/ref are read on merge_group and on push — the action special-cases
+      # pull_request, where it asks the API for the PR's file list and ignores
+      # them. On a push the pair is the merged diff, before..sha.
       - id: paths
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
-          base: ${{ github.event.merge_group.base_sha }}
-          ref: ${{ github.event.merge_group.head_sha }}
+          base: ${{ github.event.merge_group.base_sha || github.event.before }}
+          ref: ${{ github.event.merge_group.head_sha || github.sha }}
           filters: |
             agent:
               - 'apps/agent/**'
@@ -93,8 +150,8 @@ jobs:
               - '.npmrc'
       - id: pnpm
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
           DEPS_CHANGED: ${{ steps.paths.outputs.deps }}
           WORKFLOWS_CHANGED: ${{ steps.paths.outputs.workflows }}
         run: |
@@ -104,6 +161,9 @@ jobs:
           if [ "$DEPS_CHANGED" = true ]; then
             projects="$(pnpm ls -r --depth -1 --json)"
           else
+            # On a push BASE_SHA is the trunk tip the merge landed on — a `push`
+            # into `main` has the previous tip as its `before` — so this merge base
+            # is BASE_SHA, and the filter selects exactly the merged diff.
             merge_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
             projects="$(pnpm ls -r --depth -1 --json --filter "...[$merge_base]")"
           fi
@@ -176,7 +236,10 @@ jobs:
       - name: Run the package's own gates
         env:
           PACKAGE: ${{ matrix.package }}
-          CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          # The baseline is the merge base's copy of the published documents. Both
+          # PR-only operands are absent on a push, so the fallback is the trunk tip
+          # the merge landed on — the same one `plan`'s routing reads.
+          CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
           VITE_SHOWCASE_MODE: "false"
           VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
@@ -245,6 +308,7 @@ jobs:
           ruby .github/test/failure-alert-ledger.test.rb
           ruby .github/test/failure-alert-mutation.test.rb
           ruby .github/test/failure-alert.test.rb
+          ruby .github/test/merged-commit-lane.test.rb
           ruby .github/test/pr-verification-affected.test.rb
           ruby .github/test/pr-verification-agent.test.rb
           ruby .github/test/pr-verification-browser.test.rb
@@ -678,8 +742,12 @@ jobs:
       - name: Lint the migrations
         run: make db-lint
 
+  # No subject on a merged commit: the PR title expression is empty, and
+  # `merge-base origin/main HEAD` is `HEAD`, so the range commitlint would lint is
+  # the zero commits the squash already resolved into one.
   commits:
     name: CI / commits
+    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -721,3 +789,31 @@ jobs:
       - name: Fail when any selected gate failed or was cancelled
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
+
+  # A merged commit is unattended: a `push` run has no pull request to show its
+  # failure on, so it reaches the same alerter the release build, the nightly and
+  # CD already use (#678 AC1, #1715) — one deduplicated issue per failing-job set,
+  # through the run's own token and no new credential. The `github.event_name`
+  # term keeps a pull-request failure where it belongs, on the pull request. Every
+  # other job is in `needs` so a failure in any of them reaches it.
+  alert-failure:
+    name: Ops / failure alert
+    needs: [plan, affected, contracts, docs, agent, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff, commits, security, aggregate]
+    if: ${{ always() && github.event_name == 'push' && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The key's own (workflow, ref) prefix: two runs that could share an alert
+    # must not interleave their read-then-create, and never cancel each other.
+    concurrency:
+      group: ops-alert-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, issues: write} # read this run's jobs; publish the alert issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish the failure alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_SELF_JOB: Ops / failure alert
+        run: ruby .github/scripts/alert/failure-alert.rb

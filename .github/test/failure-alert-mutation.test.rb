@@ -137,9 +137,14 @@ class FailureAlertMutationTest < Minitest::Test
     end
   end
 
+  # The workflow is unattended now (#1715), so the probe can no longer be the
+  # alert's absence: it is the gate that keeps the alert off the pull-request
+  # event, which is the property the consequence names.
   def test_rejects_alerting_on_pull_request_failures
-    probe("pr-verification.yml gaining the alert job", PR_FAILURE) do |dir|
-      mutate(dir, "pr-verification.yml") { |doc| doc.fetch("jobs")["alert-failure"] = { "runs-on" => "ubuntu-latest" } }
+    probe("pr-verification.yml alerting on a pull request failure", PR_FAILURE) do |dir|
+      mutate(dir, "pr-verification.yml") do |doc|
+        doc.dig("jobs", "alert-failure")["if"] = "${{ always() && contains(needs.*.result, 'failure') }}"
+      end
     end
   end
 
