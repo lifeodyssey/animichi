@@ -10,6 +10,7 @@
   "dependencies": {
     "@pulumi/cloudflare": "^6.0.0",
     "@pulumi/pulumi": "^3.0.0",
+    "@pulumi/random": "^4.21.1",
     "js-yaml": "4.3.2"
   },
   "devDependencies": {

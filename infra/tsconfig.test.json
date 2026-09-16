@@ -13,6 +13,7 @@
     "testing/runtime-secrets.ts",
     "topology-runtime-secrets-staging.test.ts",
     "topology-runtime-secrets-prod.test.ts",
+    "topology-runtime-secrets-shared-widget.test.ts",
     "topology-runtime-secrets-missing.test.ts",
     "topology-runtime-secret-bindings.test.ts",
     "topology-disabled.test.ts",

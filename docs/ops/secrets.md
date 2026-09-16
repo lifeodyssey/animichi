@@ -66,7 +66,7 @@ A secret reaching a shared environment takes one of three shapes:
    the last upload step (`sync-edge-runtime-secrets.sh` piping a JSON object into `wrangler secret
    bulk`, and the `edge-runtime-secrets.py` allowlist it fed): no workflow uploads a runtime secret
    any more, and `cloudflare/wrangler-action`'s `secrets:` input is deliberately unused.
-   The shared names — `DEEPSEEK_API_KEY`, `MIMO_API_KEY`, `ZEN_GO_API_KEY`,
+   The shared names — `MIMO_API_KEY`, `ZEN_GO_API_KEY`,
    `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN` — are declared
    by `infra/database-access/runtime-secrets.ts` as native `cloudflare.SecretsStoreSecret`
    resources. The stack imports `animichi/staging` or `animichi/prod`, and every project-qualified
@@ -83,15 +83,30 @@ A secret reaching a shared environment takes one of three shapes:
    the server binding.
 2. **Worker-only anonymous chain** — `TURNSTILE_SECRET` and `ANON_ID_SECRET` use native
    store bindings. `anonymousAccessEnabled` must match the Worker's `ANON_ACCESS_ENABLED` flag.
-   When enabled, the program additionally requires and provisions both secrets. The owner
-   authorized a new staging identity seed for this cutover; old anonymous test cookies will be
-   replaced and their quota/session association will not carry over automatically. Production
-   currently disables anonymous access, so it requires
-   neither anonymous secret nor their bindings. The identity resource uses native
-   `retainOnDelete`: disabling access later must retain its value. Re-enabling after removal
-   from state requires a reviewed import of the retained resource, not a replacement seed. The edge resolves them before Turnstile verification and
-   anonymous-cookie/pass signing or verification. They are excluded from the container allowlist.
-   Disabled anonymous access does not fetch either secret.
+   When enabled, the program provisions both, and **neither is ESC config any more** (#1676):
+   - `TURNSTILE_SECRET` is the `secret` output of the account's ONE Turnstile widget
+     (`animichi.com (Spin)`, site key `0x4AAAAAAD-SYZJEDljOH-SB`). The **staging** stack adopts it
+     through the provider's documented import identity `<account_id>/<sitekey>`
+     (`cloudflare.TurnstileWidget`) with `protect: true`/`retainOnDelete: true`, so the adoption
+     keeps the existing widget and its site key even through a staging destroy, rename or
+     declaration removal; a stack that needs the secret without owning the widget reads the same
+     widget through the `getTurnstileWidget` data source instead of importing a second copy. That
+     widget's **public site key is not a secret**: it is committed web config in
+     `apps/web/wrangler.jsonc` and is exactly the adopted widget's own site key, so nothing seals
+     or re-derives it at deploy time.
+   - `ANON_ID_SECRET` is generated (`random.RandomPassword`, 48 characters, mirroring
+     `CATALOG_ADMIN_TOKEN`) instead of hand-typed. The owner authorized the first-apply rotation
+     of the staging identity seed; old anonymous test cookies are replaced and their
+     quota/session association does not carry over automatically.
+   The identity store secret keeps native `retainOnDelete`: disabling access later must not
+   DELETE the live copy. A Secrets Store secret name is unique within its store and create does
+   not adopt one, so re-enabling anonymous access requires a reviewed import of the retained
+   resource (its `<account_id>/<store_id>/<secret_id>` identity) or its deletion — re-declaring
+   the name fails instead of rotating the seed. Production currently disables anonymous
+   access, so it requires neither anonymous secret nor their bindings. The edge resolves them
+   before Turnstile verification and anonymous-cookie/pass signing or verification. They are
+   excluded from the container allowlist. Disabled anonymous access does not fetch either
+   secret.
 3. **Plain var chain** — never a GitHub secret at all; a literal value checked into
    `wrangler.toml`'s `[vars]` (or `[env.<name>.vars]`), forwarded to the container the same way
    as (1) via `CONTAINER_ENV_KEYS`. Reference implementation: `ANON_DAILY_COST_BUDGET_USD`.
@@ -109,14 +124,19 @@ These declarations are a candidate, not proof of applied platform changes. Verif
 secret-marked inputs separately for each environment before merging the foundation, then
 complete these gates:
 
-1. Provision the shared nonempty `animichi-neon-secrets:<NAME>` keys as `fn::secret` from
-   owner-approved sources. Where anonymous access is enabled, also provide the environment's
-   `TURNSTILE_SECRET` and durable `ANON_ID_SECRET`. Staging's newly generated identity seed is an
+1. Provision the four shared nonempty `animichi-neon-secrets:<NAME>` vendor keys
+   (`MIMO_API_KEY`, `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`) as `fn::secret`
+   from owner-approved sources; they are the only runtime secrets ESC still carries. Anonymous
+   access needs no ESC value: the adopted widget supplies `TURNSTILE_SECRET` and the program
+   generates `ANON_ID_SECRET` (#1676). The first apply rotates the staging identity seed — an
    owner-authorized reset, not a continuity-preserving migration. Preserve the eval export.
    Never log or check in values.
-2. Preview staging: seven worker-scoped runtime resources; production currently has five.
-   Confirm the enablement flag matches the Worker, expected names, concealed values, and
-   existing database/access resources unchanged. Missing config blocks the release.
+2. Preview staging: six worker-scoped runtime resources (four vendor, Turnstile, identity);
+   production currently has four. The staging preview must also show the widget as an **import**
+   (`cloudflare:index/turnstileWidget:TurnstileWidget` with import id `<account_id>/<sitekey>`),
+   never a create or replace — a replaced widget changes the site key committed in
+   `apps/web/wrangler.jsonc`. Confirm the enablement flag matches the Worker, expected names, concealed
+   values, and existing database/access resources unchanged. Missing config blocks the release.
 3. CD applies foundation before the matching edge artifact; production requires its approval.
 4. Pass staging health/front-door smoke and anonymous chat. Verify all seven staging binding
    names/ids before removing legacy Worker copies; retain metadata-only removal evidence.
@@ -133,7 +153,6 @@ rotation evidence.
 |---|---|---|---|---|
 | `ZEN_GO_API_KEY` | ESC `environmentVariables` (nightly eval) + ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding → agent container; and `agent-eval-nightly.yml`, which opens it from ESC | Missing or blank blocks edge staging, production, and rollback at preflight. The nightly eval 401/403s the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
 | `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent and retained by the Python container | Exact edge core payload → Worker binding → native host model credentials and agent container | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
-| `DEEPSEEK_API_KEY` | ESC `pulumiConfig` | Fallback model — **wired but disabled** (no balance) | Exact edge core payload → Worker binding → agent container | It remains an exact required binding; missing or blank blocks edge staging, production, and rollback at preflight |
 | `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding (`apps/agent/src/animichi/infrastructure/gateways/geocoding.py`) | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure |
 | `LOGFIRE_TOKEN` | ESC `pulumiConfig`, one project per environment (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
 
@@ -166,7 +185,7 @@ per-row backlog.
 | `CATALOG_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the catalog Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/catalog/wrangler.toml`, so no workflow or GH secret reference remains. The staging GH secret still exists only until the binding swap is verified live | After the first post-PR2 staging deploy passes its post-deploy suite, `gh secret delete CATALOG_DATABASE_URL --env staging` |
 | `USERS_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the users Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/users/wrangler.toml`, so no workflow or GH secret reference remains. The staging GH secret still exists only until the binding swap is verified live | After the first post-PR2 staging deploy passes its post-deploy suite, `gh secret delete USERS_DATABASE_URL --env staging` |
 | `SUPABASE_DB_URL` | The Python runtime reads only `AGENT_SVC_DATABASE_URL`. #1370 removes this unused key from container forwarding, required inputs and proposed Store resources/bindings. Existing online copies are outside this source change | Do **not** delete an online copy in this change; any later retirement needs its own live-state review |
-| `TURNSTILE_SECRET` · `ANON_ID_SECRET` | CD no longer uploads runtime secrets. Active anonymous access reads both; provisioning and bindings follow `anonymousAccessEnabled`. The owner authorized a new staging identity seed for this cutover | Preserve legacy Worker copies until the applicable live cutover gates pass; later identity resets require their own authorization |
+| `TURNSTILE_SECRET` · `ANON_ID_SECRET` | CD no longer uploads runtime secrets, and since #1676 neither is ESC config either. Active anonymous access reads both; provisioning and bindings follow `anonymousAccessEnabled`. `TURNSTILE_SECRET` is the adopted widget's provider-read secret, `ANON_ID_SECRET` is generated (`random.RandomPassword`), the staging stack owns the account's one widget and any other stack reads it through the `getTurnstileWidget` data source. The owner authorized the first-apply rotation of the staging identity seed | Preserve legacy Worker copies until the applicable live cutover gates pass; later identity resets require their own authorization. A declaration removal leaves the live copy in place (`retainOnDelete`), and re-enabling access must import that retained secret by id or delete it — re-declaring the name fails |
 | `NEON_DATABASE_URL` | Was Live (this table, above) until #1365 (C3): production migrations now go through the migrator Worker on GitHub OIDC exactly like staging, so the Atlas transitional step and its `${{ secrets.NEON_DATABASE_URL }}` are gone from `.github/workflows/cd.yml` — no workflow references the name any more (`workers/edge/test/migration-boundary.test.ts` asserts zero occurrences). The catalog/users runtime DSNs already came from Cloudflare Secrets Store bindings, and the migrator reads its own `MIGRATOR_DATABASE_URL` store secret provisioned by `infra/database-access/index.ts` | Do **not** delete piecemeal — the repo, `staging`, and `production` copies go with every other GitHub secret in D1 (#1367), by which time nothing reads them (#1057 endgame) |
 | `SUPABASE_URL` · `SUPABASE_ANON_KEY` | Retired Supabase auth-plane credentials. No source, workflow, release manifest, or runtime reads either name after the Neon Auth hard cut | `gh secret delete SUPABASE_URL` then `gh secret delete SUPABASE_ANON_KEY`. (`SUPABASE_DB_URL` is a separate retired container-DSN input.) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Retired Supabase service-role credential. No source, workflow, release manifest, or runtime reads it | `gh secret delete SUPABASE_SERVICE_ROLE_KEY` |

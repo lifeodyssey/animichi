@@ -89,7 +89,6 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc 角色 DSN（asyncpg）——agent 容器必需的数据面连接（#912）。旧名 `SUPABASE_DB_URL` 仍作为过渡期容器-DSN 名保留到 #855 生产切换 |
 | `MIMO_API_KEY` | 主模型供应商密钥 |
-| `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
 
 **Worker 边缘：** `NEON_AUTH_JWKS_URL`（边缘**唯一** identity 来源 — AUTH-2 #950。用分支 JWKS 校验 Neon Auth EdDSA JWT；生产分支未就绪前不设置＝fail-closed）。catalog/users/jobs 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
