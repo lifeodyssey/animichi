@@ -1,22 +1,36 @@
 # pi-session-neon — AGENTS.md
 
 Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../../AGENTS.md`.
-Prisma 8 owns the seven new agent tables through `src/contract.prisma` and native
-`migrations/`. Atlas SQL in `../../migrations/neon/` owns all pre-existing objects.
-No object has two migration owners; preserve all applied Atlas SQL byte for byte.
+Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
+`migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
+from `migrations/neon/`. `migrations/neon/` is read-only evidence of the objects the baseline
+replaced until W4 deletes it — it owns nothing here. No object has two migration owners; do not
+re-declare an object the chain already builds.
 
 - `pnpm run lint` — type-aware oxlint, warnings denied.
 - `pnpm run typecheck` — TypeScript 7.
 - `pnpm run test:integration` — Node's test runner, one reused test-postgres container and a
   disposable database of its own. `--test-isolation=none` shares the imported setup and serial
   tests; each test resets that database. Never point these tests at a live Neon database.
+  `test/postgres.ts` creates the shared database from pristine `template1`, migrates it with this
+  chain, then installs the two #1607 quota aggregates; the migration-target ACs create their own
+  chain-only `template1` database with no aggregates. Neither reads the Atlas-applied database
+  `startTestPostgres` also prepares — one chain per database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 
-The owner approved two declaration-style exceptions on 2026-09-10: generated
-`src/contract.d.ts` and `migrations/snapshots/*/contract.d.ts` may retain Prisma's native
-`consistent-type-definitions` and `no-empty-object-type` output. Package `.oxlintrc.json`
-limits those exceptions to these files. All other lint rules, editable migrations and
-application code remain checked; TypeScript keeps `skipLibCheck: false`.
+The owner approved three exceptions for Prisma's generated output, and only that output:
+`consistent-type-definitions` and `no-empty-object-type` on 2026-09-10, plus `array-type` on
+2026-09-14 because each emitted contract declares four `ReadonlyArray<T>` properties that the
+generator cannot emit as `readonly T[]`. Package `.oxlintrc.json` limits all three exceptions
+to exactly `src/contract.d.ts` and `migrations/snapshots/*/contract.d.ts`; handwritten code,
+editable migrations and every other generated path keep the full rule set, and TypeScript keeps
+`skipLibCheck: false`. Never regenerate the contracts to silence a rule.
+
+Separately, for #1626 the owner approved on 2026-09-14 one exception to root `AGENTS.md`'s
+300-line file cap: `packages/pi-session-neon/src/contract.prisma` may exceed it, because Prisma 8's
+loader reads exactly one contract source file (a directory path fails `CONTRACT.SOURCE_LOAD_FAILED`
+/ `EISDIR`) and its 315 non-comment lines cannot be formatted under the cap. No other path is
+exempt: every other handwritten file in the package remains subject to that cap.
 
 The contract stores published Pi 0.85.1 `Entry`, `UsageRow` and `SessionMetadata` directly.
 Do not create a custom Session, transcript converter, TurnStore or operation state machine.
@@ -34,9 +48,20 @@ conformance/test imports. Deployed APAC latency and real-tool measurements remai
 
 Author contract changes in Prisma's PSL, run `contract:emit`, then use native `migration plan`
 with an explicit origin when no development ref exists. Regenerate edited native migrations
-by running their rendered `migration.ts`; never hand-edit generated hashes or SQL bundles.
-Use the public `rawSql` migration operation only for PostgreSQL grants that Prisma's contract
-planner does not express. Runtime record validation belongs to native Pi session APIs.
+through `pnpm run migration:emit -- migrations/app/<dir>`, which runs the rendered `migration.ts`;
+never hand-edit generated hashes or SQL bundles. Prisma's emitters write JSON without a final
+newline, so both entrypoints finish by restoring it (`scripts/generated-artifacts.ts`) — a
+regenerated tree is already `end-of-file-fixer`-clean, and running either entrypoint twice
+leaves no diff.
+`rawSql` is spec §4.1's escape hatch for what the contract planner does not express: grants and
+role prechecks, extensions, trigger functions and triggers, generated columns, and the
+operator-class / descending index DDL schema verification cannot read. Install that DDL exactly
+and prove the semantics in `pg_catalog` (`data-plane-indexes.ts`), because dropping them to match
+the introspectable IR weakens live PostgreSQL. Runtime record validation belongs to native Pi
+session APIs.
 
-Existing Atlas migrations are immutable. The two unpublished #1539 draft migrations were
-replaced by this native Prisma migration. No old-table retirement is authorized by #1539.
+Atlas SQL under `migrations/neon/` is immutable, read-only evidence of the objects #1626's native
+Prisma chain replaced; only W4 deletes it, and this package drops no old table. The two unpublished
+#1539 draft migrations were replaced by that two-node chain. The omissions here — `points.embedding`
+and `idx_points_embedding`, `locations.location`, and the 12 agent-domain tables — are authorized by
+`docs/specs/2026-09-12-prisma8-database-layer-spec.md` §4.8.3–§4.8.4 and §4.12, not by #1539.

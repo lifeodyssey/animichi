@@ -625,6 +625,9 @@ importers:
 
   packages/pi-session-neon:
     dependencies:
+      '@animichi/prisma-geography':
+        specifier: workspace:*
+        version: link:../prisma-geography
       '@earendil-works/pi-agent-core':
         specifier: 'catalog:'
         version: 0.85.1(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.5))(supports-color@10.2.2)(ws@8.21.1)(zod@4.6.5)
@@ -782,6 +785,9 @@ importers:
       '@animichi/pi-session-neon':
         specifier: workspace:*
         version: link:../../packages/pi-session-neon
+      '@animichi/prisma-geography':
+        specifier: workspace:*
+        version: link:../../packages/prisma-geography
       '@earendil-works/pi-agent-core':
         specifier: 'catalog:'
         version: 0.85.1(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.5))(supports-color@10.2.2)(ws@8.21.1)(zod@4.6.5)
@@ -852,6 +858,9 @@ importers:
       '@animichi/pi-session-neon':
         specifier: workspace:*
         version: link:../../packages/pi-session-neon
+      '@animichi/prisma-geography':
+        specifier: workspace:*
+        version: link:../../packages/prisma-geography
       '@neondatabase/serverless':
         specifier: 'catalog:'
         version: 1.1.0

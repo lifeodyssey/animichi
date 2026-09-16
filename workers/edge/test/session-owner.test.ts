@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import postgresClient from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../src/native-client.ts";
 import { createOrLockOwnedConversation, setDefaultConversationTitle } from "../src/agent/admission/session-owner.ts";
 import type { AdmissionTransaction } from "../src/agent/admission/types.ts";
 
-const database = postgresClient<Contract>({ contractJson, url: "postgres://unit:unit@127.0.0.1:1/unit" });
+const database = nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
 const request = { sessionId: "session", identityId: "owner", text: "New query" };
 
 after(async () => database.close());

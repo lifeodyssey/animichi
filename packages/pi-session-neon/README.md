@@ -1,8 +1,9 @@
 # Native Pi session storage
 
-Issue #1541 implements Pi 0.85.1 `Storage` and `SessionRepo` directly on the seven-table Prisma 8
-contract from #1539. `NeonStorage` and `NeonSessionRepo` accept a native `PostgresClient<Contract>`;
-the caller owns its connection lifecycle. The repository returns upstream `StorageBackedSession`.
+Issue #1541 implements Pi 0.85.1 `Storage` and `SessionRepo` directly on the seven native tables of
+the Prisma 8 contract from #1539, which #1626 widened to also declare the 19 catalog/users data-plane
+tables. `NeonStorage` and `NeonSessionRepo` accept a native `PostgresClient<Contract>`; the caller
+owns its connection lifecycle. The repository returns upstream `StorageBackedSession`.
 Runtime admission, recovery and billing remain separate production writers.
 
 The schema follows the [published SDK types](https://github.com/earendil-works/pi/blob/d981de1229ef899957bbe968bc8dcda02a21f477/packages/agent/src/harness/session/types.ts)
@@ -19,11 +20,17 @@ and [official SQLite backend](https://github.com/earendil-works/pi/blob/d981de12
 | `agent_settlements` | The spec's pending-settlement record: independently discoverable operation obligation, ledger cursor and `settled_at` guard. |
 
 Reservations remain on their admission row; `anon_daily_message_count` and `daily_usage` remain
-the existing quota and cost aggregates. New tables receive only `agent_svc` grants. Pi entries
+the existing quota and cost aggregates, which the contract deliberately does not declare (the
+database-layer spec §4.12) — `test/quota-aggregates.ts` installs them for the executable examples
+until #1607 deletes them. Native Pi tables receive only `agent_svc` grants; the 19 data-plane
+tables follow the Atlas grant matrix in `access.ts`, and no role is created here. Pi entries
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
-Prisma's native migration owns these seven new tables; the existing Atlas chain owns older
-objects. No applied migration or old table is altered. The integration suite compares every old table's
-columns, constraints, indexes, triggers and grants with an independently migrated baseline.
+One Prisma chain owns every table this package builds: the seven native tables and the 19
+catalog/users data-plane tables rebuilt from `migrations/neon`. No applied Atlas migration is
+altered, and no object has two owners. The migration-target ACs run against a per-test `template1`
+database migrated only by that chain; the shared fixture installs the two #1607 quota aggregates
+on top of it (`test/quota-aggregates.ts`), so the suite no longer compares against an
+Atlas-built database.
 
 `Storage.commit` holds the session row lock for the entire SQL transaction,
 uses public `prepareStorageCommit` and `validateCommittedWrites`, advances `next_seq` for **every**
@@ -42,7 +49,7 @@ atomic settlement of cursor, daily cost and refund. Production writers still nee
 operation witness, live ownership and fault recovery protocols. Table presence or these examples
 do not certify that host behavior. PostgreSQL transactions use Prisma 8's public runtime and
 native query APIs. Direct `pg` queries in tests independently inspect constraints, grants and
-legacy table preservation. Worker connections use Prisma's supported request-scoped lifecycle.
+conflicting pre-existing tables. Worker connections use Prisma's supported request-scoped lifecycle.
 
 Prisma 8 rc.9 reparses JSON root strings after its PostgreSQL driver has already decoded them.
 The pinned [native runtime patch](patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch) leaves
@@ -59,8 +66,10 @@ never disable the regression tests or convert root strings into another storage 
 
 After editing `src/contract.prisma`, run `contract:emit` and plan a migration from the intended
 contract hash or ref. Release migration selection must use the chosen artifact's contract hash,
-not the latest checkout. `test/migration-target.db.test.ts` covers B selected while C exists,
-replay, backward refusal and conflicting pre-existing table refusal.
+not the latest checkout. `test/migration-target.db.test.ts` applies the chain from zero on its own
+`template1` database, proves replay changes nothing, proves an earlier head leaves the later node
+pending, and covers B selected while C exists, backward refusal and conflicting pre-existing table
+refusal.
 
 Run `pnpm --filter @animichi/pi-session-neon test:integration` from the repository root. The existing
 workspace discovery selects this package in the local affected gate and CI matrix automatically.

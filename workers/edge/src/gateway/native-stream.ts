@@ -1,6 +1,4 @@
-import postgres from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../native-client.ts";
 import { NeonStorage } from "@animichi/pi-session-neon";
 import { laneState, operationMeta, operationResult } from "@earendil-works/pi-agent-core/harness/session";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
@@ -15,7 +13,7 @@ export async function nativeStreamResponse(env: Env, request: Request, identityI
   const binding = env.AGENT_SVC_DATABASE_URL;
   const url = typeof binding === "string" ? binding : await binding?.get();
   if (!url) throw new Error("The native agent database is not configured");
-  const db = postgres<Contract>({ contractJson, url });
+  const db = nativeClient(url);
   let operationId: string;
   try {
     if (!await ownsConversation(db, sessionId, identityId)) return conversationNotFound();

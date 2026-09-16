@@ -1,6 +1,6 @@
 import { checkExpression, col, fn, lit, primaryKey } from '@prisma/orm-postgres/migration';
 
-export const BUSINESS_TABLES = [{
+export const AGENT_TABLES = [{
   schema: 'public', table: 'agent_admissions',
   columns: [
     col('client_message_id', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
@@ -42,5 +42,8 @@ export const BUSINESS_TABLES = [{
     col('operation_id', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
     col('settled_at', 'timestamptz', { codecRef: { codecId: 'pg/timestamptz-string@1' } }),
   ],
-  constraints: [primaryKey(['operation_id']), checkExpression('agent_settlements_last_usage_seq_6e9ae59f', 'last_usage_seq >= -1')],
+  constraints: [
+    primaryKey(['operation_id']),
+    checkExpression('agent_settlements_last_usage_seq_6e9ae59f', 'last_usage_seq >= -1'),
+  ],
 }] as const;

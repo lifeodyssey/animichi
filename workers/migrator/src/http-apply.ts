@@ -29,9 +29,10 @@ const DUPLICATE_OBJECT = "42P07";
  * returned HTTP 500 with nothing applied. That was unreachable while staging was
  * only ever migrated incrementally, and became the normal first state once the
  * staging baseline reset started dropping and recreating `public` (#1216).
- * Columns are Atlas v0.30's own, dumped from a database it migrated.
+ * Columns are Atlas v0.30's own, dumped from a database it migrated. Exported so the integration
+ * fixtures seed the transition ledger with that same shape.
  */
-const LEDGER_SQL = `CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions (
+export const LEDGER_SQL = `CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions (
   version varchar NOT NULL,
   description varchar NOT NULL,
   type bigint NOT NULL DEFAULT 2,

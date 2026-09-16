@@ -1,7 +1,5 @@
-import postgres from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
 import type { Env } from "../env.ts";
+import { nativeClient } from "../native-client.ts";
 import { listConversations } from "../agent/views/conversation-list.ts";
 
 /**
@@ -17,7 +15,7 @@ export async function nativeConversationListResponse(env: Env, identityId: strin
   const binding = env.AGENT_SVC_DATABASE_URL;
   const url = typeof binding === "string" ? binding : await binding?.get();
   if (!url) throw new Error("The native agent database is not configured");
-  const db = postgres<Contract>({ contractJson, url });
+  const db = nativeClient(url);
   try {
     return Response.json(await listConversations(db, identityId), { headers: { "cache-control": "no-store" } });
   } finally { await db.close(); }

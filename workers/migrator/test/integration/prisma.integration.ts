@@ -1,9 +1,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { dropCleanDatabase, hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres, uniqueDatabaseName } from "@animichi/test-postgres";
+import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres } from "@animichi/test-postgres";
 import pg from "pg";
 import { FIXED_NOW } from "../migrate.worker.helpers";
 import { nativeApp, TARGET, APP_MIGRATION_COUNT } from "./prisma-fixture";
-import { clonePrismaDatabase, servePrismaPostgres } from "./prisma-postgres";
+import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTarget } from "./prisma-postgres";
 import { grantDatabaseCreate, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./preflight.postgres";
 
@@ -13,16 +13,16 @@ let app: Awaited<ReturnType<typeof nativeApp>>;
 let databaseDsn: string;
 const resources: { server?: typeof server; client?: pg.Client } = {};
 let caseNumber = 0;
-/** Each case's clone, dropped by the case that created it: the server is shared
+/** Each case's target database, dropped by the case that created it: the server is shared
  * (#1663), so a leftover would collide with the next run of this lane. */
-let caseDatabase = "";
+let caseTarget: PrismaMigrationTarget | undefined;
 
 beforeAll(async () => { server = resources.server = await startTestPostgres({ database: "native_delivery", budget: SPIKE_SETUP_BUDGET }); }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterAll(async () => { await resources.server?.stop(); });
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
-  caseDatabase = uniqueDatabaseName(`native_delivery_case_${String(caseNumber++)}`);
-  const dsn = databaseDsn = await clonePrismaDatabase(server.dsn, caseDatabase);
+  caseTarget = await openPrismaMigrationTarget(server.dsn, `native_delivery_case_${String(caseNumber++)}`);
+  const dsn = databaseDsn = caseTarget.dsn;
   client = resources.client = new pg.Client(dsn);
   await client.connect();
   servePrismaPostgres(dsn);
@@ -30,7 +30,7 @@ beforeEach(async () => {
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterEach(async () => {
   await resources.client?.end();
-  await dropCleanDatabase(server.dsn, caseDatabase);
+  await caseTarget?.stop();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -58,7 +58,7 @@ it("applies the sealed native graph and replays with zero migrations while prese
   expect(appliedBody).toMatchObject({ success: true, prisma: { markerHash: TARGET, migrationsApplied: sealedCount } });
   const applied = (appliedBody as { prisma: { applied: { operationsExecuted: number }[] } }).prisma.applied;
   expect(applied).toHaveLength(sealedCount);
-  expect(applied[0]).toMatchObject({ operationsExecuted: 20 });
+  expect(applied[0]).toMatchObject({ operationsExecuted: 67 });
   await client.query("INSERT INTO pi_sessions (id, metadata) VALUES ('preserved', '{\"id\":\"preserved\",\"value\":\"null\"}')");
   const preview = await app.preview();
   expect(await preview.json()).toMatchObject({ prisma: { markerHash: TARGET, migrations: [], usedLiveMarker: true } });

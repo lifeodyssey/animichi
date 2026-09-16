@@ -23,6 +23,7 @@
     "@animichi/agent": "workspace:*",
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
+    "@animichi/prisma-geography": "workspace:*",
     "@earendil-works/pi-agent-core": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
     "@neondatabase/serverless": "catalog:",

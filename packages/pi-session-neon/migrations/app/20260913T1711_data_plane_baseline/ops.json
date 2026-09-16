@@ -1,0 +1,2594 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "extension.postgis",
+    "label": "Create extension \"postgis\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create extension \"postgis\"",
+        "sql": "CREATE EXTENSION IF NOT EXISTS \"postgis\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify extension \"postgis\" has a version",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis' AND extversion <> '') AS result"
+      }
+    ]
+  },
+  {
+    "id": "extension.pgcrypto",
+    "label": "Create extension \"pgcrypto\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create extension \"pgcrypto\"",
+        "sql": "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify extension \"pgcrypto\" has a version",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pgcrypto' AND extversion <> '') AS result"
+      }
+    ]
+  },
+  {
+    "id": "extension.pg_trgm",
+    "label": "Create extension \"pg_trgm\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create extension \"pg_trgm\"",
+        "sql": "CREATE EXTENSION IF NOT EXISTS \"pg_trgm\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify extension \"pg_trgm\" has a version",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm' AND extversion <> '') AS result"
+      }
+    ]
+  },
+  {
+    "id": "extension.vector",
+    "label": "Create extension \"vector\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create extension \"vector\"",
+        "sql": "CREATE EXTENSION IF NOT EXISTS \"vector\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify extension \"vector\" has a version",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector' AND extversion <> '') AS result"
+      }
+    ]
+  },
+  {
+    "id": "table.agent_admissions",
+    "label": "Create table \"agent_admissions\"",
+    "summary": "Creates table \"agent_admissions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "agent_admissions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"agent_admissions\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"agent_admissions\"",
+        "sql": "CREATE TABLE \"public\".\"agent_admissions\" (\n  \"client_message_id\" text NOT NULL,\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"identity_id\" text NOT NULL,\n  \"kind\" text NOT NULL,\n  \"operation_id\" text,\n  \"payer\" text NOT NULL,\n  \"quota_refunded_at\" timestamptz,\n  \"quota_reserved_at\" timestamptz,\n  \"quota_usage_date\" date,\n  \"rejection_reason\" text,\n  \"request_digest\" text NOT NULL,\n  \"session_id\" text NOT NULL,\n  \"state\" text DEFAULT 'pending' NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"agent_admissions_anon_reservation_6033223e\" CHECK (quota_reserved_at IS NULL OR (payer = 'anon' AND kind = 'model')),\n  CONSTRAINT \"agent_admissions_kind_c9a3d3de\" CHECK (kind IN ('model', 'selection')),\n  CONSTRAINT \"agent_admissions_operation_eb16a5ca\" CHECK ((kind = 'model') = (operation_id IS NOT NULL)),\n  CONSTRAINT \"agent_admissions_payer_e16f03f2\" CHECK (payer IN ('anon', 'user', 'byok')),\n  CONSTRAINT \"agent_admissions_refund_01ca6412\" CHECK (quota_refunded_at IS NULL OR quota_reserved_at IS NOT NULL),\n  CONSTRAINT \"agent_admissions_reservation_703b91eb\" CHECK ((quota_usage_date IS NULL) = (quota_reserved_at IS NULL)),\n  CONSTRAINT \"agent_admissions_state_68032317\" CHECK (state IN ('pending', 'accepted', 'settled', 'void'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"agent_admissions\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.agent_open_operations",
+    "label": "Create table \"agent_open_operations\"",
+    "summary": "Creates table \"agent_open_operations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "agent_open_operations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"agent_open_operations\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_open_operations\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"agent_open_operations\"",
+        "sql": "CREATE TABLE \"public\".\"agent_open_operations\" (\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"operation_id\" text NOT NULL,\n  PRIMARY KEY (\"operation_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"agent_open_operations\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_open_operations\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.agent_settlements",
+    "label": "Create table \"agent_settlements\"",
+    "summary": "Creates table \"agent_settlements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "agent_settlements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"agent_settlements\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_settlements\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"agent_settlements\"",
+        "sql": "CREATE TABLE \"public\".\"agent_settlements\" (\n  \"last_usage_seq\" int8 DEFAULT '-1'::int8 NOT NULL,\n  \"operation_id\" text NOT NULL,\n  \"settled_at\" timestamptz,\n  PRIMARY KEY (\"operation_id\"),\n  CONSTRAINT \"agent_settlements_last_usage_seq_6e9ae59f\" CHECK (last_usage_seq >= -1)\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"agent_settlements\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_settlements\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.aliases",
+    "label": "Create table \"aliases\"",
+    "summary": "Creates table \"aliases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"aliases\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aliases\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"aliases\"",
+        "sql": "CREATE TABLE \"public\".\"aliases\" (\n  \"alias\" text NOT NULL,\n  \"alias_normalized\" text NOT NULL,\n  \"bangumi_id\" text NOT NULL,\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"priority\" int4 DEFAULT 0 NOT NULL,\n  \"source\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"aliases\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"aliases\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.bangumi",
+    "label": "Create table \"bangumi\"",
+    "summary": "Creates table \"bangumi\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "bangumi"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"bangumi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"bangumi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"bangumi\"",
+        "sql": "CREATE TABLE \"public\".\"bangumi\" (\n  \"air_date\" text,\n  \"city\" text,\n  \"cover_url\" text,\n  \"created_at\" timestamptz DEFAULT (now()),\n  \"eps_count\" int4,\n  \"id\" text NOT NULL,\n  \"platform\" text,\n  \"points_count\" int4 DEFAULT 0,\n  \"primary_color\" text,\n  \"rating\" float4,\n  \"summary\" text,\n  \"title\" text NOT NULL,\n  \"title_cn\" text,\n  \"updated_at\" timestamptz DEFAULT (now()),\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"bangumi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"bangumi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.catalog_provenance",
+    "label": "Create table \"catalog_provenance\"",
+    "summary": "Creates table \"catalog_provenance\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "catalog_provenance"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"catalog_provenance\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"catalog_provenance\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"catalog_provenance\"",
+        "sql": "CREATE TABLE \"public\".\"catalog_provenance\" (\n  \"attribution\" text,\n  \"captured_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"entity_id\" text NOT NULL,\n  \"field_map\" jsonb,\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"license\" text,\n  \"scope\" text NOT NULL,\n  \"source\" text NOT NULL,\n  \"upstream_id\" text,\n  \"work_id\" text,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"catalog_provenance\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"catalog_provenance\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.catalog_runs",
+    "label": "Create table \"catalog_runs\"",
+    "summary": "Creates table \"catalog_runs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "catalog_runs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"catalog_runs\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"catalog_runs\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"catalog_runs\"",
+        "sql": "CREATE TABLE \"public\".\"catalog_runs\" (\n  \"budget_used\" jsonb,\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"failures\" jsonb,\n  \"finished_at\" timestamptz,\n  \"published_versions\" jsonb,\n  \"run_id\" text NOT NULL,\n  \"source_outcomes\" jsonb,\n  \"started_at\" timestamptz,\n  \"status\" text DEFAULT 'pending' NOT NULL,\n  \"targets\" jsonb,\n  PRIMARY KEY (\"run_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"catalog_runs\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"catalog_runs\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.cluster_version",
+    "label": "Create table \"cluster_version\"",
+    "summary": "Creates table \"cluster_version\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cluster_version"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"cluster_version\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"cluster_version\"",
+        "sql": "CREATE TABLE \"public\".\"cluster_version\" (\n  \"bangumi_id\" text NOT NULL,\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"is_current\" bool DEFAULT false NOT NULL,\n  \"version\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"cluster_version\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.ingest_jobs",
+    "label": "Create table \"ingest_jobs\"",
+    "summary": "Creates table \"ingest_jobs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "ingest_jobs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"ingest_jobs\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ingest_jobs\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"ingest_jobs\"",
+        "sql": "CREATE TABLE \"public\".\"ingest_jobs\" (\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"error\" text,\n  \"error_code\" text,\n  \"finished_at\" timestamptz,\n  \"negative_cached_until\" timestamptz,\n  \"stage\" text,\n  \"started_at\" timestamptz,\n  \"status\" text DEFAULT 'pending' NOT NULL,\n  \"work_id\" text NOT NULL,\n  PRIMARY KEY (\"work_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"ingest_jobs\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"ingest_jobs\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.itinerary_snapshots",
+    "label": "Create table \"itinerary_snapshots\"",
+    "summary": "Creates table \"itinerary_snapshots\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "itinerary_snapshots"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"itinerary_snapshots\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"itinerary_snapshots\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"itinerary_snapshots\"",
+        "sql": "CREATE TABLE \"public\".\"itinerary_snapshots\" (\n  \"bangumi_id\" text NOT NULL,\n  \"cluster_version\" int4 NOT NULL,\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"payload\" jsonb NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"itinerary_snapshots\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"itinerary_snapshots\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.leg_cache",
+    "label": "Create table \"leg_cache\"",
+    "summary": "Creates table \"leg_cache\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "leg_cache"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"leg_cache\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"leg_cache\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"leg_cache\"",
+        "sql": "CREATE TABLE \"public\".\"leg_cache\" (\n  \"created_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"distance_m\" float8,\n  \"duration_minutes\" float8,\n  \"from_cluster\" text NOT NULL,\n  \"mode\" text NOT NULL,\n  \"to_cluster\" text NOT NULL,\n  PRIMARY KEY (\"from_cluster\", \"to_cluster\", \"mode\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"leg_cache\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"leg_cache\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.location_aliases",
+    "label": "Create table \"location_aliases\"",
+    "summary": "Creates table \"location_aliases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "location_aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"location_aliases\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"location_aliases\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"location_aliases\"",
+        "sql": "CREATE TABLE \"public\".\"location_aliases\" (\n  \"alias\" text NOT NULL,\n  \"alias_normalized\" text NOT NULL,\n  \"lang\" text,\n  \"location_id\" text NOT NULL,\n  \"priority\" int4 DEFAULT 0 NOT NULL,\n  PRIMARY KEY (\"alias_normalized\", \"location_id\"),\n  CONSTRAINT \"location_aliases_lang_2d53ab68\" CHECK (lang IS NULL OR lang IN ('ja', 'zh', 'en'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"location_aliases\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"location_aliases\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.locations",
+    "label": "Create table \"locations\"",
+    "summary": "Creates table \"locations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "locations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"locations\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"locations\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"locations\"",
+        "sql": "CREATE TABLE \"public\".\"locations\" (\n  \"created_at\" timestamptz DEFAULT (now()),\n  \"id\" text NOT NULL,\n  \"kind\" text NOT NULL,\n  \"latitude\" float8 NOT NULL,\n  \"longitude\" float8 NOT NULL,\n  \"name\" text NOT NULL,\n  \"pref\" text,\n  \"source\" text NOT NULL,\n  \"updated_at\" timestamptz DEFAULT (now()),\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"locations_kind_896a2215\" CHECK (kind IN ('station', 'city', 'ward', 'landmark', 'prefecture')),\n  CONSTRAINT \"locations_source_d0ccedf5\" CHECK (source IN ('seed', 'mlit', 'geonames', 'manual'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"locations\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"locations\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.media_assets",
+    "label": "Create table \"media_assets\"",
+    "summary": "Creates table \"media_assets\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "media_assets"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"media_assets\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"media_assets\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"media_assets\"",
+        "sql": "CREATE TABLE \"public\".\"media_assets\" (\n  \"content_hash\" text,\n  \"last_origin_pull\" timestamptz,\n  \"point_id\" text NOT NULL,\n  \"r2_key\" text,\n  \"tombstoned\" bool DEFAULT false NOT NULL,\n  PRIMARY KEY (\"point_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"media_assets\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"media_assets\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.points",
+    "label": "Create table \"points\"",
+    "summary": "Creates table \"points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"points\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"points\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"points\"",
+        "sql": "CREATE TABLE \"public\".\"points\" (\n  \"bangumi_id\" text,\n  \"city\" text,\n  \"created_at\" timestamptz DEFAULT (now()),\n  \"episode\" int4,\n  \"id\" text NOT NULL,\n  \"image\" text,\n  \"latitude\" float8 NOT NULL,\n  \"location\" geography(Point,4326) NOT NULL,\n  \"longitude\" float8 NOT NULL,\n  \"name\" text NOT NULL,\n  \"name_cn\" text,\n  \"origin\" text,\n  \"origin_url\" text,\n  \"scene_desc\" text,\n  \"time_seconds\" int4 DEFAULT 0,\n  \"updated_at\" timestamptz DEFAULT (now()),\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"points\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"points\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.raw_anitabi",
+    "label": "Create table \"raw_anitabi\"",
+    "summary": "Creates table \"raw_anitabi\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "raw_anitabi"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"raw_anitabi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_anitabi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"raw_anitabi\"",
+        "sql": "CREATE TABLE \"public\".\"raw_anitabi\" (\n  \"fetched_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"payload\" jsonb NOT NULL,\n  \"work_id\" text NOT NULL,\n  PRIMARY KEY (\"work_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"raw_anitabi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_anitabi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.raw_bangumi",
+    "label": "Create table \"raw_bangumi\"",
+    "summary": "Creates table \"raw_bangumi\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "raw_bangumi"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"raw_bangumi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_bangumi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"raw_bangumi\"",
+        "sql": "CREATE TABLE \"public\".\"raw_bangumi\" (\n  \"fetched_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"payload\" jsonb NOT NULL,\n  \"work_id\" text NOT NULL,\n  PRIMARY KEY (\"work_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"raw_bangumi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_bangumi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.raw_payload_history",
+    "label": "Create table \"raw_payload_history\"",
+    "summary": "Creates table \"raw_payload_history\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "raw_payload_history"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"raw_payload_history\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_payload_history\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"raw_payload_history\"",
+        "sql": "CREATE TABLE \"public\".\"raw_payload_history\" (\n  \"fetched_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"payload\" jsonb NOT NULL,\n  \"run_id\" text,\n  \"seq\" BIGSERIAL NOT NULL,\n  \"source\" text NOT NULL,\n  \"work_id\" text NOT NULL,\n  PRIMARY KEY (\"seq\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"raw_payload_history\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"raw_payload_history\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.series_edges",
+    "label": "Create table \"series_edges\"",
+    "summary": "Creates table \"series_edges\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "series_edges"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"series_edges\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"series_edges\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"series_edges\"",
+        "sql": "CREATE TABLE \"public\".\"series_edges\" (\n  \"from_bangumi_id\" text NOT NULL,\n  \"relation\" text NOT NULL,\n  \"to_bangumi_id\" text NOT NULL,\n  PRIMARY KEY (\"from_bangumi_id\", \"to_bangumi_id\", \"relation\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"series_edges\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"series_edges\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.pi_list_values",
+    "label": "Create table \"pi_list_values\"",
+    "summary": "Creates table \"pi_list_values\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "pi_list_values"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"pi_list_values\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_list_values\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"pi_list_values\"",
+        "sql": "CREATE TABLE \"public\".\"pi_list_values\" (\n  \"key\" text NOT NULL,\n  \"namespace\" text NOT NULL,\n  \"seq\" int8 NOT NULL,\n  \"session_id\" text NOT NULL,\n  \"value\" jsonb,\n  PRIMARY KEY (\"session_id\", \"namespace\", \"key\", \"seq\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"pi_list_values\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_list_values\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.pi_records",
+    "label": "Create table \"pi_records\"",
+    "summary": "Creates table \"pi_records\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "pi_records"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"pi_records\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"pi_records\"",
+        "sql": "CREATE TABLE \"public\".\"pi_records\" (\n  \"id\" text NOT NULL,\n  \"kind\" text NOT NULL,\n  \"payload\" jsonb NOT NULL,\n  \"seq\" int8 NOT NULL,\n  \"session_id\" text NOT NULL,\n  PRIMARY KEY (\"session_id\", \"id\"),\n  CONSTRAINT \"pi_records_kind_check_a2fad22d\" CHECK (\"kind\" IN ('entry', 'usage')),\n  CONSTRAINT \"pi_records_payload_id_94d9123f\" CHECK ((payload->>'id') IS NOT DISTINCT FROM id),\n  CONSTRAINT \"pi_records_payload_seq_9ea7b271\" CHECK (((payload->>'seq')::bigint) IS NOT DISTINCT FROM seq)\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"pi_records\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.pi_scalar_values",
+    "label": "Create table \"pi_scalar_values\"",
+    "summary": "Creates table \"pi_scalar_values\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "pi_scalar_values"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"pi_scalar_values\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_scalar_values\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"pi_scalar_values\"",
+        "sql": "CREATE TABLE \"public\".\"pi_scalar_values\" (\n  \"key\" text NOT NULL,\n  \"namespace\" text NOT NULL,\n  \"seq\" int8 NOT NULL,\n  \"session_id\" text NOT NULL,\n  \"value\" jsonb,\n  PRIMARY KEY (\"session_id\", \"namespace\", \"key\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"pi_scalar_values\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_scalar_values\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.pi_sessions",
+    "label": "Create table \"pi_sessions\"",
+    "summary": "Creates table \"pi_sessions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "pi_sessions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"pi_sessions\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_sessions\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"pi_sessions\"",
+        "sql": "CREATE TABLE \"public\".\"pi_sessions\" (\n  \"id\" text NOT NULL,\n  \"metadata\" jsonb NOT NULL,\n  \"next_seq\" int8 DEFAULT '0'::int8 NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"pi_sessions_metadata_id_d12aedca\" CHECK ((metadata->>'id') IS NOT DISTINCT FROM id),\n  CONSTRAINT \"pi_sessions_next_seq_4a7f17e3\" CHECK (next_seq >= 0)\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"pi_sessions\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"pi_sessions\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.saved_route_anime",
+    "label": "Create table \"saved_route_anime\"",
+    "summary": "Creates table \"saved_route_anime\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "saved_route_anime"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"saved_route_anime\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"saved_route_anime\"",
+        "sql": "CREATE TABLE \"public\".\"saved_route_anime\" (\n  \"bangumi_id\" text NOT NULL,\n  \"position\" int4 DEFAULT 0 NOT NULL,\n  \"saved_route_id\" uuid NOT NULL,\n  PRIMARY KEY (\"saved_route_id\", \"bangumi_id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"saved_route_anime\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.saved_route_idempotency",
+    "label": "Create table \"saved_route_idempotency\"",
+    "summary": "Creates table \"saved_route_idempotency\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "saved_route_idempotency"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"saved_route_idempotency\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_route_idempotency\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"saved_route_idempotency\"",
+        "sql": "CREATE TABLE \"public\".\"saved_route_idempotency\" (\n  \"created_at\" timestamptz DEFAULT (now()),\n  \"expires_at\" timestamptz NOT NULL,\n  \"fingerprint\" text NOT NULL,\n  \"key\" text NOT NULL,\n  \"op\" text NOT NULL,\n  \"owner_user_id\" text NOT NULL,\n  \"result\" jsonb,\n  \"result_id\" uuid,\n  \"state\" text DEFAULT 'in_progress' NOT NULL,\n  PRIMARY KEY (\"owner_user_id\", \"op\", \"key\"),\n  CONSTRAINT \"saved_route_idempotency_state_c15286b9\" CHECK (state IN ('in_progress', 'committed'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"saved_route_idempotency\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_route_idempotency\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.saved_routes",
+    "label": "Create table \"saved_routes\"",
+    "summary": "Creates table \"saved_routes\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "saved_routes"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"saved_routes\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_routes\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"saved_routes\"",
+        "sql": "CREATE TABLE \"public\".\"saved_routes\" (\n  \"created_at\" timestamptz DEFAULT (now()),\n  \"id\" uuid DEFAULT (uuidv7()) NOT NULL,\n  \"point_ids\" text[] NOT NULL,\n  \"saved_at\" timestamptz,\n  \"status\" text DEFAULT 'draft' NOT NULL,\n  \"title\" text,\n  \"updated_at\" timestamptz DEFAULT (now()) NOT NULL,\n  \"user_id\" text,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"saved_routes_status_a8464f30\" CHECK (status IN ('draft', 'saved', 'completed'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"saved_routes\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"saved_routes\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.agent_admissions.agent_admissions_operation_id_key",
+    "label": "Add unique constraint on \"agent_admissions\" (operation_id)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agent_admissions_operation_id_key",
+        "table": "agent_admissions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agent_admissions_operation_id_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_operation_id_key",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"agent_admissions_operation_id_key\"",
+        "sql": "ALTER TABLE \"public\".\"agent_admissions\" ADD CONSTRAINT \"agent_admissions_operation_id_key\" UNIQUE (\"operation_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agent_admissions_operation_id_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_operation_id_key",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.agent_admissions.agent_admissions_session_id_client_message_id_key",
+    "label": "Add unique constraint on \"agent_admissions\" (session_id, client_message_id)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "agent_admissions_session_id_client_message_id_key",
+        "table": "agent_admissions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"agent_admissions_session_id_client_message_id_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_session_id_client_message_id_key",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"agent_admissions_session_id_client_message_id_key\"",
+        "sql": "ALTER TABLE \"public\".\"agent_admissions\" ADD CONSTRAINT \"agent_admissions_session_id_client_message_id_key\" UNIQUE (\"session_id\", \"client_message_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"agent_admissions_session_id_client_message_id_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_session_id_client_message_id_key",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.aliases.aliases_bangumi_id_alias_source_key",
+    "label": "Add unique constraint on \"aliases\" (bangumi_id, alias, source)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "aliases_bangumi_id_alias_source_key",
+        "table": "aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"aliases_bangumi_id_alias_source_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aliases_bangumi_id_alias_source_key",
+          "public",
+          "\"public\".\"aliases\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"aliases_bangumi_id_alias_source_key\"",
+        "sql": "ALTER TABLE \"public\".\"aliases\" ADD CONSTRAINT \"aliases_bangumi_id_alias_source_key\" UNIQUE (\"bangumi_id\", \"alias\", \"source\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"aliases_bangumi_id_alias_source_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "aliases_bangumi_id_alias_source_key",
+          "public",
+          "\"public\".\"aliases\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.catalog_provenance.catalog_provenance_scope_entity_id_key",
+    "label": "Add unique constraint on \"catalog_provenance\" (scope, entity_id)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "catalog_provenance_scope_entity_id_key",
+        "table": "catalog_provenance"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"catalog_provenance_scope_entity_id_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "catalog_provenance_scope_entity_id_key",
+          "public",
+          "\"public\".\"catalog_provenance\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"catalog_provenance_scope_entity_id_key\"",
+        "sql": "ALTER TABLE \"public\".\"catalog_provenance\" ADD CONSTRAINT \"catalog_provenance_scope_entity_id_key\" UNIQUE (\"scope\", \"entity_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"catalog_provenance_scope_entity_id_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "catalog_provenance_scope_entity_id_key",
+          "public",
+          "\"public\".\"catalog_provenance\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.cluster_version.cluster_version_bangumi_id_version_key",
+    "label": "Add unique constraint on \"cluster_version\" (bangumi_id, version)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "cluster_version_bangumi_id_version_key",
+        "table": "cluster_version"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"cluster_version_bangumi_id_version_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cluster_version_bangumi_id_version_key",
+          "public",
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"cluster_version_bangumi_id_version_key\"",
+        "sql": "ALTER TABLE \"public\".\"cluster_version\" ADD CONSTRAINT \"cluster_version_bangumi_id_version_key\" UNIQUE (\"bangumi_id\", \"version\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"cluster_version_bangumi_id_version_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "cluster_version_bangumi_id_version_key",
+          "public",
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.pi_records.pi_records_session_id_seq_key",
+    "label": "Add unique constraint on \"pi_records\" (session_id, seq)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "pi_records_session_id_seq_key",
+        "table": "pi_records"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"pi_records_session_id_seq_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_records_session_id_seq_key",
+          "public",
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"pi_records_session_id_seq_key\"",
+        "sql": "ALTER TABLE \"public\".\"pi_records\" ADD CONSTRAINT \"pi_records_session_id_seq_key\" UNIQUE (\"session_id\", \"seq\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"pi_records_session_id_seq_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_records_session_id_seq_key",
+          "public",
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.saved_route_anime.saved_route_anime_saved_route_id_position_key",
+    "label": "Add unique constraint on \"saved_route_anime\" (saved_route_id, position)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "saved_route_anime_saved_route_id_position_key",
+        "table": "saved_route_anime"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"saved_route_anime_saved_route_id_position_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_saved_route_id_position_key",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"saved_route_anime_saved_route_id_position_key\"",
+        "sql": "ALTER TABLE \"public\".\"saved_route_anime\" ADD CONSTRAINT \"saved_route_anime_saved_route_id_position_key\" UNIQUE (\"saved_route_id\", \"position\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"saved_route_anime_saved_route_id_position_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_saved_route_id_position_key",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.agent_admissions.agent_admissions_unresolved_4731a1b2",
+    "label": "Create index \"agent_admissions_unresolved_4731a1b2\" on \"agent_admissions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "agent_admissions_unresolved_4731a1b2",
+        "table": "agent_admissions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"agent_admissions_unresolved_4731a1b2\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_admissions_unresolved_4731a1b2\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"agent_admissions_unresolved_4731a1b2\"",
+        "sql": "CREATE INDEX \"agent_admissions_unresolved_4731a1b2\" ON \"public\".\"agent_admissions\" (\"kind\", \"created_at\") WHERE (state IN ('pending', 'accepted'))",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"agent_admissions_unresolved_4731a1b2\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_admissions_unresolved_4731a1b2\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.agent_settlements.agent_settlements_unsettled_3325215f",
+    "label": "Create index \"agent_settlements_unsettled_3325215f\" on \"agent_settlements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "agent_settlements_unsettled_3325215f",
+        "table": "agent_settlements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"agent_settlements_unsettled_3325215f\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_settlements_unsettled_3325215f\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"agent_settlements_unsettled_3325215f\"",
+        "sql": "CREATE INDEX \"agent_settlements_unsettled_3325215f\" ON \"public\".\"agent_settlements\" (\"operation_id\") WHERE (settled_at IS NULL)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"agent_settlements_unsettled_3325215f\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"agent_settlements_unsettled_3325215f\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.aliases.idx_aliases_normalized",
+    "label": "Create index \"idx_aliases_normalized\" on \"aliases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_aliases_normalized",
+        "table": "aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_aliases_normalized\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_aliases_normalized\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_aliases_normalized\"",
+        "sql": "CREATE INDEX \"idx_aliases_normalized\" ON \"public\".\"aliases\" (\"alias_normalized\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_aliases_normalized\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_aliases_normalized\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.catalog_provenance.idx_catalog_provenance_work",
+    "label": "Create index \"idx_catalog_provenance_work\" on \"catalog_provenance\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_catalog_provenance_work",
+        "table": "catalog_provenance"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_catalog_provenance_work\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_catalog_provenance_work\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_catalog_provenance_work\"",
+        "sql": "CREATE INDEX \"idx_catalog_provenance_work\" ON \"public\".\"catalog_provenance\" (\"work_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_catalog_provenance_work\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_catalog_provenance_work\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.catalog_runs.idx_catalog_runs_status",
+    "label": "Create index \"idx_catalog_runs_status\" on \"catalog_runs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_catalog_runs_status",
+        "table": "catalog_runs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_catalog_runs_status\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_catalog_runs_status\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_catalog_runs_status\"",
+        "sql": "CREATE INDEX \"idx_catalog_runs_status\" ON \"public\".\"catalog_runs\" (\"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_catalog_runs_status\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_catalog_runs_status\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cluster_version.idx_cluster_version_current",
+    "label": "Create index \"idx_cluster_version_current\" on \"cluster_version\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_cluster_version_current",
+        "table": "cluster_version"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_cluster_version_current\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_cluster_version_current\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_cluster_version_current\"",
+        "sql": "CREATE INDEX \"idx_cluster_version_current\" ON \"public\".\"cluster_version\" (\"bangumi_id\", \"is_current\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_cluster_version_current\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_cluster_version_current\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.cluster_version.uq_cluster_version_one_current",
+    "label": "Create index \"uq_cluster_version_one_current\" on \"cluster_version\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "uq_cluster_version_one_current",
+        "table": "cluster_version"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"uq_cluster_version_one_current\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"uq_cluster_version_one_current\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"uq_cluster_version_one_current\"",
+        "sql": "CREATE UNIQUE INDEX \"uq_cluster_version_one_current\" ON \"public\".\"cluster_version\" (\"bangumi_id\") WHERE (is_current)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"uq_cluster_version_one_current\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"uq_cluster_version_one_current\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.itinerary_snapshots.idx_itinerary_snapshots_bangumi_version",
+    "label": "Create index \"idx_itinerary_snapshots_bangumi_version\" on \"itinerary_snapshots\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_itinerary_snapshots_bangumi_version",
+        "table": "itinerary_snapshots"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_itinerary_snapshots_bangumi_version\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_itinerary_snapshots_bangumi_version\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_itinerary_snapshots_bangumi_version\"",
+        "sql": "CREATE INDEX \"idx_itinerary_snapshots_bangumi_version\" ON \"public\".\"itinerary_snapshots\" (\"bangumi_id\", \"cluster_version\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_itinerary_snapshots_bangumi_version\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_itinerary_snapshots_bangumi_version\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.location_aliases.idx_location_aliases_norm",
+    "label": "Create index \"idx_location_aliases_norm\" on \"location_aliases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_location_aliases_norm",
+        "table": "location_aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_location_aliases_norm\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_location_aliases_norm\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_location_aliases_norm\"",
+        "sql": "CREATE INDEX \"idx_location_aliases_norm\" ON \"public\".\"location_aliases\" (\"alias_normalized\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_location_aliases_norm\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_location_aliases_norm\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.points.idx_points_bangumi",
+    "label": "Create index \"idx_points_bangumi\" on \"points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_points_bangumi",
+        "table": "points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_points_bangumi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_points_bangumi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_points_bangumi\"",
+        "sql": "CREATE INDEX \"idx_points_bangumi\" ON \"public\".\"points\" (\"bangumi_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_points_bangumi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_points_bangumi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.points.idx_points_location",
+    "label": "Create index \"idx_points_location\" on \"points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_points_location",
+        "table": "points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_points_location\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_points_location\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_points_location\"",
+        "sql": "CREATE INDEX \"idx_points_location\" ON \"public\".\"points\" USING \"gist\" (\"location\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_points_location\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_points_location\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.saved_route_anime.idx_saved_route_anime_bangumi",
+    "label": "Create index \"idx_saved_route_anime_bangumi\" on \"saved_route_anime\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_saved_route_anime_bangumi",
+        "table": "saved_route_anime"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_saved_route_anime_bangumi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_route_anime_bangumi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_saved_route_anime_bangumi\"",
+        "sql": "CREATE INDEX \"idx_saved_route_anime_bangumi\" ON \"public\".\"saved_route_anime\" (\"bangumi_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_saved_route_anime_bangumi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_route_anime_bangumi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.saved_route_idempotency.idx_saved_route_idempotency_expires",
+    "label": "Create index \"idx_saved_route_idempotency_expires\" on \"saved_route_idempotency\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_saved_route_idempotency_expires",
+        "table": "saved_route_idempotency"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_saved_route_idempotency_expires\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_route_idempotency_expires\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_saved_route_idempotency_expires\"",
+        "sql": "CREATE INDEX \"idx_saved_route_idempotency_expires\" ON \"public\".\"saved_route_idempotency\" (\"expires_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_saved_route_idempotency_expires\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_route_idempotency_expires\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.saved_routes.idx_saved_routes_user",
+    "label": "Create index \"idx_saved_routes_user\" on \"saved_routes\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_saved_routes_user",
+        "table": "saved_routes"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_saved_routes_user\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_routes_user\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_saved_routes_user\"",
+        "sql": "CREATE INDEX \"idx_saved_routes_user\" ON \"public\".\"saved_routes\" (\"user_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_saved_routes_user\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_saved_routes_user\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.series_edges.idx_series_edges_to_bangumi",
+    "label": "Create index \"idx_series_edges_to_bangumi\" on \"series_edges\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "idx_series_edges_to_bangumi",
+        "table": "series_edges"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"idx_series_edges_to_bangumi\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_series_edges_to_bangumi\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"idx_series_edges_to_bangumi\"",
+        "sql": "CREATE INDEX \"idx_series_edges_to_bangumi\" ON \"public\".\"series_edges\" (\"to_bangumi_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"idx_series_edges_to_bangumi\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"idx_series_edges_to_bangumi\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "data-plane-indexes",
+    "label": "Create the operator-class and descending catalog indexes",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create the trigram operator-class index on location_aliases",
+        "sql": "CREATE INDEX \"idx_location_aliases_trgm\"\n  ON \"public\".\"location_aliases\" USING gin (alias_normalized gin_trgm_ops)"
+      },
+      {
+        "description": "create the descending history index on raw_payload_history",
+        "sql": "CREATE INDEX \"idx_raw_payload_history_work_source\"\n  ON \"public\".\"raw_payload_history\" (work_id, source, seq DESC)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify idx_location_aliases_trgm still uses gin_trgm_ops",
+        "sql": "\n  SELECT indexdef LIKE '%USING gin%' AND indexdef LIKE '%gin_trgm_ops%' AS result\n  FROM pg_indexes\n  WHERE schemaname = 'public' AND indexname = 'idx_location_aliases_trgm'"
+      },
+      {
+        "description": "verify idx_raw_payload_history_work_source still orders seq descending",
+        "sql": "\n  SELECT indexdef LIKE '%(work_id, source, seq DESC)%' AS result\n  FROM pg_indexes\n  WHERE schemaname = 'public' AND indexname = 'idx_raw_payload_history_work_source'"
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.agent_admissions.agent_admissions_session_id_fkey",
+    "label": "Add foreign key \"agent_admissions_session_id_fkey\" on \"agent_admissions\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "agent_admissions_session_id_fkey",
+        "table": "agent_admissions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"agent_admissions_session_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_session_id_fkey",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"agent_admissions_session_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"agent_admissions\"\nADD CONSTRAINT \"agent_admissions_session_id_fkey\"\nFOREIGN KEY (\"session_id\")\nREFERENCES \"public\".\"pi_sessions\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"agent_admissions_session_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_admissions_session_id_fkey",
+          "public",
+          "\"public\".\"agent_admissions\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.agent_open_operations.agent_open_operations_operation_id_fkey",
+    "label": "Add foreign key \"agent_open_operations_operation_id_fkey\" on \"agent_open_operations\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "agent_open_operations_operation_id_fkey",
+        "table": "agent_open_operations"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"agent_open_operations_operation_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_open_operations_operation_id_fkey",
+          "public",
+          "\"public\".\"agent_open_operations\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"agent_open_operations_operation_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"agent_open_operations\"\nADD CONSTRAINT \"agent_open_operations_operation_id_fkey\"\nFOREIGN KEY (\"operation_id\")\nREFERENCES \"public\".\"agent_admissions\" (\"operation_id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"agent_open_operations_operation_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_open_operations_operation_id_fkey",
+          "public",
+          "\"public\".\"agent_open_operations\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.agent_settlements.agent_settlements_operation_id_fkey",
+    "label": "Add foreign key \"agent_settlements_operation_id_fkey\" on \"agent_settlements\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "agent_settlements_operation_id_fkey",
+        "table": "agent_settlements"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"agent_settlements_operation_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_settlements_operation_id_fkey",
+          "public",
+          "\"public\".\"agent_settlements\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"agent_settlements_operation_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"agent_settlements\"\nADD CONSTRAINT \"agent_settlements_operation_id_fkey\"\nFOREIGN KEY (\"operation_id\")\nREFERENCES \"public\".\"agent_admissions\" (\"operation_id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"agent_settlements_operation_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "agent_settlements_operation_id_fkey",
+          "public",
+          "\"public\".\"agent_settlements\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.location_aliases.location_aliases_location_id_fkey",
+    "label": "Add foreign key \"location_aliases_location_id_fkey\" on \"location_aliases\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "location_aliases_location_id_fkey",
+        "table": "location_aliases"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"location_aliases_location_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "location_aliases_location_id_fkey",
+          "public",
+          "\"public\".\"location_aliases\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"location_aliases_location_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"location_aliases\"\nADD CONSTRAINT \"location_aliases_location_id_fkey\"\nFOREIGN KEY (\"location_id\")\nREFERENCES \"public\".\"locations\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"location_aliases_location_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "location_aliases_location_id_fkey",
+          "public",
+          "\"public\".\"location_aliases\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.pi_list_values.pi_list_values_session_id_fkey",
+    "label": "Add foreign key \"pi_list_values_session_id_fkey\" on \"pi_list_values\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "pi_list_values_session_id_fkey",
+        "table": "pi_list_values"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"pi_list_values_session_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_list_values_session_id_fkey",
+          "public",
+          "\"public\".\"pi_list_values\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"pi_list_values_session_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"pi_list_values\"\nADD CONSTRAINT \"pi_list_values_session_id_fkey\"\nFOREIGN KEY (\"session_id\")\nREFERENCES \"public\".\"pi_sessions\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"pi_list_values_session_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_list_values_session_id_fkey",
+          "public",
+          "\"public\".\"pi_list_values\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.pi_records.pi_records_session_id_fkey",
+    "label": "Add foreign key \"pi_records_session_id_fkey\" on \"pi_records\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "pi_records_session_id_fkey",
+        "table": "pi_records"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"pi_records_session_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_records_session_id_fkey",
+          "public",
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"pi_records_session_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"pi_records\"\nADD CONSTRAINT \"pi_records_session_id_fkey\"\nFOREIGN KEY (\"session_id\")\nREFERENCES \"public\".\"pi_sessions\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"pi_records_session_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_records_session_id_fkey",
+          "public",
+          "\"public\".\"pi_records\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.pi_scalar_values.pi_scalar_values_session_id_fkey",
+    "label": "Add foreign key \"pi_scalar_values_session_id_fkey\" on \"pi_scalar_values\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "pi_scalar_values_session_id_fkey",
+        "table": "pi_scalar_values"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"pi_scalar_values_session_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_scalar_values_session_id_fkey",
+          "public",
+          "\"public\".\"pi_scalar_values\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"pi_scalar_values_session_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"pi_scalar_values\"\nADD CONSTRAINT \"pi_scalar_values_session_id_fkey\"\nFOREIGN KEY (\"session_id\")\nREFERENCES \"public\".\"pi_sessions\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"pi_scalar_values_session_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "pi_scalar_values_session_id_fkey",
+          "public",
+          "\"public\".\"pi_scalar_values\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.points.points_bangumi_id_fkey",
+    "label": "Add foreign key \"points_bangumi_id_fkey\" on \"points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "points_bangumi_id_fkey",
+        "table": "points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"points_bangumi_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "points_bangumi_id_fkey",
+          "public",
+          "\"public\".\"points\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"points_bangumi_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"points\"\nADD CONSTRAINT \"points_bangumi_id_fkey\"\nFOREIGN KEY (\"bangumi_id\")\nREFERENCES \"public\".\"bangumi\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"points_bangumi_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "points_bangumi_id_fkey",
+          "public",
+          "\"public\".\"points\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.saved_route_anime.saved_route_anime_saved_route_id_fkey",
+    "label": "Add foreign key \"saved_route_anime_saved_route_id_fkey\" on \"saved_route_anime\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "saved_route_anime_saved_route_id_fkey",
+        "table": "saved_route_anime"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"saved_route_anime_saved_route_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_saved_route_id_fkey",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"saved_route_anime_saved_route_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"saved_route_anime\"\nADD CONSTRAINT \"saved_route_anime_saved_route_id_fkey\"\nFOREIGN KEY (\"saved_route_id\")\nREFERENCES \"public\".\"saved_routes\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"saved_route_anime_saved_route_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_saved_route_id_fkey",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.saved_route_anime.saved_route_anime_bangumi_id_fkey",
+    "label": "Add foreign key \"saved_route_anime_bangumi_id_fkey\" on \"saved_route_anime\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "saved_route_anime_bangumi_id_fkey",
+        "table": "saved_route_anime"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"saved_route_anime_bangumi_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_bangumi_id_fkey",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"saved_route_anime_bangumi_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"saved_route_anime\"\nADD CONSTRAINT \"saved_route_anime_bangumi_id_fkey\"\nFOREIGN KEY (\"bangumi_id\")\nREFERENCES \"public\".\"bangumi\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"saved_route_anime_bangumi_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "saved_route_anime_bangumi_id_fkey",
+          "public",
+          "\"public\".\"saved_route_anime\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "points-generated-coordinates",
+    "label": "Derive point coordinates from geography",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "ensure point coordinates are ordinary NOT NULL columns",
+        "sql": "SELECT count(*) = 2 AND bool_and(ordinary_not_null) AS result FROM (SELECT a.attgenerated = '' AND a.attnotnull AS ordinary_not_null \n  FROM pg_attribute AS a\n  JOIN pg_class AS c ON c.oid = a.attrelid\n  JOIN pg_namespace AS n ON n.oid = c.relnamespace\n  WHERE n.nspname = 'public'\n    AND c.relname = 'points'\n    AND a.attname IN ('latitude', 'longitude')\n    AND a.attnum > 0\n    AND NOT a.attisdropped) AS columns"
+      }
+    ],
+    "execute": [
+      {
+        "description": "replace point coordinates with stored generated columns",
+        "sql": "ALTER TABLE public.points\n      DROP COLUMN latitude,\n      DROP COLUMN longitude,\n      ADD COLUMN latitude double precision GENERATED ALWAYS AS (ST_Y(location::geometry)) STORED NOT NULL,\n      ADD COLUMN longitude double precision GENERATED ALWAYS AS (ST_X(location::geometry)) STORED NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify point coordinates are stored generated NOT NULL columns",
+        "sql": "SELECT generated_not_null AS result FROM (\n  SELECT count(*) = 2\n    AND bool_and(a.attgenerated = 's' AND a.attnotnull) AS generated_not_null\n  \n  FROM pg_attribute AS a\n  JOIN pg_class AS c ON c.oid = a.attrelid\n  JOIN pg_namespace AS n ON n.oid = c.relnamespace\n  WHERE n.nspname = 'public'\n    AND c.relname = 'points'\n    AND a.attname IN ('latitude', 'longitude')\n    AND a.attnum > 0\n    AND NOT a.attisdropped) AS columns"
+      }
+    ]
+  },
+  {
+    "id": "data-plane-updated-at-triggers",
+    "label": "Maintain data-plane updated-at timestamps",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create the shared updated-at trigger function",
+        "sql": "CREATE OR REPLACE FUNCTION public.update_updated_at() RETURNS trigger\n      LANGUAGE plpgsql\n      AS $function$\n      BEGIN\n        NEW.updated_at := NOW();\n        RETURN NEW;\n      END;\n      $function$"
+      },
+      {
+        "description": "create the bangumi updated-at trigger",
+        "sql": "CREATE TRIGGER trg_bangumi_updated_at\n      BEFORE UPDATE ON public.bangumi\n      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()"
+      },
+      {
+        "description": "create the points updated-at trigger",
+        "sql": "CREATE TRIGGER trg_points_updated_at\n      BEFORE UPDATE ON public.points\n      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()"
+      },
+      {
+        "description": "create the saved-routes updated-at trigger",
+        "sql": "CREATE TRIGGER trg_routes_updated_at\n      BEFORE UPDATE ON public.saved_routes\n      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify updated-at triggers and removed coordinate synchronization",
+        "sql": "SELECT to_regprocedure('public.update_updated_at()') IS NOT NULL\n      AND (SELECT count(*) = 3\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname = ANY(ARRAY['trg_bangumi_updated_at','trg_points_updated_at','trg_routes_updated_at'])\n          AND NOT trigger_record.tgisinternal)\n      AND NOT EXISTS (\n        SELECT 1\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname LIKE '%sync%coordinates%') AS result"
+      }
+    ]
+  },
+  {
+    "id": "data-plane-access",
+    "label": "Grant data-plane service access",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [
+      {
+        "description": "require the existing data-plane service roles",
+        "sql": "SELECT count(*) = 5 AS result\n      FROM pg_roles\n      WHERE rolname IN ('agent_svc', 'catalog_svc', 'jobs_svc', 'readonly', 'users_svc')"
+      }
+    ],
+    "execute": [
+      {
+        "description": "grant public schema usage to data-plane roles",
+        "sql": "GRANT USAGE ON SCHEMA public TO agent_svc, catalog_svc, jobs_svc, readonly, users_svc"
+      },
+      {
+        "description": "grant catalog service table access",
+        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.aliases, public.bangumi, public.catalog_provenance, public.catalog_runs, public.cluster_version, public.ingest_jobs, public.itinerary_snapshots, public.leg_cache, public.location_aliases, public.locations, public.media_assets, public.points, public.raw_anitabi, public.raw_bangumi, public.raw_payload_history, public.series_edges TO catalog_svc"
+      },
+      {
+        "description": "grant readonly catalog table access",
+        "sql": "GRANT SELECT ON TABLE public.aliases, public.bangumi, public.catalog_provenance, public.catalog_runs, public.cluster_version, public.itinerary_snapshots, public.leg_cache, public.location_aliases, public.locations, public.media_assets, public.points, public.raw_anitabi, public.raw_bangumi, public.raw_payload_history, public.series_edges TO readonly"
+      },
+      {
+        "description": "grant users service table access",
+        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.saved_route_anime, public.saved_route_idempotency, public.saved_routes TO users_svc"
+      },
+      {
+        "description": "grant readonly user table access",
+        "sql": "GRANT SELECT ON TABLE public.saved_route_anime, public.saved_route_idempotency, public.saved_routes TO readonly"
+      },
+      {
+        "description": "grant mutable native agent table access",
+        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.pi_list_values, public.pi_scalar_values, public.pi_sessions, public.agent_admissions, public.agent_open_operations, public.agent_settlements TO agent_svc"
+      },
+      {
+        "description": "grant append-only native history access",
+        "sql": "GRANT SELECT, INSERT ON TABLE public.pi_records TO agent_svc"
+      },
+      {
+        "description": "grant agent catalog read access",
+        "sql": "GRANT SELECT ON TABLE public.bangumi, public.points, public.saved_routes TO agent_svc"
+      },
+      {
+        "description": "grant jobs route read access",
+        "sql": "GRANT SELECT ON TABLE public.saved_routes TO jobs_svc"
+      },
+      {
+        "description": "grant catalog history sequence access",
+        "sql": "GRANT SELECT, USAGE ON SEQUENCE public.raw_payload_history_seq_seq TO catalog_svc"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify agent_svc's explicit grants on pi_list_values are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_list_values'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_scalar_values are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_scalar_values'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_sessions are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_sessions'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_admissions are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_admissions'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_open_operations are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_open_operations'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_settlements are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_settlements'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_records are exactly INSERT, SELECT (no UPDATE or DELETE grants)",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_records'), ARRAY[]::text[])) = ARRAY['INSERT', 'SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify the data-plane grant matrix",
+        "sql": "SELECT has_schema_privilege('agent_svc', 'public', 'USAGE')\n      AND has_schema_privilege('catalog_svc', 'public', 'USAGE')\n      AND has_schema_privilege('jobs_svc', 'public', 'USAGE')\n      AND has_schema_privilege('readonly', 'public', 'USAGE')\n      AND has_schema_privilege('users_svc', 'public', 'USAGE')\n      AND (SELECT bool_and(has_table_privilege('catalog_svc', table_name, 'SELECT')\n        AND has_table_privilege('catalog_svc', table_name, 'INSERT')\n        AND has_table_privilege('catalog_svc', table_name, 'UPDATE')\n        AND has_table_privilege('catalog_svc', table_name, 'DELETE'))\n        FROM unnest(ARRAY['aliases','bangumi','catalog_provenance','catalog_runs','cluster_version','ingest_jobs','itinerary_snapshots','leg_cache','location_aliases','locations','media_assets','points','raw_anitabi','raw_bangumi','raw_payload_history','series_edges']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('readonly', table_name, 'SELECT'))\n        FROM unnest(ARRAY['aliases','bangumi','catalog_provenance','catalog_runs','cluster_version','itinerary_snapshots','leg_cache','location_aliases','locations','media_assets','points','raw_anitabi','raw_bangumi','raw_payload_history','series_edges']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('users_svc', table_name, 'SELECT')\n        AND has_table_privilege('users_svc', table_name, 'INSERT')\n        AND has_table_privilege('users_svc', table_name, 'UPDATE')\n        AND has_table_privilege('users_svc', table_name, 'DELETE'))\n        FROM unnest(ARRAY['saved_route_anime','saved_route_idempotency','saved_routes']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('readonly', table_name, 'SELECT'))\n        FROM unnest(ARRAY['saved_route_anime','saved_route_idempotency','saved_routes']) AS table_name)\n      AND has_table_privilege('agent_svc', 'public.bangumi', 'SELECT')\n      AND has_table_privilege('agent_svc', 'public.points', 'SELECT')\n      AND has_table_privilege('agent_svc', 'public.saved_routes', 'SELECT')\n      AND has_table_privilege('jobs_svc', 'public.saved_routes', 'SELECT')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'SELECT')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'USAGE') AS result"
+      }
+    ]
+  }
+]

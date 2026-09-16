@@ -1,7 +1,5 @@
 import { requireOperationTools } from "./operation-tool-settings.ts";
-import postgres from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../../native-client.ts";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import type { Session, SessionMetadata } from "@earendil-works/pi-agent-core/harness/session";
@@ -25,7 +23,7 @@ export function anonymousDailyBudget(value: string | undefined) {
 export async function bootstrapNativeSession(env: Env, id: string, context: Context) {
   const url = await readSecret(env.AGENT_SVC_DATABASE_URL);
   if (!url) throw new Error("The native agent database is not configured");
-  const db = postgres<Contract>({ contractJson, url });
+  const db = nativeClient(url);
   try {
     const server = await nativeHostModels(await readSecret(env.MIMO_API_KEY));
     const repo = new NeonSessionRepo(db);

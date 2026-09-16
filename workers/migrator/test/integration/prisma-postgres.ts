@@ -1,30 +1,60 @@
 import pg from "pg";
 import { expect, vi } from "vitest";
+import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
+import { LEDGER_SQL } from "../../src/http-apply";
+import { useOwnedDatabase } from "./owned-database";
 
 interface Query { query: string; params: unknown[] }
 interface Batch { queries: Query[] }
 
-/** Native database cloning keeps each test isolated without replaying Atlas.
- *
- * The template comes from the DSN, not from a name written here: the shared
- * container names each call's database per call (#1663), so a hard-coded
- * `native_delivery` is a database that no longer exists. */
-export async function clonePrismaDatabase(serverDsn: string, name: string): Promise<string> {
-  const url = new URL(serverDsn);
-  const admin = await adminClient(url);
-  try { await admin.query(`CREATE DATABASE "${name}" TEMPLATE "${url.pathname.slice(1)}"`); }
-  finally { await admin.end(); }
-  url.pathname = `/${name}`;
-  return url.toString();
+const EXTENSIONS = ["postgis", "pgcrypto", "pg_trgm", "vector"] as const;
+const LEDGER_COLUMNS = ["version", "description", "type", "applied", "total", "executed_at",
+  "execution_time", "error", "error_stmt", "hash", "partial_hashes", "operator_version"] as const;
+
+async function withClient<T>(dsn: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
+  const client = new pg.Client(dsn);
+  await client.connect();
+  try { return await run(client); }
+  finally { await client.end(); }
 }
 
-/** A session on the same server's admin database, where a clone is created. */
-async function adminClient(url: URL): Promise<pg.Client> {
-  const adminUrl = new URL(url);
-  adminUrl.pathname = "/postgres";
-  const client = new pg.Client(adminUrl.toString());
-  await client.connect();
-  return client;
+/** The extensions are already present in the database Neon hands the non-superuser migrator; the
+ * chain's `IF NOT EXISTS` then only proves their versions, which is what lets a role without
+ * superuser reach the end of the baseline. */
+async function installExtensions(client: pg.Client): Promise<void> {
+  for (const extension of EXTENSIONS) await client.query(`CREATE EXTENSION "${extension}"`);
+}
+
+/** The ledger is the read-only record of what Atlas applied; its rows never bring Atlas DDL. */
+async function copyLedger(ledgerDsn: string, target: pg.Client): Promise<void> {
+  const columns = LEDGER_COLUMNS.join(", ");
+  const rows = await withClient(ledgerDsn, async (source) =>
+    (await source.query<Record<string, unknown>>(`SELECT ${columns} FROM public.atlas_schema_revisions ORDER BY version`)).rows);
+  await target.query(LEDGER_SQL);
+  await target.query(`INSERT INTO public.atlas_schema_revisions (${columns})
+    SELECT ${columns} FROM jsonb_populate_recordset(null::public.atlas_schema_revisions, $1)`, [JSON.stringify(rows)]);
+}
+
+/** The transition handshake's migration target: a pristine `template1` database that carries only
+ * the Atlas ledger rows — no Atlas DDL — so exactly one chain owns its objects. `ledgerDsn` reaches
+ * the Atlas-applied database those rows come from. The database is named per call and dropped by
+ * `stop()`, like every database created on the shared container (#1663). */
+export interface PrismaMigrationTarget {
+  readonly dsn: string;
+  stop(): Promise<void>;
+}
+
+export async function openPrismaMigrationTarget(ledgerDsn: string, suite: string): Promise<PrismaMigrationTarget> {
+  const name = uniqueDatabaseName(suite);
+  const dsn = await createCleanDatabase(ledgerDsn, name);
+  const target: PrismaMigrationTarget = { dsn, stop: () => dropCleanDatabase(ledgerDsn, name) };
+  return useOwnedDatabase(target, async () => {
+    await withClient(dsn, async (client) => {
+      await installExtensions(client);
+      await copyLedger(ledgerDsn, client);
+    });
+    return target;
+  });
 }
 
 async function query(client: pg.Client, statement: Query) {

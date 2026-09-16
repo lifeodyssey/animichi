@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import postgresClient from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
 import type { ConversationListRow } from "@animichi/contract/session-history-contract";
 import { ListConversationsResponse } from "@animichi/contract/session-history-contract";
 import type { AdmissionDatabase } from "../src/agent/admission/types.ts";
+import { nativeClient } from "../src/native-client.ts";
 import { listConversations } from "../src/agent/views/conversation-list.ts";
 
 // The list's scope, order and cap are pinned twice on purpose: here the
@@ -14,7 +12,7 @@ import { listConversations } from "../src/agent/views/conversation-list.ts";
 // against real PostgreSQL, where the semantics actually live. A dropped
 // `user_id` predicate is red in both lanes.
 
-const client = postgresClient<Contract>({ contractJson, url: "postgres://unit:unit@127.0.0.1:1/unit" });
+const client = nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
 after(async () => { await client.close(); });
 
 /** A row the native tier admitted but has not settled yet: #1608 writes the

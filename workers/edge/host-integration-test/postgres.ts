@@ -1,25 +1,18 @@
 import { after, before, beforeEach } from "node:test";
-import { process } from "../test-support/node-globals.ts";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { fileURLToPath, URL } from "node:url";
 import { AGENT_DB_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
 import pg from "pg";
+import { startContractDatabase, type ContractDatabase } from "../test/contract-database.ts";
 
 export const SESSION = "01992000-0000-7000-8000-000000001546";
 export const IDENTITY = "anon_00000000000000000000000000001546";
 export let dsn: string;
 export let pool: pg.Pool;
-const resources: { postgres?: TestPostgres; pool?: pg.Pool } = {};
+const resources: { postgres?: TestPostgres; contract?: ContractDatabase; pool?: pg.Pool } = {};
 
 before(async () => {
   const postgres = resources.postgres = await startTestPostgres({ database: "native_host", budget: AGENT_DB_SETUP_BUDGET });
-  dsn = postgres.dsn;
+  dsn = (resources.contract = await startContractDatabase(postgres, "native_host")).dsn;
   pool = resources.pool = new pg.Pool({ connectionString: dsn });
-  await promisify(execFile)("pnpm", ["exec", "prisma", "db", "migrate", "--db", dsn, "--json"], {
-    cwd: fileURLToPath(new URL("../../../packages/pi-session-neon/", import.meta.url)),
-    env: { ...process.env, DO_NOT_TRACK: "1" }, maxBuffer: 5 * 1024 * 1024,
-  });
   await pool.query(`CREATE FUNCTION host_test_settled() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN PERFORM pg_notify('host_test_settled', NEW.operation_id); RETURN NEW; END $$;
     CREATE TRIGGER host_test_settled AFTER UPDATE ON agent_settlements FOR EACH ROW
@@ -37,5 +30,15 @@ beforeEach(async () => {
 
 after(async () => {
   try { await resources.pool?.end(); }
-  finally { await resources.postgres?.stop(); }
+  finally { await stopResources(); }
 });
+
+/** Order matters: the contract database is dropped through the shared server the `TestPostgres`
+ * owns, so its `stop()` — which drops that server's own database — comes second. */
+async function stopResources(): Promise<void> {
+  try {
+    await resources.contract?.stop();
+  } finally {
+    await resources.postgres?.stop();
+  }
+}

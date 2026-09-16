@@ -70,9 +70,11 @@ appropriate. Missing native evidence remains pending. Recorded zero cost cannot 
 free from unpriced usage because the published ledger does not provide that distinction.
 
 Neon is the data plane. Prisma 8 owns native agent queries/storage and the migration chain in
-`packages/pi-session-neon/migrations/`. Catalog and Users retain their query-only Drizzle mappings;
-`migrations/neon` owns pre-existing objects through Atlas and the migrator Worker. Each object
-has one migration owner. Source deletion does not drop tables or erase history.
+`packages/pi-session-neon/migrations/`, which builds the seven native agent tables and the 19
+catalog/users data-plane tables it adopted from `migrations/neon/`. Catalog and Users retain their
+query-only Drizzle mappings; Atlas and the migrator Worker stay the production apply path for
+`migrations/neon`, which is read-only evidence of the objects the native chain replaced until W4.
+Each object has one migration owner. Source deletion does not drop tables or erase history.
 
 ## Browser and evaluations
 

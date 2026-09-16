@@ -101,8 +101,9 @@ retired run engine and envelope paths have no forwarding modules.
 - The native BYOK egress guard (`src/agent/egress/`) is the Worker-side egress policy, and it is a
   separate mechanism from the retired container `DENIED_EGRESS_HOSTS` glob list: it guards what
   this Worker's own agent tools may call, not an external process's network namespace.
-- The agent tier reads `AGENT_SVC_DATABASE_URL` via direct Prisma 8 `postgres<Contract>`
-  and native `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
+- The agent tier reads `AGENT_SVC_DATABASE_URL` through the one client construction site,
+  `src/native-client.ts` (contract JSON plus the geography runtime descriptor), and native
+  `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
   Secret Store/string bindings are resolved in default startup, never from `process.env`.
 - New Agent execution uses the published Cloudflare `Agent` class and its own schedules.
   Do not add custom alarm state machines or a replacement Session implementation.

@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { uniqueDatabaseName } from "@animichi/test-postgres";
-import postgresClient from "@prisma/orm-postgres/runtime";
 import type pg from "pg";
-import { AGENT_SERVICE_ACCESS } from "../migrations/app/20260910T0407_native_agent_contract/access.ts";
-import contractJson from "../src/contract.json" with { type: "json" };
-import type { Contract } from "../src/contract.d.ts";
-import { database, pool, postgres, SESSION_ID } from "./postgres.ts";
+import { DATA_PLANE_ACCESS } from "../migrations/app/20260913T1711_data_plane_baseline/access.ts";
+import { contractClient } from "./contract-client.ts";
+import { contractDsn, database, pool, SESSION_ID } from "./postgres.ts";
 
-type PostcheckStep = (typeof AGENT_SERVICE_ACCESS.postcheck)[number];
+type PostcheckStep = (typeof DATA_PLANE_ACCESS.postcheck)[number];
 
-const MUTABLE_TABLE_LIST = "pi_sessions, pi_scalar_values, pi_list_values, agent_admissions, agent_open_operations, agent_settlements";
+const MUTABLE_TABLES = ["pi_sessions", "pi_scalar_values", "pi_list_values", "agent_admissions", "agent_open_operations", "agent_settlements"] as const;
+const MUTABLE_TABLE_LIST = MUTABLE_TABLES.join(", ");
 
 /** Reproduce Neon's role layering for the length of one transaction: the
  * predefined blanket roles put UPDATE and DELETE in `agent_svc`'s effective
@@ -41,6 +40,15 @@ async function explicitGrants(client: pg.PoolClient, table: string): Promise<str
   return result.rows.map((row) => row.privilege_type);
 }
 
+/** The one postcheck step that speaks for `table`, by the table its failure text
+ * names. The baseline derives its step order from the table definitions, so a
+ * test that wants one table's verdict has to ask for it by name. */
+function stepFor(table: string): PostcheckStep {
+  const step = DATA_PLANE_ACCESS.postcheck.find((candidate) => candidate.description.includes(table));
+  assert.ok(step, `no postcheck step names ${table}`);
+  return step;
+}
+
 /** What the migration runner answers on: the first step whose first value is
  * not true, whose description is the text the failure envelope carries. */
 async function firstFailingStep(client: pg.PoolClient, steps: readonly PostcheckStep[]): Promise<PostcheckStep | undefined> {
@@ -68,9 +76,9 @@ void test("the agent role can append native records but cannot edit or directly 
 });
 
 void test("the agent service uses the native Prisma runtime with its own database privileges", async () => {
-  const url = new URL(postgres.dsn);
+  const url = new URL(contractDsn);
   url.searchParams.set("options", "-c role=agent_svc");
-  await using agent = postgresClient<Contract>({ contractJson, url: url.href });
+  await using agent = contractClient(url.href);
   await agent.orm.public.PiScalarValue.create({ sessionId: SESSION_ID, namespace: "app", key: "city", seq: 0, value: { city: "Kyoto" } });
   assert.deepEqual(await agent.orm.public.PiScalarValue.select("value").all(), [{ value: { city: "Kyoto" } }]);
 });
@@ -82,7 +90,7 @@ void test("the append-only postcheck passes on a database whose agent role is ne
     assert.deepEqual(await explicitGrants(client, "pi_records"), ["INSERT", "SELECT"]);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'UPDATE') AS result"), true);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'DELETE') AS result"), true);
-    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
   } finally { await rollbackAndRelease(client); }
 });
 
@@ -90,13 +98,13 @@ void test("an explicit UPDATE or DELETE grant on pi_records turns the postcheck 
   const client = await pool.connect();
   try {
     await beginNeonLayer(client);
-    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
     await client.query("GRANT UPDATE, DELETE ON pi_records TO agent_svc");
     assert.deepEqual(await explicitGrants(client, "pi_records"), ["DELETE", "INSERT", "SELECT", "UPDATE"]);
-    const violating = await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck);
+    const violating = await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck);
     assert.match(violating?.description ?? "", /pi_records are exactly INSERT, SELECT \(no UPDATE or DELETE grants\)/u);
     await client.query("REVOKE UPDATE, DELETE ON pi_records FROM agent_svc");
-    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
   } finally { await rollbackAndRelease(client); }
 });
 
@@ -107,7 +115,6 @@ void test("the neon_superuser layer alone cannot satisfy the postcheck", async (
     await client.query(`REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE ${MUTABLE_TABLE_LIST} FROM agent_svc`);
     assert.deepEqual(await explicitGrants(client, "pi_sessions"), []);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_sessions', 'UPDATE') AS result"), true);
-    const ungranted = await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck);
-    assert.match(ungranted?.description ?? "", /pi_sessions are exactly DELETE, INSERT, SELECT, UPDATE/u);
+    for (const table of MUTABLE_TABLES) assert.equal(await booleanValue(client, stepFor(table).sql), false, table);
   } finally { await rollbackAndRelease(client); }
 });

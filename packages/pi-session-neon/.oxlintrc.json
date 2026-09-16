@@ -9,7 +9,8 @@
       ],
       "rules": {
         "typescript/consistent-type-definitions": "off",
-        "typescript/no-empty-object-type": "off"
+        "typescript/no-empty-object-type": "off",
+        "typescript/array-type": "off"
       }
     }
   ]
