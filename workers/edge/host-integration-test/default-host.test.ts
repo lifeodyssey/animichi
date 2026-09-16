@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { pool, IDENTITY, SESSION } from "./postgres.ts";
 import { defaultWorker, chatHeaders, chatBody } from "./default-worker.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
 
 void test("production chat tier boots the default SessionAgent, executes its native respond tool and settles from real Neon usage", async (context) => {
   const { worker, requests } = await defaultWorker(context);
@@ -59,7 +60,7 @@ void test("default bootstrap refuses anonymous budget exhaustion before native a
 });
 
 void test("a default host cold restart durably refuses lost BYOK credentials and settles cancellation without platform traffic", async (context) => {
-  const resources = await defaultWorker(context, { TEST_IDENTITY: "member-native", TEST_USER_TYPE: "user" });
+  const resources = await defaultWorker(context, { TEST_IDENTITY: "member-native", TEST_USER_TYPE: "user", ...FAST_RECOVERY_SCAN });
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *");

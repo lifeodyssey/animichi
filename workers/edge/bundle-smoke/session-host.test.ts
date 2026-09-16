@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
 import { TURN_DEADLINE_MS } from "../src/agent/host/turn-deadline.ts";
+import { WAKE_INTERVAL_MS } from "../src/agent/host/wake-interval.ts";
 import { Miniflare } from "miniflare";
 
 async function nativeWorker(context: TestContext) {
@@ -21,7 +22,7 @@ void test("native SessionAgent serializes requests and scheduled work across awa
   const response = await worker.dispatchFetch("https://probe.test/concurrency");
   assert.equal(response.status, 200, await response.clone().text());
   const result: unknown = await response.json();
-  assert.deepEqual(result, { writers: 1, operations: ["first", "second"], completed: ["first", "second"], scanCount: 1 });
+  assert.deepEqual(result, { writers: 1, operations: ["first", "second"], completed: ["first", "second"], scanCount: 1, wakeIntervalSeconds: WAKE_INTERVAL_MS / 1000 });
 });
 
 void test("an accepted commit response loss survives failed first reopen and continues without cancellation", async (context) => {

@@ -3,13 +3,14 @@ import test, { type TestContext } from "node:test";
 import { once } from "node:events";
 import { pool, IDENTITY } from "./postgres.ts";
 import { businessWorker, submission } from "./worker.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
 import type { LostReplyStage } from "./lost-reply.ts";
 
 interface Admission { state: string; quota_refunded_at: Date | null; settled_at: Date | null }
 interface Usage { scope: string; requests: string; input_tokens: string; output_tokens: string; cost_usd: string }
 
 async function responseLossWithQueryOutage(context: TestContext, stage: LostReplyStage, terminalCount: string) {
-  const { worker } = await businessWorker(context, { TEST_LOST_REPLY: stage, TEST_WITNESS_OUTAGE: "true" });
+  const { worker } = await businessWorker(context, { TEST_LOST_REPLY: stage, TEST_WITNESS_OUTAGE: "true", ...FAST_RECOVERY_SCAN });
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *; LISTEN host_test_settled");
