@@ -103,7 +103,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Chat journey and interaction decisions | [Chat journey component map](design/chat-journey-component-map.md) | Current Chat decisions, user-task/component mapping and handoff gaps; distinguish confirmed decisions, drafts and observed implementation |
 | Eval | `packages/eval/src/native/` + `packages/eval/AGENTS.md` + `packages/eval/NATIVE.md` | Native task/observations and the documented in-process CLI; statistical oracles and exported source fixtures remain preserved; native assertions and suite migration are separate work |
 | Testing strategy | `docs/testing-strategy.md` | |
-| Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md`, `docs/ops/post-deploy-evidence.md` | deployment.md = CD runbook; post-deploy-evidence.md = how a criterion whose evidence is a deployed observation is recorded and judged (#1695) |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
 | CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md`, amended by `docs/adr/0007-selected-release-artifacts.md` | Native platform capabilities and OIDC audiences; explicit immutable artifact selection and whole-environment locks |
 | Platform-over-hand-written, repo-wide | `docs/adr/0008-platform-over-handwritten.md` | Extends ADR 0006 decision 1 past the delivery lane; A/B/C buckets, the B adjudication log is #1593, evidence in `docs/iterations/production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md` |

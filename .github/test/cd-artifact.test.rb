@@ -48,7 +48,9 @@ class CdArtifactTest < Minitest::Test
     refute_match(/build-push-action|containers push|--dry-run|--filter web (?:run )?build|pulumi install/, @cd.to_s)
     uploads = @cd.fetch("jobs").values.flat_map { |job| job.fetch("steps") }
                  .select { |item| item["uses"].to_s.start_with?("actions/upload-artifact@") }
-    assert_equal ["receipt.json", "receipt.json"], uploads.map { |item| item.dig("with", "path") }
+    # #1695: the staging artifact also carries the probe transcript that must
+    # agree with its receipt, so one digest binds both documents to this run.
+    assert_equal [%w[receipt.json evidence.json], %w[receipt.json]], uploads.map { |item| item.dig("with", "path").split("\n").map(&:strip) }
   end
 
   def test_verified_bytes_precede_every_dependency_install
