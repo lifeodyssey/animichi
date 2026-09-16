@@ -13,9 +13,11 @@ interface CompilerResult {
 
 const fixtureRoot = fileURLToPath(new URL("./type-fixtures/", import.meta.url));
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
+const typeDiagnostic = /error TS\d+:/u;
+const controlTypeError = 'const control: number = "not a number";';
 
 void test("a matched typed geography program compiles", async () => {
-  assert.deepEqual(await compileFixture("valid"), { exitCode: 0, output: "" });
+  await assertCompiles("valid");
 });
 
 void test("the compiler rejects a wrong operation name", async () => {
@@ -39,7 +41,7 @@ void test("the compiler rejects a nonexistent return field", async () => {
 });
 
 void test("a matched typed trigram program compiles", async () => {
-  assert.deepEqual(await compileFixture("trigram-valid"), { exitCode: 0, output: "" });
+  await assertCompiles("trigram-valid");
 });
 
 void test("the compiler rejects a wrong trigram operation name", async () => {
@@ -62,17 +64,36 @@ void test("the compiler rejects a nonexistent trigram return field", async () =>
   await assertCompileFailure("trigram-nonexistent-return-field", /Property 'missingSimilarity' does not exist/u);
 });
 
+// The proposition is "this typed program compiles": the exit status carries it,
+// and a TypeScript diagnostic would contradict it. Any other byte the child
+// happens to write — Node's own warnings, for one — is outside the subject.
+async function assertCompiles(name: string): Promise<void> {
+  const source = await readFixture(name);
+  const accepted = await compileSource(source);
+  assert.equal(accepted.exitCode, 0, accepted.output);
+  assert.doesNotMatch(accepted.output, typeDiagnostic);
+  // The same source with a genuine type error appended must be rejected, so a
+  // green accepted run can only come from a live, discriminating compiler.
+  const rejected = await compileSource(`${source}\n${controlTypeError}\n`);
+  assert.equal(rejected.exitCode, 1, rejected.output);
+  assert.match(rejected.output, typeDiagnostic);
+}
+
 async function assertCompileFailure(name: string, diagnostic: RegExp): Promise<void> {
-  const result = await compileFixture(name);
+  const result = await compileSource(await readFixture(name));
   assert.equal(result.exitCode, 1, result.output);
   assert.match(result.output, diagnostic);
 }
 
-async function compileFixture(name: string): Promise<CompilerResult> {
+async function readFixture(name: string): Promise<string> {
+  return readFile(path.join(fixtureRoot, `${name}.txt`), "utf8");
+}
+
+async function compileSource(source: string): Promise<CompilerResult> {
   const temporary = await mkdtemp(path.join(fixtureRoot, ".generated-"));
   try {
     const program = path.join(temporary, "program.ts");
-    await writeFile(program, await readFile(path.join(fixtureRoot, `${name}.txt`), "utf8"));
+    await writeFile(program, source);
     return await runCompiler(program);
   } finally {
     await rm(temporary, { recursive: true, force: true });
