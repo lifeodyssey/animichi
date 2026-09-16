@@ -14,11 +14,16 @@
  * ports by construction — there is no hash and therefore no collision
  * probability to reason about.
  *
- * The last case is the second half: the port is *claimed*, so a stranded
+ * The last two cases are the second half: the port is *claimed*, so a stranded
  * listener (a `workerd` orphaned by a killed `wrangler`) is refused before a
- * spec runs, by name.
+ * spec runs — by port always, and by process where `lsof` can name it. Naming
+ * the holder is best-effort in `lane-port-check.ts` (`lsof` is absent on some
+ * runners), so those two cases carry both documented forms instead of assuming
+ * the tool: a runner without `lsof` still proves the refusal refuses and still
+ * names the situation, and a machine that has it still proves the holder's pid
+ * is named.
  *
- * test-type: unit (pure derivation; the refusal case spawns the check against a
+ * test-type: unit (pure derivation; the refusal cases spawn the check against a
  * real listener on an ephemeral port, with no clock and no browser).
  */
 import assert from "node:assert/strict";
@@ -42,6 +47,17 @@ const MAIN_ROOT = "/repo";
 const LINKED_A = "/repo/.worktrees/a-card";
 const LINKED_B = "/Users/someone/worktrees/another-card";
 const CHECK_CLI = fileURLToPath(new URL("./lane-port-check.ts", import.meta.url));
+
+/** The refusal's own words for "a listener holds the port and this machine
+ *  cannot name it" (`occupiedBy` in `lane-port-check.ts`), pinned here as the
+ *  sentence the contract owes — not as a fragment both forms happen to share,
+ *  which a refusal that named nothing at all would still match. */
+const UNIDENTIFIED_HOLDER = "an unidentified process is already listening there";
+
+/** A PATH with no `lsof` on it, which is the runner `lane-port-check.ts`
+ *  documents itself as surviving. The check is still spawned by absolute path,
+ *  so only the lookups it makes for its own tools come up empty. */
+const PATH_WITHOUT_LSOF = "/nonexistent-path-holding-no-lsof";
 
 /** A `git worktree list --porcelain` listing: the main checkout first, then
  *  every linked one — the order git prints them in. */
@@ -121,17 +137,49 @@ void test("the override's name is the one the prose and the lane use", () => {
 });
 
 void test("a stranded listener is refused by name, naming the port and the holder", async () => {
+  const refusal = await refusalOfStrandedListener();
+  assert.ok(refusal.includes(holderClauseThisMachineOwes()), `the refusal must name the holder: ${refusal}`);
+});
+
+void test("a runner without lsof still refuses the port, and still names what holds it", async () => {
+  const refusal = await refusalOfStrandedListener({ ...process.env, PATH: PATH_WITHOUT_LSOF });
+  assert.ok(refusal.includes(UNIDENTIFIED_HOLDER), `the refusal must name the situation: ${refusal}`);
+});
+
+/** Reproduces the lane's own failure mode — a listener of OURS on an ephemeral
+ *  port — and returns what `lane-port-check.ts` says about it, having asserted
+ *  it fails the lane and names the port. `env` is where the check looks for its
+ *  tools: the `lsof`-less runner is a PATH with no `lsof` on it. */
+async function refusalOfStrandedListener(env?: NodeJS.ProcessEnv): Promise<string> {
   const squatter = createServer();
   const port = await listenOnEphemeral(squatter);
   try {
-    const check = spawnSync(process.execPath, [CHECK_CLI, String(port)], { encoding: "utf8" });
+    const check = spawnSync(process.execPath, [CHECK_CLI, String(port)], { encoding: "utf8", env });
     assert.notEqual(check.status, 0, "a claimed port must fail the lane before any spec runs");
     assert.match(check.stderr, new RegExp(String(port)));
-    assert.match(check.stderr, new RegExp(String(process.pid)));
+    return check.stderr;
   } finally {
     squatter.close();
   }
-});
+}
+
+/** The holder clause the refusal owes on THIS machine: the pid where `lsof` can
+ *  name this process — the one holding the socket it is attributing — and
+ *  `UNIDENTIFIED_HOLDER` where it cannot. The probe asks the machine, never the
+ *  check's own output: an expectation read back from the thing under test is a
+ *  tautology, and would go green on a refusal that stopped naming the pid. */
+function holderClauseThisMachineOwes(): string {
+  return lsofNamesThisProcess() ? `(pid ${String(process.pid)})` : UNIDENTIFIED_HOLDER;
+}
+
+/** Whether `lsof` can see this process at all, which is what its reading of the
+ *  listening socket comes down to. A machine with none fails to spawn it, which
+ *  `spawnSync` reports rather than throws. */
+function lsofNamesThisProcess(): boolean {
+  const probe = spawnSync("lsof", ["-t", "-p", String(process.pid)], { encoding: "utf8" });
+  if (probe.error !== undefined) return false;
+  return probe.stdout.split("\n").some((line) => line.trim() === String(process.pid));
+}
 
 function listenOnEphemeral(server: ReturnType<typeof createServer>): Promise<number> {
   return new Promise((resolve) => {
