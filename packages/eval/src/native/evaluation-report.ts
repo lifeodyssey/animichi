@@ -3,7 +3,8 @@ import { dirname } from 'node:path';
 import { logfireConfig } from '@pydantic/logfire-node';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { renderReport, type EvaluationReport } from 'logfire/evals';
-import type { LoadedNativeDataset } from './evaluation-dataset.ts';
+import { plannedCases, type LoadedNativeDataset } from './evaluation-dataset.ts';
+import { recordedPlanCases } from './pass-caret-k-report.ts';
 import type { NativeCaseMetadata, NativeOutput, NativeTaskInput } from './evaluation-types.ts';
 
 /**
@@ -45,6 +46,7 @@ export function experimentMetadata(
     source_cases: loaded.sourceCaseCount,
     selected_cases: loaded.selectedCaseCount,
     unsupported_shapes: loaded.unsupportedShapes,
+    planned_cases: recordedPlanCases(plannedCases(loaded)),
     uploader: logfireConfig.sendToLogfire ? 'configured' : 'unconfigured',
     failed_attempt_spend: 'unmeasured',
   };

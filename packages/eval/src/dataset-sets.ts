@@ -1,3 +1,5 @@
+import type { CaseCategory } from './native/required-assertions.ts';
+
 /**
  * The six canonical datasets that were exported from Python, and the frozen
  * counts each one must keep.
@@ -28,6 +30,22 @@ export const FROZEN_DATASET_COUNTS: readonly FrozenDatasetCount[] = [
   { caseCount: 13, name: 'long_context_v1', stratumCount: 1 },
   { caseCount: 5, name: 'phase1c_selection_v1', stratumCount: 1 },
 ];
+
+/**
+ * The case category each frozen set declares. `agent_eval_v3` also carries the
+ * declaration in its migrated case metadata; the other five are frozen
+ * exports that predate the schema, so the set is where their declaration
+ * lives. A case whose own metadata names a different category is refused at
+ * load rather than silently re-labelled.
+ */
+export const FROZEN_DATASET_CATEGORY: Readonly<Record<string, CaseCategory>> = {
+  agent_eval_v3: 'end-to-end',
+  agent_eval_heldout_v1: 'end-to-end',
+  injection_g1_v1: 'safety',
+  input_guard_v1: 'safety',
+  long_context_v1: 'long-context',
+  phase1c_selection_v1: 'prefix',
+};
 
 /**
  * The seven canonical sets beside `agent_eval_v3`, totalled: the sibling half
