@@ -14,7 +14,7 @@ const migrationRoot = fileURLToPath(new URL("../migrations/app/", import.meta.ur
 const markerQuery = "SELECT core_hash FROM prisma_contract.marker WHERE space = 'app'";
 
 /** Each test migrates its own database created from pristine `template1` — never the
- * Atlas-applied database `startTestPostgres` also prepares. The server is shared and outlives
+ * database `startTestPostgres` migrates for the fixture. The server is shared and outlives
  * this run (#1663), so the database this test owns is named per call and dropped by the test
  * that created it. */
 async function cleanTarget(suite: string) {

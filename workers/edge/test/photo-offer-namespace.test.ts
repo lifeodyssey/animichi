@@ -7,11 +7,13 @@ import { readMigrationSchema } from "./migration-schema.ts";
 // namespace. The chain under `migrations/neon` is the authority for what a database has
 // after Atlas applies it, so these read it rather than a transcription of it — one test for
 // the row the namespace stores, one for who may touch it. #1604 deleted the photo
-// search API, but the chain it pinned is unchanged and retires with the Prisma flip
-// (#1626), so this text pin stays with the other chain pins
+// search API, but the chain it pinned is unchanged and `migrations/neon` stays read-only
+// evidence until W4 deletes it, so this text pin stays with the other chain pins
 // (`identity-policy-matrix.test.ts`, `staging-baseline-reset.test.ts`,
 // `migrator-ac3-proof.test.ts`) until then. Its applied counterpart, which ran the chain
-// against disposable PostgreSQL, was retired with the API in #1604.
+// against disposable PostgreSQL, was retired with the API in #1604 and has no way back:
+// the test data plane is built by the Prisma chain now (#1625), and `photo_offers` is
+// agent-domain, which that chain does not declare.
 //
 // test-type: unit (reads checked-in migrations; no network, no clock, no Docker).
 

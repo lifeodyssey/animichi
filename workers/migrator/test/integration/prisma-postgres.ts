@@ -1,8 +1,10 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import pg from "pg";
 import { expect, vi } from "vitest";
-import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
+import { ChainApplyTurn, clusterAdminDsn, createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
 import { LEDGER_SQL } from "../../src/http-apply";
-import { useOwnedDatabase } from "./owned-database";
+import { openOwnedDatabase, useOwnedDatabase, type OwnedDatabase } from "./owned-database";
 
 interface Query { query: string; params: unknown[] }
 interface Batch { queries: Query[] }
@@ -10,12 +12,42 @@ interface Batch { queries: Query[] }
 const EXTENSIONS = ["postgis", "pgcrypto", "pg_trgm", "vector"] as const;
 const LEDGER_COLUMNS = ["version", "description", "type", "applied", "total", "executed_at",
   "execution_time", "error", "error_stmt", "hash", "partial_hashes", "operator_version"] as const;
+/** The chain the migrator still serves until #1634: the transition handshake compares the live
+ * Atlas ledger against this chain's prefix, so a ledger source has to be a real apply of it. */
+const ATLAS_CHAIN = new URL("../../../../migrations/neon/", import.meta.url);
+const OUTPUT_CEILING_BYTES = 10 * 1024 * 1024;
 
 async function withClient<T>(dsn: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
   const client = new pg.Client(dsn);
   await client.connect();
   try { return await run(client); }
   finally { await client.end(); }
+}
+
+/** Apply the committed `migrations/neon` chain to `dsn`. */
+async function applyAtlasChain(dsn: string): Promise<void> {
+  await promisify(execFile)(process.env.ATLAS_BIN ?? "atlas", ["migrate", "apply",
+    "--dir", ATLAS_CHAIN.href, "--url", dsn, "--revisions-schema", "public"],
+    { env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" }, maxBuffer: OUTPUT_CEILING_BYTES });
+}
+
+/** The database a target's ledger rows come from, owned by this fixture.
+ *
+ * It used to be the shared plane's own database, which `startTestPostgres` had
+ * applied the Atlas chain to. Since #1625 that database is migrated by the
+ * Prisma chain, and a fixture may not read one chain's artifacts out of another
+ * chain's database — nor apply Atlas over a live Prisma marker. So the fixture
+ * applies the committed chain to a database of its own: `stop()` gives it back,
+ * and `useOwnedDatabase` gives it back when the apply fails.
+ *
+ * The apply holds the cluster turn (#1663) like every other apply on this
+ * cluster: the committed chain's role block is cluster-global and
+ * check-then-create, so it must not run beside the plane's own apply. */
+export function openAtlasLedger(baseDsn: string): Promise<OwnedDatabase> {
+  return openOwnedDatabase(baseDsn, "atlas_ledger").then((owned) => useOwnedDatabase(owned, async () => {
+    await new ChainApplyTurn(clusterAdminDsn(baseDsn)).hold(() => applyAtlasChain(owned.dsn));
+    return owned;
+  }));
 }
 
 /** The extensions are already present in the database Neon hands the non-superuser migrator; the
@@ -37,8 +69,9 @@ async function copyLedger(ledgerDsn: string, target: pg.Client): Promise<void> {
 
 /** The transition handshake's migration target: a pristine `template1` database that carries only
  * the Atlas ledger rows — no Atlas DDL — so exactly one chain owns its objects. `ledgerDsn` reaches
- * the Atlas-applied database those rows come from. The database is named per call and dropped by
- * `stop()`, like every database created on the shared container (#1663). */
+ * the ledger source `openAtlasLedger` owns, and is also the admin base every database here is
+ * created through. The target is named per call and dropped by `stop()`, like every database
+ * created on the shared container (#1663). */
 export interface PrismaMigrationTarget {
   readonly dsn: string;
   stop(): Promise<void>;

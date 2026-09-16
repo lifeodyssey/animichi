@@ -14,8 +14,8 @@ re-declare an object the chain already builds.
   tests; each test resets that database. Never point these tests at a live Neon database.
   `test/postgres.ts` creates the shared database from pristine `template1`, migrates it with this
   chain, then installs the two #1607 quota aggregates; the migration-target ACs create their own
-  chain-only `template1` database with no aggregates. Neither reads the Atlas-applied database
-  `startTestPostgres` also prepares — one chain per database.
+  chain-only `template1` database with no aggregates. Neither reads the database
+  `startTestPostgres` migrates for its own call — one chain per database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 
 The owner approved three exceptions for Prisma's generated output, and only that output:

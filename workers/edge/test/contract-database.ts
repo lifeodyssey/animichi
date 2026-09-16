@@ -1,13 +1,14 @@
 /**
- * The Prisma-only database an edge fixture migrates.
+ * The edge fixture's own Prisma-migrated database.
  *
- * The chain owns the whole data plane, so it may not run against the
- * Atlas-applied database `startTestPostgres` returns — that one stays the
- * cluster's admin and role source (spec §4.7: one chain per database). The
- * agent-domain shapes below are installed here because the #1626 contract
- * deliberately omits them (spec §4.12) and #1607 retires them with
- * `apps/agent`: the runtime still writes `sessions`, and the executable
- * examples count quota in the two aggregates.
+ * `startTestPostgres` applies the same chain to the database it returns, so the
+ * shared test plane is Prisma-applied rather than Atlas-applied (#1625); the five
+ * cluster-global service roles are created on the image's admin database
+ * (spec §4.7: one chain per database). This fixture keeps a database of its own
+ * for the agent-domain shapes the #1626 contract deliberately omits (spec
+ * §4.12): the Python agent that owned them retired with #1607, while the runtime
+ * still writes `sessions` and the executable examples count quota in the two
+ * aggregates installed below.
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";

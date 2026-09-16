@@ -201,15 +201,17 @@ jobs:
       # Every binary below is provisioned because one package's own gates shell
       # out to it. `pr-verification-affected.test.rb` pins the pairing, so a
       # dropped step fails a test instead of that package's lane.
-      #   catalog        -> atlas  (its own test:integration boots test-postgres,
-      #                             which applies the migrations/neon chain,
-      #                             atlas-chain.ts:18)
-      #   test-postgres  -> atlas  (its own test:integration boots the same
-      #                             recipe and applies the same chain)
+      #   catalog        -> atlas  (the integration suite's own pre-Prisma database
+      #                             until the query layer moves,
+      #                             `test/integration-db-global.ts`)
+      #   @animichi/agent -> atlas (the native catalog fixture's own pre-Prisma
+      #                             database, `integration-test/catalog-postgres.ts`)
+      #   migrator       -> atlas  (the transition handshake still serves the Atlas
+      #                             chain until #1634, `test/integration/prisma-postgres.ts`)
       #   infra          -> pulumi (test:program-load loads the program through
       #                             the real language host, infra-check.sh:83-88)
       - name: Install the pinned Atlas CLI for the migration chain
-        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
+        if: ${{ contains(fromJSON('["catalog", "@animichi/agent", "migrator"]'), matrix.package) }}
         uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
         with:
           version: v0.30.0

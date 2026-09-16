@@ -5,10 +5,13 @@ The one disposable PostgreSQL + PostGIS + pgvector data plane every database-bac
 of which runs on workerd, so it is a devDependency of its consumers and never a dependency.
 Root guide: `../../AGENTS.md`.
 
-Before it existed the same recipe — the image tag, the clean database from `template1`, the Atlas
-chain apply — was written three times, in three languages, and #1324 fixed the startup race in only
-one of them. What each arm keeps is its own database name and its own budget; everything else is
-here.
+Before it existed the same recipe — the image tag, the clean database from `template1`, the chain
+apply — was written three times, in three languages, and #1324 fixed the startup race in only one of
+them. What each arm keeps is its own database name and its own budget; everything else is here.
+
+The chain is the committed Prisma one (#1626), which lives with the contract that owns it
+(`packages/pi-session-neon/prisma.config.ts`), and the five service roles are created here because a
+disposable container has no Pulumi to create them (#1625).
 
 ## Commands (from `packages/test-postgres/`)
 
@@ -29,14 +32,16 @@ here.
 
 | Export | Is |
 |---|---|
-| `startTestPostgres({ database, budget })` | the whole recipe: reuse or boot → wait → clean database → Atlas chain → `{ dsn, stop }` |
+| `startTestPostgres({ database, budget })` | the whole recipe: reuse or boot → wait → clean database → five service roles → Prisma chain → `{ dsn, stop }` |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
 | `SetupDeadline` | what is LEFT of that allowance, and what a phase may spend of it (#1318) |
 | `OFFLINE_POSTGRES_IMAGE` | the image tag, read from `postgres-image.env` |
 | `PostgresStartupWait` · `StartupWaitLimits` · `isStartingUp` · `Pause` | the bounded first-session probe (#1324) |
-| `createCleanDatabase` · `dropCleanDatabase` · `applyAtlasChain` | the three steps, for an arm that needs them apart |
+| `createCleanDatabase` · `dropCleanDatabase` | the clean database and the drop, for an arm that needs a database of its own |
+| `applyPrismaChain` · `ChainApplyTurn` | the chain apply and the cluster turn it runs in, for the arms that create databases themselves |
+| `createServiceRoles` · `assertServiceRoles` · `SERVICE_ROLES` | the role matrix, created for a disposable cluster and asserted by name |
 | `uniqueDatabaseName` | the per-call database name, for an arm that creates databases of its own |
-| `POSTGRES_USER` · `POSTGRES_PASSWORD` | the container's credentials, for building a second DSN |
+| `clusterAdminDsn` · `POSTGRES_USER` · `POSTGRES_PASSWORD` | the admin connection and credentials, for an arm that holds the cluster turn or builds a second DSN |
 
 `src/setup-budget.ts`, `src/setup-deadline.ts`, `src/postgres-image.ts` and
 `src/postgres-startup-wait.ts` are also reachable as subpath exports, so a consumer that only wants
@@ -130,18 +135,19 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   `ECONNREFUSED` and `ECONNRESET`; anything else — a wrong password, a missing database — rethrows on
   the first attempt. The pre-#1326 edge fixture retried everything for 60 s and then reported a
   generic timeout; that is the behaviour that changed, on purpose.
-- **Atlas is never applied to the image's own database.** The postgis image pre-initialises it with
-  the tiger/topology schemas, which the chain's clean-check refuses. Every arm gets a database
-  created from pristine `template1`.
+- **No chain is applied to the image's own database.** The postgis image pre-initialises it with
+  the tiger/topology schemas, which the migration chain would be asked to take over even though it
+  names none of them. Every arm gets a database created from pristine `template1`.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
   drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
   returns a plane without that guarantee.
 - **Never bundled.** `test/never-bundled.test.ts` scans both consumers' `src/` trees for all four
   module-load shapes. A `bundle-smoke`-style gate would prove nothing — the package is never in a
   bundle to smoke.
-- **Chain applies are serialized, not parallel.** The chain's role block is cluster-global and not
-  atomic (`IF NOT EXISTS` then `CREATE ROLE`), so `startTestPostgres` holds one session-level
-  `pg_advisory_lock` on the admin connection for the whole apply (#1663): two applies that reach that
-  block together — two calls in one process, two arms, two worktrees — would otherwise both read an
-  empty `pg_roles` and the second would die on `pg_authid_rolname_index`, which is how CI's edge lane
-  failed.
+- **Role creation and chain applies are serialized, not parallel.** `CREATE ROLE` is cluster-global
+  and not atomic (`IF NOT EXISTS` then `CREATE ROLE`), and the chain's grant matrix prechecks the
+  same rows, so `startTestPostgres` holds one session-level `pg_advisory_lock` on the admin
+  connection for both steps (#1663): two callers that reach the block together — two calls in one
+  process, two arms, two worktrees — would otherwise both read an empty `pg_roles` and the second
+  would die on `pg_authid_rolname_index`, which is how CI's edge lane failed. An arm that applies a
+  chain of its own takes the same turn (`ChainApplyTurn`) on the cluster's admin database.

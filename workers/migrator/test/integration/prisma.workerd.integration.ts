@@ -8,19 +8,20 @@ import { issuedToken } from "../migrate.worker.helpers";
 import { requestMetadata, TARGET } from "./prisma-fixture";
 import { buildPrismaWorker } from "./prisma-bundle";
 import { startPrismaWorker } from "./prisma-workerd";
-import { openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-postgres";
+import { openAtlasLedger, openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-postgres";
 import { grantDatabaseCreate, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./preflight.postgres";
 
 let runtime: Awaited<ReturnType<typeof startPrismaWorker>>;
 let token: string;
-const resources: { runtime?: typeof runtime; server?: Awaited<ReturnType<typeof startTestPostgres>>; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
+const resources: { runtime?: typeof runtime; server?: Awaited<ReturnType<typeof startTestPostgres>>; ledger?: Awaited<ReturnType<typeof openAtlasLedger>>; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
 
 beforeAll(async () => {
   const directory = resources.directory = await mkdtemp(join(tmpdir(), "native-migrator-worker-"));
   await buildPrismaWorker(directory);
   const server = resources.server = await startTestPostgres({ database: "native_delivery_worker", budget: SPIKE_SETUP_BUDGET });
-  const target = resources.target = await openPrismaMigrationTarget(server.dsn, "native_delivery_worker_contract");
+  const ledger = resources.ledger = await openAtlasLedger(server.dsn);
+  const target = resources.target = await openPrismaMigrationTarget(ledger.dsn, "native_delivery_worker_contract");
   const client = resources.client = new pg.Client(target.dsn);
   await client.connect();
   const dsn = await migratorRole(client, target.dsn);
@@ -32,10 +33,13 @@ beforeAll(async () => {
   await saveEvidence("native-workerd-startup-timing", { readyMs: performance.now() - started });
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 
+/** Order matters: the target and the ledger are dropped through the plane's own database, so its
+ * `stop()` — which drops that database — comes last. */
 afterAll(async () => {
   await resources.runtime?.close();
   await resources.client?.end();
   await resources.target?.stop();
+  await resources.ledger?.stop();
   await resources.server?.stop();
   await rm(resources.directory ?? "/nonexistent-native-worker-test", { recursive: true, force: true });
 });

@@ -1,12 +1,12 @@
 /**
  * The shared container's three contracts (#1663), against a real Docker daemon.
  *
- * The chain witness — three calls started AT ONCE, and the reason applies are
- * serialized on this cluster — comes first, and has to stay first: it needs the
- * cluster-global roles absent, which is the state of a container no chain has
- * run on yet, and the contracts below leave them behind. On a container whose
- * chain has already run, nothing can race, because every later apply skips the
- * role block.
+ * The chain witness — three calls started AT ONCE, and the reason the cluster's
+ * role block is serialized on this cluster — comes first, and has to stay first:
+ * it is exercised against a `pg_roles` that no call of this run has filled yet,
+ * which is the state of a container a first run meets. On a container whose
+ * roles already exist nothing can race, because every later call's creation
+ * skips the block it holds the turn for.
  *
  * AC1 — two `startTestPostgres` calls with the SAME suite name land on ONE
  * server, in two distinct databases, each with the committed chain applied.
@@ -21,10 +21,10 @@
  * a daemon.
  */
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import pg from "pg";
-import { SPIKE_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "../../src/index.ts";
+import { clusterAdminDsn, SPIKE_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "../../src/index.ts";
 
 const FIRST_SUITE = "shared_plane_first";
 const SECOND_SUITE = "shared_plane_second";
@@ -33,11 +33,14 @@ const CONCURRENT_SUITE = "shared_plane_concurrent";
  * race; three bodies make that overlap the common case, not a coincidence. */
 const CONCURRENT_CALLS = 3;
 
-/** The chain's length, read from the committed directory: the migrations are
- * the source of truth for "the full chain", not a number written here. */
-function chainLength(): number {
-  const directory = new URL("../../../../migrations/neon/", import.meta.url);
-  return readdirSync(directory).filter((file) => file.endsWith(".sql")).length;
+/** The chain's own identity: one marker row, naming the head the checkout is on.
+ * The migrations are the source of truth for "the full chain", not a number
+ * written here — the head comes from the contract the chain was emitted for. */
+function chainHead(): string {
+  const contract = JSON.parse(
+    readFileSync(new URL("../../../../packages/pi-session-neon/src/contract.json", import.meta.url), "utf8"),
+  ) as { storage: { storageHash: string } };
+  return contract.storage.storageHash;
 }
 
 /** One statement, on a session this file owns. */
@@ -59,19 +62,10 @@ async function clusterIdentity(dsn: string): Promise<{ system: string; port: str
   return { system: row.system_identifier, port: new URL(dsn).port };
 }
 
-/** The chain's own bookkeeping: one row per applied revision. */
-async function appliedRevisions(dsn: string): Promise<number> {
-  const [row] = await queryRows<{ applied: number }>(dsn, "select count(*)::int as applied from public.atlas_schema_revisions");
-  assert.ok(row);
-  return row.applied;
-}
-
-/** The admin database, derived from a call's DSN — a second session target that
- * proves the SERVER is alive rather than the database. */
-function adminDsn(planeDsn: string): string {
-  const url = new URL(planeDsn);
-  url.pathname = "/postgres";
-  return url.toString();
+/** The chain's own bookkeeping: one row per applied space, at the head. */
+async function appliedMarker(dsn: string): Promise<string | null> {
+  const [row] = await queryRows<{ core_hash: string }>(dsn, "select core_hash from prisma_contract.marker where space = 'app'");
+  return row?.core_hash ?? null;
 }
 
 async function assertOneServerTwoMigratedDatabases(first: TestPostgres, second: TestPostgres): Promise<void> {
@@ -84,7 +78,7 @@ async function assertOneServerTwoMigratedDatabases(first: TestPostgres, second: 
 async function assertOnlyOwnDatabaseDropped(first: TestPostgres, second: TestPostgres): Promise<void> {
   await assert.rejects(queryRows(first.dsn, "select 1"), { code: "3D000" });
   assert.deepEqual(await queryRows(second.dsn, "select 1 as one"), [{ one: 1 }]);
-  assert.deepEqual(await queryRows(adminDsn(second.dsn), "select 1 as one"), [{ one: 1 }]);
+  assert.deepEqual(await queryRows(clusterAdminDsn(second.dsn), "select 1 as one"), [{ one: 1 }]);
 }
 
 /** One arm's budget is enough: this call boots (or reuses) the server itself. */
@@ -101,17 +95,17 @@ async function startAllAtOnce(landed: TestPostgres[]): Promise<void> {
   }));
 }
 
-/** The whole chain on the database this call owns: one applied revision per
- * committed migration. */
+/** The whole chain on the database this call owns: the marker names the head the
+ * committed migrations end at. */
 async function assertFullChain(dsn: string): Promise<void> {
-  assert.equal(await appliedRevisions(dsn), chainLength());
+  assert.equal(await appliedMarker(dsn), chainHead());
 }
 
-/** The role block of `20260826000001_roles.sql` is cluster-global and not atomic
- * — it reads `pg_roles` and then creates — so two applies that reach it together
- * both read an empty catalog and the second one to commit dies on
- * `pg_authid_rolname_index`. That is exactly how CI's edge lane failed once
- * every caller shared one container. */
+/** The role block is cluster-global and not atomic — it reads `pg_roles` and then
+ * creates — so two callers that reach it together both read an empty catalog and
+ * the second one to commit dies on `pg_authid_rolname_index`. That is exactly
+ * how CI's edge lane failed once every caller shared one container, and it is
+ * why both steps hold one cluster turn (#1663). */
 void test("three calls started at once each land a fully migrated database (#1663)", async () => {
   const landed: TestPostgres[] = [];
   try {

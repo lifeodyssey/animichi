@@ -11,9 +11,10 @@ void test("fixture cleanup stops PostgreSQL when the client close fails", async 
   });
 
   await assert.rejects(stopDatabaseFixture(fixture), failure);
-  assert.deepEqual(events, ["db.close", "pool.end", "postgres.stop"]);
+  assert.deepEqual(events, ["db.close", "pool.end", "chain.stop", "postgres.stop"]);
 });
 
+/** The chain database is dropped through the plane's own, so it has to go first (#1663). */
 void test("fixture cleanup stops PostgreSQL when the pool end fails", async () => {
   const events: string[] = [];
   const failure = new Error("pool end failed");
@@ -26,12 +27,13 @@ void test("fixture cleanup stops PostgreSQL when the pool end fails", async () =
   });
 
   await assert.rejects(stopDatabaseFixture(fixture), failure);
-  assert.deepEqual(events, ["db.close", "pool.end", "postgres.stop"]);
+  assert.deepEqual(events, ["db.close", "pool.end", "chain.stop", "postgres.stop"]);
 });
 
 function fakeFixture(events: string[], close: () => Promise<void>, end?: () => Promise<void>): DatabaseFixture {
   return {
     postgres: fakePostgres(events),
+    chain: fakeChain(events),
     pool: fakePool(events, end),
     db: fakeDatabase(close),
     queryLog: { recorded: [] } as unknown as DatabaseFixture["queryLog"],
@@ -41,6 +43,13 @@ function fakeFixture(events: string[], close: () => Promise<void>, end?: () => P
 function fakePostgres(events: string[]): DatabaseFixture["postgres"] {
   return { dsn: "postgresql://test", stop: () => {
     events.push("postgres.stop");
+    return Promise.resolve();
+  } };
+}
+
+function fakeChain(events: string[]): DatabaseFixture["chain"] {
+  return { dsn: "postgresql://test/chain", stop: () => {
+    events.push("chain.stop");
     return Promise.resolve();
   } };
 }

@@ -23,7 +23,8 @@ Reservations remain on their admission row; `anon_daily_message_count` and `dail
 the existing quota and cost aggregates, which the contract deliberately does not declare (the
 database-layer spec §4.12) — `test/quota-aggregates.ts` installs them for the executable examples
 until #1607 deletes them. Native Pi tables receive only `agent_svc` grants; the 19 data-plane
-tables follow the Atlas grant matrix in `access.ts`, and no role is created here. Pi entries
+tables follow the Atlas grant matrix in `access.ts`, and no role is created here — a disposable
+test plane creates them for the cluster it owns (`@animichi/test-postgres`, #1625). Pi entries
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
 One Prisma chain owns every table this package builds: the seven native tables and the 19
 catalog/users data-plane tables rebuilt from `migrations/neon`. No applied Atlas migration is

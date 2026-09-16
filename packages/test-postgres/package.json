@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Test-only Postgres data plane: the offline image, the readiness wait, the clean-database recipe and the Atlas chain, shared by every database-backed suite. Never a runtime dependency.",
+  "description": "Test-only Postgres data plane: the offline image, the readiness wait, the clean-database recipe, the service roles and the committed Prisma chain, shared by every database-backed suite. Never a runtime dependency.",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {

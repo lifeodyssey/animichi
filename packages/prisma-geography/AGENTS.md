@@ -7,7 +7,9 @@ until its owning migration card.
 - `pnpm run contract:emit` — regenerate `src/contract.json` and `src/contract.d.ts`.
 - `pnpm exec prisma migration plan --name <snake_slug> --json` — plan a native migration after emission.
 - `pnpm run lint` / `pnpm run typecheck` / `pnpm run test` — package static and unit gates.
-- `pnpm run test:integration` — one disposable `@animichi/test-postgres` PostGIS lifecycle, serially.
+- `pnpm run test:integration` — one disposable `@animichi/test-postgres` PostGIS lifecycle, serially:
+  the container it boots, the pack's own chain database on it (the data plane's own database carries
+  the data plane's chain, one chain per database), and the pack's own migrations applied there.
   It enforces 95% line coverage and writes `coverage/lcov.info`. Never point it at live Neon.
 
 The public package surface has seven exports. `./control` is the authoring/control descriptor loaded by

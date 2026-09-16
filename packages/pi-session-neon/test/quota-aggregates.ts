@@ -1,10 +1,10 @@
 // The Python agent domain's quota aggregates. `migrations/neon/20260826000004_agent.sql` and
 // `20260904000000_platform_usage_scope.sql` created them; the #1626 contract deliberately does not
-// declare them (spec §4.12) and #1607 retires them with `apps/agent`. The executable business
-// examples under `test/` (`business-transactions.ts`) still target them, and the edge's database
-// fixtures install the same shapes, so this fixture is the single owner of both. No grants: the
-// examples run on the superuser test pool, and every privilege assertion covers contract-owned
-// tables in `acl.db.test.ts`. Delete this file with the two tables.
+// declare them (spec §4.12) and the Python agent that owned them retired with #1607. The
+// executable business examples under `test/` (`business-transactions.ts`) still target them, and
+// the edge's database fixtures install the same shapes, so this fixture is the single owner of
+// both. No grants: the examples run on the superuser test pool, and every privilege assertion
+// covers contract-owned tables in `acl.db.test.ts`. Delete this file with the two tables.
 export const QUOTA_AGGREGATES = `
   CREATE TABLE public.anon_daily_message_count (
     usage_date date NOT NULL,

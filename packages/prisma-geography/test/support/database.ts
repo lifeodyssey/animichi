@@ -1,4 +1,4 @@
-import { AGENT_DB_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
+import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgres, uniqueDatabaseName, type TestPostgres } from "@animichi/test-postgres";
 import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import contractJson from "../../src/contract.json" with { type: "json" };
@@ -9,37 +9,103 @@ import { FILLER_SQL, KNOWN_POINTS } from "./fixtures.ts";
 import { prisma } from "./prisma-cli.ts";
 import { QueryLog, recordingPool } from "./recording-pool.ts";
 
+const DATABASE_SUITE = "prisma_geography";
+const CHAIN_SUITE = "prisma_geography_chain";
+
+/** This pack's migration declares a `geography(Point,4326)` column and no extension; the evidence
+ * builds a `gin_trgm_ops` index. The data plane's chain creates both for the real tables, so a
+ * database this pack migrates alone has to bring them. */
+const PACK_EXTENSIONS = ["postgis", "pg_trgm"] as const;
+
+/** The database this fixture's pack chain migrated, and how to give it back (#1663). */
+export interface ChainDatabase {
+  readonly dsn: string;
+  stop(): Promise<void>;
+}
+
 export interface DatabaseFixture {
   readonly postgres: TestPostgres;
+  readonly chain: ChainDatabase;
   readonly pool: pg.Pool;
   readonly db: PostgresClient<Contract>;
   readonly queryLog: QueryLog;
 }
 
 export async function startDatabaseFixture(): Promise<DatabaseFixture> {
-  const postgres = await startTestPostgres({ database: "prisma_geography", budget: AGENT_DB_SETUP_BUDGET });
-  const [pool, driverPool] = createPools(postgres.dsn);
+  const postgres = await startTestPostgres({ database: DATABASE_SUITE, budget: AGENT_DB_SETUP_BUDGET });
+  const chain = await openAfterStopping(postgres);
+  const [pool, driverPool] = createPools(chain.dsn);
   try {
-    return await initializeFixture(postgres, pool, driverPool);
+    return await initializeFixture(postgres, chain, pool, driverPool);
   } catch (failure) {
-    await closeFailedStart(postgres, pool, driverPool);
+    await closeFailedStart(chain, pool, driverPool);
+    await postgres.stop();
     throw failure;
+  }
+}
+
+/** The plane's database is the container and the role source here; a failure opening the chain
+ * database still gives it back before the error continues. */
+async function openAfterStopping(postgres: TestPostgres): Promise<ChainDatabase> {
+  try {
+    return await openChainDatabase(postgres);
+  } catch (failure) {
+    await postgres.stop();
+    throw failure;
+  }
+}
+
+/** The pack's own chain database: pristine `template1`, the extensions the pack's DDL relies on,
+ * then `prisma db migrate`. It cannot be the plane's own database — that one carries the data
+ * plane's chain (one chain per database, spec §4.7), and this pack's chain applied over its marker
+ * is a `MIGRATION.MARKER_MISMATCH`. */
+async function openChainDatabase(postgres: TestPostgres): Promise<ChainDatabase> {
+  const name = uniqueDatabaseName(CHAIN_SUITE);
+  const dsn = await createCleanDatabase(postgres.dsn, name);
+  const owned: ChainDatabase = { dsn, stop: () => dropCleanDatabase(postgres.dsn, name) };
+  return useOwned(owned, async () => {
+    await installExtensions(dsn);
+    await prisma(["db", "migrate", "--db", dsn]);
+    return owned;
+  });
+}
+
+/** Run `work` on a database this call created; a failure hands it back first (#1663). */
+async function useOwned<Result>(owned: ChainDatabase, work: () => Promise<Result>): Promise<Result> {
+  try {
+    return await work();
+  } catch (failure) {
+    await owned.stop();
+    throw failure;
+  }
+}
+
+async function installExtensions(dsn: string): Promise<void> {
+  const client = new pg.Client(dsn);
+  await client.connect();
+  try {
+    for (const extension of PACK_EXTENSIONS) {
+      await client.query(`CREATE EXTENSION IF NOT EXISTS "${extension}"`);
+    }
+  } finally {
+    await client.end();
   }
 }
 
 export async function stopDatabaseFixture(fixture: DatabaseFixture): Promise<void> {
   const failures = await closeResources(fixture);
-  failures.push(...await stopResource(fixture.postgres));
+  failures.push(...await stopResource(fixture.chain), ...await stopResource(fixture.postgres));
   throwCleanupFailures(failures);
 }
 
-async function initializeFixture(postgres: TestPostgres, pool: pg.Pool, driverPool: pg.Pool): Promise<DatabaseFixture> {
-  await prisma(["db", "migrate", "--db", postgres.dsn]);
+async function initializeFixture(
+  postgres: TestPostgres, chain: ChainDatabase, pool: pg.Pool, driverPool: pg.Pool,
+): Promise<DatabaseFixture> {
   const queryLog = new QueryLog();
   const db = createDatabaseClient(driverPool, queryLog);
   await db.connect();
   await seed(db, pool);
-  return { postgres, pool, db, queryLog };
+  return { postgres, chain, pool, db, queryLog };
 }
 
 function createPools(dsn: string): readonly [pg.Pool, pg.Pool] {
@@ -61,9 +127,9 @@ async function seed(db: PostgresClient<Contract>, pool: pg.Pool): Promise<void> 
   await pool.query("ANALYZE geo_points");
 }
 
-async function closeFailedStart(postgres: TestPostgres, pool: pg.Pool, driverPool: pg.Pool): Promise<void> {
+async function closeFailedStart(chain: ChainDatabase, pool: pg.Pool, driverPool: pg.Pool): Promise<void> {
   await Promise.allSettled([pool.end(), driverPool.end()]);
-  await postgres.stop();
+  await chain.stop();
 }
 
 async function closeResources(fixture: DatabaseFixture): Promise<Error[]> {
@@ -73,8 +139,8 @@ async function closeResources(fixture: DatabaseFixture): Promise<Error[]> {
   ]));
 }
 
-async function stopResource(postgres: TestPostgres): Promise<Error[]> {
-  return failuresOf(await Promise.allSettled([Promise.resolve().then(() => postgres.stop())]));
+async function stopResource(resource: { stop(): Promise<void> }): Promise<Error[]> {
+  return failuresOf(await Promise.allSettled([Promise.resolve().then(() => resource.stop())]));
 }
 
 function failuresOf(results: readonly PromiseSettledResult<void>[]): Error[] {
