@@ -51,6 +51,7 @@ function provisionEdgeRoutes(
 ): void {
   const routes: Array<[string, string]> = [
     ["animichi-edge-v1-route", `${apex}/v1/*`],
+    ["animichi-edge-catalog-route", `${apex}/catalog/public/*`],
     ["animichi-edge-img-route", `${apex}/img/*`],
     ["animichi-edge-tiles-route", `${apex}/tiles/*`],
     ["animichi-edge-healthz-route", `${apex}/healthz`],
@@ -149,10 +150,14 @@ function provisionWwwRedirect(zoneId: string, apex: string): void {
 if (webRoutesEnabled) {
   // The hostname this stack serves: prod owns the apex, every other stack its
   // own subdomain. Both get the SAME split — the Custom Domain is the origin
-  // for pages, and the four routes run ahead of it for the API/map surfaces.
-  // Staging must not be an exception: `apps/web` calls `/v1/chat`,
-  // `/v1/photo-search`, `/v1/conversations/...` relative to its own origin, so a
-  // staging hostname pointed wholly at the web Worker has no chat at all.
+  // for pages, and the five routes run ahead of it for the API/map/catalog
+  // surfaces. Staging must not be an exception: `apps/web` calls `/v1/chat`,
+  // `/v1/photo-search`, `/v1/conversations/...` and `/catalog/public/*`
+  // relative to its own origin, so a staging hostname pointed wholly at the web
+  // Worker has no chat at all and no anime page. `/catalog/public/*` is the one
+  // anonymous catalog door (iter-5 S5.4); the surface it routes is declared in
+  // `packages/contract/src/public-catalog.ts` and cross-checked by
+  // `topology-edge-route-coverage.test.ts`.
   requireKnownStack();
   const cloudflareZoneId = config.require("cloudflareZoneId");
   const apexDomain = apexDomainForStack();

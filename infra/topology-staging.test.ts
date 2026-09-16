@@ -39,6 +39,7 @@ test("staging gets the SAME API and map routes as prod", () => {
   // in the pipeline would notice.
   const patterns = ofType(built, ROUTE).map((r) => r.inputs.pattern).sort();
   assert.deepEqual(patterns, [
+    "staging.animichi.com/catalog/public/*",
     "staging.animichi.com/healthz",
     "staging.animichi.com/img/*",
     "staging.animichi.com/tiles/*",

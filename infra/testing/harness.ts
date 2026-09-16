@@ -85,7 +85,7 @@ export async function buildStack(
   // principle slip past it. What keeps that from becoming a silent pass is that
   // every test file asserts the PRESENCE of something before it asserts any
   // absence: `topology-disabled` requires the R2 bucket, and the other two
-  // require the Custom Domain and three routes. A short read therefore fails
+  // require the Custom Domain and its edge routes. A short read therefore fails
   // those first, loudly, rather than quietly satisfying "no www record here".
   // Do not add an absence-only test file without a presence anchor in it.
   for (let stable = 0; stable < 3; ) {

@@ -39,6 +39,7 @@ test("the apex serves the web Worker, not the edge Worker", () => {
 test("the API and map asset surfaces are routed to the edge Worker", () => {
   const patterns = ofType(built, ROUTE).map((r) => r.inputs.pattern).sort();
   assert.deepEqual(patterns, [
+    "animichi.com/catalog/public/*",
     "animichi.com/healthz",
     "animichi.com/img/*",
     "animichi.com/tiles/*",

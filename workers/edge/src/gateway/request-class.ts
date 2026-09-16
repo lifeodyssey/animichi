@@ -1,4 +1,5 @@
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { isPublicCatalogPath } from "@animichi/contract/public-catalog";
 import { SESSION_ADOPT_PATH } from "../identity/session-adopt.ts";
 
 /**
@@ -16,9 +17,6 @@ import { SESSION_ADOPT_PATH } from "../identity/session-adopt.ts";
  * (SESSION-2 #960). Explicitly rejected here so no branch can ever forward a
  * request to a route that no longer exists. */
 const SESSION_MIGRATE_PATH = "/v1/session/migrate";
-
-/** The one allowlisted public catalog read (issue #537 / CATALOG-5 #946). */
-const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 
 const USERS_PREFIX = USERS_BINDING_PREFIX;
 
@@ -52,7 +50,7 @@ export function classify(request: Request): RequestClass {
   const { pathname } = new URL(request.url);
   const landing = landingClass(request.method, pathname);
   if (landing !== null) return landing;
-  if (request.method === "GET" && PUBLIC_CATALOG_PATTERN.test(pathname)) return { kind: "public-catalog" };
+  if (request.method === "GET" && isPublicCatalogPath(pathname)) return { kind: "public-catalog" };
   if (pathname === SESSION_MIGRATE_PATH) return { kind: "retired" };
   if (pathname.startsWith(USERS_PREFIX)) return { kind: "users" };
   if (pathname === SESSION_ADOPT_PATH) return { kind: "adopt" };

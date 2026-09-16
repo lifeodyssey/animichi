@@ -16,6 +16,7 @@
     "./session-history-contract": "./src/session-history-contract.ts",
     "./access-service-token": "./src/access-service-token.ts",
     "./agent-paths": "./src/agent-paths.ts",
+    "./public-catalog": "./src/public-catalog.ts",
     "./agent-step-origin": "./src/agent-step-origin.ts",
     "./agent-tool-parameters": "./src/agent-tool-parameters.ts",
     "./agent-tool-schemas": "./src/agent-tool-schemas.ts",

@@ -49,4 +49,12 @@ describe("catalog Worker (vitest-pool-workers)", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "unexpected query parameters" });
   });
+
+  it("admits the popularity ranking's declared limit past the public query guard", async () => {
+    // No DB is configured, so the /catalog/* guard answers 503. That 503 IS the
+    // proof: the public middleware let the declared parameter through to the
+    // handler, where an undeclared one answers the 400 above instead.
+    const res = await catalogRequest("/catalog/public/popular?limit=4", {}, {} satisfies Env);
+    expect(res.status).toBe(503);
+  });
 });

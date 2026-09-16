@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { PUBLIC_CATALOG_ROUTES } from "@animichi/contract/public-catalog";
 import { classifyRatePolicy, RATE_LIMIT_ENVELOPE_FIELDS, type LimiterKind, type LimiterFailure, type RatePolicy } from "../src/gateway/rate-policy.ts";
 import { authenticatedRateLimitKey } from "../src/protect/rate-limiter.ts";
 
@@ -27,9 +28,17 @@ void test("every AGENT_PATHS operation classifies (never undefined)", () => {
   }
 });
 
-void test("the allowlisted public catalog read is a native fail-open cacheable read", () => {
+void test("the allowlisted public catalog reads are native fail-open cacheable reads", () => {
   const p = classify("GET", "/catalog/public/anime-overview/123");
   assert.deepEqual(p, { cost: "low", quota: "none", limiter: "native", failure: "fail-open-alert" });
+  // One case per route the declaration carries, derived from it: a new public
+  // catalog route that forgets its rate cell fails here rather than shipping
+  // unmetered (#1691 AC2).
+  assert.equal(PUBLIC_CATALOG_ROUTES.length > 0, true, "the declaration must not be empty");
+  for (const route of PUBLIC_CATALOG_ROUTES) {
+    const concrete = route.template.replace(/\{[^}]+\}/g, "123");
+    assert.deepEqual(classify("GET", concrete), p, `${route.template} must classify as a public read`);
+  }
 });
 
 void test("high-cost chat (POST) is durable and fails closed, regardless of route", () => {

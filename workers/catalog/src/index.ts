@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { catalogRouter } from "./router";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
@@ -66,9 +67,18 @@ app.get("/healthz", (c) =>
 // Public catalog reads are anonymous and change only on republish — let the edge
 // cache them (5 min browser, 1 h edge). Runs before the /catalog/* oRPC handler,
 // tagging its response on the way back out.
+//
+// Only the parameters the route's own contract declares get through (`limit` on
+// the popularity ranking); the rest answer 400 here, before any handler or
+// database work, so the cache key stays the route's own bounded query surface
+// rather than whatever a caller invents. The allowlist is the ONE declaration
+// the edge gateway reads too (#1691).
 const PUBLIC_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 app.use("/catalog/public/*", async (c, next) => {
-  if (new URL(c.req.url).search) return c.json({ error: "unexpected query parameters" }, 400);
+  const url = new URL(c.req.url);
+  if (unexpectedPublicCatalogQueryParam(url.pathname, [...url.searchParams.keys()]) !== null) {
+    return c.json({ error: "unexpected query parameters" }, 400);
+  }
   await next();
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });

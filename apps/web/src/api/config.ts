@@ -7,7 +7,9 @@ import { currentRuntimeConfig } from "../lib/runtime-config/provider";
  *
  * Same-origin by design (#550): the edge Worker fans `/v1/*`, `/v1/users/*`
  * and `/catalog/public/*` out to the services, so the base is the origin that
- * serves this app. The browser reads `location.origin`; SSR reads the
+ * serves this app. The public catalog surface is declared once in
+ * `packages/contract/src/public-catalog.ts` and routed by
+ * `infra/src/web-routes.ts` (#1691). The browser reads `location.origin`; SSR reads the
  * TanStack Start request context (`getRequestUrl`) with `api.siteOrigin`
  * (a runtime-config field, #1013 AC1) as an explicit override. When the server
  * has neither, resolution FAILS LOUD: a silent relative base would point every

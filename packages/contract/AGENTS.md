@@ -74,7 +74,10 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 - `src/models.ts` — shared Zod data models.
 - `src/agent-paths.ts` — `AGENT_PATHS`, the complete Agent HTTP path inventory ·
   `src/identity-policy.ts` — `DEFAULT_IDENTITY_POLICY`, the deployed identity matrix ·
-  `test/import-free-modules.test.ts` — the gate over both. `workers/edge` reads these two
+  `src/public-catalog.ts` — the ONE anonymous catalog surface: the path matcher and the
+  query-parameter allowlist, read by BOTH the edge gateway and the catalog Worker's public
+  middleware (#1691), pinned to `catalogContract` by `test/public-catalog.test.ts` ·
+  `test/import-free-modules.test.ts` — the gate over all three. `workers/edge` reads these
   documents at RUNTIME, so they are declared apart from the zod modules that give them meaning
   (`agent-contract.ts`, `identity-contract.ts`), which do NOT re-export them: a value import from
   a zod module pulls all 79 of zod's files into the Worker bundle (#1285, measured by

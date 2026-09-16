@@ -9,6 +9,7 @@ import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
 import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
+import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers } from "./forward.ts";
@@ -151,8 +152,11 @@ function healthzResponse(): Response {
 }
 
 async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
-  if (new URL(request.url).search) return gatewayRejection("unexpected_query", 400, "This route takes no query parameters.");
-  const guarded = await guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), publicReadKey(request), authRateLimitConfigFrom(env));
+  const { pathname, searchParams } = new URL(request.url);
+  if (unexpectedPublicCatalogQueryParam(pathname, [...searchParams.keys()]) !== null) {
+    return gatewayRejection("unexpected_query", 400, "This route does not accept that query parameter.");
+  }
+  const guarded = await guardPolicy(env, classifyRatePolicy(request.method, pathname), publicReadKey(request), authRateLimitConfigFrom(env));
   if (guarded !== null) return guarded;
   return forwardPublicCatalog(env, request);
 }

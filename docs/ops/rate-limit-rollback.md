@@ -15,7 +15,7 @@ operator-triggered action with a recorded outcome.
 | Tier | Primitive | What it governs | Misbehaviours |
 |---|---|---|---|
 | WAF/IP | zone `http_ratelimit` ruleset (`infra/src/hardening.ts`) | coarse network floods on `/v1` | over/under-challenging at the edge of the network |
-| Native burst | Cloudflare `ratelimit` binding (`workers/edge/wrangler.toml` `[[ratelimit]]`, `env.RATE_LIMITER`) | best-effort per-key burst for the one cacheable public read (`/catalog/public/anime-overview/{id}`) + the coarse outer wall | false 429s (over-tight native-cell limits on a cacheable read), or silently letting floods through |
+| Native burst | Cloudflare `ratelimit` binding (`workers/edge/wrangler.toml` `[[ratelimit]]`, `env.RATE_LIMITER`) | best-effort per-key burst for the cacheable public catalog reads (`/catalog/public/anime-overview/{id}`, `/catalog/public/popular`) + the coarse outer wall | false 429s (over-tight native-cell limits on a cacheable read), or silently letting floods through |
 | Durable exact | `EDGE_GUARD` DO (`workers/edge/src/protect/rate-limiter.ts`, `edge-guard.ts`) | exact per-identity high-cost/write windows (chat, BYOK, photo-search, users mutations); fails closed on outage | stuck 503 `rate_limit_unavailable`, wrong identity key, a burst window that never resets |
 | Daily quota | $EDGE_GUARD budget latch + container ingress (`daily_usage` / `anon_daily_message_count`) | anonymous daily cost/message ceilings | early budget lockout (403 `anon_budget_exhausted`) |
 

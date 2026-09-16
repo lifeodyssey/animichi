@@ -1,11 +1,12 @@
 import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { isPublicCatalogPath } from "@animichi/contract/public-catalog";
 
 /**
  * The single rate route policy (issue #680 AC1).
  *
  * Every public API operation the edge serves — agent /v1, users /v1, and the
- * one allowlisted public catalog read — is classified by the five cells the
+ * allowlisted public catalog reads — is classified by the five cells the
  * program (parent #1004) demands the gateway own:
  *
  *  - identity key  — the meter the request's allowance is spent on (derived
@@ -63,7 +64,6 @@ const DURABLE_USER_MUTATION: RatePolicy = Object.freeze({ cost: "low", quota: "n
 const DURABLE_ADOPT: RatePolicy = Object.freeze({ cost: "low", quota: "none", limiter: "durable", failure: "fail-closed" });
 
 const HIGH_COST_V1 = new Set(["/v1/chat", "/v1/photo-search"]);
-const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 
 /** Derive the BYOK prefix from the inventory's byok route so every current and
  * future /v1/byok/* route stays on the durable billing abuse class (AC5)
@@ -114,7 +114,7 @@ function normalizePathname(pathname: string): { readonly path: string; readonly 
 
 export function classifyRatePolicy(method: string, pathname: string): RatePolicy {
   const { path: normalized, decodable } = normalizePathname(pathname);
-  if (PUBLIC_CATALOG_PATTERN.test(normalized)) return NATIVE_PUBLIC_READ;
+  if (isPublicCatalogPath(normalized)) return NATIVE_PUBLIC_READ;
   if (pathname.startsWith(USERS_BINDING_PREFIX)) {
     return method === "GET" ? UNMANAGED_READ : DURABLE_USER_MUTATION;
   }
