@@ -2,11 +2,10 @@
  * @vitest-environment jsdom
  *
  * `sessionHeaders()` (issue #260/#445 shared-module extraction) is the single
- * injection point for both the chat transport and photo search. This file
- * pins its BYOK header behaviour (#284 Task 6) directly at the function,
- * independent of either caller — see also `photo-search-client.test.ts`'s
- * "BYOK headers on photo search (#284 P1-2)" describe block, which asserts
- * the same semantics survive through that specific transport.
+ * injection point for the /v1 turn transport. This file pins its BYOK header
+ * behaviour (#284 Task 6) directly at the function, independent of its caller.
+ * (`photo-search-client.test.ts` used to assert the same semantics through that
+ * second transport; #1604 deleted it with the surface.)
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byok-storage";

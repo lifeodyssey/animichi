@@ -86,8 +86,23 @@ void test("retired conversation rename is absent and unmanaged", () => {
 
 void test("anonymous allowlist membership matches the inventory's paths", () => {
   assert.equal(isAnonymousV1("/v1/chat"), true);
-  assert.equal(isAnonymousV1("/v1/photo-search"), true);
-  assert.equal(isAnonymousV1("/v1/photo-search/confirm"), true);
+});
+
+// #1604 deleted the photo search surface rather than rebuilding it, so both routes
+// leave the inventory, the tables derived from it and the rate policy together — the
+// same retirement shape #1595 pinned for `/v1/feedback` and #1597 for the catalog
+// reads. `route-inventory` is where the allowlist half lives; the rate cell itself is
+// pinned in `rate-policy.test.ts`.
+void test("the deleted photo-search routes match no inventory, cell or allowlist", () => {
+  for (const path of ["/v1/photo-search", "/v1/photo-search/confirm"]) {
+    assert.equal(inventoryPaths.has(path), false, `${path} must not be advertised`);
+    assert.equal(
+      classifyRatePolicy("POST", path).limiter,
+      "none",
+      "a deleted path must not be classified into a guarded cell",
+    );
+    assert.equal(isAnonymousV1(path), false, `${path} must not survive on the anonymous allowlist`);
+  }
 });
 
 void test("the retired staging prefix route remains outside every allowlist", () => {

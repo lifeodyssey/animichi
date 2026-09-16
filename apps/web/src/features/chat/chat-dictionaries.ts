@@ -5,15 +5,12 @@ import {
   enClarify,
   enDeparture,
   enLocation,
-  enPhoto,
   jaClarify,
   jaDeparture,
   jaLocation,
-  jaPhoto,
   zhClarify,
   zhDeparture,
   zhLocation,
-  zhPhoto,
 } from "./clarify-i18n";
 import { enErrorStates, jaErrorStates, zhErrorStates } from "./error-states-i18n";
 import { enRoute, jaRoute, zhRoute } from "./route-i18n";
@@ -33,7 +30,6 @@ const ja: ChatDict = {
   busyPlaceholder: "考え中…",
   send: "送信",
   hintSend: "Enter で送信",
-  hintCamera: "画像からも聖地を探せるよ",
   brandTagline: "聖地を、歩こう",
   newJourney: "新しい旅",
   recentLabel: "最近",
@@ -69,7 +65,6 @@ const ja: ChatDict = {
   clarify: jaClarify,
   departure: jaDeparture,
   location: jaLocation,
-  photo: jaPhoto,
   byok: jaByok,
 };
 
@@ -84,7 +79,6 @@ const zh: ChatDict = {
   busyPlaceholder: "思考中…",
   send: "发送",
   hintSend: "按 Enter 发送",
-  hintCamera: "上传图片，也可以找取景地哦",
   brandTagline: "走进喜欢的作品里",
   newJourney: "新的旅程",
   recentLabel: "最近",
@@ -120,7 +114,6 @@ const zh: ChatDict = {
   clarify: zhClarify,
   departure: zhDeparture,
   location: zhLocation,
-  photo: zhPhoto,
   byok: zhByok,
 };
 
@@ -135,7 +128,6 @@ const en: ChatDict = {
   busyPlaceholder: "Thinking…",
   send: "Send",
   hintSend: "Enter to send",
-  hintCamera: "You can also search for locations with an image",
   brandTagline: "walk your fandom",
   newJourney: "New journey",
   recentLabel: "Recent",
@@ -171,7 +163,6 @@ const en: ChatDict = {
   clarify: enClarify,
   departure: enDeparture,
   location: enLocation,
-  photo: enPhoto,
   byok: enByok,
 };
 

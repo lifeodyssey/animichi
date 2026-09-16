@@ -91,28 +91,21 @@ void test("another isolate cannot reset an identity's spent window", async () =>
 });
 
 // AC2 (review REJECT #680): the AUTH cost path previously consulted only
-// isAuthRateLimited (which matched /v1/chat + /v1/byok/*), leaving
-// authenticated /v1/photo-search
-// and /v1/photo-search/confirm unguarded. They now route through the SAME
-// policy-driven guard as chat/BYOK: prove it by spending the one-request
-// AUTH window on that class and seeing the second the caller shares reject.
+// isAuthRateLimited (which matched /v1/chat + /v1/byok/*), leaving an
+// authenticated /v1 class outside that list unguarded. #1604 deleted the
+// photo-search routes — the class this case used to probe — so the surviving
+// non-chat/BYOK durable class is session adoption: it is guarded only because
+// `classifyRatePolicy` puts it in the durable fail-closed cell, which is the
+// property under test.
 
-void test("authenticated POST /v1/photo-search is guarded by the policy path", async () => {
+void test("authenticated POST /v1/sessions/adopt is guarded by the policy path", async () => {
   const app = authedApp();
   const guard = fakeGuard(NOW);
   const e = env(guard.namespace);
-  assert.equal((await app.request("/v1/photo-search", POST, e, stubCtx)).status, 200);
-  const second = await app.request("/v1/photo-search", POST, e, stubCtx);
-  assert.equal(second.status, 429, "an authenticated photo-search must spend the identity's durable window");
+  assert.equal((await app.request("/v1/sessions/adopt", POST, e, stubCtx)).status, 200);
+  const second = await app.request("/v1/sessions/adopt", POST, e, stubCtx);
+  assert.equal(second.status, 429, "an authenticated adoption must spend the identity's durable window");
   assert.ok(guard.calls.some((c) => c.method === "POST"), "the durable guard seam must be consulted");
-});
-
-void test("authenticated POST /v1/photo-search/confirm is guarded by the policy path", async () => {
-  const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
-  assert.equal((await app.request("/v1/photo-search/confirm", POST, e, stubCtx)).status, 200);
-  const second = await app.request("/v1/photo-search/confirm", POST, e, stubCtx);
-  assert.equal(second.status, 429, "an authenticated photo-search confirm must fail closed on the shared window");
 });
 
 void test("an authenticated GET conversation read stays unmanaged (never spends the window)", async () => {

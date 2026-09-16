@@ -150,37 +150,6 @@ void test("a non-allowlisted /v1 path 401s without ever raising a challenge", as
   assert.equal(calls.length, 0);
 });
 
-/** #445 put the photo routes on the anonymous allowlist, so the gate must
- * cover them too — they cost a vision call, the most expensive turn there is. */
-void test("an anonymous photo upload is challenged like a chat turn", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
-  const calls: GateCall[] = [];
-  const res = await armedApp(captured, recordingGate(calls, SOLVED)).request(
-    "/v1/photo-search", chat(), anonEnv(captured), stubCtx,
-  );
-  assert.equal(res.status, 403);
-  assert.equal(captured.requests.length + captured.calls.length, 0);
-  assert.equal(calls[0]?.token, null);
-});
-
-void test("a solved anonymous photo upload reaches the container", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
-  const res = await armedApp(captured, recordingGate([], SOLVED)).request(
-    "/v1/photo-search", chat(solvedHeaders), anonEnv(captured), stubCtx,
-  );
-  assert.equal(res.status, 200);
-  assert.equal(captured.requests[0]?.headers.get("X-User-Type"), "anonymous");
-});
-
-void test("the confirm ping is challenged on the anonymous path too", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
-  const res = await armedApp(captured, recordingGate([], SOLVED)).request(
-    "/v1/photo-search/confirm", chat(), anonEnv(captured), stubCtx,
-  );
-  assert.equal(res.status, 403);
-  assert.equal(captured.requests.length + captured.calls.length, 0);
-});
-
 void test("a credential-free public read is not challenged either", async () => {
   const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];

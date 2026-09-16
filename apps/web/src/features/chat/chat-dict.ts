@@ -5,7 +5,6 @@ import type {
   ChatClarifyDict,
   ChatDepartureDict,
   ChatLocationDict,
-  ChatPhotoDict,
 } from "./clarify-i18n";
 import type { ChatErrorStatesDict } from "./error-states-i18n";
 import type { ChatRouteDict } from "./route-i18n";
@@ -39,8 +38,6 @@ export interface ChatDict {
   readonly send: string;
   /** Mockup `.hint` left side: the Enter key sends. */
   readonly hintSend: string;
-  /** Mockup `.hint` right side: what the camera button is for. */
-  readonly hintCamera: string;
   /** Sidebar brand tagline under the wordmark ("walk your fandom"). */
   readonly brandTagline: string;
   /** The gold pill that starts a fresh conversation. */
@@ -93,6 +90,5 @@ export interface ChatDict {
   readonly clarify: ChatClarifyDict;
   readonly departure: ChatDepartureDict;
   readonly location: ChatLocationDict;
-  readonly photo: ChatPhotoDict;
   readonly byok: ChatByokDict;
 }

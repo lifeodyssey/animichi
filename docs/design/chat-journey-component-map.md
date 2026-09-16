@@ -68,7 +68,9 @@ Chat 帮用户把对一部作品的兴趣，逐渐变成一条自己愿意去、
 
 等待词汇的二次元风格与处理步骤的展示留到 [enhancement #1581](https://github.com/lifeodyssey/animichi/issues/1581)；此前提出的通用词汇未获认可，不作为已定稿文案。
 
-[PhotoSearchUpload](../../apps/web/src/features/chat/components/PhotoSearchUpload.stories.tsx) 已经独立评审。上传后保留一张紧凑附件卡，显示实际文件名、原图缩略图和识别状态；点图沿用 `ScenePreview` 查看完整图片。识别中不编造进度或阶段，并锁住重复上传；失败后直接用同一文件重试，或换图、移除。格式不支持／超过 8 MB 时不读取预览、不请求服务，只提供换图；验证失败可重试，额度问题保留真实指导，不把换图说成解决办法。较长说明在卡片内占满一行宽度，避免在缩略图旁形成狭长文字列。
+**照片搜索入口已删除（#1604，2026-09-16）**：以下照片上传／识别段落是删除前的评审记录；`PhotoSearchUpload` 及其 Storybook 已随该卡删除，产品在 #1682 重建前不再有图片入口。
+
+照片上传曾独立评审。上传后保留一张紧凑附件卡，显示实际文件名、原图缩略图和识别状态；点图沿用 `ScenePreview` 查看完整图片。识别中不编造进度或阶段，并锁住重复上传；失败后直接用同一文件重试，或换图、移除。格式不支持／超过 8 MB 时不读取预览、不请求服务，只提供换图；验证失败可重试，额度问题保留真实指导，不把换图说成解决办法。较长说明在卡片内占满一行宽度，避免在缩略图旁形成狭长文字列。
 
 附件使用浏览器临时图片地址，替换、移除或组件卸载时释放；卸载后的迟到结果不再更新界面。识别结果继续走 `DataPartCard`，图片候选仍确认对应的服务端 photo offer，不转成会话澄清。这里只调整前端组件、局部文件状态及 Storybook，未修改请求契约、后端或 Chat 页面布局。展示与按钮沿用 Animal Island 1.10.0 和 Tailwind。Storybook 覆盖识别中、结果已返回、需要补充线索、失败重试、无效文件、验证／额度提示、图片无法显示、长文件名、窄屏和中英日文；识别结果为显式状态样例，图片取自仓库既有素材，不代表真实识别。文件选择和本地预览可操作，Storybook 隔离识别请求，重试只进入等待，不消耗额度。
 
@@ -333,7 +335,7 @@ flowchart TD
 
 | 旅程职责 | 已有组件可承担什么 | 接下来需要确定／补齐什么 |
 |---|---|---|
-| 接住意图 | `ColdStart`、`ComposerDock`、`ChatInput`、`PhotoSearchUpload` | 不同入口共享上下文；图片结果怎样回到消息流，避免在输入区下方形成独立任务。 |
+| 接住意图 | `ColdStart`、`ComposerDock`、`ChatInput` | 不同入口共享上下文。（`PhotoSearchUpload` 已在 #1604 删除；图片入口的重建见 #1682。） |
 | 消除当前歧义 | `ClarifyCard`、`ClarifyCandidateOption`、`ClarifyDetails`、`ClarifyTextEntry`、`LocationPrompt`、`DeparturePrompt` | 作品、地区、时间、定位、图片识别分别用合适内容；统一询问时机与已知条件回显。 |
 | 理解分布 | `SearchCard`、`SearchResult`、`ClusterBubbleMap`、`StaticSpotMap` | 地区、地点图片与地图联动帮助决策；首图不承担代表性判断，与组内图片聚合保持不同职责。 |
 | 浏览画面、选择取景位置 | `SearchSpotCard`、`SearchScenePhoto`、`ScenePreview`；作品页 `ScenesSection` | 从单图记录补为同位置多图；完整浏览入口、组内翻阅、退出回位；选择对象与数量一致。 |
@@ -362,7 +364,7 @@ flowchart TD
 | 两种规划入口 | 未选时“帮我安排”发普通对话；有选择时托盘发 `selected_point_ids`，至少两项可提交。没有 SP9。 | [SearchGalleryControls](../../apps/web/src/features/chat/components/SearchGalleryControls.tsx)、[SelectionTray](../../apps/web/src/features/chat/components/SelectionTray.tsx)、[use-recompute-turn](../../apps/web/src/features/chat/selection/use-recompute-turn.ts) |
 | 选择上下文 | 集合按 id 存于会话级 provider，换会话重置；没有按作品／地区划定选择边界。不能称为地点去重已完成。 | [use-spot-selection](../../apps/web/src/features/chat/selection/use-spot-selection.tsx) |
 | 出发追问 | 手动发送可被关键词规则拦下：检测到路线意图且同时缺起点与时间才追问；query 自动发送走另一条路径。不是完整的条件理解。 | [ChatPage](../../apps/web/src/features/chat/ChatPage.tsx)、[departure](../../apps/web/src/features/chat/departure.ts)、[use-departure-prompt](../../apps/web/src/features/chat/use-departure-prompt.ts) |
-| 澄清与图片入口 | 作品候选、无候选补充、定位与图片确认有承载。图片结果复用卡片渲染，但仍放在输入区下面。 | [ClarifyCard](../../apps/web/src/features/chat/components/ClarifyCard.tsx)、[PhotoSearchUpload](../../apps/web/src/features/chat/components/PhotoSearchUpload.tsx)、[ComposerDock](../../apps/web/src/features/chat/components/ComposerDock.tsx) |
+| 澄清入口 | 作品候选、无候选补充与定位有承载。图片确认为空的旧入口（`PhotoSearchUpload`，`/v1/photo-search`）已在 #1604 删除。 | [ClarifyCard](../../apps/web/src/features/chat/components/ClarifyCard.tsx)、[ComposerDock](../../apps/web/src/features/chat/components/ComposerDock.tsx) |
 | 路线与保存 | 有路线、时刻／场景及可用地图；有保存、登录后续存、失败反馈与外部地图。Chat 操作区未直接接路线详情、Walk 或分享图。 | [RouteCard](../../apps/web/src/features/chat/components/RouteCard.tsx)、[RouteActions](../../apps/web/src/features/chat/components/RouteActions.tsx)、[use-save-gate](../../apps/web/src/features/chat/save/use-save-gate.ts) |
 | 跨页带入与历史 | 作品页缺进入 Chat 的规划动作；`route` 引用统一解析为 missing；历史投影只保留文字和 intent，未恢复富卡片。 | [AnimePage](../../apps/web/src/features/anime/AnimePage.tsx)、[ScenesSection](../../apps/web/src/features/anime/ScenesSection.tsx)、[entry-state](../../apps/web/src/features/chat/entry-state.ts)、[use-conversation-history](../../apps/web/src/features/chat/use-conversation-history.ts)、[HistoryList](../../apps/web/src/features/chat/components/HistoryList.tsx) |
 | 后续建议与版本 | 富卡可显示旧版本标记；建议 chips 主要接未找到对象的兜底，尚非每个成功回合的动态下一步。 | [DataPartCard](../../apps/web/src/features/chat/components/DataPartCard.tsx)、[EnvelopeFallback](../../apps/web/src/features/chat/components/ErrorStates/EnvelopeFallback.tsx)、[SuggestionChips](../../apps/web/src/features/chat/components/SuggestionChips.tsx) |

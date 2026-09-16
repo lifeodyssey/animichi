@@ -150,16 +150,9 @@ void test('"edge" opens that same GET to the anonymous visitor — W1 has no exi
 });
 
 void test("native transcript access does not broaden unrelated anonymous forwarding routes", () => {
-  assert.deepEqual([...ANON_V1_PATHS], ["/v1/chat", "/v1/photo-search", "/v1/photo-search/confirm"]);
-});
-
-void test("an unrelated /v1 route still forwards to the container under both flag values", async () => {
-  const container = makeHarness("container", AUTHED);
-  const edge = makeHarness("edge", AUTHED);
-  await container.request("/v1/photo-search", { method: "POST", headers: { Authorization: "Bearer jwt" } });
-  await edge.request("/v1/photo-search", { method: "POST", headers: { Authorization: "Bearer jwt" } });
-  assert.deepEqual([container.forwarded.length, edge.forwarded.length], [1, 1]);
-  assert.deepEqual([...container.calls, ...edge.calls], []);
+  // #1604 deleted the two photo routes, so chat is the whole anonymous container-forward
+  // list; this stays the pin that the transcript widening lives on the tier's side.
+  assert.deepEqual([...ANON_V1_PATHS], ["/v1/chat"]);
 });
 
 void test("the authenticated limiter still runs before the tier — a denied turn never reaches it", async () => {

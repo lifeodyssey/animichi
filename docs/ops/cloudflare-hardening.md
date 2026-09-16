@@ -30,8 +30,8 @@ Cloudflare Edge (Worker: workers/edge/src/entry.ts)
        ├─ agent-domain Postgres (SUPABASE_DB_URL)
        ├─ catalog.internal (private) ─────────────▶ CATALOG service binding
        │    (no public /catalog/* browser route)
-       └─ MiMo model provider (MIMO_API_KEY) —
-          photo-search recognition rides this same chat model (#656)
+       └─ MiMo model provider (MIMO_API_KEY) — the chat turn
+          is the model's only caller (#656; #1604 deleted photo search)
 ```
 
 ## Auth Flow

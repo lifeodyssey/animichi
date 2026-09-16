@@ -8,11 +8,11 @@ import assert from "node:assert/strict";
 // rides, not a source grep. The CONTAINER binding's fetch is counted too,
 // because a route that reached the container without the resilient wrapper
 // would still be a container call. `mock.module` has to be registered before
-// the mocked module is loaded, so the app is imported dynamically below; the
-// `/v1` case proves the spy is live and that the forward is still the seam's
-// one caller. #1598 retired the container's rename, so that proof rides `POST
-// /v1/photo-search`: `GET /v1/conversations` is the edge's own conversation
-// index now, and photo-search is the surviving container-forwarded route.
+// the mocked module is loaded, so the app is imported dynamically below.
+// #1604 deleted `POST /v1/photo-search`, which was the last container-forwarded
+// `/v1` route and the case that used to prove this spy live by riding it; the
+// liveness proof below calls the mocked seam directly instead, so no product
+// route has to exist for the two landing assertions to keep their teeth.
 
 const seam = { calls: 0 };
 const container = { fetches: 0 };
@@ -29,16 +29,12 @@ mock.module("../src/gateway/container-fetch.ts", {
 });
 
 const { createWorkerApp } = await import("../src/app.ts");
-const { alwaysAllowGuard, stubCtx } = await import("../src/container/entry-env.ts");
+const { stubCtx } = await import("../src/container/entry-env.ts");
 
-/** A CONTAINER binding whose every fetch counts itself. `EDGE_GUARD` is the
- * always-allow double because the `/v1` case probes the durable-guarded
- * photo-search route below: without it the limiter fails closed before the seam
- * and the spy would measure nothing. */
+/** A CONTAINER binding whose every fetch counts itself. */
 function countingEnv() {
   return {
     EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: alwaysAllowGuard,
     CONTAINER: {
       idFromName: () => "id",
       get: () => ({ fetch: () => countedFetch(container) }),
@@ -73,13 +69,16 @@ void test("the retired root never reaches the container fetch seam", async () =>
   assert.equal(container.fetches, 0, "/ must not touch the CONTAINER binding");
 });
 
-void test("the /v1 forward still rides the seam, so the spy is live", async () => {
-  const app = createWorkerApp({
-    authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
-  });
-  const res = await app.request("/v1/photo-search", { method: "POST" }, countingEnv(), stubCtx);
-  assert.equal(res.status, 200);
+void test("the spy on `fetchContainerResilient` is live", async () => {
+  // #1604: with no container-forwarded route left, the liveness proof calls the
+  // mocked export itself. Nothing below rides a product route — this case exists so
+  // the two landing assertions above cannot pass through a mock that never
+  // registered.
+  const { fetchContainerResilient } = await import("../src/gateway/container-fetch.ts");
+  const res = await fetchContainerResilient(
+    () => countedFetch(container), new Request("https://edge.test/healthz"), () => Promise.resolve(),
+  );
   assert.equal(await res.text(), "container");
-  assert.equal(seam.calls, 1, "/v1 must ride fetchContainerResilient");
+  assert.equal(seam.calls, 1, "the mocked seam must be the one this import resolves to");
   assert.equal(container.fetches, 1);
 });

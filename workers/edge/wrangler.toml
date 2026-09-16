@@ -51,9 +51,6 @@
 #                                the only DSN read by apps/agent settings
 #   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
 #   MIMO_API_KEY               — staging fallback key for direct MiMo routing
-#   (photo-search recognition rides the same chat model credentials above —
-#   #656 retired the standalone Gemini vision provider in favor of the main
-#   agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
 #   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
 #   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
@@ -240,7 +237,7 @@ ANON_ACCESS_ENABLED = "false"
 # NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
 # identity source. Unset fails closed (no verified bearer).
 # Showcase-mode gate (S0-v2 GOAL C / C9): production is landing-only — every
-# functional /v1 route (chat/photo-search/users) and the public catalog read
+# functional /v1 route (chat/byok/users) and the public catalog read
 # answer 403; only /healthz, /img/* and /tiles/* stay reachable. Strict
 # boolean: anything other than the literal "false" denies, so a missing var
 # can never silently re-open the backend.

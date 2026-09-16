@@ -92,19 +92,6 @@ class Settings(BaseSettings):
     message_max_chars: int = Field(
         default=4000, gt=0, description="Maximum characters in one user message"
     )
-    # Photo-search per-use quota (SD-26 D6). Exact values are an operations
-    # decision (issue #260): None means "not yet configured" and disables
-    # metering for that tier rather than inventing a default.
-    photo_search_quota_anon: int | None = Field(
-        default=None,
-        ge=0,
-        description="Daily photo-search cap for anonymous users (ops-set)",
-    )
-    photo_search_quota_member: int | None = Field(
-        default=None,
-        ge=0,
-        description="Daily photo-search cap for logged-in users (ops-set)",
-    )
     agent_deadline: float = Field(
         default=100.0, gt=0, description="Whole-run agent deadline in seconds"
     )
@@ -297,10 +284,7 @@ class Settings(BaseSettings):
 
         This only covers the *chat* model's credential. This method feeds a
         non-blocking startup warning only (see `validate_required_env` for
-        the fail-fast check). Photo-search recognition (#656) shares this
-        same chat-model credential — it rides the main agent's multimodal
-        input (`animichi.agents.photo_vision`) instead of a separate provider
-        key, so there is nothing vision-specific left to validate here.
+        the fail-fast check).
         """
         missing: list[str] = []
         all_models = [

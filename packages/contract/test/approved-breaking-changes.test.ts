@@ -95,6 +95,21 @@ describe("the approval this card lands", () => {
       });
     }
   });
+
+  // #1604 deletes the photo search surface rather than rebuilding it, so the
+  // container forward loses its last two mounted routes. Both names are exact.
+  it("records the two deleted photo-search routes for #1604", () => {
+    for (const path of ["/v1/photo-search", "/v1/photo-search/confirm"]) {
+      expect(RECORD).toContainEqual({
+        document: "agent-openapi.json",
+        method: "POST",
+        path,
+        kind: "endpoint-removed",
+        issue: "#1604",
+        approved: "2026-09-16",
+      });
+    }
+  });
 });
 
 describe("a file that is not an entry fails the record, naming that file", () => {

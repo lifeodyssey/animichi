@@ -4,7 +4,7 @@
  * The web app's `VITE_SHOWCASE_MODE` (see `apps/web/src/features/config/showcase.ts`)
  * makes prod a landing-only demo; this is the worker-side backend denial that
  * makes "pure showcase" hold beyond the UI — a direct curl at /v1/chat,
- * /v1/photo-search, /v1/users/* or the public catalog read answers 403 while
+ * /v1/sessions/adopt, /v1/users/* or the public catalog read answers 403 while
  * the landing's own surface (/healthz, /img/*, /tiles/*) stays reachable.
  *
  * Value contract mirrors C1's strict boolean: only the literal "false" opens

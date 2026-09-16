@@ -15,11 +15,11 @@ import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 
 // Identity-class tables: subsets of the AGENT_PATHS inventory. There is no
 // credential-free `/v1` identity class left (#1597 retired the last three
-// public reads), so the only table is the anonymous one.
+// public reads), so the only table is the anonymous one — and #1604 deleted
+// the photo-search surface that used to hold its two other entries. A `/v1`
+// path absent from this table must authenticate before it is considered.
 export const ANON_V1_PATHS = [
   "/v1/chat",
-  "/v1/photo-search",
-  "/v1/photo-search/confirm",
 ] as const;
 
 /** Require each table entry to exist in the inventory before it can match. */

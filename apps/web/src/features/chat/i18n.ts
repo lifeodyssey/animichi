@@ -18,7 +18,6 @@ export type {
   ChatClarifyDict,
   ChatDepartureDict,
   ChatLocationDict,
-  ChatPhotoDict,
 } from "./clarify-i18n";
 export type { ChatErrorStatesDict } from "./error-states-i18n";
 export type { ChatRouteDict } from "./route-i18n";

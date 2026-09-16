@@ -10,7 +10,6 @@ describe("chatDictFor", () => {
     expect(dict.busyPlaceholder.length).toBeGreaterThan(0);
     expect(dict.send.length).toBeGreaterThan(0);
     expect(dict.hintSend.length).toBeGreaterThan(0);
-    expect(dict.hintCamera.length).toBeGreaterThan(0);
     expect(dict.brandTagline.length).toBeGreaterThan(0);
     expect(dict.newJourney.length).toBeGreaterThan(0);
     expect(dict.recentLabel.length).toBeGreaterThan(0);

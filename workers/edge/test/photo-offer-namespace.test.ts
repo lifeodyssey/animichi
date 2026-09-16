@@ -6,8 +6,12 @@ import { readMigrationSchema } from "./migration-schema.ts";
 // #1600 (Card F of the #1317 decomposition): the durable home for the photo-offer
 // namespace. The chain under `migrations/neon` is the authority for what a database has
 // after Atlas applies it, so these read it rather than a transcription of it — one test for
-// the row the namespace stores, one for who may touch it. The applied reality (the same
-// statements, on a disposable PostgreSQL) is `agent-db-test/photo-offer-namespace.test.ts`.
+// the row the namespace stores, one for who may touch it. #1604 deleted the photo
+// search API, but the chain it pinned is unchanged and retires with the Prisma flip
+// (#1626), so this text pin stays with the other chain pins
+// (`identity-policy-matrix.test.ts`, `staging-baseline-reset.test.ts`,
+// `migrator-ac3-proof.test.ts`) until then. Its applied counterpart, which ran the chain
+// against disposable PostgreSQL, was retired with the API in #1604.
 //
 // test-type: unit (reads checked-in migrations; no network, no clock, no Docker).
 

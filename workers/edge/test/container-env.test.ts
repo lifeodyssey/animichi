@@ -32,12 +32,13 @@ void test("APP_ENV is listed in CONTAINER_REQUIRED_KEYS (fail-closed, issue #498
   assert.equal(CONTAINER_REQUIRED_KEYS.includes("APP_ENV"), true);
 });
 
-// #656 retired the standalone Gemini vision provider (photo-search now rides
-// the main agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
-// and removed GEMINI_API_KEY from every config surface it touched. A guard
-// pins the removal itself, not just the code that stopped reading it — this
-// repo has hit "the guard doesn't run / doesn't exist" four times in one week
-// (see docs/ops/secrets.md's "Referenced by nothing" section for the pattern).
+// #656 retired the standalone Gemini vision provider and removed
+// GEMINI_API_KEY from every config surface it touched. The modality it served is
+// gone too — #1604 deleted the photo search surface — but the credential stays out
+// of the allowlist either way. A guard pins the removal itself, not just the code
+// that stopped reading it — this repo has hit "the guard doesn't run / doesn't
+// exist" four times in one week (see docs/ops/secrets.md's "Referenced by nothing"
+// section for the pattern).
 void test("GEMINI_API_KEY stays out of the container forwarding allowlist (#656)", () => {
   assert.equal(CONTAINER_ENV_KEYS.includes("GEMINI_API_KEY"), false);
 });

@@ -35,7 +35,7 @@ export const CONTAINER_ENV_KEYS = [
   "ANON_DAILY_COST_BUDGET_USD", "MODEL_INPUT_COST_PER_MTOK_USD", "MODEL_OUTPUT_COST_PER_MTOK_USD",
   // Per-identity anonymous daily message quota (issue #282, S1.10): same
   // container-ingress-authoritative reasoning as the budget breaker above.
-  "ANON_DAILY_MESSAGE_QUOTA", "PHOTO_SEARCH_QUOTA_ANON", "PHOTO_SEARCH_QUOTA_MEMBER",
+  "ANON_DAILY_MESSAGE_QUOTA",
 ];
 
 // APP_ENV joined this list in issue #498: it used to be seeded with a

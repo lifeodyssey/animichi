@@ -22,13 +22,6 @@ import { AGENT_PATHS } from "../src/agent-paths.js";
 import {
   ByokProbeResponse,
   ChatTurnRequest,
-  GpsPoint,
-  PhotoCandidate,
-  PhotoConfirmRequest,
-  PhotoPoint,
-  PhotoResults,
-  PhotoSearchRequest,
-  PhotoSearchResponse,
   ServiceMetadata,
 } from "../src/agent-contract.js";
 import {
@@ -40,13 +33,6 @@ const MODELS: { name: string; schema: z.ZodType }[] = [
   { name: "ServiceMetadata", schema: ServiceMetadata },
   { name: "ByokProbeResponse", schema: ByokProbeResponse },
   { name: "ChatTurnRequest", schema: ChatTurnRequest },
-  { name: "GpsPoint", schema: GpsPoint },
-  { name: "PhotoSearchRequest", schema: PhotoSearchRequest },
-  { name: "PhotoCandidate", schema: PhotoCandidate },
-  { name: "PhotoPoint", schema: PhotoPoint },
-  { name: "PhotoResults", schema: PhotoResults },
-  { name: "PhotoSearchResponse", schema: PhotoSearchResponse },
-  { name: "PhotoConfirmRequest", schema: PhotoConfirmRequest },
   { name: "SessionHistoryMessage", schema: SessionHistoryMessage },
   { name: "GetSessionHistoryResponse", schema: GetSessionHistoryResponse },
 ];

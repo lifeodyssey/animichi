@@ -66,13 +66,13 @@ Exceptions (framework/tool conventions, not violations):
 
 | Domain | Convention | Example |
 |---|---|---|
-| HTTP routes (workers `/v1/*`, web routes) | kebab-case | `/v1/photo-search`, `routes/routes/$routeId` |
+| HTTP routes (workers `/v1/*`, web routes) | kebab-case | `/v1/byok/probe`, `routes/routes/$routeId` |
 | Env var keys | SCREAMING_SNAKE with domain prefix | `AGENT_SVC_DATABASE_URL`, `E2E_WEB_BASE_URL`, `MIMO_API_KEY` |
 | DB tables / columns | snake_case | `locations`, `location_aliases` |
 | Make targets | kebab-case | `db-push-dry`, `dev-local`, `e2e-setup` |
 | GH workflow files | kebab-case | `agent-eval-nightly.yml` |
 | GH workflow job names | kebab-case | `agent-eval-full` |
-| Wrangler bindings / route names | kebab-case | `catalog`, `photo-search` |
+| Wrangler bindings / route names | kebab-case | `catalog`, `map-tiles` |
 
 ## Tiering (how the audit classifies violations)
 
