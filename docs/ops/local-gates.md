@@ -116,8 +116,12 @@ lint → typecheck → test → test:integration
 **One package at a time.** `pnpm -r run` defaults to a concurrency of 4 (`pnpm help recursive`, pnpm
 10.33.2) and a `...<name>` closure is wide — `packages/contract` pulls in all eight TypeScript
 packages — so the suites used to run side by side on one laptop: `apps/web`'s vitest run blew its
-5 s budgets (#1503) and the e2e lane's webServer on `:8799` died mid-run with
-`ERR_CONNECTION_REFUSED`, 16 failed, while that lane alone passed 43/43 in 34 s (#1369, #1517).
+5 s budgets (#1503) and the e2e lane's webServer died mid-run with `ERR_CONNECTION_REFUSED`, 16
+failed, while that lane alone passed 43/43 in 34 s (#1369, #1517). That last lane is a fixed-resource
+claimant no longer: since #1692 the emitted Worker's port is derived from the checkout running the
+lane rather than hardcoded to `:8799` (`e2e/AGENTS.md` — `E2E_EMITTED_WORKER_PORT` pins it), so a
+second worktree's lane is a second port instead of a claimant on this one. What is left is genuine
+CPU and memory contention, which is why the serialization stays.
 `--workspace-concurrency=1` keeps pnpm's topological order and runs one package at a time. It is set
 on all four scripts and not on the suites alone: measured over the contract closure it cost `lint`
 41 s against 32 s but ran `typecheck` in 15 s against 22 s (2026-09-08, 10 cores), so the
@@ -204,11 +208,11 @@ make check                                    the Python agent's own gate
 ```
 
 The two suite segments run one package at a time on purpose. pnpm's default is one job per CPU, and
-several packages' suites claim a fixed resource — the browser suite serves `apps/web` on `:8799`,
-and the agent's `test:integration` boots test-postgres, as does the catalog spike on the line above
-(catalog's own `test` was a third claimant until #1473 moved the spike out of it). In parallel they
-starve each other: nine browser specs failed with `ERR_CONNECTION_REFUSED` while the same suite
-passed 43/43 on its own (2026-09-08).
+several packages' suites claim a fixed resource — the agent's `test:integration` boots
+test-postgres, as does the catalog spike on the line above (catalog's own `test` was a third claimant
+until #1473 moved the spike out of it) — while the browser suite, which used to be the loudest one,
+now derives its port per checkout (#1692). In parallel they starve each other: nine browser specs
+failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its own (2026-09-08).
 
 ## What stays in CI
 
