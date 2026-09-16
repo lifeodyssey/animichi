@@ -1,98 +1,11 @@
 #!/usr/bin/env bash
-# Behavioral tests for pre-push-affected.sh (#1371).
-#
-# Hermetic: every case builds a throwaway git repository under one temp root
-# with its own `origin/main`, a fake `pnpm` / `make` / `atlas` on PATH and the
-# four documentation checks stubbed. No real suite, container or network call.
-# The fake pnpm does double duty — it answers `ls -r --depth -1 --json` and
-# records every `run` asked of it: the selected set, the serial flag and the
-# absent `...` closure are read off it. GATE_UNDER_TEST points at a mutant.
+# Behavioral tests for pre-push-affected.sh's selection (#1371, #1687): which
+# packages a diff selects, which buckets fire, and which paths fail closed. The
+# fixture this file shares with pre-push-commitlint.test.sh — one throwaway
+# repository per case, a fake pnpm / make / atlas and the assertion helpers — is
+# pre-push-fixture.sh.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
-GATE="${GATE_UNDER_TEST:-$PWD/scripts/local-gates/pre-push-affected.sh}"
-# The root project and the Python agent are in the list so the cases can prove
-# the gate subtracts them: the root by name, `apps/agent` because its routing
-# row names the agent bucket and not `package`.
-PROJECTS='.:animichi-cloudflare-worker apps/agent:@animichi/agent-python packages/agent:@animichi/agent packages/contract:@animichi/contract apps/web:web workers/catalog:catalog workers/users:users'
-ZERO=0000000000000000000000000000000000000000
-TMPROOT="$(mktemp -d)"
-trap 'rm -rf "$TMPROOT"' EXIT
-failures=0
-reported=0
-
-fail() { printf 'FAIL %s: %s\n' "$1" "$2" >&2; failures=$((failures + 1)); }
-# Reports the case just closed: one whose assertions added failures since the
-# last report prints `not ok`, so a mutant cannot read as green anywhere.
-ok() {
-  if [ "$failures" = "$reported" ]; then printf 'ok: %s\n' "$1"; else printf 'not ok: %s\n' "$1"; fi
-  reported="$failures"
-}
-expect() { case "$3" in *"$2"*) ;; *) fail "$1" "expected to see '$2' in: $3" ;; esac; }
-refute() { case "$3" in *"$2"*) fail "$1" "did not expect '$2' in: $3" ;; esac; }
-expect_status() { [ "$2" = "$3" ] || fail "$1" "expected exit $2, got $3"; }
-
-new_repo() {
-  REPO="$(mktemp -d "$TMPROOT/case.XXXXXX")"
-  BIN="$REPO/.bin"
-  INVOCATIONS="$REPO/.invocations"
-  export INVOCATIONS
-  export PNPM_PROJECTS="$PROJECTS"
-  mkdir -p "$BIN" "$REPO/scripts/local-gates"
-  : > "$INVOCATIONS"
-  # `ls` builds the list from $PWD, which the gate has already cd'd to its
-  # toplevel, so the paths it strips are the ones it computed.
-  cat > "$BIN/pnpm" <<'STUB'
-#!/usr/bin/env bash
-if [ "${1:-}" = ls ]; then
-  jq -n --arg root "$PWD" --arg spec "$PNPM_PROJECTS" \
-    '$spec | split(" ") | map(select(length > 0) | split(":")) | map({name: .[1], path: ($root + "/" + .[0])})'
-  exit 0
-fi
-printf 'pnpm %s\n' "$*" >> "$INVOCATIONS"
-STUB
-  for tool in make atlas; do
-    printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$INVOCATIONS"\n' "$tool" > "$BIN/$tool"
-  done
-  for check in agents-refs docs-paths root-allowlist spec-references; do
-    printf '#!/usr/bin/env bash\nprintf "check-%s\\n" >> "$INVOCATIONS"\n' "$check" \
-      > "$REPO/scripts/local-gates/check-$check.sh"
-  done
-  chmod +x "$BIN"/* "$REPO/scripts/local-gates"/*.sh
-  cp "$GATE" "$REPO/scripts/local-gates/pre-push-affected.sh"
-  (
-    cd "$REPO"
-    git init -q -b main
-    git config user.email gate@test.invalid
-    git config user.name gate
-    git add -A
-    git commit -qm "base"
-    git update-ref refs/remotes/origin/main HEAD
-  )
-}
-
-commit_change() { # <branch> <path>...
-  local branch="$1"
-  shift
-  (
-    cd "$REPO"
-    git checkout -q -B "$branch" main
-    for path in "$@"; do
-      mkdir -p "$(dirname "$path")"
-      printf 'probe\n' > "$path"
-    done
-    git add -A
-    git commit -qm "change"
-  )
-}
-
-run_gate() { # stdin is the caller's; GATE_ENV carries any extra environment
-  set +e
-  OUT="$(cd "$REPO" && PATH="$BIN:$PATH" env "${GATE_ENV[@]}" bash scripts/local-gates/pre-push-affected.sh 2>&1)"
-  STATUS=$?
-  set -e
-  RECORDED="$(cat "$INVOCATIONS")"
-}
-GATE_ENV=(GATE_PROBE=1)
+source "$(dirname "${BASH_SOURCE[0]}")/pre-push-fixture.sh"
 
 # 1. A selected package must not carry an unowned path through with it.
 new_repo
@@ -156,12 +69,12 @@ refute "non-HEAD ref" "packages:" "$OUT"
 ok "a record for a ref other than HEAD is refused, naming both shas"
 
 # 6. The common wrapper case: pre-commit re-exports HEAD's own sha.
-GATE_ENV=(PRE_COMMIT_TO_REF="$head_sha" PRE_COMMIT_FROM_REF="$ZERO")
+gate_env "PRE_COMMIT_TO_REF=$head_sha" "PRE_COMMIT_FROM_REF=$ZERO"
 run_gate < /dev/null
 expect_status "PRE_COMMIT_TO_REF" 0 "$STATUS"
 expect "PRE_COMMIT_TO_REF" "packages: catalog" "$OUT"
 refute "PRE_COMMIT_TO_REF" "refs must be pushed" "$OUT"
-GATE_ENV=(GATE_PROBE=1)
+gate_env GATE_PROBE=1
 ok "PRE_COMMIT_TO_REF equal to HEAD is gated normally"
 
 # 7. An empty project list must fail closed, not select everything or nothing.
@@ -249,5 +162,4 @@ expect_status "unrouted package, other diff" 1 "$STATUS"
 expect "unrouted package, other diff" "packages/orphan is a workspace package with no routing row" "$OUT"
 ok "a workspace package with no routing row stops the push, naming it, whatever changed"
 
-[ "$failures" = 0 ] || { printf '%s case(s) failed\n' "$failures" >&2; exit 1; }
-printf 'pre-push-affected.test.sh: all green\n'
+finish

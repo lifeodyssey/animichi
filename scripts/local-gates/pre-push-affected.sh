@@ -67,6 +67,30 @@ while read -r local_ref local_sha _ remote_sha; do
   # A remote sha already in this history is the tighter base: only what is new.
   ! git merge-base --is-ancestor "${remote_sha:-$ZERO}" HEAD 2>/dev/null || base="$remote_sha"
 done <<<"$records"
+
+# A message CI's `commits` job rejects must not leave the laptop, so the message
+# check runs here — before any package gate — over exactly the commits this push
+# adds (#1467). That is the same narrowed `base` the diff uses: the merge base on
+# a first push (a new branch's remote sha arrives as zero), the remote sha once
+# it is an ancestor of HEAD. commitlint's history mode names no sha, so a
+# rejected range is replayed one commit at a time to report which messages it
+# rejected. An empty range (the remote already has HEAD) is skipped rather than
+# failed: `--from X --to X` is a commitlint usage error (exit 9), not a pass.
+# Anything but 0 or 1 means commitlint never ran — an uninstalled workspace exits
+# 254 — and that fails closed with no attribution.
+lint_pushed_commits() {
+  [ "$base" != "$head_sha" ] || return 0
+  local status=0 sha
+  pnpm exec commitlint --from "$base" --to HEAD || status=$?
+  [ "$status" = 1 ] || return "$status"
+  while read -r sha; do
+    pnpm exec commitlint --from "$sha^" --to "$sha" >/dev/null 2>&1 ||
+      printf 'pre-push: commitlint rejected %s\n' "$(git log -1 --format='%h %s' "$sha")" >&2
+  done < <(git rev-list --reverse "$base"..HEAD)
+  return 1
+}
+lint_pushed_commits || exit 1
+
 changed="$(git diff --name-only --no-renames "$base"...HEAD)"
 [ -n "$changed" ] || exit 0
 

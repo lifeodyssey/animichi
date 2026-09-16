@@ -95,6 +95,23 @@ Push `other` by checking `other` out.
 `HEAD`'s diff is taken against its merge base with `origin/main`, or against the remote sha when
 that is already an ancestor of `HEAD`, which narrows it to what the remote has not seen.
 
+**That same narrowed base is the commit-message check's range**, and the check runs before any
+package does, so a message CI's `commits` job would reject stops the push in about a second rather
+than after the suites:
+
+```text
+pnpm exec commitlint --from <base> --to HEAD
+```
+
+On a first push the remote sha is zero, the narrowing does not fire and the merge base is the range
+— every commit the new branch adds is linted. commitlint's history mode does not name the commit it
+rejected, so a failing range is replayed one commit at a time and each rejection is reported as
+`pre-push: commitlint rejected <sha> <subject>`. An empty range (the remote already has `HEAD`) skips
+the check: `--from X --to X` is a commitlint usage error, not a pass. A commitlint that cannot run at
+all — an uninstalled workspace — fails the push with its own error and no attribution, never by
+absence. The `commits` job's other half — the pull request title — still has no local reader; a push
+hook never sees it.
+
 pre-commit's pre-push wrapper consumes that stdin itself and re-exports the first pushable record
 as `PRE_COMMIT_TO_REF` / `PRE_COMMIT_FROM_REF` (`pre_commit/commands/hook_impl.py`,
 `_pre_push_ns`), so the script reads stdin when it is given any and falls back to those variables —
@@ -254,10 +271,12 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
 
 ## Prerequisites
 
-`git`, `pnpm`, `node` ≥ 24, `jq`, `uv` (agent bucket), `atlas` v0.30.0 (migrations bucket), `docker`
-with the offline `animichi-test-postgres` image (the agent bucket's integration arm; no package's
-`test` boots it any more, so the rest of pre-push is Docker-free), plus the pre-commit tools:
-`shellcheck`, `actionlint`, `semgrep` 1.172.0, `ruby` for the contracts.
+An installed workspace (`pnpm install`) — the message check runs `pnpm exec commitlint` and every
+selected package's scripts need their dependencies — plus `git`, `pnpm`, `node` ≥ 24, `jq`, `uv`
+(agent bucket), `atlas` v0.30.0 (migrations bucket), `docker` with the offline
+`animichi-test-postgres` image (the agent bucket's integration arm; no package's `test` boots it any
+more, so the rest of pre-push is Docker-free), plus the pre-commit tools: `shellcheck`,
+`actionlint`, `semgrep` 1.172.0, `ruby` for the contracts.
 
 ## Failure handling
 
@@ -282,6 +301,9 @@ with the offline `animichi-test-postgres` image (the agent bucket's integration 
   own `test`)
 - `test/repo-config/pre-push-routing.test.rb` — the routing table against the workspace: every
   `pnpm-workspace.yaml` package has a row, every row names a workspace package and a known bucket
+- `scripts/local-gates/pre-push-fixture.sh` — the throwaway repository, the fake `pnpm` / `make` /
+  `atlas` and the assertions `pre-push-affected.test.sh` (which packages a diff selects) and
+  `pre-push-commitlint.test.sh` (which messages a push carries) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
   job runs the four `check-*.test.sh` suites
