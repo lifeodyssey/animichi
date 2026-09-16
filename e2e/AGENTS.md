@@ -143,8 +143,9 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
 - `web-chat-*.spec.ts` — `apps/web` chat anonymous / error-state / selection / login-wall flows.
 - `web-neon-login.spec.ts` — **live** Neon Auth login round-trip (AUTH-2 #950): password sign-in
   against the real Neon Auth origin via `context.request`, then the app's `/auth/callback`
-  exchange. Self-skips without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` + `QA_NEON_USER_PASSWORD`
-  (Path A, `docs/ops/auth-migration-neon.md` §4).
+  exchange. **Fails by name** without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` +
+  `QA_NEON_USER_PASSWORD` (Path A, `docs/ops/auth-migration-neon.md` §4) — it no longer skips
+  itself, and `pnpm run test:login` is the recipe that supplies them.
 - `web-cwv.spec.ts` — CWV observer spec for `apps/web` (CLS gate + LCP warn), sharing thresholds
   from `apps/web/web-cwv.config.ts`.
 - `../scripts/e2e-setup.sh` — dependency + browser install; no Supabase/Mailpit preparation.
