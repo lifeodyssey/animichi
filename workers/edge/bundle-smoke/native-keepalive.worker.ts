@@ -3,6 +3,18 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/contex
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { keepaliveState, composition, observeCleanup, clampDueAlarm, releaseProvider, drainCleanup, observeDrive, alarmSnapshot } from "./native-keepalive-state.ts";
 
+/** A stalled wait fails by name; a healthy wait is settled by its own event, never by this bound. */
+function stalledAfter(diagnosticMs: number, description: string) {
+  return new Promise<never>((_resolve, reject) => {
+    setTimeout(() => { reject(new Error(`Timed out after ${String(diagnosticMs)} ms waiting for ${description}`)); }, diagnosticMs);
+  });
+}
+
+/** The event is the bound; the diagnostic only renames a stall that would otherwise be a silent timeout. */
+function bounded<T>(event: Promise<T>, diagnosticMs: number, description: string) {
+  return Promise.race([event, stalledAfter(diagnosticMs, description)]);
+}
+
 /** Real SDK scheduling and drive, with a public faux-provider response barrier. */
 export class KeepaliveProbe extends SessionAgent {
   static override options = { keepAliveIntervalMs: 1_000 };
@@ -25,8 +37,15 @@ export class KeepaliveProbe extends SessionAgent {
       return observeDrive(this.#state, () => this.driveLane(lane, "held", context));
     });
   }
+  /**
+   * The fired deadline's own callback: it records the alarm its fire consumed, then holds until an observer
+   * has read the physical alarm an SDK re-arm writes. The delivery happens only after that observer arrives.
+   */
   async deadline() {
+    this.#state.alarmAtCallbackEntry = await this.ctx.storage.getAlarm();
     await this.withSession(async (_session, lane, context) => {
+      this.#state.boundary.arrived.resolve(undefined);
+      await this.#state.boundary.released.promise;
       this.#state.calls.duringDrive = this.#state.calls.active;
       this.#state.calls.result = (await lane.getResult("held", context))?.status ?? "missing";
       this.#state.calls.count += 1;
@@ -44,13 +63,26 @@ export class KeepaliveProbe extends SessionAgent {
   async fireDeadline() {
     this.#state.clock.now = this.#state.deadline.time + 1;
     this.#state.firing = true;
-    await this.ctx.storage.setAlarm(this.#state.clock.realNow());
+    this.#state.firedAt = this.#state.clock.realNow();
+    await this.ctx.storage.setAlarm(this.#state.firedAt);
   }
 
-  /** Await the delivered callback; the bound is real time and only turns a stalled delivery into the observation. */
-  async awaitDeadlineCallback(budgetMs: number) {
-    await Promise.race([this.#state.delivered.promise, new Promise((resolve) => setTimeout(resolve, budgetMs))]);
-    return this.inspect();
+  /** The observer's boundary: the fired deadline's callback is in flight and still undelivered. */
+  async awaitCallbackArrival(diagnosticMs: number) {
+    await bounded(this.#state.boundary.arrived.promise, diagnosticMs, "the fired deadline's callback");
+  }
+
+  /**
+   * Release the held callback, then await the delivered event that alone witnesses its one delivery.
+   *
+   * The count before the release proves the observer arrived while the deadline was undelivered; the count
+   * after the event is read synchronously, so only the event can advance it. The diagnostic is never read.
+   */
+  async awaitDeadlineCallback(diagnosticMs: number) {
+    const undeliveredAtArrival = this.#state.calls.count;
+    this.#state.boundary.released.resolve(undefined);
+    await bounded(this.#state.delivered.promise, diagnosticMs, "the delivered deadline callback");
+    return { undeliveredAtArrival, deliveredAtWait: this.#state.calls.count, observation: await this.inspect() };
   }
 }
 
@@ -60,14 +92,15 @@ async function probeResponse(host: DurableObjectStub<KeepaliveProbe>, url: URL):
   if (url.pathname === "/release") { await host.releaseProvider(); return new Response("released"); }
   if (url.pathname === "/drain") { await host.drainCleanup(); return new Response("drained"); }
   if (url.pathname === "/fire") { await host.fireDeadline(); return new Response("armed"); }
+  if (url.pathname === "/alarm-entered") { await host.awaitCallbackArrival(diagnosticMs(url)); return new Response("at the callback boundary"); }
   if (url.pathname === "/restore") { await host.restoreClock(); return new Response("restored"); }
-  if (url.pathname === "/callback") return Response.json(await host.awaitDeadlineCallback(callbackBudgetMs(url)));
+  if (url.pathname === "/callback") return Response.json(await host.awaitDeadlineCallback(diagnosticMs(url)));
   return Response.json(await host.inspect());
 }
 
-/** The fixture decides how long a delivery may take; the worker only enforces it. */
-function callbackBudgetMs(url: URL) {
-  return Number(url.searchParams.get("budgetMs") ?? 10_000);
+/** The caller sets its own stall diagnostic; the worker only enforces it, and no assertion reads it. */
+function diagnosticMs(url: URL) {
+  return Number(url.searchParams.get("diagnosticMs") ?? 30_000);
 }
 
 export default {
