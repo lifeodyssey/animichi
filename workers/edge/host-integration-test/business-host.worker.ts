@@ -4,7 +4,7 @@ import type { Contract } from "@animichi/pi-session-neon/types";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import type { Session, SessionMetadata } from "@earendil-works/pi-agent-core/harness/session";
-import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type AssistantMessage, type FauxProviderHandle, type FauxResponseStep } from "@earendil-works/pi-ai";
+import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type FauxProviderHandle, type FauxResponseStep } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
@@ -24,12 +24,25 @@ function deadlineTools(session: Session) {
     assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() };
 }
 
-/** One provider call stays out past the shortened budget; the next boundary is what must end the turn. */
+/** The hold outlasts the published budget by this much, so the deadline is spent when the response lands. */
+const PAST_BUDGET_MS = 500;
+
+/** The lane's budget is wall clock, so waiting it out has to be too. */
+function wait(ms: number) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+/**
+ * One provider call is delivered, then held until the budget the boundary published for that request has
+ * expired: the next boundary — never a wall-clock race with the response — is what must end the turn. A
+ * boundary that published no budget holds nothing, and the boundary that follows then spends a live one.
+ */
 function deadlineResponses(): FauxResponseStep[] {
-  const slow = () => new Promise<AssistantMessage>((resolve) => {
-    setTimeout(() => { resolve(fauxAssistantMessage(fauxToolCall("search_nearby", {}), { stopReason: "toolUse" })); }, 600);
-  });
-  return [slow, fauxAssistantMessage("a request past the deadline must never be issued")];
+  const held: FauxResponseStep = async (_context, options) => {
+    await wait((options?.timeoutMs ?? 0) + PAST_BUDGET_MS);
+    return fauxAssistantMessage(fauxToolCall("search_nearby", {}), { stopReason: "toolUse" });
+  };
+  return [held, fauxAssistantMessage("a request past the deadline must never be issued")];
 }
 
 /** Only runtime resources/provider transport are supplied here; production submit/wake own every business action. */

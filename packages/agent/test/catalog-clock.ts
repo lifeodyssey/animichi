@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import type { TestContext } from "node:test";
+/** A real event-loop turn: the promises API draws from the timers module, not from the globals a test mocks. */
+import { setImmediate as realEventLoopTurn } from "node:timers/promises";
 
 export function catalogClock(context: TestContext) {
   context.mock.timers.enable({ apis: ["setTimeout"] });
@@ -10,21 +12,59 @@ export function catalogClock(context: TestContext) {
   });
 }
 
-/** Captured before any test enables mocked timers, so the guard below stays on the real clock. */
-const diagnosticTimeout = globalThis.setTimeout;
+/** The runner backstop the guarded lanes declare. The guard below reports a frozen mocked clock long before it. */
+export const GUARDED_TEST_TIMEOUT_MS = 120_000;
 
 /**
- * Await the event a mocked-clock test asserts.
+ * Force a scavenge, so a chain that is only weakly reachable is actually collected.
  *
- * A mocked clock never advances by itself, so a regression that makes the code under test wait for one
- * of those timers would otherwise hang the whole run without evidence. The guard turns that hang into a
- * named failure; it cannot race the healthy path, which settles in microtasks. Diagnostics only.
+ * `AbortSignal.any` holds its sources weakly, which is what the catalog client's request anchor compensates
+ * for. A lane can only observe that under `--expose-gc`, which the package test script passes.
  */
-export function settledWithin<T>(pending: Promise<T>, description: string): Promise<T> {
-  const guard = new Promise<never>((_resolve, reject) => {
-    diagnosticTimeout(() => { reject(new Error(`Timed out waiting for ${description}; the mocked clock was never advanced`)); }, 10_000).unref();
-  });
-  return Promise.race([pending, guard]);
+export function scavenge() {
+  (globalThis as { gc: () => void }).gc();
+}
+
+/**
+ * Real event-loop turns a guarded event may outlive before the guard names the state the wait is stuck in.
+ *
+ * The unit is the point. Node's mock timers expose `tick`, `setTime`, `runAll` and `reset` but no way to ask
+ * whether anything is still pending, and a trip condition derived from the host (elapsed time, load average)
+ * also moves on a healthy run. Turns are the one budget a busy host cannot spend: they count work the event
+ * needed, they do not accrue while the process is starved, and a mocked timer cannot fire on any number of
+ * them. Both guarded events settle within a handful of turns, so this is slack, not a tight judgement.
+ */
+const GUARDED_TURNS = 1_000;
+
+/**
+ * Await the event a mocked-clock test asserts, and fail loud when only a tick the test never performed could
+ * still produce it.
+ *
+ * Only the test can advance the mocked clock, so a regression that parks the code under test on one of those
+ * timers leaves the event unreachable however long the host waits. Elapsed time cannot tell that state from a
+ * healthy event that merely needed a core: round 1 named a 100-second margin and it fired under load while
+ * these lanes settle in about a second of work. Turns separate the two states, and because nothing can tick
+ * the mocked clock while this call is awaited, running out of turns means no future turn can either.
+ */
+export function settledWithin<T>(pending: Promise<T>, description: string, turns = GUARDED_TURNS): Promise<T> {
+  let arrived = false;
+  const arrival = pending.then((value) => { arrived = true; return value; }, (error: unknown) => { arrived = true; throw error; });
+  return Promise.race([arrival, stalledWithin(() => arrived, turns, description)]);
+}
+
+async function stalledWithin(arrived: () => boolean, turns: number, description: string): Promise<never> {
+  for (let turn = 0; turn < turns; turn++) {
+    if (arrived()) return stillWaiting;
+    await realEventLoopTurn();
+  }
+  throw new Error(hangDiagnostic(description, turns));
+}
+
+/** The arrival already won the race; the guard arm holds the race open without ever settling it itself. */
+const stillWaiting = new Promise<never>(() => undefined);
+
+function hangDiagnostic(description: string, turns: number) {
+  return `Waited ${String(turns)} real event-loop turns for ${description} while the mocked clock stayed unadvanced; no turn can fire a mocked timer until the test ticks it`;
 }
 
 export function pendingCatalog(attempts: number) {

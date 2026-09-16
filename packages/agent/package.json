@@ -19,7 +19,7 @@
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "test": "mkdir -p coverage && cd ../.. && node --import tsx --test --experimental-test-coverage --test-coverage-include='packages/agent/src/**/*.ts' --test-coverage-lines=95 --test-coverage-functions=95 --test-coverage-branches=95 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=packages/agent/coverage/lcov.info \"packages/agent/test/*.test.ts\"",
+    "test": "mkdir -p coverage && cd ../.. && node --expose-gc --import tsx --test --experimental-test-coverage --test-coverage-include='packages/agent/src/**/*.ts' --test-coverage-lines=95 --test-coverage-functions=95 --test-coverage-branches=95 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=packages/agent/coverage/lcov.info \"packages/agent/test/*.test.ts\"",
     "test:integration": "tsc --noEmit -p integration-test/tsconfig.json && tsc --noEmit -p integration-test/worker/tsconfig.json && node --import tsx --test --test-concurrency=1 \"integration-test/*.test.ts\""
   },
   "dependencies": {

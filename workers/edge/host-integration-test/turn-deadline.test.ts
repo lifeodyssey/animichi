@@ -4,8 +4,16 @@ import test, { type TestContext } from "node:test";
 import { pool } from "./postgres.ts";
 import { businessWorker, submission } from "./worker.ts";
 
-/** The production budget is 100 s; the lane shortens it so the bound is verified without waiting it out. */
-const DEADLINE_MS = 300;
+/**
+ * The production budget is 100 s; the lane shortens it so the bound is verified without waiting it out,
+ * but not below the work the host does before the first model request — session open, harness attach,
+ * the durable acceptance reads. That work is the host's, not this test's, and at 300 ms a loaded runner
+ * spent the whole budget before the request existed: the lane failed on `requests: 0` while the code it
+ * guards was correct.
+ */
+const DEADLINE_MS = 5_000;
+
+/** The settlement notification is a backstop; the turn's own budget is what must end the turn. */
 const BOUND_MS = 30_000;
 
 interface AdmittedTurn { operation_id: string; state: string; reason: string | null; refunded: boolean }
