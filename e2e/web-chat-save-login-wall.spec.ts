@@ -32,8 +32,8 @@ const authJa = dictFor("ja").auth;
  * the itinerary, so inject the stops the S1.5 card renders. */
 function routeStream(): string {
   return patchFinalFrame(chatStreamRecording("search"), (envelope) => {
-    const data = envelope.data as { route: Record<string, unknown> };
-    data.route.timed_itinerary = {
+    const data = envelope.data as { itinerary: Record<string, unknown> };
+    data.itinerary.timed_itinerary = {
       stops: [
         { cluster_id: "p1", name: "宇治橋", arrive: "10:00", depart: "10:20", dwell_minutes: 20, lat: 34.891, lng: 135.807, photo_count: 4 },
         { cluster_id: "p2", name: "京阪宇治駅", arrive: "10:32", depart: "10:52", dwell_minutes: 20, lat: 34.911, lng: 135.806, photo_count: 9 },
@@ -51,6 +51,7 @@ function routeStream(): string {
 
 async function openChat(page: Page): Promise<void> {
   await stubTurnstileEntry(page);
+  await stubAnonymousSession(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
@@ -61,6 +62,13 @@ async function openChat(page: Page): Promise<void> {
 async function send(page: Page, text: string): Promise<void> {
   await page.getByRole("textbox").fill(text);
   await page.getByRole("button", { name: ja.send }).click();
+}
+
+/** C2t (issue #260 AC2): a route turn stating neither a departure point nor a
+ * time waits behind the 「おまかせ」 chip, which sends it unchanged. */
+async function sendRoute(page: Page, text: string): Promise<void> {
+  await send(page, text);
+  await page.getByRole("button", { name: ja.departure.autoChip }).click();
 }
 
 /** Record every users.saveSavedRoute body the app sends, answering with a saved row. */
@@ -81,8 +89,35 @@ async function captureSaves(context: BrowserContext, bodies: unknown[]): Promise
   });
 }
 
-async function stubAuthToken(context: BrowserContext): Promise<void> {
-  await context.route("**/token", (route) => route.fulfill({ json: { token: "e2e-token" } }));
+/** The suite's anonymous answer on the SDK session probe, same 401 as
+ * `web-hero-query.spec.ts`: "anonymous", or the 保存する tap would skip the wall. */
+async function stubAnonymousSession(page: Page): Promise<void> {
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ status: 401, json: { error: "no session" } }),
+  );
+}
+
+/** The JWT the callback redeems. Three segments, because `neon-auth-client.ts`
+ * `jwtFromSession` rejects anything else, and an `exp` far ahead to stay cached. */
+const E2E_SESSION_JWT = "eyJhbGciOiJFZERTQSJ9.eyJleHAiOjQxMDI0NDQ4MDB9.c2ln";
+
+/** The callback tab is the one signed-in page: `getSession()` answers with the
+ * magic-link session, and the SDK injects the JWT off `set-auth-jwt`. */
+async function stubSignedInSession(page: Page): Promise<void> {
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({
+      headers: { "set-auth-jwt": E2E_SESSION_JWT },
+      json: { session: { token: E2E_SESSION_JWT }, user: { id: "e2e-user", email: "fan@example.com" } },
+    }),
+  );
+}
+
+/** A signed-in callback tab: adoption no-ops, so the deferred save drives it. */
+async function openCallbackTab(context: BrowserContext): Promise<Page> {
+  const tab = await context.newPage();
+  await stubSignedInSession(tab);
+  await stubSessionAdopt(tab);
+  return tab;
 }
 
 /** The callback also adopts the browser's anonymous sessions; a normal no-op
@@ -127,7 +162,7 @@ async function planRoute(page: Page): Promise<void> {
     route.fulfill({ status: 200, headers: SSE_HEADERS, body: routeStream() }),
   );
   await openChat(page);
-  await send(page, "ユーフォのルートを組んで");
+  await sendRoute(page, "ユーフォのルートを組んで");
   await expect(page.getByRole("list", { name: ja.route.timelineLabel })).toBeVisible();
 }
 
@@ -160,7 +195,7 @@ test("an anonymous 保存する tap opens the magic-link login dialog", async ({
 
 /** The mainline: send the link, then close the modal to go read the email. */
 async function sendLinkAndDismiss(page: Page): Promise<void> {
-  await page.route("**/send-magic-link*", (route) => route.fulfill({ json: { status: true } }));
+  await page.route("**/api/auth/sign-in/magic-link", (route) => route.fulfill({ json: { status: true } }));
   await page.getByRole("textbox", { name: /メール|email/i }).fill("fan@example.com");
   await page.getByRole("button", { name: /ログインリンク|Send/i }).click();
   await expect(page.getByRole("status")).toBeVisible();
@@ -171,7 +206,6 @@ async function sendLinkAndDismiss(page: Page): Promise<void> {
 test("closing the wall after the link is sent keeps the intent — the mainline", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await stubAuthToken(context);
   await planRoute(page);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -181,7 +215,7 @@ test("closing the wall after the link is sent keeps the intent — the mainline"
   const stashed = await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY);
   expect(stashed).toContain("p1");
 
-  const callbackTab = await context.newPage();
+  const callbackTab = await openCallbackTab(context);
   await callbackTab.goto("/auth/callback");
   await expect.poll(() => bodies.length).toBe(1);
 });
@@ -189,13 +223,12 @@ test("closing the wall after the link is sent keeps the intent — the mainline"
 test("closing the wall before sending anything cancels the save", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await stubAuthToken(context);
   await planRoute(page);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await page.getByRole("button", { name: /閉じる|Close/i }).click();
   expect(await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
 
-  const callbackTab = await context.newPage();
+  const callbackTab = await openCallbackTab(context);
   await callbackTab.goto("/auth/callback");
   await callbackTab.waitForURL((url) => url.pathname === "/");
   expect(bodies).toEqual([]);
@@ -204,7 +237,6 @@ test("closing the wall before sending anything cancels the save", async ({ page,
 test("the deferred intent survives a new tab of the same profile and replays once", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await stubAuthToken(context);
   await planRoute(page);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -212,7 +244,7 @@ test("the deferred intent survives a new tab of the same profile and replays onc
   // Origin-scoped, not tab-scoped: sessionStorage would be empty in the new tab.
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
 
-  const callbackTab = await context.newPage();
+  const callbackTab = await openCallbackTab(context);
   await callbackTab.goto("/auth/callback");
   const stashed = await callbackTab.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY);
   expect(stashed).toContain("p1");
@@ -227,7 +259,8 @@ test("the deferred intent survives a new tab of the same profile and replays onc
 test("a login the save CTA never started replays nothing", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await stubAuthToken(context);
+  await stubSignedInSession(page);
+  await stubSessionAdopt(page);
   await page.goto("/auth/callback");
   // Deterministic signal: the callback navigates home only once the redeem —
   // and therefore the replay decision — has completed. No arbitrary wait.
@@ -238,7 +271,7 @@ test("a login the save CTA never started replays nothing", async ({ page, contex
 test("an expired deferred intent does not replay and is erased at the browser seam", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await stubAuthToken(context);
+  await stubSignedInSession(page);
   await stubSessionAdopt(page);
   // createdAt sits outside the 30-minute TTL: the callback must treat the
   // intent as abandoned rather than resurrecting a stale save.
@@ -252,7 +285,7 @@ test("an expired deferred intent does not replay and is erased at the browser se
 test("a failed replay surfaces the callback retry, and retry completes the save", async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureSaveWithRetry(context, bodies);
-  await stubAuthToken(context);
+  await stubSignedInSession(page);
   await stubSessionAdopt(page);
   await stashIntent(page, Date.now());
   await page.goto("/auth/callback");
