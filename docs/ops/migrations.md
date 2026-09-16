@@ -144,3 +144,5 @@ the raw DSN and tokens out of logs and PRs.
 - [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml) — main-only affected release orchestration
 - [`scripts/delivery/migrate-through-worker.sh`](../../scripts/delivery/migrate-through-worker.sh) — the OIDC handshake CD applies staging migrations through
 - [`workers/edge/test/migration-boundary.test.ts`](../../workers/edge/test/migration-boundary.test.ts) — static boundary guard
+- [`docs/specs/2026-09-16-migration-apply-point-eval.md`](../specs/2026-09-16-migration-apply-point-eval.md) —
+  why the apply point stays a platform-side executor and not application boot (#1039)
