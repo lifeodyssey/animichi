@@ -9,6 +9,7 @@ import { headsOf, type ChainSource } from "./chain";
 import { NeonMigrationsLedger } from "./ledger";
 import { applyMigration, type BoundedChainApply, type MigrationResult } from "./migration";
 import { mainController } from "./request-auth";
+import { registerCatalogSchema } from "./catalog-schema";
 import { registerPreflight } from "./preflight";
 import { resolveDsn } from "./database-url";
 import { hasPrismaSnapshot, PRISMA_TARGET } from "./prisma-target";
@@ -38,6 +39,8 @@ export interface MigratorDeps {
   jwks?: JWTVerifyGetKey;
   applyChain?: BoundedChainApply;
   readAppliedHead?: (dsn: string) => Promise<string | null>;
+  /** The required catalog tables a target database is missing (#1230 Phase 1). */
+  readMissingCatalogTables?: (dsn: string) => Promise<readonly string[]>;
   /** The chain this Worker carries; the handshake answers from it. */
   chain?: ChainSource;
   /** Native filesystem and locked executor seams for disposable PostgreSQL tests. */
@@ -186,5 +189,6 @@ export function createMigratorApp(deps: MigratorDeps = {}): Hono<{ Bindings: Env
     maxSize: MAX_PREFLIGHT_BYTES, onError: (c) => c.json({ error: "invalid_migration" }, 413),
   }), (c) => handleMigrate(c, deps, bundle));
   registerPreflight(app, deps);
+  registerCatalogSchema(app, deps);
   return app;
 }

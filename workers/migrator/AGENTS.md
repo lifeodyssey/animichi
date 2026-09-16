@@ -84,6 +84,16 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    not the head; if it is ever extended to assert the applied head, it must read
    a short-TTL value written at apply time (KV / DO storage), never a live DSN
    read.
+5. **Answer for the promoted catalog schema (#1230 Phase 1)**: `GET
+   /catalog-schema` reads `bangumi`, `points` and `ingest_jobs` out of the
+   target in one read-only repeatable-read transaction and answers `200` or
+   `422 {status:"incomplete", tables, missing}`, naming what is absent
+   (`src/catalog-tables.ts` holds the compile-time list; no identifier comes
+   off the request). CD runs `scripts/delivery/verify-catalog-schema.sh
+   <environment>` after the selected chain applies, because "the chain
+   applied" and "the catalog exists" are different claims — staging held all
+   three tables while production held none, and a promotion that delivered
+   neither would have reported success.
 
 Capability boundary: NO destructive path — no schema drop, no arbitrary SQL,
 no down-migration. The migrator DSN is Secrets Store only (non-resident);

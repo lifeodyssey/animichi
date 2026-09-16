@@ -237,6 +237,7 @@ jobs:
           ruby .github/test/migrator-container-retirement.test.rb
           ruby .github/test/cd-publish.test.rb
           ruby .github/test/cd-receipt.test.rb
+          ruby .github/test/cd-schema-verification.test.rb
           ruby .github/test/cd-selection.test.rb
           ruby .github/test/cd-stage-smoke.test.rb
           ruby .github/test/cd-stage.test.rb
@@ -318,6 +319,7 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/delivery/migrate-through-worker.test.sh
+          bash scripts/delivery/verify-catalog-schema.test.sh
           bash .github/scripts/bundle-release-worker.test.sh
           bash .github/scripts/staging-smoke-check.test.sh
           bash .github/scripts/release/schema-preflight.test.sh
