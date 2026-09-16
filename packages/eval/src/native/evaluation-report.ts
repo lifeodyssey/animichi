@@ -32,7 +32,7 @@ export async function writeEvaluationReport<I, O, M>(
 /**
  * The rendered companion the run prints. The SDK's `renderReport` renders name, duration, input,
  * output, scores, labels and assertions but has no attributes column, so per-case run facts
- * (`pi.usage.status`, observed tool calls, seeded state) would be invisible in the text even
+ * (`pi.usage.status`, observed tool calls) would be invisible in the text even
  * though the artifact carries them. This appends that column rather than reimplementing the SDK.
  */
 export function renderEvaluationReport<I, O, M>(report: EvaluationReport<I, O, M>): string {
@@ -49,8 +49,9 @@ interface AttributeRow {
 function attributeTable(cases: readonly ReportCase[]): string {
   const rows: readonly AttributeRow[] = cases.map((entry) =>
     ({ name: entry.name, attributes: attributeSummary(entry.attributes) }));
-  const width = Math.max(...rows.map((row) => row.name.length));
-  return [`Attributes: ${String(rows.length)}`, `${'name'.padEnd(width)}  attributes`,
+  const header = 'name';
+  const width = Math.max(header.length, ...rows.map((row) => row.name.length));
+  return [`Attributes: ${String(rows.length)}`, `${header.padEnd(width)}  attributes`,
     ...rows.map((row) => `${row.name.padEnd(width)}  ${row.attributes}`)].join('\n');
 }
 
