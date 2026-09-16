@@ -141,6 +141,13 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
         run: bash scripts/delivery/migrate-through-worker.sh staging
+      # The chain applying is not the schema existing (#1230). Read the three
+      # catalog tables back through the migrator before this release's
+      # consumers are published onto them.
+      - name: Verify the promoted catalog schema
+        env:
+          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
+        run: bash scripts/delivery/verify-catalog-schema.sh staging
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh staging
@@ -289,6 +296,13 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
         run: bash scripts/delivery/migrate-through-worker.sh production
+      # The promotion is what #1230 Phase 1 exists for: production held zero
+      # catalog tables while staging held three. Verify the same three through
+      # this environment's own migrator before its consumers are published.
+      - name: Verify the promoted catalog schema
+        env:
+          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+        run: bash scripts/delivery/verify-catalog-schema.sh production
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh production
