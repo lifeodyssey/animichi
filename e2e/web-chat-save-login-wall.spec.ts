@@ -120,9 +120,9 @@ async function openCallbackTab(context: BrowserContext): Promise<Page> {
   return tab;
 }
 
-/** The callback also adopts the browser's anonymous sessions; a normal no-op
- * keeps the adoption notice off the screen so the save outcome drives the page.
- * Page-scoped (`page.route`): only the callback page needs the stub. */
+/** The callback also adopts the browser's anonymous sessions. This lane holds no edge: the endpoint is
+ * doubled here, so this spec cannot fail when the native adoption breaks (#1601 AC5). The live browser
+ * assertion is workers/edge/host-integration-test/session-adoption.browser.ts (native browser lane). */
 async function stubSessionAdopt(page: Page): Promise<void> {
   await page.route("**/v1/sessions/adopt", (route) => route.fulfill({ json: { adopted: 0, noop_class: "no_rows" } }));
 }
