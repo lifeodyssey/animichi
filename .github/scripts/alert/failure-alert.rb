@@ -3,6 +3,7 @@ require 'json'
 require_relative '../../lib/alert/api'
 require_relative '../../lib/alert/cause'
 require_relative '../../lib/alert/plan'
+require_relative '../../lib/alert/recipient'
 require_relative '../../lib/alert/report'
 require_relative '../../lib/alert/state'
 
@@ -23,11 +24,27 @@ end
 
 def publish(payload, plan, run)
   case plan.fetch('action')
-  when FailureAlert::Plan::CREATE then "opened ##{FailureAlert::Api.create_issue(payload).fetch('number')}"
+  when FailureAlert::Plan::CREATE then opened(payload)
   when FailureAlert::Plan::UPDATE
     "updated ##{FailureAlert::Api.update_issue(payload, plan.fetch('issue')).fetch('number')}"
   else "run #{run.fetch('id')} is already recorded on ##{plan.fetch('issue')}"
   end
+end
+
+# The create-only issue content, audience included: publishing is the moment the
+# alert has to reach a person, and the update path narrows to the body alone so a
+# repeat never rewrites who the alert is for.
+def alert_payload(alert)
+  { 'title' => FailureAlert::Report.title(alert), 'body' => FailureAlert::Report.body(alert),
+    'assignees' => FailureAlert::Recipient.logins }
+end
+
+# Publish, then prove GitHub kept the audience: an assignee it drops is dropped
+# silently, and an alert nobody is notified of must not look green (#1718 AC2).
+def opened(payload)
+  issue = FailureAlert::Api.create_issue(payload)
+  FailureAlert::Recipient.confirm(issue, payload)
+  "opened ##{issue.fetch('number')}"
 end
 
 run = FailureAlert::Api.run
@@ -42,5 +59,5 @@ alert = { 'run' => run, 'workflow' => ENV.fetch('GITHUB_WORKFLOW'), 'ref' => ENV
 plan = FailureAlert::Plan.decide(workflow: alert.fetch('workflow'), ref: alert.fetch('ref'),
                                  signature: FailureAlert::Cause.signature(failed), alerts: ledger, run: run)
 alert['state'] = plan.fetch('state')
-payload = { 'title' => FailureAlert::Report.title(alert), 'body' => FailureAlert::Report.body(alert) }
+payload = alert_payload(alert)
 puts "failure-alert: #{plan.fetch('key')} - #{publish(payload, plan, run)}"

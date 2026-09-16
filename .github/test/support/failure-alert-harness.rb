@@ -71,12 +71,13 @@ class FailureAlertCase < Minitest::Test
     File.write(File.join(@fixtures, "run.json"), JSON.generate(run))
   end
 
-  def alert(run_id: RUN_ID, attempt: 1, refusal: "")
-    environment = { "PATH" => "#{@bin}:#{ENV.fetch('PATH')}", "GH_TOKEN" => TOKEN, "GITHUB_REPOSITORY" => REPO,
+  def alert(run_id: RUN_ID, attempt: 1, refusal: "", repo: REPO, drop_assignees: false)
+    environment = { "PATH" => "#{@bin}:#{ENV.fetch('PATH')}", "GH_TOKEN" => TOKEN, "GITHUB_REPOSITORY" => repo,
                     "GITHUB_WORKFLOW" => WORKFLOW, "GITHUB_REF_NAME" => "main", "GITHUB_RUN_ID" => run_id.to_s,
                     "GITHUB_RUN_ATTEMPT" => attempt.to_s, "GITHUB_SERVER_URL" => SERVER,
                     "ALERT_SELF_JOB" => SELF_JOB, "ALERT_FIXTURES" => @fixtures, "ALERT_CALLS" => @calls,
-                    "ALERT_STATE" => @state, "ALERT_STUB_FAIL" => refusal }
+                    "ALERT_STATE" => @state, "ALERT_STUB_FAIL" => refusal,
+                    "ALERT_STUB_DROP_ASSIGNEES" => drop_assignees ? "1" : "" }
     Open3.capture3(environment, "ruby", @script, unsetenv_others: true)
   end
 
