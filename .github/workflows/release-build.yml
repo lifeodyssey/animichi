@@ -132,3 +132,28 @@ jobs:
           ARTIFACT_ID: ${{ needs.snapshot.outputs.artifact_id }}
         # No checkout in this job, so name the repository instead of letting gh resolve it from a git remote.
         run: gh workflow run cd.yml --repo lifeodyssey/animichi --ref main -f artifact_id="$ARTIFACT_ID"
+
+  # A release build that fails stops the deploy before CD is even dispatched, and
+  # nothing said so (#678 AC1): one deduplicated alert issue per failing-job set,
+  # through the run's own token and no new credential.
+  alert-failure:
+    name: Ops / failure alert
+    needs: [snapshot, dispatch-cd]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The key's own (workflow, ref) prefix: two runs that could share an alert
+    # must not interleave their read-then-create, and never cancel each other.
+    concurrency:
+      group: ops-alert-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, issues: write} # read this run's jobs; publish the alert issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish the failure alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_SELF_JOB: Ops / failure alert
+        run: ruby .github/scripts/alert/failure-alert.rb

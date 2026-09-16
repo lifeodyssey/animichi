@@ -240,6 +240,10 @@ jobs:
           ruby .github/test/cd-selection.test.rb
           ruby .github/test/cd-stage-smoke.test.rb
           ruby .github/test/cd-stage.test.rb
+          ruby .github/test/failure-alert-behavior.test.rb
+          ruby .github/test/failure-alert-ledger.test.rb
+          ruby .github/test/failure-alert-mutation.test.rb
+          ruby .github/test/failure-alert.test.rb
           ruby .github/test/pr-verification-affected.test.rb
           ruby .github/test/pr-verification-agent.test.rb
           ruby .github/test/pr-verification-browser.test.rb
