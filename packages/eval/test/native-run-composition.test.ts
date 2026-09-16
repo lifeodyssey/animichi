@@ -97,15 +97,38 @@ void test('the written artifact records the run provenance, native spend and sam
     const result = await runNativeEvaluation(readRunConfig(environment), environment, portsFor([], []));
     const report = result.report;
     assert.ok(report);
-    assert.deepEqual({ ...report.experiment_metadata }, {
+    const metadata = report.experiment_metadata;
+    assert.ok(metadata);
+    const { planned_cases: plan, pass_caret_k: verdict, ...provenance } = metadata;
+    assert.deepEqual(provenance, {
       dataset: 'agent_eval_heldout_v1', model: 'openai:fixture@https://api.openai.com/v1',
       commit: 'tested-commit', repeat: 1, sampling: 'iid', trace_sampling: 1, smoke: true,
       source_cases: E1_SOURCE_CASES, selected_cases: 3, unsupported_shapes: {},
       uploader: 'unconfigured', failed_attempt_spend: 'unmeasured',
       actual_spend_usd: 3 * 2 * COST_PER_CALL, actual_spend_status: 'measured',
     });
+    assert.deepEqual(plan, ['HO_loc_ja_zhq_001', 'HO_loc_ja_enq_001', 'HO_loc_zh_jaq_001'].map((name) => ({
+      name, required_assertions: ['execution_pass', 'tool_correctness_pass', 'trajectory_pass', 'data_keys_pass'],
+    })));
+    assert.deepEqual(verdict, { k: 1, planned: 3, passed: 0, failed: 3, incomplete: 0, pass_rate: 0 });
     const written: unknown = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.deepEqual(written, JSON.parse(JSON.stringify(report)));
+  });
+});
+
+/** A run composes the required assertions but registers no domain evaluator yet:
+ * every case is missing quality evidence, so pass^k fails rather than reporting
+ * a fast-but-wrong attempt as a pass (`execution_pass` alone is not correctness). */
+void test('the required assertions fail a case whose quality evaluators are absent', async () => {
+  await withReportDirectory(async (reportPath) => {
+    const environment = environmentFor(reportPath);
+    const result = await runNativeEvaluation(readRunConfig(environment), environment, portsFor([], []));
+    const report = result.report;
+    assert.ok(report);
+    const testTable = report.analyses.filter((analysis) => analysis.type === 'table');
+    assert.deepEqual(report.cases.map((entry) => entry.assertions.execution_pass?.value), [true, true, true]);
+    assert.deepEqual(testTable.flatMap((table) => table.rows.map((row) => row[4])),
+      ['required-assertion-missing', 'required-assertion-missing', 'required-assertion-missing']);
   });
 });
 
@@ -122,6 +145,8 @@ void test('repeated and concurrent attempts each complete without sharing sessio
     assert.ok(metadata);
     assert.equal(metadata.actual_spend_usd, 6 * 2 * COST_PER_CALL);
     assert.equal(metadata.actual_spend_status, 'measured');
+    assert.deepEqual(metadata.pass_caret_k,
+      { k: 2, planned: 3, passed: 0, failed: 3, incomplete: 0, pass_rate: 0 });
     assert.equal(report.cases[0]?.attributes['pi.usage.status'], 'measured');
   });
 });

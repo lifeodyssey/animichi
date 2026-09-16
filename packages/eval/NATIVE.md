@@ -74,6 +74,28 @@ were priced, and `unmeasured` when none were. A provider outage still emits a
 zeroed usage row, so a zeroed row does not count as measured: an outage cannot
 be reported as a confident $0.
 
+## Required assertions and pass^k
+
+Every loaded case carries `metadata.category` and the named correctness
+assertions that category requires (`prefix`, `end-to-end`, `safety`,
+`long-context`). The migrated v3 source declares both; a frozen export that
+predates the schema receives its dataset's declared category at load, and a
+case whose own category disagrees is refused. A run passes a case only when
+every named assertion is present, `true`, and its evaluator did not fail: a
+missing quality evaluator fails the case instead of passing on `execution_pass`
+alone, and rig assertions such as `MaxDuration` never substitute.
+
+The native report records a `pass_caret_k` block and a per-case table. The
+verdict counts `attempts = runs + failures`; a known failure — a thrown task, a
+false or missing required assertion, a required evaluator failure, or more
+attempts than k — outranks a missing attempt, and `incomplete` is reserved for
+genuinely missing attempts. The denominator is the plan recorded in
+experiment metadata, so a completely unstarted case stays `incomplete` instead
+of disappearing. Judge scores are report-only (`assertion: false`) and never
+change the verdict. With no domain quality evaluator registered yet, a real run
+reports `required-assertion-missing` for every case; that is the assertion layer
+working, not a passing run.
+
 ## Corpus accounting (three separate claims)
 
 1. **Source preservation.** The eight canonical datasets in

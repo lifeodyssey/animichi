@@ -2,7 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Case, Dataset } from 'logfire/evals';
 import type { LaneSnapshot } from '@earendil-works/pi-agent-core';
-import { FROZEN_DATASET_COUNTS, frozenDataset, type FrozenDatasetCount } from '../dataset-sets.ts';
+import {
+  FROZEN_DATASET_CATEGORY,
+  FROZEN_DATASET_COUNTS,
+  frozenDataset,
+  type FrozenDatasetCount,
+} from '../dataset-sets.ts';
+import {
+  declareRequiredAssertions,
+  requiredAssertionsOf,
+  type CaseCategory,
+} from './required-assertions.ts';
 import type { NativeCaseMetadata, NativeTaskInput } from './evaluation-types.ts';
 
 const PACKAGE_URL = new URL('../../', import.meta.url);
@@ -30,6 +40,12 @@ export interface LoadedNativeDataset {
   readonly unsupportedShapes: Readonly<Record<string, number>>;
 }
 
+/** One planned case identity and the assertions its category requires. */
+export interface PlannedCase {
+  readonly name: string;
+  readonly requiredAssertions: readonly string[];
+}
+
 /** Load a preserved export and make the source shape explicit to the native SDK. */
 export async function loadNativeDataset(name: string, smoke: boolean): Promise<LoadedNativeDataset> {
   if (UNMIGRATED_CORPUS_SETS.includes(name)) throw new RangeError(unmigrated(name));
@@ -38,7 +54,6 @@ export async function loadNativeDataset(name: string, smoke: boolean): Promise<L
   const parsed = await readFrozenCases(frozen);
   return toLoadedDataset(frozen.name, parsed, smoke);
 }
-
 /** Read the frozen fixture and hold it to its declared case count. */
 async function readFrozenCases(frozen: FrozenDatasetCount): Promise<readonly ParsedCase[]> {
   const raw = JSON.parse(await readFile(datasetPath(frozen.name), 'utf8')) as unknown;
@@ -51,14 +66,27 @@ async function readFrozenCases(frozen: FrozenDatasetCount): Promise<readonly Par
 
 /** The selected cases as a dataset, with the shape refusal applied to exactly that selection. */
 function toLoadedDataset(name: string, parsed: readonly ParsedCase[], smoke: boolean): LoadedNativeDataset {
+  const category = datasetCategory(name);
   const selected = selectCases(name, parsed, smoke);
   rejectUnsupported(name, selected);
   return {
-    dataset: new Dataset({ name, cases: selected.map(toCase) }),
+    dataset: new Dataset({ name, cases: selected.map((entry) => toCase(entry, category)) }),
     sourceCaseCount: parsed.length,
     selectedCaseCount: selected.length,
     unsupportedShapes: countUnsupported(parsed),
   };
+}
+
+/**
+ * The planned identities of a loaded set: the fixed denominator pass^k must
+ * keep, even for a case the SDK never started. Reading it from the dataset
+ * means the plan cannot drift from the cases the run actually schedules.
+ */
+export function plannedCases(loaded: LoadedNativeDataset): readonly PlannedCase[] {
+  return loaded.dataset.cases.map((entry) => ({
+    name: caseNameOf(entry.name),
+    requiredAssertions: requiredAssertionsOf(entry.metadata),
+  }));
 }
 
 function selectCases(name: string, parsed: readonly ParsedCase[], smoke: boolean): readonly ParsedCase[] {
@@ -139,8 +167,20 @@ function rejectUnsupported(name: string, cases: readonly ParsedCase[]): void {
   if (empty) throw new TypeError(`${name}: case ${empty.name}.inputs.prompt: expected a non-empty string`);
 }
 
-function toCase(entry: ParsedCase): Case<NativeTaskInput, LaneSnapshot, NativeCaseMetadata> {
-  return new Case({ name: entry.name, inputs: entry.inputs, metadata: entry.metadata });
+function toCase(entry: ParsedCase, category: CaseCategory): Case<NativeTaskInput, LaneSnapshot, NativeCaseMetadata> {
+  return new Case({ name: entry.name, inputs: entry.inputs,
+    metadata: declareRequiredAssertions(entry.metadata, category) });
+}
+
+function datasetCategory(name: string): CaseCategory {
+  const category = FROZEN_DATASET_CATEGORY[name];
+  if (category === undefined) throw new RangeError(`${name}: no declared case category`);
+  return category;
+}
+
+function caseNameOf(name: string | undefined): string {
+  if (name === undefined || name.trim() === '') throw new TypeError('a loaded case needs a name to be planned');
+  return name;
 }
 
 function objectOf(value: unknown, where: string): Record<string, unknown> {

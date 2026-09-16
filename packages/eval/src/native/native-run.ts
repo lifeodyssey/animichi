@@ -18,6 +18,7 @@ import { configuredCatalog } from './catalog-fetch.ts';
 import { ExecutionPass } from './execution-evaluator.ts';
 import { loadNativeDataset, type LoadedNativeDataset } from './evaluation-dataset.ts';
 import { addSpendMetadata, experimentMetadata, writeEvaluationReport } from './evaluation-report.ts';
+import { PassCaretK } from './pass-caret-k-report.ts';
 import type { NativeCaseMetadata, NativeOutput, NativeTaskInput } from './evaluation-types.ts';
 import { traceSampleRate } from './trace-sampling.ts';
 
@@ -181,6 +182,7 @@ async function evaluate(
   composition: RunComposition,
 ): Promise<EvaluationReport<NativeTaskInput, NativeOutput, NativeCaseMetadata>> {
   loaded.dataset.addEvaluator(new ExecutionPass());
+  loaded.dataset.reportEvaluators.push(new PassCaretK());
   const metadata = experimentMetadata(loaded, config, composition.model);
   return loaded.dataset.evaluate(productionAttempt(composition), evaluationOptions(config, metadata));
 }

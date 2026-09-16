@@ -75,9 +75,12 @@ with no regeneration path; the canonical sets they were exported from now live i
 `pnpm test` runs on Node alone.
 
 The old `eval:staging`, `eval:gate` and HTTP prefix-capture commands are retired with their
-obsolete consumers. Independent correctness/assertions and the pass^k layer, recorded
-same-repository prefixes, complete production suite rosters and real-model baselines remain
-their owning Eval Stories (#1558–#1560). They are not supplied by this minimum consumer
+obsolete consumers. The correctness-assertion schema (`src/native/required-assertions.ts`), the
+pass^k statistic and its report evaluator (`src/native/pass-caret-k.ts`), the report-only judge
+factory (`src/native/judge.ts`), the suite pins (`src/native/suite-pins.ts`) and the
+four-rule retirement ledger (`src/native/retirement-ledger.ts`) landed with #1559. Recorded
+same-repository prefix corpora, the finalized suite rosters and real-model baselines remain
+their owning Eval Stories (#1558, #1560). They are not supplied by this minimum consumer
 closure. Never run paid evaluations without explicit authorization.
 
 ## Preserved inputs and oracles
