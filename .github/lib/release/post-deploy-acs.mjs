@@ -69,7 +69,13 @@ function retiredProbe(path) {
 }
 
 /** Not evidence for that 404 — evidence that no unauthenticated caller reaches
- * a 200 either, which is all a seat may observe today. */
+ * a 200 either, which is all a seat may observe today. The expectation is the
+ * REFUSAL and never one status: while the retired path is still routed it
+ * answers 401, once it is gone it answers 404, and both are that one fact. The
+ * named `status` is the code a refusal answers with, for the summary line a
+ * failure prints; it never narrows the match, because a diagnostic that
+ * disagreed with the deployed reality would refute a criterion whose only
+ * evidence was never taken. */
 function retiredDiagnostic(path) {
   return {
     name: `retired${slug(path)}Unauthenticated`,
@@ -77,7 +83,7 @@ function retiredDiagnostic(path) {
     method: "GET",
     path,
     credential: "access",
-    expect: { status: 401, json: { error: { code: "unauthorized" } } },
+    expect: { status: 401, refused: true },
   };
 }
 

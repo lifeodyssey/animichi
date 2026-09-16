@@ -42,49 +42,59 @@ function parseArgs(argv) {
 }
 
 /** `--card` narrows to a card, `--ac` to one criterion of it: a coordinator
- * asking about AC5 must not be shown AC6 as a second failure. */
+ * asking about AC5 must not be shown AC6 as a second failure.
+ *
+ * Every selector must MATCH something. `--card 9999` or `--ac AC9` otherwise
+ * judges an empty catalog, prints `0/0 criteria satisfied` and exits 0 — a
+ * green run that asked about nothing (#1713 finding 3). */
 function entriesFor(options) {
-  const byCard = catalogEntries(options.cards.length === 0 ? undefined : options.cards);
+  const byCard = options.cards.length === 0 ? catalogEntries() : matchedNames(catalogEntries(options.cards), '--card', options.cards, (entry) => entry.card);
   if (options.acs.length === 0) return byCard;
-  return byCard.filter((entry) => options.acs.includes(entry.ac));
+  return matchedNames(byCard.filter((entry) => options.acs.includes(entry.ac)), '--ac', options.acs, (entry) => entry.ac);
+}
+
+function matchedNames(entries, flag, names, nameOf) {
+  const missing = names.filter((name) => !entries.some((entry) => nameOf(entry) === name));
+  if (missing.length > 0) throw new Error(`no catalog entry matches ${flag} ${missing.join(', ')}`);
+  return entries;
 }
 
 /** Artifacts per listing page: `gh api` caps `per_page` here, and a page
  * shorter than this is the end of a listing. */
 const ARTIFACT_PAGE_SIZE = 100;
 
-/** The repository-wide listing is walked, not read whole: this repository
- * carries thousands of artifacts (6174 at the time of writing) and the newest
- * staging receipt sits behind whatever the pull-request lanes uploaded since the
- * last deploy, so a seat that read a single page would report "no receipt
- * published" about a receipt that exists — the exact stalled-looking state this
- * card exists to remove. A named run is not walked at all: its artifacts live in
- * the run's OWN listing, which is scoped to what that run uploaded. */
-const ARTIFACT_PAGE_LIMIT = 5;
-
 function artifactPage(endpoint, page) {
   const { artifacts = [] } = JSON.parse(gh('api', `${endpoint}?per_page=${ARTIFACT_PAGE_SIZE}&page=${page}`));
   return artifacts;
 }
 
-/** Every page of a listing, stopping at the first short one. A limit is what
- * bounds a walk; `Infinity` is for the run-scoped listing, which the API bounds
- * to one run's uploads rather than to the repository's history. */
-function readListing(endpoint, limit) {
+/** A listing is walked to its END, not to a page count: this repository
+ * carries thousands of artifacts (6188 at the time of writing) and the newest
+ * staging receipt sits behind whatever the pull-request lanes uploaded since
+ * the last deploy, so a walk that stopped early reported "no receipt
+ * published" about a receipt that exists — the exact stalled-looking state
+ * this card exists to remove, and it survived on the `latest` door after the
+ * run-scoped one was fixed (#1713 finding 4). A named run is not walked at
+ * all: its artifacts live in the run's OWN listing. What bounds a pathological
+ * listing is the seat workflow's own ten-minute timeout, never a green
+ * "not published". */
+function readListing(endpoint) {
   const found = [];
-  for (let page = 1; page <= limit; page += 1) {
-    const artifacts = artifactPage(endpoint, page);
+  let page = 1;
+  let artifacts = artifactPage(endpoint, page);
+  while (artifacts.length === ARTIFACT_PAGE_SIZE) {
     found.push(...artifacts);
-    if (artifacts.length < ARTIFACT_PAGE_SIZE) break;
+    page += 1;
+    artifacts = artifactPage(endpoint, page);
   }
-  return found;
+  return [...found, ...artifacts];
 }
 
 /** Where one `--fetch` form reads its artifacts: a named run is LISTED BY THAT
  * RUN, while `latest` has no run to name and walks the repository-wide listing. */
 function artifactListing(fetch) {
-  if (fetch === 'latest') return { endpoint: `repos/${REPO}/actions/artifacts`, runId: null, limit: ARTIFACT_PAGE_LIMIT };
-  return { endpoint: `repos/${REPO}/actions/runs/${fetch}/artifacts`, runId: fetch, limit: Number.POSITIVE_INFINITY };
+  if (fetch === 'latest') return { endpoint: `repos/${REPO}/actions/artifacts`, runId: null };
+  return { endpoint: `repos/${REPO}/actions/runs/${fetch}/artifacts`, runId: fetch };
 }
 
 /** The receipt artifact `--fetch` asks for. BOTH doors resolve here, so a future
@@ -92,8 +102,8 @@ function artifactListing(fetch) {
  * call sites resolving "find the receipt" independently is how the false stall
  * `--fetch <run_id>` still carried came back. */
 function receiptArtifact(fetch) {
-  const { endpoint, runId, limit } = artifactListing(fetch);
-  return newestReceipt(readListing(endpoint, limit), runId);
+  const { endpoint, runId } = artifactListing(fetch);
+  return newestReceipt(readListing(endpoint), runId);
 }
 
 /** The newest published receipt artifact, which is where the evidence lives:
@@ -135,8 +145,8 @@ function guard(raw, environment) {
 /** What must hold between the receipt and the transcript before either is
  * evidence about a release: one run, one selected snapshot, one live version,
  * and every probe taken after the platform read that named that version. */
-function bindingFailures(evidence, receipt) {
-  return [...identityFailures(evidence, receipt), ...releaseFailures(evidence, receipt), ...probeFailures(evidence, receipt)];
+function bindingFailures(evidence, receipt, source) {
+  return [...identityFailures(evidence, receipt), ...releaseFailures(evidence, receipt), ...runFailures(evidence, receipt, source), ...probeFailures(evidence, receipt)];
 }
 
 function identityFailures(evidence, receipt) {
@@ -166,13 +176,41 @@ function probeFailures(evidence, receipt) {
   return early.length === 0 ? [] : [`these probes were taken before the platform read that names the deployed version: ${early.join(', ')}`];
 }
 
-/** The card's own checklist: the catalog must describe the card it claims to,
- * or its probe proves something else. */
-function cardReport(card, entries, options) {
+/** The receipt artifact's own name carries the run and the attempt that
+ * produced it (`staging-receipt-<run>-<attempt>`, cd.yml), which is the half of
+ * the binding the two documents cannot make between themselves: they only ever
+ * agree with EACH OTHER, so a seat that fetched run 9 while both documents were
+ * written by run 7 — or fetched attempt 2's artifact for attempt 1's documents
+ * — read as one deployment (#1713 finding 5). */
+const RECEIPT_NAME = /^staging-receipt-(\d+)-(\d+)$/;
+
+function runFailures(evidence, receipt, source) {
+  if (source.artifact === null) return [];
+  const named = RECEIPT_NAME.exec(source.artifact);
+  if (named === null) return [`the artifact ${source.artifact} does not name the run and attempt that produced it`];
+  const checks = [
+    [named[1] === source.run_id && named[1] === evidence.controller_run_id && named[1] === receipt.controller_run_id, `the artifact ${source.artifact} is from run ${named[1]}, the documents from run ${evidence.controller_run_id}`],
+    [named[2] === evidence.controller_run_attempt && named[2] === receipt.controller_run_attempt, `the artifact ${source.artifact} is attempt ${named[2]}, the documents from attempt ${evidence.controller_run_attempt}`],
+  ];
+  return checks.filter(([holds]) => !holds).map(([, detail]) => detail);
+}
+
+/** The card's own checklist, read once for the two judgements the catalog is
+ * held to: the catalog must describe the card it claims to, or its probe proves
+ * something else.
+ *
+ * Two entry sets, because the two judgements answer different questions. Drift
+ * is asked about the criteria THIS REQUEST judges, so a request for AC5 cannot
+ * fail on drift in AC6, which it does not ask about (#1713 finding 6). Coverage
+ * is asked about the WHOLE card: "the only thing missing is a deploy
+ * observation" is a fact about the card, and a scoped run that filed the card's
+ * other post-deploy criterion under "outside this catalog" made #1695
+ * requirement 3 false for the very seat it exists for. */
+function cardReport(card, catalog, requested, options) {
   if (!options.issue) return { drift: [], lines: [] };
   const body = JSON.parse(gh('issue', 'view', card, '--repo', REPO, '--json', 'body')).body;
   const criteria = parseAcceptanceCriteria(body);
-  return { drift: catalogDrift(card, criteria, entries), lines: [summaryLine(card, outstanding(criteria, entries))] };
+  return { drift: catalogDrift(card, criteria, requested), lines: [summaryLine(card, outstanding(criteria, catalog))] };
 }
 
 function verdictLine(verdict, bound) {
@@ -207,10 +245,15 @@ function documents(source) {
   return { findings: [], evidence: JSON.parse(raw['evidence.json']), receipt: JSON.parse(raw['receipt.json']) };
 }
 
-/** The card bodies the catalog is held against: what is left on each card, and
- * every place the catalog describes a criterion the card no longer carries. */
+/** The card bodies the catalog is held against: what is left on the whole of
+ * each card, and every place the catalog describes a criterion THIS REQUEST
+ * judges — so a request for AC5 cannot fail on drift in AC6, while its coverage
+ * line still counts the card's whole catalog and reads requirement 3's line
+ * (#1713 finding 6, #1695 requirement 3). */
 function cardCoverage(entries, options) {
-  const reports = [...new Set(entries.map((entry) => entry.card))].map((card) => cardReport(card, catalogEntries([card]), options));
+  const cards = [...new Set(entries.map((entry) => entry.card))];
+  const requestedFor = (card) => entries.filter((entry) => entry.card === card);
+  const reports = cards.map((card) => cardReport(card, catalogEntries([card]), requestedFor(card), options));
   return { lines: reports.flatMap((item) => item.lines), drift: reports.flatMap((item) => item.drift) };
 }
 
@@ -232,7 +275,7 @@ function judge(options, source, loaded) {
   const cards = cardCoverage(entries, options);
   const drift = cards.drift.map((line) => `${line}: the catalog and the card disagree`);
   const verdicts = acVerdicts(loaded.evidence, entries);
-  const failures = [...bindingFailures(loaded.evidence, loaded.receipt), ...drift];
+  const failures = [...bindingFailures(loaded.evidence, loaded.receipt, source), ...drift];
   report(source, loaded.evidence, loaded.receipt, verdicts, cards.lines, failures);
   return unsettled(failures, verdicts);
 }

@@ -20,10 +20,20 @@
 /** One response, as a transcript can carry it. */
 export function classifyResponse(expect, observed) {
   if (observed?.error !== undefined) return "error";
-  if (observed.status !== expect.status) return "fail";
+  if (!statusMatches(expect, observed)) return "fail";
   if (!contentTypeMatches(expect, observed)) return "fail";
   if (!bodyMatches(expect, observed)) return "fail";
   return "pass";
+}
+
+/** The status a transcript must show. A probe that IS a criterion's evidence
+ * names one; a diagnostic asserts a REFUSAL instead, because the retired path
+ * it observes answers 401 while it is still routed behind identity and 404 once
+ * it is gone, and both are the same fact about a caller with no credential.
+ * Only a success contradicts retirement. */
+function statusMatches(expect, observed) {
+  if (expect.refused === true) return observed.status >= 400;
+  return observed.status === expect.status;
 }
 
 function contentTypeMatches(expect, observed) {
@@ -67,10 +77,25 @@ export function credentialFindings(document, credentials = [], options = {}) {
 
 function walkValue(value, path, depth, scan) {
   if (depth > scan.depthLimit) return [{ path, rule: "unreadable-depth" }];
-  if (typeof value === "string") return [...shapesIn(value, path), ...declaredIn(value, path, scan.credentials)];
+  if (typeof value === "string") return findingsIn(value, path, scan.credentials);
   if (Array.isArray(value)) return value.flatMap((item, index) => walkValue(item, `${path}[${index}]`, depth + 1, scan));
   if (value === null || typeof value !== "object") return [];
-  return Object.entries(value).flatMap(([key, item]) => walkValue(item, `${path}.${key}`, depth + 1, scan));
+  return Object.entries(value).flatMap(([key, item]) => entryFindings(key, item, path, depth, scan));
+}
+
+/** One entry's key and its value. A recorded response can use a CREDENTIAL as
+ * an object key, and a key is no less publishable than the value under it
+ * (CWE-200), so the key is scanned as a value too — and the path a finding
+ * carries never quotes it, because a guard that echoes the credential it found
+ * has published it a second time. */
+function entryFindings(key, item, path, depth, scan) {
+  const findings = findingsIn(key, `${path}.<key>`, scan.credentials);
+  const child = findings.length === 0 ? `${path}.${key}` : `${path}.<key>`;
+  return [...findings, ...walkValue(item, child, depth + 1, scan)];
+}
+
+function findingsIn(value, path, credentials) {
+  return [...shapesIn(value, path), ...declaredIn(value, path, credentials)];
 }
 
 /** The exact value of a credential this process held. Value-compared on

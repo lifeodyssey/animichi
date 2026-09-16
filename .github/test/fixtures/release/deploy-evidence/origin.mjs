@@ -13,9 +13,16 @@
  *   gateway                 the shipped routes, unauthenticated
  *   container-serves-retired  `/v1/search/preview` answers 200, as the retired
  *                             container route did before #1666
+ *   retired-absent          `/v1/search/preview` answers the gateway's own 404
+ *                           envelope, which is the state #1597 AC3 asks for and
+ *                           the one a retired path answers once the route is
+ *                           removed before identity is read
  *   secret-header           `/healthz` answers 200 with a credential-shaped
  *                           `cf-ray` header, which is how a response field
  *                           could put a secret into a published artifact
+ *   secret-key              `/healthz` answers 200 with a credential-shaped
+ *                           body KEY, which is how an object key could put one
+ *                           there instead
  *
  * `EVIDENCE_FIXTURE_LOG` appends one line per request — method, path, and
  * whether an Access header arrived — so a test can prove that a refused token
@@ -42,6 +49,16 @@ function retiredAnswer(response) {
   response.end(JSON.stringify({ results: [] }));
 }
 
+function absentAnswer(response) {
+  response.writeHead(404, { 'content-type': 'application/json' });
+  response.end(JSON.stringify({ error: { code: 'not_found', message: 'No route matches this request.' } }));
+}
+
+function secretKeyAnswer(response) {
+  response.writeHead(200, { 'content-type': 'application/json' });
+  response.end(JSON.stringify({ [`ghp_${'A'.repeat(36)}`]: 'token-shaped-key' }));
+}
+
 function secretAnswer(response) {
   response.writeHead(200, { 'content-type': 'application/json', 'cf-ray': `8f2a1b3c4d5e6f70-AMS-ghp_${'A'.repeat(36)}` });
   response.end(JSON.stringify({ status: 'ok' }));
@@ -58,7 +75,9 @@ function requestHeaders(incoming) {
 async function respond(request, response) {
   note(request);
   if (mode === 'secret-header' && request.url === '/healthz') return secretAnswer(response);
+  if (mode === 'secret-key' && request.url === '/healthz') return secretKeyAnswer(response);
   if (mode === 'container-serves-retired' && request.url.startsWith('/v1/search/preview')) return retiredAnswer(response);
+  if (mode === 'retired-absent' && request.url.startsWith('/v1/search/preview')) return absentAnswer(response);
   const url = `http://127.0.0.1:${port.value}${request.url}`;
   const answer = await app.fetch(new Request(url, { method: request.method, headers: requestHeaders(request.headers) }), env, ctx);
   response.writeHead(answer.status, Object.fromEntries(answer.headers));

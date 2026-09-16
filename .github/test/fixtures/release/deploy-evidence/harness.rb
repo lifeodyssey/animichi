@@ -196,8 +196,8 @@ module DeployEvidenceHarness
   end
 
   # The repository-wide listing as it looks a quiet week after a deploy: five
-  # full pages of other lanes' uploads, with the receipt beyond the walk's bound.
-  def receipt_beyond_the_walk(receipt = receipt_artifact)
+  # full pages of other lanes' uploads, with the receipt on page six.
+  def receipt_on_the_sixth_page(receipt = receipt_artifact)
     (1..5).to_h { |page| [page, other_lane_artifacts(100)] }.merge(6 => [receipt])
   end
 

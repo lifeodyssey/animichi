@@ -70,8 +70,10 @@ holds the slot and the recorder refuses to hold a write-capable identity.
 
 Deliberately omitted, in every case because a public repository's artifacts are public:
 
-- **Credential values and request/response headers.** The recorder refuses to publish a document that
-  carries one, and `verify-evidence.mjs` refuses to read one.
+- **Credential values and request/response headers, as values or as object keys.** The recorder
+  refuses to publish a document that carries one, and `verify-evidence.mjs` refuses to read one. A
+  finding names the path and the rule and never the value, and a credential-shaped KEY is reported
+  under `<key>` rather than quoted, so the guard cannot publish what it found a second time.
 - **Response bodies that carry user data.** The conversation index is recorded as a shape (a
   top-level JSON array, at most 30 rows) rather than a body.
 - **Anything the repository says should be deployed.** Only observations: HTTP answers and platform
@@ -93,7 +95,9 @@ node .github/scripts/release/verify-evidence.mjs --card 1596 --fetch latest --no
 `--fetch` is how a seat finds the artifact instead of being handed one: `--fetch <run_id>` reads that
 run's own artifact listing — scoped by the API to what the run uploaded, so a named receipt cannot be
 missed because the other lanes uploaded past it — while `--fetch latest` names no run and walks the
-repository-wide listing, bounded, because that listing carries thousands of artifacts.
+repository-wide listing to its last page, because that listing carries thousands of artifacts and any
+shorter walk reports a published receipt as missing. The seat workflow's ten-minute job timeout bounds
+a pathologically long listing, and that reads as a failed run, never as "not published".
 
 The verifier recomputes every probe verdict from the transcript, holds the receipt and the transcript
 against each other (same run, same selected snapshot, same live version, probes taken after the
@@ -116,11 +120,13 @@ own checklist beside them:
 
 The verifier also reads the card body and prints a coverage line per card, so a card whose only
 unchecked criteria are post-deploy reads "the only thing missing is a deploy observation" while a card
-whose remaining evidence is not a deployed observation names those criteria by number. It states
-coverage, never a development claim: these cards record their verification in issue comments and leave
-the boxes unchecked, so an unchecked box is not evidence that code is missing. The catalog is held
-against the card too — if the criterion at that ordinal no longer has the declared test type, the run
-fails rather than proving something else.
+whose remaining evidence is not a deployed observation names those criteria by number. That line counts
+the whole card's catalog even when `--ac` narrows the run to one criterion — what is left on a card is
+not a fact about the request — while the drift check stays scoped to the criteria the request judges,
+so a request for AC5 never fails on AC6. It states coverage, never a development claim: these cards
+record their verification in issue comments and leave the boxes unchecked, so an unchecked box is not
+evidence that code is missing. The catalog is held against the card too — if the criterion at that
+ordinal no longer has the declared test type, the run fails rather than proving something else.
 
 ## Where each of the four cards stands
 
@@ -135,7 +141,10 @@ fails rather than proving something else.
   `unobservable-here` rather than skipped.
 - **#1597 AC3** — half carried. The 404 the criterion names requires an *authenticated* request: an
   unauthenticated one is answered 401 by the gateway before any container is reached, which the
-  transcript records as a diagnostic. The authenticated half needs the read-scoped identity below.
+  transcript records as a diagnostic. That diagnostic asserts only that the caller is REFUSED — 401
+  while the path is still routed, 404 once it is gone — so it is context and never the criterion's
+  evidence, and it can never turn the criterion `refuted`. The authenticated half needs the read-scoped
+  identity below.
 - **#1599 AC4** — half carried: the unauthenticated 401 is recorded; the signed-in body needs the same
   identity.
 - **#1601 AC4** — not carried: a real sign-in is a browser journey with an identity.
@@ -158,4 +167,4 @@ hand one to the deploy lane.
 | `.github/scripts/release/record-evidence.mjs` | the deploy lane's recorder; refuses half a service token, a loopback origin, an identity, and any document carrying a credential |
 | `.github/scripts/release/verify-evidence.mjs` | the seat's verifier: guard, binding checks, recomputed verdicts, triage |
 | `.github/workflows/verify-deploy-evidence.yml` | the read-only dispatchable lane |
-| `.github/test/post-deploy-evidence*.test.rb` | the end-to-end runs, the refusals and the two mutations |
+| `.github/test/post-deploy-evidence*.test.rb` | the end-to-end runs, the seat's lookups and scoping, the refusals, and the mutations |

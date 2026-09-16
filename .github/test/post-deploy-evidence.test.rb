@@ -91,6 +91,8 @@ class PostDeployEvidenceTest < Minitest::Test
     write_issue_body('1596', body: observation_only_body)
     out, _err, _status = verify('--card', '1596')
     assert_includes out, '1596: every unchecked criterion is post-deploy (AC5, AC6) — the only thing missing is a deploy observation'
+    out, _err, _status = verify('--card', '1596', '--ac', 'AC5')
+    assert_includes out, '1596: every unchecked criterion is post-deploy (AC5, AC6) — the only thing missing is a deploy observation'
     write_issue_body('1596', body: observation_only_body.sub('- [ ] **(api)**', '- [ ] **(unit)**'))
     out, _err, _status = verify('--card', '1596')
     assert_includes out, 'the catalog and the card disagree'
@@ -147,13 +149,13 @@ class PostDeployEvidenceTest < Minitest::Test
   # #1695 must-fix 1: `--fetch <run_id>` is a SCOPED lookup, not a filter over
   # the repository-wide walk. The receipt sits on page six of that walk and the
   # seat names the run, so the seat must read the run's OWN listing: raising the
-  # walk's limit would leave this door broken for the next quiet week, which is
-  # the false stall this card exists to remove.
-  def test_a_receipt_beyond_the_walk_is_still_fetched_for_a_named_run
+  # walk's page cap would leave this door broken for the next quiet week, which
+  # is the false stall this card exists to remove.
+  def test_a_receipt_on_the_sixth_page_is_still_fetched_for_a_named_run
     evidence_dir
     start_origin
     record
-    write_gh_stub(pages: receipt_beyond_the_walk, run_artifacts: { '9' => [receipt_artifact] })
+    write_gh_stub(pages: receipt_on_the_sixth_page, run_artifacts: { '9' => [receipt_artifact] })
     out, err, status = verify('--card', '1596', '--ac', 'AC5', '--fetch', '9')
     assert status.success?, "#{out}#{err}"
     assert_includes out, 'staging-receipt-9-1 (run 9)'
