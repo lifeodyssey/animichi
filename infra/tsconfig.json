@@ -2,8 +2,8 @@
   "compilerOptions": {
     "strict": true,
     "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "types": [
       "node"
     ],

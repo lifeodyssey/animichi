@@ -21,12 +21,12 @@
     "test:integration": "node --test \"test/integration/*.test.ts\""
   },
   "dependencies": {
-    "pg": "^8.22.0",
-    "testcontainers": "^12.0.4"
+    "pg": "catalog:",
+    "testcontainers": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
-    "@types/pg": "^8.20.0",
-    "typescript": "^7.0.2"
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "typescript": "catalog:"
   }
 }

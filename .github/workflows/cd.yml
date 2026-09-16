@@ -73,7 +73,7 @@ jobs:
         with:
           artifact-id: ${{ steps.selection.outputs.artifact_id }}
           run-id: ${{ steps.selection.outputs.run_id }}
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
@@ -243,7 +243,7 @@ jobs:
           RECEIPT_ID: ${{ needs.stage.outputs.receipt_id }}
           RECEIPT_DIGEST: ${{ needs.stage.outputs.receipt_digest }}
         run: ruby .github/scripts/release/verify-receipt.rb
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"

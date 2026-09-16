@@ -20,16 +20,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/orm-postgres": "8.0.0-rc.9",
-    "zod": "4.4.3"
+    "@prisma/orm-postgres": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@animichi/test-postgres": "workspace:*",
-    "@prisma/cli-engine": "0.3.0",
-    "@types/node": "^26.1.1",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.22.0",
-    "prisma": "8.0.0-rc.13",
-    "typescript": "^7.0.2"
+    "@prisma/cli-engine": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "prisma": "catalog:",
+    "typescript": "catalog:"
   }
 }

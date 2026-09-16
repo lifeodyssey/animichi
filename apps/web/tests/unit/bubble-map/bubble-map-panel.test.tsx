@@ -21,7 +21,7 @@ const copy = bubbleMapCopyFor("en");
 /** Contract-typed loader: fetch the public overview through the shared query options. */
 async function loadOverview(bangumiId: string): Promise<AnimeOverview> {
   const client = makeQueryClient();
-  return client.fetchQuery(animeOverviewOptions(bangumiId));
+  return client.query(animeOverviewOptions(bangumiId));
 }
 
 function renderPanel(overview: AnimeOverview) {

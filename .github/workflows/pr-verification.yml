@@ -101,7 +101,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       # No `cache: pnpm` here: plan never installs, so on any lockfile-changing
       # PR the store path never exists and setup-node's save phase fails the
       # job. The cached installs live in the jobs that actually install.
@@ -359,6 +359,8 @@ jobs:
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
           ruby test/repo-config/pre-push-routing.test.rb
+          ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
+          ruby test/repo-config/pnpm-workspace-settings.test.rb
           ruby test/repo-config/retired-python-agent-refs.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb

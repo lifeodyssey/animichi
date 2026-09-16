@@ -37,16 +37,16 @@
     "vet:baseline": "node --import tsx scripts/vet-openapi-baseline.ts"
   },
   "dependencies": {
-    "@orpc/contract": "1.14.10",
-    "@orpc/openapi": "1.14.10",
-    "@orpc/zod": "1.14.10",
-    "jose": "^6.2.4",
-    "zod": "4.4.3"
+    "@orpc/contract": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/zod": "1.15.0",
+    "jose": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1",
-    "tsx": "^4.23.1",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

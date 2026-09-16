@@ -52,7 +52,7 @@ function isWorkNotFound(error: unknown): boolean {
 
 async function loadOverview(queryClient: QueryClient, bangumiId: string): Promise<AnimeOverview> {
   try {
-    return await queryClient.ensureQueryData(animeOverviewOptions(bangumiId));
+    return await queryClient.query({ ...animeOverviewOptions(bangumiId), staleTime: "static" });
   } catch (error) {
     if (isWorkNotFound(error)) throw notFoundError();
     throw error;

@@ -2,6 +2,7 @@
 # service-token scope and the lane's server floor without starting a browser.
 require "minitest/autorun"
 require "json"
+require "psych"
 
 class PlaywrightConfigTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -46,6 +47,7 @@ class PlaywrightConfigTest < Minitest::Test
   # part of what the pin must satisfy rather than an incidental number.
   WRANGLER_DEV_SERVER_FLOOR = Gem::Version.new("4.129.1")
   ROOT_PACKAGE = File.join(ROOT, "package.json")
+  WORKSPACE_MANIFEST = File.join(ROOT, "pnpm-workspace.yaml")
   EXACT_VERSION = /\A\d+\.\d+\.\d+\z/
 
   def test_the_lane_port_belongs_to_its_checkout
@@ -67,11 +69,10 @@ class PlaywrightConfigTest < Minitest::Test
   end
 
   def test_the_lane_server_is_a_wrangler_whose_dev_server_survives_a_dropped_connection
-    declared = JSON.parse(File.read(ROOT_PACKAGE)).dig("devDependencies", "wrangler").to_s
+    declared = root_wrangler_pin
     assert_match(EXACT_VERSION, declared,
-                 "package.json: the root wrangler pin must be an exact version — see " \
-                 ".github/test/cd-publish.test.rb, which owns that contract, and adapt both to the " \
-                 "catalog shape if #1672 lands")
+                 "package.json: the root wrangler pin must resolve to an exact version — see " \
+                 ".github/test/cd-publish.test.rb, which owns that contract")
     assert_operator(Gem::Version.new(declared), :>=, WRANGLER_DEV_SERVER_FLOOR,
                     "package.json: wrangler #{declared} predates #{WRANGLER_DEV_SERVER_FLOOR} — its dev " \
                     "server exits when one proxied request loses its connection, and the rest of the " \
@@ -163,5 +164,13 @@ class PlaywrightConfigTest < Minitest::Test
     return [] if literal.nil?
 
     literal.scan(/"([A-Z0-9_]+)"/).flatten
+  end
+
+  # Since #1672 the root manifest reaches wrangler through `catalog:`.
+  def root_wrangler_pin
+    declared = JSON.parse(File.read(ROOT_PACKAGE)).dig("devDependencies", "wrangler").to_s
+    return declared unless declared == "catalog:"
+
+    Psych.safe_load(File.read(WORKSPACE_MANIFEST)).fetch("catalog").fetch("wrangler").to_s
   end
 end

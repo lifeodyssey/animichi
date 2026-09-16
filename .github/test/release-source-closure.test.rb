@@ -36,9 +36,13 @@ class ReleaseSourceClosureTest < Minitest::Test
     write('infra/index.ts', 'foundation A')
     write('packages/pi-session-neon/src/contract.json', '{"storageHash":"B"}')
     write('packages/pi-session-neon/migrations/app/B/ops.json', 'native B')
-    %w[package.json pnpm-lock.yaml pnpm-workspace.yaml .pulumi.version].each { |file| write(file, file) }
+    %w[package.json pnpm-lock.yaml .pulumi.version].each { |file| write(file, file) }
     write('packages/pi-session-neon/patches/native.patch', 'selected native patch')
-    write('package.json', '{"pnpm":{"patchedDependencies":{"native@1":"packages/pi-session-neon/patches/native.patch"}}}')
+    write('pnpm-workspace.yaml', <<~YAML)
+      packages: []
+      patchedDependencies:
+        "native@1": packages/pi-session-neon/patches/native.patch
+    YAML
   end
 
   def seal_selected_source

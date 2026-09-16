@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC)",
+  "description": "Animichi Users service \u2014 user-domain routes over Neon (Hono + oRPC)",
   "scripts": {
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
@@ -13,20 +13,20 @@
     "test:worker": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "@orpc/openapi": "1.14.10",
-    "@orpc/server": "1.14.10",
     "@animichi/contract": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.7",
-    "zod": "4.4.3"
+    "@neondatabase/serverless": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.18.8",
-    "@cloudflare/workers-types": "^5.20260727.1",
-    "@vitest/coverage-istanbul": "4.1.11",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11",
-    "wrangler": "^4.132.0"
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@vitest/coverage-istanbul": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

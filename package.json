@@ -1,7 +1,7 @@
 {
   "name": "animichi-cloudflare-worker",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@12.4.2",
   "engines": {
     "node": ">=24"
   },
@@ -11,41 +11,13 @@
     "test:worker": "pnpm --filter edge-worker test",
     "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },
-  "pnpm": {
-    "overrides": {
-      "postcss": ">=8.5.23",
-      "ws": ">=8.21.0",
-      "qs": ">=6.15.2",
-      "fast-uri": ">=4.1.1",
-      "hono": ">=4.13.7",
-      "esbuild": ">=0.28.1",
-      "@vitest/expect": "4.1.11",
-      "@vitest/spy": "4.1.11",
-      "uuid": ">=11.1.1",
-      "sharp": ">=0.35.3",
-      "valibot": ">=1.4.2",
-      "brace-expansion": ">=5.0.9",
-      "@hono/node-server": ">=2.0.5",
-      "minimatch": ">=10.2.6",
-      "nanoid": "3.3.18",
-      "testcontainers>undici": "8.9.0",
-      "miniflare>undici": "7.29.0",
-      "jsdom>undici": "7.29.0",
-      "@ai-sdk/provider-utils>undici": "7.29.0",
-      "tmp": ">=0.2.6",
-      "browserslist": ">=4.28.7",
-      "lodash": ">=4.18.1 <5"
-    },
-    "patchedDependencies": {
-      "@prisma/orm-target-postgres@8.0.0-rc.9": "packages/pi-session-neon/patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch"
-    }
-  },
   "devDependencies": {
     "@commitlint/config-conventional": "^21.2.2",
-    "@types/node": "^26.1.1",
+    "@types/node": "catalog:",
     "commitlint": "^21.2.2",
-    "oxlint": "~1.75.0",
+    "oxlint": "~1.83.0",
     "oxlint-tsgolint": "~7.0.2001",
-    "wrangler": "4.132.0"
+    "wrangler": "catalog:",
+    "yaml": "catalog:"
   }
 }
