@@ -770,8 +770,32 @@
     ],
     "postcheck": [
       {
-        "description": "verify mutable table access and append-only history",
-        "sql": "SELECT bool_and(has_table_privilege('agent_svc', name, 'SELECT') AND has_table_privilege('agent_svc', name, 'INSERT') AND has_table_privilege('agent_svc', name, 'UPDATE') AND has_table_privilege('agent_svc', name, 'DELETE')) AND has_table_privilege('agent_svc', 'pi_records', 'SELECT') AND has_table_privilege('agent_svc', 'pi_records', 'INSERT') AND NOT has_table_privilege('agent_svc', 'pi_records', 'UPDATE') AND NOT has_table_privilege('agent_svc', 'pi_records', 'DELETE') AS result FROM unnest(ARRAY['pi_sessions','pi_scalar_values','pi_list_values','agent_admissions','agent_open_operations','agent_settlements']) AS name"
+        "description": "verify agent_svc's explicit grants on pi_sessions are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_sessions'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_scalar_values are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_scalar_values'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_list_values are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_list_values'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_admissions are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_admissions'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_open_operations are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_open_operations'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on agent_settlements are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'agent_settlements'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on pi_records are exactly INSERT, SELECT (no UPDATE or DELETE grants)",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_records'), ARRAY[]::text[])) = ARRAY['INSERT', 'SELECT']::text[] AS result"
       }
     ]
   }

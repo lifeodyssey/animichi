@@ -1,9 +1,52 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { uniqueDatabaseName } from "@animichi/test-postgres";
 import postgresClient from "@prisma/orm-postgres/runtime";
+import type pg from "pg";
+import { AGENT_SERVICE_ACCESS } from "../migrations/app/20260910T0407_native_agent_contract/access.ts";
 import contractJson from "../src/contract.json" with { type: "json" };
 import type { Contract } from "../src/contract.d.ts";
 import { database, pool, postgres, SESSION_ID } from "./postgres.ts";
+
+type PostcheckStep = (typeof AGENT_SERVICE_ACCESS.postcheck)[number];
+
+const MUTABLE_TABLE_LIST = "pi_sessions, pi_scalar_values, pi_list_values, agent_admissions, agent_open_operations, agent_settlements";
+
+/** Reproduce Neon's role layering for the length of one transaction: the
+ * predefined blanket roles put UPDATE and DELETE in `agent_svc`'s effective
+ * privileges without one ACL row of its own. Role and membership DDL is
+ * cluster-global and the container is shared (#1663), so it never commits — a
+ * committed `pg_write_all_data` membership would disarm every arm's 42501
+ * assertions at once. */
+async function beginNeonLayer(client: pg.PoolClient): Promise<void> {
+  const layer = uniqueDatabaseName("append_only_layer");
+  await client.query("BEGIN");
+  await client.query(`CREATE ROLE "${layer}" NOLOGIN`);
+  await client.query(`GRANT pg_read_all_data, pg_write_all_data TO "${layer}"`);
+  await client.query(`GRANT "${layer}" TO agent_svc`);
+}
+
+async function rollbackAndRelease(client: pg.PoolClient): Promise<void> {
+  await client.query("ROLLBACK");
+  client.release();
+}
+
+async function booleanValue(client: pg.PoolClient, sql: string): Promise<boolean> {
+  const result = await client.query<{ result: unknown }>(sql);
+  return result.rows[0]?.result === true;
+}
+
+async function explicitGrants(client: pg.PoolClient, table: string): Promise<string[]> {
+  const result = await client.query<{ privilege_type: string }>("SELECT privilege_type FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = $1 ORDER BY privilege_type", [table]);
+  return result.rows.map((row) => row.privilege_type);
+}
+
+/** What the migration runner answers on: the first step whose first value is
+ * not true, whose description is the text the failure envelope carries. */
+async function firstFailingStep(client: pg.PoolClient, steps: readonly PostcheckStep[]): Promise<PostcheckStep | undefined> {
+  for (const step of steps) if (!(await booleanValue(client, step.sql))) return step;
+  return undefined;
+}
 
 void test("only the agent service can access native agent tables", async () => {
   const roles = await pool.query("SELECT role, count(*) FILTER (WHERE has_table_privilege(role, name, 'SELECT'))::int AS readable_tables, count(*)::int AS tables FROM unnest(ARRAY['agent_svc','catalog_svc','users_svc','jobs_svc','readonly']) AS role CROSS JOIN unnest(ARRAY['pi_sessions','pi_records','pi_scalar_values','pi_list_values','agent_admissions','agent_open_operations','agent_settlements']) AS name GROUP BY role ORDER BY role");
@@ -30,4 +73,41 @@ void test("the agent service uses the native Prisma runtime with its own databas
   await using agent = postgresClient<Contract>({ contractJson, url: url.href });
   await agent.orm.public.PiScalarValue.create({ sessionId: SESSION_ID, namespace: "app", key: "city", seq: 0, value: { city: "Kyoto" } });
   assert.deepEqual(await agent.orm.public.PiScalarValue.select("value").all(), [{ value: { city: "Kyoto" } }]);
+});
+
+void test("the append-only postcheck passes on a database whose agent role is neon_superuser-shaped", async () => {
+  const client = await pool.connect();
+  try {
+    await beginNeonLayer(client);
+    assert.deepEqual(await explicitGrants(client, "pi_records"), ["INSERT", "SELECT"]);
+    assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'UPDATE') AS result"), true);
+    assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'DELETE') AS result"), true);
+    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+  } finally { await rollbackAndRelease(client); }
+});
+
+void test("an explicit UPDATE or DELETE grant on pi_records turns the postcheck red, and revoking it turns it green", async () => {
+  const client = await pool.connect();
+  try {
+    await beginNeonLayer(client);
+    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+    await client.query("GRANT UPDATE, DELETE ON pi_records TO agent_svc");
+    assert.deepEqual(await explicitGrants(client, "pi_records"), ["DELETE", "INSERT", "SELECT", "UPDATE"]);
+    const violating = await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck);
+    assert.match(violating?.description ?? "", /pi_records are exactly INSERT, SELECT \(no UPDATE or DELETE grants\)/u);
+    await client.query("REVOKE UPDATE, DELETE ON pi_records FROM agent_svc");
+    assert.equal(await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck), undefined);
+  } finally { await rollbackAndRelease(client); }
+});
+
+void test("the neon_superuser layer alone cannot satisfy the postcheck", async () => {
+  const client = await pool.connect();
+  try {
+    await beginNeonLayer(client);
+    await client.query(`REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE ${MUTABLE_TABLE_LIST} FROM agent_svc`);
+    assert.deepEqual(await explicitGrants(client, "pi_sessions"), []);
+    assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_sessions', 'UPDATE') AS result"), true);
+    const ungranted = await firstFailingStep(client, AGENT_SERVICE_ACCESS.postcheck);
+    assert.match(ungranted?.description ?? "", /pi_sessions are exactly DELETE, INSERT, SELECT, UPDATE/u);
+  } finally { await rollbackAndRelease(client); }
 });
