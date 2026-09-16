@@ -101,10 +101,27 @@ as `PRE_COMMIT_TO_REF` / `PRE_COMMIT_FROM_REF` (`pre_commit/commands/hook_impl.p
 which is what keeps the refusal working under the wrapper too. For an ordinary push both name
 `HEAD` and nothing is refused.
 
-`pnpm ls -r --depth -1 --json` lists the workspace project directories; a prefix join against the
-changed paths gives the package set. The root project and `@animichi/agent-python` are dropped — the first
-would match every file by directory containment, the second is the agent bucket's job. Each selected
-package then runs, through `pnpm -r --workspace-concurrency=1 --filter "...<name>" run --if-present`:
+`pnpm ls -r --depth -1 --json` lists the workspace project directories; the script's routing table
+(`ROUTES`) names, one row per workspace package, the buckets that package belongs to:
+
+```text
+<directory> <bucket>...
+```
+
+`package` is the package's own scripts below, `agent` is the `make check` bucket. The root project is
+dropped — it would match every file by directory containment — and `apps/agent` carries no `package`
+bucket because the Python lane is `make check`'s job. A package `pnpm ls` reports with no row stops
+the push, naming itself, whatever the diff holds:
+
+```text
+pre-push: packages/orphan is a workspace package with no routing row
+```
+
+So a package cannot leave the table, or be added without a row, and still be pushed:
+`test/repo-config/pre-push-routing.test.rb` pins the table's domain against the
+`pnpm-workspace.yaml` globs resolved against the tree, and the gate routes by that table, so the two
+cannot disagree. Each selected package then runs, through
+`pnpm -r --workspace-concurrency=1 --filter "...<name>" run --if-present`:
 
 ```text
 lint → typecheck → test → test:integration
@@ -141,7 +158,8 @@ done against `pnpm ls` output instead.
 
 ### The four buckets
 
-Paths outside every pnpm project would otherwise be invisible to the join:
+A package's bucket membership is its routing-table row; the buckets below route paths outside every
+pnpm project, which would otherwise be invisible to the join:
 
 | Changed path | Bucket |
 |---|---|
@@ -177,11 +195,13 @@ root-level *.md  codecov.yml  .pre-commit-config.yaml  commitlint.config.js  Mak
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.
 
-**Every** changed path has to be owned by something: a selected package's directory, a bucket that
-actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The
+**Every** changed path has to be owned by something: a package whose routing row fired, a bucket
+that actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The
 check runs on the whole diff rather than only when nothing was selected — otherwise a commit that
 touched `workers/catalog/src/` *and* added a stray top-level file would sail through on the strength
-of its first half, which is exactly what it did until #1371's review caught it.
+of its first half, which is exactly what it did until #1371's review caught it. A workspace package
+with no routing row fails before that check even runs, on its own line and whatever the diff holds,
+so coverage of the table cannot be mistaken for coverage of the paths.
 
 A new top-level directory, a new tool config: both stop the push with their own names in the
 message rather than passing unexamined. The fix is to give the path a home — a package, a bucket,
@@ -189,11 +209,11 @@ or a reviewed whitelist entry — not to widen the pattern reflexively. (`commit
 the whitelist because turning this check on found it owned by nothing at all.)
 
 The ownership set is built from what actually happened, so it also backstops the selection itself.
-Each bucket adds its own paths only when it fired, and each selected package adds its directory, so
-breaking the prefix join or deleting a bucket leaves the paths they used to own unaccounted and the
-push goes red naming them. That is also why the loop skips a blank project line: an empty `pnpm ls`
-result still yields one, and without the guard it would match every file and fill the package set
-with nothing.
+Each bucket adds its own paths only when it fired, and each package a changed path falls in adds its
+directory, so breaking the prefix join or deleting a bucket leaves the paths they used to own
+unaccounted and the push goes red naming them. That is also why the loop skips a blank project line:
+an empty `pnpm ls` result still yields one, and without the guard it would match every file and fill
+the package set with nothing.
 
 ## `make check-full` (manual, not a hook)
 
@@ -260,6 +280,8 @@ with the offline `animichi-test-postgres` image (the agent bucket's integration 
 - `scripts/local-gates/infra-check.sh` — credential-free Pulumi program load (`infra`'s own `test`)
 - `scripts/local-gates/contract-drift.sh` — staged-snapshot OpenAPI drift (`@animichi/contract`'s
   own `test`)
+- `test/repo-config/pre-push-routing.test.rb` — the routing table against the workspace: every
+  `pnpm-workspace.yaml` package has a row, every row names a workspace package and a known bucket
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
   job runs the four `check-*.test.sh` suites

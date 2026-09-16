@@ -11,8 +11,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 GATE="${GATE_UNDER_TEST:-$PWD/scripts/local-gates/pre-push-affected.sh}"
 # The root project and the Python agent are in the list so the cases can prove
-# the gate subtracts them.
-PROJECTS='.:animichi-cloudflare-worker apps/agent:@animichi/agent-python packages/agent:@animichi/agent apps/web:web workers/catalog:catalog workers/users:users'
+# the gate subtracts them: the root by name, `apps/agent` because its routing
+# row names the agent bucket and not `package`.
+PROJECTS='.:animichi-cloudflare-worker apps/agent:@animichi/agent-python packages/agent:@animichi/agent packages/contract:@animichi/contract apps/web:web workers/catalog:catalog workers/users:users'
 ZERO=0000000000000000000000000000000000000000
 TMPROOT="$(mktemp -d)"
 trap 'rm -rf "$TMPROOT"' EXIT
@@ -217,6 +218,36 @@ expect_status "nested agent doc" 0 "$STATUS"
 expect "nested agent doc" "docs=1" "$OUT"
 refute "nested agent doc" "no gate covers" "$OUT"
 ok "a nested agent-context document fires the docs bucket instead of failing closed"
+
+# 12. The contract's routing row carries two buckets, and the agent one is why
+#     the Python lane runs: a contract change must reach `make check` as well as
+#     the package's own scripts, or the agent's half of the contract is ungated
+#     while the rest of the suite stays green (#1687).
+new_repo
+commit_change feature packages/contract/src/x.ts
+run_gate < /dev/null
+expect_status "contract is routed to both buckets" 0 "$STATUS"
+expect "contract is routed to both buckets" "agent=1" "$OUT"
+expect "contract is routed to both buckets" "make check" "$RECORDED"
+expect "contract is routed to both buckets" "--filter ...@animichi/contract run --if-present test" "$RECORDED"
+ok "a contract change fires the agent bucket as well as the package's own scripts"
+
+# 13. A package pnpm reports that the routing table does not name has no bucket
+#     to fire, so it stops the push naming itself — including when the diff is
+#     somewhere else, which is what keeps an added package from being ungated
+#     behind an unrelated change (#1687).
+new_repo
+export PNPM_PROJECTS="$PROJECTS packages/orphan:@animichi/orphan"
+commit_change feature packages/orphan/src/y.ts
+run_gate < /dev/null
+expect_status "unrouted package" 1 "$STATUS"
+expect "unrouted package" "packages/orphan is a workspace package with no routing row" "$OUT"
+refute "unrouted package" "--filter" "$RECORDED"
+commit_change feature workers/catalog/src/x.ts
+run_gate < /dev/null
+expect_status "unrouted package, other diff" 1 "$STATUS"
+expect "unrouted package, other diff" "packages/orphan is a workspace package with no routing row" "$OUT"
+ok "a workspace package with no routing row stops the push, naming it, whatever changed"
 
 [ "$failures" = 0 ] || { printf '%s case(s) failed\n' "$failures" >&2; exit 1; }
 printf 'pre-push-affected.test.sh: all green\n'

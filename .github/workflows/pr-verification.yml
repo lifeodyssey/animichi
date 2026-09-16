@@ -287,6 +287,7 @@ jobs:
           ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
+          ruby test/repo-config/pre-push-routing.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
