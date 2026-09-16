@@ -111,7 +111,14 @@ sign-up POST for the password user against that branch's own base URL (`neonctl 
 - [x] Edge worker: **JWKS-only Neon verification** — fetch + cache `$NEON_AUTH_JWKS_URL`, verify EdDSA signature by `kid`, check `iss`/`aud` == auth base URL and `exp`; Supabase verification and the dual-issuer flag are **deleted** (AUTH-2 #950 hard cut). Production JWKS stays unset until its Neon Auth branch is provisioned — empty fails closed.
 - [ ] `neonctl neon-auth domain add <prod-domain>` (trusted redirect origins; keep `allow-localhost` for dev).
 - [ ] Branded email decision: `email-provider update --type standard` with own SMTP **or** webhook `send.magic_link` → own sender function (successor of `send-auth-email`, #312 step 3).
-- [x] CI: `QA_NEON_USER_EMAIL` var + `QA_NEON_USER_PASSWORD` secret; E2E login on Path A/B; `scripts/qa_auth.py` + `scripts/qa_login.sh` + Mailpit auth-hook infra retired with the Supabase login path.
+- [ ] CI: `QA_NEON_USER_EMAIL` var + `QA_NEON_USER_PASSWORD` secret — **not provisioned, and not
+  provisionable in PR CI**: `.github/test/workflow-credentials.test.rb` rejects any `secrets.*` under
+  `.github/`, so no pull-request job can present the QA identity. The login proof therefore never
+  runs in PR CI and the browser job says so (#1690) — `NOT RUN` in its summary and as a run
+  annotation — instead of letting the login spec skip itself green. Its lane is local
+  (`pnpm --filter animichi-e2e run test:login`); putting it in CI means the owner adding a
+  CD/staging lane that opens these two from Pulumi ESC under an environment-bound OIDC identity.
+  (`scripts/qa_auth.py` + `scripts/qa_login.sh` + Mailpit auth-hook infra retired with the Supabase login path.)
 - [x] Local login on Neon: `make local-login` → `scripts/local-login.sh` (magic link, token read from the branch DB — Path C).
 - [x] Staging issuer/JWKS + QA login declared in IaC (`infra/src/neon-auth.ts`, `infra/database-access`) — applied on the next `pulumi up` with the config keys set.
 - [ ] Operational tables (#312 step 2): migrate `sessions`/`messages`/`user_memory` **with user-id remap** (mapping file, §3).
@@ -143,7 +150,12 @@ Related API surface (in `@neon/sdk`, mostly unwrapped by CLI): `updateNeonAuthEm
 1. **Branded sender (optional until cutover):** pick an SMTP provider (Resend already holds the prod key for Supabase emails and offers SMTP), then
    `neonctl neon-auth config email-provider update --type standard --host <smtp-host> --port 587 --username <user> --password <key> --sender-email noreply@<sending-domain> --sender-name Animichi`
    DNS needed at the sending domain: provider-issued **SPF TXT** + **DKIM CNAME/TXT** records (values from the provider dashboard; none are committed here). Until then emails arrive as "Neon Auth <auth@mail.myneon.app>" with subject "Sign In to animichi".
-2. **CI secrets:** add `QA_NEON_USER_PASSWORD` (value = local `.env.test`) as a GitHub Actions secret; `QA_NEON_USER_EMAIL=qa-bot@animichi.test` as a variable.
+2. **Live login lane (owner decision, #1690):** the proof is local by default — `pnpm --filter
+   animichi-e2e run test:login` with `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD` from local
+   `.env.test`. PR CI cannot hold them (`.github/test/workflow-credentials.test.rb`), so CI reports
+   the proof as `NOT RUN`. To run it in CI, add a CD/staging lane that opens both from Pulumi ESC
+   (`lifeodyssey/animichi/staging`) under an environment-bound OIDC identity, the way `cd.yml`
+   already opens the Access service token — not a GitHub secret.
 3. **Optional mailbox rebrand:** `mails claim animichiqa` (browser approval at mails.dev, max 10 mailboxes), then `neon-auth user create` for it and swap Path B's address. `seichijunreiqa@mails.dev` keeps working meanwhile.
 4. **OAuth production credentials** (pre-cutover): Google/Apple/X client id+secret via `neonctl neon-auth oauth-provider update`; LINE via generic OAuth. Current `google` entry uses shared dev credentials — not for production.
 5. **Supabase-side branding (optional, recommend skip):** live magic-link emails are still Seichijunrei-branded inside the deployed `send-auth-email` Edge Function; changing it means `supabase login` + function redeploy (deploy-coupled). Cutover retires it entirely — spend nothing here unless pre-cutover polish matters.
@@ -172,7 +184,9 @@ against the branch JWKS.
 magic link from the Neon Auth origin and opens the verify URL (token read from the branch's
 `neon_auth.verification` — Path C, §4). The Playwright suite stubs every transport and runs
 without `supabase start`; the one live spec (`e2e/web-neon-login.spec.ts`) drives the real Neon
-origin via Path A and self-skips without `QA_NEON_USER_*`.
+origin via Path A and **fails when `QA_NEON_USER_*` are absent** — it never skips (#1690). Its lane
+is `pnpm --filter animichi-e2e run test:login` (credentials from local `.env.test`; PR CI reports
+it as `NOT RUN`, see above), and it is the strongest local evidence available without a deploy.
 
 **IaC declarations (no pulumi run yet):** the staging issuer/JWKS derivation and QA login creds are
 declared in `infra/src/neon-auth.ts` (pure derivation, pinned by `topology-neon-auth.test.ts`),

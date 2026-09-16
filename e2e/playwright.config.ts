@@ -75,6 +75,19 @@ function claimLanePort(port: number): void {
 // `page.route`, so the lane needs the shapes, not reachable services.
 const turnstileTestSiteKey = "1x00000000000000000000AA";
 const unroutableOrigin = "http://127.0.0.1:9";
+// The live login lane (#1690). `web-neon-login.spec.ts` is the only proof of
+// the login chain and never skips, so the lane that selects it has to serve an
+// app pointed at a REAL Neon Auth branch — a stubbed one makes the callback
+// exchange fail even with correct credentials. Declared once here, so the SSR
+// runtime config and the client build cannot disagree about which branch the
+// app under test targets; unset (every other lane) keeps the unroutable
+// stand-in above. The value is a branch URL, not a secret.
+const declaredAuthOrigin = (
+  ["NEON_AUTH_BASE_URL", "VITE_NEON_AUTH_BASE_URL"] as const
+)
+  .map((name) => process.env[name]?.trim())
+  .find((value) => value !== undefined && value !== "");
+const appNeonAuthBaseUrl = declaredAuthOrigin ?? unroutableOrigin;
 // The SSR `RUNTIME_CONFIG` var apps/web parses per request
 // (apps/web/src/lib/runtime-config/provider.ts). Public placeholder values
 // only; `wrangler dev --var KEY:VALUE` keeps everything after the first colon
@@ -82,7 +95,7 @@ const unroutableOrigin = "http://127.0.0.1:9";
 const emittedWorkerRuntimeConfig = JSON.stringify({
   schemaVersion: 1,
   api: { agentUrl: "http://127.0.0.1:9001", siteOrigin: emittedWorkerOrigin },
-  neonAuthBaseUrl: unroutableOrigin,
+  neonAuthBaseUrl: appNeonAuthBaseUrl,
   turnstileSiteKey: turnstileTestSiteKey,
   showcaseMode: "false",
   featureFlags: {},
@@ -193,7 +206,10 @@ export default defineConfig({
   // `github` reporter is not the alternative it looks like — its
   // `printsToStdio()` is false and it emits annotations for failures, slow
   // tests and the summary only (playwright 1.62, lib/runner/index.js).
-  reporter: process.env.CI ? "list" : undefined,
+  // The second reporter is the other half of that acceptance: a skipped test
+  // must not read as a pass (#1690), and Playwright's own exit code cannot tell
+  // the two apart, so `no-skipped-tests` fails the run and names them.
+  reporter: [["list"], ["./reporters/no-skipped-tests.ts"]],
   // `wrangler dev` serves `.output`, so the build has to precede it inside the
   // same command; the readiness probe on `url` replaces the composite's curl
   // loop and its timeout has to cover a cold Vite build, not just a boot.
@@ -208,7 +224,7 @@ export default defineConfig({
           env: {
             VITE_TURNSTILE_SITE_KEY: turnstileTestSiteKey,
             VITE_SHOWCASE_MODE: "false",
-            VITE_NEON_AUTH_BASE_URL: unroutableOrigin,
+            VITE_NEON_AUTH_BASE_URL: appNeonAuthBaseUrl,
           },
         },
       }

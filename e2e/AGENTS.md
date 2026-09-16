@@ -70,6 +70,25 @@ run in #1692 AC1 found: two lanes can each own their serving port and still figh
 the loser's server exiting before a spec runs. The server command passes `--inspector-port 0`, so the
 OS assigns one per lane — the same recipe `packages/agent`'s integration harness uses.
 
+
+`pnpm run test:login` is the **live login lane**, kept out of `test` because its inputs are
+different in kind: it serves the emitted Worker pointed at a real Neon Auth branch
+(`NEON_AUTH_BASE_URL`, the staging branch `workers/edge/wrangler.toml` verifies) and drives the
+real password sign-in and `/auth/callback` redeem. Credentials come from local `.env.test`
+(Path A, `docs/ops/auth-migration-neon.md` §4). **PR CI cannot run it and says so:** no
+pull-request job may hold a credential (`.github/test/workflow-credentials.test.rb` rejects
+`secrets.*` anywhere under `.github/`), so the browser job reports the proof as `NOT RUN` in its
+step summary and as a run annotation — never as a silent absence, and never as a green check.
+Moving it into CI means a CD/staging lane opening the QA identity from Pulumi ESC under an
+environment-bound OIDC identity.
+
+**No spec in the always-run suite may skip itself (#1690).** A skipped spec is indistinguishable
+from a passing one in a summary, so the rule has two halves: `reporters/no-skipped-tests.ts` fails
+the run and names every skipped case (Playwright's own exit code counts a skip as success), and
+`test/repo-config/e2e-no-skip.test.rb` refuses one at review time. A lane that cannot run must fail
+and name what it needs, or be reported as not-run — never pass quietly. The opt-in `visual` project
+and the MCP `seed` scaffold are the only exemptions, both by name and for a stated reason.
+
 ## Conventions
 
 - Start `make dev-local` first if you want the real backend behind the stubbed edges, then run
