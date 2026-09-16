@@ -2,10 +2,10 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { listStaleBangumiIds, STALE_AFTER_SECONDS } from "../src/ingest/cron-queries";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 
 /**
- * Spike for the cron staleness query (S0-v2 D4 fix round): the three staleness
+ * Integration suite for the cron staleness query (S0-v2 D4 fix round): the three staleness
  * shapes against REAL Postgres — both sources fresh, one source stale, one
  * source entirely absent — plus the negative-cache exclusion, the batch cap,
  * and the TTL freshness floor. `MAX`/UNION regressions fail here.

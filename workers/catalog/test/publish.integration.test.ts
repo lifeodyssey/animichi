@@ -9,10 +9,10 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Spike for the Publish stage (card W3-1): atomic version switch over
+ * Integration suite for the Publish stage (card W3-1): atomic version switch over
  * `cluster_version`, no-drift itinerary snapshots over `itinerary_snapshots`, and
  * version GC.
  *

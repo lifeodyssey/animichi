@@ -7,10 +7,10 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Spike for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
+ * Integration suite for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
  *
  * Uses the suite branch's full Atlas schema, then drives serveImage through Neon
  * Local HTTP with an in-memory mock R2Bucket and a

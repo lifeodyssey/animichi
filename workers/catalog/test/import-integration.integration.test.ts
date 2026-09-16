@@ -16,7 +16,7 @@ import { exportCandidate } from "../src/publish/candidate-export";
 import { buildManifest } from "../src/publish/manifest";
 import { importSnapshot } from "../src/import/import-snapshot";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 
 let db: CatalogDb;
 

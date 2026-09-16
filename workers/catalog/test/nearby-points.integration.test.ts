@@ -12,7 +12,7 @@ import {
   workSeed,
   type SeedStatement,
 } from "./fixtures/catalog-seed";
-import { databaseDescribe, openDirectPool, openServerlessDb, truncateCatalogPool } from "./spike-db";
+import { databaseDescribe, openDirectPool, openServerlessDb, truncateCatalogPool } from "./integration-db";
 
 /**
  * Integration for the nearby path (card CATALOG-3): the REAL PostGIS adapter

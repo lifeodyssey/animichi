@@ -10,10 +10,10 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Integration spike for the daily discovery + ingest run (#1006).
+ * Integration suite for the daily discovery + ingest run (#1006).
  *
  * Exercises the durable run protocol (AC1), deterministic discovery (AC2),
  * provenance capture (AC4), bounded raw retention (AC5), and the partial/failed

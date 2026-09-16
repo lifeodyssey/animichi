@@ -1,13 +1,13 @@
 /**
- * Immutable snapshot integration spike (issue #1012, AC1-AC6).
+ * Immutable snapshot integration suite (issue #1012, AC1-AC6).
  *
  * Runs the export -> manifest -> validate -> activate -> gc pipeline against a
- * real Neon Postgres (complete Atlas schema) with an in-memory object store.
+ * real Postgres (the committed Atlas chain applied to a clean database) with an in-memory object store.
  *   AC1: export contains only public catalog data; auth/user/run-log rows absent.
  *   AC2: manifest records schema version, source run id, hashes, counts, time, compat.
  *   AC3: validation failure leaves current unchanged; success moves previous and activates.
  *   AC6: failed publishes do not leak staged candidate objects.
- * The spike is skipped offline (no Neon) and runs in CI (catalog-spikes).
+ * The suite runs against the hermetic Docker Postgres arm (`test/integration-db-global.ts`); a missing database fails loudly instead of skipping (card 1049).
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
@@ -17,7 +17,7 @@ import { buildManifest, MANIFEST_SCHEMA_VERSION } from "../src/publish/manifest"
 import { publishSnapshot, readCurrentSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { readPointer } from "../src/publish/pointer";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 import { textToArrayBuffer } from "../src/publish/bytes";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 

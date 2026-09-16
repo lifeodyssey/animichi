@@ -23,7 +23,7 @@ here.
 
 `test` stays Docker-free on purpose (the #1473 rule): the container contracts live in
 `test:integration`, alongside the arms that boot it in their own gates —
-`pnpm --filter catalog run test:spike` and `pnpm --filter edge-worker run test:agent-db`.
+`pnpm --filter catalog run test:integration` and `pnpm --filter edge-worker run test:agent-db`.
 
 ## The API
 
@@ -94,8 +94,8 @@ measured) and crosses testcontainers' own 60 s default on a container that is fi
 **The catalog arm has no runner-imposed hook deadline at all.** vitest's `hookTimeout` governs
 in-file `beforeAll`/`afterAll`, not `globalSetup`: `_initializeGlobalSetup()` in vitest 4.1.10
 simply `await`s the setup with no timeout wrapper (checked in `node_modules/vitest`, not assumed).
-So `vitest.spike.config.ts`'s `hookTimeout` is unrelated to the data plane, and `deadlineMs` is the
-spike suite's only bound. Do not wire one to the other.
+So `vitest.integration.config.ts`'s `hookTimeout` is unrelated to the data plane, and `deadlineMs` is
+the catalog arm's only bound. Do not wire one to the other.
 
 `test/setup-budget.test.ts` pins every number and checks the edge arm still derives
 `SETUP_DEADLINE_MS` / `SETUP_HOOK_TIMEOUT_MS` from the budget; `test/setup-deadline.test.ts` is

@@ -8,16 +8,16 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Spike for the IngestBangumi use case: acquire -> fetch -> raw -> enrich ->
+ * Integration suite for the IngestBangumi use case: acquire -> fetch -> raw -> enrich ->
  * publish -> completion over the source/store/publisher ports, with singleflight,
  * negative-cache TTLs, crash recovery, and idempotent replay (mirrors the
  * worker-pool component tests against the real Atlas schema on Neon Local).
  */
 
-// Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.spike).
+// Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.integration.test.ts).
 const BANGUMI_SUBJECT = {
   id: 1,
   name: "らき☆すた",

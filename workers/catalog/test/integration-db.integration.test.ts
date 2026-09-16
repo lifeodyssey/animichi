@@ -7,10 +7,10 @@ import {
   catalogTruncateSql,
   directPoolConfig,
   restoreNeonConfig,
-} from "./spike-db";
-import { makePgCatalog } from "./spike-db-global/pg-catalog";
+} from "./integration-db";
+import { makePgCatalog } from "./integration-db-global/pg-catalog";
 
-describe("spike database helper", () => {
+describe("catalog database helper", () => {
   it("builds the exact no-CASCADE FK-closed TRUNCATE statement", () => {
     const statement = catalogTruncateSql();
 
@@ -32,7 +32,7 @@ describe("spike database helper", () => {
   });
 
   it("leaves docker-postgres TLS behavior to the connection URI", () => {
-    const config = directPoolConfig("postgresql://127.0.0.1:5432/catalog_spike?sslmode=disable");
+    const config = directPoolConfig("postgresql://127.0.0.1:5432/catalog_integration?sslmode=disable");
 
     expect(config.connectionTimeoutMillis).toBe(10_000);
     expect(config).not.toHaveProperty("ssl");

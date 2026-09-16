@@ -5,7 +5,7 @@ import { statementBuilder } from "../src/db/client";
 import { ingestJobs } from "../src/db/schema";
 import { JobStore } from "../src/ingest/jobs";
 import { listDrainableBangumiIds } from "../src/ingest/cron-queries";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 
 /**
  * Guard/acquire time semantics against REAL Postgres (issue #1227): the

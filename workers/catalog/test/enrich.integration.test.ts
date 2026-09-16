@@ -8,10 +8,10 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Spike for the Enrich stage (card W3-2): raw zone -> enriched catalog -> publish.
+ * Integration suite for the Enrich stage (card W3-2): raw zone -> enriched catalog -> publish.
  *
  * Uses the complete Atlas schema inherited from `test-base`, then seeds realistic
  * raw payloads before driving enrichWork through Neon Local's HTTP endpoint.

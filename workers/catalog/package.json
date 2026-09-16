@@ -14,7 +14,7 @@
     "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
     "test:smoke": "tsx scripts/startup-smoke.ts",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
-    "test:spike": "vitest run --config vitest.spike.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

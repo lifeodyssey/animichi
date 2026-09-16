@@ -2,12 +2,12 @@ import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import type pg from "pg";
 import type { CatalogDb } from "../src/db/client";
 import { closeDbPools } from "../src/db/connections";
-import { databaseDescribe, openDirectPool, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
-import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-spike-client";
-import { seed } from "./fixtures/spike-suite-seed";
-import { stubFetch, unresolvableResponse } from "./spike-upstream-stubs";
+import { databaseDescribe, openDirectPool, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-integration-client";
+import { seed } from "./fixtures/integration-suite-seed";
+import { stubFetch, unresolvableResponse } from "./integration-upstream-stubs";
 
-// The Node spike pool has no workerd runtime; stub the runtime module so
+// The Node integration pool has no workerd runtime; stub the runtime module so
 // `src/index.ts` (which now exports the `IngestEntrypoint` named entrypoint)
 // loads in plain Node.
 vi.mock("cloudflare:workers", () => ({
@@ -27,7 +27,7 @@ vi.mock("../src/db/connections", async (importOriginal) => {
   return {
     ...original,
     dbFor: async (connStr: string) => {
-      const { localDatabaseUrl, pgCatalog } = await import("./spike-db");
+      const { localDatabaseUrl, pgCatalog } = await import("./integration-db");
       return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
     },
   };
@@ -104,10 +104,10 @@ async function assertSpots404(): Promise<void> {
 
 /**
  * The nearby assertions run the geo read through pg direct (openDirectPool),
- * like nearby-points.spike.test.ts: the app's nearby path runs its geo SQL
+ * like nearby-points.integration.test.ts: the app's nearby path runs its geo SQL
  * through the PostGIS adapter (src/adapters/outbound/nearby-points.ts), whose
  * flat-bound template the direct-cloud endpoint accepts. This suite's job is
- * the harness, not the adapter proof (that lives in the spike), so the
+ * the harness, not the adapter proof (that lives in the integration suite), so the
  * assertion intent is kept while the query runs on the authoritative
  * PostGIS surface.
  */
