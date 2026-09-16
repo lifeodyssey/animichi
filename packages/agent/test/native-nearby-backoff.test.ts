@@ -4,8 +4,8 @@ import { setImmediate } from "node:timers/promises";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import { searchNearby } from "../src/search-nearby.ts";
 import { executeTool, fixture } from "./native-tool-fixture.ts";
-import { catalogClock, pendingCatalog, settledWithin } from "./catalog-clock.ts";
-void test("nearby total deadline expires during native retry backoff", async (context) => {
+import { catalogClock, GUARDED_TEST_TIMEOUT_MS, pendingCatalog, settledWithin } from "./catalog-clock.ts";
+void test("nearby total deadline expires during native retry backoff", { timeout: GUARDED_TEST_TIMEOUT_MS }, async (context) => {
   catalogClock(context);
   const transport = pendingCatalog(4);
   const { repo, toolContext } = await fixture(transport.fetch);

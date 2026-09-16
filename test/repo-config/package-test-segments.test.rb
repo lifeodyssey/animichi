@@ -6,18 +6,24 @@ require "psych"
 class PackageTestSegmentsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
+  # The native lanes run node's own test runner, loaded through tsx. Those two facts are the shape;
+  # the flags around them are not. Pinning the literal adjacency `node --import tsx --test` failed the
+  # day `packages/agent` put `--expose-gc` in front of the loader to force a real collection, so the
+  # property is asserted instead: one node invocation that both loads tsx and runs the test runner,
+  # in either order, with anything else in between — and never a longer `--test-*` flag standing in
+  # for the runner itself.
+  TSX_LOADED_TEST_RUNNER = %r{\bnode\b(?=[^&|]*--import\s+tsx)(?=[^&|]*--test(?![\w-]))}
+
   REQUIRED_SEGMENTS = {
     "workers/edge" => %w[test:node test:chat-answer-part test:bundle-smoke test:ratelimit-namespace],
     "workers/catalog" => %w[test:worker],
     "workers/users" => %w[test:worker],
     "workers/migrator" => ["vitest run"],
     "packages/contract" => ["vitest run", "vet:baseline", "test:openapi-drift"],
-    # The native rewrite runs its suites through the tsx loader; the contract is
-    # still node's own test runner, so the loader is part of the pinned shape.
-    "packages/agent" => [%r{node --import tsx --test}],
+    "packages/agent" => [TSX_LOADED_TEST_RUNNER],
     "packages/pi-session-neon" => ["node --test", "test/contract-types.test.ts"],
     "packages/prisma-geography" => ["node --test", "test/*.unit.test.ts"],
-    "packages/eval" => [%r{node --import tsx --test}],
+    "packages/eval" => [TSX_LOADED_TEST_RUNNER],
     "packages/test-postgres" => ["node --test"],
     "infra" => ["node --test", "test:program-load"],
     "apps/web" => ["vitest run"],

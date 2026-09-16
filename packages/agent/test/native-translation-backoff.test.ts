@@ -4,9 +4,9 @@ import { setImmediate } from "node:timers/promises";
 import { BACKGROUND_CONTEXT, withCancel } from "@earendil-works/pi-agent-core/harness/context";
 import { translateAnimeTitle } from "@animichi/agent/tools";
 import { fixture } from "./native-tool-fixture.ts";
-import { catalogClock, pendingCatalog, settledWithin } from "./catalog-clock.ts";
+import { catalogClock, GUARDED_TEST_TIMEOUT_MS, pendingCatalog, scavenge, settledWithin } from "./catalog-clock.ts";
 
-void test("translation observes caller cancellation while the official catalog retry is waiting", async (context) => {
+void test("translation observes caller cancellation while the official catalog retry is waiting", { timeout: GUARDED_TEST_TIMEOUT_MS }, async (context) => {
   catalogClock(context);
   const catalog = pendingCatalog(1);
   const { repo, toolContext } = await fixture(catalog.fetch);
@@ -19,9 +19,18 @@ void test("translation observes caller cancellation while the official catalog r
   const first = await catalog.received(0);
   first.respond(new Response("Unavailable", { status: 503 }));
   await setImmediate();
+  // The composed deadline chain is only weakly reachable, so scavenge here, exactly where a busy host does.
+  // A cancellation that survives this line reaches the signal of the attempt already delivered.
+  scavenge();
   caller.cancel(new DOMException("Translation cancelled", "AbortError"));
-  await assert.rejects(settledWithin(executed, "the caller's cancellation"), { name: "AbortError", message: "Translation cancelled" });
+  // The cancellation reaches every derived signal synchronously, so the in-flight request is already
+  // aborted here. Stating that as state rather than as an event inside a budget keeps a broken chain
+  // immediate and unambiguous; the guarded await below only observes the rejection it implies.
+  assert.equal(first.request.signal.aborted, true, "The caller's cancellation must reach the in-flight catalog request's signal");
+  const cancellation = await settledWithin(executed.then(() => undefined, (error: unknown) => error), "the caller's cancellation");
+  assert.ok(cancellation instanceof DOMException, "The translation must observe the caller's cancellation");
+  assert.equal(cancellation.name, "AbortError");
+  assert.equal(cancellation.message, "Translation cancelled");
   await settledWithin(catalog.aborted(0), "the in-flight catalog request's abort");
-  assert.equal(first.request.signal.aborted, true);
   context.mock.timers.tick(2_000);
 });
