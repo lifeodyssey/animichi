@@ -1,6 +1,7 @@
 import { LIGHT, type Flavor, layers } from "@protomaps/basemaps";
 import type { StyleSpecification } from "maplibre-gl";
 import { TILE_PMTILES_URL, TILE_ZXY_URL } from "./spots";
+import { MAP_SPIKE_BACKGROUND, MAP_SPIKE_EARTH } from "./map-colors";
 import type { SourceMode } from "./source-mode";
 
 const ATTRIBUTION = "© OpenStreetMap contributors, Protomaps";
@@ -22,8 +23,8 @@ const pmtilesSource = (tilePath: string) => {
 // direction-E tokens — cream card ground, leaf greens, teal water, brown labels.
 const animichiLight: Flavor = {
   ...LIGHT,
-  background: "#f2eee2",
-  earth: "#ece7d6",
+  background: MAP_SPIKE_BACKGROUND,
+  earth: MAP_SPIKE_EARTH,
   park_a: "#cfe3c4",
   park_b: "#a5d6a0",
   hospital: "#eadfd8",

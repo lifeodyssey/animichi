@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import { MAP_SPIKE_BACKGROUND, MAP_SPIKE_EARTH } from "../../apps/web/src/features/map-spike/map-colors";
 
 const EARTH_VECTOR_TILE = Buffer.from("GiB4AgoFZWFydGgSEhgDIg4JAAAagEAAAIBA/z8ADyiAIA==", "base64");
 const EMPTY_SPRITE_PNG = Buffer.from(
@@ -78,11 +79,18 @@ const countColor = (colors: readonly number[][], target: readonly number[]): num
   return colors.filter((color) => color.every((value, index) => Math.abs(value - (target.at(index) ?? Number.NaN)) <= 1)).length;
 };
 
+/** `#rrggbb` as the RGBA quadruple `getImageData` returns, so the comparison is
+ *  against the SAME literals `map-style.ts` paints (they drifted when copied). */
+const rgba = (hex: string): readonly number[] => {
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+  return [...channels, 255];
+};
+
 export const readMapFrame = async (page: Page): Promise<MapFrame> => {
   const colors = await captureMapColors(page);
   return {
-    backgroundPixels: countColor(colors, [248, 248, 240, 255]),
-    earthPixels: countColor(colors, [226, 223, 218, 255]),
+    backgroundPixels: countColor(colors, rgba(MAP_SPIKE_BACKGROUND)),
+    earthPixels: countColor(colors, rgba(MAP_SPIKE_EARTH)),
     renderer: await readRenderer(page),
     sampledPixels: colors.length,
   };
