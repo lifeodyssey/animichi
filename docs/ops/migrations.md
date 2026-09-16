@@ -68,29 +68,14 @@ After this cutover, the normal append-only policy resumes for every shared envir
 
 ## Applying a Neon migration
 
-The apply mechanism is schema-before-app in both environments. The affected main-SHA cohort
-contains one sealed `db` payload. Staging asks the migration executor (migrator Worker + one-shot
-Atlas batch container) to apply that payload through GitHub OIDC, so no application deployment
-receives a database credential. After the single production approval, production applies the
-same sealed directory once with its environment-scoped migrator DSN. Both database phases finish
-before catalog/users promotion. The connection URL must never be committed or printed:
+Migrations are applied only by CD, through
+[`scripts/delivery/migrate-through-worker.sh`](../../scripts/delivery/migrate-through-worker.sh)
+`<env>` (`staging` or `production`): CI proves GitHub OIDC, and the environment's migrator Worker
+holds the migration DSN and applies the sealed chain. There is no manual or DSN-based apply —
+never run `atlas migrate apply` against a Neon branch, and never commit or print a connection
+URL. Ordering, and what each environment proves, is in "CI and deployment order" below.
 
-```bash
-atlas migrate apply \
-  --dir "file://migrations/neon" \
-  --url "$NEON_DATABASE_URL" \
-  --revisions-schema public
-```
-
-The deploy lane scopes the connection URL to `search_path=public` when the database also
-contains the `neon_auth` schema. It keeps Atlas's clean-database check enabled and does not
-use `--allow-dirty`.
-
-For a non-mutating review against a disposable or explicitly approved target, use the same
-command with `--dry-run`. CI always runs `atlas migrate validate`; a live dry-run/apply only
-runs when the corresponding protected connection secret is present.
-
-The Supabase CLI is not a substitute for this command. The archived `supabase/migrations/`
+The Supabase CLI is not a substitute for this path. The archived `supabase/migrations/`
 directory is historical and never applied; if an auth-only Supabase migration were explicitly
 approved, it would follow its own owner/runbook and must not add or alter Neon data-plane tables.
 

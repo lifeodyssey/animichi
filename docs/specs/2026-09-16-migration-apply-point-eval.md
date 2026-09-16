@@ -91,7 +91,7 @@ the runtime image — the same argument §3 makes about the credential.
 | https://atlasgo.io/guides/deploying/image | The recommended artifact is a **dedicated** image "that contains the migrations directory" and the Atlas binary (`FROM arigaio/atlas` + `COPY migrations /migrations`), built for a pipeline step — not the app image. |
 | https://atlasgo.io/guides/deploying/k8s-init-container | The nearest thing to boot-time application Atlas offers, and it is **deprecated on the page itself**: "This method of running schema migrations is no longer recommended. Please use the Kubernetes Operator." Even so it keeps the migration tool and its credentials in a purpose-built image, and relies on Atlas's advisory lock for the multi-replica race. |
 | https://atlasgo.io/guides/deploying/k8s-argo | The ordered-deployment shape: Atlas on sync-wave `1`, the app on `2` — i.e. "schema before app", expressed as two steps. |
-| https://atlasgo.io/versioned/apply | The verb this repo already uses (`atlas migrate apply --dir … --url … --revisions-schema public`), matching `docs/ops/migrations.md:77-82`. |
+| https://atlasgo.io/versioned/apply | The verb the disposable-container local gate still uses (`atlas migrate apply --dir … --url … --revisions-schema public`, `scripts/local-gates/db-fresh-schema.sh:93`); the shared-environment apply goes through the migrator Worker, not this verb (§6.1). |
 
 ### 1.3 What this means for the card's Q1
 
@@ -344,12 +344,13 @@ Ordered, with what each step is and is not:
    does not change who applies the chain.
 5. **Docs — one pass, in the same change as the code it describes.** `docs/ops/migrations.md:22`
    ("The application never runs migrations at startup") restates the decision, and
-   `migrations/AGENTS.md:79-88` carries the role rules. **Three ops-doc locations are stale at
-   `3ba3449e2`** and need correcting in that pass rather than citing as current:
-   `docs/ops/migrations.md:69-95` (still names the "one-shot Atlas batch container" and a
-   production `NEON_DATABASE_URL` apply), `docs/ops/neon-env-topology.md:23` ("Who may hold migrator
-   DSN | CI + break-glass owners only" — CI holds none since #1365), and `docs/ops/secrets.md:183`
-   (§3.2 above). `.claude/rules/migrations.md` is **already wrong today** — it names
+   `migrations/AGENTS.md:79-88` carries the role rules. **Three ops-doc locations were stale at
+   `3ba3449e2`** and needed correcting in that pass rather than citing as current:
+   `docs/ops/migrations.md:69-95` (it named the "one-shot Atlas batch container" and a production
+   `NEON_DATABASE_URL` apply — **done in #1716**, which reduced the apply section to a pointer at
+   the OIDC executor), `docs/ops/neon-env-topology.md:23` ("Who may hold migrator DSN | CI +
+   break-glass owners only" — CI holds none since #1365), and `docs/ops/secrets.md:183` (§3.2
+   above). `.claude/rules/migrations.md` is **already wrong today** — it names
    `db/migrations`, `reusable-deploy-component.yml` and a `NEON_DATABASE_URL`-gated CI apply, none
    of which exist — and its `paths: db/**` frontmatter does not even match `migrations/neon/**`.
    The Prisma 8 spec records it as superseded (`.claude/rules/migrations.md` whole-file), so it
