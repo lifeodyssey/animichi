@@ -4,6 +4,7 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { ANON_BUDGET_EXHAUSTED_CODE } from "../src/protect/cost-breaker.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
+import { openStream } from "./doubles/open-stream.ts";
 import { stubCtx } from "../src/container/entry-env.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
@@ -150,16 +151,14 @@ void test("the breaker does not touch logged-in callers", async () => {
 // on the status alone before it ever touches the body. This test pins that: the
 // container's stream stays open, and the worker must still hand back a response.
 // Passing `await response.clone().text()` as an argument (evaluated eagerly on
-// every response, 200s included) hangs here forever.
+// every response, 200s included) parks here forever.
+//
+// The race is against the body's first read — the drain itself, see
+// `doubles/open-stream.ts` — never a one-second timer a healthy fetch can lose
+// on a loaded machine (#1720).
 void test("a still-open native stream is returned without being drained", async () => {
   const captured: NativeAgentCall[] = [];
-  let release: (() => void) | undefined;
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode("data: first\n\n"));
-      release = () => { controller.close(); };
-    },
-  });
+  const { body, bodyRead, release } = openStream();
   const container = () =>
     new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
 
@@ -169,10 +168,10 @@ void test("a still-open native stream is returned without being drained", async 
       anonEnv(),
       stubCtx,
     ),
-    new Promise<"drained">((resolve) => { setTimeout(() => { resolve("drained"); }, 1_000); }),
+    bodyRead,
   ]);
 
-  assert.notEqual(response, "drained", "the guard drained the stream instead of checking status");
-  assert.equal((response as Response).status, 200);
-  release?.();
+  assert.ok(response, "the budget guard drained the stream instead of checking the status first");
+  assert.equal(response.status, 200);
+  release();
 });
