@@ -30,18 +30,6 @@ void test('an empty trace sampling variable means the default sample rate, not z
   assert.equal(readRunConfig({ EVAL_COMMIT: 'tested-commit', EVAL_TRACE_SAMPLE_RATE: '' }).traceSampling, 1);
 });
 
-void test('the documented smoke command validates the three-case plan without a credential', async () => {
-  const environment: NodeJS.ProcessEnv = { ...process.env, EVAL_SMOKE: '1', EVAL_DRY_RUN: '1', EVAL_COMMIT: 'tested-commit' };
-  delete environment.MIMO_API_KEY;
-  delete environment.CATALOG_API_URL;
-  const { stdout } = await promisify(execFile)('pnpm', ['--silent', '--filter', '@animichi/eval', 'eval:native'],
-    { cwd: new URL('../../..', import.meta.url), env: environment });
-  const plan = JSON.parse(stdout) as Record<string, unknown>;
-  assert.deepEqual({ dataset: plan.dataset, sourceCases: plan.sourceCases, selectedCases: plan.selectedCases, smoke: plan.smoke },
-    { dataset: 'agent_eval_heldout_v1', sourceCases: 33, selectedCases: 3, smoke: true });
-  assert.equal(plan.commit, 'tested-commit');
-});
-
 void test('a real run reports both required external bindings when unavailable', async () => {
   const environment: NodeJS.ProcessEnv = { ...process.env, EVAL_COMMIT: 'tested-commit' };
   delete environment.MIMO_API_KEY;

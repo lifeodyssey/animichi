@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { readRunConfig, runNativeEvaluation, evaluationOptions, type NativeRunPorts } from '../src/native/native-run.ts';
+import { writeEvaluationReport } from '../src/native/evaluation-report.ts';
 import type { NativeTaskInput } from '../src/native/evaluation-types.ts';
 import { Dataset, Case } from 'logfire/evals';
 import type { LaneSnapshot } from '@earendil-works/pi-agent-core';
@@ -113,6 +114,8 @@ void test('the written artifact records the run provenance, native spend and sam
     assert.deepEqual(verdict, { k: 1, planned: 3, passed: 0, failed: 3, incomplete: 0, pass_rate: 0 });
     const written: unknown = JSON.parse(await readFile(reportPath, 'utf8'));
     assert.deepEqual(written, JSON.parse(JSON.stringify(report)));
+    const rendered = await writeEvaluationReport(report, reportPath);
+    assert.match(rendered, /pi\.usage\.status=measured/);
   });
 });
 
