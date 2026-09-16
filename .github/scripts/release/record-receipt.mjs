@@ -2,7 +2,16 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { unstable_readConfig } from 'wrangler';
-import { deploymentIdentity, containerIdentity } from '../../lib/release/observations.mjs';
+import { deploymentIdentity, containerIdentity, awaitContainerImage } from '../../lib/release/observations.mjs';
+
+// #1683: every staging CD failed because `containers info` was read once, before
+// the application's asynchronous rollout reported the selected image. The knobs
+// live in cd.yml's step env (CONTAINER_ATTEMPTS / CONTAINER_RETRY_DELAY, in
+// seconds); these defaults only cover a manual run. The budget is 12 x 15s =
+// 180s: run 35045881568 still read the previous digest 24s after the modify
+// returned, and one container rollout step plus its health gate can take minutes.
+const CONTAINER_WAIT_ATTEMPTS = Number(process.env.CONTAINER_ATTEMPTS ?? 12);
+const CONTAINER_WAIT_DELAY_MS = Number(process.env.CONTAINER_RETRY_DELAY ?? 15) * 1000;
 
 function wrangler(...args) {
   return JSON.parse(execFileSync('pnpm', ['exec', 'wrangler', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }));
@@ -12,7 +21,8 @@ function observeContainers(config, version, applications, image) {
   return (config.containers ?? []).map((container) => {
     const listed = applications.find((application) => application.name === container.name);
     assert.ok(listed, 'deployed container application is unavailable');
-    const application = wrangler('containers', 'info', listed.id);
+    const read = () => wrangler('containers', 'info', listed.id);
+    const application = awaitContainerImage(read, image, { attempts: CONTAINER_WAIT_ATTEMPTS, delayMs: CONTAINER_WAIT_DELAY_MS });
     return containerIdentity(application, version, container, image, config.name);
   });
 }

@@ -101,9 +101,13 @@ prove the applied database state or registry availability.
 
 The immutable staging receipt records artifact ID/digest, release/controller SHAs, actual per-script
 Worker deployment/version IDs, configured container application/namespace/image identities, applied schema and
-successful smoke. It proves B was tested. Later C staging can proceed while B waits for approval;
-production must still pass fresh baseline/ledger/registry checks before promoting B. Version IDs
-are script-scoped and are not expected to match between staging and production.
+successful smoke. Container identity is read only after the application's configuration converges: an
+image change creates an asynchronous rollout, so the receipt polls `configuration.image` under a bounded
+budget (`CONTAINER_ATTEMPTS` x `CONTAINER_RETRY_DELAY` in `cd.yml`, 12 x 15 s, #1683) and otherwise fails
+naming the expected digest, the last observed digest and the attempt count. It proves B was tested.
+Later C staging can proceed while B waits for approval; production must still pass fresh
+baseline/ledger/registry checks before promoting B. Version IDs are script-scoped and are not expected
+to match between staging and production.
 
 Native Minitest tests under `.github/test/` cover admission, source closure, archives, configurations,
 remote identity validation, receipt validation and workflow order. The real Wrangler bundling test

@@ -31,6 +31,14 @@ class CdReceiptTest < Minitest::Test
     end
   end
 
+  def test_receipt_container_wait_budget_is_declared_in_the_workflow_environment
+    %w[stage promote-production].each do |job|
+      env = step(job, "Record observed deployment identities").fetch("env")
+      assert_equal "12", env.fetch("CONTAINER_ATTEMPTS")
+      assert_equal "15", env.fetch("CONTAINER_RETRY_DELAY")
+    end
+  end
+
   def test_stage_exports_the_immutable_receipt_identity
     assert_equal({ "receipt_id" => "${{ steps.receipt.outputs.artifact-id }}",
                    "receipt_digest" => "${{ steps.receipt.outputs.artifact-digest }}" }, @cd.dig("jobs", "stage", "outputs"))
