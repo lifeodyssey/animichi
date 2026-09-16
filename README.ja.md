@@ -150,7 +150,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 ## ドキュメント
 
 - [アーキテクチャ](docs/ARCHITECTURE.md) — システム設計リファレンス
-- [デプロイ](docs/ops/deployment.md) — Cloudflare Workers + Containers デプロイガイド
+- [デプロイ](docs/ops/deployment.md) — Cloudflare Workers デプロイガイド
 - [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所

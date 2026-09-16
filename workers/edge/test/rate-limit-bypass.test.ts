@@ -3,11 +3,17 @@ import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 // AC2 (#680): users mutations, Chat, BYOK and other expensive operations are
 // NO LONGER bypassed by routing order, encoding, a trailing slash, or another
 // isolate. These are real composed-app regressions, not pure-function checks.
+//
+// #1605 removed the container forward that used to answer the encoded and
+// trailing-slash variants: the tier policy matches exactly, so those variants
+// are not routes at all. The two cases below assert that stronger end state —
+// no second entrance into the tier, and the real route's window untouched by
+// the attempt.
 
 const NOW = Date.UTC(2026, 7, 5, 12, 0, 0);
 
@@ -17,7 +23,6 @@ function env(guard: unknown, extra: Record<string, unknown> = {}) {
     AUTH_RATE_LIMIT: "1",
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     EDGE_GUARD: guard,
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
     USERS: { fetch: () => Promise.resolve(new Response("users")) },
     ...extra,
   } as never;
@@ -29,20 +34,26 @@ function authedApp() {
 
 const POST = { method: "POST", headers: { Authorization: "Bearer jwt" } };
 
-void test("a trailing slash on /v1/chat cannot bypass the burst window", async () => {
+void test("a trailing slash on /v1/chat is not a second entrance to the turn", async () => {
   const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
+  const guard = fakeGuard(NOW);
+  const e = env(guard.namespace);
   assert.equal((await app.request("/v1/chat", POST, e, stubCtx)).status, 200);
+  const spent = guard.calls.length;
   const res = await app.request("/v1/chat/", POST, e, stubCtx);
-  assert.equal(res.status, 429, "the trailing slash must share the identity's already-spent window");
+  assert.equal(res.status, 404, "a trailing slash is not a route the tier serves");
+  assert.equal(guard.calls.length, spent, "and it must not even reach the limiter");
 });
 
-void test("percent-encoding /v1/byok/ cannot bypass the burst window", async () => {
+void test("percent-encoding /v1/byok/ is not a second entrance to the probe", async () => {
   const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
+  const guard = fakeGuard(NOW);
+  const e = env(guard.namespace);
   assert.equal((await app.request("/v1/byok/probe", POST, e, stubCtx)).status, 200);
+  const spent = guard.calls.length;
   const res = await app.request("/v1/%62yok/probe", POST, e, stubCtx);
-  assert.equal(res.status, 429, "the encoded path must share the identity's window");
+  assert.equal(res.status, 404, "the encoded path is not a route the tier serves");
+  assert.equal(guard.calls.length, spent, "and it must not even reach the limiter");
 });
 
 void test("routing order does not matter: chat then byok shares one identity's window", async () => {
@@ -112,8 +123,12 @@ void test("an authenticated GET conversation read stays unmanaged (never spends 
   const app = authedApp();
   const e = env(fakeGuard(NOW).namespace);
   const get = { method: "GET", headers: { Authorization: "Bearer jwt" } };
-  await app.request("/v1/conversations/conv-123", get, e, stubCtx);
+  // Both surviving reads: the conversation index (Card E #1317) and a
+  // transcript. #1605 deleted the container's `/v1/conversations/{id}` detail
+  // route this case used to page through, so the pinned property is that the
+  // reads the tier DOES serve never consume a window slot.
+  await app.request("/v1/conversations", get, e, stubCtx);
   await app.request("/v1/conversations/conv-123/messages", get, e, stubCtx);
-  const res = await app.request("/v1/conversations/conv-123", get, e, stubCtx);
+  const res = await app.request("/v1/conversations/conv-123/messages", get, e, stubCtx);
   assert.equal(res.status, 200, "reads are unmanaged and must never consume a window slot");
 });

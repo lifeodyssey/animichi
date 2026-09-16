@@ -6,12 +6,15 @@ import { guardCall } from "./guard-call.ts";
 /**
  * Global anonymous daily-budget circuit breaker (X4, issue #274 / S1.8).
  *
- * The AUTHORITATIVE decision lives in the container ingress, which is the only
- * tier that reads the `daily_usage` table (SD-18). This edge module owns the
- * breaker's *wire contract* and a same-day latch: once the container has
- * reported the budget exhausted, the edge short-circuits subsequent anonymous
- * `/v1/chat` requests for the rest of the UTC day instead of paying for a
- * container round-trip per rejected visitor. Logged-in traffic never reaches
+ * The AUTHORITATIVE decision belongs to the tier that reads the `daily_usage`
+ * table (SD-18) — the native agent admission since #1605 deleted the container
+ * whose ingress used to make it (`agent/admission/reserve-quota.ts` records
+ * `anonymous_budget_exhausted`, and `gateway/native-admission-response.ts` maps
+ * that refusal onto `budgetGuidanceResponse` below). This edge module owns the
+ * breaker's *wire contract* and a same-day latch: once the tier has reported the
+ * budget exhausted, the edge short-circuits subsequent anonymous `/v1/chat`
+ * requests for the rest of the UTC day instead of paying for another admission
+ * and model round-trip per rejected visitor. Logged-in traffic never reaches
  * this path.
  */
 export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
@@ -48,7 +51,7 @@ export async function writeBudgetLatch(store: GuardStore, dayKey: string): Promi
   await store.put(LATCH_KEY, { dayKey });
 }
 
-/** Recognise the container ingress's breaker rejection by its error code. */
+/** Recognise the agent tier's breaker rejection by its error code. */
 export function isBudgetRejection(status: number, body: string): boolean {
   if (status !== 403) return false;
   return body.includes(`"${ANON_BUDGET_EXHAUSTED_CODE}"`);
@@ -56,7 +59,7 @@ export function isBudgetRejection(status: number, body: string): boolean {
 
 /**
  * The single rejection shape anonymous callers see, whether the verdict came
- * from the container or from the edge latch. 403 guides the client to log in
+ * from the agent tier or from the edge latch. 403 guides the client to log in
  * (the web client classifies 401/403 as its login-recovery state).
  */
 export function budgetGuidanceResponse(): Response {
@@ -76,7 +79,7 @@ function budgetShard(guard: GuardNamespace): { fetch: (r: Request) => Promise<Re
 /** One call to the budget shard, bounded (EG-21). A shard that fails, or does
  * not answer inside the deadline, reads as "not latched" — the same fail-open
  * this call already applied to a non-2xx, and the safe direction here because
- * the AUTHORITATIVE verdict is the container's; the latch only saves a
+ * the AUTHORITATIVE verdict is the agent tier's; the latch only saves a
  * round-trip. */
 async function callBudget(guard: GuardNamespace, method: string, dayKey: string): Promise<boolean> {
   const url = `https://edge-guard/budget?dayKey=${encodeURIComponent(dayKey)}`;
@@ -86,12 +89,12 @@ async function callBudget(guard: GuardNamespace, method: string, dayKey: string)
   return typeof parsed === "object" && parsed !== null && (parsed as { latched?: unknown }).latched === true;
 }
 
-/** True when the breaker already tripped today (edge-cached container verdict). */
+/** True when the breaker already tripped today (edge-cached tier verdict). */
 export function budgetLatched(guard: GuardNamespace, dayKey: string): Promise<boolean> {
   return callBudget(guard, "GET", dayKey);
 }
 
-/** Record today's container verdict so the edge can short-circuit from now on. */
+/** Record today's tier verdict so the edge can short-circuit from now on. */
 export async function latchBudget(guard: GuardNamespace, dayKey: string): Promise<void> {
   await callBudget(guard, "POST", dayKey);
 }

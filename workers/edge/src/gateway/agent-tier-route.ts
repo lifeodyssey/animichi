@@ -3,18 +3,21 @@
 /**
  * The identity ladder in front of this Worker's own agent tier (W1-7 #1256).
  *
- * It is the same ladder the container forward has climbed since AUTH-2 #950 — a
- * verified Neon bearer first, else the anonymous pipeline (Turnstile → limiter →
- * budget latch), else a flat 401 — and that is the point of reusing it rather
- * than reimplementing it beside the tier: moving a route onto the new tier must
- * not move it out from behind a wall. Nothing below re-verifies anything; the
- * identity resolved here is the one the intake commits.
+ * It is the same ladder the served `/v1` surface has climbed since AUTH-2 #950 —
+ * a verified Neon bearer first, else the anonymous pipeline (Turnstile →
+ * limiter → budget latch), else a flat 401 — and that is the point of reusing it
+ * rather than reimplementing it beside the tier: moving a route onto the new
+ * tier must not move it out from behind a wall. Nothing below re-verifies
+ * anything; the identity resolved here is the one the intake commits.
  *
  * ONE DELIBERATE WIDENING, and it is the card's whole reason to exist. Both
- * routes reach the anonymous pipeline here, where the container path gates it on
- * `isAnonymousV1` and `ANON_V1_PATHS` lists only `/v1/chat` — so today an
- * anonymous `GET /v1/conversations/{id}/messages` is a 401. W1's exit criterion
- * is "staging 匿名可完整对话；切走再回来拉到完整结果" (spec §五), which is precisely a
+ * routes reach the anonymous pipeline here, while the tier's anonymous list
+ * (`ANONYMOUS_TIER_KINDS` below) is what decides whether an absent credential
+ * reaches it at all — so the transcript read is reachable anonymously, where the
+ * container path's own table (`ANON_V1_PATHS`, deleted with the container in
+ * #1605) listed only `/v1/chat` and answered an anonymous
+ * `GET /v1/conversations/{id}/messages` with a 401. W1's exit criterion is
+ * "staging 匿名可完整对话；切走再回来拉到完整结果" (spec §五), which is precisely a
  * visitor with no account reading their own transcript back, so under `edge`
  * that GET must be reachable anonymously or the wave has no exit.
  *
@@ -23,11 +26,6 @@
  * caller's identity, and an anonymous identity is an HMAC of a cookie
  * (`identity/anonymous-id.ts`), so knowing a conversation id buys nothing.
  * Missing and forbidden collapse to the same 404.
- *
- * `ANON_V1_PATHS` is deliberately NOT extended to carry this: that table drives
- * the CONTAINER path, and the flag's contract is that `container` stays byte for
- * byte what it is today. The widening lives on this side of the switch, and
- * `test/agent-turn-routing.test.ts` pins both positions of it.
  *
  * It lives beside `request.ts` instead of inside it because that file is the
  * whole-Worker dispatcher and is already at its size budget, and because these
@@ -50,7 +48,6 @@ import type { AgentTurnTier, TurnIdentity } from "./agent-turn.ts";
 export interface AgentTierGates {
   authenticate: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate: TurnstileGate;
-  sleep: (ms: number) => Promise<void>;
   /** This Worker's native agent tier. Tests may supply the gateway boundary
    * without constructing a database or Durable Object. */
   agentTurns: AgentTurnTier;
@@ -89,11 +86,12 @@ async function authenticatedTierResponse(
  * to them. That is the deliberate widening this module documents — a turn,
  * the transcript read and its stream.
  *
- * Everything else keeps the container path's wall. `/v1/byok/probe` was
- * already behind it (#1289: spending a caller's key is the opposite of a
- * cost-free read), and `list` joins it (Card E of #1317): the conversation
- * index is one account's own list, so an unauthenticated caller gets a flat
- * 401 BEFORE anything opens the database it would have been scoped by.
+ * Everything else answers a flat 401 before anything opens a database.
+ * `/v1/byok/probe` was already behind that wall (#1289: spending a caller's key
+ * is the opposite of a cost-free read), and `list` joins it (Card E of #1317):
+ * the conversation index is one account's own list, so an unauthenticated
+ * caller gets the 401 BEFORE anything opens the database it would have been
+ * scoped by.
  */
 const ANONYMOUS_TIER_KINDS: readonly EdgeTierRoute["kind"][] = ["turn", "transcript", "stream"];
 
@@ -117,7 +115,7 @@ export async function agentTierResponse(
   if (auth.reason === "invalid") return unauthorized(pathname);
   if (!admitsAnonymous(route)) return credentialsRequired();
   const anonymous = await handleAnonymousV1(
-    env, request, Date.now(), gates.turnstileGate, gates.sleep,
+    env, request, Date.now(), gates.turnstileGate,
     (identity) => servedByTier(env, request, { userId: identity.userId, userType: "anonymous" }, route, gates),
   );
   return anonymous ?? credentialsRequired();

@@ -2,30 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
-import { envWithContainer, stubCtx } from "../src/container/entry-env.ts";
+import { gatewayEnv, stubCtx } from "./doubles/entry-env.ts";
 
 // #1604 deleted the photo search surface, which was the last container-forwarded `/v1`
-// route: every advertised container route is now either the edge's own answer
-// (`GET /healthz`) or selected by `turnRoutePolicy` for the native tier. The two
-// container-forward cases that used `POST /v1/photo-search` as their fixture went with
-// it — the forward they proved has no route behind it until #1605 removes `forwardV1`
-// and the `CONTAINER` binding outright. What remains here is the identity wall both
-// paths still share: the tier verifies the caller itself, and a forged header never
+// route; #1605 then deleted `forwardV1`, the `CONTAINER` binding and the class
+// behind it. Every `/v1` route that survives is answered by this Worker: either
+// selected by `turnRoutePolicy` for the native tier or 404 in the shared
+// envelope. What this file keeps is the identity wall both remaining receivers
+// still share: the edge verifies the caller itself, and a forged header never
 // survives to the far side.
 
-void test("/v1 authed route without creds -> 401, container not hit", async () => {
+void test("/v1 authed route without creds -> 401", async () => {
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
-  const cap: { req?: Request } = {};
-  const res = await app.request("/v1/chat", { method: "POST" }, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/chat", { method: "POST" }, gatewayEnv(), stubCtx);
   assert.equal(res.status, 401);
-  assert.equal(cap.req, undefined);
 });
 
 void test("verified authentication reaches the native tier as a separate identity", async () => {
   const calls: NativeAgentCall[] = [];
   const authenticate = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
   const app = createWorkerApp({ authenticate, agentTurns: nativeAgentReceiver(calls) });
-  const res = await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, envWithContainer({}), stubCtx);
+  const res = await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, gatewayEnv(), stubCtx);
   assert.equal(res.status, 200);
   assert.deepEqual(calls[0]?.identity, { userId: "u1", userType: "human" });
 });
@@ -34,7 +31,7 @@ void test("client-forged identity headers cannot override the native authenticat
   const calls: NativeAgentCall[] = [];
   const authenticate = () => Promise.resolve({ ok: true, userId: "real", userType: "human" } as const);
   const app = createWorkerApp({ authenticate, agentTurns: nativeAgentReceiver(calls) });
-  await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt", "X-User-Id": "forged", "X-User-Type": "admin" } }, envWithContainer({}), stubCtx);
+  await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt", "X-User-Id": "forged", "X-User-Type": "admin" } }, gatewayEnv(), stubCtx);
   assert.deepEqual(calls[0]?.identity, { userId: "real", userType: "human" });
   assert.equal(calls[0].request.headers.get("X-User-Id"), "forged");
 });
@@ -47,10 +44,6 @@ void test("/v1/users with valid auth -> USERS gets X-User identity, no Authoriza
   const env = {
     EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: (req: Request) => { received = req; return Promise.resolve(new Response("users")); } },
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({ fetch: () => Promise.resolve(new Response("container")) }),
-    },
   } as never;
   const res = await app.request("/v1/users/saved-routes", {
     headers: { Authorization: "Bearer x", "X-User-Id": "forged" },

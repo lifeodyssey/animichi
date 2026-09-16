@@ -41,22 +41,18 @@ class ReleaseBuildTest < Minitest::Test
                    "parameters" => ["kislerdm/neon", "0.17.0"] }, project.dig("packages", "neon"))
   end
 
-  def test_build_produces_only_the_agent_image_once
-    images = @steps.select { |step| step["uses"].to_s.start_with?("docker/build-push-action@") }
-    assert_equal %w[agent], images.map { |step| step["id"] }
-    assert_equal ["apps/agent/Dockerfile"], images.map { |step| step.dig("with", "file") }
-    images.each do |step|
-      assert_equal "linux/amd64", step.dig("with", "platforms")
-      assert_equal true, step.dig("with", "push")
-      assert_equal false, step.dig("with", "provenance")
-      assert_equal false, step.dig("with", "sbom")
-    end
+  # #1589 retired the migrator container, #1605 the edge container, and the agent image
+  # was the edge container's — so the build pushes no image and has no digest to seal.
+  def test_the_build_pushes_no_container_image
+    assert_empty(@steps.select { |step| step["uses"].to_s.start_with?("docker/build-push-action@") })
+    assert_empty(@steps.map { |step| step.dig("with", "tags") }.compact)
   end
 
-  def test_edge_pins_the_build_output_digest_and_migrator_has_no_image
-    step = @steps.find { |item| item["name"] == "Bundle Workers and seal the immutable image reference" }
-    assert_equal "registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent@${{ steps.agent.outputs.digest }}", step.dig("env", "AGENT_IMAGE")
-    refute step.fetch("env").key?("MIGRATOR_IMAGE")
+  def test_every_worker_bundle_is_sealed_without_an_image
+    step = @steps.find { |item| item["name"] == "Bundle Workers and seal the container-free snapshot" }
+    refute_nil step
+    refute step.fetch("env", {}).key?("AGENT_IMAGE")
+    assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs edge"
     assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs migrator"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/seal.rb"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/inspect-images.rb"

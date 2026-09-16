@@ -9,8 +9,6 @@ The accepted agent target is [the native Pi harness spec](specs/2026-09-09-agent
 `workers/edge/src/entry.ts` composes the Hono gateway and exports `SessionAgent` under the
 deployed `AgentSession` class name. The gateway verifies identity, applies rate limits and
 Turnstile, and sends chat to the native host. There is no chat route flag or container fallback.
-The remaining `RuntimeContainer` supports other existing service routes; it is not a second
-execution authority for a failed native chat request.
 
 The host composes published Cloudflare `Agent` with native Pi `AgentHarness`, `AgentLane`,
 `Context` and results. It holds exclusion across awaits, registers durable recovery before

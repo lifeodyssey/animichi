@@ -60,8 +60,10 @@ void test("BYOK probe is a high-cost durable fail-closed class (abuse cannot be 
 
 // #1604 deleted the two photo-search routes, so their paths leave the inventory and
 // the derived tables together. A path no longer in the inventory must classify as an
-// unmanaged read: the mutation this pins is re-adding a photo cell to HIGH_COST_V1 or
-// to the inventory, either of which turns the assertions below red.
+// unmanaged read. The mutation this pins is re-adding the path to the AGENT_PATHS
+// inventory (`HIGH_COST_V1` alone is unreachable for a path the inventory does not
+// carry, which is why #1604's cell-only mutation M2a was inert) — the inventory
+// assertion below is the one that goes red first.
 void test("the deleted photo-search paths are out of the inventory and unmanaged", () => {
   for (const path of ["/v1/photo-search", "/v1/photo-search/confirm"]) {
     assert.equal(AGENT_PATHS.some((entry) => entry.path === path), false, `${path} must leave the inventory with its route`);

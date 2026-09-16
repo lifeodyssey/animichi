@@ -18,10 +18,12 @@ class ReleaseSnapshotTest < Minitest::Test
     @metadata = snapshot_metadata
   end
 
+  # #1606: no release unit carries a container any more (#1589 the migrator, #1605 the
+  # edge), so a new snapshot names no image at all.
   def snapshot_metadata
     { 'source_sha' => 'b' * 40, 'run_id' => '9', 'run_attempt' => '1',
                   'repository' => 'lifeodyssey/animichi', 'kind' => 'full-snapshot', 'format' => 1,
-                  'images' => { 'agent' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}" } }
+                  'images' => {} }
   end
 
   def teardown
@@ -58,19 +60,23 @@ class ReleaseSnapshotTest < Minitest::Test
     assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, selection) }
   end
 
-  def test_refuses_mutable_image_tag
-    @metadata['images']['agent'] = "registry.cloudflare.com/#{'a' * 32}/animichi-agent:sha-b"
+  # #1606: the agent image left the release with the edge container it belonged to, so a
+  # snapshot that still names it is refused rather than deployed against a receipt shape
+  # that no longer observes it.
+  def test_refuses_the_retired_agent_image
+    @metadata['images']['agent'] = "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}"
     assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, @metadata) }
   end
 
-  def test_refuses_missing_image
-    @metadata['images'].delete('agent')
-    assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, @metadata) }
-  end
-
-  def test_accepts_a_historical_snapshot_with_the_retired_migrator_image
-    @metadata['images']['migrator'] = "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'e' * 64}"
+  def test_accepts_a_snapshot_that_names_no_image
     assert ReleaseSnapshot.validate(@root, manifest, @metadata)
+  end
+
+  # #1606: no build has named a migrator image since that container was retired (#1589), so
+  # the migrator key is refused like every other image rather than carried as a historical shape.
+  def test_refuses_the_retired_migrator_image
+    @metadata['images']['migrator'] = "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'e' * 64}"
+    assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, @metadata) }
   end
 
   def test_refuses_an_unknown_image_unit

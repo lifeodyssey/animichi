@@ -43,13 +43,13 @@ async function listPlanAndRows(rows: ConversationListRow[], identityId: string) 
   return { sql: JSON.stringify(plans[0]), rows: answered };
 }
 
-void test("the list statement is the caller's own rows, newest first, capped at the container's 30", async () => {
+void test("the list statement is the caller's own rows, newest first, capped at 30", async () => {
   const { sql } = await listPlanAndRows([], "user-1");
   assert.ok(sql.includes("FROM sessions WHERE user_id = "), "the ownership predicate is what scopes the list");
   assert.ok(sql.includes('"value":"user-1"'), "the predicate is bound to the verified identity, not to input");
   assert.ok(sql.includes(" ORDER BY updated_at DESC NULLS LAST"), "the sidebar's first row is the conversation touched last, and a null timestamp never leads it");
   assert.ok(sql.includes(" LIMIT "), "a capped read, not the whole table");
-  assert.ok(sql.includes('"value":30'), "the container's own 30-row window, kept");
+  assert.ok(sql.includes('"value":30'), "the 30-row window kept verbatim from the retired list_sessions");
 });
 
 void test("the declared row is the contract's five columns, nulls included", async () => {

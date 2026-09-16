@@ -15,7 +15,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { collectingCtx } from "../src/container/entry-env.ts";
+import { collectingCtx } from "./doubles/entry-env.ts";
 import { cacheWrite } from "../src/proxy/cache-write.ts";
 import { withImageOrigin } from "./doubles/docs-asset-doubles.ts";
 import { noHitCache, withCacheDouble, type CachePut } from "./doubles/cache-api-double.ts";

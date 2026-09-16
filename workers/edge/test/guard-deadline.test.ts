@@ -8,10 +8,9 @@
  * time" maps onto the SAME outage the callers already handle.
  *
  * The clock is mocked, never waited on — `guardCall`'s timer is a plain
- * `setTimeout` for exactly this reason, as its sibling in `container-fetch.ts`
- * is. Mutation guard: dropping the `Promise.race` from `guardCall` makes these
- * cases hang past the deadline instead of resolving, which node:test reports
- * red (the same signal `container-fetch-timeout.test.ts` relies on).
+ * `setTimeout` because it is a hard outer bound, not a pacing knob. Mutation
+ * guard: dropping the `Promise.race` from `guardCall` makes these cases hang
+ * past the deadline instead of resolving, which node:test reports red.
  *
  * test-type: unit
  */

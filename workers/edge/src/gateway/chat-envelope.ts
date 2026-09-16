@@ -68,7 +68,7 @@ export class ChatEnvelopeError extends Error {
   }
 }
 
-/** The `x-locale` header, defaulted the way the container defaults it. */
+/** The `x-locale` header, defaulted to `ja` when it names no known locale. */
 export function requestLocale(raw: string | null): Locale {
   return LOCALES.find((known) => known === raw) ?? "ja";
 }

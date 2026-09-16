@@ -485,7 +485,7 @@ Weekly CI run without cassettes verifies APIs haven't changed.
 
 ### Test Environment
 
-- Agent: `localhost:8080` (FastAPI container/service; choose its DB arm separately)
+- Agent: `localhost:8080` (the local FastAPI service; choose its DB arm separately)
 - Web: `apps/web` Vite dev / Wrangler preview (default `E2E_WEB_BASE_URL=http://localhost:3000`)
 - Auth: **Neon Auth (Better Auth)** — live login E2E signs in against the real Neon origin
   (AUTH-2 #950); Supabase GoTrue + `send-auth-email` + Mailpit are retired

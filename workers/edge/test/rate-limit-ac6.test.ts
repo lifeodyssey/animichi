@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import { durableBurstCheck, stepWindow } from "../src/protect/rate-limiter.ts";
 
 // AC6 (#680): burst/refill, concurrent atomicity, identity isolation, multi-PoP
@@ -58,7 +58,6 @@ function nativeEnv(binding: unknown) {
     EDGE_GUARD: { idFromName: (name: string) => name as unknown as DurableObjectId, get: () => ({ fetch: () => Promise.resolve(new Response(JSON.stringify({ allowed: true, retryAfterSeconds: 0 }))) }) },
     RATE_LIMITER: binding,
     CATALOG: { fetch: () => Promise.resolve(new Response("cat")) },
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as never;
 }
 
@@ -105,7 +104,6 @@ void test("failure injection: an anonymous chat turn fails closed on durable out
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
     EDGE_GUARD: down,
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as never;
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }), turnstileGate: { check: () => Promise.resolve({ ok: true, errorCodes: [] }) } });
   const res = await app.request("/v1/chat", { method: "POST" }, env, stubCtx);

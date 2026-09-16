@@ -36,7 +36,6 @@ function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {
     EDGE_GUARD: guard,
     EDGE_SHOWCASE_MODE: "false",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as unknown as Env;
 }
 

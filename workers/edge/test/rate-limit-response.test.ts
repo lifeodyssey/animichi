@@ -5,7 +5,7 @@ import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
 import { RATE_LIMIT_ENVELOPE_FIELDS, classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 import { rateLimitedResponse, rateLimitUnavailableResponse } from "../src/gateway/responses.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
-import { stubCtx, alwaysAllowGuard } from "../src/container/entry-env.ts";
+import { stubCtx, alwaysAllowGuard } from "./doubles/entry-env.ts";
 
 // AC3 (#680): limited requests return a typed 429 with Retry-After and
 // the DOCUMENTED rate-limit fields; rate limit stays DISTINCT from daily
@@ -54,12 +54,10 @@ function anonApp(response = () => new Response("agent")) {
 }
 
 void test("an anonymous burst 429 is typed rate_limited, distinct from the quota code", async () => {
-  const captured = { requests: [] as Request[] };
   const env = {
     ...ANON,
     ANON_RATE_LIMIT: "1",
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("ok")); } }) },
   } as never;
   const app = anonApp();
   const cookie = String((await app.request("/v1/chat", { method: "POST" }, env, stubCtx)).headers.get("Set-Cookie")).split(";")[0] ?? "";
@@ -70,11 +68,9 @@ void test("an anonymous burst 429 is typed rate_limited, distinct from the quota
 });
 
 void test("the daily-budget breaker stays a DISTINCT 403 (quota), not a 429 (rate limit)", async () => {
-  const captured = { requests: [] as Request[] };
   const env = {
     ...ANON,
     EDGE_GUARD: alwaysAllowGuard,
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response(JSON.stringify({ error: { code: "anon_budget_exhausted" } }), { status: 403 })); } }) },
   } as never;
   const res = await anonApp(() => Response.json({ error: { code: "anon_budget_exhausted" } }, { status: 403 })).request("/v1/chat", { method: "POST" }, env, stubCtx);
   assert.equal(res.status, 403);
@@ -96,7 +92,6 @@ function usersEnv(guard: unknown): Record<string, unknown> {
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     EDGE_GUARD: guard,
     USERS: { fetch: () => Promise.resolve(new Response("users")) },
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   };
 }
 

@@ -14,12 +14,13 @@ Every edge and label below is verified against the code at HEAD.
 
 ## 1. The agent and its direct dependencies
 
-The agent is a FastAPI app in a Cloudflare Container. Auth lives at the edge
-Worker; the container trusts the forwarded `X-User-Id`.
+The agent is a FastAPI app in `apps/agent` (local runs and evals); the deployed agent is the edge
+Worker's native tier. Auth lives at the edge Worker; the FastAPI service trusts the forwarded
+`X-User-Id`.
 
 ```mermaid
 flowchart TD
-    EDGE["Cloudflare Worker - workers/edge/src/entry.ts<br/>strips Authorization, injects X-User-Id<br/>routes /v1 to the container"]
+    EDGE["Cloudflare Worker - workers/edge/src/entry.ts<br/>strips Authorization, injects X-User-Id<br/>drives the native SessionAgent tier"]
 
     subgraph AGENT["Agent service - apps/agent"]
         API["FastAPI 0.139 + uvicorn, Python 3.13<br/>lifespan owns the catalog client and<br/>one shared model httpx client"]

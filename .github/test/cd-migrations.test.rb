@@ -7,6 +7,7 @@ class CdMigrationsTest < Minitest::Test
   CD_FILE = File.join(ROOT, ".github", "workflows", "cd.yml")
   MIGRATION_SCRIPT = "bash scripts/delivery/migrate-through-worker.sh"
   RETIREMENT_SCRIPT = "bash scripts/delivery/retire-migrator-container.sh"
+  EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
   BASELINE_GUARD_SCRIPT = "infra/database-access/production-baseline-guard.sh"
@@ -62,13 +63,13 @@ class CdMigrationsTest < Minitest::Test
       refute_nil registry
       refute_nil schema
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
-      assert_equal 6, mutations.length
+      assert_equal 7, mutations.length
       mutations.each { |i| assert_operator i, :>, registry; assert_operator i, :>, schema }
     end
   end
 
   def mutates?(step)
-    step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|reset-staging/)
+    step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|retire-edge-container\.sh|reset-staging/)
   end
 
   def test_production_baseline_guard_precedes_every_mutation
@@ -82,13 +83,14 @@ class CdMigrationsTest < Minitest::Test
     %w[stage promote-production].each do |job|
       steps = @cd.dig('jobs', job, 'steps')
       publish = steps.index { |step| step['name'] == 'Publish the selected migrator' }
-      retirement = steps.index { |step| step['name'] == 'Retire the migrator container application' }
+      retirements = ['Retire the migrator container application', 'Retire the edge container application']
+                    .map { |name| steps.index { |step| step['name'] == name } }
       preview = steps.index { |step| step['name'] == 'Preview the selected native migration graph' }
-      refute_nil retirement
+      retirements.each { |retirement| refute_nil retirement }
       refute_nil preview
-      assert_operator retirement, :<, publish
+      retirements.each { |retirement| assert_operator retirement, :<, publish }
       assert_operator publish, :<, preview
-      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - [retirement, publish]
+      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - (retirements + [publish])
       later_mutations.each { |i| assert_operator preview, :<, i }
     end
   end
@@ -98,6 +100,21 @@ class CdMigrationsTest < Minitest::Test
       step = @cd.dig('jobs', job, 'steps').find { |item| item['name'] == 'Retire the migrator container application' }
       refute_nil step
       assert_equal "#{RETIREMENT_SCRIPT} #{environment}", step['run']
+    end
+  end
+
+  # #1605 removes the edge container and deploys `deleted_classes = ["RuntimeContainer"]`.
+  # Wrangler only retires applications that remain in configuration, so the same CD owns
+  # the edge's application deletion — and it has to happen before the edge bundle that
+  # carries the class deletion reaches the platform.
+  def test_each_environment_retires_the_edge_application_before_the_service_publication
+    MIGRATION_TARGETS.each do |job, (environment, _url)|
+      steps = @cd.dig('jobs', job, 'steps')
+      edge = steps.index { |step| step['run'].to_s.include?("#{EDGE_RETIREMENT_SCRIPT} #{environment}") }
+      assert(!edge.nil?, "cd.yml:#{job}: must retire the edge application with `#{EDGE_RETIREMENT_SCRIPT} #{environment}`")
+      publish = steps.index { |step| step['run'].to_s.include?('.github/scripts/release/publish-services.sh') }
+      assert(!publish.nil?, "cd.yml:#{job}: no step publishes the selected services")
+      assert_operator edge, :<, publish
     end
   end
 end

@@ -3,9 +3,11 @@
 The pnpm workspace identity is `@animichi/agent-python`. TypeScript domain functions live in
 `packages/agent` (`@animichi/agent`); this Python runtime remains at this path until W4 retirement.
 
-Python PydanticAI agent, FastAPI, deployed as a Cloudflare container. **Read-only consumer of the
-catalog** — it never calls external anime APIs in the request path and never writes catalog data
-(the catalog Worker owns ingestion). Root guide: `../../AGENTS.md`.
+Python PydanticAI agent, FastAPI — the local-run and eval surface (`make serve`, the eval runner)
+until W4 retirement. The deployed agent is the edge Worker's native Pi tier
+(`workers/edge/src/agent/`). **Read-only consumer of the catalog** — it never calls external anime
+APIs in the request path and never writes catalog data (the catalog Worker owns ingestion). Root
+guide: `../../AGENTS.md`.
 
 ## Commands (run from repo root; the make targets `cd apps/agent`)
 
@@ -72,7 +74,7 @@ The model emits exactly one of five typed outputs: `ClarifyResponseModel`, `Sear
   paths bypass it.
 - Pydantic tool schemas constrain model arguments; `output_validator` rejects fabricated output or
   provenance that was not produced by the current turn.
-- The container trusts auth headers forwarded by the edge worker (`workers/edge/`); it does not re-authenticate.
+- Behind the edge worker (`workers/edge/`) the service trusts its forwarded auth headers; it does not re-authenticate.
 - Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
   users, embed it in prompts, or store it on `str()`. User-facing text comes from `src/animichi/agents/error_messages.py`.
 
@@ -105,11 +107,9 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   outbound HTTP client for a user-influenceable destination (BYOK `base_url`, and any future
   user-controlled egress) — any new outbound call site that constructs its own `httpx.AsyncClient`
   instead of going through the factory recreates the SSRF/T13 bypass this convention exists to
-  close. See `docs/ops/cloudflare-hardening.md` §6 — `RuntimeContainer.deniedHosts` covers T12 at
-  the Worker's URL-hostname layer for plain-HTTP requests naming a denied IP/hostname literal
-  directly (not DNS rebinding, and not HTTPS); this code-review convention is the enforcement
-  point for everything that layer does not reach — HTTPS to a private/link-local/CGNAT address,
-  and any hostname that only *resolves* to one.
+  close. The deployed path's egress policy is the edge Worker's
+  (`workers/edge/src/agent/egress/`, `docs/ops/cloudflare-hardening.md` §6); this code-review
+  convention is the enforcement point for every client this Python package builds.
 - **Status-based retry** — classify by **status code, never by URL/substring**: 5xx, transport errors,
   and transient 4xx (408/429) retry with backoff; other 4xx raise immediately (`src/animichi/clients/catalog_client.py`).
 - **Observability = logfire only** (F8). Never hand-roll OpenTelemetry or add `opentelemetry-api|sdk`

@@ -47,7 +47,12 @@ function executeWrangler(exec, ...args) {
 }
 
 function observeContainers(config, version, applications, image) {
-  return (config.containers ?? []).map((container) => {
+  const containers = config.containers ?? [];
+  // #1606: the snapshot names an image only for a unit that still declares a container, so
+  // a live container it does not name has no identity to be observed against. Refuse it here
+  // rather than poll `undefined` for every attempt and report a convergence failure.
+  assert.ok(containers.length === 0 || image, `${config.name} declares a container the selected snapshot names no image for`);
+  return containers.map((container) => {
     const listed = applications.find((application) => application.name === container.name);
     assert.ok(listed, 'deployed container application is unavailable');
     const read = () => containersInfo(listed.id);
@@ -63,7 +68,7 @@ function observeWorker(unit, environment, manifest, applications) {
   assert.ok(deployment?.versions?.length === 1, 'missing complete Worker deployment');
   const version = wrangler('versions', 'view', deployment.versions[0].version_id, '--name', config.name, '--json');
   const identity = deploymentIdentity(deployment, version, manifest.source_sha);
-  const containers = observeContainers(config, version, applications, manifest.images[unit === 'edge' ? 'agent' : unit]);
+  const containers = observeContainers(config, version, applications, manifest.images[unit]);
   return { unit, script_name: config.name, ...identity, containers };
 }
 

@@ -1,10 +1,9 @@
-import type { Env } from "../env.ts";
+import { readStoreOrString, type Env } from "../env.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
 import { guardTurnstile } from "../protect/turnstile.ts";
 import { credentialsRequired } from "../gateway/responses.ts";
 import { resolveAnonymous } from "./auth.ts";
 import { issueTurnstilePass } from "./turnstile-pass.ts";
-import { readStoreOrString } from "../container/container-env.ts";
 
 function verifiedResponse(setCookie: string | null, passCookie: string): Response {
   const headers = new Headers();

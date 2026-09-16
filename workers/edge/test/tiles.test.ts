@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import type { R2ObjectBucket } from "../src/proxy/private-r2-object.ts";
 import { withCacheDouble } from "./doubles/cache-api-double.ts";
 

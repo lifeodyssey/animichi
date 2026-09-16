@@ -4,8 +4,8 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { ANON_BUDGET_EXHAUSTED_CODE } from "../src/protect/cost-breaker.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import { openStream } from "./doubles/open-stream.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const ANON_ENV = {
@@ -147,9 +147,9 @@ void test("the breaker does not touch logged-in callers", async () => {
 
 // ── streaming is not buffered by the budget guard ───────────────────────────
 // `/v1/chat` answers with an SSE StreamingResponse. Reading a clone of it waits
-// for the container to finish the entire turn, so the budget guard must decide
+// for the tier to finish the entire turn, so the budget guard must decide
 // on the status alone before it ever touches the body. This test pins that: the
-// container's stream stays open, and the worker must still hand back a response.
+// tier's stream stays open, and the worker must still hand back a response.
 // Passing `await response.clone().text()` as an argument (evaluated eagerly on
 // every response, 200s included) parks here forever.
 //
@@ -159,11 +159,11 @@ void test("the breaker does not touch logged-in callers", async () => {
 void test("a still-open native stream is returned without being drained", async () => {
   const captured: NativeAgentCall[] = [];
   const { body, bodyRead, release } = openStream();
-  const container = () =>
+  const streamResponse = () =>
     new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
 
   const response = await Promise.race([
-    anonApp(captured, container).fetch(
+    anonApp(captured, streamResponse).fetch(
       new Request("https://animichi.test/v1/chat", chat()),
       anonEnv(),
       stubCtx,

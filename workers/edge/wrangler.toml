@@ -1,9 +1,9 @@
-# Cloudflare Workers + Containers — the API gateway for animichi.
-# https://developers.cloudflare.com/workers/containers/
+# Cloudflare Workers — the API gateway for animichi.
+# https://developers.cloudflare.com/workers/
 #
 # Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
 # every HTML surface now, so this Worker is API + asset proxy only):
-#   src/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
+#   src/entry.ts → /v1/* (native agent tier, else JSON 404) + /v1/users/* (users Worker)
 #                   + /img/* (image proxy: docs assets from private R2, then Anitabi)
 #                   + /tiles/* (private R2 proxy)
 #                   + /healthz + one public catalog read
@@ -21,10 +21,13 @@
 # intended pre-cutover state, not a misconfiguration.
 #
 # Deploy: always run `wrangler deploy -c workers/edge/wrangler.toml` from the
-# monorepo root. `main = "src/entry.ts"` and the `[[containers]]` image path are
-# resolved relative to this config file, but the container image is built from
-# the directory wrangler is invoked in — the build context must stay the repo
-# root so the Dockerfile's `COPY apps/agent/...` lines resolve (#853).
+# monorepo root, so `main = "src/entry.ts"` resolves against this config file
+# while the deploy itself happens at the repo root.
+#
+# #1605 removed the container from this Worker. The Durable Object class the old
+# `[[containers]]` block declared is retired by a `deleted_classes` migration tag
+# in every ring below; deleting the block alone would leave the platform owning a
+# class this Worker no longer exports.
 #
 # Deploy auth: CLOUDFLARE_API_TOKEN comes from stage-scoped Pulumi ESC;
 # CLOUDFLARE_ACCOUNT_ID is a public repository variable. No GitHub secrets are read.
@@ -40,23 +43,24 @@
 #                               unset (fails closed) until its branch is
 #                               provisioned (see infra/src/neon-auth.ts).
 #
-# Container runtime secrets (forwarded to Python backend). Staging uses
-# MIMO_API_KEY directly and keeps ZEN_GO_API_KEY for provider failover.
-# Production keeps
-# the settings default (no fallback) while its chat surface is disabled; the
-# generic OpenAI-compat fallback stays wired but disabled:
+# Runtime secrets. The container env-forwarding allowlist that used to carry
+# these into a Python process is deleted (#1605). What still has a consumer is
+# read directly by the native agent tier (`src/agent/host/native-bootstrap.ts`
+# resolves the DSN and the model credential); the rest are retained until the
+# Python-tree removal retires each with its consumer (#1607) rather than being
+# dropped here:
 #   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN, bound from the Secrets
 #                                Store in BOTH deployed environments (staging
-#                                #912 follow-up, production W4-1 #1314);
-#                                the only DSN read by apps/agent settings
-#   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
-#   MIMO_API_KEY               — staging fallback key for direct MiMo routing
+#                                #912 follow-up, production W4-1 #1314); read by
+#                                the native agent tier
+#   MIMO_API_KEY               — the model credential the native agent tier reads
+#   ZEN_GO_API_KEY             — the deleted Python process's zen/go provider key
 #   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
 #   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
 #   LOGFIRE_TOKEN              — optional observability token
 #
-# Edge/container public configuration (vars, not secrets — issue #1047):
+# Edge public configuration (vars, not secrets — issue #1047):
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist (public origin)
 #
 # Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
@@ -65,7 +69,7 @@
 #   ANON_ID_SECRET             — HMAC key from Secrets Store when anonymous access is enabled
 #   TURNSTILE_SECRET           — REQUIRED once ANON_ACCESS_ENABLED="true" (issue #447): every
 #                                anonymous /v1/chat turn is verified at siteverify before it can
-#                                reach the limiter or the container, so an environment with
+#                                reach the limiter or the agent tier, so an environment with
 #                                anonymous access on and no secret answers 403 turnstile_required
 #                                to everyone. Local/dev may use Cloudflare's always-passing test
 #                                pair (site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA).
@@ -75,16 +79,20 @@ compatibility_date = "2026-07-22"
 compatibility_flags = ["nodejs_compat"]
 main = "src/entry.ts"
 
-# Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
-# CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
-# `{CATALOG_API_URL}/catalog/<method>`. The container reaches catalog over the
-# private hostname `catalog.internal`, intercepted by RuntimeContainer.outboundByHost
-# → env.CATALOG binding (in-datacenter, no public internet round-trip).
+# Plain (non-secret) vars. The container env-forwarding allowlist that used to
+# carry them into a Python process is deleted (#1605).
+# CATALOG_API_URL was that process's catalog base; the native agent tier's
+# catalog client targets `https://catalog.internal` through the CATALOG service
+# binding below and reads no URL var, so this entry is retained until the
+# Python-tree removal retires it with its consumer (#1607).
 # There is NO public /catalog/* route on the main Worker.
 [vars]
-# Forwarded to the container as APP_ENV (issue #498) — Settings.app_env's own
-# default is "development", so the default (no-env-selected) `wrangler dev`
-# block matches that instead of silently claiming "production".
+# APP_ENV (issue #498): each ring declares its own value — `[vars]`
+# "development", staging "staging", production "production" — so an environment
+# can never claim another's name. The Python process that read it (and tagged
+# its Logfire traces) is deleted (#1605); the three distinct values stay pinned
+# by `test/wrangler-toml.test.ts` as the #498 regression guard until the
+# Python-tree removal retires the entry (#1607).
 APP_ENV = "development"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
@@ -96,7 +104,7 @@ ANON_ACCESS_ENABLED = "true"
 # unset/empty/malformed value FAILS CLOSED (denies). staging=false keeps full
 # functionality, production=true makes the backend unreachable past the
 # landing's own surface (/healthz, /img/*, /tiles/*). Consumed by the edge
-# worker itself, so it is deliberately NOT in CONTAINER_ENV_KEYS.
+# worker itself, so it was never in the container env-forwarding allowlist.
 EDGE_SHOWCASE_MODE = "false"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
@@ -117,9 +125,11 @@ AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
 # Catalog read-path service (search/spots/nearby/route).
-# This binding is reached ONLY via RuntimeContainer.outboundByHost["catalog.internal"]
-# — the container intercepts outbound requests to catalog.internal and routes them
-# to env.CATALOG (in-datacenter hop, no public internet, no extra auth surface).
+# Reached by the native agent tier directly (src/agent/host/native-bootstrap.ts)
+# and by the browser's one allowlisted public read (`forwardPublicCatalog`); both
+# are in-datacenter hops with no public internet round-trip and no extra auth
+# surface. The `catalog.internal` outbound interception that used to sit here
+# went with the container (#1605).
 # The catalog Worker must be deployed first (its name = "catalog" must match
 # the `service` field below). There is NO public /catalog/* route on the main Worker.
 [[services]]
@@ -149,22 +159,6 @@ bucket_name = "map-tiles-staging"
 [[r2_buckets]]
 binding = "DOCS_ASSETS"
 bucket_name = "docs-assets-staging"
-
-[[containers]]
-name = "animichi-runtimecontainer"
-class_name = "RuntimeContainer"
-image = "../../apps/agent/Dockerfile"
-image_build_context = "../../"
-max_instances = 3
-# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
-# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
-instance_type = "basic"
-# See the staging block below for why placement is pinned to the Neon region.
-constraints = { regions = ["APAC"] }
-
-[[durable_objects.bindings]]
-name = "CONTAINER"
-class_name = "RuntimeContainer"
 
 # Strongly-consistent state for the edge guards (rate limiter + anonymous
 # daily-budget latch). A Durable Object, not KV: both are read-modify-write
@@ -210,6 +204,14 @@ new_sqlite_classes = ["AgentSession"]
 tag = "v5"
 deleted_classes = ["RunSweeper"]
 
+# #1605 — the edge Worker carries no container. `RuntimeContainer` was created by
+# tag v1 above and is deleted here in the same shape v5 retired `RunSweeper`:
+# removing the `[[containers]]` block and the `CONTAINER` binding alone would
+# leave the platform owning a Durable Object class this Worker no longer exports.
+[[migrations]]
+tag = "v6"
+deleted_classes = ["RuntimeContainer"]
+
 [observability]
 enabled = true
 head_sampling_rate = 1
@@ -229,8 +231,10 @@ head_sampling_rate = 1
 name = "animichi"
 
 [env.production.vars]
-# Forwarded to the container as APP_ENV (issue #498) — required, see
-# src/container/container-env.ts CONTAINER_REQUIRED_KEYS.
+# APP_ENV (issue #498): the deployed environment's own name — see the default
+# ring's note; the Python process that read it is deleted (#1605), and it was
+# once a fail-closed required key of the container env (`CONTAINER_REQUIRED_KEYS`),
+# which is why a wrong or missing entry was loud rather than silent.
 APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
@@ -274,13 +278,14 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # account Secrets Store staging uses, under the "_PROD" name below — staging and
 # production share one store because the account plan refuses a second, so the
 # secret NAMES are what separate the two environments' credentials while the
-# BINDING name stays identical (container-env.ts forwards one key either way).
+# BINDING name stays identical (one binding name for both environments is what
+# lets the native agent tier read the DSN by the same key either way).
 # Pinned by workers/edge/test/agent-database-binding.test.ts against
 # infra/topology-prod-database-access.test.ts, which reads the name off the
 # Pulumi program itself.
 #
 # Both native service and gateway resources use this binding; the
-# binding changes where the CONTAINER's DSN comes from and nothing else.
+# binding decides which branch's DSN the native agent tier reads and nothing else.
 # Runtime credentials come from Secrets Store. Anonymous access remains off,
 # so production declares neither identity nor Turnstile bindings. Existing legacy Worker
 # copies are left for an explicitly reviewed cleanup after cutover.
@@ -324,21 +329,6 @@ bucket_name = "map-tiles"
 [[env.production.r2_buckets]]
 binding = "DOCS_ASSETS"
 bucket_name = "docs-assets"
-
-[[env.production.containers]]
-class_name = "RuntimeContainer"
-image = "../../apps/agent/Dockerfile"
-image_build_context = "../../"
-max_instances = 3
-# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
-# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
-instance_type = "basic"
-# Same Neon project/region as staging — see the staging block for the measurement.
-constraints = { regions = ["APAC"] }
-
-[[env.production.durable_objects.bindings]]
-name = "CONTAINER"
-class_name = "RuntimeContainer"
 
 # Strongly-consistent state for the edge guards (rate limiter + anonymous
 # daily-budget latch). A Durable Object, not KV: both are read-modify-write
@@ -392,6 +382,10 @@ new_sqlite_classes = ["AgentSession"]
 tag = "v5"
 deleted_classes = ["RunSweeper"]
 
+[[env.production.migrations]]
+tag = "v6"
+deleted_classes = ["RuntimeContainer"]
+
 [env.staging]
 name = "animichi-staging"
 routes = []
@@ -411,7 +405,7 @@ routes = []
 # service token. Production keeps `workers_dev = false` and has no Access
 # application: it has a real login.
 # `preview_urls` stays `false` — per-version preview URLs remain unexposed.
-# Main-only CD promotes the sealed edge bundle after its paired agent image;
+# Main-only CD promotes the sealed edge bundle;
 # local and Cloudflare Workers Builds deployment entrypoints are retired.
 workers_dev = true
 preview_urls = false
@@ -425,9 +419,9 @@ binding = "DOCS_ASSETS"
 bucket_name = "docs-assets-staging"
 
 [env.staging.vars]
-# Forwarded to the container as APP_ENV (issue #498) — required, see
-# src/container/container-env.ts CONTAINER_REQUIRED_KEYS. This is the whole point of the fix:
-# staging traces must tag "staging" in Logfire, not "production".
+# APP_ENV (issue #498): staging traces must be distinguishable from production's,
+# so this block declares its own value — see the default ring's note for why the
+# three stay distinct and why the entry is still declared with no reader.
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
 # The Go transport can outlive the edge request without raising, so fallback
@@ -437,31 +431,13 @@ FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"
-# #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
-# either a repo-level or a staging-environment GH secret, and there is no
-# wildcard fallback, so simply dropping it (an earlier revision did) would not
-# preserve staging's behavior. `src/container/container-env.ts` forwards
-# CORS_ALLOWED_ORIGIN only when it is a non-empty string, so with it absent the
-# container falls back to `cors_allowed_origin`'s Pydantic default `"*"` — and
-# `settings.py`'s `validate_cors_origin` raises ValueError on `"*"` for every
-# APP_ENV except "development".
-#
-# APP_ENV reaches the container as a plain var, one per block: `[vars]`
-# "development", staging "staging" (above), production "production". It is
-# forwarded by name because it sits in both CONTAINER_ENV_KEYS and
-# CONTAINER_REQUIRED_KEYS, and the required list throws `Missing required
-# container env: APP_ENV` rather than seeding a default — a missing entry
-# breaks the deploy instead of mislabelling the environment. Issue #498 put it
-# there; before that container-env.ts hardcoded "production" for every
-# environment, which is why `validate_cors_origin` now tests `!= "development"`
-# rather than `== "production"`.
-#
-# Deleting this entry would fail no deploy step (CD uploads no secrets, #1364)
-# — it would ship a Worker whose container crash-loops on boot. A domain name
-# isn't a secret; the real staging web origin here is more honest than a GH
-# secret nobody would think to look for, and needs no owner action. It matches
-# apps/web/wrangler.jsonc's `env.staging.name` = "animichi-web-staging" with no
-# custom route, i.e. the default workers.dev URL.
+# CORS_ALLOWED_ORIGIN — the Python agent service's CORS allowlist (#527/#528,
+# P1-A). It reached a consumer only through the container env allowlist, so
+# nothing reads it since #1605; the declaration is kept so the Python-tree
+# removal retires it together with that consumer rather than dropping it here.
+# A domain name isn't a secret, and the value is the real staging web origin
+# (apps/web/wrangler.jsonc's `env.staging.name` = "animichi-web-staging" with no
+# custom route, i.e. the default workers.dev URL).
 CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
 # AUTH-2 #950 hard cut (committed 2026-08-11): edge verifies Neon Auth (Better
@@ -490,13 +466,13 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
-# #912 follow-up: the agent container's Neon role DSN comes from the
+# #912 follow-up: the native agent role DSN comes from the
 # Cloudflare Secrets Store (secret AGENT_SVC_DATABASE_URL, provisioned by the
 # infra/database-access Pulumi stack) instead of `wrangler secret put` in CI.
-# env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret. RuntimeContainer unwraps
-# `.get()` via resolveContainerEnvVars before start (#1157). Not in
-# CONTAINER_REQUIRED_KEYS: local `wrangler dev` binds no store secret at all, so
-# the container must still start without one (production and staging both bind
+# env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret, and the native agent tier
+# resolves it through `readStoreOrString` (`src/env.ts`, #1157). It is not a
+# required key: local `wrangler dev` binds no store secret at all, so the tier
+# must still start without one (production and staging both bind
 # it as of W4-1, #1314).
 # Do NOT add AGENT_SVC_DATABASE_URL to `secrets.required` here: wrangler
 # rejects a name assigned to both a Secrets Store Secret binding and a Secret
@@ -552,26 +528,6 @@ service = "catalog-staging"
 binding = "USERS"
 service = "users-staging"
 
-[[env.staging.containers]]
-class_name = "RuntimeContainer"
-image = "../../apps/agent/Dockerfile"
-image_build_context = "../../"
-max_instances = 3
-# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
-# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
-instance_type = "basic"
-# Co-locate with the Neon data plane (aws-ap-southeast-1). Unconstrained
-# placement put the container an ocean away: measured 208ms per statement
-# (BEGIN/COMMIT n=75, range 205-214ms — a fixed RTT, not query work), and one
-# chat turn spends 8+ round trips on transaction control alone. Placement is
-# sticky once an instance is running (Containers FAQ), so this must be pinned
-# rather than left to first-request routing.
-constraints = { regions = ["APAC"] }
-
-[[env.staging.durable_objects.bindings]]
-name = "CONTAINER"
-class_name = "RuntimeContainer"
-
 # Strongly-consistent state for the edge guards (rate limiter + anonymous
 # daily-budget latch). A Durable Object, not KV: both are read-modify-write
 # counters that must be correct under concurrency, and KV is eventually
@@ -623,6 +579,11 @@ new_sqlite_classes = ["AgentSession"]
 [[env.staging.migrations]]
 tag = "v5"
 deleted_classes = ["RunSweeper"]
+
+[[env.staging.migrations]]
+tag = "v6"
+deleted_classes = ["RuntimeContainer"]
+
 # Cloudflare-native rate-limit binding (issue #680) — the COARSE best-effort
 # burst damper. Worker-side sibling of the zone-level WAF damper in
 # infra/src/hardening.ts; it drives the edge's "native" tier (cacheable public

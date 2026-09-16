@@ -145,7 +145,6 @@ void test('an unauthenticated probe is 401 under "edge" too, never the anonymous
     EDGE_SHOWCASE_MODE: "false",
     AGENT_TURN_ROUTE: "edge",
     ANON_ACCESS_ENABLED: "true",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as unknown as Env;
   const app = createWorkerApp({
     authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),

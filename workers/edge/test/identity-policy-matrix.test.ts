@@ -6,7 +6,7 @@ import { identityPolicySchema } from "@animichi/contract/identity";
 import { DEFAULT_IDENTITY_POLICY } from "@animichi/contract/identity-policy";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import { authRateLimitConfigFrom, rateLimitConfigFrom } from "../src/protect/rate-limiter.ts";
 
 // AUTH-1 #945: the explicit public/anonymous/authenticated matrix. Every

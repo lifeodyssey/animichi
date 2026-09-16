@@ -2,8 +2,8 @@
 
 This package owns the authenticated request gateway and the native Cloudflare SessionAgent
 host. Chat, BYOK probing and history use the native tier. Catalog and Users retain their
-service boundaries; the web Worker owns HTML. Remaining container support is not a fallback
-for a failed native chat request.
+service boundaries; the web Worker owns HTML. There is no container and no container
+fallback for a failed native chat request (#1605).
 
 Pilgrimage domain tools, facts, summaries and deterministic selections live in
 `packages/agent`. Pi Session/AgentHarness/AgentLane own execution and committed history.

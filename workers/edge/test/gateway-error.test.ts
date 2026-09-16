@@ -14,7 +14,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 /** A server-side message of exactly the kind that must never reach a client. */
 const THROWN_MESSAGE = "connect ECONNREFUSED postgres://svc:hunter2@db.internal/agent";

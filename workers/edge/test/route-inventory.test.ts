@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PATHS } from "@animichi/contract/agent-paths";
-import { ANON_V1_PATHS, isAnonymousV1 } from "../src/gateway/routing-policy.ts";
 import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 
 // EDGE-1 #963: the edge's route tables derive from the AGENT_PATHS inventory
@@ -10,24 +9,13 @@ import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 // so a retired path can never silently re-enter an allowlist.
 //
 // Rate-limit classification itself is one decision table in
-// `rate-policy.ts`; this file only pins the identity-class table in the
-// routing policy.
+// `rate-policy.ts`. The identity-class table this file used to pin alongside it
+// (`ANON_V1_PATHS`) was deleted with the container forward it gated in #1605:
+// an uncredentialed caller is admitted by the native tier's by-kind list, which
+// `agent-turn-routing.test.ts` pins behaviourally. What a retirement still
+// promises here is inventory absence plus an unmanaged rate cell.
 
 const inventoryPaths = new Set(AGENT_PATHS.map((entry) => entry.path));
-
-function assertEveryEntryInInventory(paths: readonly string[], table: string): void {
-  for (const path of paths) {
-    assert.equal(
-      inventoryPaths.has(path),
-      true,
-      `${table} entry "${path}" is not in the AGENT_PATHS inventory — delete the route or update the table`,
-    );
-  }
-}
-
-void test("every ANON_V1 table entry exists in the AGENT_PATHS inventory", () => {
-  assertEveryEntryInInventory(ANON_V1_PATHS, "ANON_V1");
-});
 
 void test("retired /v1/runtime paths match no inventory and classify as unmanaged", () => {
   assert.equal(inventoryPaths.has("/v1/runtime"), false);
@@ -48,16 +36,15 @@ void test("the retired root matches no inventory and classifies as unmanaged", (
 
 void test("the conversation index is a gateway-owned inventory entry, not a Python route", () => {
   const index = AGENT_PATHS.find((entry) => entry.method === "GET" && entry.path === "/v1/conversations");
-  assert.equal(index?.runtime, "edge", "the container does not mount the list; this Worker serves it");
+  assert.equal(index?.runtime, "edge", "no agent runtime mounts the list; this Worker serves it");
 });
 
 // #1595: `/v1/feedback` was retired with the feature behind it, so it is out of
-// the inventory, unclassified by the rate table, and outside every allowlist —
-// the shape every retirement is pinned to.
-void test("retired /v1/feedback is absent, unmanaged and outside every allowlist", () => {
+// the inventory and unclassified by the rate table — the shape every retirement
+// is pinned to.
+void test("retired /v1/feedback is absent and unmanaged", () => {
   assert.equal(inventoryPaths.has("/v1/feedback"), false);
   assert.equal(classifyRatePolicy("POST", "/v1/feedback").limiter, "none", "a retired path must not be classified into a guarded cell");
-  assert.equal(isAnonymousV1("/v1/feedback"), false);
 });
 
 // #1597: the three uncalled catalog reads leave the inventory, the tables
@@ -84,16 +71,11 @@ void test("retired conversation rename is absent and unmanaged", () => {
   assert.equal(classifyRatePolicy("PATCH", "/v1/conversations/x").limiter, "none");
 });
 
-void test("anonymous allowlist membership matches the inventory's paths", () => {
-  assert.equal(isAnonymousV1("/v1/chat"), true);
-});
-
 // #1604 deleted the photo search surface rather than rebuilding it, so both routes
-// leave the inventory, the tables derived from it and the rate policy together — the
-// same retirement shape #1595 pinned for `/v1/feedback` and #1597 for the catalog
-// reads. `route-inventory` is where the allowlist half lives; the rate cell itself is
+// leave the inventory and the rate policy together — the same retirement shape #1595
+// pinned for `/v1/feedback` and #1597 for the catalog reads. The rate cell itself is
 // pinned in `rate-policy.test.ts`.
-void test("the deleted photo-search routes match no inventory, cell or allowlist", () => {
+void test("the deleted photo-search routes match no inventory and no rate cell", () => {
   for (const path of ["/v1/photo-search", "/v1/photo-search/confirm"]) {
     assert.equal(inventoryPaths.has(path), false, `${path} must not be advertised`);
     assert.equal(
@@ -101,12 +83,10 @@ void test("the deleted photo-search routes match no inventory, cell or allowlist
       "none",
       "a deleted path must not be classified into a guarded cell",
     );
-    assert.equal(isAnonymousV1(path), false, `${path} must not survive on the anonymous allowlist`);
   }
 });
 
-void test("the retired staging prefix route remains outside every allowlist", () => {
+void test("the retired staging prefix route matches no inventory and no rate cell", () => {
   assert.equal(inventoryPaths.has("/v1/staging/sessions/{session_id}/prefix"), false);
-  assert.equal(isAnonymousV1("/v1/staging/sessions/s-1/prefix"), false);
   assert.equal(classifyRatePolicy("POST", "/v1/staging/sessions/s-1/prefix").limiter, "none");
 });

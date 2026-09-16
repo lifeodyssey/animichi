@@ -25,7 +25,7 @@ void test("app.ts delegates every request to HandleGatewayRequest exactly once",
 });
 
 void test("app.ts contains no route policy vocabulary", () => {
-  const policy = /handleAnonymousV1|forwardUsers|forwardV1|handleSessionAdopt|SESSION_MIGRATE_PATH|isAuthRateLimited|catalogOutbound|\/v1\/users|\/v1\/sessions/;
+  const policy = /handleAnonymousV1|forwardUsers|forwardPublicCatalog|handleSessionAdopt|SESSION_MIGRATE_PATH|isAuthRateLimited|\/v1\/users|\/v1\/sessions/;
   assert.doesNotMatch(appSource, policy);
 });
 

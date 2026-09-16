@@ -31,9 +31,8 @@ Serialization-boundary carve-out (audit-relevant, measured from the same scan):
   identifiers.
 - **Persisted-model fields and platform properties are out of scope** — a
   pydantic field on a persisted/wire model, and a property supplied by a
-  platform contract (`Container.envVars` from `@cloudflare/containers`),
-  keep their names; they are tiered L3 (external contract) in the audit, not
-  renamed.
+  platform contract, keep their names; they are tiered L3 (external contract)
+  in the audit, not renamed.
 
 Exceptions (framework/tool conventions, not violations):
 

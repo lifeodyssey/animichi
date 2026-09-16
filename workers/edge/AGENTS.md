@@ -1,8 +1,8 @@
 # workers/edge — AGENTS.md
 
-TypeScript Cloudflare Worker (Hono + `@cloudflare/containers`): the **request gateway**. Owns
-identity/rate-limit/turnstile enforcement, routing + forwarding to Catalog / Users / the agent
-container, and the image/tile proxies — the `map-tiles` and `docs-assets` arms read private R2
+TypeScript Cloudflare Worker (Hono): the **request gateway**. Owns
+identity/rate-limit/turnstile enforcement, routing + forwarding to Catalog / Users, the native
+agent tier, and the image/tile proxies — the `map-tiles` and `docs-assets` arms read private R2
 objects through `/tiles/*` and `/img/docs/*` (the docs key form is `docs/DOCS_POLICY.md` rule 7).
 **No pilgrimage domain model** — it is Gateway tier, never `src/domain/`. The HTML surface lives in
 `apps/web`.
@@ -79,18 +79,28 @@ retired run engine and envelope paths have no forwarding modules.
   #950); `src/identity/auth.ts` resolves anonymous vs Neon-Auth JWT (the
   `sk_*` API-key path and the `agent` identity class are deleted, AUTH-1 #945), and
   `src/gateway/forward.ts` injects the identity headers.
-- Policy stays in pure functions (`routing-policy.ts`, `catalog-policy.ts`) so it runs under
+- Policy stays in pure functions (`routing-policy.ts`, `rate-policy.ts`) so it runs under
   node:test with no Cloudflare bindings; `app.ts` only wires them up. New public paths go in the
-  policy tables, not the container class. The public catalog surface — its path matcher and the
+  policy tables, not in a forwarding module. The public catalog surface — its path matcher and the
   query parameters each route accepts — is declared ONCE in `@animichi/contract/public-catalog`
   and read by this Worker's gateway and the catalog Worker's public middleware alike (#1691); an
   undeclared parameter is rejected before anything is forwarded.
-- `src/container/container-env.ts` owns the container env allowlist/required keys and the
-  `DENIED_EGRESS_HOSTS` glob list — it is read verbatim by docs/security guards (see
-  `docs/ops/secrets.md`, `docs/ops/cloudflare-hardening.md`); keep paths and key names in lockstep.
-  Its `readStoreOrString` resolves native `SecretsStoreSecret.get()` bindings or local strings.
-  Resolve before use; do not cache values across container starts or TS turns. Store rotation
-  reaches a container process only when that process restarts.
+- No container (deleted in #1605): `entry.ts` is a composition root exporting only `EdgeGuard` and
+  `SessionAgent`, and `wrangler.toml` retires the class with a `deleted_classes` migration tag in
+  every ring. That tag ships with the CD step that deletes the old container application first
+  (`scripts/delivery/retire-edge-container.sh`, the #1589 migrator shape): dropping the class alone
+  strands an application nothing can address. Do not reintroduce `@cloudflare/containers`, a
+  `CONTAINER` binding or a
+  `RuntimeContainer` class — `test/deployment-contract.test.ts` reads all three rings through the
+  real wrangler parser, and `bundle-smoke/entry-bundle.test.ts` asserts the built entry's module
+  graph and exports.
+- `src/env.ts` owns both the binding types and `readStoreOrString`, which resolves native
+  `SecretsStoreSecret.get()` bindings or plain local strings for the identity and Turnstile gates.
+  Resolve before use; do not cache values across TS turns. Store rotation is visible on the next
+  read, not the next process start.
+- The native BYOK egress guard (`src/agent/egress/`) is the Worker-side egress policy, and it is a
+  separate mechanism from the retired container `DENIED_EGRESS_HOSTS` glob list: it guards what
+  this Worker's own agent tools may call, not an external process's network namespace.
 - The agent tier reads `AGENT_SVC_DATABASE_URL` via direct Prisma 8 `postgres<Contract>`
   and native `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
   Secret Store/string bindings are resolved in default startup, never from `process.env`.

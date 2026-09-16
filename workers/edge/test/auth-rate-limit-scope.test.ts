@@ -50,13 +50,14 @@ void test("a sibling path is not mistaken for a byok route by a naive substring 
 });
 
 // #479 P1-1 review follow-up (closes the #464 follow-up too): `URL.pathname`
-// does NOT decode `%XX` escapes, but the container's ASGI router does before
-// matching its own routes. `/v1/%62yok/probe` ("b" percent-encoded) used to
-// read here as "not /v1/byok/" — zero limiter calls — while still landing on
-// `handle_byok_probe` in the container: an authenticated caller could burst
-// an unbounded number of real outbound probe calls by percent-encoding one
-// letter per request. classifyRatePolicy percent-decodes, so the split-brain
-// is closed inside the single decision table.
+// does NOT decode `%XX` escapes, while a router that decodes before matching
+// would serve `/v1/%62yok/probe` as `/v1/byok/probe`. Before #1605 that split was
+// live and exploitable: the encoded path read here as "not /v1/byok/" — zero
+// limiter calls — while still landing on `handle_byok_probe` in the container,
+// so an authenticated caller could burst an unbounded number of real outbound
+// probe calls by percent-encoding one letter per request. `classifyRatePolicy`
+// percent-decodes regardless of which router is behind the route, so the
+// split-brain class stays closed in the single decision table.
 
 void test("a percent-encoded BYOK path is still counted (policy unit)", () => {
   assert.equal(isLimited("POST", "/v1/%62yok/probe"), true);
@@ -83,8 +84,14 @@ void test("a malformed percent-encoding fails CLOSED (counted), not open", () =>
 
 // ── Real `app.request` regression: the fix must hold through the actual
 // routing pipeline, not just the pure `classifyRatePolicy` function in
-// isolation — a pure-function-only suite would pass even if some OTHER
-// path (e.g. `authenticatedForward`) stopped consulting the policy.
+// isolation — a pure-function-only suite would pass even if the route that
+// reaches the tier stopped consulting the policy.
+//
+// #1605 removed the container forward the encoded-path cases used to ride: the
+// tier policy matches the pathname exactly, so `/%62yok/probe` is no longer a
+// second entrance to the probe at all. The cases below assert the stronger end
+// state — the encoded form is not a route, and the real route's window is still
+// the identity's — instead of the old "shares the window" form.
 
 const NOW = Date.UTC(2026, 6, 29, 12, 0, 0);
 const stubCtx = {
@@ -97,7 +104,6 @@ function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
     EDGE_GUARD: guard,
     EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as unknown as Env;
 }
 
@@ -109,26 +115,26 @@ function authedApp() {
 
 const POST = { method: "POST", headers: { Authorization: "Bearer jwt" } };
 
-void test("a real request to a percent-encoded /v1/byok/ path is rate-limited end-to-end", async () => {
+void test("a real request to a percent-encoded /v1/byok/ path is not a second entrance", async () => {
   const guard = fakeGuard(NOW).namespace;
   const app = authedApp();
   const e = env(guard);
   const first = await app.request("/v1/byok/probe", POST, e, stubCtx);
   assert.equal(first.status, 200, "the plain path spends the one-request window");
   const encoded = await app.request("/v1/%62yok/probe", POST, e, stubCtx);
-  assert.equal(
-    encoded.status,
-    429,
-    "the percent-encoded path must share the same identity's already-spent window, not get a free pass",
-  );
+  assert.equal(encoded.status, 404, "the percent-encoded path is not a route the tier selects");
+  const again = await app.request("/v1/byok/probe", POST, e, stubCtx);
+  assert.equal(again.status, 429, "and the real route is still the identity's spent window");
 });
 
-void test("a real request to a percent-encoded /v1/chat path is rate-limited end-to-end", async () => {
+void test("a real request to a percent-encoded /v1/chat path is not a second entrance", async () => {
   const guard = fakeGuard(NOW).namespace;
   const app = authedApp();
   const e = env(guard);
   const first = await app.request("/v1/chat", POST, e, stubCtx);
   assert.equal(first.status, 200);
   const encoded = await app.request("/v1/%63hat", POST, e, stubCtx);
-  assert.equal(encoded.status, 429);
+  assert.equal(encoded.status, 404);
+  const again = await app.request("/v1/chat", POST, e, stubCtx);
+  assert.equal(again.status, 429);
 });

@@ -1,15 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { catalogOutbound } from "../src/gateway/forward.ts";
-import { envWithCatalog, stubCtx } from "../src/container/entry-env.ts";
+import { envWithCatalog, stubCtx } from "./doubles/entry-env.ts";
 
-// #1596: the readiness probe is the edge's own answer. Its Env carries NO
-// CONTAINER binding on purpose — the smoke (`staging-smoke-check.sh`) probes
-// this origin, so a deploy whose container application never starts must still
-// report a healthy gateway. Restoring the container forward makes this throw
-// on the missing binding, so the test goes red.
-void test("GET /healthz is answered by the edge with no CONTAINER binding", async () => {
+// #1596: the readiness probe is the edge's own answer. Its Env carries no
+// binding to wake — and since #1605 there is no container binding anywhere — so
+// a deploy whose agent runtime is unreachable still reports a healthy gateway.
+void test("GET /healthz is answered by the edge alone", async () => {
   const app = createWorkerApp({});
   const res = await app.request("/healthz", {}, {}, stubCtx);
   assert.equal(res.status, 200);
@@ -116,15 +113,6 @@ void test("PUT cannot invoke the public anime overview", () =>
 // covered twice over by gateway-fallback.test.ts — `/` and `/some/legacy/page`
 // both assert the 404 status and the shared error envelope — so it was removed
 // rather than restated. Checked before deleting: the property survives.)
-
-void test("catalogOutbound forwards container requests to the CATALOG binding", async () => {
-  let hasReceived: Request | null = null;
-  const env = { CATALOG: { fetch: (req: Request) => { hasReceived = req; return Promise.resolve(new Response("cat")); } } };
-  const req = new Request("http://catalog.internal/catalog/search", { method: "POST" });
-  const res = await catalogOutbound(req, env as never);
-  assert.equal(await res.text(), "cat");
-  assert.equal(hasReceived, req);
-});
 
 void test("/img/* routes to the image proxy (bad path → 400, not OpenNext)", async () => {
   const app = createWorkerApp({});

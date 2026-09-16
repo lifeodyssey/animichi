@@ -70,9 +70,10 @@ module ReleaseConsumerFixture
     PRISMA_FILES.each { |path, content| write("release/migrator/bundle/#{path.delete_prefix('src/')}", content) }
   end
 
+  # #1606: the sealer no longer reads an image reference; the fixture keeps the environment
+  # minimal so a reintroduced `AGENT_IMAGE` fetch fails here rather than in CD.
   def seal_release
-    environment = { 'GITHUB_REPOSITORY' => 'lifeodyssey/animichi', 'GITHUB_SHA' => @source, 'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '1',
-                    'AGENT_IMAGE' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}" }
+    environment = { 'GITHUB_REPOSITORY' => 'lifeodyssey/animichi', 'GITHUB_SHA' => @source, 'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '1' }
     output, error, status = Open3.capture3(environment, 'ruby', File.expand_path('../scripts/release/seal.rb', __dir__), chdir: @root)
     assert status.success?, output + error
     selection = { 'source_sha' => @source, 'repository' => 'lifeodyssey/animichi', 'run_id' => '9', 'run_attempt' => '1', 'controller_sha' => @controller }

@@ -8,7 +8,7 @@
  * below is the whole of the impedance, rather than a `never` at every call site.
  */
 import { createWorkerApp } from "../../src/app.ts";
-import { stubCtx } from "../../src/container/entry-env.ts";
+import { stubCtx } from "./entry-env.ts";
 import type { Env, WorkerExecutionContext } from "../../src/env.ts";
 
 export function edgeAppRequest(

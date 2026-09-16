@@ -84,8 +84,8 @@ export function notFoundResponse(): Response {
 }
 
 /** Method gate for the POST-only session-adoption route (SESSION-2 #960): a
- * 405 in the same envelope as the other edge rejections, answered before the
- * container is reached. */
+ * 405 in the same envelope as the other edge rejections, answered before any
+ * downstream binding is reached. */
 export function methodNotAllowed(): Response {
   return gatewayRejection("method_not_allowed", 405, "Method not allowed.");
 }

@@ -9,10 +9,10 @@ Use this directory for:
 - other long-lived operational docs that are not iteration-specific
 
 Current canonical docs:
-- `deployment.md` — Cloudflare Workers + Containers deployment runbook (topology, auth flow, env boundaries, rollback)
+- `deployment.md` — Cloudflare Workers deployment runbook (topology, auth flow, env boundaries, rollback)
 - `migrations.md` — Neon Atlas migration authority, Drizzle query/type boundary, CI, and deployment order
 - `neon-backup-rpo.md` — Neon PITR placement, RPO/RTO targets, HITL monitor checklist, failed-migrate + bad-migration recovery (N5 / #860)
-- `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules, container-level egress network policy (#284 Task 7)
+- `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules, BYOK egress red lines (#1248)
 - `secrets.md` — repository/environment secret inventory, consumers, rotation impact
 - `integration.md` — single source for env/secrets layout, domain topology, data path, deploy chain, local dev
 - `auth-migration-neon.md` — Neon Auth (Better Auth) cutover runbook (the JWKS-only code cutover is complete: the edge verifies Neon JWKS only, AUTH-2 #950; production acceptance — verifying the seven production Neon Auth identities and email/login behavior — remains owner-pending; see the runbook checklist §5)
