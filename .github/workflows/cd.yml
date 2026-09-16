@@ -178,6 +178,17 @@ jobs:
       cancel-in-progress: false
     permissions: {contents: read, actions: read, id-token: write} # artifact reads; environment-scoped Pulumi and migrator OIDC
     steps:
+      # The variable is not created yet (owner console action, #1686). Refuse first:
+      # this step reads a variable and touches no workspace, so nothing is paid for —
+      # checkout, dependency installation, Pulumi authentication, ESC access — before
+      # an absent URL fails here, named.
+      - name: Require the production migrator URL
+        env:
+          MIGRATOR_PRODUCTION_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+        run: |
+          for key in MIGRATOR_PRODUCTION_URL; do
+            [ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }
+          done
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
