@@ -23,6 +23,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "test-support/**/*.ts",
     "api-test/**/*.ts",
     "bundle-smoke/**/*.ts",
     "agent-db-test/**/*.ts",

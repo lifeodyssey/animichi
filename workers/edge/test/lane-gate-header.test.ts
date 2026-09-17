@@ -18,6 +18,7 @@
  * test-type: unit (no network — the transport is a double; no clock).
  */
 import test from "node:test";
+import { process } from "../test-support/node-globals.ts";
 import assert from "node:assert/strict";
 import { laneFetch, laneHeaders } from "../api-test/lane-origin.ts";
 

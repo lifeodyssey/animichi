@@ -55,8 +55,7 @@ catalogMode: strict
 # outside the entry, so the drift this consolidates cannot come back through the CLI.
 catalog:
   "@cloudflare/vitest-pool-workers": "^0.22.0"
-  # hold-back: @cloudflare/workers-types@5.20260727.1 -> 5.20260916.1 fails workers/edge lint (39 no-unsafe-any from the new `declare const process: any` global) — #1743
-  "@cloudflare/workers-types": "5.20260727.1"
+  "@cloudflare/workers-types": "5.20260916.1"
   "@earendil-works/chord": "0.85.1"
   "@earendil-works/pi-agent-core": "0.85.1"
   "@earendil-works/pi-ai": "0.85.1"
@@ -110,8 +109,7 @@ catalog:
   "vitest": "^4.1.11"
   "wrangler": "4.132.0"
   "yaml": "^2.9.1"
-  # hold-back: zod@4.4.3 -> 4.6.5 fails packages/contract test (10 failures: the agent-boundary emitter rejects zod 4.6's `type=string,null`) — #1745
-  "zod": "4.4.3"
+  "zod": "4.6.5"
 
 overrides:
   postcss: ">=8.5.23"
@@ -140,18 +138,6 @@ overrides:
   # and `Pool` becomes three unrelated types: `packages/prisma-geography` fails
   # TS2769 importing the repo's own `pg` and prisma's. Types only, so one copy.
   "@types/pg": "8.23.1"
-  # `@cloudflare/workers-types` 5.20260916.1 carries a `nodejs_compat` global block
-  # in `index.d.ts` (`declare const process: any`, `Buffer: any`, `setImmediate`,
-  # ...) that 5.20260727.1 does not have. Where a tsconfig lists both this package
-  # and `node` in `types` — `workers/edge` does — the `any` wins, every
-  # `process.*` in its 12 Node-side test files becomes unsafe-any, and
-  # `oxlint --type-aware --deny-warnings` reports 39 errors. Importing
-  # `node:process` does NOT fix it: `@types/node` declares that module as
-  # `export = process`, so it re-exports the widened global (proven with a
-  # throwaway `tsc` probe). Held at the last release without the block; the exit
-  # is upstream dropping the global or `workers/edge` splitting its Node tests
-  # off the Worker global surface.
-  "@cloudflare/workers-types": "5.20260727.1"
   lodash: ">=4.18.1 <5"
 
 # `allowBuilds` replaces pnpm 10's `onlyBuiltDependencies` family. Under
@@ -193,5 +179,5 @@ patchedDependencies:
 # entries above. Each line's gate is the gate that fails when the bump is attempted.
 # hold-back: @pydantic/logfire-node@0.18.21 -> 0.18.25 fails packages/eval test (the eval package and the node SDK must resolve one logfire runtime: 0.18.25 names logfire 0.22.9 exactly and installs a second copy beside the pinned 0.22.5) — #1746
 # hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741
-# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web typecheck (h3 2.x drops `onBeforeResponse` from `H3Config`, so the server plugins would stop running) — #1744
+# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744
 # hold-back: logfire@0.22.5 -> 0.22.9 fails packages/eval test (pins.test.ts: the installed logfire version must be the declared one, and the frozen oracle fixtures have no regeneration path) — #1746

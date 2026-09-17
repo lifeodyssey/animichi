@@ -1,4 +1,5 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { process } from "../test-support/node-globals.ts";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { TestContext } from "node:test";
