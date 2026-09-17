@@ -11,9 +11,9 @@ import type { CatalogDb } from "../src/db/client";
 /**
  * Behavior guard for the cron queries (S0-v2 D4 fix round). The worker pool has
  * no database, so the three staleness SEMANTICS are verified against real
- * Postgres in cron-queries.spike.test.ts. This suite pins the query-round trip
+ * Postgres in cron-queries.integration.test.ts. This suite pins the query-round trip
  * (bound params, single read) and the row-mapping behavior, so a regression in
- * the worker-facing contract still fails even when the spike suite is skipped
+ * the worker-facing contract still fails even when the integration suite is skipped
  * (no Neon).
  */
 

@@ -38,7 +38,7 @@ const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8")
 
 const IMAGE_DECLARATION = "packages/test-postgres/postgres-image.env";
 const FRESH_SCHEMA_GATE = "scripts/local-gates/db-fresh-schema.sh";
-const SPIKE_FIXTURE = "workers/catalog/test/spike-db-global.ts";
+const CATALOG_FIXTURE = "workers/catalog/test/integration-db-global.ts";
 const EDGE_DIR = "workers/edge";
 
 /** Every edge lane file that boots the shared postgres recipe, discovered from
@@ -79,8 +79,8 @@ void test("the fresh-schema gate sources that declaration instead of repeating i
   assert.doesNotMatch(gate, IMAGE_LITERAL);
 });
 
-void test("the catalog spike fixture names no image and boots no container of its own", () => {
-  const fixture = read(SPIKE_FIXTURE);
+void test("the catalog integration fixture names no image and boots no container of its own", () => {
+  const fixture = read(CATALOG_FIXTURE);
   assert.doesNotMatch(fixture, IMAGE_LITERAL);
   assert.doesNotMatch(fixture, CONTAINER_CONSTRUCTION);
   assert.match(fixture, /startTestPostgres\(/);

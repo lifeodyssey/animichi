@@ -6,7 +6,7 @@
  * leaves the store ENTIRELY untouched (nothing is staged until activation) and
  * the pointer unchanged; a same-run-id re-publish that fails validation never
  * deletes the live snapshot's objects (issue #1012 live-snapshot-deletion). The
- * authoritative integration proofs run in the spike suite.
+ * authoritative integration proofs run in the integration suite.
  */
 import { describe, expect, it, vi } from "vitest";
 import { publishSnapshot, type PublishInput, type ValidatePort } from "../src/publish/snapshot";

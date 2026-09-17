@@ -4,7 +4,7 @@
  * Produces the discovery inputs for a daily run from the catalog's current
  * state: the checked-in popular pilgrimage works (popularity), the works already
  * cataloged (historical), and an optional seasonal resolver (current_season,
- * wired to the Bangumi calendar by the caller / integration spike). Known ids
+ * wired to the Bangumi calendar by the caller / integration suite). Known ids
  * are read from the bangumi table so the bounded-growth cap in the run applies
  * to genuinely new works.
  */

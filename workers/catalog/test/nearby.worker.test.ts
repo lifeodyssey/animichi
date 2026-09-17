@@ -6,7 +6,7 @@ import { nearby } from "../src/api/nearby";
  * Unit tests for the `nearby` transport (card CATALOG-3): wiring only. Radius
  * policy, distance ordering, and typed empty results are unit-tested in
  * nearby-points.worker.test.ts and proven against real PostGIS in
- * nearby-points.spike.test.ts. Here both reads `nearby()` performs go through
+ * nearby-points.integration.test.ts. Here both reads `nearby()` performs go through
  * the single `db.execute` seam (the #992 one-adapter cutover): the PostGIS
  * geo read (via the geo port's adapter) and the detail IN-read (via the
  * details port's adapter). The fake `db.execute` returns the geo read on its

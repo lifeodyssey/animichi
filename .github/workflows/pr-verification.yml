@@ -207,7 +207,7 @@ jobs:
       # Every binary below is provisioned because one package's own gates shell
       # out to it. `pr-verification-affected.test.rb` pins the pairing, so a
       # dropped step fails a test instead of that package's lane.
-      #   catalog        -> atlas  (the spike step below boots test-postgres,
+      #   catalog        -> atlas  (its own test:integration boots test-postgres,
       #                             which applies the migrations/neon chain,
       #                             atlas-chain.ts:18)
       #   test-postgres  -> atlas  (its own test:integration boots the same
@@ -248,12 +248,6 @@ jobs:
           for script in lint typecheck test test:integration; do
             pnpm --filter "$PACKAGE" run --if-present "$script"
           done
-      # Catalog keeps its database spike in its own explicit package script.
-      # `package-test-segments.test.rb` pins this selected-package invocation;
-      # native Agent and storage suites use test:integration in the loop above.
-      - name: Run the catalog spike against the offline Postgres image
-        if: ${{ matrix.package == 'catalog' }}
-        run: pnpm --filter catalog run test:spike
       - name: Resolve this package's coverage report
         id: coverage
         env:

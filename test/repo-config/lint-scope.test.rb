@@ -22,7 +22,7 @@ class LintScopeTest < Minitest::Test
     "e2e" => ["node_modules/**", "test-results/**", "playwright-report/**", ".auth/**",
               "generated/**", "agent-discovered/**", "visual/report/**", "visual/canonical/**"],
     "workers/catalog" => ["node_modules/**", ".wrangler/**", "dist/**", "coverage/**",
-                          "vitest.config.ts", "vitest.spike.config.ts"],
+                          "vitest.config.ts", "vitest.integration.config.ts"],
     "workers/migrator" => ["node_modules/**", ".wrangler/**", "dist/**", "coverage/**",
                            "vitest.config.ts"],
     "workers/users" => ["node_modules/**", ".wrangler/**", "dist/**", "coverage/**",

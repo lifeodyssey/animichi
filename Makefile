@@ -126,14 +126,15 @@ check: lint typecheck test test-integration
 # The manual everything-run. pre-push only gates what the branch changed
 # (scripts/local-gates/pre-push-affected.sh), so this is where the whole
 # workspace and the Docker-backed suites live: every package's own scripts, the
-# disposable fresh-schema apply, the catalog spike that boots test-postgres,
-# and the Python agent's gate. Nothing here is a hook — run it before a large
-# refactor lands, or when a lockfile change makes "affected" mean everything.
+# disposable fresh-schema apply, and the Python agent's gate. Nothing here is a
+# hook — run it before a large refactor lands, or when a lockfile change makes
+# "affected" mean everything.
 #
 # The two suite segments run one package at a time. pnpm's default is one job
 # per CPU, and several suites claim a fixed resource: the agent's
-# test:integration boots test-postgres, and so does the catalog spike on its own
-# line below (catalog's `test` chained it until #1473). Run in parallel they
+# test:integration boots test-postgres, and so does catalog's (its `test` was a
+# second claimant until #1473 took the database suite out of `test`; #1726 named
+# the script `test:integration`, which check-full runs). Run in parallel they
 # starve each other -- measured 2026-09-08, nine browser specs failing with
 # ERR_CONNECTION_REFUSED while the same suite passes 43/43 on its own. The
 # browser suite is no longer one of the claimants: since #1692 it derives the
@@ -146,7 +147,6 @@ check-full:
 	pnpm -r --workspace-concurrency=1 run --if-present test
 	pnpm -r --workspace-concurrency=1 run --if-present test:integration
 	bash scripts/local-gates/db-fresh-schema.sh
-	pnpm --filter catalog run test:spike
 	$(MAKE) check
 
 # ── Edge worker ───────────────────────────────────────────────

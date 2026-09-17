@@ -17,7 +17,7 @@ import {
  * (reject non-positive, clamp over-cap), deterministic distance ordering,
  * typed empty results, DB-failure propagation, and redacted observability.
  * Ports are fakes; the real PostGIS surface is proven in
- * nearby-points.spike.test.ts. The clock is faked, so durations are exact.
+ * nearby-points.integration.test.ts. The clock is faked, so durations are exact.
  */
 
 const WASHINOMIYA: NearbyPoint = {
