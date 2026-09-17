@@ -5,6 +5,7 @@ import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../apps/web/src/lib/runtime-con
 import { nativeWebServer } from "../../../apps/web/tests/native-server.ts";
 import { stubTurnstileSdk } from "../../../e2e/helpers/turnstile-sdk.ts";
 import { ADOPT_TURN_KEY_PREFIX } from "../src/identity/session-adopt.ts";
+import type { SessionAdoptionResult } from "../src/identity/session-adoption-store.ts";
 import { gatewayWorker } from "./gateway-harness.ts";
 import { pool } from "./postgres.ts";
 
@@ -31,6 +32,7 @@ const THIRD_PARTY_SESSION = "01992000-0000-7000-8000-000000001602";
 const THIRD_PARTY_ID = "third-party-account";
 const FIRST_QUERY = "Find the Uji pilgrimage";
 const TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+const ADOPT_PATH = "/v1/sessions/adopt";
 
 function isPath(pathname: string) {
   return (response: { url(): string }) => new URL(response.url()).pathname === pathname;
@@ -103,6 +105,22 @@ async function markerKeys(): Promise<string[]> {
   return rows.rows.map((row) => row.turn_key);
 }
 
+/** The callback page redirects the moment the adopt response lands, so any body
+ *  read through the browser afterwards can hit `Network.getResponseBody: ...
+ *  navigated away from` — #1754's `waitForResponse` continuation still did
+ *  that. `route.fetch()` reads the body into Playwright's own store, and
+ *  `fulfill({ response })` replays it to the page, so no browser-owned body is
+ *  ever read. */
+async function recordAdoptBodies(page: Page): Promise<{ readonly bodies: Promise<SessionAdoptionResult>[] }> {
+  const bodies: Promise<SessionAdoptionResult>[] = [];
+  await page.route((url) => url.pathname === ADOPT_PATH, async (route) => {
+    const response = await route.fetch();
+    bodies.push(response.json() as Promise<SessionAdoptionResult>);
+    await route.fulfill({ response });
+  });
+  return { bodies };
+}
+
 /** Open the browser lane's anonymous visitor with the live adoption reachable. */
 async function liveVisitor(context: TestContext, accountId: string) {
   const gateway = await gatewayWorker(context, accountId);
@@ -116,12 +134,11 @@ async function liveVisitor(context: TestContext, accountId: string) {
 
 void test("the login-wall callback adopts the browser's anonymous conversation at the edge", { timeout: 180_000 }, async (context) => {
   const page = await liveVisitor(context, ACCOUNT_ID);
-  /** #1752: the callback redirects the moment this response lands, so the body
-   *  is captured at response time — a late `Network.getResponseBody` races the
-   *  browser releasing the resource ("navigated away from"). */
-  const adopted = page.waitForResponse(isPath("/v1/sessions/adopt")).then((response) => response.json());
+  const adopt = await recordAdoptBodies(page);
+  const adoptLanded = page.waitForResponse(isPath(ADOPT_PATH));
   await page.goto("/auth/callback");
-  assert.deepEqual(await adopted, { adopted: 1, noop_class: "adopted", revisions_bumped: 1 });
+  await adoptLanded;
+  assert.deepEqual(await adopt.bodies[0], { adopted: 1, noop_class: "adopted", revisions_bumped: 1 });
   await expect.poll(() => new URL(page.url()).pathname).toBe("/");
   assert.deepEqual(await owners(), [{ id: SESSION, user_id: ACCOUNT_ID }, { id: THIRD_PARTY_SESSION, user_id: THIRD_PARTY_ID }]);
   assert.deepEqual(await markerKeys(), [`${ADOPT_TURN_KEY_PREFIX}${SESSION}`]);
@@ -134,12 +151,16 @@ void test("the login-wall callback adopts the browser's anonymous conversation a
 
 void test("a repeated callback visit adopts nothing further and moves no rows", { timeout: 180_000 }, async (context) => {
   const page = await liveVisitor(context, ACCOUNT_ID);
-  const first = page.waitForResponse(isPath("/v1/sessions/adopt"));
+  const adopt = await recordAdoptBodies(page);
+  const first = page.waitForResponse(isPath(ADOPT_PATH));
   await page.goto("/auth/callback");
   await first;
-  const second = page.waitForResponse(isPath("/v1/sessions/adopt")).then((response) => response.json());
+  const second = page.waitForResponse(isPath(ADOPT_PATH));
   await page.goto("/auth/callback");
-  assert.deepEqual(await second, { adopted: 0, noop_class: "no_rows", revisions_bumped: 0 });
+  await second;
+  assert.deepEqual(await adopt.bodies[0], { adopted: 1, noop_class: "adopted", revisions_bumped: 1 });
+  assert.deepEqual(await adopt.bodies[1], { adopted: 0, noop_class: "no_rows", revisions_bumped: 0 });
+  assert.equal(adopt.bodies.length, 2);
   assert.deepEqual(await owners(), [{ id: SESSION, user_id: ACCOUNT_ID }, { id: THIRD_PARTY_SESSION, user_id: THIRD_PARTY_ID }]);
   assert.deepEqual(await markerKeys(), [`${ADOPT_TURN_KEY_PREFIX}${SESSION}`]);
 });
