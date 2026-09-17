@@ -116,9 +116,12 @@ async function liveVisitor(context: TestContext, accountId: string) {
 
 void test("the login-wall callback adopts the browser's anonymous conversation at the edge", { timeout: 180_000 }, async (context) => {
   const page = await liveVisitor(context, ACCOUNT_ID);
-  const adopted = page.waitForResponse(isPath("/v1/sessions/adopt"));
+  /** #1752: the callback redirects the moment this response lands, so the body
+   *  is captured at response time — a late `Network.getResponseBody` races the
+   *  browser releasing the resource ("navigated away from"). */
+  const adopted = page.waitForResponse(isPath("/v1/sessions/adopt")).then((response) => response.json());
   await page.goto("/auth/callback");
-  assert.deepEqual(await (await adopted).json(), { adopted: 1, noop_class: "adopted", revisions_bumped: 1 });
+  assert.deepEqual(await adopted, { adopted: 1, noop_class: "adopted", revisions_bumped: 1 });
   await expect.poll(() => new URL(page.url()).pathname).toBe("/");
   assert.deepEqual(await owners(), [{ id: SESSION, user_id: ACCOUNT_ID }, { id: THIRD_PARTY_SESSION, user_id: THIRD_PARTY_ID }]);
   assert.deepEqual(await markerKeys(), [`${ADOPT_TURN_KEY_PREFIX}${SESSION}`]);
@@ -134,9 +137,9 @@ void test("a repeated callback visit adopts nothing further and moves no rows", 
   const first = page.waitForResponse(isPath("/v1/sessions/adopt"));
   await page.goto("/auth/callback");
   await first;
-  const second = page.waitForResponse(isPath("/v1/sessions/adopt"));
+  const second = page.waitForResponse(isPath("/v1/sessions/adopt")).then((response) => response.json());
   await page.goto("/auth/callback");
-  assert.deepEqual(await (await second).json(), { adopted: 0, noop_class: "no_rows", revisions_bumped: 0 });
+  assert.deepEqual(await second, { adopted: 0, noop_class: "no_rows", revisions_bumped: 0 });
   assert.deepEqual(await owners(), [{ id: SESSION, user_id: ACCOUNT_ID }, { id: THIRD_PARTY_SESSION, user_id: THIRD_PARTY_ID }]);
   assert.deepEqual(await markerKeys(), [`${ADOPT_TURN_KEY_PREFIX}${SESSION}`]);
 });
