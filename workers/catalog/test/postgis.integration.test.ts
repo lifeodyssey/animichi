@@ -6,7 +6,7 @@ import {
   databaseDescribe,
   openDirectPool,
   truncateCatalogPool,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
  * THE SPIKE — proves the risky TS stack works end-to-end against a REAL

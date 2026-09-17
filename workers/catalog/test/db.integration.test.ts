@@ -7,7 +7,7 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
  * DB round-trip test for the Catalog read schema (card W1-1).

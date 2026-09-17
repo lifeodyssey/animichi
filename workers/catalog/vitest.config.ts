@@ -9,9 +9,11 @@ import { defineConfig } from "vitest/config";
  * Covers tests that import the Hono app and exercise it inside the workerd
  * runtime (*.worker.test.ts).
  *
- * The PostGIS spike runs under a separate Node config (vitest.spike.config.ts)
- * because it needs a real TCP socket + the `pg` driver — a Node-only
- * integration check rather than a Worker-runtime check. `npm test` runs both.
+ * The Docker PostGIS integration suite runs under a separate Node config,
+ * `vitest.integration.config.ts`, because it needs a real TCP socket + the `pg`
+ * driver — a Node-only integration check rather than a Worker-runtime check.
+ * The suite runs as the `test:integration` script, not from `npm test`, which
+ * is `test:worker` alone.
  */
 export default defineConfig({
   plugins: [
@@ -29,9 +31,9 @@ export default defineConfig({
       // available — istanbul is the supported provider for vitest-pool-workers.
       provider: "istanbul",
       include: ["src/**/*.ts"],
-      // Spike-only modules (ingest/enrich/publish/media/import/scheduled) are
-      // exercised by the *.spike.test.ts Node suite against a real container +
-      // the import-integration spike (AC4 atomic switch), not the workerd pool,
+      // Database-only modules (ingest/enrich/publish/media/import/scheduled) are
+      // exercised by the *.integration.test.ts Node suite against a real container +
+      // the import-integration suite (AC4 atomic switch), not the workerd pool,
       // so they are excluded from this worker-runtime coverage scope.
       exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**", "src/import/**", "src/scheduled/**"],
       reporter: ["text", "lcov"],

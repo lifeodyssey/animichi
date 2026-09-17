@@ -11,12 +11,11 @@ definition to drift from, so nothing has to prove local and CI agree (#1371).
    **merge-base-to-head**. Only what changed is gated.
 2. **A package's gates are its own scripts.** `lint`, `typecheck`, `test`, `test:integration` in that
    package's `package.json` (#1358). Coverage floors and drift checks live inside them, so the hook
-   never carries a weaker copy. One suite is deliberately kept out: the catalog spike boots a Docker
-   Postgres container, and chaining it into `test` started that container on every catalog push
-   (#1473, the #1322 flake class), so `test:spike` is a script of its own that CI's `catalog` lane
-   and `make check-full` run. `test/repo-config/package-test-segments.test.rb` pins the arrangement
-   from three ends: `test` must not chain it, the workflow and the `Makefile` must each name
-   `pnpm --filter catalog run test:spike`, and that script must still run `vitest.spike.config.ts`.
+   never carries a weaker copy. `test` stays Docker-free (#1473, the #1322 flake class): the catalog
+   database suite boots a Docker Postgres container, so it lives in `test:integration` — the same
+   lane every other package's database arm uses — and never in `test`.
+   `test/repo-config/package-test-segments.test.rb` pins both ends: `test` must not chain it, and
+   `test:integration` must still run `vitest.integration.config.ts`.
 3. **Fail closed on the unknown.** A changed path that maps to no package, no bucket and no
    whitelist entry fails the push and is named in the output. Silence is never the answer.
 4. **No suppressions.** Fix the failing gate or triage it explicitly; `--no-verify` is a policy
@@ -240,14 +239,13 @@ The everything-run, for a large refactor or when a lockfile change makes "affect
 pnpm -r run --if-present lint | typecheck                 parallel
 pnpm -r --workspace-concurrency=1 run --if-present test | test:integration
 scripts/local-gates/db-fresh-schema.sh        disposable fresh-schema apply (Docker)
-pnpm --filter catalog run test:spike          the catalog spike against test-postgres
 make check                                    the Python agent's own gate
 ```
 
 The two suite segments run one package at a time on purpose. pnpm's default is one job per CPU, and
 several packages' suites claim a fixed resource — the agent's `test:integration` boots
-test-postgres, as does the catalog spike on the line above (catalog's own `test` was a third claimant
-until #1473 moved the spike out of it) — while the browser suite, which used to be the loudest one,
+test-postgres, as does catalog's (its database suite is out of `test` since #1473 and runs in the
+`test:integration` segment above) — while the browser suite, which used to be the loudest one,
 now derives its port per checkout (#1692). In parallel they starve each other: nine browser specs
 failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its own (2026-09-08).
 
@@ -258,10 +256,6 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
   local option only, and not a CI lane either since #1053.
 - **Model-backed evals** (`make test-eval`) — paid, non-deterministic.
 - **Deploys and cloud commands** — `wrangler deploy`, mutating `pulumi`, codecov upload, `gh pr`.
-- **The catalog spike** (`pnpm --filter catalog run test:spike`) — the Docker Postgres suite of
-  `workers/catalog`. Kept out of that package's `test` so no pre-push starts a container for it
-  (#1473); CI's `catalog` matrix lane runs it as a step of its own, and `make check-full` runs it
-  locally.
 - **The repository tests** (`.github/test/*.test.rb` and `test/repo-config/*.test.rb`) and the gate scripts' own behavioral
   tests — CI runs them unconditionally, on every pull request, so pre-push does not need a copy:
   `contracts` runs these plus the delivery suites, and `docs` runs the four docs-hygiene

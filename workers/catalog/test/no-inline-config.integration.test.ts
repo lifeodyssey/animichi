@@ -8,12 +8,12 @@ import { inlineConfigViolations } from "../scripts/oxlint/check-no-inline-config
  * Guards the zero-suppression rule itself (issue #302).
  *
  * `check-no-inline-config` used to carve out one grandfathered
- * `no-non-null-assertion` suppression in `catalog-api.spike.test.ts`. That
+ * `no-non-null-assertion` suppression in `catalog-api.integration.test.ts`. That
  * carve-out is gone, and these tests lock it out: the previously exempt line is
  * now a violation like any other, so a suppression cannot re-enter the worker.
  *
  * Directive text is assembled at runtime — a literal would make this very file
- * trip the guard it tests. Pure filesystem work, hence the Node spike pool.
+ * trip the guard it tests. Pure filesystem work, hence the Node integration pool.
  */
 
 const DISABLE_NEXT_LINE = ["// eslint", "disable-next-line"].join("-");
@@ -37,13 +37,13 @@ afterEach(() => {
 });
 
 describe("inlineConfigViolations", () => {
-  it("reports the formerly grandfathered suppression in catalog-api.spike.test.ts", () => {
-    write("test/catalog-api.spike.test.ts", `const a = 1;\n${LEGACY_SUPPRESSION}\nexport { a };\n`);
-    expect(inlineConfigViolations(root)).toEqual(["test/catalog-api.spike.test.ts:2: inline lint configuration is forbidden"]);
+  it("reports the formerly grandfathered suppression in catalog-api.integration.test.ts", () => {
+    write("test/catalog-api.integration.test.ts", `const a = 1;\n${LEGACY_SUPPRESSION}\nexport { a };\n`);
+    expect(inlineConfigViolations(root)).toEqual(["test/catalog-api.integration.test.ts:2: inline lint configuration is forbidden"]);
   });
 
   it("reports that same suppression once per occurrence, with no first-use exemption", () => {
-    write("test/catalog-api.spike.test.ts", `${LEGACY_SUPPRESSION}\n${LEGACY_SUPPRESSION}\n`);
+    write("test/catalog-api.integration.test.ts", `${LEGACY_SUPPRESSION}\n${LEGACY_SUPPRESSION}\n`);
     expect(inlineConfigViolations(root)).toHaveLength(2);
   });
 

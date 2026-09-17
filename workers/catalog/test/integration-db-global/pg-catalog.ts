@@ -1,7 +1,7 @@
 /** A node-postgres-backed CatalogDb for the hermetic Docker Postgres arm.
  *
  * Production builds CatalogDb with the neon-http driver (Cloudflare Worker); a
- * plain Postgres container speaks no neon HTTP, so the spike suite drives the
+ * plain Postgres container speaks no neon HTTP, so the integration suite drives the
  * same CatalogDb seam (execute / select / batch) through pg. db.batch — the
  * atomically-swapped publish/import primitive — is emulated on the pool as one
  * BEGIN/COMMIT transaction, keeping the flip-then-insert ordering and the

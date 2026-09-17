@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
 
 /**
- * Pure-filesystem spike proving the geocode seed fixture stays in parity with
+ * Pure-filesystem suite proving the geocode seed fixture stays in parity with
  * the rebuilt one-CREATE-per-table migration chain. Seed rows are no longer
  * embedded in migrations (the gazetteer seed is a documented load path); this
  * test pins the table shapes the fixture relies on and forbids seed drift back
- * into the chain. It runs in the Node spike pool because the workerd pool
+ * into the chain. It runs in the Node integration pool because the workerd pool
  * cannot read outside workers/catalog.
  */
 

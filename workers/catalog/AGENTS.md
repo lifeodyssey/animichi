@@ -7,7 +7,7 @@ Root guide: `../../AGENTS.md`.
 ## Commands (from `workers/catalog/`)
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
-- `pnpm test` (`test:worker` alone — hermetic, boots no container) · `pnpm run test:spike`
+- `pnpm test` (`test:worker` alone — hermetic, boots no container) · `pnpm run test:integration`
   (Docker; deliberately not chained into `test`, see Test pools) · `pnpm run typecheck`
   (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
   ESLint is gone.
@@ -68,27 +68,26 @@ Root guide: `../../AGENTS.md`.
 ## Test pools
 
 - `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
-- `*.spike.test.ts` runs in the Node pool via `vitest.spike.config.ts` for filesystem, TCP, Docker,
-  or child-process work. Filesystem parity checks belong here, not in Worker tests — **unless the
-  check must never be skippable**. The suite is **hermetic and fail-loudly** (card 1049): its
-  `globalSetup` (`test/spike-db-global.ts`) boots a **Docker Postgres+PostGIS** container, applies
-  the committed `migrations/neon` Atlas chain to a clean database, and any setup failure throws —
-  there is no silent-skip path and **zero Neon environment variables**. That container is why
-  `test` does **not** chain `test:spike` (#1473): `test` is what the pre-push hook runs for every
-  affected package, so chaining it started Docker on every catalog push. The spike runs in CI as
-  its own step of the `catalog` matrix lane (`Run the catalog spike against the offline Postgres
-  image`, `.github/workflows/pr-verification.yml`, right after the step that builds the
-  `animichi-test-postgres` image) and in `make check-full`.
-  `test/repo-config/package-test-segments.test.rb` pins three things about that arrangement: `test`
-  must not chain `test:spike`, those two files must each name `pnpm --filter catalog run test:spike`,
-  and `test:spike` itself must still run `vitest.spike.config.ts` — a lane emptied out from any of
-  the three ends goes red. Whether the container actually boots is `test/spike-db-global.ts`'s job.
+- `*.integration.test.ts` runs in the Node pool via `vitest.integration.config.ts` for filesystem,
+  TCP, Docker, or child-process work. Filesystem parity checks belong here, not in Worker tests —
+  **unless the check must never be skippable**. The suite is **hermetic and fail-loudly** (card
+  1049): its `globalSetup` (`test/integration-db-global.ts`) boots a **Docker Postgres+PostGIS**
+  container, applies the committed `migrations/neon` Atlas chain to a clean database, and any setup
+  failure throws — there is no silent-skip path and **zero Neon environment variables**.
+  The suite is `test:integration`, one of the four scripts every lane already runs for an affected
+  package: pre-push (`scripts/local-gates/pre-push-affected.sh`), CI's affected matrix
+  (`.github/workflows/pr-verification.yml`) and `make check-full`. It is *not* chained into `test`
+  (#1473): `test` stays Docker-free because it is the script every affected package runs first.
+  `test/repo-config/package-test-segments.test.rb` pins that `test` does not chain `test:integration`
+  and that `test:integration` still runs `vitest.integration.config.ts`; the matrix loop that runs it
+  for `catalog` is pinned by `.github/test/pr-verification-affected.test.rb`. Whether the container
+  actually boots is `test/integration-db-global.ts`'s job.
   **colima (macOS) local runs**: testcontainers' ryuk reaper bind-mounts the daemon socket, and
   the macOS-side colima socket mounts as a dead file — ryuk panics and the suite dies with
   `Log stream ended and message "/.*Started.*/" was not received`. Export
   `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock` **and**
   `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` (the VM-internal path) before
-  `pnpm test:spike`. CI's linux runners need neither.
+  `pnpm test:integration`. CI's linux runners need neither.
   Config-as-data guards that must always run therefore belong in the worker pool, reading their file
   via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes
   into it).

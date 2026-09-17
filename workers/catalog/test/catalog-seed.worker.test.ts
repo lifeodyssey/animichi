@@ -1,9 +1,10 @@
 /**
- * Offline guard for the spike seed fixtures (#363).
+ * Offline guard for the catalog seed fixtures (#363).
  *
- * The spikes only run when Neon Local credentials are present, so fixture rot
- * used to stay invisible until a live run. These assertions run in the always-on
- * worker pool and fail the moment a fixture stops matching the shared contract.
+ * The Docker-backed integration lane owns the live database assertions, so fixture
+ * rot there is visible only when that lane runs. These assertions run in the
+ * always-on worker pool and fail the moment a fixture stops matching the shared
+ * contract.
  */
 
 import { describe, expect, it } from "vitest";

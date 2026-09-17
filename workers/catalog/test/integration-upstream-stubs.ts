@@ -5,7 +5,7 @@ import {
   MISS_TITLE,
   MISS_WORK_ID,
   NEW_TITLE,
-} from "./fixtures/spike-suite-seed";
+} from "./fixtures/integration-suite-seed";
 
 /**
  * Route every upstream call to a canned response. The neon serverless driver

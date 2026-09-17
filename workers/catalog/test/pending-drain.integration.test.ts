@@ -7,7 +7,7 @@ import { catalogIngestBangumi } from "../src/ingest/ingest-bangumi";
 import { JobStore } from "../src/ingest/jobs";
 import type { FetchLike } from "../src/ingest/sources";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 
 const SUBJECT = {
   id: 1,

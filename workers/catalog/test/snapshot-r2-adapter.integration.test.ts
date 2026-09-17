@@ -1,5 +1,5 @@
 /**
- * R2 adapter + online retention end-to-end spike (issue #1012, AC6).
+ * R2 adapter + online retention end-to-end suite (issue #1012, AC6).
  *
  * Closes the "R2 half": r2ObjectStore is instantiated against a REAL R2 bucket
  * (Miniflare's in-memory R2 implementation) — the same adapter the composition

@@ -1,12 +1,12 @@
 import { afterAll, expect, it, vi } from "vitest";
 import { closeDbPools } from "../src/db/connections";
 import { IngestEntrypoint } from "../src/index";
-import { databaseDescribe, localDatabaseUrl } from "./spike-db";
-import { call, type ApiPoint } from "./catalog-spike-client";
-import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/spike-suite-seed";
-import { stubSearchMiss, stubUpstream } from "./spike-upstream-stubs";
+import { databaseDescribe, localDatabaseUrl } from "./integration-db";
+import { call, type ApiPoint } from "./catalog-integration-client";
+import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
+import { stubSearchMiss, stubUpstream } from "./integration-upstream-stubs";
 
-// The Node spike pool has no workerd runtime; stub the runtime module so
+// The Node integration pool has no workerd runtime; stub the runtime module so
 // `src/index.ts` (which now exports the `IngestEntrypoint` named entrypoint)
 // loads in plain Node.
 vi.mock("cloudflare:workers", () => ({
@@ -26,7 +26,7 @@ vi.mock("../src/db/connections", async (importOriginal) => {
   return {
     ...original,
     dbFor: async (connStr: string) => {
-      const { localDatabaseUrl, pgCatalog } = await import("./spike-db");
+      const { localDatabaseUrl, pgCatalog } = await import("./integration-db");
       return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
     },
   };

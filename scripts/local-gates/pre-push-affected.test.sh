@@ -162,4 +162,18 @@ expect_status "unrouted package, other diff" 1 "$STATUS"
 expect "unrouted package, other diff" "packages/orphan is a workspace package with no routing row" "$OUT"
 ok "a workspace package with no routing row stops the push, naming it, whatever changed"
 
+# 14. The catalog database suite is a package script, so a catalog change runs it, and a red one
+#     stops the push. Until #1726 it was `test:spike`, named only by a one-off CI step, so a change
+#     that broke catalog's SQL passed this hook and was caught in CI. The mutation here is that
+#     script exiting non-zero — a broken query's assertion — which the gate must propagate.
+new_repo
+commit_change feature workers/catalog/src/x.ts
+gate_env PNPM_FAIL_SCRIPT=test:integration
+run_gate < /dev/null
+expect_status "catalog integration failure" 1 "$STATUS"
+expect "catalog integration failure" "packages: catalog" "$OUT"
+expect "catalog integration failure" "--filter ...catalog run --if-present test:integration" "$RECORDED"
+expect "catalog integration failure" "--filter ...catalog run --if-present test" "$RECORDED"
+ok "a failing catalog test:integration stops the push"
+
 finish

@@ -24,12 +24,12 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalogPool,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
  * Resolver SQL proof against the ephemeral branch's direct cloud endpoint.
  *
- * GUARD: the context must carry a REAL Drizzle `db` built from the spike DSN.
+ * GUARD: the context must carry a REAL Drizzle `db` built from the integration DSN.
  * Resolve's alias-index path (the July geocoding wave) is part of its contract, so
  * stubbing the DB to something like an empty execute does not fail loudly — it
  * silently turns every resolve into a miss and an on-demand ingest. Do not stub it.

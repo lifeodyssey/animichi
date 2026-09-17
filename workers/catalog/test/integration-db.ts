@@ -3,17 +3,17 @@ import { sql } from "drizzle-orm";
 import pg from "pg";
 import { describe, inject } from "vitest";
 import type { CatalogDb } from "../src/db/client";
-import { makePgCatalog } from "./spike-db-global/pg-catalog";
+import { makePgCatalog } from "./integration-db-global/pg-catalog";
 
 /** The suite-owned Postgres context, always provided by the Docker arm setup. */
-export interface SpikeDatabaseContext {
+export interface IntegrationDatabaseContext {
   enabled: boolean;
   dsn: string;
 }
 
 declare module "vitest" {
   export interface ProvidedContext {
-    spikeDatabase: SpikeDatabaseContext;
+    integrationDatabase: IntegrationDatabaseContext;
   }
 }
 
@@ -42,13 +42,13 @@ export interface NeonConfigSnapshot {
   wsProxy: typeof neonConfig.wsProxy;
 }
 
-const context = inject("spikeDatabase");
+const context = inject("integrationDatabase");
 const initialConfig = captureNeonConfig();
 
 let poolCache: pg.Pool | null = null;
 
 const UNAVAILABLE =
-  "spike database is unavailable — the Docker Postgres arm must run (docker + the animichi-test-postgres image)";
+  "integration database is unavailable — the Docker Postgres arm must run (docker + the animichi-test-postgres image)";
 
 export function captureNeonConfig(): NeonConfigSnapshot {
   return {
@@ -66,7 +66,7 @@ export function restoreNeonConfig(snapshot: NeonConfigSnapshot = initialConfig):
   neonConfig.wsProxy = snapshot.wsProxy;
 }
 
-function requireEnabled(): SpikeDatabaseContext {
+function requireEnabled(): IntegrationDatabaseContext {
   if (!context.enabled) throw new Error(UNAVAILABLE);
   return context;
 }
@@ -115,7 +115,7 @@ export async function truncateCatalog(db: CatalogDb): Promise<void> {
   try {
     await db.execute(sql.raw(catalogTruncateSql()));
   } catch (error) {
-    throw new Error("catalog spike isolation failed; review the FK-closed table set", { cause: error });
+    throw new Error("catalog integration isolation failed; review the FK-closed table set", { cause: error });
   }
 }
 
@@ -123,7 +123,7 @@ export async function truncateCatalogPool(pool: pg.Pool): Promise<void> {
   try {
     await pool.query(catalogTruncateSql());
   } catch (error) {
-    throw new Error("catalog spike isolation failed; review the FK-closed table set", { cause: error });
+    throw new Error("catalog integration isolation failed; review the FK-closed table set", { cause: error });
   }
 }
 
@@ -135,7 +135,7 @@ export function databaseDescribe(name: string, factory: () => void): void {
 }
 
 /** Suite with a KNOWN live failure tracked by a GitHub issue. Skipped until the
- * issue is fixed so the spike gate stays honest without going red. */
+ * issue is fixed so the integration gate stays honest without going red. */
 export function databaseDescribeKnownFailing(
   issue: string, name: string, factory: () => void,
 ): void {

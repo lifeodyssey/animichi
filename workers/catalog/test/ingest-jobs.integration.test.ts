@@ -8,10 +8,10 @@ import {
   openServerlessDb,
   restoreNeonConfig,
   truncateCatalog,
-} from "./spike-db";
+} from "./integration-db";
 
 /**
- * Spike for the ingest data layer (card W1-6): JobStore singleflight +
+ * Integration suite for the ingest data layer (card W1-6): JobStore singleflight +
  * negative cache over `ingest_jobs`, and the raw-zone UPSERT round-trip into
  * `raw_anitabi` / `raw_bangumi`.
  *
