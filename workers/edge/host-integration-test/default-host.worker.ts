@@ -1,6 +1,18 @@
 import { neonAgentTurnTier } from "../src/gateway/agent-turn.ts";
 import type { Env } from "../src/env.ts";
-export { SessionAgent as AgentSession } from "../src/agent/host/session-agent.ts";
+import { SessionAgent } from "../src/agent/host/session-agent.ts";
+import { recoveryScanInterval } from "./wake-cadence.ts";
+
+/**
+ * The deployed class, whose recurring recovery cadence a case may shorten (issue #1731).
+ *
+ * Bootstrap, Prisma/Neon resources, models, tools and routing stay exactly the production
+ * defaults, and so does the cadence unless the case passes `FAST_RECOVERY_SCAN`.
+ */
+export class AgentSession extends SessionAgent {
+  protected override wakeIntervalMs() { return recoveryScanInterval(this.env, super.wakeIntervalMs()); }
+}
+
 const tier = neonAgentTurnTier();
 
 /** Test boundary supplies an already verified gateway identity, never native resources or business handlers. */

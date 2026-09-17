@@ -3,6 +3,7 @@ import test from "node:test";
 import { once } from "node:events";
 import { pool, IDENTITY } from "./postgres.ts";
 import { businessWorker, submission } from "./worker.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
 
 const entry = new URL("./persistence-windows.worker.ts", import.meta.url);
 const post = { method: "POST", body: JSON.stringify(submission) };
@@ -22,7 +23,7 @@ void test("failed durable scan registration prevents every business admission wr
 });
 
 void test("the durable recurring scan settles accepted work after its first operation wake registration fails", { timeout: 60_000 }, async (context) => {
-  const { worker } = await businessWorker(context, {}, entry);
+  const { worker } = await businessWorker(context, FAST_RECOVERY_SCAN, entry);
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *; LISTEN host_test_settled");
