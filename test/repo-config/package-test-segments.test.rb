@@ -36,14 +36,19 @@ class PackageTestSegmentsTest < Minitest::Test
               "web-cwv.spec.ts", "web-chat-settings-return.spec.ts"]
   }.freeze
 
-  OUT_OF_BAND_SEGMENTS = {
-    ["workers/catalog", "test:spike"] => [".github/workflows/pr-verification.yml", "Makefile"]
+  # A package whose Docker-backed suite must stay outside `test` (#1473): `test` is the script every
+  # affected package runs, and chaining it booted a container on every push that touched the package.
+  # The suite is `test:integration` instead — the standard second lane, which pre-push, the CI
+  # affected matrix and `make check-full` all run for an affected package, so nothing has to name it
+  # again. The pair is pinned in both directions: the script exists, and `test` does not chain it.
+  DOCKER_FREE_TEST_SCRIPTS = {
+    "workers/catalog" => "test:integration"
   }.freeze
 
   DELEGATED_COMMANDS = {
     ["workers/edge", "test:bundle-smoke"] => "bundle-smoke/",
     ["workers/edge", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
-    ["workers/catalog", "test:spike"] => "vitest.spike.config.ts",
+    ["workers/catalog", "test:integration"] => "vitest.integration.config.ts",
     ["packages/contract", "test:openapi-drift"] => "contract-drift.sh",
     ["infra", "test:program-load"] => "infra-check.sh"
   }.freeze
@@ -91,15 +96,14 @@ class PackageTestSegmentsTest < Minitest::Test
     end
   end
 
-  def assert_out_of_band_segment(directory, segment, files)
+  def assert_docker_free_test_script(directory, segment)
     scripts = scripts_of(directory)
     assert scripts.key?(segment), "#{directory}: #{segment} is undefined"
-    refute_includes scripts.fetch("test", ""), segment, "#{directory}: #{segment} must stay outside the pre-push lane"
-    command = "pnpm --filter #{manifest_of(directory)['name']} run #{segment}"
-    files.each { |file| assert_includes File.read(File.join(ROOT, file)), command, "#{file}: #{command} must run" }
+    refute_includes scripts.fetch("test", ""), segment,
+                    "#{directory}: #{segment} must stay outside the Docker-free `test` script"
   end
 
-  def test_out_of_band_segments_keep_their_own_lane
-    OUT_OF_BAND_SEGMENTS.each { |(directory, segment), files| assert_out_of_band_segment(directory, segment, files) }
+  def test_docker_backed_suites_stay_out_of_the_test_script
+    DOCKER_FREE_TEST_SCRIPTS.each { |directory, segment| assert_docker_free_test_script(directory, segment) }
   end
 end

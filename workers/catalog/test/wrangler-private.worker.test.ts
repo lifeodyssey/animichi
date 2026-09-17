@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 // `?raw` inlines the file at transform time, so by the time this runs inside
 // workerd the config is just a string constant — no filesystem is touched.
 //
-// AGENTS.md routes "filesystem parity checks" to the *.spike.test.ts Node pool.
+// AGENTS.md routes "filesystem parity checks" to the *.integration.test.ts Node pool.
 // That rule exists because the worker pool's filesystem is sandboxed, which
 // does not apply to a transform-time inline; and following it here would be
-// actively harmful — the `catalog-spikes` CI job's `if:` restricts it to
-// workflow_dispatch and same-repo pull_request, so on a push to main (and on
-// any fork PR) it does not run at all. A guard that does not run is not a guard.
+// actively harmful — the Docker-backed integration lane runs only on
+// pull_request and merge_group, never on a push to main (#1655), so after the
+// merge that needs it this guard would not run at all. A guard that does not run
+// is not a guard.
 import toml from "../wrangler.toml?raw";
 
 // catalog must have no public host. Two independent defaults would give it

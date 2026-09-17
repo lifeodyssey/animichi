@@ -12,7 +12,8 @@
 # the workspace's own CLI, because the gate's message check must run the
 # repository's real rules, not a stub's reading of them. A case that wants the
 # check to fail closed points REAL_COMMITLINT somewhere that is not there.
-# GATE_UNDER_TEST points at a mutant.
+# GATE_UNDER_TEST points at a mutant; PNPM_FAIL_SCRIPT names a package script
+# the fake pnpm must exit 1 on (the gate's failure propagation).
 #
 # Sourced, not run: the caller keeps `set -euo pipefail`, sources this file, runs
 # its cases and ends with `finish`.
@@ -60,6 +61,11 @@ if [ "${1:-}" = exec ] && [ "${2:-}" = commitlint ]; then
   exec "$REAL_COMMITLINT" "$@"
 fi
 printf 'pnpm %s\n' "$*" >> "$INVOCATIONS"
+# A case that needs a package script to fail — the gate has to propagate a red suite, not report
+# green — names that script in PNPM_FAIL_SCRIPT. Unset, the fake records and succeeds as before.
+if [ -n "${PNPM_FAIL_SCRIPT:-}" ]; then
+  for argument in "$@"; do [ "$argument" = "$PNPM_FAIL_SCRIPT" ] || continue; exit 1; done
+fi
 STUB
   for tool in make atlas; do
     printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$INVOCATIONS"\n' "$tool" > "$BIN/$tool"

@@ -8,7 +8,7 @@ import { catalogRequest } from "./catalog-request";
  * imports the real Hono app. It checks /healthz works without a DB, and that
  * the oRPC router is mounted + guarded: a /catalog/* call with no configured
  * connection string returns a clean 503 (not a crash). workerd has no TCP
- * sockets, so the real DB round-trip lives in catalog-api.spike.test.ts.
+ * sockets, so the real DB round-trip lives in catalog-api.integration.test.ts.
  */
 describe("catalog Worker (vitest-pool-workers)", () => {
   it("serves /healthz without a database", async () => {

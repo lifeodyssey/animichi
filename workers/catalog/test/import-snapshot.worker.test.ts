@@ -6,7 +6,7 @@
  * provenance, or a missing source run — and an invalid import performs ZERO
  * activation (AC4). A valid import activates exactly once. The atomic db.batch
  * swap itself is exercised against a real database in
- * import-integration.spike.test.ts.
+ * import-integration.integration.test.ts.
  */
 import { describe, expect, it } from "vitest";
 import {

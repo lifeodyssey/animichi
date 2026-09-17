@@ -5,7 +5,7 @@
  * points, aliases, series, provenance, media) and that a fake-backed export
  * produces deterministic JSON objects with content hashes + per-table counts.
  * The authoritative AC1 integration proof (private tables absent on a real DB)
- * lives in the spike suite.
+ * lives in the integration suite.
  */
 import { describe, expect, it } from "vitest";
 import { EXPORTED_TABLES, exportCandidate } from "../src/publish/candidate-export";

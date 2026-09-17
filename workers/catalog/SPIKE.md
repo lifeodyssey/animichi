@@ -1,5 +1,11 @@
 # Catalog TS Stack — SPIKE Verdict
 
+> **Historical (2026-06-21).** This is the stack-validation verdict for the spike session that
+> predated the current database suite: it names the Neon Local container and child-branch workflow
+> the hermetic Docker arm replaced, and `vitest.spike.config.ts`, which #1726 renamed to
+> `vitest.integration.config.ts` when the suite became `test:integration`. Read it as the record of
+> what was proven then, not as a description of the current lane.
+
 **Card:** W0-2 (scaffold) + W1-SPK (risky-stack validation gate)
 **Date:** 2026-06-21
 **Stack:** Cloudflare Workers + Hono + oRPC + Drizzle (raw `sql`) + Neon/PostGIS, tested with vitest + `vitest-pool-workers`.
@@ -44,10 +50,10 @@ catalog table set without `CASCADE`.
 
 ## Why two vitest configs
 
-The Worker pool (workerd) and the Docker Postgres-backed spikes (Node + testcontainers) have incompatible
-runtimes, so they run as two configs that `pnpm test` runs in sequence:
+The Worker pool (workerd) and the Docker Postgres-backed integration suites
+(Node + testcontainers) have incompatible runtimes, so they run as two configs that `pnpm test` runs in sequence:
 - `vitest.config.ts` → workerd pool, `*.worker.test.ts`
-- `vitest.spike.config.ts` → Node, `*.spike.test.ts`
+- `vitest.spike.config.ts` → Node, `*.spike.test.ts` (now `vitest.integration.config.ts` → `*.integration.test.ts`, #1726)
 
 ## Version notes (blockers hit + resolved)
 
@@ -60,7 +66,7 @@ runtimes, so they run as two configs that `pnpm test` runs in sequence:
 ```bash
 cd workers/catalog
 pnpm install
-pnpm test          # worker tests, then Docker Postgres-backed spikes
+pnpm test          # worker tests, then Docker Postgres-backed integration suites
 pnpm run typecheck
 ```
 

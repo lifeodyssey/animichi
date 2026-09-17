@@ -1,15 +1,15 @@
 /**
- * Contract-derived seed fixtures for the catalog spikes.
+ * Contract-derived seed fixtures for the catalog integration suite.
  *
  * Every fixture value is parsed through `packages/contract` (the cross-service
  * source of truth) at construction, so a fixture that no longer matches the wire
  * contract fails loudly HERE instead of surfacing as a downstream 400/500 in a
- * live spike run. The INSERT statements are emitted from the same records the
+ * live integration run. The INSERT statements are emitted from the same records the
  * assertions read (with table + column names taken from the Drizzle schema), so
  * the seed, the schema, and the expectation cannot drift apart.
  *
  * SCOPE: only seeds built through these builders carry that guarantee. The other
- * spike files still hand-write their INSERTs — converting them is tracked as a
+ * integration files still hand-write their INSERTs — converting them is tracked as a
  * follow-up to #363.
  */
 
