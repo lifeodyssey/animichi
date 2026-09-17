@@ -1,22 +1,21 @@
 /**
  * W4-1 (#1314): where each deployed environment gets the agent tier's Neon DSN.
  *
- * The agent runs in a CONTAINER, which has no Secrets Store binding of its own,
- * so the DSN only ever travels one way: Pulumi writes a store secret →
- * `[[env.<env>.secrets_store_secrets]]` binds it onto THIS Worker →
- * `CONTAINER_ENV_KEYS` forwards it into the container (and, since W1, the
- * Worker's own agent tier reads it directly). Every link in that chain is a
- * string that has to match a string somebody else wrote, and none of them are
- * checked until a deploy: wrangler resolves `secret_name` against the store at
- * deploy time, and `env.<binding>.get()` throws at runtime.
+ * The DSN only ever travels one way: Pulumi writes a store secret →
+ * `[[env.<env>.secrets_store_secrets]]` binds it onto THIS Worker → the native
+ * agent tier reads it (it used to also be forwarded into the container through
+ * `CONTAINER_ENV_KEYS`, deleted with the container in #1605). Every link in that
+ * chain is a string that has to match a string somebody else wrote, and none of
+ * them are checked until a deploy: wrangler resolves `secret_name` against the
+ * store at deploy time, and `env.<binding>.get()` throws at runtime.
  *
  * #855 left production deliberately unbound because its store secret did not
  * exist. This card lifts that, and the two facts worth pinning are the ones a
  * careless copy of the staging block would get wrong: staging and production
  * share ONE Cloudflare Secrets Store (the account plan refuses a second), so
  * the two environments' DSNs must differ by `secret_name` — while the BINDING
- * name stays identical, because `container-env.ts` forwards one key regardless
- * of environment.
+ * name stays identical, because the native tier reads one key in either
+ * environment.
  *
  * test-type: unit (parses checked-in files; no network, no clock, no mocks).
  */
@@ -25,7 +24,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 
-import { CONTAINER_ENV_KEYS } from "../src/container/container-env.ts";
 
 const WRANGLER = readFileSync(fileURLToPath(new URL("../wrangler.toml", import.meta.url)), "utf8");
 
@@ -78,12 +76,12 @@ void test("both environments resolve against the one account Secrets Store", () 
   assert.equal(agentDsnBindingFor("production").storeId, agentDsnBindingFor("staging").storeId);
 });
 
-void test("the binding name is identical in both environments, so one forwarding key serves both", () => {
+void test("the binding name is identical in both environments, so the native tier reads one key", () => {
   assert.equal(agentDsnBindingFor("production").binding, agentDsnBindingFor("staging").binding);
-  assert.ok(
-    CONTAINER_ENV_KEYS.includes(agentDsnBindingFor("production").binding),
-    "the container env allowlist must forward the name wrangler binds",
-  );
+  // The native tier reads it off `Env` by this name (`agent/host/native-bootstrap.ts`),
+  // the binding the two environments above declare. #1605 deleted the container
+  // env allowlist that used to make the same point from the forwarding side.
+  assert.equal(agentDsnBindingFor("production").binding, "AGENT_SVC_DATABASE_URL");
 });
 
 void test("the production data-plane binding serves the native edge tier", () => {

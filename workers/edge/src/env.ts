@@ -7,7 +7,6 @@ import type { R2ObjectBucket } from "./proxy/private-r2-object.ts";
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
   USERS: { fetch: (req: Request) => Promise<Response> };
-  CONTAINER: DurableObjectNamespace;
   EDGE_GUARD: GuardNamespace;
   MAP_TILES?: R2ObjectBucket;
   /** The private docs-asset bucket (#1650); absent fails `/img/docs` closed. */
@@ -43,3 +42,20 @@ export interface Env {
 }
 
 export type WorkerExecutionContext = Pick<ExecutionContext, "waitUntil" | "passThroughOnException">;
+
+function isStoreSecret(value: unknown): value is SecretsStoreSecret {
+  if (typeof value !== "object" || value === null) return false;
+  return "get" in value && typeof value.get === "function";
+}
+
+/** Native Secrets Store binding, or a plain string from local `.dev.vars`
+ * (#1157). Moved here with #1605, when the container env-forwarding allowlist
+ * that used to own it was deleted: reading a binding is this module's subject,
+ * and the identity gates plus `protect/turnstile.ts` were always its real
+ * callers. */
+export async function readStoreOrString(value: unknown): Promise<string | undefined> {
+  if (typeof value === "string") return value.length > 0 ? value : undefined;
+  if (!isStoreSecret(value)) return undefined;
+  const text = await value.get();
+  return typeof text === "string" && text.length > 0 ? text : undefined;
+}

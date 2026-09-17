@@ -2,34 +2,30 @@ import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 
-/** AC12: clarification copy, C2t chips, and photo-search prompts in ja/zh/en. */
+/** AC12: clarification copy, C2t chips, and the C4 location prompt in ja/zh/en.
+ * The photo-search prompts half left with the surface in #1604. */
 
 function flatten(dict: Record<string, string>): string[] {
   return Object.values(dict);
 }
 
-describe("clarify/departure/location/photo copy (AC12)", () => {
+describe("clarify/departure/location copy (AC12)", () => {
   it.each(LOCALES)("locale %s has every string filled in", (locale) => {
     const dict = chatDictFor(locale);
     const values = [
       ...flatten({ ...dict.clarify }),
       ...flatten({ ...dict.departure }),
       ...flatten({ ...dict.location }),
-      ...flatten({ ...dict.photo }),
     ];
-    expect(values).toHaveLength(21 + 6 + 9 + 9);
+    expect(values).toHaveLength(21 + 6 + 9);
     expect(values.every((value) => value.trim().length > 0)).toBe(true);
   });
 
   it("locales are actually translated, not copied", () => {
     const escapeHatches = LOCALES.map((locale) => chatDictFor(locale).clarify.escapeHatch);
     expect(new Set(escapeHatches).size).toBe(LOCALES.length);
-    const uploads = LOCALES.map((locale) => chatDictFor(locale).photo.upload);
-    expect(new Set(uploads).size).toBe(LOCALES.length);
-  });
-
-  it("keeps the D4 transparency note about platform processing", () => {
-    expect(chatDictFor("ja").photo.processedNote).toBe("画像は Animichi の枠で処理");
+    const locationPrompts = LOCALES.map((locale) => chatDictFor(locale).location.allow);
+    expect(new Set(locationPrompts).size).toBe(LOCALES.length);
   });
 
   it("offers four distinct departure chips per locale", () => {

@@ -12,9 +12,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import { gatewayRejection } from "../src/gateway/responses.ts";
-import { catalogOutbound } from "../src/gateway/forward.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 
 const NOW = Date.UTC(2026, 8, 5, 12, 0, 0);
@@ -69,11 +68,4 @@ void test("anonymous entry verification answers the shared 401, not a flat error
   const response = await app.request("/v1/turnstile/verify", { method: "POST" }, env, stubCtx);
   assert.equal(response.status, 401);
   assert.equal((await envelopeOf(response)).error?.code, "unauthorized");
-});
-
-void test("a catalog call the container is not allowed to make is refused in the envelope", async () => {
-  const request = new Request("http://catalog.internal/catalog/publish", { method: "POST" });
-  const response = await catalogOutbound(request, { CATALOG: { fetch: () => Promise.reject(new Error("never")) } } as never);
-  assert.equal(response.status, 403);
-  assert.equal((await envelopeOf(response)).error?.code, "catalog_request_forbidden");
 });

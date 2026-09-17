@@ -47,7 +47,6 @@ from animichi.interfaces.routes.byok import router as byok_router
 from animichi.interfaces.routes.chat import router as chat_router
 from animichi.interfaces.routes.conversations import router as conversations_router
 from animichi.interfaces.routes.health import router as health_router
-from animichi.interfaces.routes.photo_search import router as photo_search_router
 from animichi.utils.logger import configure_structlog
 
 logger = structlog.get_logger(__name__)
@@ -274,7 +273,6 @@ def create_fastapi_app(
     app.include_router(chat_router)
     app.include_router(byok_router)
     app.include_router(conversations_router)
-    app.include_router(photo_search_router)
     return app
 
 

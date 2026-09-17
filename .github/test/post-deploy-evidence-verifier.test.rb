@@ -33,14 +33,20 @@ class PostDeployEvidenceVerifierTest < Minitest::Test
   # #1597 AC3's evidence is the AUTHENTICATED 404; the unauthenticated
   # diagnostic only establishes that no caller without an identity reaches a
   # 200. A retired path that answers the gateway's own 404 to that diagnostic —
-  # the state the criterion asks for — must not turn the criterion REFUTED: the
-  # probe that could refute it was never taken (#1713 finding 2).
+  # the state the criterion asks for, and the answer every retired path gives
+  # once #1605 removes the container forward — must not turn the criterion
+  # REFUTED: the probe that could refute it was never taken (#1713 finding 2).
+  # The diagnostic's contract is the REFUSAL the verifier matches (`statusMatches`
+  # in `evidence.mjs`: any status >= 400), never the 401 the catalog names for
+  # the summary a failure prints.
   def test_a_diagnostic_that_is_refused_is_not_a_refuted_criterion
     evidence_dir
     start_origin('retired-absent')
     _out, err, status = record
     assert status.success?, err
-    assert_equal [401, 401, 404], recorded_diagnostics.map { |probe| probe.fetch('observed').fetch('status') }.sort
+    assert_equal 3, recorded_diagnostics.length
+    statuses = recorded_diagnostics.map { |probe| probe.fetch('observed').fetch('status') }
+    assert statuses.all? { |status| status >= 400 }, "a retired path answers a refusal, never a 200: #{statuses.inspect}"
     assert_equal ['pass'], recorded_diagnostics.map { |probe| probe.fetch('verdict') }.uniq
     out, err, status = verify('--card', '1597', '--ac', 'AC3', '--no-issue')
     refute status.success?, err

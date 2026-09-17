@@ -78,10 +78,8 @@ const neonProvider = new neon.Provider("neon", {
 // Role -> secret mapping (#832): these names are bound directly from the
 // Cloudflare Secrets Store (plus the _PROD suffix for prod).
 //
-// agent_svc DSN (#912 follow-up): the agent is a CONTAINER, not a Worker, so
-// it has no Secrets Store binding of its own — the edge Worker binds
-// AGENT_SVC_DATABASE_URL and `buildContainerEnvVars` (workers/edge/src/
-// container/container-env.ts) forwards it into the container env.
+// agent_svc DSN (#912 follow-up): the edge Worker binds AGENT_SVC_DATABASE_URL
+// from the Secrets Store and the native agent tier resolves it directly.
 const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   {
     name: "catalog_svc",
@@ -97,7 +95,7 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
     name: "agent_svc",
     secretName: "AGENT_SVC_DATABASE_URL",
     comment:
-      "agent container data-plane role DSN (edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS)",
+      "agent data-plane role DSN (edge Worker Secrets Store binding, read by the native agent tier)",
   },
   // #1050 — dedicated migrator role (Migration Executor, spec §"Database identity").
   //

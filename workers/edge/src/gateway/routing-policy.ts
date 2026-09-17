@@ -9,18 +9,14 @@ import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 //
 // The RATE-limit classification (which route is cost-bearing/mutation and how
 // it is metered) lives in ONE place: `rate-policy.ts` `classifyRatePolicy`.
-// Those cells drive the guard seam; this module is only the identity-class
-// routing table (anonymous) the request surface needs to decide whether it
-// must authenticate before forwarding.
-
-// Identity-class tables: subsets of the AGENT_PATHS inventory. There is no
-// credential-free `/v1` identity class left (#1597 retired the last three
-// public reads), so the only table is the anonymous one.
-export const ANON_V1_PATHS = [
-  "/v1/chat",
-  "/v1/photo-search",
-  "/v1/photo-search/confirm",
-] as const;
+// Those cells drive the guard seam.
+//
+// #1605 deleted this module's only identity-class table with the container
+// forward it gated: `ANON_V1_PATHS` listed `/v1/chat` for the container path,
+// while the native tier's anonymous surface is its own by-kind list
+// (`agent-tier-route.ts` `ANONYMOUS_TIER_KINDS`). There is no credential-free
+// `/v1` class left (#1597 retired the last three public reads), so all this
+// module carries now is the native tier's route selection.
 
 /** Require each table entry to exist in the inventory before it can match. */
 function inventoryPath(path: string): string {
@@ -29,18 +25,12 @@ function inventoryPath(path: string): string {
 }
 
 /** Translate an inventory path template into an anchored matcher: every
- * `{param}` segment matches any non-slash run, mirroring the container's
- * router so the edge classifies exactly the routes the container serves. */
+ * `{param}` segment matches any non-slash run, so the edge classifies exactly
+ * the routes the inventory advertises. */
 function pathPattern(path: string): RegExp {
   const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const parametric = escaped.replace(/\\\{[^}]*\\\}/g, "[^/]+");
   return new RegExp(`^` + parametric + `$`);
-}
-
-const ANON_V1 = ANON_V1_PATHS.map(inventoryPath).map(pathPattern);
-
-export function isAnonymousV1(pathname: string): boolean {
-  return ANON_V1.some((pattern) => pattern.test(pathname));
 }
 
 /** Native agent routes are always served by this Worker. `list` is the

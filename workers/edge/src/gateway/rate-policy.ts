@@ -63,7 +63,7 @@ const DURABLE_MUTATION: RatePolicy = Object.freeze({ cost: "low", quota: "none",
 const DURABLE_USER_MUTATION: RatePolicy = Object.freeze({ cost: "low", quota: "none", limiter: "durable", failure: "fail-closed" });
 const DURABLE_ADOPT: RatePolicy = Object.freeze({ cost: "low", quota: "none", limiter: "durable", failure: "fail-closed" });
 
-const HIGH_COST_V1 = new Set(["/v1/chat", "/v1/photo-search"]);
+const HIGH_COST_V1 = new Set(["/v1/chat"]);
 
 /** Derive the BYOK prefix from the inventory's byok route so every current and
  * future /v1/byok/* route stays on the durable billing abuse class (AC5)

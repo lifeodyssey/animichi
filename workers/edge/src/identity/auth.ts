@@ -9,7 +9,7 @@ import { verifyEdDsaJwt } from "@animichi/contract/jwt";
 import { createRemoteJWKSet, customFetch } from "jose";
 
 /**
- * Identity classes the container may be told about. `"anonymous"` (issue #274)
+ * Identity classes the agent tier may be told about. `"anonymous"` (issue #274)
  * is NOT an authentication result — it is an *unauthenticated but identified*
  * caller, minted by the edge so open surfaces can still be rate-limited and
  * metered per client. `authenticate()` never returns it.

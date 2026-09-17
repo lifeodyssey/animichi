@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackendHealth } from "../../../src/features/chat/use-backend-health";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
-import { healthzDownHandler, healthzOkHandler } from "../../msw/chat-handlers";
+import { healthzDownHandler, healthzOkHandler, healthzUnavailableHandler } from "../../msw/chat-handlers";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { chatSearch, renderChatPage } from "./_chat-page";
 
@@ -40,6 +40,15 @@ describe("useBackendHealth status", () => {
 
   it("reports down when the probe fails", async () => {
     server.use(healthzDownHandler);
+    const { result } = renderHook(() => useBackendHealth(TEST_ORIGIN), { wrapper });
+    await waitFor(() => {
+      expect(result.current.status).toBe("down");
+    });
+    expect(result.current.healthy).toBe(false);
+  });
+
+  it("reports down when healthz answers a non-ok status, not only a dead connection", async () => {
+    server.use(healthzUnavailableHandler);
     const { result } = renderHook(() => useBackendHealth(TEST_ORIGIN), { wrapper });
     await waitFor(() => {
       expect(result.current.status).toBe("down");

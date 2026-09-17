@@ -3,10 +3,11 @@
 module ReleaseReceiptWorkersFixture
   module_function
 
+  # #1606: the agent image left the snapshot with the edge container it belonged to, so
+  # every Worker a new snapshot deploys is observed with an empty container list. A Worker
+  # that still reports one is built per test, to prove the receipt refuses it.
   def workers
-    observed = %w[catalog edge migrator users web].map { |unit| worker(unit) }
-    observed.find { |worker| worker['unit'] == 'edge' }['containers'] << { 'application_id' => 'agent' }
-    observed
+    %w[catalog edge migrator users web].map { |unit| worker(unit) }
   end
 
   def worker(unit)

@@ -22,8 +22,6 @@ const RETAINED_AGENT_PATHS = [
   "GET /v1/conversations",
   "GET /v1/conversations/{session_id}/messages",
   "GET /v1/conversations/{session_id}/stream",
-  "POST /v1/photo-search",
-  "POST /v1/photo-search/confirm",
   "POST /v1/sessions/adopt",
 ];
 

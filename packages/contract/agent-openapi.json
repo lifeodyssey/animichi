@@ -67,26 +67,6 @@
         }
       }
     },
-    "/v1/photo-search": {
-      "post": {
-        "summary": "photo search",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
-    "/v1/photo-search/confirm": {
-      "post": {
-        "summary": "confirm photo offer",
-        "responses": {
-          "200": {
-            "description": "Successful response"
-          }
-        }
-      }
-    },
     "/v1/sessions/adopt": {
       "post": {
         "summary": "adopt anonymous sessions",

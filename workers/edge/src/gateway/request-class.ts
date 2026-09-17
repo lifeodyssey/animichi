@@ -30,8 +30,8 @@ export type RequestClass =
   | { kind: "not-found" };
 
 /** The landing surface, which the showcase gate never denies. The readiness
- * probe is served by this Worker itself (#1596), so no landing class reads the
- * CONTAINER binding. */
+ * probe is served by this Worker itself (#1596), and no landing class reads a
+ * container binding — there is none (#1605). */
 function landingClass(method: string, pathname: string): RequestClass | null {
   if (pathname === "/healthz" && method === "GET") return { kind: "landing", asset: "healthz" };
   // The container's JSON service banner at `/` is RETIRED (#1596): the edge

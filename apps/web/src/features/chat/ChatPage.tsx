@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useLocale } from "../../i18n/LocaleProvider";
 import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
-import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
+import { ChatActionsProvider } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
 import { ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
 import { ChatAppBar } from "./components/ChatAppBar";
@@ -16,7 +16,6 @@ import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
 import { chatDictFor } from "./i18n";
 import type { ChatDict } from "./i18n";
-import type { PhotoGps, PhotoSearchContext } from "./photo-search";
 import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/use-spot-selection";
 import { ClarifyPickProvider, useClarifyPickState } from "./selection/use-clarify-pick";
@@ -68,23 +67,6 @@ function useTurnActions(chat: ChatSession): ChatActions {
   return useMemo(() => ({ send, regenerate: regen, sendWithOrigin, disabled }), [send, regen, sendWithOrigin, disabled]);
 }
 
-function makeTracked(actions: ChatActions, setGps: (gps: PhotoGps) => void): ChatActions {
-  return {
-    ...actions,
-    sendWithOrigin: (text: string, lat: number, lng: number) => {
-      setGps({ lat, lng });
-      sendWithOriginOf(actions)(text, lat, lng);
-    },
-  };
-}
-
-/** Remember granted C4 coordinates so photo search can reuse them (AC6). */
-function useOriginTracking(actions: ChatActions): { actions: ChatActions; gps: PhotoGps | undefined } {
-  const [gps, setGps] = useState<PhotoGps | undefined>(undefined);
-  const tracked = useMemo(() => makeTracked(actions, setGps), [actions]);
-  return { actions: tracked, gps };
-}
-
 /** A5 covers backend reachability only; stream failures render inline D-strips. */
 function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState {
   return deriveEntryState({
@@ -115,14 +97,6 @@ function useChatState(entry: ChatSearch) {
   return { config, health, chat, history: withoutSnapshotAssistant(history, snapshotOperationId(chat.messages, chat.operationIdOf())) };
 }
 
-/** Photo requests share chat's identity: locale, live session id, C4 gps. */
-function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession, gps: PhotoGps | undefined): PhotoSearchContext {
-  return useMemo(
-    () => ({ locale, sessionIdOf: chat.sessionIdOf, gps }),
-    [locale, chat.sessionIdOf, gps],
-  );
-}
-
 /** A failed pick's resend, in the shape the recovery flow consumes. */
 function useFailedPick(clarifyPick: ClarifyPickTurn) {
   const { status, resend } = clarifyPick;
@@ -140,13 +114,12 @@ function useTrayState(chat: ChatSession, gate: TurnFailureGate, sessionKey: stri
   return { recompute: lockedRecompute(recompute, locked), clarifyPick: lockedClarifyPick(clarifyPick, locked), failure, selection, quota: turn.quota };
 }
 
-/** Locale-bound page copy plus the photo/departure surfaces that share it. */
-function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps | undefined) {
+/** Locale-bound page copy plus the departure surface that shares it. */
+function usePageSurfaces(actions: ChatActions) {
   const locale = useLocale();
   const dict = chatDictFor(locale);
-  const photo = usePhotoContext(locale, chat, gps);
   const departure = useDeparturePrompt(actions, dict);
-  return { dict, photo, departure, locale };
+  return { dict, departure, locale };
 }
 
 function useGuardedTray(chat: ChatSession, auth: ReturnType<typeof useAuthStatus>, sessionKey: string | undefined) {
@@ -155,11 +128,10 @@ function useGuardedTray(chat: ChatSession, auth: ReturnType<typeof useAuthStatus
 
 function useChatPage(entry: ChatSearch) {
   const { config, health, chat, history } = useChatState(entry);
-  const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
   const auth = useAuthStatus();
   const tray = useGuardedTray(chat, auth, entry.session);
-  const actions = useLockedActions(live, tray.quota.locked);
-  const surfaces = usePageSurfaces(chat, actions, gps);
+  const actions = useLockedActions(useTurnActions(chat), tray.quota.locked);
+  const surfaces = usePageSurfaces(actions);
   useAutoSendFromQuery(entry, health, actions.send);
   return { config, health, chat, history, actions, auth, ...surfaces, ...tray };
 }
@@ -200,10 +172,10 @@ function chatDock(departure: DeparturePromptState, dict: ChatDict, chat: ChatSes
   );
 }
 
-/** Plain page-level assembly: the direction-E composer dock (camera key, gold
- * send, and the hint line) with its current send gate. */
-function chatComposer(dict: ChatDict, baseUrl: string, photo: PhotoSearchContext, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate): ReactNode {
-  return <ComposerDock dict={dict} baseUrl={baseUrl} photo={photo} gate={gate} quotaLocked={quota.locked} onSend={onSend} />;
+/** Plain page-level assembly: the direction-E composer dock (gold send and the
+ * hint line) with its current send gate. */
+function chatComposer(dict: ChatDict, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate): ReactNode {
+  return <ComposerDock dict={dict} gate={gate} quotaLocked={quota.locked} onSend={onSend} />;
 }
 
 function shellProps(search: ChatSearch, page: PageState, entry: ChatEntryState, gate: ComposerGate) {
@@ -213,7 +185,7 @@ function shellProps(search: ChatSearch, page: PageState, entry: ChatEntryState, 
     header: <ChatHeader dict={page.dict} title={journeyTitle(page.history.entries, page.chat.messages)} />,
     notices: <ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />,
   };
-  return { ...chrome, body: chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale), dock: chatDock(page.departure, page.dict, page.chat, page.recompute), composer: chatComposer(page.dict, page.config.baseUrl, page.photo, page.quota, page.departure.onSend, gate) };
+  return { ...chrome, body: chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale), dock: chatDock(page.departure, page.dict, page.chat, page.recompute), composer: chatComposer(page.dict, page.quota, page.departure.onSend, gate) };
 }
 
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {

@@ -80,22 +80,9 @@ jobs:
           done
       - run: bash .github/scripts/release/registry-login.sh push
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - name: Build and push the agent once
-        id: agent
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: apps/agent/Dockerfile
-          platforms: linux/amd64
-          provenance: false
-          sbom: false
-          push: true
-          tags: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent:build-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Bundle Workers and seal the immutable image reference
-        env:
-          AGENT_IMAGE: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent@${{ steps.agent.outputs.digest }}
+      - name: Bundle Workers and seal the container-free snapshot
         run: |
-          node .github/scripts/release/build-worker.mjs edge "$AGENT_IMAGE"
+          node .github/scripts/release/build-worker.mjs edge
           node .github/scripts/release/build-worker.mjs migrator
           ruby .github/scripts/release/seal.rb
           ruby .github/scripts/release/inspect-images.rb

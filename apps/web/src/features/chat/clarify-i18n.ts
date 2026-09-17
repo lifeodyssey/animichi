@@ -1,6 +1,7 @@
-/** Copy for C2 clarification, C2t departure chips, C4 location prompt, and
- * photo search (issue #260 S1.3). Kept feature-local like the other chat
- * dictionaries to avoid the shared hot file. */
+/** Copy for C2 clarification, C2t departure chips, and the C4 location prompt
+ * (issue #260 S1.3). Kept feature-local like the other chat dictionaries to
+ * avoid the shared hot file. The `photo.*` half left with the photo search
+ * surface in #1604. */
 
 export interface ChatClarifyDict {
   readonly choosePrompt: string;
@@ -45,18 +46,6 @@ export interface ChatLocationDict {
   readonly manualPlaceholder: string;
   readonly manualSubmit: string;
   readonly granted: string;
-}
-
-export interface ChatPhotoDict {
-  readonly upload: string;
-  readonly uploading: string;
-  readonly unsupported: string;
-  readonly tooLarge: string;
-  readonly failed: string;
-  readonly retry: string;
-  readonly processedNote: string;
-  readonly quotaNoByok: string;
-  readonly quotaByokNoVision: string;
 }
 
 export const jaClarify: ChatClarifyDict = {
@@ -192,45 +181,4 @@ export const enLocation: ChatLocationDict = {
   manualPlaceholder: "e.g. Uji Station",
   manualSubmit: "Search from here",
   granted: "Find spots near my current location",
-};
-
-export const jaPhoto: ChatPhotoDict = {
-  upload: "写真から聖地をさがす",
-  uploading: "写真をみてるよ…",
-  unsupported: "この形式の画像はよめないみたい。JPEG・PNG・WebP でためしてね",
-  tooLarge: "この写真はおおきすぎるみたい。8MB までの写真でためしてね",
-  failed: "アップロードがうまくいかなかった…",
-  retry: "もう一度ためす",
-  processedNote: "画像は Animichi の枠で処理",
-  quotaNoByok:
-    "今日の写真検索の枠を使いきっちゃった。ビジョン対応の自分のキーを設定すると、もっと使えるよ",
-  quotaByokNoVision:
-    "いまのキーは画像に対応していないみたい。ビジョン対応のエンドポイントに切りかえるか、明日の回復を待ってね",
-};
-
-export const zhPhoto: ChatPhotoDict = {
-  upload: "用照片找圣地",
-  uploading: "正在看这张照片…",
-  unsupported: "读不了这种格式的图片。试试 JPEG、PNG 或 WebP 吧",
-  tooLarge: "这张照片太大了。请试试 8MB 以内的照片吧",
-  failed: "上传没有成功…",
-  retry: "再试一次",
-  processedNote: "图片由 Animichi 的额度处理",
-  quotaNoByok: "今天的照片搜索额度用完了。配置一个支持视觉的自有密钥,就能继续用哦",
-  quotaByokNoVision:
-    "现在的密钥好像不支持图片。换一个支持视觉的端点,或者等明天额度恢复吧",
-};
-
-export const enPhoto: ChatPhotoDict = {
-  upload: "Search by photo",
-  uploading: "Looking at your photo…",
-  unsupported: "I can't read this format. Try JPEG, PNG, or WebP",
-  tooLarge: "That photo is a bit too big. Try one under 8MB",
-  failed: "The upload didn't go through…",
-  retry: "Try again",
-  processedNote: "Images are processed on Animichi's quota",
-  quotaNoByok:
-    "Today's photo-search quota is used up. Add your own vision-capable key to keep going",
-  quotaByokNoVision:
-    "Your key doesn't seem to handle images. Switch to a vision-capable endpoint, or wait for tomorrow's reset",
 };

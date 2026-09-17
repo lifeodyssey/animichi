@@ -15,8 +15,6 @@ type Props = Readonly<{
   quotaLocked?: boolean;
   /** G5: the turn that just left failed, so its text belongs back in the field. */
   sendFailed?: boolean;
-  /** The camera trigger (photo search) rendered inside the pill's left edge. */
-  leading?: ReactNode;
   onSend: (text: string) => void;
 }>;
 
@@ -24,7 +22,7 @@ type Submittable = Readonly<{ preventDefault: () => void }>;
 
 const COMPOSER_CLASS = "w-full [--animal-font-family:var(--app-font-body)] [--animal-bg-color-secondary:var(--color-muted)]";
 /** Keep the library's input ledge; focus changes only the warm, quiet edge. */
-const PILL_CLASS = "animal-input-wrapper animal-input-middle h-auto min-h-16 w-full [gap:0.5rem] rounded-[28px] border-2 border-fg/70 bg-card p-2 text-ground-ink focus-within:border-primary-strong night:focus-within:border-primary sm:[gap:0.75rem] [&_.animal-input-prefix]:m-0 [&_.animal-input-suffix]:m-0 motion-reduce:transition-none";
+const PILL_CLASS = "animal-input-wrapper animal-input-middle h-auto min-h-16 w-full [gap:0.5rem] rounded-[28px] border-2 border-fg/70 bg-card p-2 text-ground-ink focus-within:border-primary-strong night:focus-within:border-primary sm:[gap:0.75rem] [&_.animal-input-suffix]:m-0 motion-reduce:transition-none";
 const FIELD_CLASS = "[&_.animal-input-control]:text-base [&_.animal-input-control]:font-semibold [&_.animal-input-control]:leading-6 [&_.animal-input-control]:tracking-normal [&_.animal-input-control]:text-ground-ink [&_.animal-input-control]:caret-primary-strong [&_.animal-input-control::placeholder]:font-normal [&_.animal-input-control::placeholder]:text-muted-fg night:[&_.animal-input-control]:caret-primary";
 /** The package Input is single-line only, so the composer mirrors its class
  * structure on a textarea instead: a long draft wraps and the pill grows with
@@ -131,7 +129,7 @@ function SendKey({ dict, withheld, busy }: Readonly<{ dict: ChatDict; withheld: 
 type FieldProps = Readonly<{
   dict: ChatDict; disabled: boolean; busy: boolean; quotaLocked: boolean;
   text: string; onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
-  leading: ReactNode; trailing: ReactNode;
+  trailing: ReactNode;
 }>;
 
 /**
@@ -140,13 +138,13 @@ type FieldProps = Readonly<{
  * screen reader. The reason is exposed as a DESCRIPTION instead, pointed at the
  * D12 banner that is already on screen and already announced as an alert.
  */
-function ComposerField({ dict, disabled, busy, quotaLocked, text, onChange, leading, trailing }: FieldProps) {
+function ComposerField({ dict, disabled, busy, quotaLocked, text, onChange, trailing }: FieldProps) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   useDesktopAutofocus(fieldRef);
   const describedby = quotaLocked ? QUOTA_BANNER_ID : undefined;
   const field = <textarea ref={fieldRef} className={GROW_CLASS} rows={1} value={text} onChange={onChange} onKeyDown={sendOnEnter} disabled={disabled} autoComplete="off" enterKeyHint="send" aria-label={dict.inputPlaceholder} placeholder={placeholderFor(dict, quotaLocked, busy)} aria-describedby={describedby} />;
   return (
-    <span className={`${PILL_CLASS} ${FIELD_CLASS}`}>{leading ? <span className="animal-input-prefix">{leading}</span> : null}{field}<span className="animal-input-suffix">{trailing}</span></span>
+    <span className={`${PILL_CLASS} ${FIELD_CLASS}`}>{field}<span className="animal-input-suffix">{trailing}</span></span>
   );
 }
 
@@ -156,12 +154,12 @@ function ComposerField({ dict, disabled, busy, quotaLocked, text, onChange, lead
  * send path is withheld, and the placeholder says why. Busy feedback belongs
  * to the send key so the visitor can still read and edit their next thought.
  */
-export function ChatInput({ dict, disabled, busy = false, quotaLocked = false, sendFailed = false, leading, onSend }: Props) {
+export function ChatInput({ dict, disabled, busy = false, quotaLocked = false, sendFailed = false, onSend }: Props) {
   const composer = useComposer(onSend, sendFailed);
   const withheld = sendWithheld(composer.text, disabled, busy, quotaLocked);
   const submit = withheld ? blockSubmit : composer.submit;
   const trailing = <SendKey dict={dict} withheld={withheld} busy={busy} />;
-  const field = <ComposerField dict={dict} disabled={disabled} busy={busy} quotaLocked={quotaLocked} text={composer.text} onChange={composer.change} leading={leading} trailing={trailing} />;
+  const field = <ComposerField dict={dict} disabled={disabled} busy={busy} quotaLocked={quotaLocked} text={composer.text} onChange={composer.change} trailing={trailing} />;
   return (
     <form className={COMPOSER_CLASS} onSubmit={submit}>{field}</form>
   );

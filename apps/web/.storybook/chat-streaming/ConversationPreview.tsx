@@ -13,7 +13,7 @@ export function ConversationPreview(props: ComponentProps<typeof MessageList>) {
   return (
     <div className="grid gap-10">
       <MessageList {...props} />
-      <div className="-mx-5 -mb-6 sm:-mx-7 sm:-mb-8"><ComposerDock dict={props.dict} baseUrl="/storybook" photo={{ locale: props.dict.locale }} gate={gate} quotaLocked={false} onSend={onSend} /></div>
+      <div className="-mx-5 -mb-6 sm:-mx-7 sm:-mb-8"><ComposerDock dict={props.dict} gate={gate} quotaLocked={false} onSend={onSend} /></div>
     </div>
   );
 }

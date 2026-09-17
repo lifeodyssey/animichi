@@ -16,10 +16,6 @@ import {
   ByokProbeErrorBody,
   ByokProbeResponse,
   ChatTurnRequest,
-  GpsPoint,
-  PhotoConfirmRequest,
-  PhotoSearchRequest,
-  PhotoSearchResponse,
   ServiceMetadata,
 } from "../src/agent-contract.js";
 import {
@@ -83,32 +79,6 @@ describe("agent boundary emitter", () => {
     expect(() =>
       renderModel("BadModel", z.object({ value: z.union([z.string(), z.number()]) })),
     ).toThrow(/union/);
-  });
-
-  it("renders photo request DTOs with numbers, nullables, and literals (AGENT-1 #952)", () => {
-    const request = renderModel("PhotoSearchRequest", PhotoSearchRequest).join("\n");
-    expect(request).toContain("    image_base64: str");
-    expect(request).toContain("    gps: PhotoSearchRequestGps | None = None");
-    const gps = renderModel("GpsPoint", GpsPoint).join("\n");
-    expect(gps).toContain("    lat: float");
-    expect(gps).toContain("    lng: float");
-  });
-
-  it("renders photo response DTOs with arrays of objects (AGENT-1 #952)", () => {
-    const response = renderModel("PhotoSearchResponse", PhotoSearchResponse).join("\n");
-    expect(response).toContain("    success: Literal[True]");
-    expect(response).toContain('    intent: Literal["search_bangumi", "clarify"]');
-    expect(response).toContain("    offer_id: str");
-    expect(response).toContain("    rows: list[PhotoSearchResponseDataResultsRows]");
-    expect(response).toContain("    row_count: int");
-    expect(response).toContain('    reason: Literal["photo_unrecognized", "photo_ambiguous"] | None = None');
-    expect(response).toContain("    candidates: list[PhotoSearchResponseDataCandidates] | None = None");
-  });
-
-  it("renders the confirm DTO with an opaque offer id (AGENT-1 #952)", () => {
-    const confirm = renderModel("PhotoConfirmRequest", PhotoConfirmRequest).join("\n");
-    expect(confirm).toContain("    offer_id: str");
-    expect(confirm).toContain("    candidate_id: str | None = None");
   });
 
   it("a nullable item schema emits list[str | None] (AGENT-1 #952)", () => {

@@ -18,7 +18,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { Miniflare } from "miniflare";
-import { collectingCtx } from "../src/container/entry-env.ts";
+import { collectingCtx } from "./doubles/entry-env.ts";
 import { storingCache, withCacheDouble } from "./doubles/cache-api-double.ts";
 import { edgeAppRequest } from "./doubles/edge-app-request.ts";
 import { IMAGE_CACHE_CONTROL } from "../src/proxy/image-cache-control.ts";

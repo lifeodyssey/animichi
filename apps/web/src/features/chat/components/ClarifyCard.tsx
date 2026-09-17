@@ -19,9 +19,10 @@ import { localizedWorkTitle } from "../lib/work-title";
  * escape hatch; selecting one sends the candidate's id through whichever pick
  * channel is in scope while the user bubble shows the display title, and fades
  * the rest. On the session's channel (W1 #1220) that is the structured
- * `/v1/chat` selection, and a failed pick re-arms the card. Photo-search misses
- * reuse this same branch with a manual-entry chip, but scoped to the photo
- * offer's own channel, which confirms the offer instead (#1336). */
+ * `/v1/chat` selection, and a failed pick re-arms the card. The photo offer's own
+ * channel, which confirmed the offer instead (#1336), was deleted with the photo
+ * search surface in #1604 — the `photo_unrecognized` branch above stayed, because
+ * the chat clarify wire still admits that reason. */
 
 const MAX_CANDIDATE_BUTTONS = 4;
 

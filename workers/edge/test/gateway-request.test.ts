@@ -134,7 +134,6 @@ void test("the seam records class, status and duration, never identity material"
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
     EDGE_SHOWCASE_MODE: "false",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as never;
   const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
   const record = warnings.find((entry) => entry.event === "edge_gateway_request");
@@ -151,7 +150,6 @@ void test("an entry log precedes dispatch and carries no path or identity materi
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
     EDGE_SHOWCASE_MODE: "false",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as never;
   const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
 

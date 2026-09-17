@@ -26,18 +26,12 @@ type WorkerApp = Hono<{ Bindings: Env }>;
 export interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate?: TurnstileGate;
-  /** Injectable sleep for the container cold-start retry (tests avoid real waits). */
-  sleep?: (ms: number) => Promise<void>;
   /** Injectable showcase gate (tests capture its warning / isolate it per case). */
   showcaseMode?: ShowcaseMode;
   /** Injectable agent tier (W1-7 #1256): the production one opens a Neon pool
    * and two Durable Object stubs, so tests substitute it to stay hermetic. */
   agentTurns?: AgentTurnTier;
   sessionAdoption?: SessionAdoptionStore;
-}
-
-function realSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function resolveGates(deps: WorkerDeps): GatewayDeps {
@@ -48,7 +42,6 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
     authenticate: deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx)),
     turnstileGate: deps.turnstileGate ?? createTurnstileGate(),
     showcaseMode: deps.showcaseMode ?? createShowcaseMode(),
-    sleep: deps.sleep ?? realSleep,
     agentTurns: deps.agentTurns ?? neonAgentTurnTier(),
     sessionAdoption: deps.sessionAdoption,
   };

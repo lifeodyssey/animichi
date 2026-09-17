@@ -4,16 +4,17 @@ Canonical repo guide for agentic coding tools. Claude Code reaches this via `CLA
 (`@AGENTS.md`); the 30+ AGENTS.md-native tools read it directly. Keep it under ~200 lines —
 stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules/` (below).
 
-Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
-Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog +
-users) + a TanStack web app (rebuild in progress). Data plane = Neon;
+Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**:
+TypeScript Cloudflare Workers (the edge Worker's gateway + native Pi agent tier, catalog, users,
+migrator) + a TanStack web app. The Python PydanticAI agent stays in `apps/agent/` for local runs
+and evals only — it is not deployed. Data plane = Neon;
 auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); the edge verifies Neon Auth
 JWTs only (AUTH-2 #950 hard cut — Supabase verification deleted); the users worker trusts only the
 edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Monorepo layout
 
-- `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
+- `apps/agent/`        — Python PydanticAI agent (FastAPI); local runs and evals, not deployed. uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC user-data Worker over Neon; verifies nothing itself (no `jose`) — it trusts the edge-forwarded identity; 13 `test/*.worker.test.ts` files + CI lane. → `workers/users/AGENTS.md`
 - `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. Python remains `@animichi/agent-python`. → `packages/agent/AGENTS.md`

@@ -29,9 +29,8 @@ Greenfield (no dual wire names / table aliases):
 
 - **Web → Edge**: Browser talks only to the public edge (and its own Worker for SSR assets as configured).
 - **Edge → Agent / Catalog / Users**: Gateway; Edge resolves **Identity** and owns no pilgrimage model.
-  Since W1 it is also the **agent tier's host**: behind `AGENT_TURN_ROUTE = "edge"` a chat turn runs
-  in Edge's own `AgentSession` DO against Neon instead of being forwarded to the Python container
-  ([`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §二–§三).
+  Since W1 it is also the **agent tier's host**: a chat turn runs in Edge's own `AgentSession` DO
+  against Neon ([`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §二–§三).
 - **Edge → Agent domain**: Imports ordinary rules from `@animichi/agent`; platform hosting and the
   legacy runtime awaiting native cutover remain in edge. The [package guide](./packages/agent/README.md)
   identifies extracted rules and the remaining migration boundaries.

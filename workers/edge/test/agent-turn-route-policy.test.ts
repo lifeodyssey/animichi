@@ -30,6 +30,6 @@ void test("the conversation index is a GET list and nothing else on that path is
 });
 
 void test("other gateway surfaces are not mistaken for native turns", () => {
-  const others = ["/v1/photo-search", "/v1/conversations", "/v1/feedback"];
+  const others = ["/v1/sessions/adopt", "/v1/conversations", "/v1/feedback"];
   assert.deepEqual(others.map((path) => turnRoutePolicy().select("POST", path)), [null, null, null]);
 });

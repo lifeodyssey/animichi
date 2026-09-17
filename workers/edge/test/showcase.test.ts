@@ -36,7 +36,6 @@ function fetchStub(touched: { count: number }, body: string) {
 /** Bindings-only env — NO EDGE_SHOWCASE_MODE key; missing-var cases must spread this (B2: a "true" key would test the wrong state). */
 function baseEnv(touched: { count: number }) {
   return {
-    CONTAINER: { idFromName: () => "id", get: () => fetchStub(touched, "container") },
     USERS: fetchStub(touched, "users"),
     CATALOG: fetchStub(touched, "cat"),
     EDGE_GUARD: trackingGuard(touched),
@@ -94,7 +93,7 @@ void test("AC: unset, empty and malformed values fail closed", () => {
 // ── showcase=true: functional routes 403, no binding ever touched ───────────
 
 // test-type: unit
-void test("AC: showcase=true — POST /v1/chat is 403 showcase_denied; container, guard and auth untouched", async () => {
+void test("AC: showcase=true — POST /v1/chat is 403 showcase_denied; bindings, guard and auth untouched", async () => {
   const touched = { count: 0 };
   let authCalled = false;
   const app = createWorkerApp({
@@ -110,7 +109,7 @@ void test("AC: showcase=true — POST /v1/chat is 403 showcase_denied; container
 // test-type: unit
 void test("AC: showcase=true — every other functional route is 403 and touches no binding", async () => {
   const app = createWorkerApp({});
-  const paths = ["/v1/photo-search", "/v1/users/saved-routes", "/v1/conversations", "/catalog/public/anime-overview/3302"];
+  const paths = ["/v1/byok/probe", "/v1/users/saved-routes", "/v1/conversations", "/catalog/public/anime-overview/3302"];
   for (const path of paths) {
     const touched = { count: 0 };
     const res = await app.request(path, {}, functionalEnv(touched), stubCtx);
@@ -127,7 +126,7 @@ void test("AC: showcase=true — /healthz is still answered by the edge, touchin
   const app = createWorkerApp({});
   const res = await app.request("/healthz", {}, functionalEnv(touched), stubCtx);
   assert.deepEqual(await res.json(), { status: "ok" });
-  assert.equal(touched.count, 0, "the readiness probe must not start a container, in showcase mode or any other");
+  assert.equal(touched.count, 0, "the readiness probe must not start any downstream work, in showcase mode or any other");
 });
 
 // test-type: unit

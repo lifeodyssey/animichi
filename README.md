@@ -86,10 +86,10 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 
 ## Environment
 
-**Required (agent container / local serve):**
+**Required (edge Worker / local serve):**
 | Variable | Purpose |
 |---|---|
-| `AGENT_SVC_DATABASE_URL` | Neon agent_svc role DSN (asyncpg) — the required agent-container data-plane connection (#912). The legacy `SUPABASE_DB_URL` name is still provisioned as the transitional container-DSN name pending the #855 prod cutover |
+| `AGENT_SVC_DATABASE_URL` | Neon agent_svc role DSN — the required agent data-plane connection (#912), bound on the edge Worker and read by the native agent tier |
 | `MIMO_API_KEY` | Primary model provider key |
 
 **Worker edge:** `NEON_AUTH_JWKS_URL` (the edge's ONLY identity source — AUTH-2 #950; verifies
@@ -148,12 +148,12 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `migrations/neon/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (container image) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code
+- `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (the Python agent's own image, no longer part of a release snapshot, #1606) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code
 
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md) — full system design reference
-- [Deployment](docs/ops/deployment.md) — Cloudflare Workers + Containers deploy guide
+- [Deployment](docs/ops/deployment.md) — Cloudflare Workers deploy guide
 - [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration

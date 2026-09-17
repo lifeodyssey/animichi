@@ -45,7 +45,8 @@ revision rather than mutable checkout state.
   so the production approver reads the alert or the CI run for the SHA before approving.
 - **`release-build.yml` builds once; `cd.yml` selects an immutable artifact ID.** Each snapshot
   includes all deploy units. Trusted main controller code validates provenance, complete source
-  closure, remote image manifests and the migration ledger before mutations. One `stage` job holds
+  closure, that a selected snapshot names no image identity and the migration ledger before
+  mutations. One `stage` job holds
   the staging lock through foundation, migration, services, web, smoke and receipt. Production has
   its own approval and lock and promotes the same verified digest. Pending selections may be
   superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its

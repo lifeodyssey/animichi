@@ -1,8 +1,7 @@
 import postgres, { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
 import type { Contract } from "@animichi/pi-session-neon/types";
-import type { Env } from "../env.ts";
-import { readStoreOrString } from "../container/container-env.ts";
+import { readStoreOrString, type Env } from "../env.ts";
 import { ADOPT_TURN_KEY_PREFIX } from "./session-adoption-marker.ts";
 
 export type AdoptionNoopClass = "adopted" | "no_anonymous_identity" | "no_rows";

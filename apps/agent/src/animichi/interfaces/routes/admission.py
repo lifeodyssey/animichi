@@ -1,7 +1,7 @@
 """Route-level admission wiring (TURN-2 #949).
 
-Both turn-taking boundaries (``/v1/chat`` and ``/v1/photo-search``) run the
-same :class:`TurnAdmission` use case before any work. This module owns the
+Every turn-taking boundary (``/v1/chat``) runs the same
+:class:`TurnAdmission` use case before any work. This module owns the
 FastAPI-only concerns: resolving the store/repos/policy from request state,
 reading the optional admission headers, and mapping a rejection verdict to the
 wire envelope.
@@ -104,18 +104,14 @@ def admission_request(
     *,
     session_id: str | None,
     is_byok: bool,
-    identity: AdmissionIdentity | None = None,
 ) -> AdmissionRequest:
     """Build one admission request from headers + identity.
 
     The admission headers are optional; absent values make the turn a fresh
     reservation (turn_id is generated) with no revision/digest assertion.
-    ``identity`` defaults to the edge-forwarded headers; callers that treat a
-    missing ``X-User-Id`` as the anonymous tier (photo-search) pass one.
     """
     return AdmissionRequest(
-        identity=identity
-        or AdmissionIdentity(user_id=auth.user_id, user_type=auth.user_type),
+        identity=AdmissionIdentity(user_id=auth.user_id, user_type=auth.user_type),
         session_id=session_id,
         turn_key=_header(request, "x-turn-id") or uuid4().hex,
         expected_revision=_revision_header(request),

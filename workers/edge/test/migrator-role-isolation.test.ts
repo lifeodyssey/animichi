@@ -3,16 +3,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 
-import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS } from "../src/container/container-env.ts";
-
 // #1050 — migrator-role isolation contract (Migration Executor, spec
 // §"Database identity"). The dedicated `migrator` Postgres role is
 // necessarily neon_superuser-grade; minimization is behavioral, and this test
-// is the machine-checked half of rules (1)+(2): the migrator DSN secret
+// is the machine-checked half of rule (1): the migrator DSN secret
 // (MIGRATOR_DATABASE_URL) must never reach any runtime Worker's standing
-// environment nor any container env allowlist. Precedent: the GEMINI_API_KEY
-// removal guard (container-env.test.ts) pins a removal by scanning config
-// surfaces rather than only the code that reads them.
+// environment. Precedent: the GEMINI_API_KEY removal guard pins a removal by
+// scanning config surfaces rather than only the code that reads them.
+//
+// Rules (1)+(2) used to be pinned against the container env allowlist
+// (`CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_KEYS`); that allowlist was deleted
+// with the container in #1605, and the surviving surface is the one this file
+// now owns alone: the three runtime Workers' wrangler.toml files.
 //
 // test-type: unit (reads checked-in files; no network, no clock, no mocks).
 
@@ -28,14 +30,6 @@ function escapeRegExp(literal: string): string {
 // of the contract stay in lockstep.
 const MIGRATOR_SECRET = "MIGRATOR_DATABASE_URL";
 const migratorSecretRegex = new RegExp(escapeRegExp(MIGRATOR_SECRET));
-
-void test("MIGRATOR_DATABASE_URL is NOT in the container env forwarding allowlist", () => {
-  assert.equal(CONTAINER_ENV_KEYS.includes(MIGRATOR_SECRET), false);
-});
-
-void test("MIGRATOR_DATABASE_URL is NOT in the container required-keys list", () => {
-  assert.equal(CONTAINER_REQUIRED_KEYS.includes(MIGRATOR_SECRET), false);
-});
 
 void test("no runtime worker wrangler.toml binds the migrator DSN", () => {
   const workers = ["catalog", "users", "edge"];

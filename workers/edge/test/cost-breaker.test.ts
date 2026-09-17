@@ -18,7 +18,7 @@ const DAY_ONE_MS = Date.UTC(2026, 6, 26, 23, 59, 0);
 const DAY_TWO_MS = Date.UTC(2026, 6, 27, 0, 1, 0);
 const FALLBACK = { limit: 20, windowSeconds: 60 };
 
-const containerRejection = () =>
+const tierRejection = () =>
   new Response(JSON.stringify({ error: { code: ANON_BUDGET_EXHAUSTED_CODE } }), { status: 403 });
 
 void test("the UTC calendar day is the breaker's reset boundary", () => {
@@ -26,8 +26,8 @@ void test("the UTC calendar day is the breaker's reset boundary", () => {
   assert.equal(utcDayKey(DAY_TWO_MS), "2026-07-27");
 });
 
-void test("the container's breaker rejection is recognised by its error code", async () => {
-  const response = containerRejection();
+void test("the agent tier's breaker rejection is recognised by its error code", async () => {
+  const response = tierRejection();
   assert.equal(isBudgetRejection(response.status, await response.text()), true);
 });
 

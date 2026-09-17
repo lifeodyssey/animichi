@@ -77,7 +77,7 @@ The action downloads by ID/run/repository and treats a digest mismatch as an err
 artifact causes refusal; the controller never rebuilds it or substitutes another release.
 
 The immutable tar contains all five Worker deployments: web output/assets, catalog, users, edge
-and migrator bundles/configurations; the already-pushed agent image digest; the complete native Atlas
+and migrator bundles/configurations; the complete native Atlas
 chain and baseline marker; the native Prisma contract and complete migration graph; and all tracked
 Pulumi sources with the generated pinned Neon SDK.
 The controller validates the archive boundary, required components, file digests and exact migration
@@ -98,9 +98,9 @@ retains its native single pending selection, so a pending selection may be repla
 the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
 commit-order queue or `queue: max` exception.
 
-Before any Pulumi apply or Worker publication, both jobs inspect the real remote agent image manifest
-and linux/amd64 configuration with Docker, then read actual migration compatibility from
-the existing migrator's authenticated `/preflight`. Production refuses a staging-only baseline
+Before any Pulumi apply or Worker publication, both jobs verify every image a selected snapshot
+names against the real remote manifest and linux/amd64 configuration with Docker, then read actual
+migration compatibility from the existing migrator's authenticated `/preflight`. Production refuses a staging-only baseline
 before any mutation. After the Atlas check, CD retires the legacy migrator container application when
 the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
 Atlas and Prisma bundle identities, and runs native Prisma read-only preview. Application foundation,
@@ -109,9 +109,12 @@ divergent or newer database history fails closed. A Wrangler dry run or `/health
 prove the applied database state or registry availability.
 
 The immutable staging receipt records artifact ID/digest, release/controller SHAs, actual per-script
-Worker deployment/version IDs, configured container application/namespace/image identities, applied schema and
-successful smoke. Container identity is read only after the application's configuration converges: an
-image change creates an asynchronous rollout, so the receipt reads `configuration.image` at most
+Worker deployment/version IDs, the container application/namespace/image identity of every unit the
+snapshot still names an image for, applied schema and
+successful smoke. A new snapshot names none (#1606), so its Worker observations carry no container
+identity, and the convergence rule below applies only to a snapshot that does. Container identity is
+read only after the application's configuration converges: an image change creates an asynchronous
+rollout, so the receipt reads `configuration.image` at most
 `CONTAINER_ATTEMPTS` times (12 in `cd.yml`), waiting `CONTAINER_RETRY_DELAY` seconds between reads —
 the first read is immediate, so the wait budget is 11 x 15 s = 165 s, not 12 x 15 s — and caps every
 read at `CONTAINER_READ_TIMEOUT` seconds (30), so one hung `wrangler containers info` is a failed
@@ -139,23 +142,35 @@ activation prerequisites: deployed ledger preflight, same-lock revalidation, exa
 registry access, runtime secrets, baseline cutover and production routing must be established
 before this controller can deliver successfully. Local tests do not prove those platform gates.
 
-### Migrator container retirement (#1589)
+### Container application retirement (#1589 migrator, #1605 edge)
 
-The migrator applies both live migration owners in Worker code; it no longer builds or carries a
-container image. Each root, staging and production Wrangler migration chain preserves the historical
-`MigrationContainer` creation tag and appends the unique
+Two Workers used to own a container, and each one's retirement is a CD step rather than a
+configuration edit. The migrator applies both live migration owners in Worker code; it no longer
+builds or carries a container image. Each root, staging and production Wrangler migration chain
+preserves the historical `MigrationContainer` creation tag and appends the unique
 `v3-retire-migration-container` `deleted_classes` tag. `MigratorApplyLock` remains bound in every
-ring because it serializes and revalidates the live apply.
+ring because it serializes and revalidates the live apply. The edge carries no container either
+(#1605): every ring preserves the `v1` tag that created `RuntimeContainer` and appends a `v6`
+`deleted_classes` tag in the shape `v5` used for `RunSweeper`, while `EdgeGuard` and `AgentSession`
+stay bound.
 
 The environment-scoped CD job performs retirement in this order:
 
 1. Call the already-serving migrator's authenticated Atlas-only preflight.
-2. If the selected environment config has no container and includes the class-deletion tag, list
-   every application page and delete only the pinned old environment application by ID. Absence is
-   an idempotent success only after the cursor is exhausted; API, malformed-page, repeated-cursor,
-   page-limit or duplicate exact-name failures fail closed.
+2. Retire the migrator application, then the edge application
+   (`scripts/delivery/retire-migrator-container.sh`, `scripts/delivery/retire-edge-container.sh`,
+   both on the shared `scripts/delivery/container-application-retirement.sh`). If the selected
+   environment config for that unit has no container and includes its class-deletion tag, the
+   helper lists every application page and deletes only the pinned old environment application by
+   ID: `migrator-{staging,production}-migrationcontainer-{staging,production}` and, as wrangler
+   resolves an environment ring's name from its script name, `animichi-staging-runtimecontainer-staging`
+   and `animichi-runtimecontainer-production`. Absence is an idempotent success only after the
+   cursor is exhausted; API, malformed-page, repeated-cursor, page-limit or duplicate exact-name
+   failures fail closed.
 3. Deploy the selected migrator bundle and its `deleted_classes` migration, then wait for the native
    graph and continue the normal database and service chain.
+4. Publish the selected services — the edge bundle among them — so the edge's class deletion is
+   deployed only after its application is gone.
 
 This order is deliberate. Cloudflare's
 [legacy Durable Object migration guide](https://developers.cloudflare.com/durable-objects/reference/durable-object-class-migrations-legacy/)
@@ -173,15 +188,19 @@ in configuration, so omission does not establish application deletion; `deleteCo
 `GET /containers/dash/applications`, sends `page_token`, and returns
 `result_info.next_page_token`; the JSON CLI path consumes only one such page. The CD helper uses the
 same pinned API contract with the existing account and bearer-token authority, following each
-non-empty cursor to a bounded exhaustion before it can prove absence. CD therefore deletes the old
-application while the old class still exists, before it deploys the binding/code removal and class
-deletion. It does not delete registry images or touch the agent container application.
+non-empty cursor to a bounded exhaustion before it can prove absence. CD therefore deletes each old
+application while its class still exists, before it deploys the binding/code removal and class
+deletion. It does not delete registry images or touch any other container application.
 
-A historical selected snapshot that still declares the migrator container skips this retirement,
-retains its optional migrator image identity and is verified by the historical receipt shape. A new
-snapshot contains only the agent image and requires an empty migrator container observation. The
-post-merge staging receipt is the first platform proof of the final state; unit and dry-run tests are
-not substitutes for it.
+A snapshot that still declares a container skips this retirement, but no such snapshot is
+selectable: #1606 removed the agent image — the edge container's image — from the release model,
+and no build has named the migrator image since that container was retired (#1589), so snapshot
+verification refuses any image a manifest names. What clears such an application is the
+first snapshot built after #1605: its edge config declares no container and carries the deletion
+tag, so the retirement runs and deletes the application the old snapshot left behind. A new snapshot
+names no container image at all and requires an empty container observation for every observed
+Worker. The post-merge staging receipt is the first platform proof of the final state; unit and
+dry-run tests are not substitutes for it.
 
 ## Edge Topology
 
@@ -189,47 +208,46 @@ not substitutes for it.
 Browser
   ├─ static paths ───────────────────────────────▶ Cloudflare ASSETS
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy/cache
-  ├─ /healthz ───────────────────────────────────▶ Worker → RuntimeContainer → FastAPI service
+  ├─ /healthz ───────────────────────────────────▶ Worker readiness answer (`{"status":"ok"}`)
   ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
   │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
-  └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
+  └─ /v1/* ── auth at Worker edge ───────────────▶ Worker gateway → native `AgentSession` DO
                                                             ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
-                                                            ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
+                                                            ├─ catalog read path (`CATALOG` service binding)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
 ```
 
 The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
 (`workers/edge/src/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
-(`workers/catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
-The Python agent in the container cannot use that JS-only binding, so it reaches
-the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
-container as a plain var) points at the deployed host, and `CatalogClient` POSTs
-to `{CATALOG_API_URL}/catalog/<method>`, which the main Worker forwards to the
-catalog Worker. Deploy order: catalog Worker first (so `service = "catalog"`
-resolves), then the main Worker.
+(`workers/catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`), and the
+native agent tier reaches the catalog through that same binding
+(`workers/edge/src/agent/host/native-bootstrap.ts`). Deploy order: catalog Worker first (so
+`service = "catalog"` resolves), then the main Worker.
 
 Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
 runtime query/type metadata. The checked-in Atlas directory is the only Neon schema authority for
 all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
-Agent HTTP surface (paths relative to `apps/agent/src/animichi/`):
+Agent HTTP surface (paths relative to `apps/agent/src/animichi/`, the local FastAPI service):
 
 - `interfaces/fastapi_service.py` / `interfaces/routes/health.py` — `GET /healthz`
 - `interfaces/routes/runtime.py` — `POST /v1/runtime` and `POST /v1/runtime/stream` (SSE)
-- `apps/agent/Dockerfile` packages the agent into a single container image
+- `interfaces/routes/chat.py` — `POST /v1/chat`, the Vercel AI protocol adapter
 
-The deployment target stays intentionally thin. The Worker owns routing and edge auth; the container runs the agent service and stays unaware of raw end-user credentials.
+The deployment target stays intentionally thin. The Worker owns routing and edge auth, and hosts
+the agent tier; callers' raw credentials never leave the gateway.
 
 ## Trust Boundaries
 
 | Layer | Responsibility | Secrets/config it should see |
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
-| Worker edge | Route match, JWT auth, identity injection | `NEON_AUTH_JWKS_URL` |
-| Container runtime | Backend service, DB, model/provider calls | `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Worker edge | Route match, JWT auth, identity injection, native agent turns | `NEON_AUTH_JWKS_URL`, `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY` |
 
-Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
+Current hardening rule: the Worker strips the raw `Authorization` header before routing and the
+native agent tier sees only trusted `X-User-Id` / `X-User-Type` identity. `/v1/users/*` is
+forwarded to the `USERS` service binding with that same identity.
 
 ## Auth Flow
 
@@ -238,13 +256,13 @@ Worker auth is implemented in `workers/edge/src/identity/auth.ts`:
 - JWT flow: `authenticate()` verifies the token signature locally against the branch's Neon Auth JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request round-trip to the auth origin. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source; issuer/audience are derived from it (EdDSA), and the injected `X-User-Id` is the token `sub`.
 - Production JWKS is unset — the production edge Worker fails closed on any bearer until its Neon Auth branch is provisioned.
 - `sk_*` API keys are gone (AUTH-1 #945): an `sk_*` Bearer token is rejected as invalid — there is no `api_keys` lookup and no "agent" identity class.
-- Forwarding flow: the Worker injects `X-User-Id` and `X-User-Type`, deletes `Authorization`, and proxies the request to `CONTAINER` (unchanged); `/v1/users/*` goes to the `USERS` service binding with the same identity headers (users trusts only the edge-forwarded identity).
+- Forwarding flow: the Worker injects `X-User-Id` and `X-User-Type`, deletes `Authorization`, and hands the request to the native agent tier; `/v1/users/*` goes to the `USERS` service binding with the same identity headers (users trusts only the edge-forwarded identity).
 
 Auth expectations:
 
 - `/v1/*` always requires `Authorization: Bearer ...`
 - `/healthz` and static assets bypass auth
-- the container trusts only the Worker-injected identity headers; it is not the auth enforcement point
+- the agent tier trusts only the Worker-injected identity headers; it is not the auth enforcement point
 
 ## Local Service Run
 
@@ -267,156 +285,80 @@ Default bind settings:
 Required at deploy time:
 
 - `NEON_AUTH_JWKS_URL` (staging; production unset — fails closed until its Neon Auth branch is provisioned)
-
-These secrets stay in the Worker environment and are not forwarded into the container runtime. The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved (AUTH-2 #950).
-
-### Container runtime
-
-Required:
-
-- `AGENT_SVC_DATABASE_URL` — the Postgres DSN (#995: the `SUPABASE_DB_URL` fallback
-  was deleted from settings). The role-scoped Neon DSN (`agent_svc` role) is supplied
-  via the edge Worker's Secrets Store binding and forwarded into the container. The legacy
-  `SUPABASE_DB_URL` name remains only as a **transitional container-DSN env name** (a Neon DSN,
-  not a live Supabase plane) pending the #855 rename; see `docs/ops/prod-dsn-cutover.md`.
+- `AGENT_SVC_DATABASE_URL` — the `agent_svc` role Neon DSN, bound from the Cloudflare Secrets
+  Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
+  the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
+  `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model — the runtime is MiMo-only (owner decision
   2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
-- `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
-  `staging` / `production`), NOT a GitHub secret. Fail-closed since issue #498: the Worker throws at
-  container-start if it is missing rather than seeding a hardcoded default, because a silent default
-  previously tagged every environment's Logfire traces as `production` regardless of which
-  environment actually deployed them.
 
-  **There is a second, unrelated `APP_ENV`** — `apps/web/wrangler.jsonc`'s per-env `vars`, read by
-  `apps/web/src/server/noindex-plugin.ts`. Same name, same meaning, **opposite behaviour when
-  absent**: the container's is fail-**closed** (throw), the web app's is fail-**open-to-noindex**
-  (assume non-production and send `X-Robots-Tag`). Both directions are deliberate — a mislabelled
-  trace is cheap, a live site that stops sending `noindex` is not, and neither is a live site that
-  starts. Do not "unify" them without deciding which cost you are choosing. Guarded by
-  `apps/web/tests/unit/wrangler-app-env.test.ts`, which also pins the top-level block: its `name` is
-  the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to
-  production with no `APP_ENV` and silently deindex the site.
+The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved
+(AUTH-2 #950).
 
-- `EDGE_SHOWCASE_MODE` — edge-only `[vars]` (NOT forwarded to the container, NOT a GitHub secret),
-  the worker-side half of "prod is a landing-only showcase" (GOAL C): `"true"` (production) makes
-  every functional route (`/v1/*`, `/v1/users/*`, the public catalog read) answer 403
-  `showcase_denied` before any binding is touched, while `/healthz`, `/img/*`, `/tiles/*` stay
-  reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only the literal `"false"` opens the
-  backend — unset/empty/malformed values fail closed (deny) with a one-per-isolate warning. Pinned
-  by `workers/edge/test/container-env.test.ts`. CD's `smoke` job is automatic but does not probe
-  this: it asks staging for `/healthz` and the SSR shell, both of which stay reachable in showcase
-  mode by design. Production's 403 is the owner's own check after a promotion.
+### Agent tier
 
-Production runs **MiMo-only** (owner decision 2026-09-15): no DeepSeek secret is provisioned, bound,
-or forwarded to the container, so `FALLBACK_AGENT_MODEL` stays empty. Wiring a DeepSeek fallback
-back in means provisioning the credential and its binding again (the Python provider code remains).
+The native `AgentSession` Durable Object runs inside the edge Worker; these are the keys it reads
+besides the bindings above:
 
-Common runtime config:
+- `APP_ENV` — the deployed environment's own name, from `wrangler.toml`'s per-environment `[vars]`
+  block (`development` / `staging` / `production`), NOT a GitHub secret.
 
-- `CORS_ALLOWED_ORIGIN`
-- `DEFAULT_AGENT_MODEL`
-- `FALLBACK_AGENT_MODEL` (empty by default for MiMo-only operation)
-- `LOG_LEVEL`
-- `MAX_RETRIES`
-- `TIMEOUT_SECONDS`
-- `OBSERVABILITY_SERVICE_NAME`
-- `OBSERVABILITY_SERVICE_VERSION`
-- `LOGFIRE_TOKEN` (optional — tracing/metrics export to Logfire only when set). Since issue #498,
-  production and staging each write to their own Logfire project (`animichi-prod` /
-  `animichi-staging`) via **GitHub Environment-scoped secrets of the same name**
-  (`LOGFIRE_TOKEN` defined directly on the `production` and `staging` GitHub Environments), not
-  via workflow-level branching. Staging promotion and the single production promotion both run
-  under their job-level `environment:`, and GitHub environment secrets take precedence over a same-named secret the
-  caller workflow explicitly passes through `secrets:` for a job that references that environment
-  — see [Reuse workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
-  ("If you include environment in the reusable workflow at the job level, the environment secret
-  will be used, and not the secret passed from the caller workflow"). This was confirmed empirically
-  against this repo's real GitHub Actions runners with a throwaway diagnostic workflow (three
-  differently-sized marker secrets — repo-level, `production`-environment, `staging`-environment —
-  each job resolved the environment-scoped one, not the repo-level one the caller passed): staging
-  resolved the staging marker, production resolved the production marker, in both cases overriding
-  what the caller's `secrets: LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}` line explicitly passed.
-  The repo-level `LOGFIRE_TOKEN` secret remains only as the implicit fallback for a hypothetical
-  environment with no `LOGFIRE_TOKEN` secret of its own (same convention already relied on for the
-  8-9 other secrets — `CLOUDFLARE_API_TOKEN`, `NEON_DATABASE_URL`, `PULUMI_*`, `R2_*`,
-  `NEON_AUTH_JWKS_URL` — that are defined both at repo level and per-environment).
-- `CORS_ALLOWED_ORIGIN` is defined as a **`production`-environment secret** (no repo-level copy) —
-  by the same precedence rule above, it was already reaching the container correctly in production
-  deploys. Staging gets its value a different way (#527/#528): `wrangler.toml`'s
-  `[env.staging.vars].CORS_ALLOWED_ORIGIN` sets it to the real staging web origin
-  (`https://animichi-web-staging.zhenjiazhou0127.workers.dev`) as a plain (non-secret) value, not a
-  GitHub secret — a domain name isn't a secret, and this needs no owner action to provision. Do
-  **not** add a `CORS_ALLOWED_ORIGIN` secret to the `staging` GitHub Environment: it is no longer
-  uploaded to the edge Worker: CD uploads no runtime secret at all since #1364, and the edge deploy
-  step runs `wrangler deploy`, which leaves a secret its config does not declare alone. The eight edge
-  runtime secrets are still the owner's `wrangler secret put` values until #1370 moves them into the
-  Cloudflare Secrets Store — only `AGENT_SVC_DATABASE_URL` arrives through a
-  `secrets_store_secrets` binding today ([`secrets.md`](./secrets.md) chains 1 and 2). So such a
-  secret would be dead (unread), and if one of that name ever reached the Worker, it would silently
-  override the wrangler var, reintroducing a second source of truth. Before #527/#528, staging had
-  neither the secret nor the var, and inherited APP_ENV's mislabeling as "production" (see above) —
-  which made `cors_allowed_origin`'s `"*"` default fail the production-strictness CORS check and
-  **crash the container at boot** rather than silently accept a wildcard origin; #527/#528 fixed this at the
-  `wrangler.toml` layer, independent of the APP_ENV fix in this same issue.
-- `GOOGLE_MAPS_API_KEY` (optional)
-- `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker, X4/#274; `0` disables it)
-- `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota, S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same convention as the budget ceiling above)
+- `EDGE_SHOWCASE_MODE` — edge-only `[vars]`, the worker-side half of "prod is a landing-only
+  showcase" (GOAL C): `"true"` (production) makes every functional route (`/v1/*`, `/v1/users/*`,
+  the public catalog read) answer 403 `showcase_denied` before any binding is touched, while
+  `/healthz`, `/img/*`, `/tiles/*` stay reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only
+  the literal `"false"` opens the backend — unset/empty/malformed values fail closed (deny) with a
+  one-per-isolate warning. Pinned by `workers/edge/test/showcase.test.ts`. CD's `smoke` job is
+  automatic but does not probe this: it asks staging for `/healthz` and the SSR shell, both of which
+  stay reachable in showcase mode by design. Production's 403 is the owner's own check after a
+  promotion.
+- `ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`, `AUTH_RATE_LIMIT` /
+  `AUTH_RATE_LIMIT_WINDOW_SECONDS` — the burst windows; the layered rollback procedure is
+  `docs/ops/rate-limit-rollback.md`
+- `ANON_DAILY_COST_BUDGET_USD` (optional — the global anonymous daily-dollar circuit breaker,
+  X4/#274; `0` disables it)
+- `ANON_DAILY_MESSAGE_QUOTA` (optional — the per-identity anonymous daily message quota,
+  S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same
+  convention as the budget ceiling above)
 
-Session storage:
+**There is a second, unrelated `APP_ENV`** — `apps/web/wrangler.jsonc`'s per-env `vars`, read by
+`apps/web/src/server/noindex-plugin.ts`. Same name, same meaning, **opposite behaviour when
+absent**: the web app's is fail-**open-to-noindex** (assume non-production and send
+`X-Robots-Tag`). Do not "unify" the two without deciding which cost you are choosing. Guarded by
+`apps/web/tests/unit/wrangler-app-env.test.ts`, which also pins the top-level block: its `name` is
+the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to production
+with no `APP_ENV` and silently deindex the site.
 
-- the backend currently uses the in-memory session store only
+The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
+`DEFAULT_AGENT_MODEL`, `FALLBACK_AGENT_MODEL`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
+`ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer; they are
+retained until the Python tree is removed (#1607). Do not treat them as live configuration.
 
-## Container Path
+## Cloudflare Workers Path
 
-Build the image locally:
-
-```bash
-docker build -t seichijunrei-runtime .
-```
-
-Run the image locally:
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e AGENT_SVC_DATABASE_URL \
-  -e MIMO_API_KEY \
-  -e CORS_ALLOWED_ORIGIN \
-  seichijunrei-runtime
-```
-
-Smoke test:
-
-```bash
-curl http://127.0.0.1:8080/healthz
-curl -X POST http://127.0.0.1:8080/v1/runtime \
-  -H 'Content-Type: application/json' \
-  -H 'X-User-Id: local-dev' \
-  -H 'X-User-Type: human' \
-  -d '{"text":"从京都站出发去吹响的圣地"}'
-```
-
-Note: direct container access trusts forwarded identity headers. Bearer-token auth is enforced at the Worker edge, not inside the container process.
-
-## Cloudflare Workers + Containers Path
-
-Production runs on Cloudflare Workers + Containers (backed by a Durable Object container class).
-`wrangler deploy` builds the image from `Dockerfile`, uploads it to Cloudflare's container registry, and wires it to `RuntimeContainer`.
+Production runs on Cloudflare Workers. `wrangler deploy` publishes each Worker's bundle from the
+sealed release snapshot; no image build or container registry handoff is part of the current
+runtime.
 
 Requirements:
 
-- Wrangler 4+ (`[[containers]]` is ignored by Wrangler 3)
+- Wrangler 4+
 - GitHub Actions uses `cloudflare/wrangler-action@v4` with `wranglerVersion: "4.79.0"`
-- This repo deploys from the checked-in `Dockerfile`; there is no GHCR handoff
 
 Routing defined by `wrangler.toml`:
 
-- `/v1/*` and `/healthz` run through the Worker and proxy to `CONTAINER`
+- `/healthz` is answered by the edge Worker itself (`{"status":"ok"}`) without reading a binding
+- `/v1/*` runs through the Worker gateway, which authenticates and then drives the native
+  `AgentSession` Durable Object in the same Worker
 - `/v1/users/*` goes to the `USERS` service binding, trusting only the edge-forwarded identity headers (it no longer verifies its own JWT — AUTH-2 #950)
 - `/catalog/public/*` is the one anonymous catalog surface: the edge zone route sends it to the
   edge Worker, which forwards only the two allowlisted reads — `anime-overview/:id` and `popular`
   (declared once in `packages/contract/src/public-catalog.ts`) — to the private `CATALOG` binding
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`
+
+The local FastAPI service (`## Local Service Run`) is a separate, non-deployed surface; its session
+storage is the in-memory store.
 
 <!-- historical: retired in #537 -->
 Issue #537 removed the bundled legacy static frontend and with it the `[assets]` binding: this
@@ -434,8 +376,8 @@ deploys and tags never trigger deployment.
 
 ### Schema change policy
 
-Neon migrations run from `migrations/neon/` before the Worker rollout, but the old container can
-still serve traffic while that step is running. A destructive change can therefore briefly break
+Neon migrations run from `migrations/neon/` before the Worker rollout, but the previously published
+Worker version can still serve traffic while that step is running. A destructive change can therefore briefly break
 old code that still reads or writes the removed schema; the `route_anime` release, for example,
 dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where
 that overlap matters, use expand/contract: add the replacement first, deploy compatible readers
@@ -558,7 +500,8 @@ The repository candidate is not platform readiness. Before enabling the new buil
   production hostname/routing readiness. The current committed production topology leaves apex
   activation off, so the production smoke URL is an explicit readiness prerequisite.
 - Run real harmless cross-run artifact/digest substitution probes, concurrent environment lock
-  and approval probes, and record per-environment Worker/container/schema/smoke identities.
+  and approval probes, and record per-environment Worker/schema/smoke identities plus the expected
+  empty container observation.
 
 No local test or dry run substitutes for these observations, and none authorizes local deployment,
 production approval, secret mutation or baseline reset.
@@ -772,14 +715,16 @@ next to any `/v1/*`-rate-limiting incident run.
 
 ## AI Gateway Insertion Path
 
-If AI Gateway is enabled later, it belongs between the container and the upstream model provider.
-It does not belong in the browser and does not belong in the Worker.
+If AI Gateway is enabled later, it belongs between the edge Worker's model calls and the upstream
+model provider. It does not belong in the browser.
 
 Planned env design:
 
-- `CLOUDFLARE_AI_GATEWAY_URL` as an optional container-only env
+- `CLOUDFLARE_AI_GATEWAY_URL` as an optional edge Worker var
 
-Important: this is a documentation target only right now. Before enabling it, the backend planner client must support provider base-URL override through env rather than assuming the provider default.
+Important: this is a documentation target only right now. Before enabling it, the native model
+composition (`workers/edge/src/agent/host/native-models.ts`) must support a provider base-URL
+override through configuration rather than assuming the provider default.
 
 ## Rollback
 
@@ -795,7 +740,7 @@ workflow and no agent runs it — `CD` only ever moves forward (spec §二).
 | catalog | `catalog-staging` | `catalog` |
 | users | `users-staging` | `users` |
 | migrator | `migrator-staging` | added by #1365 (`workers/migrator/wrangler.toml` has no `[env.production]` before it) |
-| edge (carries the agent container image) | `animichi-staging` | `animichi` |
+| edge | `animichi-staging` | `animichi` |
 | web (SSR) | `animichi-web-staging` | `animichi-web` |
 
 The names are `[env.<stage>].name` in `workers/catalog/wrangler.toml`, `workers/users/wrangler.toml`,
@@ -890,8 +835,6 @@ versions". Concretely, a rollback does not:
   active version and the target, or when the target has a binding to an R2 bucket, KV namespace, or
   queue that no longer exists. Plan a code fix forward for those, not a rollback;
 - restore Pulumi state (see the Pulumi paragraph below);
-- change the container image on its own: a rolled-back edge Worker references the image its version's
-  config named, so the agent tier follows the Worker version;
 - rewind a secret. Values behind Secrets Store bindings are read live, and the version records only
   the binding. "`wrangler secret put` creates a new version of the Worker and deploys it immediately"
   ([secrets](https://developers.cloudflare.com/workers/configuration/secrets/)), so a rotation is

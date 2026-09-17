@@ -2,7 +2,6 @@
 
 import type { Env, WorkerExecutionContext } from "../env.ts";
 import type { AuthResult } from "../identity/auth.ts";
-import { handleAnonymousV1 } from "../identity/anonymous-flow.ts";
 import { verifyAnonymousEntry } from "../identity/turnstile-entry.ts";
 import { handleSessionAdopt } from "../identity/session-adopt.ts";
 import { handleImageProxy } from "../proxy/image-proxy.ts";
@@ -12,14 +11,14 @@ import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
-import { authenticatedForward, forwardPublicCatalog, forwardUsers } from "./forward.ts";
+import { forwardPublicCatalog, forwardUsers } from "./forward.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
 import {
   credentialsRequired, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized,
 } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
-import { isAnonymousV1, turnRoutePolicy } from "./routing-policy.ts";
+import { turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
 import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 
@@ -29,7 +28,7 @@ import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 // route selection, the showcase gate, identity verification (Neon), the
 // anonymous pipeline (mint → Turnstile → limiter → budget), the
 // authenticated limiter, trusted internal-identity construction, and
-// forwarding to Catalog / Users / the agent container run here, in that
+// forwarding to Catalog / Users / the native agent tier run here, in that
 // order. app.ts delegates to it once.
 
 /** Structured, credential-free request record (EDGE-1 #963): identity kind
@@ -45,8 +44,8 @@ function observe(route: RequestClass, status: number, startedMs: number): void {
 }
 
 /** Entry-side counterpart to `observe`, logged BEFORE dispatch: without it a
- * request whose response never lands (mid-flight cancel, a hung container)
- * leaves no trace at all. Route class + method only — pathnames carry
+ * request whose response never lands (mid-flight cancel) leaves no trace at
+ * all. Route class + method only — pathnames carry
  * identifiers (`/v1/conversations/{session_id}`), so they stay out of logs. */
 function observeEntry(route: RequestClass, request: Request): void {
   console.warn(JSON.stringify({
@@ -144,9 +143,7 @@ function landingResponse(
 /** The readiness probe is this Worker's own answer (#1596): the CD smoke
  * (`staging-smoke-check.sh`) reads `GET /healthz` from the edge origin and
  * requires 200 with `status == "ok"`, so the deploy is judged by the gateway
- * that fronts it, not by a container application that may never wake. It is
- * the whole body — the container's richer `ServiceMetadata` stays where it is
- * still served, on the container's own `/healthz`. */
+ * that fronts it. It is the whole body. */
 function healthzResponse(): Response {
   return Response.json({ status: "ok" });
 }
@@ -203,25 +200,19 @@ async function agentV1Response(
   if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
   const edgeTier = turnRoutePolicy().select(request.method, pathname);
   if (edgeTier !== null) return agentTierResponse(env, request, ctx, pathname, edgeTier, deps);
-  return privateAgentV1Response(env, request, ctx, pathname, deps);
-}
-
-async function privateAgentV1Response(
-  env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
-): Promise<Response> {
-  const auth = await deps.authenticate(request, env, ctx);
-  if (auth.ok) return authenticatedForward(env, request, auth, pathname, deps.sleep);
-  if (auth.reason === "invalid") return unauthorized(pathname);
-  const anonymous = await anonymousAgentResponse(env, request, pathname, deps);
-  if (anonymous !== null) return anonymous;
-  return credentialsRequired();
-}
-
-async function anonymousAgentResponse(
-  env: Env, request: Request, pathname: string, deps: GatewayDeps,
-): Promise<Response | null> {
-  if (!isAnonymousV1(pathname)) return null;
-  return handleAnonymousV1(env, request, Date.now(), deps.turnstileGate, deps.sleep);
+  // #1605: the container forward is gone, so a `/v1` path the tier policy does
+  // not select has nothing behind it — a method mismatch on a tier route
+  // (`GET /v1/chat`) or a path no document advertises. It answers the shared 404
+  // envelope without touching identity, the limiter, Turnstile or the budget
+  // latch: a route that cannot be served must not spend a caller's challenge or
+  // a bucket slot to say so, the same shape as the retired `/v1/session/migrate`
+  // class in `request-class.ts`.
+  //
+  // This is not a stub where a forward used to be: `route-inventory.test.ts`
+  // and `operation-reachability.test.ts` pin that every advertised operation IS
+  // selected (by `turnRoutePolicy` or by an edge-owned class), so what reaches
+  // this line is exactly the surface nothing advertises.
+  return notFoundResponse();
 }
 
 async function turnstileVerifyResponse(

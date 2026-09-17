@@ -40,7 +40,12 @@ class PostDeployEvidenceTest < Minitest::Test
   end
 
   # The gateway's own answer for a retired path, and the diagnostic that
-  # accompanies it: 401, never 200, for a caller with no identity.
+  # accompanies it: a REFUSAL, never 200, for a caller with no identity. Which
+  # refusal is the gateway's business — 401 while the path is still routed
+  # behind identity, the shared 404 once nothing is behind it (#1605) — and the
+  # transcript records whichever came back. The status is held to the rule the
+  # verifier applies to a refused probe (`statusMatches` in `evidence.mjs`: any
+  # status >= 400), never to one code.
   def test_retired_paths_are_observed_as_gateway_refusals
     evidence_dir
     start_origin
@@ -48,7 +53,8 @@ class PostDeployEvidenceTest < Minitest::Test
     transcript = JSON.parse(File.read(File.join(@dir, 'evidence.json')))
     diagnostics = transcript.fetch('probes').select { |probe| probe.fetch('name').start_with?('retired') && probe.fetch('name').end_with?('Unauthenticated') }
     assert_equal 3, diagnostics.length
-    assert_equal [401], diagnostics.map { |probe| probe.fetch('observed').fetch('status') }.uniq
+    statuses = diagnostics.map { |probe| probe.fetch('observed').fetch('status') }
+    assert statuses.all? { |status| status >= 400 }, "a retired path answers a refusal, never a 200: #{statuses.inspect}"
     assert_equal ['pass'], diagnostics.map { |probe| probe.fetch('verdict') }.uniq
     refute_includes File.read(File.join(@dir, 'evidence.json')), 'CF-Access-Client-Secret'
   end

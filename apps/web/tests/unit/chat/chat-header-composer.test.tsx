@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatHeader } from "../../../src/features/chat/components/ChatHeader";
 import { ComposerDock } from "../../../src/features/chat/components/ComposerDock";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { TEST_ORIGIN } from "../../msw/fixtures";
 
 const ja = chatDictFor("ja");
 const GATE = { locked: false, busy: false, failed: false } as const;
@@ -30,21 +29,15 @@ describe("ChatHeader", () => {
 });
 
 function renderComposer(onSend = vi.fn()) {
-  return render(
-    <ComposerDock dict={ja} baseUrl={TEST_ORIGIN} photo={{ locale: "ja" }} gate={GATE} quotaLocked={false} onSend={onSend} />,
-  );
+  return render(<ComposerDock dict={ja} gate={GATE} quotaLocked={false} onSend={onSend} />);
 }
 
 describe("ComposerDock", () => {
-  it("opens the file picker from the camera without submitting the draft", () => {
-    const onSend = vi.fn();
-    renderComposer(onSend);
-    const input = screen.getByLabelText<HTMLInputElement>(ja.photo.upload, { selector: 'input[type="file"]' });
-    const chooseFile = vi.spyOn(input, "click");
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "宇治にいきたい" } });
-    fireEvent.click(screen.getByRole("button", { name: ja.photo.upload }));
-    expect(chooseFile).toHaveBeenCalledOnce();
-    expect(onSend).not.toHaveBeenCalled();
+  it("renders a text-only composer: no photo affordance, no file picker (#1604)", () => {
+    renderComposer();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: ja.send })).toBeTruthy();
   });
 
   it("keeps the gold send disc labelled with the send key", () => {
@@ -54,17 +47,14 @@ describe("ComposerDock", () => {
     expect(send.hasAttribute("disabled")).toBe(true);
   });
 
-  it("writes the two-sided hint line under the pill", () => {
+  it("writes the hint line under the pill", () => {
     renderComposer();
     expect(screen.getByText(ja.hintSend)).toBeTruthy();
-    expect(screen.getByText(ja.hintCamera)).toBeTruthy();
   });
 
   it("sends typed text through the dock's onSend", () => {
     const onSend = vi.fn();
-    render(
-      <ComposerDock dict={ja} baseUrl={TEST_ORIGIN} photo={{ locale: "ja" }} gate={GATE} quotaLocked={false} onSend={onSend} />,
-    );
+    renderComposer(onSend);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "宇治にいきたい" } });
     fireEvent.click(screen.getByRole("button", { name: ja.send }));
     expect(onSend).toHaveBeenCalledWith("宇治にいきたい");

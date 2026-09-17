@@ -2,7 +2,7 @@
 
 **Ticket:** [#855](https://github.com/lifeodyssey/animichi/issues/855) · **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829) · **Campaign:** [#904](https://github.com/lifeodyssey/animichi/issues/904) P5 (#913)
 **Precedent:** staging cutover [#832](https://github.com/lifeodyssey/animichi/issues/832) (closed) · **Secrets ADR:** `docs/adr/0003-secrets-architecture.md` · **Env map:** `docs/ops/neon-env-topology.md`
-**Agent container DSN:** [#912 follow-up](https://github.com/lifeodyssey/animichi/issues/912) (staging wire landed; this doc is the prod half)
+**Agent DSN:** [#912 follow-up](https://github.com/lifeodyssey/animichi/issues/912) (staging wire landed; this doc is the prod half)
 
 ## Current state (investigated for #913)
 
@@ -30,23 +30,19 @@
   back); Workers bind Secrets Store values (`wrangler.toml` bindings — P4 shape).
 - Schema + GRANTs applied by **Atlas** via the deploy path (`search_path=public`).
 
-## Container DSN mechanism (agent — not a Worker)
+## Agent DSN mechanism (native Worker tier)
 
-The Python agent runs in a Cloudflare **container**, which has no Secrets Store binding of
-its own. Containers receive env **only** through the edge Worker's code:
-`buildContainerEnvVars()` (`workers/edge/src/container/container-env.ts`) copies from the edge
-Worker's own env (`vars` + secrets + Secrets Store bindings) an allowlist of keys. So the
-agent's Neon DSN travels: **Pulumi store secret → edge Worker `[[env.<env>.secrets_store_secrets]]`
-binding → `CONTAINER_ENV_KEYS` forwarding → container env → `Settings.agent_svc_database_url`
-(`Settings.database_url`, preferred over the legacy `SUPABASE_DB_URL`)**.
+The native agent tier runs inside the edge Worker, so the Worker binds the DSN itself:
+`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml` maps the binding name
+`AGENT_SVC_DATABASE_URL` onto a store secret, and the native host resolves it through the existing
+`readStoreOrString` helper. The DSN travels: **Pulumi store secret → edge Worker
+`[[env.<env>.secrets_store_secrets]]` binding → native host → Prisma/Neon**; there is no
+forwarding hop.
 
 Staging landed this wire (#912 follow-up). Two consequences for prod:
 
-- The prod edge Worker needs the same binding, and CI needs the value in the **GitHub
-  `production` environment secret `AGENT_SVC_DATABASE_URL`** (uploaded via
-  `wrangler secret put`, mirroring how `SUPABASE_DB_URL` is uploaded today) **or** the prod
-  store binding once the prod store story below is settled — until then the prod container
-  keeps `SUPABASE_DB_URL`.
+- The prod edge Worker needs the same binding, and the value must exist in the prod store under
+  the prod secret name once the prod store story below is settled.
 - **Naming collision**: the store secret is `AGENT_SVC_DATABASE_URL`, not
   `AGENT_DATABASE_URL` — the latter name is the SAFE-1-pinned production jobs Worker
   secret (`AGENT_DATABASE_URL` worker secret; RETENTION-1 retired the staging store
@@ -95,7 +91,7 @@ operator rather than committed. Steps:
    `[[env.production.secrets_store_secrets]]` binds `AGENT_SVC_DATABASE_URL` to the store
    secret `AGENT_SVC_DATABASE_URL_PROD`; no CI `worker_secrets` upload is involved, because
    a Secrets Store binding is applied by `wrangler deploy` itself. The binding name matches
-   staging's so `CONTAINER_ENV_KEYS` forwards one key in both environments. The jobs Worker
+   staging's, so one key serves both environments. The jobs Worker
    is out of this cutover's scope: it stays on the `AGENT_DATABASE_URL` worker secret per the
    SAFE-1 production pin (#937). Remove the prod GitHub
    `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify (step 5 of the
@@ -106,8 +102,8 @@ operator rather than committed. Steps:
 1. **Prereq: P4 green and stable on staging** (#912: roles exist project-wide once Pulumi ran;
    verify the Pulumi prod stack config points at the same Neon project and reuses the same
    role names — import, do not recreate, if the stack otherwise diverges). Also verify the
-   **staging agent container** is on `AGENT_SVC_DATABASE_URL` (the #912 follow-up wire) and
-   the old `SUPABASE_DB_URL` staging container value is rotated out of the edge Worker.
+   **staging edge Worker** binds `AGENT_SVC_DATABASE_URL` (the #912 follow-up wire) and no
+   legacy staging `SUPABASE_DB_URL` value is left on the Worker.
 2. **Pulumi prod stack up** (`cd.yml` production foundation phase / owner-approved
    apply): confirms prod roles (import, project-scoped), composes prod DSNs (main-branch
    endpoint), writes them to the **Secrets Store** for the prod environment (store strategy
