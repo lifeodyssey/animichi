@@ -155,7 +155,18 @@ function classify(host: string): HostAddressClass {
   return octets === null ? "dns-name" : classifyIpv4(octets);
 }
 
+/**
+ * Drops trailing root labels: `example.com.` → `example.com`, `a...` → `a`, `...` → ``.
+ * One backward pass over the trailing dots, then a single slice — linear work by the
+ * language. Not the old `/\.+$/`, which backtracks quadratically on `"a" + ".".repeat(n) + "x"`.
+ */
+function withoutTrailingDots(hostname: string): string {
+  let end = hostname.length;
+  while (end > 0 && hostname[end - 1] === ".") end -= 1;
+  return hostname.slice(0, end);
+}
+
 export function hostAddressOf(hostname: string): HostAddress {
-  const host = hostname.replace(/\.+$/, "");
+  const host = withoutTrailingDots(hostname);
   return { host, kind: classify(host) };
 }
