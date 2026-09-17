@@ -7,7 +7,7 @@ class PrVerificationWorkspaceTest < Minitest::Test
   FILE = File.join(ROOT, ".github/workflows/pr-verification.yml")
   SETUP = "$/.github/actions/setup-workspace"
 
-  %w[affected contracts agent e2e db commits].each do |job|
+  %w[affected contracts e2e db commits].each do |job|
     define_method("test_#{job}_installs_before_its_lane_runs") do
       steps = Psych.safe_load(File.read(FILE), aliases: true).dig("jobs", job, "steps")
       assert_match %r{\Aactions/checkout@}, steps.fetch(0).fetch("uses")

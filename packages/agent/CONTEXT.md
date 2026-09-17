@@ -12,4 +12,4 @@ no HTTP host, storage engine or agent execution protocol.
 | Localized city name | A catalog city's display name in the reader's locale |
 
 Contract owns Point and the public wire language. Edge hosts agent execution and consumes
-these rules. Python `apps/agent` continues to serve its existing runtime during migration.
+these rules.

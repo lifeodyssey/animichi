@@ -12,7 +12,7 @@ paths:
 - Commit subjects and PR titles follow `<type>(<scope>): <short outcome>` and the repository validator
   in `commitlint.config.js` (the commit-msg hook locally, the `commits` job in CI). Never append
   Claude/Anthropic/Codex/OpenAI co-author or generated-by attribution. Do not use `--no-verify`.
-- The git hooks run **more than ruff/mypy**. Every commit runs the fast gate — ruff + ruff-format +
+- The git hooks run **more than ruff**. Every commit runs the fast gate — ruff + ruff-format +
   oxlint + **gitleaks (secret scan)** + whitespace/EOF fixers; commit-msg validates history hygiene;
   pre-push runs the affected packages' own gates. Any *fixer* hook (`ruff --fix`, `ruff-format`,
   `end-of-file-fixer`) can modify files and **abort the commit**.

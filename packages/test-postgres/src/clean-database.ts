@@ -3,8 +3,8 @@
  * The postgis image pre-initialises its default database with the tiger and
  * topology schemas, which Atlas's clean-check refuses, so no arm may migrate
  * that database. Every one of them instead creates its own database from
- * pristine `template1` — the same semantics `apps/agent`'s `conftest_db.py`
- * and `scripts/local-gates/db-fresh-schema.sh` use.
+ * pristine `template1` — the same semantics `scripts/local-gates/db-fresh-schema.sh`
+ * uses.
  *
  * Create and drop live together because they are one lifecycle: whoever created
  * a database owns removing it (#1663). `createCleanDatabase` cannot own the

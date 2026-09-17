@@ -1,12 +1,10 @@
 /**
  * The Agent path inventory's exact shape (CONTRACT-1 #938, #1596).
  *
- * `AGENT_PATHS` is the one declaration the OpenAPI emitter, the Python model
- * emitter and the edge's routing and rate tables all read, so its set is pinned
- * here exactly: an added path is a deliberate, reviewable line, and a retired
- * one — #1596 retired the container's root banner — cannot silently reappear.
- * The emitter's own contract (determinism, committed-file equality, schema
- * support) lives in `agent-boundary.test.ts`.
+ * `AGENT_PATHS` is the one declaration the OpenAPI emitter and the edge's routing
+ * and rate tables all read, so its set is pinned here exactly: an added path is a
+ * deliberate, reviewable line, and a retired one — #1596 retired the container's
+ * root banner — cannot silently reappear.
  *
  * test-type: unit.
  */

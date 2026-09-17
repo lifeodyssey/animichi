@@ -106,6 +106,6 @@ No official rate limit documented. We use 30 req/60s with caching (24h TTL).
 ## Our Usage
 
 - `resolve_anime` handler uses `search_subject` (POST) to find candidates
-- `enrichment.py` uses `get_subject` for metadata (cover, rating, platform, eps_count)
+- `workers/catalog/src/ingest/sources.ts` uses `get_subject` (`GET /v0/subjects/{id}`) for metadata (cover, rating, platform, eps_count)
 - `platform` stored in `bangumi.platform` DB column
 - Subject IDs are shared with Anitabi (same ID system)

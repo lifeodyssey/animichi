@@ -5,7 +5,7 @@ import type { ByokCredentialParts } from "../src/agent/byok/byok-credential.ts";
 import { byokCredentialIn } from "../src/agent/byok/byok-headers.ts";
 
 // W2-3 (#1289) — the probe's failure taxonomy, ported from
-// `apps/agent/src/animichi/agents/byok_probe.py` +
+// `animichi/agents/byok_probe.py` +
 // `interfaces/services/byok_probe.py`. It is deliberately COARSE: only the two
 // auth statuses and the two "the model refused the image" statuses are told
 // apart, because a finer answer turns the probe into a reachability oracle for

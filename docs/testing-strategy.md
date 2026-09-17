@@ -3,24 +3,22 @@
 Date: 2026-07-18
 Status: CURRENT
 Repo: lifeodyssey/animichi
-Stack: FastAPI + asyncpg + PydanticAI (`apps/agent`), TanStack Start + React (`apps/web`), Cloudflare Workers (`workers/edge` · `catalog` · `users` · `maintenance`)
+Stack: TanStack Start + React (`apps/web`), Cloudflare Workers (`workers/edge` with the native Pi agent tier · `catalog` · `users` · `maintenance`)
 
 ## Table of Contents
 
 1. [Test Pyramid](#test-pyramid)
-2. [Backend Testing](#backend-testing)
-3. [Frontend Testing](#frontend-testing)
-4. [Eval Layers](#eval-layers)
-5. [Mock Strategy](#mock-strategy)
-6. [Database Testing & SQL Review](#database-testing--sql-review)
-7. [Third-Party API Testing](#third-party-api-testing)
-8. [E2E Testing](#e2e-testing)
-9. [Coverage Targets & CI](#coverage-targets--ci)
-10. [Eval Resilience & Deploy Impact](#eval-resilience--deploy-impact)
-11. [Code Standards (Embed in Prompt)](#code-standards-embed-in-prompt)
-12. [Reviewer Checklist](#reviewer-checklist)
-13. [Toolchain](#toolchain)
-14. [References](#references)
+2. [Frontend Testing](#frontend-testing)
+3. [Eval Layers](#eval-layers)
+4. [Mock Strategy](#mock-strategy)
+5. [Database Testing & SQL Review](#database-testing--sql-review)
+6. [E2E Testing](#e2e-testing)
+7. [Coverage Targets & CI](#coverage-targets--ci)
+8. [Eval Resilience & Deploy Impact](#eval-resilience--deploy-impact)
+9. [Code Standards (Embed in Prompt)](#code-standards-embed-in-prompt)
+10. [Reviewer Checklist](#reviewer-checklist)
+11. [Toolchain](#toolchain)
+12. [References](#references)
 
 ---
 
@@ -38,10 +36,10 @@ Stack: FastAPI + asyncpg + PydanticAI (`apps/agent`), TanStack Start + React (`a
                     │  Layer 2    │   Agent tool selection / output
                     ├─────────────┤
                     │  📊 Eval    │ ← Deterministic, no LLM, seconds
-                    │  Layer 1    │   ModelRetry guards / output_validator
+                    │  Layer 1    │   Tool guards / answer validation
                     ├─────────────┤
                     │  🔌 API     │ ← Full HTTP + real DB
-                    │  Tests      │   FastAPI TestClient + testcontainers
+                    │  Tests      │   Worker HTTP + test-postgres
                     ├─────────────┤
                     │  🔗 Integ.  │ ← Component interaction
                     │  Tests      │   DB + API contract + SSE contract
@@ -52,179 +50,6 @@ Stack: FastAPI + asyncpg + PydanticAI (`apps/agent`), TanStack Start + React (`a
 ```
 
 **Principle: more tests at the bottom, fewer at the top. Unit tests in seconds, E2E in minutes.**
-
----
-
-## Backend Testing
-
-### Unit Tests
-
-**What to test:** Single function/class input→output mapping, boundary values, null, error paths.
-
-**Scope:**
-- Tool handlers in `pilgrimage_tools.py` (resolve_anime, search_bangumi, plan_route, etc.)
-- ModelRetry guards on tool parameters
-- Type guards (isSearchData, isRouteData, etc.)
-- AgentResult / StepRecord construction
-- Route optimizer algorithm
-- Response builder (`agent_result_to_response`)
-- Models / schema serialization
-- Session facade
-
-**Mock strategy:**
-- DB → `AsyncMock` (mock the SQLModel persistence repos)
-- External API gateway → `MagicMock`
-- LLM → `TestModel` / `FunctionModel` via `Agent.override`
-- Settings → `mock_settings` fixture
-
-**Pydantic AI Agent testing (key update):**
-
-Use Pydantic AI's official `TestModel` and `Agent.override` instead of manual mocks:
-
-```python
-from pydantic_ai.models.test import TestModel
-from pydantic_ai import models
-
-# Global safety net: prevent accidental real LLM calls
-models.ALLOW_MODEL_REQUESTS = False
-
-async def test_agent_produces_valid_output():
-    """TestModel auto-generates valid data matching the output_type JSON schema."""
-    with pilgrimage_agent.override(model=TestModel()):
-        result = await pilgrimage_agent.run("響け！ユーフォニアムの聖地")
-        assert result.output is not None
-```
-
-For precise control over tool call logic, use `FunctionModel`:
-
-```python
-from pydantic_ai.models.function import FunctionModel, AgentInfo
-
-def mock_agent(messages: list, info: AgentInfo) -> ModelResponse:
-    """Custom agent: first call resolve_anime, second call done."""
-    if len(messages) == 1:
-        return ModelResponse(parts=[
-            ToolCallPart("resolve_anime", {"title": "響け！ユーフォニアム"})
-        ])
-    return ModelResponse(parts=[TextPart("Search complete")])
-
-async def test_agent_calls_resolve_first():
-    with pilgrimage_agent.override(model=FunctionModel(mock_agent)):
-        with capture_run_messages() as messages:
-            result = await pilgrimage_agent.run("ユーフォの聖地")
-        assert messages[1].parts[0].tool_name == "resolve_anime"
-```
-
-**Fixture standards — use `factory-boy` instead of scattered `_canned_*` helpers:**
-
-```python
-# backend/tests/factories.py
-import factory
-from backend.agents.agent_result import AgentResult, StepRecord
-
-class StepRecordFactory(factory.Factory):
-    class Meta:
-        model = StepRecord
-    tool = "search_bangumi"
-    params = factory.LazyAttribute(lambda o: {"bangumi_id": "12345"})
-    result = factory.LazyAttribute(lambda o: {"rows": [], "row_count": 0})
-
-class AgentResultFactory(factory.Factory):
-    class Meta:
-        model = AgentResult
-    output = factory.LazyAttribute(lambda o: {"message": "test"})
-    steps = factory.LazyFunction(lambda: [StepRecordFactory()])
-    tool_state = factory.LazyFunction(dict)
-```
-
-### Integration Tests
-
-**What to test:** Component interaction, boundary crossing (DB, HTTP, SSE).
-
-**Scope:**
-- DB CRUD (retriever queries, write-through, session persistence)
-- API contract (HTTP status codes, response shape, header validation)
-- SSE contract (event order: planning → step* → done, payload format)
-- Auth middleware (X-User-Id header injection, API key validation)
-
-**Mock strategy:**
-- DB → **real Postgres selected by the three-arm fixture** (not mocked)
-- LLM → `TestModel` or `FunctionModel` via `Agent.override`
-- External API → `respx` HTTP-level mock
-- RuntimeAPI → partially mocked (contract tests verify shape only)
-
-### Agent database arms
-
-`src/animichi/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
-local run into the live arm.
-
-| `TEST_DATABASE_URL` | `TEST_DB` | Result |
-|---|---|---|
-| set | set | Hard error: conflicting selectors |
-| set | unset | BYO database; read-verified, then mutation-gated |
-| unset | `docker` | Offline derived-image arm |
-| unset | `neon` | Neon arm; requires `NEON_API_KEY` + `NEON_PROJECT_ID` |
-| unset | unset | Offline derived-image default |
-| unset | anything else | Hard error: unknown arm |
-
-The priority is therefore `TEST_DATABASE_URL` > explicit `TEST_DB=docker|neon` > offline default.
-All container arms apply `migrations/neon/` with the pinned Atlas CLI, reapply the idempotent seed,
-and run the same pgvector/HNSW contract. Since the test-infra retirement (#1053), `TEST_DB=neon`
-is a **local-only** path (personal key): CI's DB-backed integration lane runs the offline Docker arm
-in the single CI workflow's affected-agent lane and references neither the live Neon arm nor a Neon credential. A BYO
-database is not writable until `TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the
-protected-lineage check.
-
-Offline recipe (network-free after the immutable image and Atlas are cached):
-
-```bash
-docker build -f packages/test-postgres/Dockerfile \
-  -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
-ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
-```
-
-Budget about **30–45 seconds** for the cached offline arm and **6–7 minutes** for a live Neon arm
-(manual local runs only since #1053; CI uses the Docker arm). The offline image build itself needs
-network once; the Neon arm always needs network and consumes a temporary branch. See
-`docs/ops/neon-test-infra.md` for operator details.
-
-`supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
-login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, **fail-closed** — #1690 removed the
-self-skip that made every run green while asserting nothing; without the QA identity its lane fails
-and names the variables), and `make e2e-setup`
-installs deps only. Its lane is local (`pnpm --filter animichi-e2e run test:login`): no pull-request
-job holds a credential, so the browser job reports the proof as `NOT RUN` instead of implying it.
-The agent backend's local Postgres in `make dev-local` comes from Neon Local
-(`make dev-db`); `supabase/` is **archived history** (issue #1000), so `supabase start` is no longer used
-as the backend database or for migration tooling. **`supabase start` is an auth appliance, not a test database.**
-
-**FastAPI Dependency Override (official pattern):**
-
-```python
-def test_runtime_endpoint():
-    app = create_fastapi_app(settings=mock_settings)
-    app.dependency_overrides[get_runtime_api] = lambda: mock_handle
-    client = TestClient(app)
-    response = client.post("/v1/runtime", json={"text": "test", "locale": "ja"},
-                           headers={"X-User-Id": "test-user"})
-    assert response.status_code == 200
-    app.dependency_overrides.clear()
-```
-
-### API Tests (new layer)
-
-**What to test:** Full HTTP request path including auth, session management, data persistence.
-
-**Difference from integration tests:**
-- Integration tests mock `RuntimeAPI.handle` — only verify HTTP shape
-- API tests **do NOT mock RuntimeAPI** — but mock LLM via TestModel
-- API tests verify: request → middleware → RuntimeAPI → pipeline (TestModel) → DB write → response
-
-**Scope:**
-- POST /v1/runtime — with real DB, verify session creation and message persistence
-- POST /v1/runtime/stream — SSE event stream completeness
-- GET /v1/conversations — session list correctness
-- Auth header validation — missing header → 400, bad token → 401
 
 ---
 
@@ -355,30 +180,10 @@ Reference: [Anthropic — Demystifying Evals for AI Agents](https://www.anthropi
 **pass@k:** Probability of at least one success in k attempts. Use for "just needs to work once."
 **pass^k:** Probability that ALL k trials succeed. Use for user-facing reliability.
 
-### Eval execution architecture (two tiers)
+### Eval execution
 
-Tier 1 trajectory is the default `make test-eval` path. It runs the real LLM
-against `MockCatalogClient` and `NullDatabase`, so the tool side is
-deterministic and there are zero DB, Docker, or real catalog dependencies. The
-same command runs locally and in CI.
-
-Tier 2 fullstack is opt-in via `make test-eval-fullstack`. It sets
-`EVAL_FULLSTACK=1` and defaults `EVAL_MAX_CASES` to 50 for a thin run against a
-disposable `TEST_DATABASE_URL` plus the real catalog client. The standalone
-runner does not own container lifecycle and rejects `TEST_DB`. It is not a PR
-gate; use it for nightly or pre-release integration confidence.
-
-No-retry-until-green: eval tasks run once. `retry_task` and
-`EVAL_TASK_RETRIES` are not part of the eval contract; task errors are counted
-in `errored_count`, and a run fails when more than 20% of cases error.
-
-Regression gating uses `src/animichi/tests/eval/gate.py`: schema-v2 per-case baselines
-and a paired-bootstrap 95% confidence interval. Capped runs are report-only and
-never read, write, or enforce baselines.
-
-Baselines are per layer and model. Trajectory writes `agent_trajectory_*`;
-fullstack writes `agent_*`. These tiers are not score-comparable because their
-dependencies and failure modes differ.
+The native eval surface is `packages/eval` (`packages/eval/NATIVE.md`); no model-backed eval runs
+in CI.
 
 ### Eval-Driven Development (TDD for LLMs)
 
@@ -390,28 +195,7 @@ dependencies and failure modes differ.
 
 ## Mock Strategy
 
-| Dependency | Unit | Integration | API Test | Eval | E2E (Browser) |
-|-----------|------|-------------|----------|------|---------------|
-| **DB (asyncpg)** | `AsyncMock` | Three-arm real DB fixture | Three-arm real DB fixture | NullDatabase default; BYO fullstack | Real DB |
-| **LLM (Pydantic AI)** | `TestModel` / N/A | `TestModel` | `TestModel` | **Real LLM** | Real LLM |
-| **Bangumi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
-| **Anitabi API** | `MagicMock` | `respx` | `respx` | Behind catalog tier; not direct | Real API |
-| **Frontend API** | — | — | — | — | No mock |
-| **Auth / Session** | `mock_settings` | `X-User-Id` header | `X-User-Id` header | `.env.test` | Real login |
-
 **Core principle: Mock at boundaries, never mock the system under test.**
-
-### Mock Tool Selection
-
-| Scenario | Tool | Reason |
-|----------|------|--------|
-| DB async methods | `unittest.mock.AsyncMock` | Native async support |
-| Pydantic AI Agent | `TestModel` + `Agent.override` | Official, auto-generates schema-valid data |
-| Custom agent behavior | `FunctionModel` | Precise control over tool call logic |
-| HTTP external API | `respx` | httpx-native, 3-6x faster than MagicMock, validates request format |
-| HTTP API recording | `pytest-recording` (VCR) | Record real responses, replay without network |
-| Frontend API | `msw` (Mock Service Worker) | Network-layer intercept, doesn't skip fetch logic |
-| Test data construction | `factory-boy` | Replaces `_canned_*` helpers, composable, overridable |
 
 ---
 
@@ -437,55 +221,19 @@ Reviewer must check all SQL for:
 
 ---
 
-## Third-Party API Testing
-
-### respx Usage
-
-```python
-import respx
-from httpx import Response
-
-@respx.mock
-async def test_bangumi_search():
-    respx.get("https://api.bgm.tv/search/subject/ユーフォ").mock(
-        return_value=Response(200, json={"list": [{"id": 253, "name_cn": "吹响！上低音号"}]})
-    )
-    client = BangumiClientGateway()
-    result = await client.search_by_title("ユーフォ")
-    assert result == "253"
-
-async def test_bangumi_api_timeout():
-    async with respx.mock:
-        respx.get("https://api.bgm.tv/search/subject/test").mock(
-            side_effect=httpx.TimeoutException("Timeout")
-        )
-        result = await gateway.search_by_title("test")
-        assert result is None
-```
-
-**Required test scenarios:** success (200 + valid JSON), empty response (200 + empty list), error responses (404, 500), timeout, rate limiting (429 + Retry-After), malformed JSON.
-
-### VCR Recording (for Eval)
-
-```python
-@pytest.mark.vcr(record_mode="once")
-async def test_bangumi_real_response():
-    client = BangumiClientGateway()
-    result = await client.search_by_title("響け！ユーフォニアム")
-    assert result is not None
-```
-
-Weekly CI run without cassettes verifies APIs haven't changed.
-
----
-
 ## E2E Testing
 
 **Executed by Evaluator. Evaluator has no code access — only operates the live app.**
 
 ### Test Environment
 
-- Agent: `localhost:8080` (the local FastAPI service; choose its DB arm separately)
+`supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
+login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, **fail-closed** — #1690 removed the
+self-skip that made every run green while asserting nothing; without the QA identity its lane fails
+and names the variables), and `make e2e-setup`
+installs deps only. Its lane is local (`pnpm --filter animichi-e2e run test:login`): no pull-request
+job holds a credential, so the browser job reports the proof as `NOT RUN` instead of implying it.
+
 - Web: `apps/web` Vite dev / Wrangler preview (default `E2E_WEB_BASE_URL=http://localhost:3000`)
 - Auth: **Neon Auth (Better Auth)** — live login E2E signs in against the real Neon origin
   (AUTH-2 #950); Supabase GoTrue + `send-auth-email` + Mailpit are retired
@@ -587,19 +335,17 @@ Contract (inputs/outputs):
 
 ### Enforced coverage floors
 
-The configuration files are authoritative. This table mirrors their live numeric values so the
-documentation guard can detect drift; change a floor in its config and this table in the same
-commit.
+The configuration files are authoritative. This table mirrors their live numeric values; change a
+floor in its config and this table in the same commit.
 
 | Metric | Configured floor (%) | Source of truth |
 |--------|----------------------|-----------------|
-| Backend total | `87` | `apps/agent/pyproject.toml`, `[tool.pytest.ini_options] addopts` → `--cov-fail-under` |
 | Frontend statements | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.statements` |
 | Frontend branches | `95` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.branches` |
 | Frontend functions | `98` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.functions` |
 | Frontend lines | `99` | `apps/web/vitest.config.ts`, `test.coverage.thresholds.lines` |
 
-Backend exclusions and reporting rules remain in `apps/agent/pyproject.toml`. Frontend inclusion,
+Frontend inclusion,
 exclusion, reporter, and ratchet details remain in `apps/web/vitest.config.ts`; this document does
 not define a second coverage policy.
 
@@ -609,7 +355,7 @@ not define a second coverage policy.
 affected set is pnpm's: `pnpm ls -r --depth -1 --json --filter "...[<merge-base>]"` selects every
 workspace project whose files changed plus every dependent, and each selected package runs its own
 `lint` / `typecheck` / `test` / `test:integration`. The paths outside the package graph
-(`apps/agent`, `migrations/neon`, `e2e`, the root dependency files) are routed by
+(`apps/web`, `migrations/neon`, `e2e`, the root dependency files) are routed by
 `dorny/paths-filter` into dedicated jobs, and a root dependency change means every package.
 `PR Verification` blocks merge unless every lane succeeds; the direct `Security` context separately
 fail-closes the six always-on security jobs.
@@ -617,8 +363,7 @@ fail-closes the six always-on security jobs.
 **No pull request runs a model-backed eval.** The `CI / agent eval (L0 smoke)` lane — 80 capped
 trajectories against MiMo through `https://opencode.ai/zen/go/v1` — was deleted with the
 affected-matrix rewrite, so no pull-request or merge-queue job holds a provider credential of any
-kind. `EVAL_SMOKE=1` is a local recipe now (`apps/agent/AGENTS.md`); the capped run was always
-report-only, and removing it changed no merge verdict.
+kind. The capped run was always report-only, and removing it changed no merge verdict.
 
 **No pull-request job holds any credential at all** — provider or otherwise. That is not an
 observation, it is a contract: `.github/test/workflow-credentials.test.rb` rejects a `secrets.*`
@@ -629,13 +374,11 @@ lane is a **local** lane (`pnpm --filter animichi-e2e run test:login`, credentia
 annotation rather than letting the summary imply coverage — the spec is fail-closed, so it can
 never skip its way to green, and it is never selected by a lane that cannot run it. Moving that
 proof into CI would mean a CD/staging lane that opens the QA identity from Pulumi ESC under an
-environment-bound OIDC identity (the `cd.yml` + `agent-eval-nightly.yml` pattern) — an owner
+environment-bound OIDC identity (the `cd.yml` pattern) — an owner
 decision, recorded in `docs/ops/auth-migration-neon.md` §7.2.
 
-The uncapped L1 trajectory suite is the only model-backed lane left. It runs nightly and on
-`workflow_dispatch` in `agent-eval-nightly.yml`, which spells its own steps out since the shared
-`.github/actions/agent-eval` composite was deleted (#1367) and opens `ZEN_GO_API_KEY` from Pulumi
-ESC with the job's own OIDC identity rather than reading a GitHub secret.
+No model-backed lane is left in CI: the nightly L1 trajectory workflow ran the Python agent's suite
+and was deleted with it (#1607).
 
 Deployment is not a CI job. A successful merge creates a `main` push; only then does
 `.github/workflows/cd.yml` build and promote the affected release cohort.
@@ -644,20 +387,11 @@ Deployment is not a CI job. A successful merge creates a `main` push; only then 
 
 ## Eval Resilience & Deploy Impact
 
-### Provider-backed trajectory lane
-
-The affected PR L0 lane and nightly L1 lane use the explicitly configured OpenCode zen/go model;
-they do not widen production fallback or secret handling. Provider or transport failures remain
-report evidence instead of a merge verdict. Deterministic trajectory assertions and component
-tests still fail their own blocking lanes normally.
-
 ### Per-Layer Deploy Impact
 
 | Eval Layer | On Failure | Reason |
 |------------|-----------|--------|
 | Layer 1 (deterministic) | **Block deploy** | Deterministic failure = actually broken |
-| Layer 2 (provider-backed L0 trajectory) | **Warning only** | Provider transport/availability must not make merge nondeterministic; the ~80-case report remains visible |
-| Layer 3 (nightly full trajectory) | **Warning only** | Statistical baseline and full-provider evidence live outside per-PR blocking CI |
 | E2E (browser) | **Block PR merge** | User-visible issues must be fixed |
 
 ---
@@ -665,27 +399,6 @@ tests still fail their own blocking lanes normally.
 ## Code Standards (Embed in Prompt)
 
 The following is embedded directly in Executor and Reviewer prompts. No runtime lookup needed.
-
-### Python / FastAPI
-
-- Routes via `APIRouter`, not directly on app
-- Dependency injection via `Depends()`, not in-function imports
-- Request/response bodies as Pydantic `BaseModel`, not dict
-- Exceptions via `HTTPException`, custom exceptions via `@app.exception_handler`
-- Async consistency: `await` inside → `async def`, otherwise → `def`
-- Settings via `pydantic-settings`, read from env vars
-- Test isolation via `app.dependency_overrides[dep] = mock_dep`
-
-### Pydantic AI Agent
-
-- Agent declares `output_type=` for structured output
-- `retries=` for retry (default 2)
-- `system_prompt` via `@agent.system_prompt` decorator or string
-- Tools via `@agent.tool`, return `str` or serializable type
-- `RunContext` for dependency injection, no globals
-- Test with `TestModel` + `Agent.override`, not `unittest.mock`
-- Assert agent-model exchange with `capture_run_messages()`
-- Global `models.ALLOW_MODEL_REQUESTS = False` prevents accidental real calls
 
 ### React / TanStack Start (`apps/web`)
 
@@ -696,21 +409,6 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 - CSS via Tailwind utility + `apps/web/src/styles/globals.css` design tokens
 - `useEffect` cleanup: return cleanup function to prevent memory leaks
 - Package conventions and coverage floors: `apps/web/AGENTS.md` + `apps/web/vitest.config.ts`
-
-### testcontainers
-
-- The session fixture selects BYO, explicit Docker/Neon, or the offline default once
-- Use `container.get_connection_url(driver=None)` so asyncpg receives a plain PostgreSQL URL
-- `yield` fixtures and the Neon API fallback both enforce lifecycle cleanup
-- Apply migrations only through pinned Atlas; never filter or split SQL in Python
-- Keep pgvector/HNSW coverage unconditional on both container arms
-
-### respx
-
-- Use `respx.mock` decorator or context manager
-- Test success + error + timeout paths
-- `url__startswith=` for base URL matching
-- Default `assert_all_called=True`: all defined mocks must be called
 
 ### MSW (Mock Service Worker)
 
@@ -725,12 +423,12 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 - **Early return** instead of nested if-else
 - **Self-documenting names**, zero comments (unless explaining "why")
 - **Declare variables near usage point**
-- **No `Any` type** (Python) — use `object` + `isinstance()` narrowing
+- **No `any` type** (TypeScript) — model the shape
 
 ### SOLID
 
 - **S** — Single Responsibility: one module, one reason to change
-- **O** — Open/Closed: new tool = new `@agent.tool` registration, don't modify agent core
+- **O** — Open/Closed: new tool = new tool registration, don't modify agent core
 - **L** — Liskov Substitution: subclasses don't break parent constraints
 - **I** — Interface Segregation: don't expose unused methods
 - **D** — Dependency Inversion: handlers depend on DB interface (async methods), not concrete implementation
@@ -751,14 +449,10 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 ### Mock Rules (by test layer)
 
 - Unit: mock all external dependencies (DB, API, LLM)
-- Integration: mock only LLM; DB uses the three-arm real fixture
+- Integration: mock only LLM; DB is real (`packages/test-postgres`)
 - API test: mock only LLM, real DB
-- Agent eval: trajectory uses NullDatabase + MockCatalogClient; fullstack uses BYO + real catalog
 - Frontend component: MSW mock API layer
 - E2E: **mock nothing**
-- Use `respx` for HTTP mocks, `AsyncMock` for async functions
-- Use `TestModel` + `Agent.override` for Pydantic AI Agent mocks
-- Use `factory-boy` for test data, not hand-written `_canned_*`
 
 ---
 
@@ -776,7 +470,7 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 - SOLID violation
 - Clean Code rule violation (method > 10 lines, deep nesting)
 - Missing corresponding test (Quality Ratchet: every AC must have a test)
-- Framework best practice violation (FastAPI, Pydantic AI, React)
+- Framework best practice violation (Workers, React)
 - Unclear naming
 
 **P2 — Suggested:**
@@ -802,20 +496,6 @@ For uncertain framework APIs or newly introduced libraries, Reviewer should use 
 
 ## Toolchain
 
-### Backend
-
-| Tool | Purpose | Status |
-|------|---------|--------|
-| `pytest` | Test framework | ✅ Installed |
-| `pytest-asyncio` | Async test support | ✅ Installed |
-| `httpx` | FastAPI TestClient | ✅ Installed |
-| `testcontainers[postgres]` | Real PG testing | ✅ Installed |
-| `pytest-cov` | Coverage reporting | ✅ Installed |
-| `pydantic-ai TestModel` | Agent mock | ⬆ Migrate from unittest.mock |
-| `respx` | httpx HTTP mock | 🆕 To install |
-| `factory-boy` | Test data factory | 🆕 To install |
-| `pytest-recording` (VCR) | API response recording | 🆕 Optional |
-
 ### Frontend
 
 | Tool | Purpose | Status |
@@ -827,34 +507,12 @@ For uncertain framework APIs or newly introduced libraries, Reviewer should use 
 | `msw` | API mock | 🆕 To install |
 | `jsdom` | Browser env simulation | 🆕 To install |
 
-### Make Commands
-
-```makefile
-# Existing
-test:                    # unit tests (seconds)
-test-integration:        # integration (minutes, needs Docker)
-test-eval:               # trajectory evals (needs LLM API, no Docker)
-test-eval-fullstack:     # thin fullstack eval (opt-in, not a PR gate)
-
-# New
-test-api:                # API contract tests with real DB (minutes)
-test-frontend:           # vitest (seconds)
-test-coverage:           # pytest-cov + vitest --coverage
-test-eval-component:     # Layer 1, deterministic, seconds
-test-all:                # unit + integration + api + frontend + eval-component
-```
-
 ---
 
 ## References
 
-- [FastAPI Testing](https://fastapi.tiangolo.com/tutorial/testing/)
-- [FastAPI Dependency Override](https://fastapi.tiangolo.com/advanced/testing-dependencies/)
-- [Pydantic AI Testing Guide](https://pydantic.dev/docs/ai/guides/testing/)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 - [MSW — Mock Service Worker](https://github.com/mswjs/msw)
-- [respx — Mock HTTPX](https://github.com/lundberg/respx)
-- [testcontainers Python](https://testcontainers.com/guides/getting-started-with-testcontainers-for-python/)
 - [Anthropic: Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
 - [Anthropic: Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps)
 - [pgTAP: PostgreSQL Unit Testing](https://pgtap.org/)

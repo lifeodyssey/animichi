@@ -26,7 +26,7 @@ export {
 
 /**
  * Chat swimlane helpers. Stream bodies are REAL recordings replayed from
- * `apps/agent/tests/fixtures/chat_stream/*.sse` (E1's captures) — handlers
+ * `packages/contract/fixtures/chat-stream/*.sse` (E1's captures) — handlers
  * never hand-write AI SDK frames.
  */
 

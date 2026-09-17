@@ -22,7 +22,6 @@ require_file docs/iterations/refactor-skeleton-2026-08/README.md
 for f in \
   workers/catalog/CONTEXT.md \
   workers/users/CONTEXT.md \
-  apps/agent/CONTEXT.md \
   workers/edge/CONTEXT.md \
   apps/web/CONTEXT.md \
   packages/contract/CONTEXT.md

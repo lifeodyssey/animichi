@@ -1,8 +1,7 @@
 # packages/contract — AGENTS.md
 
 Shared oRPC/Zod contract and single source of truth for catalog/users wire types. The catalog
-Worker and Python agent keep deliberate hand-mirrors where bundling or sentinel defaults require
-them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
+Worker keeps a deliberate hand-mirror where bundling requires it. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 
 ## Commands (from `packages/contract/`)
 
@@ -64,8 +63,7 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
 - `zod@4.4.3` and `@orpc/*@1.14.10` are one coupled exact-pin set across this package,
   `workers/catalog`, `workers/users`, and `apps/web`. Change them together.
-- Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle; Python models
-  remain hand-written because their sentinel defaults intentionally differ.
+- Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle.
 - Semantic contract freeze is the red line: do not change wire meaning without an approved story.
   Formatting churn is acceptable only when the OpenAPI drift check stays green.
 
@@ -124,9 +122,7 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 
 ## Pitfalls
 
-- Catalog errors move in three-mirror lockstep:
-  `src/errors.ts` ↔ `workers/catalog/src/lib/errors.ts` ↔
-  `apps/agent/src/animichi/clients/catalog_errors.py`.
-- Extend `workers/catalog/test/contract-parity.worker.test.ts` and the Python error tests with any
-  mirror change; do not rely on OpenAPI generation alone.
+- Catalog errors move in two-mirror lockstep:
+  `src/errors.ts` ↔ `workers/catalog/src/lib/errors.ts`.
+- Extend `workers/catalog/test/contract-parity.worker.test.ts` with any mirror change; do not rely on OpenAPI generation alone.
 - Do not introduce runtime value imports into the catalog's type mirror.

@@ -16,9 +16,9 @@ Test type: unit | integration | eval | browser | api
 
 ## Quality Gates
 
-- [ ] `make check` passes (lint + typecheck + test)
+- [ ] `pnpm -r lint`, `pnpm -r typecheck` and `pnpm -r test` pass for the packages this PR touches
 - [ ] Every AC row above has a test type and a test file present in this PR's diff
-- [ ] Coverage thresholds were NOT lowered (`apps/web/vitest.config.ts`, backend `pytest.ini`) — thresholds may only be ratcheted UP; if this PR raises coverage, floors are updated to the new value
+- [ ] Coverage thresholds were NOT lowered (`apps/web/vitest.config.ts`) — thresholds may only be ratcheted UP; if this PR raises coverage, floors are updated to the new value
 - [ ] No suppressions added (`@ts-ignore`, `type: ignore`, `noqa`, `pragma: no cover`, `continue-on-error`, `skip`, oxlint inline config) — if a rule fired, the code was fixed instead
 - [ ] No hardcoded secrets; design tokens used (no raw Tailwind palette colors)
 

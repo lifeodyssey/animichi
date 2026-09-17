@@ -4,7 +4,7 @@
 // matrix (`scripts/spike/pi-s5-egress.sh`) can assert *why* a destination was
 // refused, not merely that it was. Callers match on `.reason`, never on a
 // message string — the same contract `EgressBlockReason` keeps on the Python
-// side (`apps/agent/src/animichi/infrastructure/egress_errors.py`), which this
+// side (`animichi/infrastructure/egress_errors.py`), which this
 // module ports semantically for workerd.
 
 import type { ByokProvider } from "./provider-allowlist.ts";

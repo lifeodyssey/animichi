@@ -104,8 +104,8 @@ working, not a passing run.
 
 ## Corpus accounting (three separate claims)
 
-1. **Source preservation.** The eight canonical datasets in
-   `apps/agent/src/animichi/tests/eval/datasets/` hold 1,208 cases with 1,208
+1. **Source preservation.** The eight canonical datasets the retired Python
+   agent kept in `animichi/tests/eval/datasets/` hold 1,208 cases with 1,208
    distinct IDs (662 `agent_eval_v3` + 546 siblings); the frozen copy in
    `datasets/canonical/` is what `test/native-source-agent-eval-v3.test.ts`
    pins, including the 1:1 ID mapping of the 662 converted cases.

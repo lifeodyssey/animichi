@@ -5,7 +5,7 @@
  * with no home in the TS path. The route switch (#1256) is that home.
  *
  * Ported from Python's `anonymous_quota_verdict`
- * (`apps/agent/src/animichi/application/admission_limits.py`), keeping its
+ * (`animichi/application/admission_limits.py`), keeping its
  * semantics and not its shape:
  *  - `0` or unset DISABLES the ceiling, the same "0 disables" convention as the
  *    daily-dollar breaker beside it;

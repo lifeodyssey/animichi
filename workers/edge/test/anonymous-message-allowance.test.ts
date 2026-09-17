@@ -2,7 +2,7 @@
  * W1-7 (#1256): the anonymous daily-message CEILING, the half #1251 left
  * unowned. `quota-reservation.ts` reserves a message on the counter row; this
  * is the allowance that row may not exceed, ported from Python's
- * `anonymous_quota_verdict` (`apps/agent/src/animichi/application/admission_limits.py`):
+ * `anonymous_quota_verdict` (`animichi/application/admission_limits.py`):
  * `0`/unset disables the check entirely, and the rejection names the next UTC
  * midnight so a client can auto-unlock instead of guessing at "today".
  *

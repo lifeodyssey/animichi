@@ -45,7 +45,7 @@ through the managed plugin — it serialises over one app-server connection.
 
 ## Sandbox facts
 
-- No network: `git fetch/push`, `gh`, `pnpm install`, `uv sync` all hang or fail.
+- No network: `git fetch/push`, `gh`, `pnpm install` all hang or fail.
   Build the environment and verify every gate yourself BEFORE dispatching.
 - `gh` is unavailable → export PR/thread context to a file in the working directory.
 - Brief must include: "if anything is missing, STOP and report — do not install, do
@@ -63,9 +63,7 @@ Then run every gate yourself — a "gates pass" claim is not evidence.
 - Working directory, plus `pwd` / `git rev-parse --abbrev-ref HEAD` /
   `git rev-parse --short HEAD` echoed back in the report. Give the full SHA, never a
   truncated commit message — a truncated message is a trap you set for yourself.
-- Every gate command in full, with `uv run` / `pnpm run` prefixes, each one run by you
-  first. In this repo bare `uv run mypy` fails — the sanctioned invocation is
-  `make typecheck` (file list in `Makefile`).
+- Every gate command in full, with `pnpm run` prefixes, each one run by you first.
 - Baseline numbers measured in *this* directory, never copied from a sibling clone.
 - The house rules: no suppressions, 1-10-50, no `any`. State explicitly that a
   suggestion which can only be satisfied by silencing a rule is not to be actioned.

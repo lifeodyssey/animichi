@@ -34,9 +34,7 @@ Everything under `supabase/` predates that cutover:
 
 Per `docs/DOCS_POLICY.md`, historical records remain available as historical
 context (issue #1000 AC5). Keeping the original `supabase/` tree (rather than
-renaming or hard-deleting it) preserves that context and keeps a small number
-of committed tests that read specific historical migrations
-(`apps/agent/src/animichi/tests/unit/test_phase1c_route_persistence.py`) green.
+renaming or hard-deleting it) preserves that context.
 
 For the current live architecture, see `docs/ARCHITECTURE.md` (Neon Auth +
 Neon Postgres only).

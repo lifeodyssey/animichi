@@ -5,7 +5,6 @@
 **アニメ聖地の検索・ルート計画を支援する AI エージェント**
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml?query=branch%3Amain)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
@@ -25,16 +24,16 @@
 ## 仕組み
 
 ```
-ユーザー入力 → PydanticAI Agent（animichi_agent）
+ユーザー入力 → ネイティブ Pi エージェント（workers/edge/src/agent/）
                  ├── resolve_anime  → catalog Worker のタイトル解決; ミス時は Bangumi 取り込み
                  ├── search_bangumi → 解決済み bangumi_id の catalog ポイント
                  ├── search_nearby  → catalog 地理検索（Neon 上の PostGIS）
                  ├── plan_route     → catalog ルート並び替え
                  └── web_search / translate → 出典付き調査 / タイトル翻訳
-              → AgentResult（型付き出力 + ツール呼び出し記録）
+              → 回答 + ツール呼び出し記録
 ```
 
-単一の PydanticAI エージェントがプランニングとツール実行を担当します。ツールは `ModelRetry` ガードで無効なパラメータを拒否し、`output_validator` が捏造された応答を検出します。選択済みポイントのルートはエージェントを経由しません。
+単一のエージェントがプランニングとツール実行を担当します。選択済みポイントのルートはエージェントを経由しません。
 
 `resolve_anime` は自己進化型です。未知のタイトルを初めてクエリすると、Bangumi.tv からメタデータを取得してDBに保存し、以降のクエリはローカルDBから応答します。
 
@@ -51,18 +50,14 @@
 ## クイックスタート
 
 ```bash
-# Python 依存関係のインストール
-uv sync --extra dev
+# 依存関係のインストール
+pnpm install
 
-# ローカルでサービスを起動
-make serve
+# ローカルで Web アプリを起動
+make dev-local
 
-# テストの実行
-make test              # ユニットテスト
-make test-integration  # 安定版統合テスト
-make test-all          # ユニット + 統合
-make test-eval         # モデル依存の評価テスト（LLMアクセスが必要）
-make check             # lint + 型チェック + テスト
+# 全パッケージの lint・型チェック・テスト
+make check-full
 ```
 
 ## データベースマイグレーション
@@ -98,45 +93,21 @@ make db-push           # NEON_DATABASE_URL に適用
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-詳細は [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) と [`.env.example`](.env.example) を参照してください。
+既定値は [`.env.example`](.env.example) を参照してください。
 
 ## 使用例
 
-**Python（直接呼び出し）：**
-```python
-import os
-
-from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.persistence.database import create_database_lifecycle
-from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
-from animichi.clients.catalog_client import CatalogClient
-
-async def main() -> None:
-    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
-    # plus its async_sessionmaker, owned by DatabaseLifecycle.
-    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
-    try:
-        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
-        catalog = CatalogClient(base_url="https://catalog.example")
-        result = await run_animichi_agent(
-            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
-        )
-        print(result.output)
-    finally:
-        await lifecycle.close()
-```
-
 **HTTP（認証済み）：**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
+curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
   -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
-  -d '{"text":"吹響の聖地","locale":"ja"}'
+  -H 'x-locale: ja' \
+  -d '{"messages":[{"role":"user","parts":[{"type":"text","text":"吹響の聖地"}]}]}'
 ```
 
 ## リポジトリ構成マップ
 
-- `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
 - `workers/catalog/` — アニメカタログ API + データ基盤の Cloudflare Worker（TypeScript）
 - `workers/users/` — ユーザー領域データ Worker（`/v1/users/*`）
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
@@ -145,7 +116,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `migrations/neon/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — 旧版互換マイグレーションと Supabase プロジェクト資産（auth は Neon Auth へ移行済み、AUTH-2 #950）
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Makefile`、`package.json` — ルートに残すツール入口。`apps/agent/Dockerfile`（コンテナイメージ）と `workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
+- `Makefile`、`package.json` — ルートに残すツール入口。`workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
 
 ## ドキュメント
 

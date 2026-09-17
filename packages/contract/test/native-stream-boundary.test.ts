@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { renderInventory } from "../scripts/emit-agent-python.ts";
 import { SessionHistoryMessage } from "../src/session-history-contract.ts";
 import openapi from "../agent-openapi.json";
 
 describe("native stream ownership", () => {
-  it("publishes the edge stream without claiming a Python route implements it", () => {
+  it("publishes the edge stream as edge-owned", () => {
     expect(openapi.paths["/v1/conversations/{session_id}/stream"].get["x-runtime"]).toBe("edge");
-    expect(renderInventory().join("\n")).not.toContain("/v1/conversations/{session_id}/stream");
-    expect(renderInventory().join("\n")).toContain("/v1/conversations/{session_id}/messages");
   });
 
   it("retains native operation identity independently of text and creation time", () => {

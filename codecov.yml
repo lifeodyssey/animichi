@@ -1,10 +1,3 @@
-flag_management:
-  individual_flags:
-    - name: integration
-      carryforward: true
-    - name: unit
-      carryforward: true
-
 coverage:
   status:
     # Project status = global floor (informational; per-component floors are
@@ -17,15 +10,8 @@ coverage:
         informational: true
     # Patch status = the hard PR gate. Every PR must cover >= 95% of the lines
     # it changes. This catches dilution (large diff, few tests) that a global
-    # floor would otherwise mask. Backend keeps its own 80% global floor via
-    # pytest --cov-fail-under=80; this is additive, on changed lines only.
+    # floor would otherwise mask; this is additive, on changed lines only.
     patch:
       default:
         target: 95%
         threshold: 0%
-
-# Pure-protocol files carry no executable statements (ellipsis bodies); their
-# lines can never be covered, so they are excluded from the patch gate
-# (TURN-3 #951: turn_outcome_port.py is one such file).
-ignore:
-  - "apps/agent/src/animichi/application/turn_outcome_port.py"

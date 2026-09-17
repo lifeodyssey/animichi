@@ -12,7 +12,6 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Catalog** | [`workers/catalog/CONTEXT.md`](./workers/catalog/CONTEXT.md) | `workers/catalog` |
 | **Users** | [`workers/users/CONTEXT.md`](./workers/users/CONTEXT.md) | `workers/users` |
 | **Agent domain (TypeScript)** | [`packages/agent/CONTEXT.md`](./packages/agent/CONTEXT.md) | `packages/agent` (`@animichi/agent`), hosted by edge |
-| **Agent runtime (Python)** | [`apps/agent/CONTEXT.md`](./apps/agent/CONTEXT.md) | `apps/agent` (`@animichi/agent-python`), retained until W4 |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
 | **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon` (single authority, Atlas); `supabase/migrations/` is archived history (issue #1000) |
@@ -55,9 +54,8 @@ Greenfield (no dual wire names / table aliases):
 | --- | --- | --- |
 | `workers/catalog` | **Yes** (target) | Full CA: domain / application / adapters |
 | `packages/agent` | **Plain modules** | Platform-independent agent rules/data; no copied execution or storage engine |
-| `apps/agent` | **Yes** (target) | Domain free of FastAPI/PydanticAI runtime imports |
 | `workers/users` | **Shallow** | Pure rules + ports; no heavy DDD tree |
-| `workers/edge` | **No pilgrimage domain** | Gateway tier: never `src/domain/` for Point / Bangumi / Itinerary / SavedRoute. Its `src/agent/` tier does own the **agent-turn** model (Session, Run, run step, settlement) — ported from `apps/agent` per [`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §三, not a pilgrimage context |
+| `workers/edge` | **No pilgrimage domain** | Gateway tier: never `src/domain/` for Point / Bangumi / Itinerary / SavedRoute. Its `src/agent/` tier does own the **agent-turn** model (Session, Run, run step, settlement) — ported from the retired Python agent per [`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §三, not a pilgrimage context |
 | `apps/web` | **No** | UI — no `src/domain/` |
 | `infra` | **No** | Topology / Cloudflare only |
 | `packages/contract` | N/A | Published language, not a BC with domain/ |

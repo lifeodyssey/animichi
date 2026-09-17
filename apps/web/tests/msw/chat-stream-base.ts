@@ -22,8 +22,8 @@ export function recordingHead(name: ChatStreamFixture): string {
   return recorded.slice(0, finalFrameOffset(recorded));
 }
 
-/** Vitest runs with cwd = apps/web; the recordings live in the agent package. */
-const FIXTURE_DIR = join(process.cwd(), "..", "agent", "tests", "fixtures", "chat_stream");
+/** Vitest runs with cwd = apps/web; the recordings live in the contract package. */
+const FIXTURE_DIR = join(process.cwd(), "..", "..", "packages", "contract", "fixtures", "chat-stream");
 
 export type ChatStreamFixture = "search" | "clarify" | "error";
 

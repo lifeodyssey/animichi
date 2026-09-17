@@ -1,5 +1,5 @@
 {
-  "generatedBy": "apps/agent/src/animichi/tests/eval/evaluator_oracle.py",
+  "generatedBy": "animichi/tests/eval/evaluator_oracle.py",
   "evaluatorVersion": "official-v2",
   "metricNames": {
     "withNonemptyCases": [

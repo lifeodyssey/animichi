@@ -83,8 +83,8 @@ function sameSign(low: number, next: number): boolean {
  * `9.499999999999998` on 3.11 and `9.5` on 3.12+ — a difference that reaches
  * the fourth decimal of a printed failure message and thus the gate's output.
  *
- * `apps/agent` ships on `python:3.11.13-slim` and its CI lane pins `uv python
- * install 3.11`, so 3.11 is the behaviour the port owes parity to. The oracle
+ * The Python agent shipped on `python:3.11.13-slim` and its CI lane pinned
+ * Python 3.11, so 3.11 is the behaviour the port owes parity to. The oracle
  * was generated under that same pin (`stats_oracle.py` refuses to run
  * otherwise) and is frozen now (#1603): a Python 3.12+ re-export would move
  * these bytes, and this function is what has to change with it.

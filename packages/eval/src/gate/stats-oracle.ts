@@ -8,9 +8,9 @@ import type { Comparison, Interval } from './paired-bootstrap.ts';
 /**
  * The Python side's own answers, for the TS port to be measured against.
  *
- * Written by `apps/agent/src/animichi/tests/eval/stats_oracle.py` — running
+ * Written by `animichi/tests/eval/stats_oracle.py` — running
  * `stats.py` and `gate.py` themselves — and frozen when the package stopped
- * reaching into `apps/agent` (#1603): there is no exporter and no drift gate
+ * reaching into the Python agent (#1603): there is no exporter and no drift gate
  * any more, so these bytes are the only witness. Keys stay snake_case because
  * Python wrote them; only the accessor types here are camelCase, the same split
  * the dataset round trip settled on.

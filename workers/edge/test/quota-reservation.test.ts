@@ -1,8 +1,7 @@
 /**
  * W1-2 (#1251): which turns charge the per-identity daily message quota, and
  * which counter row they charge. Ported from the Python intake's
- * `anon_quota_eligible` + `utc_today` (apps/agent
- * `application/admission_limits.py`), so the cases mirror that module's own:
+ * `anon_quota_eligible` + `utc_today` (`application/admission_limits.py`), so the cases mirror that module's own:
  * identity shape decides eligibility, and the day is the UTC calendar day the
  * `anon_daily_message_count` primary key is made of.
  *

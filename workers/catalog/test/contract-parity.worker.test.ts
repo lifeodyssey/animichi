@@ -10,9 +10,10 @@
  *   - This parity test uses only `import type`; the router intentionally imports
  *     the contract value so Zod validates untrusted input at the boundary.
  *   - SearchResult lives in contract.ts (not models.ts) — imported separately below.
- *   - Python mirrors (agent/clients/catalog_client.py) intentionally diverge via
- *     sentinel defaults (episode=-1, name_cn="", distance_m=-1.0). Do NOT codegen
- *     Python models from this contract — keep them hand-written. See packages/contract/README.md.
+ *   - The retired Python mirror (agent/clients/catalog_client.py) diverged via
+ *     sentinel defaults (episode=-1, name_cn="", distance_m=-1.0); it is gone
+ *     with the Python agent (#1607) — do not reintroduce a Python consumer of
+ *     this contract.
  */
 
 import type {

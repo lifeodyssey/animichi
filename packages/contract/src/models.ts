@@ -1,9 +1,9 @@
 /**
  * Shared cross-service models as Zod schemas + inferred TS types.
  *
- * Single source of truth for the types exchanged between the Python Agent
- * service (client) and the TS Catalog service (server). Field names mirror the
- * existing Python shapes:
+ * Single source of truth for the types exchanged between the TS Catalog
+ * service (server) and its TS clients (the edge agent tier and apps/web).
+ * Field names were ported from the retired Python agent's shapes:
  *   - backend/agents/runtime_models.py  (PilgrimagePointModel, RouteModel)
  *   - backend/agents/models.py          (TimedStop, TransitLeg, TimedItinerary)
  */

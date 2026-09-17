@@ -3,7 +3,7 @@
 //
 // The Workers side has no equivalent of the Python request layer's header
 // redaction (`SENSITIVE_HEADERS` in
-// `apps/agent/src/animichi/interfaces/routes/_middleware.py`), because there is
+// `animichi/interfaces/routes/_middleware.py`), because there is
 // no middleware between an SDK error and `console.error`. So the scrub is an
 // explicit object a caller runs its text and payloads through *before* they
 // reach `console.*` or Logfire.

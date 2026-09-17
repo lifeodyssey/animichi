@@ -1,6 +1,6 @@
 /**
  * Current-turn reply-language policy — the port of
- * `apps/agent/src/animichi/utils/language.py`, which decides `LocaleMatch`.
+ * `animichi/utils/language.py`, which decides `LocaleMatch`.
  *
  * Runtime and evals share the same policy in Python; this file is the eval
  * side's copy. Iteration is by code point (`for…of`), not by UTF-16 unit, so

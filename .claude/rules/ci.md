@@ -10,10 +10,9 @@ paths:
 # GitHub Actions authoring rules
 
 The entry workflows are `pr-verification.yml` (`pull_request` + `merge_group` + `push: main`),
-`release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`),
-`verify-deploy-evidence.yml` (dispatch whose judging job only reads the deploy evidence, #1695) and
-`agent-eval-nightly.yml` (cron). Share genuinely identical step sequences
-with native composites backed by official actions. `.github/actions/setup-workspace/action.yml`
+`release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`) and
+`verify-deploy-evidence.yml` (dispatch whose judging job only reads the deploy evidence, #1695). Share
+genuinely identical step sequences with native composites backed by official actions. `.github/actions/setup-workspace/action.yml`
 owns Node/pnpm/cache/frozen install for six PR jobs; checkout and lane-specific tools stay in callers.
 The plan reads manifests without installing or caching. Route action changes alongside workflow changes.
 Use GitHub's `$/` self-repository reference for committed local actions, resolved from the workflow
@@ -25,7 +24,7 @@ revision rather than mutable checkout state.
   claims and concurrency proof; this setup extraction changes neither CD identities nor locks.
 - **`pr-verification.yml` is lanes behind two required contexts.** `plan` selects the affected
   workspace packages with pnpm's dependent-closure filter. `affected` runs their package scripts;
-  dedicated jobs own contracts, docs, Python, browser, schema and commits. `security` and `aggregate`
+  dedicated jobs own contracts, docs, browser, schema and commits. `security` and `aggregate`
   run `always()` and fail on failed or cancelled dependencies. Add new required lanes to their `needs`.
 - **`push: main` is the merged-commit lane, and it is a selection, not the PR matrix** (#1715).
   `merge_group` never fires here (no merge queue), so without it nothing runs against the commit a
@@ -34,7 +33,7 @@ revision rather than mutable checkout state.
   `main` tip — so this lane covers what can still diverge: owner-bypass merges and direct pushes,
   verdicts that change with time, and runs cut short. It therefore runs the whole-repository lanes
   (`contracts`, `docs`, the security jobs behind `Security`) *and* the lanes `plan` routes by the
-  merged diff (`affected`, `agent`, `e2e`, `db`) — `plan` computes that diff from
+  merged diff (`affected`, `e2e`, `db`) — `plan` computes that diff from
   `github.event.before..github.sha`. Only `commits` is gated off with
   `if: ${{ github.event_name != 'push' }}` — it has no subject on a merged commit (no PR title, a
   zero-commit range). `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,

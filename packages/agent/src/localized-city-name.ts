@@ -1,7 +1,7 @@
 /**
  * City names in the reader's own language.
  *
- * Port of `apps/agent/src/animichi/agents/geo_names.py` and its data file
+ * Port of `animichi/agents/geo_names.py` and its data file
  * (`agents/data/city_names_jp.json`, 662 of the 747 Japanese cities the
  * reverse-geocoder emits, generated from GeoNames JP + alternateNames — copied
  * verbatim, not regenerated). The reverse geocoder names cities in English;

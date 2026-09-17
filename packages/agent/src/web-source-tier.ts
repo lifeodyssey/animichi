@@ -1,7 +1,7 @@
 /**
  * Which web sources are reputable, as a label on an untrusted block.
  *
- * Port of `apps/agent/src/animichi/agents/source_tiering.py` (SD-19 P1). The
+ * Port of `animichi/agents/source_tiering.py` (SD-19 P1). The
  * tier is a REPUTATION label and nothing more: a `verified` result is delimited
  * exactly like an unverified one and stays external data. Tiering never
  * upgrades trust — it only tells the model which source to prefer when two

@@ -4,7 +4,7 @@
  * and fails loudly on an unregistered name, so this list is the single place
  * the TS side declares what the Python export is allowed to contain.
  *
- * Python owners: `apps/agent/src/animichi/tests/eval/official_evaluators.py`
+ * Python owners: `animichi/tests/eval/official_evaluators.py`
  * (the four official agentic adapters) and `evaluators.py` (the four
  * project-specific metrics). W3-3 implements them against these same names.
  */

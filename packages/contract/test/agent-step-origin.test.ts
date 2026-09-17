@@ -3,7 +3,7 @@
  *
  * The property the whole decision rests on is that it is ADDITIVE. Every frame
  * recorded before this member existed — the captures under
- * `apps/agent/tests/fixtures/chat_stream/`, any deploy older than this card —
+ * `packages/contract/fixtures/chat-stream/`, any deploy older than this card —
  * must keep meaning exactly what it meant, or a reader on the old shape starts
  * calling model calls something else. So absence reads back as `model`, and only
  * the marker the edge writes reads back as `server`.

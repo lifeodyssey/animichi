@@ -1,85 +1,15 @@
 # Neon Test Infrastructure Runbook
 
-This runbook covers the agent's database-test arms, agent-only Neon Local development,
-`test-base` maintenance, branch quota, and cleanup. Since the Neon **test-infra retirement**
-(#1053) the DB-backed Python integration lane in CI is hermetic: it runs against the offline
-Docker arm (`TEST_DB=docker`), so no Neon credential is involved in CI. `test-base`&apos;s refresh
-workflow and script are retired — the branch itself remains in Neon as data and is refreshed
-manually with a personal `NEON_API_KEY`. The catalog and users Workers use a standing cloud dev
-branch through neon-http; they do not use the agent's local postgres-wire proxy.
+This runbook covers `test-base` maintenance, the Workers' dev branch, branch quota, and cleanup.
+No CI lane holds a Neon credential (#1053). The Python agent's pytest database arms (offline Docker,
+live Neon, BYO) and its Neon Local proxy (`make dev-db`) were deleted with the agent (#1607); the
+TypeScript suites boot their offline database through `packages/test-postgres`. `test-base`'s
+refresh workflow and script are retired — the branch itself remains in Neon as data and is refreshed
+manually with a personal `NEON_API_KEY`.
 
-## Test arm selection
+## Workers dev branch
 
-The pytest fixture selects exactly one arm per session:
-
-| Selector | Arm | Mutation and lifecycle |
-|---|---|---|
-| `TEST_DATABASE_URL` | BYO | No container; read-verify first, then mutation gate |
-| `TEST_DB=docker` | Offline | Testcontainers + cached derived PostGIS/pgvector image |
-| `TEST_DB=neon` | Neon | Neon Local creates a child of `test-base`; tests use its direct cloud DSN |
-| No selector | Offline default | Same as explicit `TEST_DB=docker` |
-
-`TEST_DATABASE_URL` and `TEST_DB` together are an error. `TEST_DB=neon` requires a
-**personal** `NEON_API_KEY` + `NEON_PROJECT_ID`; credentials alone do not opt into live testing.
-Since #1053 `TEST_DB=neon` is a **local-only** dev path — CI no longer references it. CI's
-DB-backed Python integration lane runs the offline Docker arm (`TEST_DB=docker`) hermetically
-in the single CI workflow's affected agent lane.
-
-```bash
-# One-time image build; this step needs network. The tag is declared once (for the
-# TypeScript fixtures and the Python agent fixture too), so source that declaration
-# instead of copying it: packages/test-postgres/postgres-image.env (#1326).
-. packages/test-postgres/postgres-image.env
-docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
-
-# Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.
-ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
-
-# Live Neon arm (local only, personal key; NOT a CI lane since #1053).
-# Typical: 6-7 minutes and one temporary branch.
-ATLAS_VERSION=0.30.0 TEST_DB=neon \
-  NEON_API_KEY="$NEON_API_KEY" NEON_PROJECT_ID="$NEON_PROJECT_ID" \
-  make test-integration
-```
-
-The offline arm does not cover neon-http behavior, and the Neon arm is not offline. Unit tests
-still make no database connection at all; the pre-push agent/db gates use the offline Docker arm
-(the tag declared in `packages/test-postgres/postgres-image.env`) and never the live Neon arm — see
-`docs/ops/local-gates.md` for the exact commands.
-
-## Agent-only Neon Local development
-
-`make dev-db` maps the Neon Local postgres-wire endpoint to `localhost:5432`. It passes
-`NEON_API_KEY` to Docker by environment name and never prints the secret. Branch selectors are
-IDs, not names.
-
-Choose one mode:
-
-- Ephemeral: export the API-verified ID of the exact `test-base` branch as
-  `NEON_TEST_BASE_BRANCH_ID`. Stopping the container deletes its child branch.
-- Persistent: export a standing developer branch ID as `NEON_DEV_BRANCH_ID`. The wrapper sets
-  `DELETE_BRANCH=false`, so stopping the container preserves that branch.
-
-```bash
-export NEON_API_KEY='<secret>'
-export NEON_PROJECT_ID='<project-id>'
-
-# Ephemeral child of test-base:
-export NEON_TEST_BASE_BRANCH_ID='<verified-test-base-branch-id>'
-unset NEON_DEV_BRANCH_ID
-make dev-db
-
-# Or persistent standing dev branch:
-export NEON_DEV_BRANCH_ID='<standing-dev-branch-id>'
-make dev-db
-```
-
-Point the Python backend at the static local DSN in another shell:
-
-```bash
-AGENT_SVC_DATABASE_URL='postgresql://neon:npg@localhost:5432/neondb?sslmode=require' make serve
-```
-
+The catalog and users Workers use a standing cloud dev branch through neon-http.
 For `wrangler dev`, create a standing branch once with
 `neonctl branches create --name dev/<name> --parent test-base`, then mint/find its real cloud DSN
 with `neonctl connection-string dev/<name>`. Put that secret in the Worker's ignored `.dev.vars`.
@@ -101,8 +31,9 @@ export NEON_API_KEY='<personal-secret>'
 export NEON_PROJECT_ID='<project-id>'
 ATLAS_VERSION=0.30.0 /tmp/neon-test-base.sh refresh test-base
 ```
-Refresh manually after a change to `migrations/neon/**`, `apps/agent/src/animichi/tests/fixtures/seed.sql`,
-or `workers/catalog/data/gazetteer_seed.sql`. Use `provision test-base` only for an owner-approved
+Refresh manually after a change to `migrations/neon/**` or `workers/catalog/data/gazetteer_seed.sql`.
+The fixture seed the retired script also reapplied lived in the Python agent's tree and left with it
+(#1607); recover it from the same pre-retirement commit when a refresh needs it. Use `provision test-base` only for an owner-approved
 deterministic rebuild; that mode drops and recreates the target database after the same identity
 rails pass. The branch itself stays in Neon (it is data), but nothing in CI references it.
 
@@ -120,32 +51,14 @@ Never reintroduce Python migration splitting, statement filtering, pgvector neut
 swallowed migration failures. Atlas owns ordering, checksums, transactions, and the revision
 ledger (`public.atlas_schema_revisions`).
 
-## BYO mutation gate
-
-Treat `TEST_DATABASE_URL` as a secret and log only its host. The default BYO preflight wakes the
-database, verifies Atlas revisions and capabilities, and then refuses before tests can write.
-
-Mutation requires both:
-
-```bash
-TEST_DATABASE_URL='<disposable-dsn>' TEST_DB_ALLOW_MUTATION=1 make test-integration
-```
-
-For Neon endpoints, the fixture also resolves the endpoint and branch through the Neon API. It
-rejects the project default, `main`, `staging`, `test-base`, and any `preview/*` branch or lineage,
-even when the mutation flag is set. Non-Neon BYO hosts still require the explicit flag.
-
 ## Quota and plan semantics
 
 Budget against 10 concurrent branches in this project:
 
 - Standing: `main` + `staging` + `test-base` + zero or one dev branch.
-- Ephemeral: one per local `TEST_DB=neon` run. CI no longer opens ephemeral Neon
-  branches for test lanes (the Python integration lane is hermetic Docker since
-  #1053).
+- Ephemeral: none. No CI lane (#1053) and no local test arm (#1607) opens a Neon branch.
 
-Two PRs + one local run + four standing branches is 7 (pathological); 4-6 is typical. Check the
-Neon Console before a live run. The Free plan has no paid-overage escape hatch, so treat its
+Check the Neon Console before creating a branch. The Free plan has no paid-overage escape hatch, so treat its
 included allowance as a hard operating cap. Launch includes 10 branches and bills
 extra concurrent branches by prorated branch-hours; current rates and allowances live on the
 [Neon pricing page](https://neon.com/pricing). Phase-0 account-level cap behavior remains an
@@ -173,8 +86,8 @@ again immediately before DELETE:
 curl -fsS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches?limit=10000" | jq -r --arg parent "$NEON_TEST_BASE_BRANCH_ID" '.branches[] | select(.parent_id == $parent and (.name | startswith("wt-test-"))) | [.id, .name] | @tsv' | while IFS="$(printf '\t')" read -r id name; do detail="$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$id")"; endpoints="$(curl -fsS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$id/endpoints")"; jq -e --arg id "$id" --arg name "$name" --arg parent "$NEON_TEST_BASE_BRANCH_ID" '.branch.id == $id and .branch.name == $name and .branch.parent_id == $parent and (.branch.name | startswith("wt-test-"))' <<<"$detail" >/dev/null && jq -e '.endpoints | all(.current_state == "idle")' <<<"$endpoints" >/dev/null && curl -fsS -X DELETE -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$id" >/dev/null; done
 ```
 
-This mirrors the parent/name ownership pattern in
-`apps/agent/src/animichi/tests/neon_api.py::delete_claimed_branch`: list-delta discovery is only a hint;
+This mirrors the parent/name ownership pattern of the retired Python fixture's
+`delete_claimed_branch`: list-delta discovery is only a hint;
 the deletion authority comes from the per-ID identity re-verification. Neon documents `parent_id`
 as the parent branch ID in its [branch API](https://api-docs.neon.tech/reference/listprojectbranches)
 and rejects deletion of branches that still have children.

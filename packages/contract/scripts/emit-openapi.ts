@@ -1,8 +1,8 @@
 /**
  * Emit an OpenAPI 3.1 JSON spec from the Catalog oRPC contract.
  *
- * Output: packages/contract/openapi.json
- * The Python client is generated / typed from this spec.
+ * Output: packages/contract/openapi.json — the published catalog spec,
+ * compat-gated by `vet:baseline` / `vet:openapi`.
  *
  * Run: npm run emit:openapi
  */
@@ -59,7 +59,7 @@ await emitOpenApi(catalogContract, "openapi.json", {
     title: "Animichi Catalog Service",
     version: "0.1.0",
     description:
-      "Read methods of the TS Catalog service, consumed by the Python Agent service.",
+      "Read methods of the TS Catalog service, consumed by the TS agent tier in the edge worker and by apps/web.",
   },
 });
 
@@ -82,9 +82,7 @@ await emitOpenApi(usersContract, "users-openapi.json", {
 });
 
 // The Agent boundary document: emitted from the AGENT_PATHS inventory
-// (CONTRACT-1 #938), the same inventory the edge route tables reference. The
-// Python-side parity check in apps/agent asserts these operations equal the
-// FastAPI router's mounted operations.
+// (CONTRACT-1 #938), the same inventory the edge route tables reference.
 function agentOperation(entry: AgentPath): WireOperation {
   return {
     summary: entry.summary,

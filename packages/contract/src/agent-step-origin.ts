@@ -14,7 +14,7 @@
  * the tool executed with (#1381). On a bypass those two can never agree: `{}`
  * against `{"candidate_ids": […]}`, forever. Python never had that problem
  * because its records carry `StepRecord.model_initiated` and its evaluator
- * filters on it (`apps/agent/src/animichi/tests/eval/official_evaluators.py:77-81`);
+ * filters on it (the retired Python agent's `official_evaluators.py`);
  * the frames carried no equivalent, so the metric read 0.0 on every successful
  * bypass turn for a reason that says nothing about the agent (#1462, found while
  * settling #1454).
@@ -28,7 +28,7 @@
  *
  * ABSENT MEANS `model`, and that is what makes this additive: every frame
  * recorded before this member existed — the captures under
- * `apps/agent/tests/fixtures/chat_stream/`, any deploy older than #1462 — keeps
+ * `packages/contract/fixtures/chat-stream/`, any deploy older than #1462 — keeps
  * describing exactly the turn it described, and a reader of those frames keeps
  * scoring what it scored.
  *

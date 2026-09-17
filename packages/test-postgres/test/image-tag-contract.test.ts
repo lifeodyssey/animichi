@@ -12,10 +12,7 @@
  * Two consumers are TypeScript and one is bash, so the single declaration is
  * `postgres-image.env` and each side reads it its own way. This test resolves
  * BOTH ways — it runs the shell read rather than reading the shell — and then
- * checks that no consumer kept a tag of its own to drift with. The Python
- * consumer (`apps/agent/src/animichi/tests/conftest_db.py`) reads the same file
- * and has its own contract:
- * `apps/agent/src/animichi/tests/unit/test_conftest_db_image_tag.py`.
+ * checks that no consumer kept a tag of its own to drift with.
  *
  * The fourth place the tag appears is the workflow step that BUILDS the image.
  * A `run:` can source the declaration, so that step keeps no copy either, and

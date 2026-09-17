@@ -8,7 +8,10 @@ set -euo pipefail
 unset "${!GIT_@}"
 cd "$(git rev-parse --show-toplevel)"
 
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
+# Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`)
+# name CI-side scanners with no local gate; `supabase/` is the archived
+# historical migration dir (#1000), not a live surface.
+NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
@@ -17,19 +20,18 @@ SPEC_REFERENCES='^scripts/local-gates/(check-spec-references(\.test)?\.sh|spec-r
 # nested ones a workspace package owns are covered, `migrations/AGENTS.md` is not.
 AGENT_CONTEXT='^(.*/)?(AGENTS|CLAUDE|CONTEXT)\.md$'
 # The routing table: one row per workspace package, `<directory> <bucket>...`.
-# `package` runs the package's own four scripts, `agent` runs `make check`. A
+# `package` runs the package's own four scripts. A
 # workspace package with no row stops the push here — a package that leaves the
 # table stops being gated while everything else stays green (#1687), so the
 # table's domain is pinned against `pnpm-workspace.yaml` by
 # `test/repo-config/pre-push-routing.test.rb`. Bucket rationale:
 # docs/ops/local-gates.md.
 ROUTES='
-apps/agent agent
 apps/web package
 e2e package
 infra package
 packages/agent package
-packages/contract package agent
+packages/contract package
 packages/eval package
 packages/pi-session-neon package
 packages/prisma-geography package
@@ -93,14 +95,16 @@ lint_pushed_commits || exit 1
 
 changed="$(git diff --name-only --no-renames "$base"...HEAD)"
 [ -n "$changed" ] || exit 0
+# A path the diff deletes has nothing left to gate; what remains is gated by the
+# surviving packages and the repo contracts, which already run.
+deleted="$(git diff --name-only --diff-filter=D --no-renames "$base"...HEAD)"
 
 deps=$(grep -cE "$ROOT_MANIFEST" <<<"$changed" || true)
 projects="$(pnpm ls -r --depth -1 --json | jq -r --arg root "$PWD/" '
   .[] | select(.name != "animichi-cloudflare-worker")
       | "\(.path | ltrimstr($root))/ \(.name)"')"
-# Selection by row: `package` runs the package's own scripts, `agent` fires
-# `make check` and reads as a flag in the status line, not a path count.
-packages=""; agent=0; covered="$NO_PACKAGE"
+# Selection by row: `package` runs the package's own scripts.
+packages=""; covered="$NO_PACKAGE"
 while read -r dir name; do
   [ -n "$dir" ] || continue  # an empty $projects still yields one blank line
   # pnpm prints the directory with a trailing slash; the table names it bare.
@@ -108,7 +112,6 @@ while read -r dir name; do
   [ -n "$buckets" ] || { printf 'pre-push: %s is a workspace package with no routing row\n' "${dir%/}" >&2; exit 1; }
   if grep -q "^$dir" <<<"$changed"; then
     covered="$covered|^$dir"
-    if has_bucket "$buckets" agent; then agent=1; fi
   fi
   if [ "$deps" != 0 ] || grep -q "^$dir" <<<"$changed"; then
     if has_bucket "$buckets" package; then packages="$packages $name"; fi
@@ -116,15 +119,20 @@ while read -r dir name; do
 done <<<"$projects"
 schema=$(grep -cE '^migrations/neon/' <<<"$changed" || true)
 docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES|$AGENT_CONTEXT" <<<"$changed" || true)
-printf 'pre-push: packages:%s | agent=%s schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$agent" "$schema" "$deps" "$docs"
+printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$schema" "$deps" "$docs"
 
-# Every changed path must be owned by a selected package, a bucket that fired or
-# the whitelist. Checked over the whole diff, so a mixed one cannot carry an
-# unowned path through on the strength of its other half.
+# Every surviving changed path must be owned by a selected package, a bucket
+# that fired or the whitelist. Checked over the whole diff, so a mixed one
+# cannot carry an unowned path through on the strength of its other half. A
+# deleted path is covered by definition — `pnpm ls` answers from the surviving
+# tree, so a deleted package could never cover its own deleted files (#1607) —
+# and is waived here only: above, deletions still select packages and buckets.
 [ "$deps" = 0 ] || covered="$covered|$ROOT_MANIFEST"
 [ "$schema" = 0 ] || covered="$covered|^migrations/neon/"
 [ "$docs" = 0 ] || covered="$covered|$AGENT_CONTEXT"
-loose="$(grep -vE "$covered" <<<"$changed" || true)"
+surviving="$changed"
+[ -z "$deleted" ] || surviving="$(grep -vxF -f <(printf '%s\n' "$deleted") <<<"$changed" || true)"
+loose="$(grep -vE "$covered" <<<"$surviving" || true)"
 [ -z "$loose" ] || { printf 'pre-push: no gate covers:\n%s\n' "$loose" >&2; exit 1; }
 closure="..."; [ "$deps" = 0 ] || closure=""  # every package is already selected
 for name in $packages; do
@@ -132,6 +140,5 @@ for name in $packages; do
     pnpm -r --workspace-concurrency=1 --filter "$closure$name" run --if-present "$script"
   done
 done
-[ "$agent" = 0 ] || make check
 [ "$schema" = 0 ] || atlas migrate validate --dir file://migrations/neon
 [ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done

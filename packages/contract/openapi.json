@@ -2,7 +2,7 @@
   "info": {
     "title": "Animichi Catalog Service",
     "version": "0.1.0",
-    "description": "Read methods of the TS Catalog service, consumed by the Python Agent service."
+    "description": "Read methods of the TS Catalog service, consumed by the TS agent tier in the edge worker and by apps/web."
   },
   "openapi": "3.1.1",
   "paths": {

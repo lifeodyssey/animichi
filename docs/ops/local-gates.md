@@ -38,8 +38,8 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre
 - `gitleaks` (secret scan)
 - `shellcheck --severity=warning` over **every** shell file in the repository
 - `actionlint` over `.github/workflows/*.{yml,yaml}`
-- `ruff --fix` + `ruff-format` over all repository Python
-- `semgrep` over the repository's own six ORM-boundary rules (`.semgrep/`)
+- `ruff --fix` + `ruff-format` over staged Python (`scripts/git-squash-daily.py`)
+- `semgrep` over the repository's own three ORM-boundary rules (`.semgrep/`)
 - `oxlint --type-aware --deny-warnings` for the staged workspace packages, dispatched by
   `scripts/local-gates/oxlint-changed.sh`
 
@@ -124,9 +124,8 @@ which is what keeps the refusal working under the wrapper too. For an ordinary p
 <directory> <bucket>...
 ```
 
-`package` is the package's own scripts below, `agent` is the `make check` bucket. The root project is
-dropped — it would match every file by directory containment — and `apps/agent` carries no `package`
-bucket because the Python lane is `make check`'s job. A package `pnpm ls` reports with no row stops
+`package` is the package's own scripts below. The root project is dropped — it would match every
+file by directory containment. A package `pnpm ls` reports with no row stops
 the push, naming itself, whatever the diff holds:
 
 ```text
@@ -172,14 +171,13 @@ wrong repository root and match no project. Upstream issue: <https://github.com/
 Handing selection to pnpm here would be fail-open — a silent no-op gate — which is why the join is
 done against `pnpm ls` output instead.
 
-### The four buckets
+### The three buckets
 
 A package's bucket membership is its routing-table row; the buckets below route paths outside every
 pnpm project, which would otherwise be invisible to the join:
 
 | Changed path | Bucket |
 |---|---|
-| `apps/agent/**` or `packages/contract/**` | `make check` — ruff + ruff-format + vulture, mypy, the unit suite under the canonical 87 floor (`apps/agent/pyproject.toml` `addopts`), and the offline Docker-arm integration suite. This is the one Docker use the hook itself makes. `packages/contract` is here because the agent consumes the contract and CI's `agent` job is routed the same way (#1323). |
 | `migrations/neon/**` | `atlas migrate validate --dir file://migrations/neon` — no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
 | `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. |
@@ -205,11 +203,15 @@ Paths that need no package gate, because another hook or a CI job already owns t
 
 ```text
 docs/**  .claude/**  .github/**  .semgrep*  scripts/**  test/repo-config/**
-root-level *.md  codecov.yml  .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
+root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
+.pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
 ```
 
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.
+`.codacy.yml` and `.sonarcloud.properties` configure CI-side analyzers with no local gate;
+`supabase/**` is the archived historical migration directory (#1000), not a live surface, so
+nothing in it is gated locally.
 
 **Every** changed path has to be owned by something: a package whose routing row fired, a bucket
 that actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The
@@ -218,6 +220,13 @@ touched `workers/catalog/src/` *and* added a stray top-level file would sail thr
 of its first half, which is exactly what it did until #1371's review caught it. A workspace package
 with no routing row fails before that check even runs, on its own line and whatever the diff holds,
 so coverage of the table cannot be mistaken for coverage of the paths.
+
+A path the diff **deletes** is covered by definition: there is nothing left to gate, and `pnpm ls`
+answers from the surviving tree, so a deleted package could never cover its own deleted files
+(#1607) — the approved Python-agent deletion pushed this rule into the open. The waiver applies to
+the ownership check only: deletions still select packages and count in the bucket tallies, so
+removing a file inside a surviving package still gates that package, and removing a docs file still
+fires the docs checks.
 
 A new top-level directory, a new tool config: both stop the push with their own names in the
 message rather than passing unexamined. The fix is to give the path a home — a package, a bucket,
@@ -239,13 +248,12 @@ The everything-run, for a large refactor or when a lockfile change makes "affect
 pnpm -r run --if-present lint | typecheck                 parallel
 pnpm -r --workspace-concurrency=1 run --if-present test | test:integration
 scripts/local-gates/db-fresh-schema.sh        disposable fresh-schema apply (Docker)
-make check                                    the Python agent's own gate
 ```
 
 The two suite segments run one package at a time on purpose. pnpm's default is one job per CPU, and
-several packages' suites claim a fixed resource — the agent's `test:integration` boots
-test-postgres, as does catalog's (its database suite is out of `test` since #1473 and runs in the
-`test:integration` segment above) — while the browser suite, which used to be the loudest one,
+several packages' suites claim a fixed resource — a package's `test:integration` can boot
+test-postgres, catalog's among them (its database suite is out of `test` since #1473 and runs in
+the `test:integration` segment above) — while the browser suite, which used to be the loudest one,
 now derives its port per checkout (#1692). In parallel they starve each other: nine browser specs
 failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its own (2026-09-08).
 
@@ -254,7 +262,7 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
 - **Playwright browser e2e** (`make e2e`, the `animichi-e2e` package) — CI's `e2e` job owns it.
 - **Live-Neon integration** (`TEST_DB=neon`) and BYO mutation databases — real data planes; a manual
   local option only, and not a CI lane either since #1053.
-- **Model-backed evals** (`make test-eval`) — paid, non-deterministic.
+- **Model-backed evals** (`packages/eval`) — paid, non-deterministic, and not run in CI either.
 - **Deploys and cloud commands** — `wrangler deploy`, mutating `pulumi`, codecov upload, `gh pr`.
 - **The repository tests** (`.github/test/*.test.rb` and `test/repo-config/*.test.rb`) and the gate scripts' own behavioral
   tests — CI runs them unconditionally, on every pull request, so pre-push does not need a copy:
@@ -266,11 +274,9 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
 ## Prerequisites
 
 An installed workspace (`pnpm install`) — the message check runs `pnpm exec commitlint` and every
-selected package's scripts need their dependencies — plus `git`, `pnpm`, `node` ≥ 24, `jq`, `uv`
-(agent bucket), `atlas` v0.30.0 (migrations bucket), `docker` with the offline
-`animichi-test-postgres` image (the agent bucket's integration arm; no package's `test` boots it any
-more, so the rest of pre-push is Docker-free), plus the pre-commit tools: `shellcheck`,
-`actionlint`, `semgrep` 1.172.0, `ruby` for the contracts.
+selected package's scripts need their dependencies — plus `git`, `pnpm`, `node` ≥ 24, `jq`,
+`atlas` v0.30.0 (migrations bucket), plus the pre-commit tools: `shellcheck`,
+`actionlint`, `uv` (it installs `semgrep` 1.172.0), `ruby` for the contracts.
 
 ## Failure handling
 

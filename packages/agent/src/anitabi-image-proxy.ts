@@ -1,7 +1,7 @@
 /**
  * Project Anitabi screenshot URLs onto the public edge image-proxy route.
  *
- * Port of `apps/agent/src/animichi/agents/handlers/image_url_rewrite.py`. Both
+ * Port of `animichi/agents/handlers/image_url_rewrite.py`. Both
  * schemes are matched by prefix on purpose: an `http://` URL used to pass a
  * naive substring test and ship mixed content to production.
  *

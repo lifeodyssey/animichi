@@ -2,7 +2,7 @@
   "name": "@animichi/contract",
   "version": "0.1.0",
   "private": true,
-  "description": "Typed oRPC contract between the Python Agent service (client) and the TS Catalog service (server). Single source of truth for cross-service types.",
+  "description": "Typed oRPC contract between the TS Catalog service (server) and its TS clients (the edge agent tier and apps/web). Single source of truth for cross-service types.",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -32,7 +32,6 @@
     "test": "vitest run && pnpm run vet:baseline && pnpm run test:openapi-drift",
     "test:openapi-drift": "pnpm run emit:openapi && bash ../../scripts/local-gates/contract-drift.sh",
     "emit:openapi": "node --import tsx scripts/emit-openapi.ts",
-    "emit:agent-python": "node --import tsx scripts/emit-agent-python.ts",
     "emit:tool-schemas": "node --import tsx scripts/emit-tool-schemas.ts",
     "vet:openapi": "node --import tsx scripts/vet-openapi.ts",
     "vet:baseline": "node --import tsx scripts/vet-openapi-baseline.ts"

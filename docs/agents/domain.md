@@ -21,7 +21,6 @@ Multi-context — one glossary per deployable / shared package:
 ├── CONTEXT-MAP.md                 ← index (always present after setup)
 ├── docs/adr/                      ← system-wide ADRs
 ├── docs/agents/                   ← skill config (this file, issue-tracker, labels)
-├── apps/agent/CONTEXT.md          ← lazy
 ├── apps/web/CONTEXT.md            ← lazy
 ├── workers/edge/CONTEXT.md        ← lazy (package guide may still be missing)
 ├── workers/catalog/CONTEXT.md     ← lazy

@@ -28,7 +28,7 @@ export const PYTHON_BASELINE_LAYER = 'agent_l4_trajectory';
  * It moved off `https://opencode.ai/zen/go/v1` on 2026-09-07 (#1303). That
  * gateway now answers 400 `MissingSessionID` — "Request is missing
  * x-opencode-session and cannot be routed efficiently" — to every request from
- * every key, and nothing in `apps/agent`'s model construction sends that
+ * every key, and nothing in the Python agent's model construction sends that
  * header, so no Python run can be made against it today. The direct endpoint
  * is the same `mimo-v2.5` and is what staging's own `DEFAULT_AGENT_MODEL`
  * names (`workers/edge/wrangler.toml`), so the record now shares an endpoint

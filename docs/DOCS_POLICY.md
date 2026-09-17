@@ -14,7 +14,6 @@ stable boundaries, current entry points, and active plans only.
 | `README.md` | Repo entry point and current usage |
 | `AGENTS.md` | Canonical root guide — identity, monorepo layout, cross-stack guardrails, tool routing |
 | `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
-| `apps/agent/AGENTS.md` | Python agent (PydanticAI / FastAPI) conventions |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Drizzle) conventions |
 | `packages/agent/AGENTS.md` | Platform-independent TypeScript agent domain library conventions |
@@ -38,7 +37,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | `docs/adr/` | Registered ADRs 0001–0008 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
-| `docs/archive/` | `specs/` · `plans/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
+| `docs/archive/` | `specs/` · `plans/` · `ops/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
 | `docs/design/` | Live design guidance (tokens, mascot, prompts) | Update in place |
 | `docs/api-reference/` · `docs/agents/` | External API refs · agent guides | Update in place |
 

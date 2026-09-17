@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
  * each side is actually installed, except pydantic-evals, which has no TS
  * manifest and whose version is the one the frozen oracle fixtures were
  * exported with. Since #1603 that declaration is the only copy in the tree:
- * the `apps/agent/uv.lock` read is gone and no code holds a second string.
+ * the Python agent's `uv.lock` read is gone and no code holds a second string.
  * Drift between the declared pair and the frozen bytes is an Eval Story, not a
  * silent upgrade — see the `comment` in `PINS.json`.
  */

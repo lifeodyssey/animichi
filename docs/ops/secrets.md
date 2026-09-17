@@ -6,8 +6,8 @@ went in with no record anywhere of what it does.
 
 Since #1367 no workflow reads a GitHub secret. The three GitHub secret stores — repository,
 `staging`, `production` — still hold their values: emptying them is the owner's last step in that
-card, tracked as #1081, taken only after one green staging deploy and one green nightly have run
-on the ESC path, so that a wrong ESC value is recoverable. Until then this file describes two homes
+card, tracked as #1081, taken only after one green staging deploy has run on the ESC path (the
+nightly eval that was the second witness was deleted with the Python agent, #1607), so that a wrong ESC value is recoverable. Until then this file describes two homes
 at once: the one every consumer reads from (below), and a GitHub copy nothing reads.
 
 Companion to [`deployment.md`](./deployment.md), which covers non-secret runtime config
@@ -47,7 +47,7 @@ credential live now:
 
 | Kind | Home | Reached by |
 |---|---|---|
-| CI-plane (`CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`, `ZEN_GO_API_KEY`) | Pulumi ESC, under `environmentVariables` in `lifeodyssey/animichi/staging` and `…/prod` | the job's own GitHub OIDC identity → `pulumi/auth-actions` → `pulumi/esc-action`. The job's `environment:` is what makes its OIDC subject one the Pulumi Cloud issuer policy accepts (`deployment.md`, "Pulumi state, encryption, and CI identity") |
+| CI-plane (`CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`) | Pulumi ESC, under `environmentVariables` in `lifeodyssey/animichi/staging` and `…/prod` | the job's own GitHub OIDC identity → `pulumi/auth-actions` → `pulumi/esc-action`. The job's `environment:` is what makes its OIDC subject one the Pulumi Cloud issuer policy accepts (`deployment.md`, "Pulumi state, encryption, and CI identity") |
 | Edge runtime (the active names in chain 1 below) | Target: Pulumi ESC `pulumiConfig` as `fn::secret` → Cloudflare Secrets Store; platform cutover requires the gates below | Pulumi, never CI. `pulumi/esc-action` exports `environmentVariables` and `files` only, so a value under `pulumiConfig` cannot reach a publishing job at all |
 | Staging Access (`CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`) | Pulumi ESC, under `environmentVariables` of the staging environment only — but nobody sets the value: the environment imports two stack outputs through its `pulumi-stacks` provider | `pulumi/esc-action` in `cd.yml`'s `smoke` job; `esc env open` locally. Full section below, because these two were never GitHub secrets and so are outside the tables' scope |
 
@@ -55,9 +55,10 @@ credential live now:
 repository variable `vars.CLOUDFLARE_ACCOUNT_ID` was created 2026-09-08 and is what the workflows
 read; the GitHub *secret* of the same name is one of the copies awaiting deletion.
 
-`ZEN_GO_API_KEY` has two consumers: nightly eval needs `environmentVariables`, while the edge
-runtime needs a secret-marked `pulumiConfig` reference to that existing ESC value. Provision the
-reference explicitly; adding the stack import alone does not create it.
+`ZEN_GO_API_KEY`'s one remaining declaration is the edge runtime's secret-marked `pulumiConfig`
+reference to its ESC value; the nightly eval that read it under `environmentVariables` was deleted
+with the Python agent (#1607). Provision the reference explicitly; adding the stack import alone
+does not create it.
 
 ## Three consumption chains
 
@@ -151,9 +152,9 @@ rotation evidence.
 
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
-| `ZEN_GO_API_KEY` | ESC `environmentVariables` (nightly eval) + ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding (retained declaration); and `agent-eval-nightly.yml`, which opens it from ESC | Missing or blank blocks edge staging, production, and rollback at preflight. The nightly eval 401/403s the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
+| `ZEN_GO_API_KEY` | ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight |
 | `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent | Exact edge core payload → Worker binding → native host model credentials | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
-| `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding (`apps/agent/src/animichi/infrastructure/gateways/geocoding.py`) | Exact edge core payload → Worker binding (retained declaration; the Python geocoding consumer is not deployed) | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure in a local run |
+| `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding for the retired Python agent (#1607) | Exact edge core payload → Worker binding (retained declaration; no consumer) | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure in a local run |
 | `LOGFIRE_TOKEN` | ESC `pulumiConfig`, one project per environment (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
 
 ## Referenced by nothing
@@ -174,7 +175,7 @@ per-row backlog.
 | `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first |
 | `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/edge/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first |
-| `OPENAI_COMPAT_API_KEY` | Read by `apps/agent/src/animichi/config/settings.py` and `apps/agent/src/animichi/config/model_aliases.py`, listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605), but again **no workflow passes it** — broken chain: the allowlist expected a value no workflow ever forwards | Keep-or-retire decision, not a delete: code still reads this credential, so retiring it means first removing its references from `settings.py` / `model_aliases.py`, then the allowlist entry and this row |
+| `OPENAI_COMPAT_API_KEY` | Read only by the retired Python agent's settings (deleted in #1607) and listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605); **no workflow ever passed it** | No code reads it any more: remove its `workers/edge/wrangler.toml` declaration, then `gh secret delete OPENAI_COMPAT_API_KEY` |
 | `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or edge Worker var references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a server secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to the Worker's declared vars |
 | `GEMINI_API_KEY` | Was Live (this table, above) until #656 (2026-08-04): photo-search recognition moved to the main agent's multimodal input instead of the standalone `GeminiVisionProvider`, and #1604 (2026-09-16) deleted that surface with the `photo_vision` module — so nothing in the edge Worker's declared vars and bindings, `wrangler.toml`, or any workflow reads this name anymore | `gh secret delete GEMINI_API_KEY` — no dependency to check first, the code path it fed no longer exists |

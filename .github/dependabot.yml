@@ -1,25 +1,6 @@
 version: 2
 
 updates:
-  - package-ecosystem: "uv"
-    directory: "/apps/agent"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 5
-    groups:
-      uv-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    labels:
-      - "dependencies"
-      - "python"
-    commit-message:
-      prefix: "build(deps)"
-
   - package-ecosystem: "npm"
     directories:
       - "/"

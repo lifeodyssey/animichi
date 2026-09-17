@@ -32,7 +32,7 @@ const DEFAULT_PROVIDER_HOSTS: Readonly<Record<ByokProvider, readonly string[]>> 
  * confused-deputy path back into our own authenticated surfaces. Matched as
  * the domain itself or a `.`-anchored subdomain — the anchor is what keeps
  * `notanimichi.com` out of it. Ported from `OWN_INFRASTRUCTURE_HOSTNAMES` in
- * `apps/agent/src/animichi/infrastructure/egress_guard.py`, plus the two hosts
+ * `animichi/infrastructure/egress_guard.py`, plus the two hosts
  * that only exist on the Workers side.
  */
 const DEFAULT_OWN_INFRASTRUCTURE: readonly string[] = [
