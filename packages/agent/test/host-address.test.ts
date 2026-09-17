@@ -35,3 +35,19 @@ void test("WHATWG normalization and root labels cannot conceal a metadata addres
   assert.deepEqual(hostAddressOf(new URL("https://0xA9FEA9FE/").hostname), { host: "169.254.169.254", kind: "metadata" });
   assert.deepEqual(hostAddressOf("metadata.google.internal."), { host: "metadata.google.internal", kind: "metadata" });
 });
+
+void test("a single trailing root label is trimmed before classification", () => {
+  assert.deepEqual(hostAddressOf("example.com."), { host: "example.com", kind: "dns-name" });
+});
+
+void test("a run of trailing root labels is trimmed down to the name", () => {
+  assert.deepEqual(hostAddressOf("a..."), { host: "a", kind: "dns-name" });
+});
+
+void test("a host of dots alone trims to the empty host and classifies as unroutable", () => {
+  assert.deepEqual(hostAddressOf("..."), { host: "", kind: "unroutable" });
+});
+
+void test("interior dots are untouched and only trailing dots are trimmed", () => {
+  assert.deepEqual(hostAddressOf("a.b..c.."), { host: "a.b..c", kind: "dns-name" });
+});
