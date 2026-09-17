@@ -10,7 +10,16 @@ and rotation impact, see [`secrets.md`](./secrets.md).
 
 There are three workflow responsibilities:
 
-- `pr-verification.yml` verifies pull requests and merge groups.
+- `pr-verification.yml` verifies pull requests and merge groups, and — on a `push` to `main` — the
+  merged commit itself (#1715). A normal squash merge already produces the tree its pull-request run
+  gated, because the ruleset requires the branch to contain the current `main` tip first; this lane
+  covers what can still diverge — an owner-bypass merge, a direct push, a verdict that changes with
+  time, a run cut short — so a squash result that goes red opens a failure alert (a run the
+  concurrency group supersedes while pending is cancelled without one). **A red `main` is still
+  deployed:** `release-build.yml` fires on the same push, builds that commit and dispatches `cd.yml`,
+  which stages it and waits for the production approval — nothing in CD reads the CI run. Check the
+  failure alert, or the CI run for that SHA, before approving production. A red main is fixed by a
+  reviewed revert on `main` (see [After any recovery](#after-any-recovery)); nothing reverts it for you.
 - `release-build.yml` builds a complete immutable snapshot on every main push and, once the upload
   has succeeded, dispatches `cd.yml` on `main` with that snapshot's own artifact ID.
 - The main-only `cd.yml` controller deploys the selected existing artifact ID to staging, then
