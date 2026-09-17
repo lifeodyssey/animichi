@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
+import { openStream } from "./doubles/open-stream.ts";
 
 // EDGE-1 #963 composed-seam tests: HandleGatewayRequest runs identity,
 // protection, route selection, internal-identity construction, and
@@ -99,25 +100,22 @@ void test("a catalog 5xx passes through unchanged on the public overview", async
   assert.equal(await res.text(), "catalog down");
 });
 
+// The race is against the body's first read — the drain itself, see
+// `doubles/open-stream.ts` — never a one-second timer a healthy fetch can lose
+// on a loaded machine (#1720).
 void test("a still-open native stream is passed through without draining (disconnect)", async () => {
-  let release: (() => void) | undefined;
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode("data: first\n\n"));
-      release = () => { controller.close(); };
-    },
-  });
+  const { body, bodyRead, release } = openStream();
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
     EDGE_SHOWCASE_MODE: "false",
   } as never;
   const response = await Promise.race([
     authedApp(nativeAgentReceiver([], () => new Response(body, { headers: { "Content-Type": "text/event-stream" } }))).fetch(new Request("https://animichi.test/v1/chat", POST), env, stubCtx),
-    new Promise<"drained">((resolve) => { setTimeout(() => { resolve("drained"); }, 1_000); }),
+    bodyRead,
   ]);
-  assert.notEqual(response, "drained", "the seam drained the stream instead of handing it back");
-  assert.equal((response as Response).status, 200);
-  release?.();
+  assert.ok(response, "the seam drained the stream instead of handing it back");
+  assert.equal(response.status, 200);
+  release();
 });
 
 async function withWarnSpy(run: () => Promise<Response> | Response): Promise<{ response: Response; warnings: Record<string, unknown>[] }> {
