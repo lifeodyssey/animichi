@@ -68,7 +68,6 @@ void test("production has no JWKS yet — unprovisioned fails closed", () => {
 
 void test("bare Wrangler deploy has no target, while named environments keep theirs", () => {
   assert.equal(/^name\s*=/m.test(TOP_LEVEL), false, "top-level Wrangler config must not select a deploy target");
-  assert.equal(hasAssignment(blockFor("[[containers]]"), "name", "animichi-runtimecontainer"), true);
   assert.equal(hasAssignment(blockFor("[env.production]"), "name", "animichi"), true);
   assert.equal(hasAssignment(blockFor("[env.staging]"), "name", "animichi-staging"), true);
 });

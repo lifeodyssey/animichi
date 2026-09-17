@@ -45,7 +45,7 @@ export function unauthorized(pathname: string): Response {
 /** Showcase-mode denial (S0-v2 GOAL C / C9): in showcase mode the edge
  * answers every functional backend route with 403 in the same structured
  * envelope as the other rejections, so a direct curl cannot reach chat /
- * photo-search / user data while the landing stays up. The code is distinct
+ * user data while the landing stays up. The code is distinct
  * from `not_found` on purpose: clients can tell "this route is temporarily
  * denied" from "this route does not exist". */
 export function showcaseDenied(): Response {
@@ -84,8 +84,8 @@ export function notFoundResponse(): Response {
 }
 
 /** Method gate for the POST-only session-adoption route (SESSION-2 #960): a
- * 405 in the same envelope as the other edge rejections, answered before the
- * container is reached. */
+ * 405 in the same envelope as the other edge rejections, answered before any
+ * downstream binding is reached. */
 export function methodNotAllowed(): Response {
   return gatewayRejection("method_not_allowed", 405, "Method not allowed.");
 }

@@ -114,6 +114,8 @@ jobs:
         run: bash .github/scripts/release/schema-preflight.sh staging --atlas-only
       - name: Retire the migrator container application
         run: bash scripts/delivery/retire-migrator-container.sh staging
+      - name: Retire the edge container application
+        run: bash scripts/delivery/retire-edge-container.sh staging
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env staging --tag "sha-$SOURCE_SHA"
@@ -282,6 +284,8 @@ jobs:
         run: bash .github/scripts/release/schema-preflight.sh production --atlas-only
       - name: Retire the migrator container application
         run: bash scripts/delivery/retire-migrator-container.sh production
+      - name: Retire the edge container application
+        run: bash scripts/delivery/retire-edge-container.sh production
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env production --tag "sha-$SOURCE_SHA"

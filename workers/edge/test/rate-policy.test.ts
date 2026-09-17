@@ -58,10 +58,32 @@ void test("BYOK probe is a high-cost durable fail-closed class (abuse cannot be 
   assert.equal(classify("POST", "/v1/byok/%70robe").limiter, "durable");
 });
 
-void test("photo-search and confirm are durable fail-closed high-cost/mutation classes", () => {
-  assert.equal(classify("POST", "/v1/photo-search").cost, "high");
-  assert.equal(classify("POST", "/v1/photo-search").failure, "fail-closed");
-  assert.equal(classify("POST", "/v1/photo-search/confirm").failure, "fail-closed");
+// #1604 deleted the two photo-search routes, so their paths leave the inventory and
+// the derived tables together. A path no longer in the inventory must classify as an
+// unmanaged read. The mutation this pins is re-adding the path to the AGENT_PATHS
+// inventory (`HIGH_COST_V1` alone is unreachable for a path the inventory does not
+// carry, which is why #1604's cell-only mutation M2a was inert) — the inventory
+// assertion below is the one that goes red first.
+void test("the deleted photo-search paths are out of the inventory and unmanaged", () => {
+  for (const path of ["/v1/photo-search", "/v1/photo-search/confirm"]) {
+    assert.equal(AGENT_PATHS.some((entry) => entry.path === path), false, `${path} must leave the inventory with its route`);
+    const p = classify("POST", path);
+    assert.equal(p.cost, "low");
+    assert.equal(p.limiter, "none");
+    assert.equal(p.failure, "fail-open-alert");
+  }
+});
+
+// HIGH_COST_V1 selects the DURABLE_HIGH_COST cell. BYOK shares the
+// high-cost/durable/fail-closed shape but reports to the caller's BILLING meter, so
+// the quota cell (`none` here, `billing` there) is what tells the two apart — this
+// assertion is that cell's only inventory member.
+void test("chat is the only DURABLE_HIGH_COST operation the inventory still carries", () => {
+  const highCostV1 = AGENT_PATHS.filter((entry) => {
+    const p = classify(entry.method, entry.path);
+    return p.cost === "high" && p.limiter === "durable" && p.quota === "none";
+  }).map((entry) => `${entry.method} ${entry.path}`);
+  assert.deepEqual(highCostV1, ["POST /v1/chat"], "a deleted path re-entering the inventory as high-cost turns this red");
 });
 
 void test("authenticated reads stay unmanaged (GET conversation surfaces)", () => {

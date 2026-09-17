@@ -9,8 +9,8 @@ import wranglerRaw from "../../wrangler.jsonc?raw";
 // The noindex plugin reads APP_ENV from the Worker env at runtime. `vars` is a
 // non-inheritable wrangler key: every env block must declare it itself, or that
 // deployment ships without APP_ENV and (fail-safe) serves noindex — which would
-// silently deindex production. This is exactly how workers/edge/container/container-env.ts once
-// hardcoded "production" for staging (issue #498), just in the other direction.
+// silently deindex production. This is the same class of mistake as issue #498's
+// hardcoded environment name, just in the other direction.
 const envSchema = z.looseObject({
   name: z.string().optional(),
   vars: z.looseObject({ APP_ENV: z.string() }).optional(),

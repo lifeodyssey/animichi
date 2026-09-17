@@ -20,7 +20,7 @@
 | Staging uptime | Best-effort; may break during refactor trains |
 | Production RPO | Neon PITR / plan backup window — detail in N5 (#860) |
 | Migration apply window | Staging: anytime on merge to main deploy path; Prod: only via production deploy gate |
-| Who may hold migrator DSN | CI + break-glass owners only; never Worker/container runtime secrets |
+| Who may hold migrator DSN | CI + break-glass owners only; never Worker runtime secrets |
 
 ## Apply path (current)
 

@@ -13,7 +13,7 @@ class ReleaseReceiptCliTest < Minitest::Test
     FileUtils.mkdir_p([File.join(@root, 'staging-receipt'), File.join(@root, 'release/migrator/bundle')])
     File.write(File.join(@root, 'release/migrator/bundle/contract.json'), { 'storage' => { 'storageHash' => 'b' * 64 } }.to_json)
     @selection = { 'artifact_id' => '7', 'artifact_digest' => "sha256:#{'d' * 64}", 'source_sha' => 'b' * 40, 'controller_sha' => 'c' * 40 }
-    @images = { 'agent' => 'agent@digest' }
+    @images = {}
     prepare_receipt_metadata
     @environment = { 'PATH' => "#{@root}:#{ENV.fetch('PATH')}", 'RECEIPT_ID' => '20', 'RECEIPT_DIGEST' => 'e' * 64,
                      'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '2' }

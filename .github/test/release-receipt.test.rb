@@ -8,7 +8,7 @@ class ReleaseReceiptTest < Minitest::Test
   def setup
     @selection = { 'artifact_id' => '7', 'artifact_digest' => "sha256:#{'d' * 64}",
                    'source_sha' => 'b' * 40, 'controller_sha' => 'c' * 40 }
-    @images = { 'agent' => 'agent@digest' }
+    @images = {}
     @receipt = { 'format' => 1, 'environment' => 'staging', 'selection' => @selection.dup,
                  'controller_run_id' => '9', 'controller_run_attempt' => '1', 'images' => @images,
                  'smoke' => 'passed', 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 },
@@ -65,16 +65,27 @@ class ReleaseReceiptTest < Minitest::Test
     assert_raises(ArgumentError) { validate }
   end
 
-  def test_refuses_a_missing_agent_container_observation
-    @receipt['workers'].find { |worker| worker['unit'] == 'edge' }['containers'].clear
+  # #1606: the edge has no container to observe and the snapshot names no image for it.
+  # Reinstating the edge container expectation (`return 1 if unit == 'edge'`) turns this red.
+  def test_accepts_an_edge_worker_that_owns_no_container
+    edge = @receipt['workers'].find { |worker| worker['unit'] == 'edge' }
+    assert_empty edge['containers']
+    assert validate
+  end
+
+  def test_refuses_an_edge_container_observation_the_snapshot_does_not_name
+    @receipt['workers'].find { |worker| worker['unit'] == 'edge' }['containers'] << { 'application_id' => 'agent' }
     assert_raises(ArgumentError) { validate }
   end
 
-  def test_accepts_the_container_observation_for_a_historical_snapshot
+  # #1606: no snapshot names an image since the container retirements (#1589, #1605), so a
+  # migrator that still reports a container is refused exactly like the edge's — the image
+  # identity that used to excuse it is gone.
+  def test_refuses_a_container_observation_the_snapshot_does_not_name
     @images['migrator'] = 'migrator@digest'
     @receipt['images'] = @images
     @receipt['workers'].find { |worker| worker['unit'] == 'migrator' }['containers'] << { 'application_id' => 'legacy' }
-    assert validate
+    assert_raises(ArgumentError) { validate }
   end
 
   def test_refuses_receipt_from_another_run

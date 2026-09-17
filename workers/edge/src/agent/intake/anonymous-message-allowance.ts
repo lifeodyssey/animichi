@@ -42,7 +42,7 @@ export function allowanceExceeded(reserved: number, allowance: number): boolean 
 
 /** The next UTC midnight after `usageDate` (an ISO `YYYY-MM-DD` UTC day) — the
  * instant the counter row this turn charged stops applying. Rendered without
- * milliseconds, matching the container's own `%Y-%m-%dT%H:%M:%SZ`. */
+ * milliseconds, the shape every `daily_usage` counter row carries. */
 export function quotaResetsAt(usageDate: string): string {
   const nextDay = new Date(`${usageDate}T00:00:00Z`);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);

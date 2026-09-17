@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 // AC4 (#680): with the limiter unavailable, high-cost/mutation classes FAIL
 // CLOSED (a metered turn that cannot run must not run unmetered), while
@@ -40,7 +40,7 @@ function usersEnv() {
 
 void test("a chat turn FAILS CLOSED (503) when the durable limiter is down", async () => {
   const app = authedApp();
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard(), CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) } } as never;
+  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard() } as never;
   const res = await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(res.status, 503);
   const body = (await res.json()) as { error: { code: string } };
@@ -49,7 +49,7 @@ void test("a chat turn FAILS CLOSED (503) when the durable limiter is down", asy
 
 void test("a BYOK probe FAILS CLOSED (503) when the durable limiter is down", async () => {
   const app = authedApp();
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard(), CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) } } as never;
+  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard() } as never;
   const res = await app.request("/v1/byok/probe", { method: "POST", headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(res.status, 503);
 });
@@ -76,7 +76,6 @@ function nativeEnv(binding: unknown) {
     EDGE_GUARD: allowGuard(),
     RATE_LIMITER: binding,
     CATALOG: { fetch: () => Promise.resolve(new Response("cat")) },
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as never;
 }
 

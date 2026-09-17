@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { alwaysAllowGuard, envWithContainer, stubCtx } from "../src/container/entry-env.ts";
+import { alwaysAllowGuard, gatewayEnv, stubCtx } from "./doubles/entry-env.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { signedAidCookie } from "./doubles/signed-anonymous-cookie.ts";
 import { ADOPTION_ANON_ENV, DEFAULT_ADOPTION_RESULT, adoptionStore } from "./doubles/session-adoption-doubles.ts";
@@ -10,9 +10,9 @@ import { type SessionAdoptionResult } from "../src/identity/session-adopt.ts";
 const ADOPTION_URL = "/v1/sessions/adopt";
 const authOk = () => Promise.resolve({ ok: true, userId: "real-user-1", userType: "human" } as const);
 
-/** The native route's env. No CONTAINER binding is supplied on purpose: the
+/** The native route's env. Nothing downstream is bound on purpose: the
  * adoption and chat tiers answer in process, so a forward would surface instead
- * of passing unnoticed. The 405 case supplies one to prove it stays untouched. */
+ * of passing unnoticed. */
 function nativeRouteEnv() {
   return { ...ADOPTION_ANON_ENV, EDGE_GUARD: alwaysAllowGuard } as never;
 }
@@ -39,12 +39,13 @@ void test("a valid aid cookie is resolved as the adoption source, exactly", asyn
   assert.deepEqual(route.calls, [[anonId, "real-user-1"]]);
 });
 
+// The method guard runs before identity and before the store: a non-POST adopt
+// answers 405 and reaches nothing. #1605 deleted the container this case used to
+// prove untouched, so the env is the same binding-free one the other cases use.
 void test("a non-POST adopt request answers 405 and is never forwarded (SESSION-2 #960)", async () => {
-  const cap: { req?: Request } = {};
   const app = createWorkerApp({ authenticate: authOk });
-  const res = await app.request(ADOPTION_URL, { method: "GET" }, envWithContainer(cap), stubCtx);
+  const res = await app.request(ADOPTION_URL, { method: "GET" }, gatewayEnv(), stubCtx);
   assert.equal(res.status, 405);
-  assert.equal(cap.req, undefined);
 });
 
 // The missing-identity branch is its own unit seam: it must answer the distinct

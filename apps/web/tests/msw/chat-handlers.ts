@@ -162,6 +162,13 @@ export const healthzOkHandler = http.get(HEALTHZ_URL, () =>
 
 export const healthzDownHandler = http.get(HEALTHZ_URL, () => HttpResponse.error());
 
+/** The other shape a broken deploy takes: the route answers, but not 2xx — a
+ * half-started host in front of `/healthz` answers 503 rather than dropping the
+ * connection, and the A5 gate must read that as down too. */
+export const healthzUnavailableHandler = http.get(HEALTHZ_URL, () =>
+  HttpResponse.json({ status: "starting" }, { status: 503 }),
+);
+
 export interface HistoryRowFixture {
   readonly role: string;
   readonly content: string;

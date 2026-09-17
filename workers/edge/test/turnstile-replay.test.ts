@@ -4,7 +4,7 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { TURNSTILE_HEADER, createTurnstileGate } from "../src/protect/turnstile.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 /**
  * Issue #447 review, P1-1: the armed path exercised with the REAL gate (only

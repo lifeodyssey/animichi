@@ -7,8 +7,7 @@
 // PII is derived or stored. Anonymous access is opt-in: without both
 // ANON_ACCESS_ENABLED and ANON_ID_SECRET the edge keeps its existing 401.
 
-import { readStoreOrString } from "../container/container-env.ts";
-import type { Env } from "../env.ts";
+import { readStoreOrString, type Env } from "../env.ts";
 
 const ANON_COOKIE = "aid";
 const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
@@ -16,7 +15,8 @@ const ANON_ID_PATTERN = /^[0-9a-f]{32}$/;
 
 export type AnonymousEnv = Pick<Env, "ANON_ACCESS_ENABLED" | "ANON_ID_SECRET">;
 
-/** Container-visible prefix of every anonymous `X-User-Id`. */
+/** Prefix of every anonymous identity the edge mints (`anon_`), carried on the
+ * internal `X-User-Id` header. */
 export const ANON_ID_PREFIX = "anon_";
 
 export interface AnonymousIdentity {

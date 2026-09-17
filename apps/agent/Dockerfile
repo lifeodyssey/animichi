@@ -33,12 +33,10 @@ RUN uv sync --no-dev --frozen
 FROM public.ecr.aws/docker/library/python:3.11.13-slim
 
 # APP_ENV is intentionally NOT defaulted here (issue #498 follow-up — 4th
-# touchpoint alongside workers/edge/wrangler.toml's three [vars] blocks): the
-# real deploy path (RuntimeContainer, see workers/edge/container/container-env.ts) always
-# injects it, and a hardcoded "production" default here would silently claim
-# production for anyone who `docker run`s this image directly, bypassing the
-# Worker's fail-closed CONTAINER_REQUIRED_KEYS check entirely. Settings.app_env's
-# own Field default ("development") applies when APP_ENV is unset — the same
+# touchpoint alongside workers/edge/wrangler.toml's three [vars] blocks): a
+# hardcoded "production" default here would silently claim production for anyone
+# who `docker run`s this image directly. Settings.app_env's own Field default
+# ("development") applies when APP_ENV is unset — the same
 # least-privileged-by-default convention as wrangler.toml's own [vars] block.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -52,14 +50,11 @@ COPY --from=builder /app /app
 
 RUN useradd -r -s /bin/false appuser
 
-# #494: build-time git metadata. The CI deploy path builds this image through
-# `wrangler deploy` (workers/edge/wrangler.toml [[containers]] image =
-# "../../apps/agent/Dockerfile"), which cannot pass `--build-arg`
-# (workers-sdk #12991) — CI instead bakes
-# apps/agent/src/animichi/build_info.py before deploying, and the existing COPY of
-# that directory ships it into /app/src/animichi. These ARG/ENV pairs cover manual
-# `docker build --build-arg GIT_COMMIT=... GIT_BRANCH=...` builds; empty
-# defaults keep a plain build healthy (health.py falls through to git).
+# #494: build-time git metadata. The release build builds this image with
+# docker/build-push-action (`.github/workflows/release-build.yml`) and passes no
+# build args, so `animichi.build_info` is absent there. These ARG/ENV pairs
+# cover manual `docker build --build-arg GIT_COMMIT=... GIT_BRANCH=...` builds;
+# empty defaults keep a plain build healthy (health.py falls through to git).
 ARG GIT_COMMIT=""
 ARG GIT_BRANCH=""
 ENV GIT_COMMIT=${GIT_COMMIT} \

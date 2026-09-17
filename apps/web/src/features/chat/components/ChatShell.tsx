@@ -152,8 +152,7 @@ function trayStatus(chat: ChatSession, recompute: RecomputeTurn): RecomputeTurn[
   return isTurnActive(chat.status) ? "busy" : recompute.status;
 }
 
-/** Owns the mid-dock surfaces: the busy live note and the E2 recompute tray.
- * Photo search lives in the composer now — the camera key opens the same flow. */
+/** Owns the mid-dock surfaces: the busy live note and the E2 recompute tray. */
 export function DockTray({ dict, chat, recompute }: DockTrayProps) {
   const status = trayStatus(chat, recompute);
   return (

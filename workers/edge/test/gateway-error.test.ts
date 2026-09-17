@@ -1,35 +1,37 @@
 /**
  * EG-06 (#1343): what an UNEXPECTED throw does to the gateway.
  *
- * Anything thrown past `refusable()` — an unbound namespace, a missing DSN, a
- * Durable Object stub rejection — used to become Hono's default plain-text 500,
- * outside every envelope, and `observe()` never ran: the request that failed
- * was exactly the one with no `edge_gateway_request` line. These cases pin the
- * opposite — the shared envelope, a completion record, and one structured
- * `edge_gateway_error` that names the failure without repeating its message.
+ * Anything thrown past the tier's own refusal handling — a failing secret-store
+ * read, an unbound namespace, a Durable Object stub rejection — used to become Hono's
+ * default plain-text 500, outside every envelope, and `observe()` never ran: the
+ * request that failed was exactly the one with no `edge_gateway_request` line. These
+ * cases pin the opposite — the shared envelope, a completion record, and one
+ * structured `edge_gateway_error` that names the failure without repeating its
+ * message.
  *
  * test-type: unit
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
-import { alwaysAllowGuard, stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 /** A server-side message of exactly the kind that must never reach a client. */
 const THROWN_MESSAGE = "connect ECONNREFUSED postgres://svc:hunter2@db.internal/agent";
 
-/** A CONTAINER binding whose fetch rejects with the server-side `TypeError`.
- * `EDGE_GUARD` is the always-allow double: the probed route is durable-guarded,
- * so without it the limiter fails closed and the `TypeError` under test is
- * never reached. */
+/** The native transcript read resolves its DSN from the bound secret before it opens
+ * anything. #1604 deleted the container-forwarded route this file used to drive (and
+ * #1605 takes `forwardV1` and the `CONTAINER` binding with it), so the surviving
+ * dependency whose rejection reaches `app.onError` is that secret read: the binding
+ * below fails the way a real one does when the store is unreachable. The typed uuid
+ * keeps the request past the route's own validation, so the throw is the one under
+ * test rather than a deliberate 404. */
+const TRANSCRIPT = "/v1/conversations/6f1a4c2e-8f3b-4d5a-9c7e-2b1d0a4e5f60/messages";
+
 function throwingEnv(): never {
   return {
     EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: alwaysAllowGuard,
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({ fetch: () => Promise.reject(new TypeError(THROWN_MESSAGE)) }),
-    },
+    AGENT_SVC_DATABASE_URL: { get: () => Promise.reject(new TypeError(THROWN_MESSAGE)) },
   } as never;
 }
 
@@ -50,14 +52,14 @@ function recordsIn(lines: string[]): Record<string, unknown>[] {
   return lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
-/** The edge's own verdict for a verified caller: `POST /v1/photo-search` is
- * container-served, so only the verification (and the stubbed-open limiter)
- * stands between it and the binding. */
+/** The edge's own verdict for a verified caller. The transcript GET is an unmanaged
+ * read, so nothing (no guard binding, no container) stands between the tier and the
+ * failing secret read. */
 const verified = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
 
 async function failingRequest(): Promise<Response> {
   return createWorkerApp({ authenticate: verified }).request(
-    "/v1/photo-search", { method: "POST" }, throwingEnv(), stubCtx,
+    TRANSCRIPT, { method: "GET" }, throwingEnv(), stubCtx,
   );
 }
 

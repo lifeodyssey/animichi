@@ -13,9 +13,9 @@ import type { SetSelectionStatus } from "./use-selection-settle";
  * selection through the deterministic channel, the shared settle watcher
  * reports it settled or failed, and `resend` retries the failed pick itself
  * (same message, same idempotency key) instead of replaying history — a failed
- * pick re-arms the clarify card through `status`. A photo result supplies its
- * own implementation instead (`photo-offer-pick.ts`), which confirms the
- * sessionless offer and reports no failure state of its own.
+ * pick re-arms the clarify card through `status`. The photo offer's own channel
+ * — which confirmed a sessionless offer and reported no failure state of its
+ * own — was deleted with the photo search surface in #1604.
  */
 export interface ClarifyPickTurn {
   /** Whether a structured selection channel is wired at all. */

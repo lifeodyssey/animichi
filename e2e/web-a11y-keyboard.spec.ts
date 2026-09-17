@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { focusLanding, focusPaintSettled, tabPath } from "./helpers/tab-order";
 import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
+
+/** The composer field — what #1604 left in the composer once the photo key went. */
+const COMPOSER_FIELD = "#main-content textarea";
 
 /**
  * Issue #1015 AC2: keyboard-only accessibility of the critical journeys.
@@ -51,12 +55,29 @@ test.describe("AC2 keyboard navigation", () => {
 
   test("tab order stays within interactive controls and exposes a visible focus indicator", async ({ page }) => {
     await anonymousChat(page);
+    // The field autofocused on mount and the focus reset above blurred it, so
+    // the pill's border is still animating back: the resting read has to wait
+    // for that paint, not sample the middle of it.
+    await focusPaintSettled(page);
     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
     await skip.press("Enter");
-    for (let i = 0; i < Math.min(8, 8); i++) {
+    const path = await tabPath(page, COMPOSER_FIELD);
+    // Eight Tabs was this spec's own brittleness: it counted the deleted photo
+    // key as its last stop (#1604). The walk now visits every control the DOM
+    // offers and names the one each Tab landed on, so a document that runs out
+    // of stops fails on the landing, not on a fixed count.
+    for (const stop of path.stops) {
       await page.keyboard.press("Tab");
-      await expect(page.locator("*:focus")).toHaveCount(1);
+      const landing = await focusLanding(page, stop);
+      expect(landing?.token).toBe(stop.token);
+      // The indicator is painted over a CSS transition (the app rings the pill
+      // as well as the control), so poll rather than sample the frame the key
+      // press landed in.
+      await expect.poll(async () => (await focusLanding(page, stop))?.indicated).toBe(true);
     }
+    // The green above is only worth it if the field this card owns sits on the
+    // path it walked: a page with nothing focusable must not pass vacuously.
+    expect(path.stops.map((stop) => stop.token)).toContain(path.marked);
   });
 });
 

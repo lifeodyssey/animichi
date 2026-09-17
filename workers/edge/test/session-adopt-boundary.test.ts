@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWorkerApp } from "../src/app.ts";
-import { alwaysAllowGuard, stubCtx } from "../src/container/entry-env.ts";
+import { alwaysAllowGuard, stubCtx } from "./doubles/entry-env.ts";
 import { handleSessionAdopt, rejectClientSessionId } from "../src/identity/session-adopt.ts";
 import { signedAidCookie } from "./doubles/signed-anonymous-cookie.ts";
 import { ADOPTION_ANON_ENV, adoptionStore } from "./doubles/session-adoption-doubles.ts";
@@ -27,8 +27,8 @@ const ANON_PREFIXED_HUMAN_CALLER: AdoptionCaller = { userId: "anon_" + "b".repea
  * refuse this caller. */
 const EMPTY_USER_ID_CALLER: AdoptionCaller = { userId: "", userType: "human" };
 
-/** The refusal path needs the same anonymous env as the route but no CONTAINER
- * binding: nothing downstream may be reached before the write is refused. */
+/** The refusal path needs the same anonymous env as the route and no downstream
+ * binding: nothing may be reached before the write is refused. */
 function adoptionEnv() {
   return {
     ...ADOPTION_ANON_ENV,

@@ -148,7 +148,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 ## 文档
 
 - [架构文档](docs/ARCHITECTURE.md) — 系统设计参考
-- [部署指南](docs/ops/deployment.md) — Cloudflare Workers + Containers 部署
+- [部署指南](docs/ops/deployment.md) — Cloudflare Workers 部署
 - [迁移边界](docs/ops/migrations.md) — Atlas authority 与 Drizzle 查询/类型边界
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings

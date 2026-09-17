@@ -69,8 +69,8 @@ const LOCKED_ACTIONS: ChatActions = { send: noop, regenerate: noop, sendWithOrig
  * Withhold every turn-starting action while the quota lock holds. The lock
  * cannot live on the composer alone: `send`/`regenerate` reach six-plus card
  * consumers through `ChatActionsProvider` (clarify chips, the selection tray,
- * departure chips, envelope + short-route retries, photo upload), and each one
- * that leaked would be a full container round-trip the quota already refused.
+ * departure chips, envelope + short-route retries), and each one that leaked
+ * would be a full container round-trip the quota already refused.
  */
 export function useLockedActions(actions: ChatActions, locked: boolean): ChatActions {
   return useMemo(() => (locked ? LOCKED_ACTIONS : actions), [actions, locked]);

@@ -7,15 +7,15 @@ function createGate(calls: Call[], success: boolean, errorCodes: string[] = []) 
   return createTurnstileGate({ fetchImpl: stubFetch(calls, success, errorCodes), now: () => 0 });
 }
 
-void test("AC1: a solved token verifies at siteverify and the turn is forwarded", async () => {
+void test("AC1: a solved token verifies at siteverify and the turn is served", async () => {
   const calls: Call[] = [];
   const gate = createGate(calls, true);
   let forwarded = 0;
   const res = await anonymousV1(request("solved-token"), gate, () => {
     forwarded += 1;
-    return new Response("container");
+    return new Response("tier");
   });
-  assert.equal(await res.text(), "container");
+  assert.equal(await res.text(), "tier");
   assert.equal(forwarded, 1);
   assert.equal(calls.length, 1);
 });
@@ -33,13 +33,13 @@ void test("AC1: the siteverify call matches the canonical contract exactly", asy
   assert.equal(call.body.get("remoteip"), "203.0.113.7");
 });
 
-void test("AC3: an invalid token is rejected 403 and never reaches the container", async () => {
+void test("AC3: an invalid token is rejected 403 and never reaches the service", async () => {
   const calls: Call[] = [];
   const gate = createGate(calls, false, ["invalid-input-response"]);
   let forwarded = 0;
   const res = await anonymousV1(request("forged-token"), gate, () => {
     forwarded += 1;
-    return new Response("container");
+    return new Response("tier");
   });
   assert.equal(res.status, 403);
   assert.equal(forwarded, 0);

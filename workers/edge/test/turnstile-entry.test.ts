@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { TURNSTILE_HEADER, createTurnstileGate, type TurnstileGate } from "../src/protect/turnstile.ts";
 import { recordingGate, stubFetch, type Call, type GateCall } from "./doubles/turnstile-doubles.ts";
@@ -13,23 +13,11 @@ const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 const SOLVED = "solved-token";
 const solvedHeaders = { [TURNSTILE_HEADER]: SOLVED, "CF-Connecting-IP": "203.0.113.7" };
 
-function containerFetch(captured: { requests: Request[] }, request: Request): Promise<Response> {
-  captured.requests.push(request);
-  return Promise.resolve(new Response("container"));
-}
-
-function containerStub(captured: { requests: Request[] }) {
-  return {
-    idFromName: () => "id",
-    get: () => ({ fetch: (request: Request) => containerFetch(captured, request) }),
-  };
-}
-
-function anonEnv(captured: { requests: Request[] }) {
+function anonEnv() {
   return {
     ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET,
     TURNSTILE_SECRET, EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: fakeGuard(NOW).namespace, CONTAINER: containerStub(captured),
+    EDGE_GUARD: fakeGuard(NOW).namespace,
   } as never;
 }
 
@@ -45,10 +33,10 @@ function post(headers: Record<string, string> = {}) {
 }
 
 void test("an authenticated caller bypasses entry verification", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
   const response = await app(captured, recordingGate(calls, null), true).request(
-    "/v1/turnstile/verify", post({ Authorization: "Bearer jwt" }), anonEnv(captured), stubCtx,
+    "/v1/turnstile/verify", post({ Authorization: "Bearer jwt" }), anonEnv(), stubCtx,
   );
   assert.equal(response.status, 204);
   assert.equal(calls.length, 0);
@@ -56,10 +44,10 @@ void test("an authenticated caller bypasses entry verification", async () => {
 });
 
 void test("a solved entry mints the aid used by the first chat turn", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
   const worker = app(captured, recordingGate(calls, SOLVED));
-  const env = anonEnv(captured);
+  const env = anonEnv();
   const verified = await worker.request("/v1/turnstile/verify", post(solvedHeaders), env, stubCtx);
   const cookie = String(verified.headers.get("Set-Cookie")).split(";")[0] ?? "";
   assert.equal(verified.status, 204);
@@ -70,10 +58,10 @@ void test("a solved entry mints the aid used by the first chat turn", async () =
 });
 
 void test("the first chat reuses the entry pass without another siteverify", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const calls: Call[] = [];
   const worker = app(captured, createTurnstileGate({ fetchImpl: stubFetch(calls, true), now: () => NOW }));
-  const env = anonEnv(captured);
+  const env = anonEnv();
   const verified = await worker.request("/v1/turnstile/verify", post(solvedHeaders), env, stubCtx);
   const cookie = String(verified.headers.get("Set-Cookie")).split(";")[0] ?? "";
   const turn = await worker.request("/v1/chat", post({ ...solvedHeaders, Cookie: cookie }), env, stubCtx);
@@ -82,10 +70,10 @@ void test("the first chat reuses the entry pass without another siteverify", asy
 });
 
 void test("the entry pass survives a different isolate and gate", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const firstCalls: Call[] = [];
   const secondCalls: GateCall[] = [];
-  const env = anonEnv(captured);
+  const env = anonEnv();
   const first = app(captured, createTurnstileGate({ fetchImpl: stubFetch(firstCalls, true) }));
   const verified = await first.request("/v1/turnstile/verify", post(solvedHeaders), env, stubCtx);
   const cookies = verified.headers.get("Set-Cookie") ?? "";
@@ -101,18 +89,18 @@ void test("the entry pass survives a different isolate and gate", async () => {
 });
 
 void test("a rejected entry fails closed without minting a cookie", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const response = await app(captured, recordingGate([], null)).request(
-    "/v1/turnstile/verify", post(solvedHeaders), anonEnv(captured), stubCtx,
+    "/v1/turnstile/verify", post(solvedHeaders), anonEnv(), stubCtx,
   );
   assert.equal(response.status, 403);
   assert.equal(response.headers.get("Set-Cookie"), null);
 });
 
 void test("entry fails closed when its Turnstile secret is missing", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const calls: GateCall[] = [];
-  const env = { ...(anonEnv(captured) as object), TURNSTILE_SECRET: undefined } as never;
+  const env = { ...(anonEnv() as object), TURNSTILE_SECRET: undefined } as never;
   const response = await app(captured, recordingGate(calls, SOLVED)).request(
     "/v1/turnstile/verify", post(solvedHeaders), env, stubCtx,
   );
@@ -121,20 +109,20 @@ void test("entry fails closed when its Turnstile secret is missing", async () =>
 });
 
 void test("the entry verification endpoint rejects non-POST methods", async () => {
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const response = await app(captured, recordingGate([], SOLVED)).request(
-    "/v1/turnstile/verify", { method: "GET" }, anonEnv(captured), stubCtx,
+    "/v1/turnstile/verify", { method: "GET" }, anonEnv(), stubCtx,
   );
   assert.equal(response.status, 405);
 });
 
 void test("native store bindings admit entry and reuse the signed pass in another isolate", async (t) => {
   t.mock.method(Date, "now", () => NOW);
-  const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+  const captured = { calls: [] as NativeAgentCall[] };
   const firstCalls: GateCall[] = [];
   const secondCalls: GateCall[] = [];
   const env = {
-    ...(anonEnv(captured) as object),
+    ...(anonEnv() as object),
     ANON_ID_SECRET: { get: () => Promise.resolve(SECRET) },
     TURNSTILE_SECRET: { get: () => Promise.resolve(TURNSTILE_SECRET) },
   } as never;
@@ -158,11 +146,11 @@ void test("native store bindings admit entry and reuse the signed pass in anothe
 
 for (const route of ["/v1/turnstile/verify", "/v1/chat"]) {
   void test(`disabled anonymous access refuses ${route} without reading either secret`, async (t) => {
-    const captured = { requests: [] as Request[], calls: [] as NativeAgentCall[] };
+    const captured = { calls: [] as NativeAgentCall[] };
     const calls: GateCall[] = [];
     const get = t.mock.fn(() => Promise.reject(new Error("must not read disabled secrets")));
     const env = {
-      ...(anonEnv(captured) as object), ANON_ACCESS_ENABLED: "false",
+      ...(anonEnv() as object), ANON_ACCESS_ENABLED: "false",
       ANON_ID_SECRET: { get }, TURNSTILE_SECRET: { get },
     } as never;
     const response = await app(captured, recordingGate(calls, SOLVED)).request(route, post(solvedHeaders), env, stubCtx);

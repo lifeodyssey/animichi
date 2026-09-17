@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type WorkerDeps } from "../src/app.ts";
 import type { AgentTurnTier, TurnIdentity } from "../src/gateway/agent-turn.ts";
-import { ANON_V1_PATHS } from "../src/gateway/routing-policy.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 
 const NOW = Date.UTC(2026, 8, 2, 12, 0, 0);
@@ -44,28 +43,13 @@ function makeRecordingTier(calls: TierCall[]): AgentTurnTier {
   };
 }
 
-/** The container, recording the request it was forwarded verbatim. */
-function makeRecordingContainer(forwarded: Request[]) {
-  return {
-    idFromName: () => "id",
-    get: () => ({
-      fetch: (request: Request) => {
-        forwarded.push(request);
-        return Promise.resolve(new Response("container", { status: 200 }));
-      },
-    }),
-  };
-}
-
 interface Harness {
   readonly request: (path: string, init: RequestInit) => Promise<Response>;
   readonly calls: TierCall[];
-  readonly forwarded: Request[];
 }
 
 function makeHarness(flag: string | undefined, deps: WorkerDeps = {}): Harness {
   const calls: TierCall[] = [];
-  const forwarded: Request[] = [];
   const app = createWorkerApp({ agentTurns: makeRecordingTier(calls), ...deps });
   const env = {
     AGENT_TURN_ROUTE: flag,
@@ -74,9 +58,8 @@ function makeHarness(flag: string | undefined, deps: WorkerDeps = {}): Harness {
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    CONTAINER: makeRecordingContainer(forwarded),
   } as never;
-  return { calls, forwarded, request: async (path, init) => await app.request(path, init, env, stubCtx) };
+  return { calls, request: async (path, init) => await app.request(path, init, env, stubCtx) };
 }
 
 const AUTHED: WorkerDeps = {
@@ -93,12 +76,11 @@ const POST_CHAT = {
   body: CHAT_BODY,
 };
 
-void test("native chat is the default and never dispatches to the retired container turn", async () => {
+void test("POST /v1/chat is served by the native tier, and reaches it exactly once", async () => {
   const harness = makeHarness(undefined, AUTHED);
   const response = await harness.request("/v1/chat", POST_CHAT);
   assert.equal(await response.text(), "tier-chat");
   assert.equal(harness.calls.length, 1);
-  assert.equal(harness.forwarded.length, 0);
 });
 
 void test("the native request keeps its method, path and body verbatim", async () => {
@@ -117,7 +99,6 @@ void test('"edge" hands POST /v1/chat to the agent tier with the verified identi
   assert.equal(await response.text(), "tier-chat");
   assert.deepEqual(harness.calls[0]?.identity, { userId: "u1", userType: "human" });
   assert.equal(harness.calls[0].route, "chat");
-  assert.deepEqual(harness.forwarded, []);
 });
 
 void test('"edge" hands the transcript GET to the tier with the session id from the path', async () => {
@@ -149,17 +130,17 @@ void test('"edge" opens that same GET to the anonymous visitor — W1 has no exi
   assert.match(call.identity.userId, /^anon_[0-9a-f]{32}$/);
 });
 
-void test("native transcript access does not broaden unrelated anonymous forwarding routes", () => {
-  assert.deepEqual([...ANON_V1_PATHS], ["/v1/chat", "/v1/photo-search", "/v1/photo-search/confirm"]);
-});
-
-void test("an unrelated /v1 route still forwards to the container under both flag values", async () => {
-  const container = makeHarness("container", AUTHED);
-  const edge = makeHarness("edge", AUTHED);
-  await container.request("/v1/photo-search", { method: "POST", headers: { Authorization: "Bearer jwt" } });
-  await edge.request("/v1/photo-search", { method: "POST", headers: { Authorization: "Bearer jwt" } });
-  assert.deepEqual([container.forwarded.length, edge.forwarded.length], [1, 1]);
-  assert.deepEqual([...container.calls, ...edge.calls], []);
+void test("the anonymous ladder is the tier's by-kind list, not a path allowlist", async () => {
+  // #1605 deleted the container path's own allowlist (`ANON_V1_PATHS`, which
+  // listed only `/v1/chat`) with the forward it gated, so what an absent
+  // credential can reach is decided by `ANONYMOUS_TIER_KINDS` alone. This is the
+  // behavioural pin that replaced the table assertion: the transcript widening
+  // (turn / transcript / stream) does not extend to the conversation index, and a
+  // method the tier policy does not select is not a way in either.
+  const harness = makeHarness("edge", ANONYMOUS);
+  assert.equal((await harness.request("/v1/conversations", {})).status, 401);
+  assert.equal((await harness.request("/v1/chat", {})).status, 404);
+  assert.deepEqual(harness.calls, []);
 });
 
 void test("the authenticated limiter still runs before the tier — a denied turn never reaches it", async () => {
@@ -170,7 +151,6 @@ void test("the authenticated limiter still runs before the tier — a denied tur
     EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    CONTAINER: makeRecordingContainer([]),
   } as never;
   assert.equal((await app.request("/v1/chat", POST_CHAT, env, stubCtx)).status, 200);
   assert.equal((await app.request("/v1/chat", POST_CHAT, env, stubCtx)).status, 429);

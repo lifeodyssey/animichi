@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
-import { alwaysAllowGuard, envWithContainer, stubCtx } from "../src/container/entry-env.ts";
+import { alwaysAllowGuard, gatewayEnv, stubCtx } from "./doubles/entry-env.ts";
 import { turnRoutePolicy } from "../src/gateway/routing-policy.ts";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 
@@ -13,21 +13,25 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 // gateway — an advertised operation the edge 404s is a phantom surface. This
 // test drives the real gateway (createWorkerApp) for every operation in the
 // committed generated documents and asserts the request reaches the intended
-// binding (CONTAINER for Agent, USERS for the Users service).
+// receiver (this Worker's native agent tier, or the USERS binding).
+//
+// #1605 deleted the container receiver this file used to partition against, and
+// with it the last way an advertised operation could be served from outside this
+// Worker: a marker-less Agent operation is now a native-tier route or a phantom.
 //
 // Issue #1601 added the second `x-runtime: "edge"` operation. That committed
 // marker means the edge itself owns the runtime, so those operations must never
-// be forwarded into the Python container: the native stream reaches the edge's
-// own agent tier, and the in-process adoption reaches no downstream receiver at
-// all. Their expected receiver is derived from the production route policy, not
-// a path list kept here.
+// be forwarded into a downstream agent runtime: the native stream reaches the
+// edge's own agent tier, and the in-process adoption reaches no downstream
+// receiver at all. Their expected receiver is derived from the production route
+// policy, not a path list kept here.
 //
 // Issue #1596 added the edge's own readiness answer, which that marker cannot
-// express: the container keeps its own richer `/healthz` and still mounts it, so
-// `GET /healthz` must stay in the generated Python inventory — the marker means
-// "not a Python runtime route" and would strip it (see
-// `apps/agent/src/animichi/tests/unit/test_agent_route_parity.py`). It is named
-// in the table below instead, and pinned to the document by its own test.
+// express: the container kept its own richer `/healthz` and mounted it, so
+// `GET /healthz` had to stay in the generated Python inventory — the marker
+// means "not a Python runtime route" and would have stripped it (its Python
+// document is deleted with the rest of the tree in #1607). It is named in the
+// table below instead, and pinned to the document by its own test.
 //
 // Each receiver class is a partition with its own test and its own straight-line
 // assertions: an operation never picks which assertion runs.
@@ -72,21 +76,8 @@ function concretePath(path: string): string {
 
 const authed = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
 
-/** Minimal CONTAINER binding: any request gets the same stub response. */
-function containerStub() {
-  return {
-    idFromName: () => "id",
-    get: () => ({ fetch: () => Promise.resolve(new Response("container")) }),
-  };
-}
-
 function usersEnv(users: { fetch(req: Request): Promise<Response> }) {
-  return {
-    EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: alwaysAllowGuard,
-    CONTAINER: containerStub(),
-    USERS: users,
-  } as never;
+  return { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: alwaysAllowGuard, USERS: users } as never;
 }
 
 /** A USERS binding that records whether a request reached it. */
@@ -101,10 +92,10 @@ function usersBinding(reached: { value: boolean }) {
 
 /** The advertised Agent operations the edge answers itself *without* the
  * `x-runtime: "edge"` marker. `GET /healthz` became the gateway's own readiness
- * answer in #1596: the CD smoke probes this origin, so a container application
- * that has not started (or was stopped) must still report a healthy deploy.
+ * answer in #1596: the CD smoke probes this origin, so a deploy whose agent
+ * runtime has not started (or was stopped) must still report a healthy deploy.
  * Every OTHER advertised operation keeps the strict phantom-surface rule:
- * exactly one agent receiver, never zero. */
+ * exactly one receiver, never zero. */
 const EDGE_NATIVE_OPERATIONS = new Set(["GET /healthz"]);
 
 function operationKey(operation: AdvertisedOperation): string {
@@ -117,54 +108,53 @@ function isNativeTierRoute(operation: AdvertisedOperation): boolean {
   return turnRoutePolicy().select(operation.method, concretePath(operation.path)) !== null;
 }
 
-/** Who serves an advertised Agent operation: the Python container, the edge's
- * native agent tier, or the edge in process — the `x-runtime: "edge"` marker
- * with no native-tier route, plus the marker-less edge-native table above. */
-type AgentReceiver = "container" | "nativeTier" | "inProcess";
+/** Who serves an advertised Agent operation, now that the edge carries no
+ * container (#1605): this Worker's native agent tier, or the edge in process —
+ * the `x-runtime: "edge"` marker with no native-tier route, plus the
+ * marker-less edge-native table above. */
+type AgentReceiver = "nativeTier" | "inProcess";
 
 function agentReceiver(operation: AdvertisedOperation): AgentReceiver {
   if (EDGE_NATIVE_OPERATIONS.has(operationKey(operation))) return "inProcess";
-  if (operation.runtime !== "edge") return "container";
   return isNativeTierRoute(operation) ? "nativeTier" : "inProcess";
+}
+
+/** Every advertised Agent operation that carries no `x-runtime` marker and is
+ * not in the edge-native table — the set the phantom-surface rule governs
+ * directly, because the marker was the container's routing decision. */
+function markerlessOperations(): AdvertisedOperation[] {
+  return operations(readDocument("agent-openapi.json"))
+    .filter((operation) => operation.runtime !== "edge" && !EDGE_NATIVE_OPERATIONS.has(operationKey(operation)));
 }
 
 /** The advertised Agent operations grouped by the receiver they must reach. */
 function receiverPartitions(): Record<AgentReceiver, AdvertisedOperation[]> {
-  const partitions: Record<AgentReceiver, AdvertisedOperation[]> = { container: [], nativeTier: [], inProcess: [] };
+  const partitions: Record<AgentReceiver, AdvertisedOperation[]> = { nativeTier: [], inProcess: [] };
   for (const operation of operations(readDocument("agent-openapi.json"))) partitions[agentReceiver(operation)].push(operation);
   return partitions;
 }
 
 interface AgentDriveResult {
-  readonly captured: { req?: Request };
   readonly calls: NativeAgentCall[];
   readonly label: string;
 }
 
 async function driveAgentOperation(operation: AdvertisedOperation): Promise<AgentDriveResult> {
-  const captured: { req?: Request } = {};
   const calls: NativeAgentCall[] = [];
   const app = createWorkerApp({ authenticate: authed, agentTurns: nativeAgentReceiver(calls) });
-  const res = await app.request(concretePath(operation.path), { method: operation.method }, envWithContainer(captured), stubCtx);
+  const res = await app.request(concretePath(operation.path), { method: operation.method }, gatewayEnv(), stubCtx);
   const label = `${operation.method} ${operation.path}`;
   assert.equal(res.status !== 404, true, `${label} must not 404`);
-  return { captured, calls, label };
-}
-
-async function assertContainerReceiver(operation: AdvertisedOperation): Promise<void> {
-  const { captured, calls, label } = await driveAgentOperation(operation);
-  assert.equal(Number(captured.req !== undefined) + calls.length, 1, `${label} must reach exactly one agent receiver`);
+  return { calls, label };
 }
 
 async function assertNativeTierReceiver(operation: AdvertisedOperation): Promise<void> {
-  const { captured, calls, label } = await driveAgentOperation(operation);
-  assert.equal(captured.req, undefined, `${label} is edge-owned and must not reach the agent container`);
+  const { calls, label } = await driveAgentOperation(operation);
   assert.equal(calls.length, 1, `${label} must reach exactly one edge-native receiver`);
 }
 
 async function assertInProcessReceiver(operation: AdvertisedOperation): Promise<void> {
-  const { captured, calls, label } = await driveAgentOperation(operation);
-  assert.equal(captured.req, undefined, `${label} is edge-owned and must not reach the agent container`);
+  const { calls, label } = await driveAgentOperation(operation);
   assert.equal(calls.length, 0, `${label} is served in process and must reach no native receiver`);
 }
 
@@ -176,13 +166,19 @@ void test("every edge-native operation is still advertised in the Agent document
   }
 });
 
-void test("every container-forwarded Agent operation reaches exactly one agent receiver", async () => {
-  const { container } = receiverPartitions();
-  assert.equal(container.length > 0, true, "the container partition must not be empty");
-  for (const operation of container) await assertContainerReceiver(operation);
+void test("every marker-less advertised Agent operation is a native-tier route", () => {
+  const markerless = markerlessOperations();
+  assert.equal(markerless.length > 0, true, "the document must advertise the marker-less routes this rule governs");
+  for (const operation of markerless) {
+    assert.equal(
+      isNativeTierRoute(operation),
+      true,
+      `${operationKey(operation)} is advertised with no x-runtime marker and is not selected by turnRoutePolicy — the edge would 404 an advertised route`,
+    );
+  }
 });
 
-void test("every edge-owned native-tier Agent operation reaches only the native receiver", async () => {
+void test("every native-tier Agent operation reaches exactly one edge-native receiver", async () => {
   const { nativeTier } = receiverPartitions();
   assert.equal(nativeTier.length > 0, true, "the native-tier partition must not be empty");
   for (const operation of nativeTier) await assertNativeTierReceiver(operation);
@@ -194,10 +190,10 @@ void test("every in-process Agent operation reaches no downstream receiver", asy
   for (const operation of inProcess) await assertInProcessReceiver(operation);
 });
 
-void test("the three receiver partitions cover every advertised Agent operation", () => {
-  const { container, nativeTier, inProcess } = receiverPartitions();
+void test("the two receiver partitions cover every advertised Agent operation", () => {
+  const { nativeTier, inProcess } = receiverPartitions();
   const advertised = operations(readDocument("agent-openapi.json"));
-  assert.equal(container.length + nativeTier.length + inProcess.length, advertised.length);
+  assert.equal(nativeTier.length + inProcess.length, advertised.length);
 });
 
 async function assertUsersOperationReachable(operation: AdvertisedOperation): Promise<void> {

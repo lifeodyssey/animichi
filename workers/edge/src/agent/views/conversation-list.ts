@@ -1,8 +1,9 @@
 import type { ConversationListRow } from "@animichi/contract/session-history-contract";
 import type { AdmissionDatabase } from "../admission/types.ts";
 
-/** The container's own cap, kept verbatim (Card E of the #1317 decomposition):
- * the sidebar's RECENT section has never asked for a window of its own. */
+/** The cap kept verbatim from the Python `list_sessions` this Worker replaced
+ * (Card E of the #1317 decomposition): the sidebar's RECENT section has never
+ * asked for a window of its own. */
 const CONVERSATION_LIST_LIMIT = 30;
 
 /** The row this statement declares: the contract's own `ConversationListRow`,
@@ -29,12 +30,13 @@ function conversationListStatement(db: AdmissionDatabase, identityId: string) {
 
 /**
  * The caller's own conversations, newest first — the read behind
- * `GET /v1/conversations`, which moved from the container to this Worker.
+ * `GET /v1/conversations`, which moved from the Python container to this Worker
+ * (Card E of the #1317 decomposition).
  *
  * The statement is scoped to `sessions.user_id` and never to anything the
  * caller supplied: that predicate is what makes the route safe, not the route
- * table. The order and the cap are the semantics the container's
- * `list_sessions` had.
+ * table. The order and the cap are the semantics the retired `list_sessions`
+ * had.
  */
 export async function listConversations(db: AdmissionDatabase, identityId: string): Promise<ConversationListRow[]> {
   return await db.runtime().query(conversationListStatement(db, identityId));

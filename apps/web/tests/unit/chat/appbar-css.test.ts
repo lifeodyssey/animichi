@@ -8,7 +8,6 @@ import shellSource from "../../../src/features/chat/components/ChatShell.tsx?raw
 import composerSource from "../../../src/features/chat/components/ComposerDock.tsx?raw";
 import coldStartSource from "../../../src/features/chat/components/ColdStart.tsx?raw";
 import chatInputSource from "../../../src/features/chat/components/ChatInput.tsx?raw";
-import photoUploadSource from "../../../src/features/chat/components/PhotoSearchUpload.tsx?raw";
 import {
   contrastRatio,
   parseBlockTokens,
@@ -30,7 +29,6 @@ const FRAME_SOURCES: readonly (readonly [string, string])[] = [
   ["ComposerDock.tsx", composerSource],
   ["ColdStart.tsx", coldStartSource],
   ["ChatInput.tsx", chatInputSource],
-  ["PhotoSearchUpload.tsx", photoUploadSource],
 ];
 
 /** The direction-E frame is Tailwind classes, so the old appbar/composer CSS

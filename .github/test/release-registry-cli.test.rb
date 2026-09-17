@@ -11,7 +11,9 @@ class ReleaseRegistryCliTest < Minitest::Test
     @root = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(@root, 'release'))
     @manifest = JSON.parse(File.read(File.join(__dir__, "fixtures/release/docker-manifest.json")))
-    @images = { 'agent' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@#{@manifest.fetch("digest")}" }
+    # Snapshots may name no image at all after #1605/#1606, so this fixture supplies the
+    # retired migrator image itself to exercise the CLI's registry checks.
+    @images = { 'migrator' => "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@#{@manifest.fetch("digest")}" }
     @image = { 'os' => 'linux', 'architecture' => 'amd64' }
     @environment = { 'PATH' => "#{@root}:#{ENV.fetch('PATH')}", 'CLOUDFLARE_ACCOUNT_ID' => 'a' * 32 }
     File.write(File.join(@root, 'docker'), registry_fixture)
@@ -46,7 +48,7 @@ class ReleaseRegistryCliTest < Minitest::Test
     proof = JSON.parse(File.read(File.join(@root, 'registry-proof.json')))
     assert_equal @images, proof.transform_values { |item| item.fetch('reference') }
     assert_equal 2, File.readlines(File.join(@root, 'requests')).size
-    assert_includes File.read(File.join(@root, 'requests')), "#{@images['agent']} --format {{json .Manifest}}"
+    assert_includes File.read(File.join(@root, 'requests')), "#{@images['migrator']} --format {{json .Manifest}}"
   end
 
   def test_missing_remote_manifest_produces_no_proof

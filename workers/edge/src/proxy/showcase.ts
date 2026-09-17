@@ -4,7 +4,7 @@
  * The web app's `VITE_SHOWCASE_MODE` (see `apps/web/src/features/config/showcase.ts`)
  * makes prod a landing-only demo; this is the worker-side backend denial that
  * makes "pure showcase" hold beyond the UI — a direct curl at /v1/chat,
- * /v1/photo-search, /v1/users/* or the public catalog read answers 403 while
+ * /v1/sessions/adopt, /v1/users/* or the public catalog read answers 403 while
  * the landing's own surface (/healthz, /img/*, /tiles/*) stays reachable.
  *
  * Value contract mirrors C1's strict boolean: only the literal "false" opens
@@ -16,10 +16,10 @@
  * fail-closed denial is paired with a one-per-instance warning so a
  * misconfigured value is visible in Worker logs instead of silent (see #441/
  * #443 for this repo's precedent against silent fail-open config handling).
- * The variable is consumed by the edge worker itself and is deliberately NOT
- * in `CONTAINER_ENV_KEYS` (that list is the worker→container forwarding
- * allowlist; the container is unreachable except through this worker, so the
- * edge gate is the complete public ingress control).
+ * The variable is consumed by the edge worker itself and was never part of the
+ * container env-forwarding allowlist (deleted with the container in #1605; the
+ * container was unreachable except through this worker, so the edge gate is the
+ * complete public ingress control).
  *
  * The warn-once dedupe is INSTANCE state (a fresh gate per app instance), not
  * module state: production creates one app per isolate, so one gate per

@@ -160,12 +160,12 @@ reported as drift in its own right and never renumbers the criteria after it.
 - **#1596 AC6** — not carried. A browser network log needs a browser lane in CD (the e2e suite already
   knows how to present the Access headers); until that lane exists the criterion is recorded
   `unobservable-here` rather than skipped.
-- **#1597 AC3** — half carried. The 404 the criterion names requires an *authenticated* request: an
-  unauthenticated one is answered 401 by the gateway before any container is reached, which the
-  transcript records as a diagnostic. That diagnostic asserts only that the caller is REFUSED — 401
-  while the path is still routed, 404 once it is gone — so it is context and never the criterion's
-  evidence, and it can never turn the criterion `refuted`. The authenticated half needs the read-scoped
-  identity below.
+- **#1597 AC3** — half carried. The 404 the criterion names requires an *authenticated* request. An
+  unauthenticated one is refused by the gateway itself, before any tier is reached, and the transcript
+  records that as a diagnostic. The diagnostic asserts only that the caller is REFUSED — 401 while the
+  path is still routed behind identity, the shared 404 once nothing is behind it (#1605) — so it is
+  context and never the criterion's evidence, and it can never turn the criterion `refuted`. The
+  authenticated half needs the read-scoped identity below.
 - **#1599 AC4** — half carried: the unauthenticated 401 is recorded; the signed-in body needs the same
   identity.
 - **#1601 AC4** — not carried: a real sign-in is a browser journey with an identity.

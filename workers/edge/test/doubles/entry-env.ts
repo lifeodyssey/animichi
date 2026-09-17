@@ -1,4 +1,13 @@
-import type { WorkerExecutionContext } from "../env.ts";
+/**
+ * Shared gateway test doubles (#1605). Moved out of `src/container/entry-env.ts`
+ * when the container folder was deleted: every surviving helper here is a double
+ * for the WORKER's entry surface — an execution context, a CATALOG binding, an
+ * always-allow guard — not container plumbing, so it belongs under
+ * `test/doubles/` (production code never imports test fixtures,
+ * `workers/edge/AGENTS.md`). The one helper that was container plumbing,
+ * `envWithContainer`, was deleted with the container rather than moved.
+ */
+import type { WorkerExecutionContext } from "../../src/env.ts";
 
 export const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
@@ -29,13 +38,9 @@ export const alwaysAllowGuard = {
   }),
 };
 
-export function envWithContainer(captured: { req?: Request }) {
-  return {
-    EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: alwaysAllowGuard,
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({ fetch: (r: Request) => { captured.req = r; return Promise.resolve(new Response("container")); } }),
-    },
-  } as never;
+/** The env most gateway cases need: showcase off, the always-allow guard, and
+ * nothing downstream. Named for the surface rather than for a binding it no
+ * longer carries — `CONTAINER` went with the container (#1605). */
+export function gatewayEnv(extra: Record<string, unknown> = {}): never {
+  return { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: alwaysAllowGuard, ...extra } as never;
 }

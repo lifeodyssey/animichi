@@ -2,7 +2,7 @@
 
 import { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
 
-import { readStoreOrString } from "../container/container-env.ts";
+import { readStoreOrString } from "../env.ts";
 
 export { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS };
 
@@ -217,8 +217,9 @@ async function turnstileSecret(env: TurnstileEnv): Promise<string | null> {
 
 /**
  * Edge guard. Returns `null` when the caller may proceed to forward the
- * request, or a 403 Response the caller MUST return without ever touching the
- * container. `identity` scopes the pass window — see TURNSTILE_WINDOW_MS.
+ * request, or a 403 Response the caller MUST return without ever touching a
+ * downstream binding. `identity` scopes the pass window — see
+ * TURNSTILE_WINDOW_MS.
  */
 export async function guardTurnstile(
   request: Request, env: TurnstileEnv, gate: TurnstileGate, identity: string,

@@ -31,13 +31,10 @@ module ReleaseSnapshot
     true
   end
 
+  # #1606: no release unit carries a container any more (#1589 the migrator, #1605 the edge), so
+  # a snapshot names no image. An image key is refused rather than carried as a historical shape
+  # no build ever produced.
   def validate_images(images)
-    allowed = %w[agent migrator]
-    valid_units = images.key?('agent') && (images.keys - allowed).empty?
-    ReleaseSelection.require_value(valid_units, 'missing or unknown release image')
-    images.each do |unit, reference|
-      pattern = %r{\Aregistry\.cloudflare\.com/[a-f0-9]{32}/animichi-#{unit}@sha256:[a-f0-9]{64}\z}
-      ReleaseSelection.require_value(reference.match?(pattern), 'image must use an immutable registry digest')
-    end
+    ReleaseSelection.require_value(images.empty?, "retired or unknown release image: #{images.keys.join(', ')}")
   end
 end

@@ -4,7 +4,7 @@ import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
 import type { Env } from "../src/env.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
-import { stubCtx } from "../src/container/entry-env.ts";
+import { stubCtx } from "./doubles/entry-env.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
 // scoped to cost-bearing routes only (chat, byok/probe) — not
@@ -44,7 +44,6 @@ function env(guard = fakeGuard(NOW).namespace, extra: Record<string, unknown> = 
   return {
     EDGE_GUARD: guard,
     EDGE_SHOWCASE_MODE: "false",
-    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
     ...extra,
   } as unknown as Env;
 }

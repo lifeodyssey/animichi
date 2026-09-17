@@ -2,8 +2,9 @@
 // `test/session-adopt.test.ts` (route behaviour) and
 // `test/session-adopt-boundary.test.ts` (pre-write refusals). The anonymous
 // env, the default result and the store fake were copy-pasted into both; this
-// is their single home. `stubCtx` / `alwaysAllowGuard` already have one in
-// `src/container/entry-env.ts`, which both suites import directly.
+// is their single home. `stubCtx` / `alwaysAllowGuard` have their own in
+// `test/doubles/entry-env.ts` (moved there from `src/container/` in #1605),
+// which both suites import directly.
 import type { SessionAdoptionResult, SessionAdoptionStore } from "../../src/identity/session-adopt.ts";
 import { TEST_ANON_SECRET } from "./signed-anonymous-cookie.ts";
 
