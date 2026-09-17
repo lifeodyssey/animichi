@@ -151,6 +151,10 @@ jobs:
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh staging
+      # #1596 AC5 is judged by the state the smoke passed in, and the evidence
+      # recorder runs after the smoke: the container applications are read here.
+      - name: Read the container applications before the smoke
+        run: node .github/scripts/release/record-containers-before-smoke.mjs staging
       - name: Smoke the release
         env:
           SMOKE_ATTEMPTS: "8"
@@ -162,15 +166,24 @@ jobs:
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
+          # The edge origin the smoke step above probes: #1695 records the
+          # answer a verification seat cannot ask for, because every staging
+          # origin is behind Cloudflare Access.
+          EVIDENCE_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
         run: |
           bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging
+          node .github/scripts/release/record-evidence.mjs staging
       - name: Publish the immutable staging receipt
         id: receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}
-          path: receipt.json
+          # One artifact, one digest: the platform read-back and the probe
+          # transcript that must agree with it travel together.
+          path: |
+            receipt.json
+            evidence.json
           if-no-files-found: error
           retention-days: 14
   promote-production:

@@ -289,6 +289,7 @@ jobs:
           set -euo pipefail
           ruby .github/test/cd-artifact.test.rb
           ruby .github/test/cd-credentials.test.rb
+          ruby .github/test/cd-post-deploy-evidence.test.rb
           ruby .github/test/cd-delivery-jobs.test.rb
           ruby .github/test/cd-migrations.test.rb
           ruby .github/test/migrator-container-retirement.test.rb
@@ -305,6 +306,11 @@ jobs:
           ruby .github/test/failure-alert-recipient.test.rb
           ruby .github/test/failure-alert.test.rb
           ruby .github/test/merged-commit-lane.test.rb
+          ruby .github/test/post-deploy-evidence-mutation.test.rb
+          ruby .github/test/post-deploy-evidence-refusals.test.rb
+          ruby .github/test/post-deploy-evidence-smoke-interval.test.rb
+          ruby .github/test/post-deploy-evidence-verifier.test.rb
+          ruby .github/test/post-deploy-evidence.test.rb
           ruby .github/test/pr-verification-affected.test.rb
           ruby .github/test/pr-verification-agent.test.rb
           ruby .github/test/pr-verification-browser.test.rb
