@@ -9,7 +9,7 @@ paths:
 ---
 # GitHub Actions authoring rules
 
-The entry workflows are `pr-verification.yml` (`pull_request` + `merge_group`),
+The entry workflows are `pr-verification.yml` (`pull_request` + `merge_group` + `push: main`),
 `release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`) and
 `agent-eval-nightly.yml` (cron). Share genuinely identical step sequences
 with native composites backed by official actions. `.github/actions/setup-workspace/action.yml`
@@ -26,6 +26,22 @@ revision rather than mutable checkout state.
   workspace packages with pnpm's dependent-closure filter. `affected` runs their package scripts;
   dedicated jobs own contracts, docs, Python, browser, schema and commits. `security` and `aggregate`
   run `always()` and fail on failed or cancelled dependencies. Add new required lanes to their `needs`.
+- **`push: main` is the merged-commit lane, and it is a selection, not the PR matrix** (#1715).
+  `merge_group` never fires here (no merge queue), so without it nothing runs against the commit a
+  squash merge produces. The ruleset's `strict_required_status_checks_policy` already makes a normal
+  squash merge produce the tree its pull_request run gated — the branch must contain the current
+  `main` tip — so this lane covers what can still diverge: owner-bypass merges and direct pushes,
+  verdicts that change with time, and runs cut short. It therefore runs the whole-repository lanes
+  (`contracts`, `docs`, the security jobs behind `Security`) *and* the lanes `plan` routes by the
+  merged diff (`affected`, `agent`, `e2e`, `db`) — `plan` computes that diff from
+  `github.event.before..github.sha`. Only `commits` is gated off with
+  `if: ${{ github.event_name != 'push' }}` — it has no subject on a merged commit (no PR title, a
+  zero-commit range). `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,
+  and its tables must cover every job so a new job cannot land there by default. A red merged commit
+  is unattended, so it carries `alert-failure` like every other `push` workflow, gated to
+  `github.event_name == 'push'`; a pending run the concurrency group supersedes alerts nothing, and
+  nothing reverts `main` automatically. `release-build.yml` still builds and stages that red commit,
+  so the production approver reads the alert or the CI run for the SHA before approving.
 - **`release-build.yml` builds once; `cd.yml` selects an immutable artifact ID.** Each snapshot
   includes all deploy units. Trusted main controller code validates provenance, complete source
   closure, remote image manifests and the migration ledger before mutations. One `stage` job holds
