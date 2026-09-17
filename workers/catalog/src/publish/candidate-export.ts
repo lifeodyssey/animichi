@@ -8,6 +8,11 @@
  * the export allowlist (EXPORTED_TABLES), so a candidate can never carry them
  * (AC1).
  *
+ * The publish-stage quality gate (X15 #285) interposes between `readPublicRows`
+ * and `candidateFromRows`: publishSnapshot gates the spot rows and bundles the
+ * publishable remainder, so the snapshot is built from gated rows along the
+ * single export data path.
+ *
  * Statements are built with the Drizzle query builder + executed through the
  * single CatalogDb seam; no complete SQL lives here.
  */
@@ -55,45 +60,100 @@ export const EXPORTED_TABLES = [
   "bangumi", "points", "aliases", "series_edges", "catalog_provenance", "media_assets",
 ] as const;
 
-function emptyCounts(): ExportCounts {
-  return { works: 0, points: 0, aliases: 0, series: 0, provenance: 0, media: 0 };
+/**
+ * The exported point row, as selected below. `readPoints` executes the
+ * statement through the typed `db.execute<ExportedSpotRow>` generic, so the
+ * exported points object carries exactly these fields. The Record extension
+ * mirrors `versioning.ts`'s row type — the seam the execute generic requires.
+ */
+export interface ExportedSpotRow extends Record<string, unknown> {
+  readonly id: string;
+  readonly bangumiId: string | null;
+  readonly name: string;
+  readonly nameCn: string | null;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly image: string | null;
+  readonly episode: number | null;
+  readonly timeSeconds: number | null;
+  readonly sceneDesc: string | null;
+  readonly origin: string | null;
+  readonly originUrl: string | null;
+  readonly city: string | null;
+}
+
+/** Every public table's rows, keyed by export kind — the raw candidate material. */
+export interface PublicRows {
+  readonly works: readonly unknown[];
+  readonly points: readonly ExportedSpotRow[];
+  readonly aliases: readonly unknown[];
+  readonly series: readonly unknown[];
+  readonly provenance: readonly unknown[];
+  readonly media: readonly unknown[];
+}
+
+/** The R2 object key of one exported kind under a key prefix (shared with drift reads). */
+export function exportObjectKey(keyPrefix: string, kind: ExportKind): string {
+  return keyPrefix + "/" + kind + ".json";
 }
 
 /** Export the public catalog rows for a snapshot under the given key prefix. */
-export async function exportCandidate(
-  db: CatalogDb, keyPrefix: string,
-): Promise<CandidateExport> {
-  const rows = await readAllPublicRows(db);
-  const objects = await Promise.all(rows.map((entry) => bundle(db, entry.kind, keyPrefix, entry.rows)));
-  return { objects, counts: countsOf(rows), exportedTables: EXPORTED_TABLES };
+export async function exportCandidate(db: CatalogDb, keyPrefix: string): Promise<CandidateExport> {
+  return candidateFromRows(await readPublicRows(db), keyPrefix);
 }
 
-/** Fetch every public table's rows (each to its own kind group). */
-async function readAllPublicRows(db: CatalogDb): Promise<readonly { kind: ExportKind; rows: readonly unknown[] }[]> {
+/** Read every public table's rows (ungated candidate material). */
+export async function readPublicRows(db: CatalogDb): Promise<PublicRows> {
+  return {
+    works: await readWorks(db),
+    points: await readPoints(db),
+    aliases: await readAliases(db),
+    series: await readSeries(db),
+    provenance: await readProvenance(db),
+    media: await readMedia(db),
+  };
+}
+
+/** Bundle public rows into a deterministic candidate inventory (hash + size per table). */
+export async function candidateFromRows(rows: PublicRows, keyPrefix: string): Promise<CandidateExport> {
+  const entries = publicKindEntries(rows);
+  const objects = await Promise.all(entries.map((entry) => bundle(keyPrefix, entry.kind, entry.rows)));
+  return { objects, counts: countsOf(entries), exportedTables: EXPORTED_TABLES };
+}
+
+interface KindRows {
+  readonly kind: ExportKind;
+  readonly rows: readonly unknown[];
+}
+
+/** Every public kind with its rows, in export order. */
+function publicKindEntries(rows: PublicRows): readonly KindRows[] {
   return [
-    { kind: "works", rows: await readWorks(db) },
-    { kind: "points", rows: await readPoints(db) },
-    { kind: "aliases", rows: await readAliases(db) },
-    { kind: "series", rows: await readSeries(db) },
-    { kind: "provenance", rows: await readProvenance(db) },
-    { kind: "media", rows: await readMedia(db) },
+    { kind: "works", rows: rows.works },
+    { kind: "points", rows: rows.points },
+    { kind: "aliases", rows: rows.aliases },
+    { kind: "series", rows: rows.series },
+    { kind: "provenance", rows: rows.provenance },
+    { kind: "media", rows: rows.media },
   ];
 }
 
 /** Fold per-kind row counts into the manifest counts shape. */
-function countsOf(entries: readonly { kind: ExportKind; rows: readonly unknown[] }[]): ExportCounts {
+function countsOf(entries: readonly KindRows[]): ExportCounts {
   const counts = emptyCounts();
   for (const entry of entries) counts[entry.kind] = entry.rows.length;
   return counts;
 }
 
+function emptyCounts(): ExportCounts {
+  return { works: 0, points: 0, aliases: 0, series: 0, provenance: 0, media: 0 };
+}
+
 /** Serialize a table's rows to one immutable export object (hash + size). */
-async function bundle(
-  _db: CatalogDb, kind: ExportKind, keyPrefix: string, rows: readonly unknown[],
-): Promise<ExportObject> {
+async function bundle(keyPrefix: string, kind: ExportKind, rows: readonly unknown[]): Promise<ExportObject> {
   const body = jsonToArrayBuffer(rows);
   const hash = await sha256Hex(body);
-  return { kind, key: keyPrefix + "/" + kind + ".json", body, hash, sizeBytes: body.byteLength };
+  return { kind, key: exportObjectKey(keyPrefix, kind), body, hash, sizeBytes: body.byteLength };
 }
 
 async function readWorks(db: CatalogDb): Promise<unknown[]> {
@@ -111,7 +171,7 @@ async function readWorks(db: CatalogDb): Promise<unknown[]> {
   return (await db.execute(statement)).rows;
 }
 
-async function readPoints(db: CatalogDb): Promise<unknown[]> {
+async function readPoints(db: CatalogDb): Promise<readonly ExportedSpotRow[]> {
   const statement = statementBuilder()
     .select({
       id: points.id, bangumiId: points.bangumiId, name: points.name, nameCn: points.nameCn,
@@ -122,7 +182,8 @@ async function readPoints(db: CatalogDb): Promise<unknown[]> {
     .from(points)
     .orderBy(asc(points.id))
     .getSQL();
-  return (await db.execute(statement)).rows;
+  const result = await db.execute<ExportedSpotRow>(statement);
+  return result.rows;
 }
 
 async function readAliases(db: CatalogDb): Promise<unknown[]> {
