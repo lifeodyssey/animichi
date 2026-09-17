@@ -348,6 +348,8 @@ jobs:
       - name: Verify repository configuration
         run: |
           set -euo pipefail
+          ruby test/repo-config/dependency-hold-backs-mutation.test.rb
+          ruby test/repo-config/dependency-hold-backs.test.rb
           ruby test/repo-config/e2e-spec-coverage.test.rb
           ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
           ruby test/repo-config/gitleaks-mutation.test.rb
@@ -361,6 +363,7 @@ jobs:
           ruby test/repo-config/pre-push-routing.test.rb
           ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           ruby test/repo-config/pnpm-workspace-settings.test.rb
+          ruby test/repo-config/refresh-hold-backs.test.rb
           ruby test/repo-config/retired-python-agent-refs.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Miniflare } from "miniflare";
 import { nativeWorker, request, inspect, fireDeadlineAlarm, deliverDeadlineAlarm, releaseAndRestore, type Observation, type Delivery } from "./native-keepalive-fixture.ts";
+import type { AlarmWrite } from "./native-keepalive-state.ts";
 
 /** The runner's backstop for this file. The probe's diagnostic only has to beat it, so it is never tight. */
 const TEST_TIMEOUT_MS = 120_000;
@@ -28,20 +29,37 @@ async function disposedKeepalive(worker: Miniflare, drive: Promise<string>, acti
   assert.equal(disposed.alarm, active.deadlineTime, "SDK cleanup must retain the original physical deadline alarm");
 }
 
+/** The SDK's re-arm that lands while the fired deadline's callback is in flight and still undelivered. */
+function keepaliveReArm(held: Observation): AlarmWrite | undefined {
+  return held.writes.filter((write) => write.source === "sdk" && write.afterCallbackEntry).at(-1);
+}
+
+/** Whether the alarm read while the deadline was undelivered is one of those re-arm writes, not a pre-dispatch one. */
+function alarmIsReArmWrite(held: Observation) {
+  return held.writes.some((write) => write.source === "sdk" && write.afterCallbackEntry && write.stored === held.alarm);
+}
+
 /**
  * The fired deadline's boundary, read while its callback is held and still undelivered.
  *
- * `callbackCount === 0` and a consumed alarm rule out the vacuous reading: the alarm sampled below is the
- * one an SDK re-arm wrote inside the fired window, not a post-delivery re-arm. A null alarm means the SDK
- * never re-armed, so the run never reached the clamp; an alarm in the physical future means the clamp is
- * absent and the SDK's write displaced the due deadline. Due-ness is the alarm's own instant against the
- * physical clock, not an elapsed budget.
+ * `callbackCount === 0` rules out the vacuous reading: the re-arm sampled below was written inside the fired
+ * window, not after the delivery it is supposed to protect. The re-arm is identified by the write itself —
+ * an SDK write that arrived after this probe's callback entry, which cannot be the probe's own fire and
+ * cannot be a write made before the callback started, such as the job driver's deadman pre-arm — so the
+ * alarm the entry already held decides nothing: that field is recorded because a failure should show what
+ * the entry held, and a legitimate SDK may pre-arm something there. Two things are asserted instead: the
+ * alarm read while the deadline is undelivered is one of those re-arm writes, and the clamp rewrote the
+ * instant that re-arm asked for. A clamp the SDK's re-arm can bypass leaves the alarm in the physical
+ * future, displacing a deadline that was already due — the failure names that displacement.
  */
 async function assertAlarmHeldDue(worker: Miniflare) {
   const held = await fireDeadlineAlarm(worker, STALL_DIAGNOSTIC_MS);
+  const reArm = keepaliveReArm(held);
   assert.equal(held.callbackCount, 0, `The deadline callback was delivered before the observer arrived: ${JSON.stringify(held)}`);
-  assert.equal(held.alarmAtCallbackEntry, null, `The fire must be consumed before its callback starts: ${JSON.stringify(held)}`);
-  assert.ok(held.alarm !== null, `No SDK re-arm reached the physical alarm while the deadline was undelivered: ${JSON.stringify(held)}`);
+  assert.ok(reArm !== undefined, `No SDK re-arm of the physical alarm arrived while the fired deadline's callback was undelivered: ${JSON.stringify(held)}`);
+  assert.ok(alarmIsReArmWrite(held), `The alarm read while the deadline is undelivered is not a re-arm write: ${JSON.stringify(held)}`);
+  assert.ok(held.alarm !== null, `No physical alarm is armed while the fired deadline is undelivered: ${JSON.stringify(held)}`);
+  assert.ok(reArm.requested > reArm.stored, `The clamp must rewrite the instant the SDK re-arm asked for: it asked for ${String(reArm.requested)} and the alarm holds ${String(reArm.stored)}, read at ${String(held.physicalNow)}: ${JSON.stringify(held)}`);
   assert.ok(held.alarm <= held.physicalNow, `An SDK re-arm displaced the fired deadline's alarm ${String(held.alarm - held.physicalNow)} ms into the physical future: ${JSON.stringify(held)}`);
 }
 

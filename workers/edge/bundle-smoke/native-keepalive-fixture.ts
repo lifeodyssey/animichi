@@ -5,11 +5,14 @@ import { join } from "node:path";
 import type { TestContext } from "node:test";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import type { AlarmWrite } from "./native-keepalive-state.ts";
 
 export interface Observation {
   deadlineId: string | null; deadlineTime: number; alarm: number | null;
   callbackCount: number; callbackDuringDrive: boolean; driveActive: boolean; completedStatus: string;
   physicalNow: number; firedAt: number | null; alarmAtCallbackEntry: number | null;
+  /** Every physical-alarm write the probe's wrapper saw, in order. */
+  writes: AlarmWrite[];
 }
 
 /** The delivered alarm callback's own witness: the wait has no other bound. */

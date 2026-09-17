@@ -27,7 +27,7 @@
     "@earendil-works/pi-ai": "catalog:",
     "@neondatabase/serverless": "catalog:",
     "@prisma/orm-postgres": "catalog:",
-    "agents": "0.22.0",
+    "agents": "0.23.0",
     "ai": "catalog:",
     "hono": "catalog:",
     "jose": "catalog:",

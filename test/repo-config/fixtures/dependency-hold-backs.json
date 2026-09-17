@@ -1,0 +1,84 @@
+{
+  "refreshed": "2026-09-18",
+  "command": "pnpm outdated -r --format json",
+  "note": "Derived by `ruby test/repo-config/refresh-hold-backs.rb --write`; read by dependency-hold-backs.test.rb. `issue` is the follow-up card the register line beside the pin cites; `--write` carries it over from the entry it replaces.",
+  "holdbacks": [
+    {
+      "package": "@cloudflare/workers-types",
+      "declared": "5.20260727.1",
+      "latest": "5.20260916.1",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1743
+    },
+    {
+      "package": "@prisma/orm-postgres",
+      "declared": "8.0.0-rc.9",
+      "latest": "8.0.0-rc.11",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1741
+    },
+    {
+      "package": "@prisma/orm-toolchain",
+      "declared": "8.0.0-rc.9",
+      "latest": "8.0.0-rc.11",
+      "declaredIn": "workers/migrator/package.json",
+      "issue": 1741
+    },
+    {
+      "package": "@pydantic/logfire-node",
+      "declared": "0.18.21",
+      "latest": "0.18.25",
+      "declaredIn": "packages/eval/package.json",
+      "issue": 1746
+    },
+    {
+      "package": "@vitest/coverage-istanbul",
+      "declared": "4.1.11",
+      "latest": "5.0.1",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1742
+    },
+    {
+      "package": "h3",
+      "declared": "^1.15.11",
+      "latest": "2.0.1-rc.32",
+      "declaredIn": "apps/web/package.json",
+      "issue": 1744
+    },
+    {
+      "package": "logfire",
+      "declared": "0.22.5",
+      "latest": "0.22.9",
+      "declaredIn": "packages/eval/package.json",
+      "issue": 1746
+    },
+    {
+      "package": "miniflare",
+      "declared": "4.20260722.0",
+      "latest": "5.20260915.0-alpha",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1742
+    },
+    {
+      "package": "prisma",
+      "declared": "8.0.0-rc.13",
+      "latest": "8.0.0-rc.15",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1741
+    },
+    {
+      "package": "vitest",
+      "declared": "^4.1.11",
+      "latest": "5.0.1",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1742
+    },
+    {
+      "package": "zod",
+      "declared": "4.4.3",
+      "latest": "4.6.5",
+      "declaredIn": "pnpm-workspace.yaml",
+      "issue": 1745
+    }
+  ]
+}

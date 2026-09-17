@@ -17,6 +17,18 @@ function cleanupObservation() {
   return { collecting: false, promises: new Array<Promise<unknown>>() };
 }
 
+/** One physical-alarm write, in the order it reached the probe's wrapper. */
+export interface AlarmWrite {
+  /** Who asked for it: the probe's own fire, or the SDK. */
+  source: "probe" | "sdk";
+  /** The instant that was asked for. */
+  requested: number;
+  /** The instant actually stored — the clamp's while the fired deadline is undelivered. */
+  stored: number;
+  /** Whether the fired deadline's callback had already started when the write arrived. */
+  afterCallbackEntry: boolean;
+}
+
 /** The fired deadline's callback, and the observer's handshake with the delivery it must witness. */
 function callbackBoundary() {
   return { arrived: Promise.withResolvers<undefined>(), released: Promise.withResolvers<undefined>() };
@@ -27,7 +39,8 @@ export function keepaliveState() {
     resources: nativeResources(), cleanup: cleanupObservation(),
     clock: { realNow: Date.now, now: Math.ceil(Date.now() / 1000) * 1000 + 60_000 },
     deadline: { id: "", time: 0 }, firing: false, firedAt: null as number | null,
-    alarmAtCallbackEntry: null as number | null, boundary: callbackBoundary(),
+    alarmAtCallbackEntry: null as number | null, callbackEntered: false, probeArming: false,
+    writes: new Array<AlarmWrite>(), boundary: callbackBoundary(),
     calls: { count: 0, active: false, duringDrive: false, result: "pending" },
     delivered: Promise.withResolvers<undefined>(),
   };
@@ -51,15 +64,25 @@ export function observeCleanup(ctx: DurableObjectState, cleanup: ReturnType<type
 }
 
 /**
- * Keep the physical alarm in the past while the fired deadline is undelivered.
+ * Keep the physical alarm in the past while the fired deadline is undelivered, and ledger every write.
  *
  * The probe freezes `Date.now`, so an SDK re-arm landing after the fire recomputes its heartbeat ~70 s
  * into the real future; without this clamp that write displaces the due deadline and it is never delivered.
+ * The ledger is what lets the probe name the SDK's re-arm as a write rather than reading an entry state
+ * that any component may have set: `source` separates the probe's own fire from the SDK's writes, and
+ * `afterCallbackEntry` separates a write made while the fired deadline's callback was in flight — the
+ * keepalive re-arm — from anything armed before the callback started.
  */
 export function clampDueAlarm(ctx: DurableObjectState, state: ReturnType<typeof keepaliveState>) {
   const storage = ctx.storage;
   const setAlarm = storage.setAlarm.bind(storage);
-  storage.setAlarm = (time: number | Date) => setAlarm(state.firing && state.calls.count === 0 ? state.clock.realNow() : time);
+  storage.setAlarm = (time: number | Date) => {
+    const requested = time instanceof Date ? time.getTime() : time;
+    const stored = state.firing && state.calls.count === 0 ? state.clock.realNow() : requested;
+    state.writes.push({ source: state.probeArming ? "probe" : "sdk", requested, stored,
+      afterCallbackEntry: state.callbackEntered });
+    return setAlarm(stored);
+  };
 }
 
 export function releaseProvider(state: ReturnType<typeof keepaliveState>) {
@@ -82,5 +105,6 @@ export async function observeDrive(state: ReturnType<typeof keepaliveState>, dri
 export function alarmSnapshot(state: ReturnType<typeof keepaliveState>, deadlineId: string | null, alarm: number | null) {
   return { deadlineId, deadlineTime: state.deadline.time, alarm, callbackCount: state.calls.count,
     callbackDuringDrive: state.calls.duringDrive, driveActive: state.calls.active, completedStatus: state.calls.result,
-    physicalNow: state.clock.realNow(), firedAt: state.firedAt, alarmAtCallbackEntry: state.alarmAtCallbackEntry };
+    physicalNow: state.clock.realNow(), firedAt: state.firedAt, alarmAtCallbackEntry: state.alarmAtCallbackEntry,
+    writes: [...state.writes] };
 }
