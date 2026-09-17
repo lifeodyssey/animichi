@@ -55,16 +55,35 @@ class CdMigrationsTest < Minitest::Test
                      "cd.yml:promote-production: the staging-only guard must refuse before production migrates")
   end
 
-  def test_real_registry_and_ledger_preflight_precede_every_actual_mutation
+  # The pre-publication compatibility read left with the Atlas ledger it read (#1634): with one
+  # authority the only preflight worth running is the one against the migrator this release just
+  # published, and that one still precedes the apply. What stays asserted here is the registry
+  # read before every mutation, and the native preflight before the apply.
+  def test_real_registry_precedes_every_actual_mutation
     %w[stage promote-production].each do |job|
       steps = @cd.dig("jobs", job, "steps")
       registry = steps.index { |step| step["run"] == "ruby .github/scripts/release/inspect-images.rb" }
-      schema = steps.index { |step| step["name"] == "Read applied migration compatibility" }
       refute_nil registry
-      refute_nil schema
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
       assert_equal 7, mutations.length
-      mutations.each { |i| assert_operator i, :>, registry; assert_operator i, :>, schema }
+      mutations.each { |i| assert_operator i, :>, registry }
+    end
+  end
+
+  def test_native_preflight_precedes_the_apply_in_every_job
+    %w[stage promote-production].each do |job|
+      steps = @cd.dig("jobs", job, "steps")
+      preflight = steps.index { |step| step["run"].to_s.match?(/schema-preflight\.sh/) }
+      apply = steps.index { |step| step["run"].to_s.match?(/migrate-through-worker\.sh/) }
+      refute_nil preflight, "#{job}: the native preflight must run"
+      assert_operator apply, :>, preflight, "#{job}: the apply must follow its preflight"
+    end
+  end
+
+  # The retired mode cannot come back quietly: it read a ledger no authority writes any more.
+  def test_no_job_runs_the_retired_atlas_only_preflight
+    @cd.fetch("jobs").each_value do |job|
+      job.fetch("steps", []).each { |step| refute_match(/--atlas-only/, step["run"].to_s) }
     end
   end
 

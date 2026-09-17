@@ -364,35 +364,30 @@ construction. The full authoring/apply boundary is [`migrations.md`](./migration
 
 ### Migration promotion
 
-The selected artifact carries the complete committed `migrations/neon/` chain, `atlas.sum` and any
-`STAGING_ONLY_BASELINE` marker. It also carries Prisma's unchanged `contract.json` and complete native
-migration directory beside the migrator bundle. The controller checks every source byte against the
+The selected artifact carries any `STAGING_ONLY_BASELINE` marker, plus Prisma's unchanged
+`contract.json` and complete native migration directory beside the migrator bundle. The controller checks every source byte against the
 selected release commit; newer graph files cannot enter an older selected artifact.
 
-The first authenticated `POST /preflight` sends `{expectedHead, atlasSum, stagingOnlyBaseline}` to the
-already deployed #1575 endpoint. This Atlas-only read precedes every deployment mutation and rejects
-an unknown or incompatible ledger. A missing endpoint requires authorized bootstrap CD.
+CD publishes the selected migration executor first. An older executor cannot preview a migration
+graph it does not carry, so there is nothing worth asking it beforehand: `/healthz` must report the
+selected contract's own `prismaTarget`, and a request naming any other identity is refused before
+any database contact. Then CD calls `/preflight` with `expectedPrismaRef` read from the selected
+contract's `storageHash`. Public Prisma `executeMigrateShowPlan` reads the actual marker and graph
+without applying DDL. Its configured `contractHash` is not proof of the selected or installed
+target; the receipt uses the requested target, native path and live marker. Application foundation
+changes and service publication occur only after this preview succeeds.
 
-After that check, CD publishes the selected migration executor only. An older executor cannot preview
-native migration files it does not carry. Both `/healthz` identities must match: `bundleHead` for
-Atlas and `prismaTarget` for the native contract. Then CD calls `/preflight` with `expectedPrismaRef`
-read from the selected contract's `storageHash`. Public Prisma `executeMigrateShowPlan` reads the
-actual marker and graph without applying DDL. Its configured `contractHash` is not proof of the
-selected or installed target; the receipt uses the requested target, native path and live marker.
-Application foundation changes and service publication occur only after this preview succeeds.
+`scripts/delivery/migrate-through-worker.sh <environment>` sends the same Prisma ref to `/migrate`
+using the existing `animichi:github-actions:migrator` OIDC audience. Under the fixed apply Durable
+Object lock, the endpoint revalidates that identity before any DDL — a prior preview is no
+authority — and then hands the selected snapshot to Prisma's public control client, which owns the
+transactions, the advisory lock and the marker. One authority owns the whole data plane (#1634),
+so there is no cross-owner transaction to leave half-committed.
 
-`scripts/delivery/migrate-through-worker.sh <environment>` sends the same sealed Atlas metadata and
-Prisma ref to `/migrate` using the existing `animichi:github-actions:migrator` OIDC audience. Under the
-fixed apply Durable Object lock, the endpoint revalidates both owners before DDL. Atlas applies only
-its selected original chain; Prisma's public control client applies its selected snapshot and native
-graph. Neither owner may alter the other's objects. Existing Atlas SQL remains immutable; Prisma owns
-only the new agent contract tables. There is no cross-owner transaction: a later Prisma failure can
-leave an already committed compatible Atlas prefix, and retry must revalidate that state.
-
-The final read-only observation must show the exact selected Atlas head, Prisma target and installed
-marker, with no pending migrations for either owner. Staging receipt verification compares that
-native marker with the contract in the same selected artifact. A matching Atlas head alone cannot
-approve promotion. SQL and secret failures return stable codes, never internal exception messages.
+The final read-only observation must show the exact selected Prisma target and installed marker,
+with no pending migrations. Staging receipt verification compares that marker with the contract in
+the same selected artifact. SQL and secret failures return stable codes, never internal exception
+messages.
 
 CD performs no staging baseline reset. Missing/empty/native-baseline state requires an explicit
 bootstrap or recovery decision. Production's baseline marker guard runs before Pulumi and every
@@ -408,18 +403,19 @@ does not reverse migrations. Follow [migrations.md](migrations.md) and
 ### Read-only migration preflight (#1575)
 
 The migrator exposes authenticated `POST /preflight` for the selected-artifact
-controller. Its Atlas-only phase sends `{expectedHead, atlasSum, stagingOnlyBaseline}`
-from its verified artifact, with a main-ref GitHub OIDC token for the existing
-environment-selected migrator policy. `expectedHead` is the final filename without
-`.sql`. That phase accepts a selected Atlas chain newer than its own bundle, reads the
-complete revision ledger using native Neon `readOnly: true` / `RepeatableRead`, and
-returns `200 {compatible:true, expectedHead, appliedHead, pendingCount}` only for a
-completed matching prefix. Unknown metadata or database history fails closed.
+controller. It sends exactly `{stagingOnlyBaseline, expectedPrismaRef}` from its
+verified artifact, with a main-ref GitHub OIDC token for the existing
+environment-selected migrator policy. The key set is compared by exact match, so an
+added field is an invalid request rather than an ignored one. Public Prisma
+`executeMigrateShowPlan` reads the live marker and the forward path without
+initializing a schema, and the endpoint returns `200 {compatible:true, prisma:
+{targetHash, markerHash, migrations, usedLiveMarker}}`. Unknown metadata or an
+unusable database path fails closed.
 
-An authenticated missing/empty ledger returns `422 ledger_missing` / `ledger_empty`;
-partial history, hash divergence, native baseline/resolved rows, newer schema and a
-production staging-only baseline flag also return stable refusals. Missing identity
-is 401, disallowed identity 403, malformed metadata 400 (oversized input 413), and
+An identity this bundle does not carry returns retryable `409 stale_prisma_bundle`
+naming the `prismaTarget` it does carry; an unusable forward path and a production
+staging-only baseline flag return stable `422` refusals. Missing identity is 401,
+disallowed identity 403, malformed metadata 400 (oversized input 413), and
 secret/driver unavailability 503. Responses are `Cache-Control: no-store` and contain
 no database credentials or driver messages. `/healthz` still describes the bundle.
 
@@ -782,7 +778,7 @@ Then check health on a route that actually exists for that Worker:
 - web: `https://animichi-web-staging.zhenjiazhou0127.workers.dev/` — the SSR shell, that step's
   second probe.
 - migrator: `GET $MIGRATOR_STAGING_URL/healthz` (the workflow variable of that name). It answers
-  `{status, service, env, bundleHead, prismaTarget}` from the chain and native contract carried by
+  `{status, service, env, prismaTarget}` from the native contract carried by
   `workers/migrator/src/create-app.ts`.
 - catalog and users: **no public host** — both configs set `workers_dev = false` and are reached only
   through the edge's service bindings. Verify them with `deployments list` plus a request through the

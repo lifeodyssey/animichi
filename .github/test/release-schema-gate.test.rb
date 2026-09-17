@@ -10,17 +10,15 @@ class ReleaseSchemaGateTest < Minitest::Test
   def setup
     @directory = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(@directory, 'release/migrations'))
-    File.write(File.join(@directory, 'release/migrations/20260901000000_b.sql'), 'SELECT 1;')
-    File.write(File.join(@directory, 'release/migrations/atlas.sum'), "h1:checksum\n")
     File.write(File.join(@directory, 'curl'), curl_fixture)
     File.chmod(0o755, File.join(@directory, 'curl'))
-    @body = { 'compatible' => true, 'expectedHead' => '20260901000000_b', 'appliedHead' => '20260801000000_a', 'pendingCount' => 1 }
+    @body = { 'compatible' => true }
     bundle = File.join(@directory, 'release/migrator/bundle')
     FileUtils.mkdir_p(bundle)
     File.write(File.join(bundle, 'contract.json'), { 'storage' => { 'storageHash' => 'b' * 64 } }.to_json)
     @body['prisma'] = { 'targetHash' => 'b' * 64, 'markerHash' => 'empty',
                         'migrations' => [{ 'spaceId' => 'app', 'from' => 'empty', 'to' => 'b' * 64 }], 'usedLiveMarker' => true }
-    @served = { 'bundleHead' => '20260901000000_b', 'prismaTarget' => 'b' * 64 }
+    @served = { 'prismaTarget' => 'b' * 64 }
     @environment = request_environment
   end
 
@@ -53,19 +51,20 @@ class ReleaseSchemaGateTest < Minitest::Test
     SH
   end
 
-  def preflight(mode = 'native')
+  def preflight
     File.write(File.join(@directory, 'response.json'), @body.to_json)
     File.write(File.join(@directory, 'served.json'), @served.to_json)
     script = File.expand_path('../scripts/release/schema-preflight.sh', __dir__)
-    Open3.capture3(@environment, 'bash', script, 'staging', mode, chdir: @directory)
+    Open3.capture3(@environment, 'bash', script, 'staging', chdir: @directory)
   end
 
-  def test_sends_only_verified_chain_metadata_to_existing_endpoint
-    output, error, status = preflight('--atlas-only')
+  # One authority, one identity (#1634): the request carries the selected schema identity and
+  # the staging-only marker, and nothing the receiver would have to ignore.
+  def test_sends_only_verified_identity_metadata_to_existing_endpoint
+    output, error, status = preflight
     assert status.success?, error
     request = JSON.parse(File.read(File.join(@directory, 'preflight-request.json')))
-    assert_equal %w[atlasSum expectedHead stagingOnlyBaseline], request.keys.sort
-    assert_equal '20260901000000_b', request.fetch('expectedHead')
+    assert_equal %w[expectedPrismaRef stagingOnlyBaseline], request.keys.sort
     refute request.fetch('stagingOnlyBaseline')
     refute_includes output + error, 'test-oidc-token'
   end
@@ -88,7 +87,7 @@ class ReleaseSchemaGateTest < Minitest::Test
     assert_equal target, JSON.parse(File.read(File.join(@directory, 'preflight-request.json')))['expectedPrismaRef']
   end
 
-  def test_same_atlas_head_with_wrong_native_bundle_cannot_pass_preflight
+  def test_a_migrator_serving_another_identity_cannot_pass_preflight
     @served['prismaTarget'] = 'c' * 64
     refute preflight.last.success?
     refute File.exist?(File.join(@directory, 'schema-preflight.json'))
@@ -148,23 +147,18 @@ class ReleaseSchemaGateTest < Minitest::Test
     refute preflight.last.success?
   end
 
-  def test_wrong_success_head_is_not_success
-    @body['expectedHead'] = 'C'
+  def test_an_incompatible_verdict_is_not_success
+    @body['compatible'] = false
     refute preflight.last.success?
   end
 
-  def test_unknown_applied_head_is_not_compatible_evidence
-    @body['appliedHead'] = ''
+  def test_a_missing_native_preview_is_not_compatible_evidence
+    @body.delete('prisma')
     refute preflight.last.success?
   end
 
-  def test_negative_pending_count_is_not_compatible_evidence
-    @body['pendingCount'] = -1
-    refute preflight.last.success?
-  end
-
-  def test_fractional_pending_count_is_not_compatible_evidence
-    @body['pendingCount'] = 0.5
+  def test_a_marker_that_is_neither_empty_nor_a_contract_hash_is_refused
+    @body['prisma']['markerHash'] = 'not-a-hash'
     refute preflight.last.success?
   end
 

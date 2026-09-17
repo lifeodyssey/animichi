@@ -77,8 +77,6 @@ assert.ok(['staging', 'production'].includes(environment), 'unknown receipt envi
 const manifest = JSON.parse(readFileSync('release/release.json', 'utf8'));
 const schema = JSON.parse(readFileSync('schema-preflight.json', 'utf8'));
 assert.equal(schema.compatible, true);
-assert.equal(schema.pendingCount, 0, 'selected schema is not fully applied');
-assert.equal(schema.appliedHead, schema.expectedHead);
 const prismaRef = JSON.parse(readFileSync('release/migrator/bundle/contract.json', 'utf8')).storage.storageHash;
 assert.match(prismaRef, /^[a-f0-9]{64}$/);
 assert.equal(schema.prisma.targetHash, prismaRef);

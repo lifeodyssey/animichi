@@ -2,7 +2,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nativeApp, requestMetadata, TARGET } from "./integration/prisma-fixture";
 import { FIXED_NOW, makeApp, testEnv } from "./migrate.worker.helpers";
 import { preflightRequest } from "./preflight-fixtures";
-import { serveSelectedLedger } from "./prisma-ledger-fixture";
 
 const native = vi.hoisted(() => ({ show: vi.fn(), connect: vi.fn(), migrate: vi.fn(), close: vi.fn() }));
 vi.mock("@prisma/orm-toolchain/cli/control-api", () => ({ executeMigrateShowPlan: native.show }));
@@ -12,7 +11,6 @@ const DSN = "postgresql://fake:migrator@db.test/neondb";
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
   vi.resetAllMocks();
-  serveSelectedLedger();
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map([["app", TARGET]]), usedLiveMarker: true } });
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
 });
@@ -63,15 +61,6 @@ it("returns only the native failure code and closes the control client", async (
   expect(native.close).toHaveBeenCalledOnce();
 });
 
-it("sanitizes Atlas apply errors on the native selected route", async () => {
-  const atlas = await import("../src/http-apply");
-  vi.spyOn(atlas, "applyChain").mockResolvedValueOnce({ kind: "failure", exitCode: 1, error: "password=fixture; private SQL" });
-  const response = await (await nativeApp(DSN)).migrate();
-  expect(response.status).toBe(500);
-  expect(await response.json()).toEqual({ success: false, exitCode: 1, appliedHead: null, error: "migration_failed" });
-  expect(native.connect).not.toHaveBeenCalled();
-});
-
 it("refuses a successful native result that names a different marker", async () => {
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: "f".repeat(64), migrationsApplied: 0 } });
   const response = await (await nativeApp(DSN)).migrate();
@@ -87,7 +76,7 @@ it("sanitizes connection failures and still closes the native client", async () 
   expect(native.close).toHaveBeenCalledOnce();
 });
 
-it("rejects native metadata with arbitrary SQL instead of falling back to legacy apply", async () => {
+it("rejects native metadata carrying arbitrary SQL rather than ignoring the extra field", async () => {
   const { app, token } = await makeApp();
   const response = await app.request(preflightRequest({ ...requestMetadata, sql: "DROP TABLE pi_sessions" }, token), {}, testEnv());
   expect(response.status).toBe(400);

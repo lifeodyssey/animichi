@@ -24,7 +24,7 @@ class ReleaseReceiptCliTest < Minitest::Test
   def prepare_receipt_metadata
     @receipt = { 'format' => 1, 'environment' => 'staging', 'selection' => @selection.dup, 'images' => @images,
                  'controller_run_id' => '9', 'controller_run_attempt' => '1', 'smoke' => 'passed',
-                 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 },
+                 'schema' => { 'compatible' => true },
                  'workers' => ReleaseReceiptWorkersFixture.workers }
     @receipt['schema']['prisma'] = { 'targetHash' => 'b' * 64, 'markerHash' => 'b' * 64, 'migrations' => [], 'usedLiveMarker' => true }
     @artifact = { 'id' => 20, 'name' => 'staging-receipt-9-1', 'expired' => false, 'expires_at' => '2026-09-10T00:00:00Z',

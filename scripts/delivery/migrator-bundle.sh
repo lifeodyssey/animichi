@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Poll the selected executor's two native migration identities through HTTPS.
+# Poll the selected executor's migration identity through HTTPS. One authority owns the
+# database now (#1634), so there is exactly one identity to wait for.
 
 matches_migrator_bundle() {
   curl --proto '=https' --proto-redir '=https' -sS --max-time 15 "${MIGRATOR_URL%/}/healthz" |
-    jq -e --arg atlas "$1" --arg prisma "${2:-}" '.bundleHead == $atlas
-      and ($prisma == "" or .prismaTarget == $prisma)' > /dev/null
+    jq -e --arg prisma "$1" '.prismaTarget == $prisma' > /dev/null
 }
 
 await_migrator_bundle() {

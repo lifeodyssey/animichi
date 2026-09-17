@@ -3,16 +3,17 @@
 #
 # CI never holds a database credential, not even a short-lived one (decision 6):
 # the job proves who it is with its own GitHub OIDC token, and the migrator
-# Worker — which does hold the DSN — decides whether to apply. The sealed head
-# is the last file of the migration chain inside the release artifact, so the
-# Worker applies exactly what this run packaged.
+# Worker — which does hold the DSN — decides whether to apply. The selected
+# schema identity is the contract hash inside the release artifact, so the
+# Worker applies exactly the graph this run packaged.
 #
-# C3 (#1365) adds the `bundleHead` handshake that closes #1332: `wrangler
-# deploy` returning is not the new bundle serving, and the old bundle answering
-# a POST would apply a chain this release never packaged. So the head the
-# Worker reports on /healthz is polled until it matches, and the Worker's own
-# `409 stale_bundle` — the same fact from the other side — is retried rather
-# than failing the release.
+# C3 (#1365) adds the handshake that closes #1332: `wrangler deploy` returning
+# is not the new bundle serving, and the old bundle answering a POST would
+# apply a graph this release never packaged. So the identity the Worker reports
+# on /healthz is polled until it matches, and the Worker's own `409
+# stale_prisma_bundle` — the same fact from the other side — is retried rather
+# than failing the release. With one authority there is one identity on both
+# sides (#1634).
 #
 # Usage: MIGRATOR_URL=… migrate-through-worker.sh <environment> [migrations-dir] [contract-file]
 set -euo pipefail
@@ -37,11 +38,6 @@ required() { [ -n "${!1:-}" ] || fail "$1 is required for $TARGET_ENVIRONMENT"; 
 # that leaves https — instead of sending the token over it (CWE-319).
 https_only() { curl --proto '=https' --proto-redir '=https' "$@"; }
 
-sealed_head() {
-  find "$MIGRATIONS_DIR" -maxdepth 1 -name '*.sql' -print \
-    | sort | tail -n 1 | xargs basename | sed 's/\.sql$//'
-}
-
 # `audience` scopes the token to the migrator alone: the same token is rejected
 # by Pulumi Cloud and by every other relying party.
 oidc_token() {
@@ -60,14 +56,14 @@ post_migrate() {
 
 # Only an explicit stale-bundle response permits another mutation request.
 stale_bundle_response() {
-  [ "$1" = 409 ] && jq -e '.error == "stale_bundle" or .error == "stale_prisma_bundle"' "$RESPONSE" > /dev/null
+  [ "$1" = 409 ] && jq -e '.error == "stale_prisma_bundle"' "$RESPONSE" > /dev/null
 }
 
 # A bundle can change between the health check and POST; re-poll that race only.
 trigger() {
-  local expected="$1" token="$2" body="$3" attempt=1 code
+  local token="$1" body="$2" attempt=1 code
   while [ "$attempt" -le "$STALE_ATTEMPTS" ]; do
-    await_migrator_bundle "$expected" "$PRISMA_REF" || fail "migrator never served bundle head $expected"
+    await_migrator_bundle "$PRISMA_REF" || fail "migrator never served schema identity $PRISMA_REF"
     code="$(post_migrate "$token" "$body")"
     [ "$code" = 200 ] && return 0
     stale_bundle_response "$code" || report_failure "migrator returned HTTP $code"
@@ -79,11 +75,10 @@ trigger() {
 }
 
 verify() {
-  local expected="$1"
-  jq -e --arg head "$expected" --arg prisma "$PRISMA_REF" '.success == true and .appliedHead == $head
+  jq -e --arg prisma "$PRISMA_REF" '.success == true
     and .prisma.markerHash == $prisma
     and (.prisma.migrationsApplied | type == "number" and . >= 0 and . == floor)' "$RESPONSE" >/dev/null \
-    || report_failure "migrator did not apply sealed head $expected"
+    || report_failure "migrator did not apply schema identity $PRISMA_REF"
 }
 
 # The response body carries the migrator's own error; discarding it left a
@@ -113,25 +108,21 @@ redact_dsn_passwords() {
 
 main() {
   required MIGRATOR_URL
-  local expected token body
-  expected="$(sealed_head)"
-  [ -n "$expected" ] || fail "$MIGRATIONS_DIR carries no migration to apply"
+  local token body
   PRISMA_REF="$(jq -er '.storage.storageHash | select(type == "string" and test("^[a-f0-9]{64}$"))' "$CONTRACT_FILE")"
-  body="$(selected_metadata "$expected")"
+  body="$(selected_metadata)"
   token="$(oidc_token)"
-  echo "migrating $TARGET_ENVIRONMENT to sealed head $expected"
-  trigger "$expected" "$token" "$body"
-  verify "$expected"
-  echo "migrator applied $expected"
+  echo "migrating $TARGET_ENVIRONMENT to schema identity $PRISMA_REF"
+  trigger "$token" "$body"
+  verify
+  echo "migrator applied $PRISMA_REF"
 }
 
 selected_metadata() {
   local baseline=false
-  [ -s "$MIGRATIONS_DIR/atlas.sum" ] || fail "$MIGRATIONS_DIR carries no checksum metadata"
   [ ! -f "$MIGRATIONS_DIR/STAGING_ONLY_BASELINE" ] || baseline=true
-  jq -cn --arg expectedHead "$1" --rawfile atlasSum "$MIGRATIONS_DIR/atlas.sum" \
-    --argjson stagingOnlyBaseline "$baseline" --arg expectedPrismaRef "$PRISMA_REF" \
-    '{expectedHead:$expectedHead,atlasSum:$atlasSum,stagingOnlyBaseline:$stagingOnlyBaseline,expectedPrismaRef:$expectedPrismaRef}'
+  jq -cn --argjson stagingOnlyBaseline "$baseline" --arg expectedPrismaRef "$PRISMA_REF" \
+    '{stagingOnlyBaseline:$stagingOnlyBaseline,expectedPrismaRef:$expectedPrismaRef}'
 }
 
 main

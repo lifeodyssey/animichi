@@ -75,14 +75,17 @@ void test("no job applies the chain itself, and a staging-only baseline still st
   assert.match(cd, /release\/migrations\/STAGING_ONLY_BASELINE/);
 });
 
-// #1332: the deploy call returning is not the new bundle serving. The handshake
-// waits on the head the Worker itself reports before it POSTs anything, and
-// treats the Worker's own `409 stale_bundle` as the same fact from the far side.
-void test("the migration waits for the migrator to serve the sealed head", () => {
+// #1332: the deploy call returning is not the new bundle serving. The handshake waits on the
+// schema identity the Worker itself reports before it POSTs anything, and treats the Worker's
+// own `409 stale_prisma_bundle` as the same fact from the far side. With one migration
+// authority there is one identity to wait for (#1634).
+void test("the migration waits for the migrator to serve the selected identity", () => {
   const handshake = read("scripts/delivery/migrate-through-worker.sh");
-  assert.match(handshake, /healthz/);
-  assert.match(handshake, /bundleHead/);
-  assert.match(handshake, /stale_bundle/);
+  const poll = read("scripts/delivery/migrator-bundle.sh");
+  assert.match(poll, /healthz/);
+  assert.match(poll, /prismaTarget/);
+  assert.match(handshake, /await_migrator_bundle/);
+  assert.match(handshake, /stale_prisma_bundle/);
 });
 
 void test("README points operators to the migration runbook", () => {

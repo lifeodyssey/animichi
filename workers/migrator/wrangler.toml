@@ -25,17 +25,6 @@ main = "src/index.ts"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Compile-time Text modules for migrations/neon/*.sql + atlas.sum (#1124).
-[[rules]]
-type = "Text"
-globs = ["**/*.sql"]
-fallthrough = true
-
-[[rules]]
-type = "Text"
-globs = ["**/*.sum"]
-fallthrough = true
-
 # The migrator is a live helper endpoint (OIDC-protected) the deploy pipeline
 # calls, so it exposes a CI-reachable host. Staging uses the account's
 # workers.dev host (a public config, not a credential); stateful/private

@@ -4,7 +4,7 @@ import { defineConfig } from "@prisma/orm-postgres/config";
 import { readContractSnapshotJson } from "@prisma/orm-postgres/migration-tools/contract-snapshot-store";
 import { executeMigrateShowPlan, type MigrateShowMigration } from "@prisma/orm-toolchain/cli/control-api";
 import { PRISMA_MIGRATIONS_DIR, validPrismaRef } from "./prisma-target";
-import { assertDirectDsn } from "./sql";
+import { assertDirectDsn } from "./direct-dsn";
 
 export interface PrismaPreview {
   targetHash: string;

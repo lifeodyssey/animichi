@@ -17,7 +17,6 @@ LAST_OUT=""
 trap 'rm -rf "$TMP" "$LAST_STATE_DIR" "$LAST_WORK_DIR"' EXIT
 
 fail=0
-HEAD_VERSION="20260101000000_init"
 PRISMA_TARGET="$(printf 'a%.0s' {1..64})"
 
 mkdir -p "$TMP/bin"
@@ -38,7 +37,7 @@ if [[ "$url" == *audience=* ]]; then
   exit 0
 fi
 if [[ "$url" == */healthz ]]; then
-  printf '{"bundleHead":"%s","prismaTarget":"%s"}' "${STUB_HEAD:?}" "${STUB_PRISMA:?}"
+  printf '{"prismaTarget":"%s"}' "${STUB_PRISMA:?}"
   exit 0
 fi
 
@@ -65,9 +64,9 @@ code=200
 [ "$count" -gt "${STUB_UNAVAILABLE_UNTIL:-0}" ] || code=503
 
 case "$code" in
-  200) printf '{"compatible":true,"expectedHead":"%s","appliedHead":"%s","pendingCount":0,"note":"LEAK_CANARY","prisma":{"targetHash":"%s","markerHash":"%s","usedLiveMarker":true,"migrations":[]}}' \
-    "${STUB_HEAD:?}" "${STUB_HEAD:?}" "${STUB_PRISMA:?}" "${STUB_PRISMA:?}" > "$out" ;;
-  409) printf '{"error":"stale_bundle","bundleHead":"old","note":"LEAK_CANARY"}' > "$out" ;;
+  200) printf '{"compatible":true,"note":"LEAK_CANARY","prisma":{"targetHash":"%s","markerHash":"%s","usedLiveMarker":true,"migrations":[]}}' \
+    "${STUB_PRISMA:?}" "${STUB_PRISMA:?}" > "$out" ;;
+  409) printf '{"error":"stale_prisma_bundle","prismaTarget":"old","note":"LEAK_CANARY"}' > "$out" ;;
   503) printf '{"error":"preflight_unavailable","note":"LEAK_CANARY"}' > "$out" ;;
   *) printf '{"error":"refused","note":"LEAK_CANARY"}' > "$out" ;;
 esac
@@ -89,7 +88,6 @@ RUN_ENV=(
   MIGRATOR_URL="https://migrator.example.test"
   ACTIONS_ID_TOKEN_REQUEST_TOKEN=stub-request-token
   ACTIONS_ID_TOKEN_REQUEST_URL="https://token.example.test/?api-version=1"
-  STUB_HEAD="$HEAD_VERSION"
   STUB_PRISMA="$PRISMA_TARGET"
 )
 
@@ -98,8 +96,6 @@ fresh_release_workspace() { # a throwaway cwd holding the release artifacts the 
   LAST_STATE_DIR="$(mktemp -d)"
   LAST_WORK_DIR="$(mktemp -d)"
   mkdir -p "$LAST_WORK_DIR/release/migrations" "$LAST_WORK_DIR/release/migrator/bundle"
-  : > "$LAST_WORK_DIR/release/migrations/$HEAD_VERSION.sql"
-  printf 'h1:stub=\n%s.sql h1:stub=\n' "$HEAD_VERSION" > "$LAST_WORK_DIR/release/migrations/atlas.sum"
   printf '{"storage":{"storageHash":"%s"}}' "$PRISMA_TARGET" > "$LAST_WORK_DIR/release/migrator/bundle/contract.json"
 }
 
@@ -107,11 +103,11 @@ fresh_release_workspace() { # a throwaway cwd holding the release artifacts the 
 # regression that puts a DSN back into it would otherwise be reported by copying that DSN into
 # the job log: when an assertion says "X must not appear", its failure message may not contain
 # X. A failure names the case; re-run that one case locally to read its output.
-run() { # run <label> <want-exit> <mode> [env...]
-  local label="$1" want="$2" mode="$3" rc; shift 3
+run() { # run <label> <want-exit> [env...]
+  local label="$1" want="$2" rc; shift 2
   fresh_release_workspace
   LAST_OUT="$(cd "$LAST_WORK_DIR" && env "${RUN_ENV[@]}" "$@" STUB_STATE_DIR="$LAST_STATE_DIR" \
-    PATH="$TMP/bin:$PATH" bash "$SCRIPT" staging "$mode" 2>&1)" && rc=0 || rc=$?
+    PATH="$TMP/bin:$PATH" bash "$SCRIPT" staging 2>&1)" && rc=0 || rc=$?
   [ "$rc" -ne "$want" ] || { printf 'PASS %-64s exit=%s\n' "$label" "$rc"; return; }
   fail=$((fail + 1))
   printf 'FAIL %-64s want=%s got=%s\n' "$label" "$want" "$rc"

@@ -117,7 +117,7 @@ class ReleaseReceiptRecordTest < Minitest::Test
   end
 
   def preflight
-    { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0,
+    { 'compatible' => true,
       'prisma' => { 'targetHash' => HASH, 'markerHash' => HASH, 'usedLiveMarker' => true, 'migrations' => [] } }
   end
 

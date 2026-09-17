@@ -17,21 +17,21 @@ echo "=== the response body never reaches the job log ==="
 # One run per branch that reads schema-preflight.json: success, 503 exhaustion, outright
 # refusal, stale bundle. Each carries a positive assertion too, so that no run can satisfy its
 # canary-free assertion by having produced nothing.
-run "a successful run prints no response body" 0 native
+run "a successful run prints no response body" 0
 expect_eq "and asked the migrator once" 1 "$(preflight_calls)"
 expect_log "success path is canary-free" 0 "$CANARY"
 
-run "an exhausted 503 prints no response body" 1 native STUB_FAIL_UNTIL=999 UNAVAILABLE_ATTEMPTS=2
+run "an exhausted 503 prints no response body" 1 STUB_FAIL_UNTIL=999 UNAVAILABLE_ATTEMPTS=2
 expect_log "503 path is canary-free" 0 "$CANARY"
 expect_log "and still says what it waited for" 1 \
   "::error::migrator never answered preflight after 2 attempts"
 
-run "a refused preflight prints no response body" 1 native STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=500
+run "a refused preflight prints no response body" 1 STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=500
 expect_log "refusal path is canary-free" 0 "$CANARY"
 expect_log "and still names the status it refused on" 1 \
   "::error::migration preflight refused or unavailable (HTTP 500)"
 
-run "an unresolved stale bundle prints no response body" 1 native \
+run "an unresolved stale bundle prints no response body" 1 \
   STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=409
 expect_log "stale-bundle path is canary-free" 0 "$CANARY"
 expect_log "and the stale path did print its refusal" 1 "::error::"

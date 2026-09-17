@@ -13,8 +13,8 @@ import {
   policy,
   post,
   testEnv,
-  type ApplyOutcome,
 } from "./migrate.worker.helpers";
+import { recordingExecutor } from "./selected-executor-double";
 
 // #1051 — migrator HTTP-seam identity tests: valid identity, invalid
 // identities (wrong repo / audience / expired), and request guards. The
@@ -28,28 +28,18 @@ afterAll(() => {
 });
 
 describe("POST /migrate — valid identity", () => {
-  it("returns success with the applied head when the bounded apply succeeds", async () => {
+  it("returns success when the selected migration applies", async () => {
     const { app, token } = await makeApp();
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      success: true,
-      exitCode: 0,
-      appliedHead: "20260814191301_turn_idempotency_outbox",
-      pathVerification: "verified",
-    });
+    expect(await res.json()).toEqual({ success: true, exitCode: 0 });
   });
 
-  it("injects the migrator DSN into the bounded apply", async () => {
-    let seenDsn: string | undefined;
-    const { app, token } = await makeApp({
-      applyChain: (dsn: string): Promise<ApplyOutcome> => {
-        seenDsn = dsn;
-        return Promise.resolve({ kind: "success", exitCode: 0 });
-      },
-    });
+  it("injects the migrator DSN into the selected executor", async () => {
+    const executor = recordingExecutor();
+    const { app, token } = await makeApp({ selected: executor.selected });
     await app.request(post({}, token), {}, testEnv());
-    expect(seenDsn).toBe("postgresql://fake:migrator@db.test/neondb");
+    expect(executor.calls).toEqual(["postgresql://fake:migrator@db.test/neondb"]);
   });
 });
 

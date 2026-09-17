@@ -7,7 +7,7 @@ require "open3"
 
 class ReleaseMigrationRequestTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  HEAD = "20260102000000_extend"
+  REF = "b" * 64
 
   def setup
     @directory = Dir.mktmpdir("selected-migration-")
@@ -15,10 +15,7 @@ class ReleaseMigrationRequestTest < Minitest::Test
     FileUtils.mkdir_p([@migrations, File.join(@directory, "bin")])
     FileUtils.cp(File.join(ROOT, ".github/test/fixtures/migration-curl.rb"), File.join(@directory, "bin/curl"))
     FileUtils.chmod(0755, File.join(@directory, "bin/curl"))
-    @sum = File.read(File.join(ROOT, "workers/migrator/test/fixtures/preflight-chain/atlas.sum"))
-    File.write(File.join(@migrations, "atlas.sum"), @sum)
-    File.write(File.join(@migrations, "#{HEAD}.sql"), "")
-    File.write(File.join(@directory, 'contract.json'), { 'storage' => { 'storageHash' => 'b' * 64 } }.to_json)
+    File.write(File.join(@directory, 'contract.json'), { 'storage' => { 'storageHash' => REF } }.to_json)
   end
 
   def teardown
@@ -28,7 +25,7 @@ class ReleaseMigrationRequestTest < Minitest::Test
   def invoke(overrides = {})
     environment = { "PATH" => "#{@directory}/bin:#{ENV.fetch('PATH')}", "MIGRATOR_URL" => "https://fixture.invalid",
       "RUNNER_TEMP" => @directory, "ACTIONS_ID_TOKEN_REQUEST_URL" => "https://fixture.invalid/token?a=1",
-      "ACTIONS_ID_TOKEN_REQUEST_TOKEN" => "fixture-request", "SEALED_HEAD" => HEAD,
+      "ACTIONS_ID_TOKEN_REQUEST_TOKEN" => "fixture-request", "SEALED_REF" => REF,
       "POST_BODY" => File.join(@directory, "body.json"), "CALL_LOG" => File.join(@directory, "calls"),
       "BUNDLE_POLL_SECONDS" => "0", "STALE_BUNDLE_ATTEMPTS" => "2" }
     Open3.capture3(environment.merge(overrides), "bash", File.join(ROOT, "scripts/delivery/migrate-through-worker.sh"), "staging", @migrations,
@@ -49,25 +46,32 @@ class ReleaseMigrationRequestTest < Minitest::Test
     end
   end
 
-  %w[stale_bundle stale_prisma_bundle].each do |reason|
-    define_method("test_explicit_#{reason}_rechecks_the_bundle_and_retries") do
-      output, error, status = invoke("MIGRATION_CODES" => "409 200", "MIGRATION_CONFLICT" => { "error" => reason }.to_json)
-      assert status.success?, output + error
-      assert_equal 2, migration_count
-      assert_equal 2, File.readlines(File.join(@directory, "calls")).count { |line| line.include?("/healthz") }
-    end
+  def test_explicit_stale_prisma_bundle_rechecks_the_bundle_and_retries
+    output, error, status = invoke("MIGRATION_CODES" => "409 200", "MIGRATION_CONFLICT" => { "error" => "stale_prisma_bundle" }.to_json)
+    assert status.success?, output + error
+    assert_equal 2, migration_count
+    assert_equal 2, File.readlines(File.join(@directory, "calls")).count { |line| line.include?("/healthz") }
+  end
+
+  # The retired Atlas code is no longer a retryable conflict: it must stop after one apply.
+  def test_retired_stale_bundle_code_stops_after_one_apply_request
+    _output, _error, status = invoke("MIGRATION_CODES" => "409 200", "MIGRATION_CONFLICT" => { "error" => "stale_bundle" }.to_json)
+    refute status.success?
+    assert_equal 1, migration_count
   end
 
   def test_forwards_the_selected_native_contract_without_reading_latest
     _output, error, status = invoke
     assert status.success?, error
-    assert_equal 'b' * 64, JSON.parse(File.read(File.join(@directory, 'body.json')))['expectedPrismaRef']
+    assert_equal REF, JSON.parse(File.read(File.join(@directory, 'body.json')))['expectedPrismaRef']
   end
 
-  def test_forwards_the_complete_selected_checksum_file
+  # One authority, one identity (#1634): the request body carries the schema identity and the
+  # staging-only flag, and nothing else — an extra key is an invalid request at the receiver.
+  def test_forwards_exactly_the_selected_identity_and_marker
     output, error, status = invoke
     assert status.success?, "#{output}\n#{error}"
-    assert_equal({ "expectedHead" => HEAD, "atlasSum" => @sum, "stagingOnlyBaseline" => false, "expectedPrismaRef" => "b" * 64 },
+    assert_equal({ "stagingOnlyBaseline" => false, "expectedPrismaRef" => REF },
                  JSON.parse(File.read(File.join(@directory, "body.json"))))
   end
 
@@ -78,8 +82,8 @@ class ReleaseMigrationRequestTest < Minitest::Test
     assert_equal true, JSON.parse(File.read(File.join(@directory, "body.json"))).fetch("stagingOnlyBaseline")
   end
 
-  def test_missing_metadata_stops_before_requesting_credentials
-    File.unlink(File.join(@migrations, "atlas.sum"))
+  def test_missing_contract_stops_before_requesting_credentials
+    File.write(File.join(@directory, "contract.json"), "{}")
     _output, _error, status = invoke
     refute status.success?
     refute File.exist?(File.join(@directory, "calls"))

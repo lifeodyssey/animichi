@@ -1,10 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FIXED_NOW, makeApp, post, testEnv } from "./migrate.worker.helpers";
-import { FakeSql } from "./fake-sql";
-import { BODY_B, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
+import { recordingExecutor } from "./selected-executor-double";
 
-// #1124 AC5 + extra — HTTP seam is OIDC + strict selected artifact metadata only;
-// POST /migrate with expectedHead matching the applied chain returns 200.
+// #1124 AC5 + extra — the HTTP seam accepts OIDC plus strict selected-artifact metadata and
+// nothing else; a request naming the identity this bundle carries returns 200.
 
 const DROP_SQL = "DROP TABLE public.bangumi;";
 
@@ -17,21 +16,16 @@ afterAll(() => {
 
 describe("POST /migrate HTTP seam (AC5)", () => {
   it("rejects raw SQL and down-migration fields before applying", async () => {
-    const db = new FakeSql();
-    const { app, token } = await makeApp(workerHttpDeps(db));
-    const res = await app.request(
-      post({ sql: DROP_SQL, down: true, migration: DROP_SQL }, token),
-      {},
-      testEnv(),
-    );
+    const executor = recordingExecutor();
+    const { app, token } = await makeApp({ selected: executor.selected });
+    const res = await app.request(post({ sql: DROP_SQL, down: true, migration: DROP_SQL }, token), {}, testEnv());
     expect(res.status).toBe(400);
-    expect(JSON.stringify(db.units)).not.toContain("DROP TABLE");
-    expect(JSON.stringify(db.units)).not.toContain("public.bangumi");
+    expect(executor.calls).toEqual([]);
   });
 
   it("rejects an empty JSON object body", async () => {
-    const db = new FakeSql();
-    const { app, token } = await makeApp(workerHttpDeps(db));
+    const executor = recordingExecutor();
+    const { app, token } = await makeApp({ selected: executor.selected });
     const res = await app.request(
       new Request("https://migrator.test/migrate", {
         method: "POST",
@@ -42,55 +36,46 @@ describe("POST /migrate HTTP seam (AC5)", () => {
       testEnv(),
     );
     expect(res.status).toBe(400);
-    expect(db.units).toHaveLength(0);
+    expect(executor.calls).toEqual([]);
   });
 });
 
-describe("POST /migrate HTTP apply default", () => {
+describe("POST /migrate apply default", () => {
   it("fails closed when the apply lock binding is missing", async () => {
-    const { app, token } = await makeApp({ applyChain: undefined });
+    const { app, token } = await makeApp({ selected: undefined });
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, error: "migration_unavailable" });
   });
 });
 
-describe("POST /migrate HTTP apply SQL error", () => {
-  it("returns a stable code on a failed SQL apply", async () => {
-    const db = new FakeSql();
-    db.failBody = BODY_B;
-    const { app, token } = await makeApp(workerHttpDeps(db));
+describe("POST /migrate apply failure", () => {
+  it("returns a stable code on a failed apply", async () => {
+    const { app, token } = await makeApp({ selected: {
+      preflight: () => Promise.resolve({ compatible: false, error: "unused" }),
+      migrate: () => Promise.resolve({ kind: "failure", exitCode: 1, error: "password=fixture", failureCode: "migration_failed" }),
+    } });
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      success: false,
-      exitCode: 1,
-      appliedHead: null,
-      error: "migration_failed",
-    });
+    expect(await res.json()).toEqual({ success: false, exitCode: 1, error: "migration_failed" });
   });
 });
 
-describe("POST /migrate HTTP apply (expectedHead)", () => {
-  it("returns 200 and appliedHead equal to expected when the chain matches", async () => {
-    const db = new FakeSql();
-    const { app, token } = await makeApp(workerHttpDeps(db));
+describe("POST /migrate on the identity the bundle carries", () => {
+  it("returns 200 and the native receipt", async () => {
+    const { app, token } = await makeApp({ selected: {
+      preflight: () => Promise.resolve({ compatible: false, error: "unused" }),
+      migrate: () => Promise.resolve({ kind: "success", exitCode: 0, prisma: { migrationsApplied: 0 } as never }),
+    } });
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      success: true,
-      exitCode: 0,
-      appliedHead: HEAD_B,
-      pathVerification: "verified",
-    });
+    expect(await res.json()).toEqual({ success: true, exitCode: 0, prisma: { migrationsApplied: 0 } });
   });
 });
 
-// #1339 (ucm-H2): `GET /ledger-head` reported the applied head to anyone, and
-// resolved the DDL-capable migrator DSN on every anonymous hit of a public
-// `workers_dev` host. The head is now readable only from this OIDC-gated
-// response, so both halves are pinned: the route stays absent, and the
-// missing-DSN branch that survived the deletion still answers 503.
+// #1339 (ucm-H2): `GET /ledger-head` reported the applied head to anyone, and resolved the
+// DDL-capable migrator DSN on every anonymous hit of a public `workers_dev` host. Both halves
+// stay pinned: the route is absent, and the missing-DSN branch still answers 503.
 describe("migrator HTTP surface", () => {
   it("does not route GET /ledger-head", async () => {
     const { app } = await makeApp();

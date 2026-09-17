@@ -40,7 +40,7 @@ it("refuses a staging-only native baseline in production before database configu
 });
 
 it("refuses native preview when its shared apply lock is unconfigured", async () => {
-  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS });
+  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: undefined });
   const response = await app.request(preflightRequest(requestMetadata, token), {}, testEnv());
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "preflight_unavailable" });

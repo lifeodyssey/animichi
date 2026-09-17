@@ -2,7 +2,7 @@ import pg from "pg";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
 import { signedApp } from "../preflight-fixtures";
-import { servePostgres } from "./preflight.postgres";
+import { servePostgres } from "./neon-http-postgres";
 
 // #1230 Phase 1 against a real PostgreSQL holding the committed chain: the
 // promoted catalog is read back from the database, and the answer has to change

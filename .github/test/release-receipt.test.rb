@@ -11,7 +11,7 @@ class ReleaseReceiptTest < Minitest::Test
     @images = {}
     @receipt = { 'format' => 1, 'environment' => 'staging', 'selection' => @selection.dup,
                  'controller_run_id' => '9', 'controller_run_attempt' => '1', 'images' => @images,
-                 'smoke' => 'passed', 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 },
+                 'smoke' => 'passed', 'schema' => { 'compatible' => true },
                  'workers' => ReleaseReceiptWorkersFixture.workers }
     @receipt['schema']['prisma'] = { 'targetHash' => 'b' * 64, 'markerHash' => 'b' * 64, 'migrations' => [], 'usedLiveMarker' => true }
   end
@@ -40,11 +40,11 @@ class ReleaseReceiptTest < Minitest::Test
   end
 
   def test_refuses_incomplete_applied_schema
-    @receipt['schema']['pendingCount'] = 1
+    @receipt['schema']['compatible'] = false
     assert_raises(ArgumentError) { validate }
   end
 
-  def test_refuses_a_different_native_marker_even_when_atlas_is_complete
+  def test_refuses_a_different_native_marker
     @receipt['schema']['prisma']['markerHash'] = 'c' * 64
     assert_raises(ArgumentError) { validate }
   end
