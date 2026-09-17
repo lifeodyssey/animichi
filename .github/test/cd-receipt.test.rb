@@ -60,7 +60,10 @@ class CdReceiptTest < Minitest::Test
                    "receipt_digest" => "${{ steps.receipt.outputs.artifact-digest }}" }, @cd.dig("jobs", "stage", "outputs"))
     upload = step("stage", "Publish the immutable staging receipt").fetch("with")
     assert_equal "staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}", upload.fetch("name")
-    assert_equal "receipt.json", upload.fetch("path")
+    # #1695: the receipt is no longer the artifact's only document — the probe
+    # transcript that must agree with it travels in the same artifact, so one
+    # digest binds both to this run.
+    assert_equal %w[receipt.json evidence.json], upload.fetch("path").split("\n").map(&:strip)
     assert_equal "error", upload.fetch("if-no-files-found")
   end
 
