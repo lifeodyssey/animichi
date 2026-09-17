@@ -2469,6 +2469,120 @@
     ]
   },
   {
+    "id": "conversation-ledger",
+    "label": "Create the conversation ledger the agent tier writes",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create the sessions table",
+        "sql": "CREATE TABLE public.sessions (\n    id text NOT NULL,\n    user_id text,\n    title text,\n    first_query text,\n    created_at timestamptz DEFAULT now(),\n    updated_at timestamptz DEFAULT now(),\n    PRIMARY KEY (id)\n  )"
+      },
+      {
+        "description": "create index idx_sessions_user",
+        "sql": "CREATE INDEX idx_sessions_user ON public.sessions (user_id)"
+      },
+      {
+        "description": "create index idx_sessions_user_updated",
+        "sql": "CREATE INDEX idx_sessions_user_updated ON public.sessions (user_id, updated_at DESC)"
+      },
+      {
+        "description": "create the turn_reservations table",
+        "sql": "CREATE TABLE public.turn_reservations (\n    id uuid NOT NULL DEFAULT uuidv7(),\n    session_id text,\n    turn_key text NOT NULL,\n    payer text NOT NULL,\n    identity_id text,\n    revision integer NOT NULL,\n    digest text,\n    status text NOT NULL DEFAULT 'reserved',\n    PRIMARY KEY (id),\n    CONSTRAINT turn_reservations_session_revision UNIQUE (session_id, revision),\n    CONSTRAINT turn_reservations_session_turn_key UNIQUE (session_id, turn_key),\n    CONSTRAINT turn_reservations_payer_check CHECK (payer IN ('anon', 'user', 'byok')),\n    CONSTRAINT turn_reservations_status_check CHECK (status IN ('reserved', 'running', 'completed', 'failed'))\n  )"
+      },
+      {
+        "description": "create index idx_turn_reservations_session_revision",
+        "sql": "CREATE INDEX idx_turn_reservations_session_revision ON public.turn_reservations (session_id, revision DESC)"
+      },
+      {
+        "description": "create index turn_reservations_null_session_key",
+        "sql": "CREATE UNIQUE INDEX turn_reservations_null_session_key ON public.turn_reservations (turn_key) WHERE session_id IS NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify the sessions table carries exactly the columns its readers name",
+        "sql": "SELECT (\n    SELECT array_agg(column_name::text ORDER BY column_name::text)\n    FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'sessions'\n  ) = ARRAY['created_at','first_query','id','title','updated_at','user_id']::text[] AS result"
+      },
+      {
+        "description": "verify idx_sessions_user indexes the owner predicate",
+        "sql": "SELECT indexdef LIKE '%(user_id)%' AS result FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_sessions_user'"
+      },
+      {
+        "description": "verify idx_sessions_user_updated orders updated_at descending",
+        "sql": "SELECT indexdef LIKE '%(user_id, updated_at DESC)%' AS result FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_sessions_user_updated'"
+      },
+      {
+        "description": "verify the turn_reservations table carries exactly the columns its readers name",
+        "sql": "SELECT (\n    SELECT array_agg(column_name::text ORDER BY column_name::text)\n    FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'turn_reservations'\n  ) = ARRAY['digest','id','identity_id','payer','revision','session_id','status','turn_key']::text[] AS result"
+      },
+      {
+        "description": "verify turn_reservations_session_revision exists under the name adoption conflicts on",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint\n    WHERE conrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'turn_reservations'\n  ) AND conname = 'turn_reservations_session_revision' AND contype = 'u') AS result"
+      },
+      {
+        "description": "verify turn_reservations_session_turn_key keeps one reservation per turn key",
+        "sql": "SELECT EXISTS (SELECT 1 FROM pg_constraint\n    WHERE conrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'turn_reservations'\n  ) AND conname = 'turn_reservations_session_turn_key' AND contype = 'u') AS result"
+      },
+      {
+        "description": "verify idx_turn_reservations_session_revision orders revision descending",
+        "sql": "SELECT indexdef LIKE '%(session_id, revision DESC)%' AS result FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_turn_reservations_session_revision'"
+      },
+      {
+        "description": "verify turn_reservations_null_session_key keeps session-less turn keys unique",
+        "sql": "SELECT indexdef LIKE '%WHERE (session_id IS NULL)%' AS result FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'turn_reservations_null_session_key'"
+      }
+    ]
+  },
+  {
+    "id": "usage-meters",
+    "label": "Create the daily usage meters the agent tier keeps",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create the daily_usage table",
+        "sql": "CREATE TABLE public.daily_usage (\n    usage_date date NOT NULL,\n    scope text NOT NULL,\n    requests bigint NOT NULL DEFAULT 0,\n    input_tokens bigint NOT NULL DEFAULT 0,\n    output_tokens bigint NOT NULL DEFAULT 0,\n    cost_usd numeric(14,6) NOT NULL DEFAULT 0,\n    updated_at timestamptz NOT NULL DEFAULT now(),\n    PRIMARY KEY (usage_date, scope),\n    CONSTRAINT daily_usage_scope_check CHECK (scope IN ('anon', 'user', 'byok', 'platform'))\n  )"
+      },
+      {
+        "description": "create index idx_daily_usage_scope_date",
+        "sql": "CREATE INDEX idx_daily_usage_scope_date ON public.daily_usage (scope, usage_date DESC)"
+      },
+      {
+        "description": "create the anon_daily_message_count table",
+        "sql": "CREATE TABLE public.anon_daily_message_count (\n    usage_date date NOT NULL,\n    anon_id text NOT NULL,\n    message_count bigint NOT NULL,\n    updated_at timestamptz NOT NULL DEFAULT now(),\n    PRIMARY KEY (usage_date, anon_id)\n  )"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify daily_usage is keyed by day and scope",
+        "sql": "SELECT (\n    SELECT array_agg(attribute.attname::text ORDER BY key.key_position)\n    FROM pg_constraint AS key_constraint\n    CROSS JOIN LATERAL unnest(key_constraint.conkey) WITH ORDINALITY AS key(column_number, key_position)\n    JOIN pg_attribute AS attribute\n      ON attribute.attrelid = key_constraint.conrelid AND attribute.attnum = key.column_number\n    WHERE key_constraint.conrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'daily_usage'\n  ) AND key_constraint.contype = 'p'\n  ) = ARRAY['usage_date','scope']::text[] AS result"
+      },
+      {
+        "description": "verify daily_usage.cost_usd still rounds once at NUMERIC(14,6)",
+        "sql": "SELECT atttypmod = ((14 << 16) | 6) + 4 AS result\n  FROM pg_attribute WHERE attrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'daily_usage'\n  ) AND attname = 'cost_usd'"
+      },
+      {
+        "description": "verify daily_usage_scope_check admits every scope settlement writes",
+        "sql": "SELECT bool_and(pg_get_constraintdef(scope_check.oid) LIKE '%''' || scope || '''%') AS result\n  FROM pg_constraint AS scope_check\n  CROSS JOIN unnest(ARRAY['anon', 'user', 'byok', 'platform']) AS scope\n  WHERE scope_check.conrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'daily_usage'\n  ) AND scope_check.conname = 'daily_usage_scope_check'"
+      },
+      {
+        "description": "verify idx_daily_usage_scope_date orders usage_date descending",
+        "sql": "SELECT indexdef LIKE '%(scope, usage_date DESC)%' AS result\n      FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_daily_usage_scope_date'"
+      },
+      {
+        "description": "verify anon_daily_message_count is keyed by day and anonymous identity",
+        "sql": "SELECT (\n    SELECT array_agg(attribute.attname::text ORDER BY key.key_position)\n    FROM pg_constraint AS key_constraint\n    CROSS JOIN LATERAL unnest(key_constraint.conkey) WITH ORDINALITY AS key(column_number, key_position)\n    JOIN pg_attribute AS attribute\n      ON attribute.attrelid = key_constraint.conrelid AND attribute.attnum = key.column_number\n    WHERE key_constraint.conrelid = (\n    SELECT target_table.oid FROM pg_class AS target_table\n    JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n    WHERE target_namespace.nspname = 'public' AND target_table.relname = 'anon_daily_message_count'\n  ) AND key_constraint.contype = 'p'\n  ) = ARRAY['usage_date','anon_id']::text[] AS result"
+      }
+    ]
+  },
+  {
     "id": "data-plane-updated-at-triggers",
     "label": "Maintain data-plane updated-at timestamps",
     "operationClass": "additive",
@@ -2492,12 +2606,16 @@
       {
         "description": "create the saved-routes updated-at trigger",
         "sql": "CREATE TRIGGER trg_routes_updated_at\n      BEFORE UPDATE ON public.saved_routes\n      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()"
+      },
+      {
+        "description": "create the sessions updated-at trigger",
+        "sql": "CREATE TRIGGER trg_sessions_updated_at\n      BEFORE UPDATE ON public.sessions\n      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at()"
       }
     ],
     "postcheck": [
       {
         "description": "verify updated-at triggers and removed coordinate synchronization",
-        "sql": "SELECT to_regprocedure('public.update_updated_at()') IS NOT NULL\n      AND (SELECT count(*) = 3\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname = ANY(ARRAY['trg_bangumi_updated_at','trg_points_updated_at','trg_routes_updated_at'])\n          AND NOT trigger_record.tgisinternal)\n      AND NOT EXISTS (\n        SELECT 1\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname LIKE '%sync%coordinates%') AS result"
+        "sql": "SELECT to_regprocedure('public.update_updated_at()') IS NOT NULL\n      AND (SELECT count(*) = 4\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname = ANY(ARRAY['trg_bangumi_updated_at','trg_points_updated_at','trg_routes_updated_at','trg_sessions_updated_at'])\n          AND NOT trigger_record.tgisinternal)\n      AND NOT EXISTS (\n        SELECT 1\n        FROM pg_trigger AS trigger_record\n        JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid\n        JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace\n        WHERE target_namespace.nspname = 'public'\n          AND trigger_record.tgname LIKE '%sync%coordinates%') AS result"
       }
     ]
   },
@@ -2552,6 +2670,30 @@
         "sql": "GRANT SELECT ON TABLE public.saved_routes TO jobs_svc"
       },
       {
+        "description": "grant agent service access to anon_daily_message_count",
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.anon_daily_message_count TO agent_svc"
+      },
+      {
+        "description": "grant agent service access to daily_usage",
+        "sql": "GRANT INSERT, SELECT, UPDATE ON TABLE public.daily_usage TO agent_svc"
+      },
+      {
+        "description": "grant agent service access to sessions",
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.sessions TO agent_svc"
+      },
+      {
+        "description": "grant agent service access to turn_reservations",
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.turn_reservations TO agent_svc"
+      },
+      {
+        "description": "grant jobs retention access to the conversation and anonymous meters",
+        "sql": "GRANT SELECT, DELETE ON TABLE public.sessions, public.anon_daily_message_count TO jobs_svc"
+      },
+      {
+        "description": "grant readonly turn ledger access",
+        "sql": "GRANT SELECT ON TABLE public.turn_reservations TO readonly"
+      },
+      {
         "description": "grant catalog history sequence access",
         "sql": "GRANT SELECT, USAGE ON SEQUENCE public.raw_payload_history_seq_seq TO catalog_svc"
       }
@@ -2584,6 +2726,22 @@
       {
         "description": "verify agent_svc's explicit grants on pi_records are exactly INSERT, SELECT (no UPDATE or DELETE grants)",
         "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_records'), ARRAY[]::text[])) = ARRAY['INSERT', 'SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on anon_daily_message_count are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'anon_daily_message_count'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on daily_usage are exactly INSERT, SELECT, UPDATE (no DELETE grant)",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'daily_usage'), ARRAY[]::text[])) = ARRAY['INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on sessions are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'sessions'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on turn_reservations are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'turn_reservations'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
       },
       {
         "description": "verify the data-plane grant matrix",

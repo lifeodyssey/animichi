@@ -8,7 +8,6 @@
     "./contract": "./src/contract.json",
     "./migrations": "./migrations",
     "./migrations/*": "./migrations/*",
-    "./quota-aggregates": "./test/quota-aggregates.ts",
     "./types": "./src/contract.d.ts"
   },
   "scripts": {

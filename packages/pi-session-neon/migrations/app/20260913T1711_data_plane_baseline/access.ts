@@ -1,7 +1,9 @@
 import { rawSql } from '@prisma/orm-postgres/migration';
 import { AGENT_TABLES } from './agent-tables.ts';
 import { CATALOG_TABLES } from './catalog-tables.ts';
+import { CONVERSATION_LEDGER_TABLES } from './conversation-ledger.ts';
 import { NATIVE_TABLES } from './native-tables.ts';
+import { USAGE_METER_TABLES } from './usage-meters.ts';
 import { USER_TABLES } from './user-tables.ts';
 
 // Grant names are derived from the single table definitions, so a new table cannot
@@ -22,6 +24,22 @@ const nativeMutableTables = qualify(nativeMutableTableNames);
 
 const MUTABLE_GRANTS = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] as const;
 const APPEND_ONLY_GRANTS = ['INSERT', 'SELECT'] as const;
+/** Settlement accumulates a day's totals and never removes one, so `daily_usage` has no DELETE. */
+const ACCUMULATING_GRANTS = ['INSERT', 'SELECT', 'UPDATE'] as const;
+
+/** The agent tier's ledger and meters (`conversation-ledger.ts`, `usage-meters.ts`). They are
+ * raw-SQL objects rather than contract tables, so the type below — not a table definition —
+ * is what stops one drifting out of the matrix: adding a table there without a grant here is
+ * a compile error. `agent_svc` owns all four; `jobs_svc` retains the two the retention sweep
+ * clears, and `readonly` reads the turn ledger, exactly as `migrations/neon` granted them. */
+type LedgerTable = (typeof CONVERSATION_LEDGER_TABLES)[number] | (typeof USAGE_METER_TABLES)[number];
+const AGENT_LEDGER_GRANTS: Record<LedgerTable, readonly string[]> = {
+  anon_daily_message_count: MUTABLE_GRANTS,
+  daily_usage: ACCUMULATING_GRANTS,
+  sessions: MUTABLE_GRANTS,
+  turn_reservations: MUTABLE_GRANTS,
+};
+const ledgerGrantEntries = Object.entries(AGENT_LEDGER_GRANTS);
 
 interface GrantPostcheckStep {
   readonly description: string;
@@ -82,6 +100,15 @@ export const DATA_PLANE_ACCESS = rawSql({
   }, {
     description: 'grant jobs route read access',
     sql: 'GRANT SELECT ON TABLE public.saved_routes TO jobs_svc',
+  }, ...ledgerGrantEntries.map(([table, grants]) => ({
+    description: `grant agent service access to ${table}`,
+    sql: `GRANT ${grants.join(', ')} ON TABLE public.${table} TO agent_svc`,
+  })), {
+    description: 'grant jobs retention access to the conversation and anonymous meters',
+    sql: 'GRANT SELECT, DELETE ON TABLE public.sessions, public.anon_daily_message_count TO jobs_svc',
+  }, {
+    description: 'grant readonly turn ledger access',
+    sql: 'GRANT SELECT ON TABLE public.turn_reservations TO readonly',
   }, {
     description: 'grant catalog history sequence access',
     sql: 'GRANT SELECT, USAGE ON SEQUENCE public.raw_payload_history_seq_seq TO catalog_svc',
@@ -89,6 +116,8 @@ export const DATA_PLANE_ACCESS = rawSql({
   postcheck: [
     ...nativeMutableTableNames.map((table) => grantPostcheck(table, MUTABLE_GRANTS)),
     grantPostcheck('pi_records', APPEND_ONLY_GRANTS, ' (no UPDATE or DELETE grants)'),
+    ...ledgerGrantEntries.map(([table, grants]) =>
+      grantPostcheck(table, grants, table === 'daily_usage' ? ' (no DELETE grant)' : '')),
     {
       description: 'verify the data-plane grant matrix',
       sql: `SELECT has_schema_privilege('agent_svc', 'public', 'USAGE')

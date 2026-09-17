@@ -3,7 +3,9 @@
 Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../../AGENTS.md`.
 Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
 `migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
-from `migrations/neon/`. `migrations/neon/` is read-only evidence of the objects the baseline
+from `migrations/neon/`, and — as raw SQL rather than contract tables — the conversation ledger
+and the two usage meters `workers/edge/src` still writes (`conversation-ledger.ts`,
+`usage-meters.ts`). `migrations/neon/` is read-only evidence of the objects the baseline
 replaced until W4 deletes it — it owns nothing here. No object has two migration owners; do not
 re-declare an object the chain already builds.
 
@@ -12,10 +14,10 @@ re-declare an object the chain already builds.
 - `pnpm run test:integration` — Node's test runner, one reused test-postgres container and a
   disposable database of its own. `--test-isolation=none` shares the imported setup and serial
   tests; each test resets that database. Never point these tests at a live Neon database.
-  `test/postgres.ts` creates the shared database from pristine `template1`, migrates it with this
-  chain, then installs the two #1607 quota aggregates; the migration-target ACs create their own
-  chain-only `template1` database with no aggregates. Neither reads the database
-  `startTestPostgres` migrates for its own call — one chain per database.
+  `test/postgres.ts` creates the shared database from pristine `template1` and migrates it with
+  this chain, which builds every object the suites touch; the migration-target ACs create their
+  own `template1` database the same way. Neither reads the database `startTestPostgres` migrates
+  for its own call — one chain per database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 
 The owner approved three exceptions for Prisma's generated output, and only that output:
@@ -54,14 +56,20 @@ newline, so both entrypoints finish by restoring it (`scripts/generated-artifact
 regenerated tree is already `end-of-file-fixer`-clean, and running either entrypoint twice
 leaves no diff.
 `rawSql` is spec §4.1's escape hatch for what the contract planner does not express: grants and
-role prechecks, extensions, trigger functions and triggers, generated columns, and the
-operator-class / descending index DDL schema verification cannot read. Install that DDL exactly
-and prove the semantics in `pg_catalog` (`data-plane-indexes.ts`), because dropping them to match
-the introspectable IR weakens live PostgreSQL. Runtime record validation belongs to native Pi
+role prechecks, extensions, trigger functions and triggers, generated columns, the
+operator-class / descending index DDL schema verification cannot read, and the agent tier's
+own ledger and meters — `daily_usage.cost_usd` is `NUMERIC(14,6)` and Prisma 8's PSL carries no
+precision or scale. Every object installed that way gets a postcheck that NAMES it, because
+`db verify` ignores what the contract does not claim. Install that DDL exactly and prove the
+semantics in `pg_catalog` (`data-plane-indexes.ts`), because dropping them to match the
+introspectable IR weakens live PostgreSQL. Runtime record validation belongs to native Pi
 session APIs.
 
 Atlas SQL under `migrations/neon/` is immutable, read-only evidence of the objects #1626's native
 Prisma chain replaced; only W4 deletes it, and this package drops no old table. The two unpublished
 #1539 draft migrations were replaced by that two-node chain. The omissions here — `points.embedding`
-and `idx_points_embedding`, `locations.location`, and the 12 agent-domain tables — are authorized by
-`docs/specs/2026-09-12-prisma8-database-layer-spec.md` §4.8.3–§4.8.4 and §4.12, not by #1539.
+and `idx_points_embedding`, `locations.location`, and every agent-domain table with no live
+reader — are authorized by `docs/specs/2026-09-12-prisma8-database-layer-spec.md` §4.8.3–§4.8.4 and
+§4.12, not by #1539. The four `workers/edge/src` still reads — `sessions`, `turn_reservations`,
+`daily_usage`, `anon_daily_message_count` — are built here, carrying every column a live statement
+names and no other.

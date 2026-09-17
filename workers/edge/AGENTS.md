@@ -62,9 +62,11 @@ retired run engine and envelope paths have no forwarding modules.
 - `@animichi/agent/harness` composes the seven native tools. Catalog uses the original oRPC
   contract validators; model/web/catalog transport uses Workers-supported manual redirects
   and refuses redirects before any credential can leave the permitted origin.
-- Native business tables and runtime storage are in `packages/pi-session-neon`. Existing
-  Atlas quota/ownership tables are queried directly through bounded native SQL; do not copy
-  them or revive old run state.
+- Native business tables and runtime storage are in `packages/pi-session-neon`. The conversation
+  ledger (`sessions`, `turn_reservations`) and the two usage meters (`daily_usage`,
+  `anon_daily_message_count`) are built by that same chain as raw-SQL objects the data-plane
+  contract does not declare (spec §4.12), and are queried directly through bounded native SQL;
+  do not copy them or revive old run state.
 - Selection and facts use shared native tools/hooks and typed custom entries. Live chat uses
   native watch with AI SDK framing; transcript GET reads native storage directly. The request
   digest and current owner authorize read-only reconnection while the driver remains exclusive.

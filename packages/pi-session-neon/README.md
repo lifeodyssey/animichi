@@ -19,19 +19,20 @@ and [official SQLite backend](https://github.com/earendil-works/pi/blob/d981de12
 | `agent_open_operations` | The spec's `open_operations` auxiliary recovery index. No lease, queue or execution state. |
 | `agent_settlements` | The spec's pending-settlement record: independently discoverable operation obligation, ledger cursor and `settled_at` guard. |
 
-Reservations remain on their admission row; `anon_daily_message_count` and `daily_usage` remain
-the existing quota and cost aggregates, which the contract deliberately does not declare (the
-database-layer spec §4.12) — `test/quota-aggregates.ts` installs them for the executable examples
-until #1607 deletes them. Native Pi tables receive only `agent_svc` grants; the 19 data-plane
+Reservations remain on their admission row. The conversation ledger (`sessions`,
+`turn_reservations`) and the two usage meters (`anon_daily_message_count`, `daily_usage`) are
+built by this chain as raw-SQL objects rather than contract tables: the database-layer spec §4.12
+keeps the agent domain out of the contract, and `daily_usage.cost_usd` is `NUMERIC(14,6)`, which
+Prisma 8's PSL cannot spell at all. `migrations/app/.../conversation-ledger.ts` and
+`.../usage-meters.ts` install them and prove each object in `pg_catalog`. Native Pi tables receive only `agent_svc` grants; the 19 data-plane
 tables follow the Atlas grant matrix in `access.ts`, and no role is created here — a disposable
 test plane creates them for the cluster it owns (`@animichi/test-postgres`, #1625). Pi entries
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
 One Prisma chain owns every table this package builds: the seven native tables and the 19
 catalog/users data-plane tables rebuilt from `migrations/neon`. No applied Atlas migration is
 altered, and no object has two owners. The migration-target ACs run against a per-test `template1`
-database migrated only by that chain; the shared fixture installs the two #1607 quota aggregates
-on top of it (`test/quota-aggregates.ts`), so the suite no longer compares against an
-Atlas-built database.
+database migrated only by that chain, and the shared fixture installs nothing on top of it, so
+the suite no longer compares against an Atlas-built database.
 
 `Storage.commit` holds the session row lock for the entire SQL transaction,
 uses public `prepareStorageCommit` and `validateCommittedWrites`, advances `next_seq` for **every**

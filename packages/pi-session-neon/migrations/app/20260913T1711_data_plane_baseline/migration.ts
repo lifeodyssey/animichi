@@ -4,6 +4,7 @@ import endContract from '../../snapshots/a365d7a592491ddc1c965b949b6b6d3b92f4a5b
 import { DATA_PLANE_ACCESS } from './access.ts';
 import { AGENT_TABLES } from './agent-tables.ts';
 import { CATALOG_TABLES } from './catalog-tables.ts';
+import { CONVERSATION_LEDGER } from './conversation-ledger.ts';
 import { INDEXES, UNIQUE_CONSTRAINTS } from './constraints.ts';
 import { DATA_PLANE_INDEXES } from './data-plane-indexes.ts';
 import { POSTGRES_EXTENSION_OPERATIONS } from './extensions.ts';
@@ -11,11 +12,16 @@ import { FOREIGN_KEYS } from './foreign-keys.ts';
 import { GENERATED_COORDINATES } from './generated-columns.ts';
 import { NATIVE_TABLES } from './native-tables.ts';
 import { UPDATED_AT_TRIGGERS } from './triggers.ts';
+import { USAGE_METERS } from './usage-meters.ts';
 import { USER_TABLES } from './user-tables.ts';
 import { Migration, MigrationCLI } from '@prisma/orm-postgres/migration';
 
-/** The raw DDL the baseline applies once the contract's tables and constraints exist. */
-const POST_CONTRACT_OPERATIONS = [GENERATED_COORDINATES, UPDATED_AT_TRIGGERS, DATA_PLANE_ACCESS];
+/** The raw DDL the baseline applies once the contract's tables and constraints exist. Order is
+ * load-bearing: the ledger's `sessions` must exist before the trigger operation attaches
+ * `trg_sessions_updated_at` to it, and every table must exist before the grant matrix runs. */
+const POST_CONTRACT_OPERATIONS = [
+  GENERATED_COORDINATES, CONVERSATION_LEDGER, USAGE_METERS, UPDATED_AT_TRIGGERS, DATA_PLANE_ACCESS,
+];
 
 export default class M extends Migration<never, End> {
   override readonly endContractJson = endContract;

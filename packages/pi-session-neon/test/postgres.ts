@@ -5,15 +5,14 @@ import pg from "pg";
 import type { Contract } from "../src/contract.d.ts";
 import { contractClient } from "./contract-client.ts";
 import { migrate } from "./prisma-migration.ts";
-import { QUOTA_AGGREGATES } from "./quota-aggregates.ts";
 
 // `postgres` is the disposable cluster: this fixture uses the database `startTestPostgres`
 // migrates as the admin connection and as the source of the five service roles, which
 // `@animichi/test-postgres` creates because a disposable container has no Pulumi (#1625).
 // `contractDsn` is the shared-suite database: created from template1 and migrated by this
 // package's own single chain, so no test sees an overlay from another chain. The migration-target
-// ACs create their own chain-only database instead. The two quota aggregates the business
-// examples target are installed by this fixture alone (`quota-aggregates.ts`).
+// ACs create their own chain-only database instead. Every object the business examples target —
+// the conversation ledger and the two quota meters included — comes from that chain.
 export let postgres: TestPostgres;
 export let contractDsn: string;
 export let pool: pg.Pool;
@@ -40,7 +39,6 @@ async function startContractDatabase(): Promise<string> {
   contractDsn = await createCleanDatabase(postgres.dsn, name);
   pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
   await migrate(contractDsn);
-  await pool.query(QUOTA_AGGREGATES);
   return contractDsn;
 }
 

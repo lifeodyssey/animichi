@@ -43,8 +43,10 @@ void test("a fresh database applies the whole chain and the marker names the che
       (SELECT attnotnull FROM pg_attribute WHERE attrelid = 'public.points'::regclass AND attname = 'location') AS located,
       (SELECT count(*) = 0 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'points' AND column_name = 'embedding') AS no_embedding,
       (SELECT count(*) = 0 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_points_embedding') AS no_embedding_index,
-      (SELECT count(*) = 0 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'locations' AND column_name = 'location') AS no_location_column`)).rows,
-      [{ trigram: true, history: true, generated_coordinates: true, located: true, no_embedding: true, no_embedding_index: true, no_location_column: true }]);
+      (SELECT count(*) = 0 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'locations' AND column_name = 'location') AS no_location_column,
+      (SELECT count(*) = 4 FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('sessions', 'turn_reservations', 'daily_usage', 'anon_daily_message_count')) AS agent_ledger,
+      (SELECT count(*) = 1 FROM pg_trigger WHERE tgname = 'trg_sessions_updated_at' AND NOT tgisinternal) AS sessions_stamped`)).rows,
+      [{ trigram: true, history: true, generated_coordinates: true, located: true, no_embedding: true, no_embedding_index: true, no_location_column: true, agent_ledger: true, sessions_stamped: true }]);
     const written = await client.query(`INSERT INTO points (id, name, location)
       VALUES ('coordinate-proof', 'Kyoto', ST_SetSRID(ST_MakePoint(135.7681, 35.0116), 4326)::geography)
       RETURNING ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude`);

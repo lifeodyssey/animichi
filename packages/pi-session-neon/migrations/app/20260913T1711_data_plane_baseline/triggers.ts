@@ -4,6 +4,7 @@ const UPDATE_TRIGGER_TARGETS = [
   { trigger: 'trg_bangumi_updated_at', table: 'bangumi', label: 'bangumi' },
   { trigger: 'trg_points_updated_at', table: 'points', label: 'points' },
   { trigger: 'trg_routes_updated_at', table: 'saved_routes', label: 'saved-routes' },
+  { trigger: 'trg_sessions_updated_at', table: 'sessions', label: 'sessions' },
 ] as const;
 
 const triggerSteps = UPDATE_TRIGGER_TARGETS.map(({ trigger, table, label }) => ({
@@ -33,7 +34,7 @@ export const UPDATED_AT_TRIGGERS = rawSql({
   postcheck: [{
     description: 'verify updated-at triggers and removed coordinate synchronization',
     sql: `SELECT to_regprocedure('public.update_updated_at()') IS NOT NULL
-      AND (SELECT count(*) = 3
+      AND (SELECT count(*) = ${String(UPDATE_TRIGGER_TARGETS.length)}
         FROM pg_trigger AS trigger_record
         JOIN pg_class AS target_table ON target_table.oid = trigger_record.tgrelid
         JOIN pg_namespace AS target_namespace ON target_namespace.oid = target_table.relnamespace
