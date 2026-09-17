@@ -22,4 +22,13 @@ class HoldRowsTest < Minitest::Test
                         holds: { 1700 => hold(1700) })
     assert_equal "held", row(snapshot, 1700, now: NOW).state
   end
+
+  # The hold is stored fact on its own: a card whose lane, worktree and pull request are all gone
+  # still owes its row, or the unreleasable hold would sit hidden in the holds file.
+  def test_a_hold_with_no_lane_worktree_or_pull_request_is_still_reported
+    snapshot = snapshot(holds: { 1700 => hold(1700) })
+    row = row(snapshot, 1700, now: NOW)
+    assert_equal "held", row.state
+    assert_match(/pr_merged 1607/, row.facts)
+  end
 end

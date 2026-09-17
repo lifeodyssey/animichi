@@ -130,8 +130,8 @@ module Orca
     end
 
     # The unresolved review threads of one pull request, read from the review-threads GraphQL query.
-    # A thread count is a detail: a read that fails is noted and reported as none open rather than
-    # taking the row away.
+    # A read that fails is unknown (`nil`), never zero: the merge ladder reads a thread count as a
+    # clear review, and a failed source must add work, not satisfy the gate.
     class ReviewThreads
       QUERY = <<~GRAPHQL.freeze
         query CardThreads($owner: String!, $name: String!, $number: Int!) {
@@ -149,7 +149,7 @@ module Orca
         nodes(number).count { |thread| thread["isResolved"] == false }
       rescue Failure, KeyError, NoMethodError => error
         @github.notes << "review threads for ##{number} unavailable: #{error.message}"
-        0
+        nil
       end
 
       private

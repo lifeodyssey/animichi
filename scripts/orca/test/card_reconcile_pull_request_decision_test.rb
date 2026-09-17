@@ -40,6 +40,16 @@ class PullRequestDecisionTest < Minitest::Test
     assert_equal "resolve 2 review threads", row.next_action
   end
 
+  # A failed thread read leaves the count unknown, and the ladder may not read an unknown as a
+  # clear review: the row stays unmergeable until the GitHub read succeeds.
+  def test_an_unknown_thread_count_keeps_the_row_unmergeable
+    unreadable = pull(1732, head_ref: "lifeodyssey/orca-1732-lane", threads: nil)
+    row = row(pushed_snapshot(1732, unreadable), 1732, now: NOW)
+    assert_equal "needs-fix", row.state
+    assert_equal "re-read the review threads", row.next_action
+    assert_match(/threads unknown/, row.facts)
+  end
+
   # `gh` reports `BLOCKED` whenever a required check or the ruleset blocks the merge, and this
   # repository requires no approving review. A pending check decides first.
   def test_pending_checks_outrank_a_blocked_merge_state

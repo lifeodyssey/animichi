@@ -41,6 +41,19 @@ class HoldStoreTest < Minitest::Test
     assert_match(/pr_merged, no_open_pr_touches/, error.message)
   end
 
+  # One hold carries exactly one condition: `until_.first` would silently drop every predicate
+  # after the first, the same failure mode as a free-text hold.
+  def test_refuses_an_until_with_more_than_one_predicate
+    error = assert_raises(Orca::CardReconcile::Failure) do
+      load_holds([{ "card" => 1625,
+                    "until" => { "pr_merged" => 1607, "no_open_pr_touches" => "pnpm-lock.yaml" } }])
+    end
+    assert_match(/exactly one release condition/, error.message)
+    assert_match(/card 1625/, error.message)
+    assert_match(/"pr_merged"/, error.message)
+    assert_match(/"no_open_pr_touches"/, error.message)
+  end
+
   def test_refuses_a_predicate_with_an_unusable_target
     error = assert_raises(Orca::CardReconcile::Failure) do
       load_holds([{ "card" => 1625, "until" => { "pr_merged" => "one-six-oh-seven" } }])

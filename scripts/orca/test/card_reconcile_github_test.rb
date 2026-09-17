@@ -57,6 +57,15 @@ class GitHubFactsTest < Minitest::Test
     assert_equal 1, facts.unresolved_threads(1711)
   end
 
+  # An unavailable thread read is unknown, never zero: the merge ladder needs the count, and a
+  # failed source must not read as a clear review.
+  def test_a_failed_thread_read_is_unknown_not_zero
+    notes = []
+    facts = Orca::CardReconcile::GitHubFacts.new(failing_graphql, "lifeodyssey/animichi", notes)
+    assert_nil facts.unresolved_threads(1711)
+    assert_equal 1, notes.length
+  end
+
   def test_merged_heads_indexes_the_head_sha_of_each_merged_pull_request
     items = [{ "headRefName" => "lifeodyssey/orca-1601-ac5", "headRefOid" => SHA }]
     facts = github("gh pr list --repo lifeodyssey/animichi --state merged" => JSON.generate(items))
@@ -80,6 +89,12 @@ class GitHubFactsTest < Minitest::Test
   def failing_command
     Orca::CardReconcile::Command.new(
       ScriptedShell.new("gh pr list" => Orca::CardReconcile::Command::Result.new("", "boom", 1))
+    )
+  end
+
+  def failing_graphql
+    Orca::CardReconcile::Command.new(
+      ScriptedShell.new("gh api graphql" => Orca::CardReconcile::Command::Result.new("", "boom", 1))
     )
   end
 end

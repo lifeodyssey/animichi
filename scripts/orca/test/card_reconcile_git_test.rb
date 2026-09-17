@@ -36,10 +36,10 @@ class GitFactsTest < Minitest::Test
     end
   end
 
-  def test_failures_are_noted_and_do_not_raise
+  def test_failures_are_noted_and_the_listing_is_unknown_not_empty
     notes = []
     facts = Orca::CardReconcile::GitFacts.new(GitFixture.command, "/nonexistent-repo", notes)
-    assert_empty facts.worktrees
+    assert_nil facts.worktrees
     assert_equal 1, notes.length
   end
 

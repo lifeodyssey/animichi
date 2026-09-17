@@ -32,8 +32,9 @@ a failed source becomes a `degraded:` note while the rest of the report is still
 The one thing it cannot derive is a hold, kept in a small JSON file (`--holds`, default
 `~/.orca/card-holds.json`). Every hold carries a
 machine-checkable release condition — `{"card": 1625, "until": {"pr_merged": 1607}}` or
-`{"card": 1672, "until": {"no_open_pr_touches": "pnpm-lock.yaml"}}`. A hold with free text, or with a
-predicate outside that closed set, is refused at load with a message naming it. Automatic
+`{"card": 1672, "until": {"no_open_pr_touches": "pnpm-lock.yaml"}}`. A hold with free text, with
+more than one predicate in `until`, or with a predicate outside that closed set, is refused at load
+with a message naming it. Automatic
 transitions are not implemented; a Monitor loop acts on the table itself.
 
 ## Tests

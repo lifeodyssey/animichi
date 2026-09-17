@@ -5,11 +5,13 @@ module Orca
     Phase = Struct.new(:dir, :name, :task_id, :workspace, :provider, :run_id, :coordinator,
                        :launched_at, :exited_at, :runner_alive) do
       def running?
-        runner_alive && exited_at.nil?
+        runner_alive == true && exited_at.nil?
       end
 
+      # A phase without an exit receipt is dead only when the process-table read says so; an
+      # unknown liveness (`nil`) must not assert that the runner died.
       def dead?
-        !running?
+        runner_alive == false || !exited_at.nil?
       end
 
       def since
@@ -25,6 +27,11 @@ module Orca
 
     class LaneReader
       CARD_DIR = /\Aanimichi-lane-(\d+)/.freeze
+      # The receipt fields the phases are derived from: a receipt missing one of them is refused
+      # instead of nil-ing its way into the row ladder as a fact the lane never stated.
+      LAUNCH = { "taskId" => :text, "workspace" => :text, "provider" => :text, "runId" => :text,
+                 "coordinatorHandle" => :text, "recordedAt" => :time }.freeze
+      EXIT = { "observedAt" => :time }.freeze
 
       def initialize(root, probe)
         @root = root
@@ -61,9 +68,10 @@ module Orca
       end
 
       def phase(launch_path)
-        launch = Receipt.read(launch_path, "launch receipt")
+        launch = Receipt.read_validated(launch_path, "launch receipt", LAUNCH)
         dir = File.dirname(launch_path)
-        exit_receipt = Receipt.read_optional(File.join(dir, "exit.json"), "exit receipt")
+        exit_receipt = Receipt.read_validated_optional(File.join(dir, "exit.json"),
+                                                       "exit receipt", EXIT)
         Phase.new(dir, File.basename(dir), launch["taskId"], launch["workspace"], launch["provider"],
                   launch["runId"], launch["coordinatorHandle"], Shape.time(launch["recordedAt"]),
                   exit_receipt && Shape.time(exit_receipt["observedAt"]), @probe.call(dir))

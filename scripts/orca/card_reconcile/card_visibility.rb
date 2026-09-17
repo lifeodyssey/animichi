@@ -4,7 +4,9 @@ module Orca
   module CardReconcile
     # Whether a card is worth a row at all. A card whose lane left work running, whose worktree has
     # uncommitted files, or whose head is merged is done; a settled lane with no worktree, branch,
-    # pull request, verdict or hold left is history rather than a stuck card.
+    # pull request, verdict or hold left is history rather than a stuck card. An unknown worktree
+    # listing decides none of that: hiding a card on facts the degraded run could not read would
+    # silence the very cards the report exists for.
     class CardVisibility
       def initialize(facts, merged_heads)
         @facts = facts
@@ -12,6 +14,8 @@ module Orca
       end
 
       def hidden?(card)
+        return false if @facts.worktrees.unknown?
+
         complete?(card) || invisible?(card)
       end
 

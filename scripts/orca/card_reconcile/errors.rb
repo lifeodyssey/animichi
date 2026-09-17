@@ -34,6 +34,15 @@ module Orca
         raise Failure, "#{label} must be an integer"
       end
 
+      # The explicit form of `time`: a timestamp a row is derived from must be present and
+      # parseable, not silently read as nil.
+      def time!(value, label)
+        parsed = time(value)
+        return parsed if parsed
+
+        raise Failure, "#{label} must be an ISO8601 timestamp"
+      end
+
       def time(value)
         return nil if value.nil?
 

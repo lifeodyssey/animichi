@@ -85,6 +85,9 @@ module Orca
       CHANGES = /CHANGES\s+REQUIRED/i.freeze
       DECLARATION = /verdict|结论/i.freeze
       DECLARED = /\A[#>*\s]*(APPROVED|CHANGES\s+REQUIRED)\b/i.freeze
+      # A declaration marked as another round's history: it is evidence of a past state, never the
+      # verdict this file states now.
+      HISTORY = /\b(previous|prior|earlier)\b/i.freeze
 
       module_function
 
@@ -99,6 +102,7 @@ module Orca
       def declared_kind(text)
         lines(text).each do |line|
           next unless DECLARATION.match?(line) || DECLARED.match?(line)
+          next if HISTORY.match?(line)
 
           found = sole_kind(line)
           return found if found

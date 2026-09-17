@@ -60,6 +60,7 @@ module Orca
         card = entry["card"]
         until_ = entry["until"]
         reject_free_text!(until_, card)
+        reject_extra_predicates!(until_, card)
         name, target = until_.first
         HoldPredicates.validate!(name, card)
         Hold.new(card, name, HoldPredicates.target!(name, target, card),
@@ -72,6 +73,15 @@ module Orca
         raise Failure, "hold for card #{card} has a free-text release condition " \
                        "#{value.inspect}; a hold needs a machine-checkable predicate " \
                        "(#{HoldPredicates::NAMES.join(', ')})"
+      end
+
+      # One hold carries exactly one release condition: `until_.first` would silently drop every
+      # predicate after the first, which is the same failure mode as a free-text hold.
+      def reject_extra_predicates!(value, card)
+        return if value.size == 1
+
+        raise Failure, "hold for card #{card} needs exactly one release condition, " \
+                       "got #{value.keys.inspect}"
       end
     end
 

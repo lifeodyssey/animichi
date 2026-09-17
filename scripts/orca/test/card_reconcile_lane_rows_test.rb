@@ -39,6 +39,15 @@ class LaneRowsTest < Minitest::Test
     assert_equal "undelivered", row(snapshot, 1700, now: NOW).state
   end
 
+  # A failed `ps` read leaves liveness unknown: the ladder must not read that as a dead runner
+  # whose worker_done is missing, and the card stays on the board by its own facts.
+  def test_an_unknown_runner_is_not_reported_as_undelivered
+    snapshot = snapshot(lanes: [lane(1700, [phase(1700, alive: nil, exited_at: nil)])],
+                        worktrees: [worktree(1700)])
+    row = row(snapshot, 1700, now: NOW)
+    assert_equal "needs-review", row.state
+  end
+
   # `failed` is a delivered outcome: the worker reported, so the row must not say "no worker_done".
   def test_a_lane_whose_worker_reported_failed_is_delivered_failed
     snapshot = snapshot(lanes: [lane(1700, [phase(1700, exited_at: NOW - 3600)])],

@@ -16,13 +16,19 @@ class ScriptedShell
   def call(argv, _stdin = nil)
     @calls << argv
     key = argv.join(" ")
-    match = @responses.keys.select { |candidate| key.start_with?(candidate) }
-                            .max_by(&:length)
-    raise "unstubbed command: #{key}" unless match
+    matched = matching_key(key)
+    raise "unstubbed command: #{key}" unless matched
 
-    response = @responses[match]
-    return response if response.is_a?(Result)
+    response = @responses[matched]
+    response.is_a?(Result) ? response : Result.new(response, "", 0)
+  end
 
-    Result.new(response, "", 0)
+  private
+
+  # The longest registered key the command extends at an argument boundary: a final argument that
+  # merely extends a key's last token is a different command, never a reuse of that key's response.
+  def matching_key(key)
+    @responses.keys.select { |candidate| key == candidate || key.start_with?("#{candidate} ") }
+         .max_by(&:length)
   end
 end

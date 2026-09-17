@@ -91,7 +91,9 @@ module Orca
 
     # The worktrees of the repository, read from `git worktree list --porcelain`: each one's branch
     # and head, how far it is ahead of main, its uncommitted changes, and — for a branch an open pull
-    # request published — whether that push still contains the worktree's head.
+    # request published — whether that push still contains the worktree's head. A listing that
+    # cannot be read is unknown (`nil`), never an empty collection: the cards a worktree names would
+    # vanish from the report if the failure read as "no worktrees".
     class WorktreeReader
       def initialize(git)
         @git = git
@@ -99,12 +101,14 @@ module Orca
 
       def worktrees(pushed_heads = {})
         blocks.map { |block| worktree(block, pushed_heads) }
+      rescue Failure
+        nil
       end
 
       private
 
       def blocks
-        @git.capture(["git", "-C", @git.root, "worktree", "list", "--porcelain"], "git worktree list")
+        @git.read(["worktree", "list", "--porcelain"], "git worktree list")
             .split("\n\n")
             .map { |block| attributes(block) }
             .reject { |item| item.empty? }
@@ -181,11 +185,12 @@ module Orca
       end
 
       # `XY path`, with renames reported as `old -> new`: the path that is on disk is the new one.
+      # The two status columns are fixed width, so the path is cut off the raw line; stripping
+      # first would shift the cut for a status whose first column is a space (` M path`).
       def changed_path(line)
-        text = line.strip
-        return nil if text.length < 4
+        return nil if line.strip.length < 4
 
-        path = text[3..-1].to_s.split(" -> ").last.to_s.strip
+        path = line[3..-1].to_s.split(" -> ").last.to_s.strip
         path.empty? ? nil : path
       end
 

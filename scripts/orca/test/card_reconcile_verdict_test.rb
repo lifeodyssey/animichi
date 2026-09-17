@@ -65,3 +65,17 @@ class VerdictReaderTest < Minitest::Test
     end
   end
 end
+
+# A line that marks its verdict as another round's history decides nothing: the file's current
+# declaration wins, whichever of the two comes first in the document.
+class VerdictKindTest < Minitest::Test
+  def test_the_current_declaration_wins_over_a_previous_one_before_it
+    text = "Previous verdict: CHANGES REQUIRED\nVerdict: APPROVED\n"
+    assert_equal :approved, Orca::CardReconcile::VerdictKind.kind(text)
+  end
+
+  def test_the_current_declaration_wins_over_a_prior_one_after_it
+    text = "## Verdict: **CHANGES REQUIRED**\nPrior verdict: APPROVED\n"
+    assert_equal :changes_required, Orca::CardReconcile::VerdictKind.kind(text)
+  end
+end

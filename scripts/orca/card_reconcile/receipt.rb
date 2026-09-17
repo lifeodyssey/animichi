@@ -14,10 +14,20 @@ module Orca
         raise Failure, "#{label} at #{path} is unreadable: #{error.message}"
       end
 
-      def read_optional(path, label)
+      # A receipt whose fields a reader derives rows from: every named field must be present and
+      # well-formed, so a malformed receipt refuses the read instead of nil-ing into the ladder.
+      def read_validated(path, label, fields)
+        document = read(path, label)
+        fields.each do |field, type|
+          Shape.public_send("#{type}!", document[field], "#{label} #{field}")
+        end
+        document
+      end
+
+      def read_validated_optional(path, label, fields)
         return nil unless File.file?(path)
 
-        read(path, label)
+        read_validated(path, label, fields)
       end
 
       def read_text(path)

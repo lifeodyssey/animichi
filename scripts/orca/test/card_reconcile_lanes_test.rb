@@ -12,8 +12,12 @@ module LaneFixtures
   end
 
   def build(root, card, name, task, extra = {})
+    build_raw(root, card, name, launch(card, task), extra)
+  end
+
+  def build_raw(root, card, name, receipt, extra = {})
     ReconcileFixtures.write_json(File.join(root, "animichi-lane-#{card}", name, "launch.json"),
-                                 launch(card, task))
+                                 receipt)
     extra.each do |file, content|
       ReconcileFixtures.write_json(File.join(root, "animichi-lane-#{card}", name, file), content)
     end
@@ -62,6 +66,36 @@ class LaneReaderTest < Minitest::Test
       lanes = reader(root, []).lanes
       assert_equal [1672], lanes.map(&:card)
       assert_equal %w[fix write], lanes.first.phases.map(&:name).sort
+    end
+  end
+
+  # A receipt field the rows are derived from must be present: a nil task id would read a settled
+  # lane as unsettled instead of refusing the malformed receipt.
+  def test_a_launch_receipt_without_a_consumed_field_is_refused
+    Dir.mktmpdir do |root|
+      receipt = LaneFixtures.launch(1672, "task_a")
+      receipt.delete("taskId")
+      LaneFixtures.build_raw(root, 1672, "write", receipt)
+      error = assert_raises(Orca::CardReconcile::Failure) { reader(root, []).lanes }
+      assert_match(/taskId/, error.message)
+    end
+  end
+
+  def test_a_launch_receipt_with_an_invalid_timestamp_is_refused
+    Dir.mktmpdir do |root|
+      receipt = LaneFixtures.launch(1672, "task_a").merge("recordedAt" => "not-a-time")
+      LaneFixtures.build_raw(root, 1672, "write", receipt)
+      error = assert_raises(Orca::CardReconcile::Failure) { reader(root, []).lanes }
+      assert_match(/recordedAt/, error.message)
+    end
+  end
+
+  def test_an_exit_receipt_with_an_invalid_observed_at_is_refused
+    Dir.mktmpdir do |root|
+      LaneFixtures.build(root, 1672, "write", "task_a",
+                         "exit.json" => LaneFixtures.exit_at("yesterday"))
+      error = assert_raises(Orca::CardReconcile::Failure) { reader(root, []).lanes }
+      assert_match(/observedAt/, error.message)
     end
   end
 

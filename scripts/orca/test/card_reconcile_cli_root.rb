@@ -39,7 +39,8 @@ module CliRoot
 
   def launch
     { "workspace" => "/w/orca-1672-lane", "taskId" => "task_1672_write", "runId" => "run_1",
-      "coordinatorHandle" => "term_coordinator", "recordedAt" => "2026-09-16T13:00:00Z" }
+      "coordinatorHandle" => "term_coordinator", "provider" => "pi",
+      "recordedAt" => "2026-09-16T13:00:00Z" }
   end
 
   # The worker of this lane reported `completed`, or `failed` for a run that needs the fix row.

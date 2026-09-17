@@ -45,7 +45,7 @@ module Orca
 
       def harvest_row(card)
         count = @facts.worktrees.dirty_count(card)
-        return nil unless count.positive? && @facts.settlement.settled_card?(card)
+        return nil unless count.to_i.positive? && @facts.settlement.settled_card?(card)
 
         Row.new(card, "worker_done, #{count} uncommitted files, #{Short.head_facts(card, @facts)}",
                 States::READY_TO_HARVEST, "commit and push",

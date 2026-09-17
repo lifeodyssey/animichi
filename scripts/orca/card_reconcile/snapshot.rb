@@ -37,13 +37,19 @@ module Orca
 
     # The worktree facts of a card. The worktree belongs to the card its branch names: a lane's
     # recorded workspace does not decide this, because one worktree can serve another card's branch.
+    # A nil listing (an unknown worktree read) answers every question with unknown: `unknown?`
+    # says so, and the facts themselves read as nil rather than as "none".
     class WorktreeFacts
       def initialize(snapshot)
         @worktrees = snapshot.worktrees
       end
 
+      def unknown?
+        @worktrees.nil?
+      end
+
       def worktree(card)
-        @worktrees.find { |item| BranchNames.card_of(item.branch) == card }
+        @worktrees.to_a.find { |item| BranchNames.card_of(item.branch) == card }
       end
 
       def head(card)
@@ -56,7 +62,11 @@ module Orca
         item && item.head_at
       end
 
+      # Unknown while the listing itself is unknown: a card whose worktree cannot be read must not
+      # read as a card with a clean worktree.
       def dirty_count(card)
+        return nil if unknown?
+
         item = worktree(card)
         item ? item.dirty.to_i : 0
       end
@@ -162,7 +172,7 @@ module Orca
       end
 
       def cards
-        (lane_cards + worktree_cards + pull_request_cards).uniq.sort
+        (lane_cards + worktree_cards + pull_request_cards + hold_cards).uniq.sort
       end
 
       def lane(card)
@@ -201,7 +211,13 @@ module Orca
       end
 
       def worktree_cards
-        @snapshot.worktrees.map { |item| BranchNames.card_of(item.branch) }.compact
+        @snapshot.worktrees.to_a.map { |item| BranchNames.card_of(item.branch) }.compact
+      end
+
+      # A stored hold is a card fact on its own: a card whose lane, worktree and pull request are
+      # all gone still owes its row, or the unreleasable hold would sit hidden in the holds file.
+      def hold_cards
+        @snapshot.holds.keys
       end
 
       def pull_request_cards

@@ -30,4 +30,14 @@ class CardVisibilityTest < Minitest::Test
                         merged_heads: { SHA => "lifeodyssey/orca-1700-lane" })
     assert_equal "ready-to-harvest", row(snapshot, 1700, now: NOW).state
   end
+
+  # An unknown worktree listing (a failed `git worktree list`) decides no visibility: the same
+  # settled, merged card that a known listing hides stays on the board when the read is degraded,
+  # instead of vanishing together with the listing.
+  def test_an_unknown_worktree_listing_does_not_hide_the_lane_card
+    snapshot = snapshot(lanes: [lane(1700, [phase(1700)])], settled: { "task_1700" => NOW - 600 },
+                        worktrees: nil, merged_heads: { SHA => "lifeodyssey/orca-1700-lane" })
+    row = row(snapshot, 1700, now: NOW)
+    assert_equal "needs-review", row.state
+  end
 end
