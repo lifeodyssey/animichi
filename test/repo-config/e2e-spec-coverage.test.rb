@@ -23,6 +23,13 @@ class E2eSpecCoverageTest < Minitest::Test
   GREP_INVERT = /--grep-invert\s+(\S+)/
   FOR_LIST = /for script in ([^;]+); do/
   SPEC_TOKEN = %r{[\w./*?\[\]-]+\.spec\.ts}
+  # A script body is a command list, and the lane is what its commands run — not
+  # what any text in it mentions. A Playwright invocation is a command head (after
+  # environment assignments, and optionally `pnpm exec` or `npx`, or a path) plus
+  # everything it receives; pasting the same words into an `echo`, lint or
+  # typecheck command makes no lane (#1702).
+  SEGMENT = /&&|\|\||;|\n/
+  PLAYWRIGHT_TEST = /\A(?:\w+=\S+\s+)*(?:(?:pnpm\s+exec|npx)\s+)?(?:\S*\/)?playwright\s+test(?:\s|\z)/
   # Matched as the owner clause, not as any `#N`: every reason also cites the card
   # whose cases fail, so a bare-number match cannot tell that card from the one that
   # owns the repair (#1702 round-2 M-2).
@@ -78,6 +85,15 @@ class E2eSpecCoverageTest < Minitest::Test
                  "got #{lane_excluded_cases.join(', ')})"
   end
 
+  # A declared exclusion is a claim about a case some spec declares: once the tag
+  # it greps is gone, `--grep-invert` matches nothing, the cases run in the
+  # always-run lane, and the declaration still reads as enforced (#1702).
+  def test_every_declared_case_exclusion_matches_a_string_a_spec_declares
+    declared = declared_case_texts
+    unmatched = LANE_EXCLUDED_CASES.keys.reject { |pattern| declared.any? { |text| text.match?(pattern) } }
+    assert_empty unmatched, "LANE_EXCLUDED_CASES patterns no committed spec declares: #{unmatched.join(', ')}"
+  end
+
   def test_the_lane_comes_from_the_gate_not_from_this_file
     assert_includes gate_script_names, "test", "#{CI_FILE}: the e2e job must run `test`"
     assert_operator lane_specs.length, :>=, 10, "the lane derivation found almost no specs"
@@ -94,6 +110,14 @@ class E2eSpecCoverageTest < Minitest::Test
        .map { |path| path.delete_prefix("#{E2E}/") }
        .reject { |relative| NOT_CASE_SOURCES.include?(relative.split("/").first) }
        .sort
+  end
+
+  # An approximation of what a case filter matches: Playwright tests the project
+  # name, file name, describe and test titles and tags, and those titles and
+  # `tag:` values are quoted strings in the spec. Every quoted string is read,
+  # including one inside a comment.
+  def declared_case_texts
+    specs_on_disk.flat_map { |spec| File.read(File.join(E2E, spec)).scan(/"[^"\n]*"|'[^'\n]*'/) }
   end
 
   # What the gate runs (workflow → script names) and what those scripts run
@@ -114,8 +138,7 @@ class E2eSpecCoverageTest < Minitest::Test
   end
 
   def lane_excluded_cases
-    bodies = gate_script_names.flat_map { |name| script_bodies(name) }
-    bodies.flat_map { |body| body.scan(GREP_INVERT).flatten }.uniq.sort
+    lane_playwright_segments.flat_map { |segment| segment.scan(GREP_INVERT).flatten }.uniq.sort
   end
 
   def e2e_job_source
@@ -139,10 +162,25 @@ class E2eSpecCoverageTest < Minitest::Test
 
   # A token expands through the filesystem so a glob covers what it matches; a
   # literal that matches nothing stays visible and fails `test_every_spec_a_lane_names_exists`.
+  # Only an argument of a `playwright test` command is a token at all.
   def spec_files(body)
-    body.scan(SPEC_TOKEN).flat_map do |token|
+    playwright_segments(body).flat_map { |segment| segment.scan(SPEC_TOKEN) }.flat_map do |token|
       matches = Dir.glob(File.join(E2E, token)).map { |path| path.delete_prefix("#{E2E}/") }
       matches.empty? ? [token] : matches
     end.uniq
+  end
+
+  # Every Playwright invocation the gate's scripts reach, in a spelling
+  # `PLAYWRIGHT_TEST` recognizes (any other leaves its specs uncredited, so the
+  # contract refuses rather than passes): the lane's specs and its case filters
+  # are both read from these segments, so neither can be credited to a command
+  # that only prints them.
+  def lane_playwright_segments
+    gate_script_names.flat_map { |name| script_bodies(name).flat_map { |body| playwright_segments(body) } }
+  end
+
+  # The command heads in a script body that run Playwright, with their arguments.
+  def playwright_segments(body)
+    body.split(SEGMENT).map(&:strip).select { |segment| segment.match?(PLAYWRIGHT_TEST) }
   end
 end

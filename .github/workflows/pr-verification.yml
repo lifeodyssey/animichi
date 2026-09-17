@@ -288,6 +288,7 @@ jobs:
         run: |
           set -euo pipefail
           ruby test/repo-config/e2e-spec-coverage.test.rb
+          ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
           ruby test/repo-config/gitleaks-mutation.test.rb
           ruby test/repo-config/gitleaks-pin-mutation.test.rb
           ruby test/repo-config/gitleaks.test.rb
