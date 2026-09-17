@@ -58,14 +58,13 @@ class ReleaseSchemaGateTest < Minitest::Test
     Open3.capture3(@environment, 'bash', script, 'staging', chdir: @directory)
   end
 
-  # One authority, one identity (#1634): the request carries the selected schema identity and
-  # the staging-only marker, and nothing the receiver would have to ignore.
+  # One authority, one identity (#1634, #1635): the request carries the selected schema identity
+  # and nothing the receiver would have to ignore.
   def test_sends_only_verified_identity_metadata_to_existing_endpoint
     output, error, status = preflight
     assert status.success?, error
     request = JSON.parse(File.read(File.join(@directory, 'preflight-request.json')))
-    assert_equal %w[expectedPrismaRef stagingOnlyBaseline], request.keys.sort
-    refute request.fetch('stagingOnlyBaseline')
+    assert_equal %w[expectedPrismaRef], request.keys.sort
     refute_includes output + error, 'test-oidc-token'
   end
 

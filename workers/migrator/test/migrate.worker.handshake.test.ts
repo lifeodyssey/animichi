@@ -79,7 +79,7 @@ describe("POST /migrate refuses an identity the bundle does not carry", () => {
     const { app, token } = await makeApp({ migrationsDir: MIGRATIONS });
     const res = await app.request(new Request("https://migrator.test/migrate", {
       method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ stagingOnlyBaseline: false }),
+      body: JSON.stringify({}),
     }), {}, testEnv());
     expect(res.status).toBe(400);
   });

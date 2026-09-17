@@ -364,8 +364,8 @@ construction. The full authoring/apply boundary is [`migrations.md`](./migration
 
 ### Migration promotion
 
-The selected artifact carries any `STAGING_ONLY_BASELINE` marker, plus Prisma's unchanged
-`contract.json` and complete native migration directory beside the migrator bundle. The controller checks every source byte against the
+The selected artifact carries Prisma's unchanged `contract.json` and complete native migration
+directory beside the migrator bundle. The controller checks every source byte against the
 selected release commit; newer graph files cannot enter an older selected artifact.
 
 CD publishes the selected migration executor first. An older executor cannot preview a migration
@@ -390,8 +390,11 @@ the same selected artifact. SQL and secret failures return stable codes, never i
 messages.
 
 CD performs no staging baseline reset. Missing/empty/native-baseline state requires an explicit
-bootstrap or recovery decision. Production's baseline marker guard runs before Pulumi and every
-other mutation. The migrator binding, role and existing topology must be bootstrapped before selected
+bootstrap or recovery decision. **Production promotion is protected only by the `production`
+GitHub environment's approval** — the artifact-level baseline gate was deleted rather than
+rehoused, and [#1621](https://github.com/lifeodyssey/animichi/issues/1621) records the residual
+risk and the conditions under which an artifact-level check comes back. The migrator binding,
+role and existing topology must be bootstrapped before selected
 executor publication; selected-artifact deployment does not provision its own access prerequisites.
 Staging and production retain separate DSN bindings and exact main-controller OIDC
 policies. CI receives no database credential and does not run direct database migrations.
@@ -403,7 +406,7 @@ does not reverse migrations. Follow [migrations.md](migrations.md) and
 ### Read-only migration preflight (#1575)
 
 The migrator exposes authenticated `POST /preflight` for the selected-artifact
-controller. It sends exactly `{stagingOnlyBaseline, expectedPrismaRef}` from its
+controller. It sends exactly `{expectedPrismaRef}` from its
 verified artifact, with a main-ref GitHub OIDC token for the existing
 environment-selected migrator policy. The key set is compared by exact match, so an
 added field is an invalid request rather than an ignored one. Public Prisma
@@ -413,8 +416,8 @@ initializing a schema, and the endpoint returns `200 {compatible:true, prisma:
 unusable database path fails closed.
 
 An identity this bundle does not carry returns retryable `409 stale_prisma_bundle`
-naming the `prismaTarget` it does carry; an unusable forward path and a production
-staging-only baseline flag return stable `422` refusals. Missing identity is 401,
+naming the `prismaTarget` it does carry; an unusable forward path returns a stable
+`422` refusal. Missing identity is 401,
 disallowed identity 403, malformed metadata 400 (oversized input 413), and
 secret/driver unavailability 503. Responses are `Cache-Control: no-store` and contain
 no database credentials or driver messages. `/healthz` still describes the bundle.

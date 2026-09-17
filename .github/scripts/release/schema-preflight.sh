@@ -4,11 +4,8 @@ set -euo pipefail
 case "${1:?environment required}" in staging|production) ;; *) exit 1 ;; esac
 : "${MIGRATOR_URL:?existing migrator URL required}"
 [[ "$MIGRATOR_URL" == https://* ]] || { echo '::error::migrator must use HTTPS'; exit 1; }
-baseline=false
-[ ! -f release/migrations/STAGING_ONLY_BASELINE ] || baseline=true
 prisma_ref="$(jq -er '.storage.storageHash | select(type == "string" and test("^[a-f0-9]{64}$"))' release/migrator/bundle/contract.json)"
-jq -n --argjson baseline "$baseline" --arg prisma "$prisma_ref" \
-  '{stagingOnlyBaseline:$baseline,expectedPrismaRef:$prisma}' > preflight-request.json
+jq -n --arg prisma "$prisma_ref" '{expectedPrismaRef:$prisma}' > preflight-request.json
 # shellcheck source=scripts/delivery/migrator-bundle.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/delivery/migrator-bundle.sh"
 await_migrator_bundle "$prisma_ref" || { echo '::error::selected migration executor is unavailable'; exit 1; }

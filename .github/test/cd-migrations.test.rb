@@ -1,4 +1,4 @@
-# SUT: cd.yml migrations use the authenticated migrator and reject staging-only baselines in production.
+# SUT: cd.yml migrations reach the database only through the authenticated migrator.
 require "minitest/autorun"
 require "psych"
 
@@ -10,9 +10,6 @@ class CdMigrationsTest < Minitest::Test
   EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
-  BASELINE_GUARD_SCRIPT = "infra/database-access/production-baseline-guard.sh"
-  BASELINE_GUARD_MARKER = "release/migrations/STAGING_ONLY_BASELINE"
-  BASELINE_GUARD_RUN = /\A\s*bash\s+#{Regexp.escape(BASELINE_GUARD_SCRIPT)}\s+#{Regexp.escape(BASELINE_GUARD_MARKER)}\b/
   DIRECT_APPLY = ["atlas migrate apply", "ariga/setup-atlas"].freeze
 
   def setup
@@ -42,17 +39,14 @@ class CdMigrationsTest < Minitest::Test
     end
   end
 
-  def test_baseline_guard_precedes_the_production_migration
-    assert(File.exist?(File.join(ROOT, BASELINE_GUARD_SCRIPT)),
-                     "cd.yml:promote-production: #{BASELINE_GUARD_SCRIPT} does not exist")
-    runs = @cd.dig("jobs", "promote-production", "steps").to_a.map { |step| step["run"].to_s }
-    guard = runs.index { |run| run.match?(BASELINE_GUARD_RUN) }
-    migrate = runs.index { |run| run.include?("#{MIGRATION_SCRIPT} production") }
-    assert(!guard.nil?,
-                     "cd.yml:promote-production: no step runs " \
-                     "`bash #{BASELINE_GUARD_SCRIPT} #{BASELINE_GUARD_MARKER}`")
-    assert(!guard.nil? && !migrate.nil? && guard < migrate,
-                     "cd.yml:promote-production: the staging-only guard must refuse before production migrates")
+  # #1621: the owner deleted the artifact-level production baseline gate rather than rehousing
+  # it. What protects production is the `production` environment's own approval, so the job that
+  # migrates it must declare that environment — a promotion job without one has no gate at all.
+  def test_production_migration_runs_under_the_approved_environment
+    environment = @cd.dig("jobs", "promote-production", "environment")
+    name = environment.is_a?(Hash) ? environment["name"] : environment
+    assert_equal("production", name,
+                 "cd.yml:promote-production: the production migration must run under the approved environment")
   end
 
   # The pre-publication compatibility read left with the Atlas ledger it read (#1634): with one
@@ -89,13 +83,6 @@ class CdMigrationsTest < Minitest::Test
 
   def mutates?(step)
     step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|retire-edge-container\.sh|reset-staging/)
-  end
-
-  def test_production_baseline_guard_precedes_every_mutation
-    steps = @cd.dig("jobs", "promote-production", "steps")
-    guard = steps.index { |step| step["run"].to_s.match?(BASELINE_GUARD_RUN) }
-    refute_nil guard
-    steps.each_index.select { |i| mutates?(steps[i]) }.each { |i| assert_operator guard, :<, i }
   end
 
   def test_native_graph_is_published_before_preview_and_application_changes

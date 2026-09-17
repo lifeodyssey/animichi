@@ -11,9 +11,6 @@ async function preflight(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Pro
   try {
     const metadata = parsePreflightMetadata(await c.req.text());
     if (!metadata) return c.json({ error: "invalid_preflight" }, 400);
-    if (metadata.stagingOnlyBaseline && c.env.MIGRATOR_OIDC_POLICY === "production") {
-      return c.json({ compatible: false, error: "staging_only_baseline" }, 422);
-    }
     if (!await hasPrismaSnapshot(metadata.expectedPrismaRef, deps.migrationsDir)) {
       return c.json({ error: "stale_prisma_bundle", prismaTarget: PRISMA_TARGET }, 409);
     }

@@ -46,7 +46,7 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    authority owns the database. A `-pooler` DSN is still rejected before any
    connection (`src/direct-dsn.ts`), because Neon schema DDL needs the direct
    host. SQL is never taken from the request body (OIDC + a required
-   `{stagingOnlyBaseline, expectedPrismaRef}` key set only, compared exactly).
+   `{expectedPrismaRef}` key set only, compared exactly).
    The retired batch container has no binding, class, image or runtime path (#1589).
    `test/atlas-engine-retired.test.ts` fails if any deleted module, or an import
    of one, reappears.
@@ -89,7 +89,7 @@ by any runtime worker.
 
 ## Read-only compatibility preflight (#1575, #1634)
 
-`POST /preflight` accepts exactly `{stagingOnlyBaseline, expectedPrismaRef}`; the key set is
+`POST /preflight` accepts exactly `{expectedPrismaRef}`; the key set is
 compared by exact match, so an extra or missing key is an invalid request rather than an ignored
 field — which is why sender and receiver can only change together. The whole JSON body is bounded
 to 65,536 bytes. Metadata contains no SQL, URL, DSN or environment override. The existing jose
@@ -100,7 +100,9 @@ The preview is Prisma's public `executeMigrateShowPlan`, which reads the live ma
 initializing its schema, and returns `prisma: {targetHash, markerHash, migrations, usedLiveMarker}`.
 An identity the bundle does not carry returns retryable `409 stale_prisma_bundle`; an unusable
 live path returns `422` with a stable code and never a driver detail. Nothing here creates a
-schema, applies a migration or takes the apply lock.
+schema, applies a migration or takes the apply lock. There is no artifact-level production gate
+in this request: the owner deleted it rather than rehousing it (#1621), and what protects
+production is the `production` GitHub environment's own approval.
 
 `/migrate` requires the same metadata, rechecks the identity INSIDE the fixed lock — a prior
 preview is no authority — and then hands the exact snapshot and `refHash` to

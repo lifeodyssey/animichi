@@ -68,11 +68,10 @@ void test("both environments migrate through the migrator Worker on an OIDC iden
   assert.doesNotMatch(cd, /NEON_DATABASE_URL/);
 });
 
-void test("no job applies the chain itself, and a staging-only baseline still stops production", () => {
+void test("no job applies the chain itself", () => {
   const cd = read(".github/workflows/cd.yml");
   assert.doesNotMatch(cd, /atlas migrate apply/);
   assert.doesNotMatch(cd, /ariga\/setup-atlas/);
-  assert.match(cd, /release\/migrations\/STAGING_ONLY_BASELINE/);
 });
 
 // #1332: the deploy call returning is not the new bundle serving. The handshake waits on the

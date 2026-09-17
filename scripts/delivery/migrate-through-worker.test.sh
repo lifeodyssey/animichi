@@ -69,7 +69,7 @@ STUB
 
 setup() {
   WORKSPACE="$(mktemp -d)"
-  mkdir -p "$WORKSPACE/bin" "$WORKSPACE/state" "$WORKSPACE/migrations"
+  mkdir -p "$WORKSPACE/bin" "$WORKSPACE/state"
   make_curl_stub
   printf '{"storage":{"storageHash":"%s"}}\n' "$SEALED_REF" > "$WORKSPACE/contract.json"
   export PATH="$WORKSPACE/bin:$PATH"
@@ -84,7 +84,7 @@ setup() {
 
 teardown() { rm -rf "$WORKSPACE"; }
 
-run_script() { bash "$SCRIPT" production "$WORKSPACE/migrations" "$WORKSPACE/contract.json" 2>&1; }
+run_script() { bash "$SCRIPT" production "$WORKSPACE/contract.json" 2>&1; }
 
 calls() { tr '\n' ' ' < "$CALL_LOG"; }
 

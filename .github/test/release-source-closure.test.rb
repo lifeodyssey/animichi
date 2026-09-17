@@ -32,7 +32,6 @@ class ReleaseSourceClosureTest < Minitest::Test
   def write_prerequisites
     write('migrations/neon/atlas.sum', 'A checksum')
     write('migrations/neon/A.sql', 'catalog A schema')
-    write('migrations/neon/STAGING_ONLY_BASELINE', 'approval required')
     write('infra/index.ts', 'foundation A')
     write('packages/pi-session-neon/src/contract.json', '{"storageHash":"B"}')
     write('packages/pi-session-neon/migrations/app/B/ops.json', 'native B')
@@ -95,11 +94,6 @@ class ReleaseSourceClosureTest < Minitest::Test
 
   def test_omitted_a_migration_fails
     File.delete(File.join(@release, 'migrations/A.sql'))
-    assert_raises(ArgumentError) { validate }
-  end
-
-  def test_omitted_baseline_marker_fails
-    File.delete(File.join(@release, 'migrations/STAGING_ONLY_BASELINE'))
     assert_raises(ArgumentError) { validate }
   end
 

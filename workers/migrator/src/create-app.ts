@@ -97,9 +97,6 @@ type Guarded =
 async function guardRequest(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Promise<Guarded> {
   const body = parsePreflightMetadata(await c.req.text());
   if (!body) return { ok: false, response: c.json({ error: "invalid_migration" }, 400) };
-  if (body.stagingOnlyBaseline && c.env.MIGRATOR_OIDC_POLICY === "production") {
-    return { ok: false, response: c.json({ error: "staging_only_baseline" }, 422) };
-  }
   if (!await hasPrismaSnapshot(body.expectedPrismaRef, deps.migrationsDir)) {
     return { ok: false, response: c.json({ error: "stale_prisma_bundle", prismaTarget: PRISMA_TARGET }, 409) };
   }

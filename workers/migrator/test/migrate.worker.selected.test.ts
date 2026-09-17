@@ -34,14 +34,14 @@ describe("selected migration metadata", () => {
 });
 
 describe("selected metadata at the public HTTP boundary", () => {
-  it("rejects a staging-only baseline at the correctly authenticated production worker", async () => {
+  it("rejects an undeclared field at the correctly authenticated production worker", async () => {
     const { token, jwk } = await issuedToken({ environment: "production", sub: "repo:lifeodyssey/animichi:environment:production" });
     const { app } = await makeApp({ verifier: undefined, jwks: joseEnv(jwk) });
     const get = (): Promise<string> => { throw new Error("credentials must remain closed"); };
-    const response = await app.request(post({ stagingOnlyBaseline: true }, token), undefined,
+    const response = await app.request(post({ stagingOnly: true }, token), undefined,
       { ...productionEnv(), MIGRATOR_DATABASE_URL: { get } });
-    expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ error: "staging_only_baseline" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_migration" });
   });
 
   it("rejects an oversized metadata body before credentials", async () => {

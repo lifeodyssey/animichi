@@ -16,5 +16,5 @@ export const APP_MIGRATION_COUNT = APP_MIGRATION_DIRECTORIES.length;
 export const BASELINE_OPERATION_COUNT = (
   JSON.parse(readFileSync(`${MIGRATIONS}/app/${APP_MIGRATION_DIRECTORIES[0] ?? ""}/ops.json`, "utf8")) as unknown[]
 ).length;
-/** A complete migration request: one schema identity plus the staging-only baseline flag. */
-export const requestMetadata = { stagingOnlyBaseline: false, expectedPrismaRef: TARGET };
+/** A complete migration request: one schema identity, and nothing else. */
+export const requestMetadata = { expectedPrismaRef: TARGET };

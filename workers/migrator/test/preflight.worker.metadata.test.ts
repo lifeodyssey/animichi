@@ -19,8 +19,7 @@ it.each([
   ["URL", { ...metadata, url: "https://evil.test" }],
   ["retired Atlas head", { ...metadata, expectedHead: "20260915060017_photo_offers" }],
   ["retired Atlas checksum file", { ...metadata, atlasSum: "h1:anything\n" }],
-  ["string flag", { ...metadata, stagingOnlyBaseline: "false" }],
-  ["missing identity", { stagingOnlyBaseline: false }],
+  ["missing identity", { unrelated: false }],
   ["identity type", withRef(10)],
   ["short identity", withRef(REF.slice(0, -1))],
   ["long identity", withRef(`${REF}0`)],
@@ -70,12 +69,16 @@ it("bounds the decoded body even when content-length understates its size", asyn
   expect(get).not.toHaveBeenCalled();
 });
 
-it("refuses the staging-only baseline flag in production before the DSN", async () => {
+// #1621 deleted the production baseline gate rather than rehousing it, and #1635 deleted the
+// request field it read. This case sends the retired body VERBATIM and asserts the receiver
+// answers the generic key-set refusal — proof the old branch is gone rather than unreachable,
+// which a test using some other extra key could not tell apart.
+it("refuses the retired staging-only baseline body as an unknown key set, before the DSN", async () => {
   const { app, token } = await signedApp({ environment: "production" });
   const get = vi.fn(() => Promise.resolve("private-dsn"));
   const response = await app.request(preflightRequest({ ...metadata, stagingOnlyBaseline: true }, token), undefined,
     { ...productionEnv(), MIGRATOR_DATABASE_URL: { get } });
-  expect(response.status).toBe(422);
-  expect(await response.json()).toEqual({ compatible: false, error: "staging_only_baseline" });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: "invalid_preflight" });
   expect(get).not.toHaveBeenCalled();
 });

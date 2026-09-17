@@ -164,10 +164,10 @@ jobs:
           packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "animichi-e2e"]' <<< "$projects")"
           # `.github/**` lands in the root project, which is subtracted — so a
           # workflow-only change selects nothing. `edge-worker`'s suite is where
-          # the tests that read deployment workflow text live, and several of them
-          # extract shipped shell blocks and RUN them (the production
-          # STAGING_ONLY_BASELINE guard, the migrator DSN redaction). Add it back
-          # explicitly, or a cd.yml rewrite ships with those guards never run.
+          # the tests that read deployment workflow text live, and some of them
+          # extract shipped shell blocks and RUN them (the migrator DSN
+          # redaction). Add it back explicitly, or a cd.yml rewrite ships with
+          # those guards never run.
           if [ "$WORKFLOWS_CHANGED" = true ]; then
             packages="$(jq -c '. + ["edge-worker"] | unique' <<< "$packages")"
           fi
@@ -366,6 +366,7 @@ jobs:
           ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           ruby test/repo-config/pnpm-workspace-settings.test.rb
           ruby test/repo-config/refresh-hold-backs.test.rb
+          ruby test/repo-config/retired-migration-authority-refs.test.rb
           ruby test/repo-config/retired-python-agent-refs.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb

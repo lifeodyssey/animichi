@@ -48,13 +48,13 @@ describe("selected apply request boundaries", { timeout: WORKERD_BOOT_BUDGET_MS 
     expect(outbound.calls).toEqual([]);
   });
 
-  it("refuses a production staging-only baseline before the bundle handshake", async () => {
+  it("refuses a production request with an undeclared field before the bundle handshake", async () => {
     const outbound = noOutboundCalls();
     const worker = await selectedWorker(outbound.transport, production, "production");
     runtime = worker.runtime;
-    const response = await worker.request("/migrate", { ...metadata, stagingOnlyBaseline: true });
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ error: "staging_only_baseline" });
+    const response = await worker.request("/migrate", { ...metadata, stagingOnly: true });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "invalid_migration" });
     expect(outbound.calls).toEqual([]);
   });
 

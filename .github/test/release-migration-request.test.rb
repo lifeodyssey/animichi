@@ -11,8 +11,7 @@ class ReleaseMigrationRequestTest < Minitest::Test
 
   def setup
     @directory = Dir.mktmpdir("selected-migration-")
-    @migrations = File.join(@directory, "migrations")
-    FileUtils.mkdir_p([@migrations, File.join(@directory, "bin")])
+    FileUtils.mkdir_p(File.join(@directory, "bin"))
     FileUtils.cp(File.join(ROOT, ".github/test/fixtures/migration-curl.rb"), File.join(@directory, "bin/curl"))
     FileUtils.chmod(0755, File.join(@directory, "bin/curl"))
     File.write(File.join(@directory, 'contract.json'), { 'storage' => { 'storageHash' => REF } }.to_json)
@@ -28,7 +27,7 @@ class ReleaseMigrationRequestTest < Minitest::Test
       "ACTIONS_ID_TOKEN_REQUEST_TOKEN" => "fixture-request", "SEALED_REF" => REF,
       "POST_BODY" => File.join(@directory, "body.json"), "CALL_LOG" => File.join(@directory, "calls"),
       "BUNDLE_POLL_SECONDS" => "0", "STALE_BUNDLE_ATTEMPTS" => "2" }
-    Open3.capture3(environment.merge(overrides), "bash", File.join(ROOT, "scripts/delivery/migrate-through-worker.sh"), "staging", @migrations,
+    Open3.capture3(environment.merge(overrides), "bash", File.join(ROOT, "scripts/delivery/migrate-through-worker.sh"), "staging",
                    File.join(@directory, 'contract.json'))
   end
 
@@ -66,20 +65,13 @@ class ReleaseMigrationRequestTest < Minitest::Test
     assert_equal REF, JSON.parse(File.read(File.join(@directory, 'body.json')))['expectedPrismaRef']
   end
 
-  # One authority, one identity (#1634): the request body carries the schema identity and the
-  # staging-only flag, and nothing else — an extra key is an invalid request at the receiver.
-  def test_forwards_exactly_the_selected_identity_and_marker
+  # One authority, one identity (#1634, #1635): the request body carries the schema identity and
+  # nothing else — an extra key is an invalid request at the receiver, which is exactly why the
+  # two sides could only change together.
+  def test_forwards_exactly_the_selected_identity
     output, error, status = invoke
     assert status.success?, "#{output}\n#{error}"
-    assert_equal({ "stagingOnlyBaseline" => false, "expectedPrismaRef" => REF },
-                 JSON.parse(File.read(File.join(@directory, "body.json"))))
-  end
-
-  def test_forwards_the_actual_staging_only_marker
-    File.write(File.join(@migrations, "STAGING_ONLY_BASELINE"), "explicit fixture marker")
-    output, error, status = invoke
-    assert status.success?, "#{output}\n#{error}"
-    assert_equal true, JSON.parse(File.read(File.join(@directory, "body.json"))).fetch("stagingOnlyBaseline")
+    assert_equal({ "expectedPrismaRef" => REF }, JSON.parse(File.read(File.join(@directory, "body.json"))))
   end
 
   def test_missing_contract_stops_before_requesting_credentials

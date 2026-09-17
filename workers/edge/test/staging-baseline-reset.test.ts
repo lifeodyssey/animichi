@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -88,42 +87,6 @@ void test("reset SQL has one exact destructive target", () => {
   assert.match(sql, /CREATE SCHEMA public/);
   assert.match(sql, /GRANT USAGE, CREATE ON SCHEMA public TO migrator/);
   assert.doesNotMatch(sql, /DROP DATABASE|DROP ROLE|production/i);
-});
-
-// A stray `+` once turned this guard into `+: command not found` while every
-// text assertion about it stayed green, so the shipped script is executed
-// against a real payload rather than read. This file owns the guard's
-// BEHAVIOUR only. That CD still reaches it is the other half, and it lives
-// where the workflow does: `cd-migrations.test.rb` pins that this script
-// exists, that a `promote-production` step's `run` BEGINS with
-// `bash <this script> <this marker>` (a mere mention of the marker path is not
-// a run — an `echo` of it once satisfied a substring search), and that the step
-// precedes the production migration. The two constants below are that contract's
-// two halves, restated here because this test executes them.
-const PRODUCTION_GUARD = `${ROOT}infra/database-access/production-baseline-guard.sh`;
-const BASELINE_MARKER = "release/migrations/STAGING_ONLY_BASELINE";
-
-const runProductionGuard = (marked: boolean): { status: number | null; stdout: string } => {
-  const payload = mkdtempSync(join(tmpdir(), "promote-guard-"));
-  mkdirSync(join(payload, "release", "migrations"), { recursive: true });
-  if (marked) writeFileSync(join(payload, BASELINE_MARKER), "");
-  const source = `set -euo pipefail\nbash "${PRODUCTION_GUARD}" "${BASELINE_MARKER}"\necho PROCEEDED`;
-  const result = spawnSync("bash", ["-c", source], { cwd: payload, encoding: "utf8" });
-  rmSync(payload, { force: true, recursive: true });
-  return { status: result.status, stdout: `${result.stdout}${result.stderr}` };
-};
-
-void test("the shipped guard blocks production when the staging-only marker is present", () => {
-  const blocked = runProductionGuard(true);
-  assert.equal(blocked.status, 1, "guard must exit 1, not fall through a shell error");
-  assert.match(blocked.stdout, /staging-only baseline requires a separately approved production cutover/);
-  assert.doesNotMatch(blocked.stdout, /PROCEEDED/);
-});
-
-void test("the shipped guard lets a payload without the marker through", () => {
-  const allowed = runProductionGuard(false);
-  assert.equal(allowed.status, 0);
-  assert.match(allowed.stdout, /PROCEEDED/);
 });
 
 // Owner decision 2026-08-27 (reverses #539 for STAGING ONLY): the CD smoke

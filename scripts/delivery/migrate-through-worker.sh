@@ -15,12 +15,11 @@
 # than failing the release. With one authority there is one identity on both
 # sides (#1634).
 #
-# Usage: MIGRATOR_URL=… migrate-through-worker.sh <environment> [migrations-dir] [contract-file]
+# Usage: MIGRATOR_URL=… migrate-through-worker.sh <environment> [contract-file]
 set -euo pipefail
 
 TARGET_ENVIRONMENT="${1:?target environment required}"
-MIGRATIONS_DIR="${2:-release/migrations}"
-CONTRACT_FILE="${3:-release/migrator/bundle/contract.json}"
+CONTRACT_FILE="${2:-release/migrator/bundle/contract.json}"
 # shellcheck source=scripts/delivery/migrator-bundle.sh
 source "$(dirname "${BASH_SOURCE[0]}")/migrator-bundle.sh"
 RESPONSE="${RUNNER_TEMP:-/tmp}/migrate-$TARGET_ENVIRONMENT.json"
@@ -119,10 +118,7 @@ main() {
 }
 
 selected_metadata() {
-  local baseline=false
-  [ ! -f "$MIGRATIONS_DIR/STAGING_ONLY_BASELINE" ] || baseline=true
-  jq -cn --argjson stagingOnlyBaseline "$baseline" --arg expectedPrismaRef "$PRISMA_REF" \
-    '{stagingOnlyBaseline:$stagingOnlyBaseline,expectedPrismaRef:$expectedPrismaRef}'
+  jq -cn --arg expectedPrismaRef "$PRISMA_REF" '{expectedPrismaRef:$expectedPrismaRef}'
 }
 
 main

@@ -121,7 +121,7 @@ and they are the whole list: `auth-config.test.ts` (#1047 — no deploy surface 
 `.github/workflows/` must keep `pnpm run test:worker` green for those two. Everything else that
 used to pin pipeline text was deleted or repointed at the file owning the contract (#1373) —
 `release-toolchain.test.ts` reads `package.json` manifests, not workflows, and
-`staging-baseline-reset.test.ts` now executes
-`infra/database-access/production-baseline-guard.sh` instead of extracting it from `cd.yml`.
+`staging-baseline-reset.test.ts` reads the reset SQL and the committed chain rather than
+extracting shell out of `cd.yml`.
 Do not add a new assertion about a job name, a step name, or an `if:` condition: pipeline shape
 belongs to the contract tests in `.github/scripts`.
