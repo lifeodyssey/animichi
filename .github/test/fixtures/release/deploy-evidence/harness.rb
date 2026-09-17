@@ -15,6 +15,7 @@ require 'tmpdir'
 module DeployEvidenceHarness
   ROOT = ENV.fetch('TEST_REPOSITORY_ROOT', File.expand_path('../../../../..', __dir__))
   RECORDER = File.join(ROOT, '.github/scripts/release/record-evidence.mjs')
+  BEFORE_SMOKE = File.join(ROOT, '.github/scripts/release/record-containers-before-smoke.mjs')
   VERIFIER = File.join(ROOT, '.github/scripts/release/verify-evidence.mjs')
   ORIGIN = File.join(__dir__, 'origin.mjs')
   SOURCE = 'b' * 40
@@ -24,7 +25,10 @@ module DeployEvidenceHarness
   CONTAINER = 'animichi-staging-runtimecontainer-staging'
   IMAGE = "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}"
 
-  def evidence_dir(containers: [], observed_at: '2026-09-16T08:01:03.622Z')
+  # `observed_at` pins the receipt's smoke observation; by default it is stamped
+  # when the recorder runs, between the read before the smoke and the probes,
+  # which is where cd.yml's step order puts it.
+  def evidence_dir(containers: [], observed_at: nil)
     @dir = Dir.mktmpdir('deploy-evidence-')
     @observed_at = observed_at
     write_release
@@ -59,8 +63,20 @@ module DeployEvidenceHarness
     File.exist?(@origin_log) ? File.readlines(@origin_log) : []
   end
 
-  # ── The two seams under test ──────────────────────────────────────────────
+  # ── The seams under test ──────────────────────────────────────────────────
+  # `record` is the deploy lane in cd.yml order: the container read taken before
+  # the smoke, then the recorder after it.
   def record(extra_env = {})
+    read_containers_before_smoke
+    record_after_smoke(extra_env)
+  end
+
+  def read_containers_before_smoke
+    execute(env_for({}), 'node', BEFORE_SMOKE, 'staging')
+  end
+
+  def record_after_smoke(extra_env = {})
+    write_receipt([], observed_at: @observed_at || Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ'))
     execute(env_for(extra_env), 'node', RECORDER, 'staging')
   end
 
@@ -97,14 +113,14 @@ module DeployEvidenceHarness
       'env' => { 'staging' => { 'name' => 'animichi-staging', 'containers' => [container] } } }
   end
 
-  def write_receipt(containers, smoke: 'passed')
-    File.write(File.join(@dir, 'receipt.json'), receipt(containers, smoke: smoke).to_json)
+  def write_receipt(containers, smoke: 'passed', observed_at: @observed_at)
+    File.write(File.join(@dir, 'receipt.json'), receipt(containers, smoke: smoke, observed_at: observed_at).to_json)
   end
 
-  def receipt(containers, smoke: 'passed')
+  def receipt(containers, smoke: 'passed', observed_at: @observed_at)
     edge = { 'unit' => 'edge', 'script_name' => 'animichi-staging', 'deployment_id' => DEPLOYMENT, 'version_id' => VERSION, 'containers' => containers }
     { 'format' => 1, 'environment' => 'staging', 'selection' => selection, 'smoke' => smoke,
-      'controller_run_id' => '9', 'controller_run_attempt' => '1', 'observed_at' => @observed_at, 'workers' => [edge] }
+      'controller_run_id' => '9', 'controller_run_attempt' => '1', 'observed_at' => observed_at, 'workers' => [edge] }
   end
 
   def container_observation
@@ -114,8 +130,14 @@ module DeployEvidenceHarness
   def write_platform_stubs(containers)
     File.write(File.join(@dir, 'deployments.json'), [{ 'id' => DEPLOYMENT, 'created_on' => '2026-09-16T08:00:00Z', 'versions' => [{ 'version_id' => VERSION, 'percentage' => 100 }] }].to_json)
     File.write(File.join(@dir, 'version.json'), { 'id' => VERSION, 'annotations' => { 'workers/tag' => "sha-#{SOURCE}" }, 'resources' => { 'bindings' => [] } }.to_json)
-    File.write(File.join(@dir, 'containers.json'), containers.map { |name| { 'id' => APPLICATION, 'name' => name } }.to_json)
+    write_container_applications(containers)
     write_executable('pnpm', pnpm_stub)
+  end
+
+  # What `wrangler containers list` answers from now on: a test changes it
+  # between the two reads to stand for an application retired mid-deploy.
+  def write_container_applications(containers)
+    File.write(File.join(@dir, 'containers.json'), containers.map { |name| { 'id' => APPLICATION, 'name' => name } }.to_json)
   end
 
   def pnpm_stub

@@ -49,7 +49,7 @@ class CdArtifactTest < Minitest::Test
     uploads = @cd.fetch("jobs").values.flat_map { |job| job.fetch("steps") }
                  .select { |item| item["uses"].to_s.start_with?("actions/upload-artifact@") }
     # #1695: the staging artifact also carries the probe transcript that must
-    # agree with its receipt, so one digest binds both documents to this run.
+    # agree with its receipt, so one digest binds the two documents to each other.
     assert_equal [%w[receipt.json evidence.json], %w[receipt.json]], uploads.map { |item| item.dig("with", "path").split("\n").map(&:strip) }
   end
 

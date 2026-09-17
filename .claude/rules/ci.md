@@ -11,7 +11,7 @@ paths:
 
 The entry workflows are `pr-verification.yml` (`pull_request` + `merge_group` + `push: main`),
 `release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`),
-`verify-deploy-evidence.yml` (read-only dispatch that judges the deploy evidence, #1695) and
+`verify-deploy-evidence.yml` (dispatch whose judging job only reads the deploy evidence, #1695) and
 `agent-eval-nightly.yml` (cron). Share genuinely identical step sequences
 with native composites backed by official actions. `.github/actions/setup-workspace/action.yml`
 owns Node/pnpm/cache/frozen install for six PR jobs; checkout and lane-specific tools stay in callers.

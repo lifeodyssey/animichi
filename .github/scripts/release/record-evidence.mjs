@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { unstable_readConfig } from 'wrangler';
 import { deploymentIdentity } from '../../lib/release/observations.mjs';
+import { readContainerApplications } from '../../lib/release/container-applications.mjs';
 import { POST_DEPLOY_ACS, acProbes } from '../../lib/release/post-deploy-acs.mjs';
 import { buildEvidence, classifyResponse, credentialFindings, credentialValues, originUrl } from '../../lib/release/evidence.mjs';
 
@@ -46,6 +47,13 @@ function deployedEdge(sourceSha, declared) {
   // traffic, and the live tag is the selected source), reused so both
   // documents are produced by one reading of what "deployed" means.
   return { script_name: config.name, ...deploymentIdentity(deployments[0], version, sourceSha), tag: version.annotations['workers/tag'], declared_containers: declared };
+}
+
+/** The container read cd.yml took immediately before the smoke. Absent is
+ * recorded as absent rather than failing the deploy: the verifier resolves
+ * #1596 AC5 `inconclusive` without it, which names the gap. */
+function containersBeforeSmoke() {
+  return existsSync('containers-before-smoke.json') ? readJson('containers-before-smoke.json') : undefined;
 }
 
 function declaredContainers() {
@@ -163,7 +171,7 @@ publish(buildEvidence({
   controller_run_attempt: process.env.GITHUB_RUN_ATTEMPT,
   release: selection,
   deployed: { edge: deployedEdge(release.source_sha, declaredContainers()) },
-  platform: { container_applications: wrangler('containers', 'list', '--json').map((application) => ({ id: application.id, name: application.name })) },
+  platform: { container_applications: readContainerApplications(), before_smoke: containersBeforeSmoke() },
   smoke: { verdict: receipt.smoke, observed_at: receipt.observed_at },
   probes,
   observed_at: new Date().toISOString(),

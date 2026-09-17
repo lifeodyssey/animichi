@@ -314,6 +314,7 @@ jobs:
           ruby .github/test/merged-commit-lane.test.rb
           ruby .github/test/post-deploy-evidence-mutation.test.rb
           ruby .github/test/post-deploy-evidence-refusals.test.rb
+          ruby .github/test/post-deploy-evidence-smoke-interval.test.rb
           ruby .github/test/post-deploy-evidence-verifier.test.rb
           ruby .github/test/post-deploy-evidence.test.rb
           ruby .github/test/pr-verification-affected.test.rb

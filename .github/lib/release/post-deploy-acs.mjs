@@ -187,6 +187,7 @@ const STATE_BY_KIND = {
   "probe-absent": "inconclusive",
   "receipt-smoke": "not-yet",
   "container-absent": "not-yet",
+  "container-read-absent": "inconclusive",
   "unreadable-requirement": "refuted",
   "probe-unobserved": "unobservable-here",
   blocked: "unobservable-here",
@@ -229,10 +230,26 @@ function smokeReason(evidence) {
   return verdict === "passed" ? [] : [{ kind: "receipt-smoke", detail: `the receipt records smoke "${verdict ?? "nothing"}"` }];
 }
 
+/** "Stopped" is a claim about the smoke INTERVAL, and the recorder reads the
+ * platform after the smoke. So the criterion holds only when the read taken
+ * before the smoke — stamped before the receipt observed the smoke — and the
+ * recorder's read after it both list no application: an application retired
+ * between the smoke and the recorder is not the state the smoke passed in. */
 function containerReason(evidence) {
-  const applications = evidence?.platform?.container_applications ?? [];
-  if (applications.length === 0) return [];
-  return [{ kind: "container-absent", detail: `${applications.map((application) => application.name).join(", ")} still deployed` }];
+  const before = evidence?.platform?.before_smoke;
+  if (!readBeforeSmoke(before, evidence?.smoke?.observed_at)) return [{ kind: "container-read-absent", detail: "no container read taken before the smoke is in the artifact" }];
+  const after = evidence?.platform?.container_applications ?? [];
+  if (after.length > 0) return [{ kind: "container-absent", detail: `${applicationNames(after)} still deployed` }];
+  if (before.container_applications.length > 0) return [{ kind: "container-absent", detail: `${applicationNames(before.container_applications)} deployed when the smoke started` }];
+  return [];
+}
+
+function readBeforeSmoke(before, smokeObservedAt) {
+  return Array.isArray(before?.container_applications) && typeof before.observed_at === "string" && typeof smokeObservedAt === "string" && before.observed_at < smokeObservedAt;
+}
+
+function applicationNames(applications) {
+  return applications.map((application) => application.name).join(", ");
 }
 
 function probeReasons(entry, recorded) {

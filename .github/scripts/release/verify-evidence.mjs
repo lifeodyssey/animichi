@@ -107,9 +107,9 @@ function receiptArtifact(fetch) {
 }
 
 /** The newest published receipt artifact, which is where the evidence lives:
- * one artifact, one digest, so the receipt and the transcript are bound to the
- * same run by construction rather than by a comparison this tool could get
- * wrong. */
+ * one artifact, one digest, so the receipt and the transcript are bound to
+ * EACH OTHER by construction. Which run and attempt they belong to is a
+ * comparison, made against the artifact's name in `runFailures`. */
 function newestReceipt(artifacts, runId) {
   const unexpired = artifacts.filter((artifact) => artifact.name.startsWith('staging-receipt-') && artifact.expired === false);
   const candidates = runId === null ? unexpired : unexpired.filter((artifact) => String(artifact.workflow_run?.id) === runId);

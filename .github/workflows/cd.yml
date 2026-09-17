@@ -151,6 +151,10 @@ jobs:
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh staging
+      # #1596 AC5 is judged by the state the smoke passed in, and the evidence
+      # recorder runs after the smoke: the container applications are read here.
+      - name: Read the container applications before the smoke
+        run: node .github/scripts/release/record-containers-before-smoke.mjs staging
       - name: Smoke the release
         env:
           SMOKE_ATTEMPTS: "8"

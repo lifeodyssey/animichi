@@ -1,8 +1,10 @@
 # #1695: the seat that could not observe staging now reads the observations the
-# deploy lane published. This run holds repository read access and nothing else
-# — no Cloudflare Access service token, no staging identity — so a verification
-# seat can settle a post-deploy acceptance criterion without ever holding a
-# credential that grants write access. Its log is the evidence.
+# deploy lane published. The judging job holds repository read access and
+# nothing else — no Cloudflare Access service token, no staging identity — and
+# its log is the evidence. Starting the run is NOT a read: the dispatch API
+# needs Actions write (or the classic `repo` scope) from the caller, and these
+# permissions bind only the run's own token. A seat with read access alone runs
+# `verify-evidence.mjs --fetch` from a checkout instead.
 name: Verify deploy evidence
 on:
   workflow_dispatch:

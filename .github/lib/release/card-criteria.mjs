@@ -17,15 +17,18 @@
 /** The test types the repository gates acceptance criteria by (root AGENTS.md). */
 const TEST_TYPES = ["unit", "integration", "eval", "browser", "api"];
 
-const AC_LINE = /^\s*-\s*\[([ xX])\]\s*\*\*\(([^)]+)\)\*\*\s*(.*)$/;
+const CHECKLIST_LINE = /^\s*-\s*\[([ xX])\]\s*(.*)$/;
+const DECLARATION = /^\*\*\(([^)]+)\)\*\*\s*(.*)$/;
 
-/** One criterion per line, numbered by its position among the criteria. */
+/** One criterion per checklist line, numbered by its position among ALL of
+ * them. The declaration is read after the ordinal is fixed: a line whose test
+ * type is missing or unrecognised is still a criterion with no recognised type,
+ * never a line that renumbers every criterion after it. */
 export function parseAcceptanceCriteria(body) {
   return lines(body)
-    .map((line) => AC_LINE.exec(line))
+    .map((line) => CHECKLIST_LINE.exec(line))
     .filter((matched) => matched !== null)
-    .map((matched, ordinal) => criterion(matched, ordinal))
-    .filter((item) => item.testTypes.some((type) => TEST_TYPES.includes(type)));
+    .map((matched, ordinal) => criterion(matched, ordinal));
 }
 
 function lines(body) {
@@ -33,7 +36,9 @@ function lines(body) {
 }
 
 function criterion(matched, ordinal) {
-  return { acId: `AC${ordinal + 1}`, checked: matched[1] !== " ", testTypes: matched[2].split(",").map((type) => type.trim()), text: matched[3].trim() };
+  const declared = DECLARATION.exec(matched[2]);
+  const testTypes = declared === null ? [] : declared[1].split(",").map((type) => type.trim()).filter((type) => TEST_TYPES.includes(type));
+  return { acId: `AC${ordinal + 1}`, checked: matched[1] !== " ", testTypes, text: (declared === null ? matched[2] : declared[2]).trim() };
 }
 
 /** The catalog against the card: a criterion the card does not carry, or
@@ -43,7 +48,8 @@ export function catalogDrift(card, criteria, entries) {
     const criterion = criteria.find((item) => item.acId === entry.ac);
     if (criterion === undefined) return [`${card} ${entry.ac} is not a criterion in the card`];
     if (criterion.testTypes.includes(entry.testType)) return [];
-    return [`${card} ${entry.ac} is declared ${entry.testType}; the card declares ${criterion.testTypes.join(", ")}`];
+    const declared = criterion.testTypes.length === 0 ? "no recognized test type" : criterion.testTypes.join(", ");
+    return [`${card} ${entry.ac} is declared ${entry.testType}; the card declares ${declared}`];
   });
 }
 

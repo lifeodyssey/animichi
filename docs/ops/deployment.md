@@ -125,8 +125,10 @@ to match between staging and production.
 The same artifact carries `evidence.json`, the probe transcript the deploy lane recorded beside the
 receipt ([post-deploy acceptance evidence](post-deploy-evidence.md)): a platform read-back taken at
 probe time plus the HTTP answers a verification seat cannot ask for itself, since every staging origin
-is behind Cloudflare Access (#1695). One artifact, one digest, so the two documents are bound to the
-same run; `verify-evidence.mjs` refuses to report a criterion satisfied while that binding fails.
+is behind Cloudflare Access (#1695). One artifact and one digest bind the two documents to each other,
+not to a run: `verify-evidence.mjs --fetch` also holds the artifact's `staging-receipt-<run>-<attempt>`
+name to the run it fetched and to the run and attempt both documents record, and refuses to report a
+criterion satisfied while either binding fails.
 
 Native Minitest tests under `.github/test/` cover admission, source closure, archives, configurations,
 remote identity validation, receipt validation and workflow order. The real Wrangler bundling test

@@ -16,7 +16,8 @@ mutation evidence:
 ## The decision: the deploy lane publishes the observation
 
 **Chosen: the deploy lane records what it observed and publishes it beside the receipt.** No seat
-holds a credential, and the observation is one artifact, one digest, one run.
+holds a credential, and the observation travels in one artifact, under one digest, named for the run and
+attempt that produced it.
 
 The alternative — a read-only service token scoped to the staging origins — was rejected on three
 concrete grounds, not on taste:
@@ -37,7 +38,8 @@ concrete grounds, not on taste:
 3. **The receipt already binds a release to a run.** #1683's receipt is an immutable artifact carrying
    the actual deployed version ids, container application ids and image digests. The evidence composes
    with it rather than inventing a second provenance story: the transcript travels in the same
-   artifact, so the artifact's digest binds both documents to one run.
+   artifact, so the artifact's digest binds the two documents to each other, and the artifact's name
+   (`staging-receipt-<run>-<attempt>`) is what the verifier holds both to one run and one attempt by.
 
 What the choice costs: the observations happen once per deploy, in the deploy's own environment, and a
 criterion can only be settled against the release that deploy published. That is the point of an
@@ -60,6 +62,9 @@ holds the slot and the recorder refuses to hold a write-capable identity.
   config declares for this environment. The recorder takes this read itself; it does not copy the
   receipt's.
 - `platform.container_applications` — what `wrangler containers list` returned at probe time.
+- `platform.before_smoke` — the same read, with its timestamp, taken by
+  `record-containers-before-smoke.mjs` in the step immediately before the smoke, because the recorder
+  runs after the smoke and its own read says nothing about the state the smoke passed in.
 - `smoke` — the receipt's smoke verdict and when it was observed.
 - `probes[]` — one entry per catalog probe: the request (method, path, origin, credential class), the
   expectation, and a transcript of the answer: HTTP status, content type, body length, body SHA-256,
@@ -81,15 +86,25 @@ Deliberately omitted, in every case because a public repository's artifacts are 
 
 ## How a seat uses it
 
-The seat holds repository read access and nothing else.
+The seat holds repository read access and nothing else, and judges from a checkout:
 
 ```sh
-# The read-only lane: no credential but the repository read token.
-gh workflow run verify-deploy-evidence.yml --ref main -f card=1596 -f ac=AC5
-
-# Or from a checkout, against the newest published receipt:
+# The read-only procedure: a token that can read this repository's Actions artifacts and issues.
 node .github/scripts/release/verify-evidence.mjs --card 1596 --ac AC5 --fetch latest
 node .github/scripts/release/verify-evidence.mjs --card 1596 --fetch latest --no-issue
+```
+
+The same judgement runs as a dispatchable lane, but starting it is not a read. `gh workflow run` calls
+the [create-workflow-dispatch endpoint](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event),
+which needs the `repo` scope on a classic token or
+[Actions **write**](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)
+on a fine-grained one. The workflow's `permissions:` bind only the run's own `GITHUB_TOKEN`, never the
+caller, so the lane is started by a separately authorized dispatcher, and the run it starts judges with
+`contents: read` and `actions: read`:
+
+```sh
+# A dispatcher holding Actions write starts the lane; the judging job it starts only reads.
+gh workflow run verify-deploy-evidence.yml --ref main -f card=1596 -f ac=AC5
 ```
 
 `--fetch` is how a seat finds the artifact instead of being handed one: `--fetch <run_id>` reads that
@@ -100,8 +115,10 @@ shorter walk reports a published receipt as missing. The seat workflow's ten-min
 a pathologically long listing, and that reads as a failed run, never as "not published".
 
 The verifier recomputes every probe verdict from the transcript, holds the receipt and the transcript
-against each other (same run, same selected snapshot, same live version, probes taken after the
-platform read), and refuses to report a criterion as satisfied from an artifact whose binding failed.
+against each other (same controller run and attempt, same selected snapshot, same live version, probes
+taken after the platform read), holds a fetched artifact's `staging-receipt-<run>-<attempt>` name to the
+run it was fetched from and to the run and attempt both documents record, and refuses to report a
+criterion as satisfied from an artifact whose binding failed.
 It exits 0 only when every criterion asked about is satisfied.
 
 ## The stalled state, named
@@ -114,7 +131,7 @@ own checklist beside them:
 |---|---|---|
 | `satisfied` | observed, and the observation matches | none |
 | `refuted` | observed, and the deployed outcome contradicts the criterion | a bug |
-| `inconclusive` | a probe is absent from the artifact, or could not complete | re-run the deploy |
+| `inconclusive` | a probe or the container read before the smoke is absent from the artifact, or a probe could not complete | re-run the deploy |
 | `not-yet` | a required staging state is not in place (the container application is still deployed) | a decision about staging state |
 | `unobservable-here` | the criterion needs a credential class or a lane this mechanism does not have | the decision below |
 
@@ -126,15 +143,19 @@ not a fact about the request — while the drift check stays scoped to the crite
 so a request for AC5 never fails on AC6. It states coverage, never a development claim: these cards
 record their verification in issue comments and leave the boxes unchecked, so an unchecked box is not
 evidence that code is missing. The catalog is held against the card too — if the criterion at that
-ordinal no longer has the declared test type, the run fails rather than proving something else.
+ordinal no longer has the declared test type, the run fails rather than proving something else. Every
+checklist line holds its ordinal, so a line whose `**(type)**` declaration is missing or unrecognised is
+reported as drift in its own right and never renumbers the criteria after it.
 
 ## Where each of the four cards stands
 
 - **#1596 AC5** — carried. The probe is `GET /healthz` on the deployed edge, plus the receipt's smoke
-  verdict and the platform's `wrangler containers list` read-back. It resolves `not-yet` while that
-  read-back still lists a container application at all — conservative on purpose: it can never report
-  the criterion satisfied while a container application exists, and the reason names the applications
-  it saw, so a false `not-yet` is diagnosable rather than silent. Retiring or stopping the staging
+  verdict and two `wrangler containers list` read-backs that bracket the smoke: one taken immediately
+  before it and stamped before the receipt observed it, and the recorder's own after it. It resolves
+  `not-yet` while either read lists a container application at all, and `inconclusive` when the read
+  before the smoke is missing or stamped after it — conservative on purpose: an application retired
+  between the smoke and the recorder cannot report the criterion satisfied, and the reason names the
+  applications it saw, so a false `not-yet` is diagnosable rather than silent. Retiring or stopping the staging
   container application is the remaining work, and that is a staging-state decision, not an access one.
 - **#1596 AC6** — not carried. A browser network log needs a browser lane in CD (the e2e suite already
   knows how to present the Access headers); until that lane exists the criterion is recorded
@@ -164,7 +185,9 @@ hand one to the deploy lane.
 | `.github/lib/release/post-deploy-acs.mjs` | the catalog: criterion, probe, credential class, requirement, and the state a verdict resolves to |
 | `.github/lib/release/evidence.mjs` | the transcript shape, the response matcher, and the credential guard's two rules |
 | `.github/lib/release/card-criteria.mjs` | the card's checklist, the catalog drift check, and the at-a-glance line |
+| `.github/lib/release/container-applications.mjs` | the one `wrangler containers list` read both container reads use |
+| `.github/scripts/release/record-containers-before-smoke.mjs` | the container read taken immediately before the smoke |
 | `.github/scripts/release/record-evidence.mjs` | the deploy lane's recorder; refuses half a service token, a loopback origin, an identity, and any document carrying a credential |
 | `.github/scripts/release/verify-evidence.mjs` | the seat's verifier: guard, binding checks, recomputed verdicts, triage |
-| `.github/workflows/verify-deploy-evidence.yml` | the read-only dispatchable lane |
+| `.github/workflows/verify-deploy-evidence.yml` | the dispatchable lane: started by a dispatcher with Actions write, judged by a read-only job |
 | `.github/test/post-deploy-evidence*.test.rb` | the end-to-end runs, the seat's lookups and scoping, the refusals, and the mutations |

@@ -141,4 +141,33 @@ class PostDeployEvidenceVerifierTest < Minitest::Test
     refute status.success?, 'an unscoped request still judges every criterion of the card'
     assert_includes out, '1596 AC6 is declared browser; the card declares unit: the catalog and the card disagree'
   end
+
+  # An AC number is a checklist ordinal, so a criterion whose declaration is not
+  # the bold `**(type)**` form is still a criterion. Dropping it numbered every
+  # later line one lower, and #1597's fourth line, an `(api)` one, was accepted
+  # as the catalog's AC3 while the card's real AC3 declares `unit` (#1713).
+  def test_a_malformed_declaration_does_not_renumber_the_criteria_after_it
+    evidence_dir
+    start_origin
+    record
+    body = issue_body('1597').sub('- [x] **(unit)** the repointed', '- [x] (unit) the repointed')
+                             .sub('- [ ] **(api)** each', '- [ ] **(unit)** each').sub('- [x] **(unit)** the Python', '- [ ] **(api)** the Python')
+    write_issue_body('1597', body: body)
+    out, err, status = verify('--card', '1597', '--ac', 'AC3')
+    refute status.success?, err
+    assert_includes out, 'FAIL 1597 AC3 is declared api; the card declares unit: the catalog and the card disagree'
+  end
+
+  # The malformed line itself is catalog drift, named, rather than a criterion
+  # that silently left the card.
+  def test_a_catalogued_criterion_with_a_malformed_declaration_is_drift
+    evidence_dir
+    start_origin
+    record
+    write_issue_body('1596', body: issue_body('1596').sub('- [ ] **(api)**', '- [ ] (api)'))
+    out, err, status = verify('--card', '1596', '--ac', 'AC5')
+    refute status.success?, err
+    assert_includes out, 'FAIL 1596 AC5 is declared api; the card declares no recognized test type: the catalog and the card disagree'
+    assert_includes out, '1596: 4 unchecked — 2 post-deploy (AC5, AC6), 2 outside this catalog (AC2, AC3)'
+  end
 end

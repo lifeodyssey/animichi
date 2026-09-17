@@ -1,5 +1,5 @@
 # SUT: cd.yml publishes the post-deploy probe transcript beside the receipt, and
-# the seat-side workflow reads it with repository read access alone (#1695).
+# the seat-side workflow's run judges it with repository read access alone (#1695).
 require 'minitest/autorun'
 require 'psych'
 
@@ -30,6 +30,16 @@ class CdPostDeployEvidenceTest < Minitest::Test
     assert_includes record.fetch('run'), RECORDER
     assert_includes record.fetch('run'), 'node .github/scripts/release/record-receipt.mjs staging'
     assert_operator steps('stage').index(record), :>, steps('stage').index(step('stage', 'Smoke the release'))
+  end
+
+  # #1596 AC5 asks what state the smoke passed in, and the recorder runs after
+  # the smoke: the container applications are read immediately before it, with
+  # no credential of the step's own (#1713).
+  def test_the_container_applications_are_read_immediately_before_the_smoke
+    read = step('stage', 'Read the container applications before the smoke')
+    assert_equal 'node .github/scripts/release/record-containers-before-smoke.mjs staging', read.fetch('run')
+    assert_equal steps('stage').index(step('stage', 'Smoke the release')) - 1, steps('stage').index(read)
+    refute read.key?('env')
   end
 
   # The probe must observe the origin the smoke named. A transcript of some other
