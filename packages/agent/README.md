@@ -5,8 +5,7 @@ entrypoint stays free of runtime schemas and SDK imports. Native tools and model
 are explicit opt-in subpaths, `@animichi/agent/tools`, `@animichi/agent/models` and
 `@animichi/agent/harness`. Public
 exports run directly in Node and in a bundled Worker; this package has no deploy command,
-bindings or storage. `@animichi/agent-python` names the existing Python workspace at
-`apps/agent`; its Python modules, container and path-based CI lane are unchanged.
+bindings or storage.
 
 ```ts
 import { localizedCityName, selectedRouteMessage } from "@animichi/agent";

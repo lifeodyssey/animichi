@@ -1,7 +1,7 @@
 /**
  * W1-7 (#1256): reading the AI SDK chat envelope the web already sends, so the
- * TS tier takes the same turn out of it that
- * `apps/agent/src/animichi/interfaces/routes/chat_body.py` takes today.
+ * TS tier takes the same turn out of it that the retired
+ * `animichi/interfaces/routes/chat_body.py` took.
  *
  * test-type: unit (pure reader, no bindings, no clock).
  */

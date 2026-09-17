@@ -1,21 +1,35 @@
 /**
  * Complete Agent HTTP path inventory (CONTRACT-1 #938; extracted #1285).
  *
- * The inventory mirrors `fastapi_service.py`'s router registrations — except
- * the entries marked `runtime: "edge"`, which this Worker serves and the
- * container never mounts (the Python inventory emitter drops them). It is read
- * at RUNTIME by the edge gateway's routing and rate tables
+ * The edge Worker serves every entry, and no entry has a downstream runtime
+ * left to mirror: most are the native agent tier's routes
+ * (`workers/edge/src/agent/`, selected by `turnRoutePolicy`), `GET /healthz`
+ * is the gateway's own readiness answer (#1596), and the entries marked
+ * `runtime: "edge"` carry the flag that used to divide the container's
+ * mounts from this Worker's own additions.
+ *
+ * It is this table, not the flag, that is read at RUNTIME by the edge
+ * gateway's routing and rate tables
  * (`workers/edge/src/gateway/routing-policy.ts`, `rate-policy.ts`), which
- * derive their allowlists from it rather than hand-maintaining a second
- * vocabulary.
+ * match method + path against these entries and derive their allowlists
+ * from it rather than hand-maintaining a second vocabulary — `agentRule`
+ * never touches `runtime`. With the container gone (#1605) the flag
+ * decides nothing at runtime: the emitter copies it into the emitted
+ * `x-runtime` field (`scripts/emit-openapi.ts`), which exempts an
+ * operation from the marker-less phantom-surface rule in
+ * `workers/edge/test/operation-reachability.test.ts`, and the readers it
+ * has left are tests — `workers/edge/test/route-inventory.test.ts` reads
+ * `AGENT_PATHS[].runtime` directly, while
+ * `test/native-list-boundary.test.ts` and `test/native-stream-boundary.test.ts`
+ * pin the emitted field on the list and stream documents.
  *
  * It lives here, apart from `agent-contract.ts`, precisely because of that
  * runtime read: this table is plain data with no schema in it, while its old
  * home imports zod, and a value import from a zod module pulls the whole of
  * zod into the Worker bundle for the inventory's strings (`workers/edge/bundle-smoke/
  * entry-bundle.test.ts` is the gate). Nothing is generated and nothing is
- * mirrored: this is the ONE declaration, and the OpenAPI emitter, the Python
- * model emitter, the edge and the contract's own drift tests
+ * mirrored: this is the ONE declaration, and the OpenAPI emitter, the edge and
+ * the contract's own drift tests
  * (`test/composition.test.ts` against the committed `agent-openapi.json`) all
  * read it here — `agent-contract.ts` does not re-export it, because a runtime
  * re-export out of the zod module would put zod back in the bundle.
@@ -32,7 +46,7 @@ export interface AgentPath {
   method: "GET" | "POST" | "PATCH";
   path: string;
   summary: string;
-  /** Edge-owned additions are not mounted or generated as Python runtime routes. */
+  /** Edge-owned additions the container never mounted. */
   runtime?: "edge";
 }
 

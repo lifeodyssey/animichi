@@ -7,7 +7,7 @@ const STREAM_HEADER = { "x-vercel-ai-ui-message-stream": "v1" };
 type Frame = Record<string, unknown>;
 
 function fixturePath(name: string): URL {
-  return new URL(`../../../apps/agent/tests/fixtures/chat_stream/${name}.sse`, import.meta.url);
+  return new URL(`../fixtures/chat-stream/${name}.sse`, import.meta.url);
 }
 
 function isFrame(value: unknown): value is Frame {

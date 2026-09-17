@@ -1,9 +1,8 @@
 /**
  * Single source of truth for cross-service Catalog error codes.
  *
- * Mirrors live in `workers/catalog/src/lib/errors.ts` (TS, no zod) and
- * `apps/agent/src/animichi/clients/catalog_errors.py` (Python). Keep all three in
- * lockstep.
+ * The mirror lives in `workers/catalog/src/lib/errors.ts` (TS, no zod). Keep both
+ * in lockstep.
  */
 
 import { z } from "zod";

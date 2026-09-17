@@ -5,8 +5,7 @@ constants and public contract data without runtime SDK/schema imports. Native to
 through `@animichi/agent/tools`, native model composition through `@animichi/agent/models`,
 and direct SDK harness composition through `@animichi/agent/harness`.
 Keep these package entrypoints separate so pure consumers retain their existing bundle boundary.
-`workers/edge` remains the deployable host; Python
-`apps/agent` is a separate workspace named `@animichi/agent-python` until W4 retirement.
+`workers/edge` remains the deployable host.
 
 ## Commands
 

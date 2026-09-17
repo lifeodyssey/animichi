@@ -6,7 +6,7 @@
 // exact same decision on a redirect target (`guarded-fetch.ts`).
 //
 // Two independent conditions must both hold, mirroring the dual-condition test
-// in `apps/agent/src/animichi/infrastructure/egress_guard.py`:
+// in `animichi/infrastructure/egress_guard.py`:
 //   1. the host is one of the provider family's enumerated hosts, and
 //   2. the host is a name, not an address in a loopback / private / link-local
 //      / CGNAT / metadata / otherwise-unroutable range.

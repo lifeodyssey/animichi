@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ListConversationsResponse } from "../src/session-history-contract.js";
-import { renderInventory } from "../scripts/emit-agent-python.ts";
 import openapi from "../agent-openapi.json";
 
 describe("native conversation-index ownership", () => {
-  it("publishes the edge list without claiming a Python route implements it", () => {
+  it("publishes the edge list as edge-owned", () => {
     expect(openapi.paths["/v1/conversations"].get["x-runtime"]).toBe("edge");
-    expect(renderInventory().join("\n")).not.toContain('("GET", "/v1/conversations", ');
-    expect(renderInventory().join("\n")).toContain('("GET", "/v1/conversations/{session_id}/messages", ');
   });
 });
 

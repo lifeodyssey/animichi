@@ -44,7 +44,8 @@ vi.mock("../src/db/connections", async (importOriginal) => {
  * Worker-runtime test cannot do (workerd has no TCP sockets).
  *
  * The wire is PLAIN JSON / OpenAPI — exactly what packages/contract/openapi.json
- * and the Python `backend/clients/catalog_client.py` speak: the request body IS
+ * speaks (the retired Python `backend/clients/catalog_client.py` spoke the same
+ * wire; today's consumers are the edge's TS agent tier and apps/web): the request body IS
  * the raw input object (`{query}` / `{bangumi_id}` / `{lat,lng,radius_m}` /
  * `{point_ids}`) and the response IS the raw output (top-level `{rows}` /
  * `{point}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves

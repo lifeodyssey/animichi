@@ -45,16 +45,15 @@ artifact changes. [The canonical target](../specs/2026-09-09-agent-on-pi-harness
 
 The affected set is pnpm's, not ours. `plan` runs
 `pnpm ls -r --depth -1 --json --filter "...[<merge-base>]"`, which selects every workspace project
-whose files changed plus every dependent of one, and subtracts the three projects that own a job of
-their own: the root project (no lint/typecheck/test scripts), `@animichi/agent-python` (its `test` is
-`uv run pytest`), and `animichi-e2e` (its `test` is the browser suite). Every selected package
+whose files changed plus every dependent of one, and subtracts the two projects that own a job of
+their own or have nothing to run: the root project (no lint/typecheck/test scripts) and
+`animichi-e2e` (its `test` is the browser suite). Every selected package
 becomes one `affected` matrix leg running that package's own `lint`, `typecheck`, `test` and
 `test:integration`. There is no component manifest and no second router: a package's lane is its
 own `package.json`, which is also what `pre-push` runs.
 
-Four paths sit outside the package graph and are routed by `dorny/paths-filter` instead:
-`apps/agent/**` and `packages/contract/**` (the Python `agent` job), `apps/web/**`, `e2e/**` (the
-browser job), `migrations/neon/**` (the schema job), and the root dependency files, whose change
+Three paths sit outside the package graph and are routed by `dorny/paths-filter` instead:
+`apps/web/**` and `e2e/**` (the browser job), `migrations/neon/**` (the schema job), and the root dependency files, whose change
 means "every package" because pnpm answers a root-lockfile change with the root project alone.
 The six security jobs are never path-gated. `PR Verification` and `Security` each aggregate their
 dependencies with `always()` and fail on any failed or cancelled one.
@@ -229,12 +228,6 @@ runtime query/type metadata. The checked-in Atlas directory is the only Neon sch
 all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
-Agent HTTP surface (paths relative to `apps/agent/src/animichi/`, the local FastAPI service):
-
-- `interfaces/fastapi_service.py` / `interfaces/routes/health.py` — `GET /healthz`
-- `interfaces/routes/runtime.py` — `POST /v1/runtime` and `POST /v1/runtime/stream` (SSE)
-- `interfaces/routes/chat.py` — `POST /v1/chat`, the Vercel AI protocol adapter
-
 The deployment target stays intentionally thin. The Worker owns routing and edge auth, and hosts
 the agent tier; callers' raw credentials never leave the gateway.
 
@@ -263,20 +256,6 @@ Auth expectations:
 - `/v1/*` always requires `Authorization: Bearer ...`
 - `/healthz` and static assets bypass auth
 - the agent tier trusts only the Worker-injected identity headers; it is not the auth enforcement point
-
-## Local Service Run
-
-Install dependencies and start the service:
-
-```bash
-uv sync --extra dev
-make serve
-```
-
-Default bind settings:
-
-- `SERVICE_HOST=0.0.0.0`
-- `SERVICE_PORT=8080`
 
 ## Environment by Boundary
 
@@ -331,8 +310,9 @@ with no `APP_ENV` and silently deindex the site.
 
 The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
 `DEFAULT_AGENT_MODEL`, `FALLBACK_AGENT_MODEL`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
-`ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer; they are
-retained until the Python tree is removed (#1607). Do not treat them as live configuration.
+`ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
+gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
+separate work. Do not treat them as live configuration.
 
 ## Cloudflare Workers Path
 
@@ -356,9 +336,6 @@ Routing defined by `wrangler.toml`:
   (declared once in `packages/contract/src/public-catalog.ts`) — to the private `CATALOG` binding
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`
-
-The local FastAPI service (`## Local Service Run`) is a separate, non-deployed surface; its session
-storage is the in-memory store.
 
 <!-- historical: retired in #537 -->
 Issue #537 removed the bundled legacy static frontend and with it the `[assets]` binding: this
@@ -892,32 +869,7 @@ affected user journey after one.
   complete source closure. Staging and production consume that same ID/digest and record their own
   script-scoped runtime identities. Health metadata supports diagnosis; it does not replace these checks.
 
-## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
-
-This section records the old feat/ssr-cloudflare merge runbook. It is not the current deployment
-trigger or an executable migration procedure. **Historical only; no longer current.** The current
-Neon migration authority is `migrations/neon/` applied by pinned Atlas before the Worker rollout;
-use [`migrations.md`](./migrations.md) and the workflow paths above instead.
-
-After the old feat/ssr-cloudflare merge, operators used these checks:
-
-1. **Historical Supabase schema event (not a current apply)** — the old Supabase CLI path recorded
-   these legacy schema files:
-   - `20260509200000_fix_wrong_bangumi_ids.sql` — delete wrong seed IDs
-   - `20260510170000_add_bangumi_platform.sql` — add platform column
-   - `20260510180000_add_points_city.sql` — add city column to points
-
-2. **Backfill city for existing points** — one-time, run after migrations:
-   ```bash
-   AGENT_SVC_DATABASE_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
-   ```
-   This reverse-geocodes all points with `city IS NULL` using GeoNames data (~12MB).
-   Expected: ~1000+ points across ~50 cities. Takes <30 seconds.
-
-3. **Verify** — check a few bangumi:
-   ```sql
-   SELECT city, count(*) FROM points GROUP BY city ORDER BY count DESC LIMIT 10;
-   ```
+The pre-2026-07 feat/ssr-cloudflare post-deploy notes are history: [`docs/archive/ops/2026-05-ssr-cloudflare-post-deploy-notes.md`](../archive/ops/2026-05-ssr-cloudflare-post-deploy-notes.md).
 
 ## Neon topology
 

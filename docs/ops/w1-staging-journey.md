@@ -170,10 +170,10 @@ the wrapper, not that text appeared.
 2. In the frame list, find `tool-input-start` with `"toolName":"web_search"`.
 3. Open the matching `tool-output-available`. Its text MUST open with the
    untrusted preamble and wrap every result in `<untrusted_web_result>` blocks
-   — ported byte-for-byte from `apps/agent/src/animichi/agents/web_trust.py`.
+   — built in `packages/agent/src/web-search-results.ts`.
    Prose with no preamble is a regression, not a nicer answer.
 4. A `Search failed for '<query>': <detail>` sentence is the tool DEGRADING, not
-   throwing (Python does the same, `web_tools.py:93`). Read `<detail>` against
+   throwing. Read `<detail>` against
    the table in `workers/edge/api-test/README.md` before concluding anything: a
    `202` there means DuckDuckGo refused THIS caller, which is a backend swap
    behind the `WebSearcher` port, not a bug in the turn.
@@ -219,8 +219,8 @@ Screenshot **S5g**: the recall answer next to the first turn in the transcript.
 
 > **A known parity difference, not a failure:** an EARLIER run's tool returns
 > are not replayed into the transcript, so the retention window is in practice
-> per run rather than across turns as Python's `build_message_history` made it
-> (`apps/agent/src/animichi/interfaces/session_facade.py:102`). The owner
+> per run rather than across turns as the retired Python agent's message history
+> made it. The owner
 > decision is #1297. Until it lands, cross-turn recall rests on the fact ledger
 > and the envelope's current anime — which is exactly what step 3 checks.
 
@@ -230,9 +230,8 @@ The invalid-key half is automated (`workers/edge/api-test/byok-probe.test.ts`).
 The valid-key half is manual on purpose: it needs a real provider key, and a real
 key must not be written into this repo, a test, a PR or a log line.
 
-1. **Signed in** — the probe is login-gated, exactly as Python's
-   `apps/agent/src/animichi/interfaces/routes/byok.py:88` 403s an anonymous
-   caller — `POST /v1/byok/probe` with your own key in `X-BYOK-Provider` and
+1. **Signed in** — the probe is login-gated: an anonymous caller gets `403`
+   (`byokRequiresLogin`, `workers/edge/src/gateway/agent-turn-responses.ts`) — `POST /v1/byok/probe` with your own key in `X-BYOK-Provider` and
    `X-BYOK-Key`. Expect `200` naming the model and its `vision` support.
 2. Repeat with `X-BYOK-Provider: openai-compatible` and `X-BYOK-Base-Url`
    pointed at a third-party OpenAI-compatible gateway. Expect the native egress
@@ -241,8 +240,8 @@ key must not be written into this repo, a test, a PR or a log line.
    the source of truth (`workers/edge/src/agent/egress/provider-allowlist.ts`).
 3. Send a chat turn carrying the same headers. It must complete on YOUR key.
 4. In that turn, ask for a title translation. It runs on the SERVER key by
-   design (Python's D18,
-   `apps/agent/src/animichi/interfaces/public_api.py:922`) — the caller pays for
+   design (the `platform` translation payer,
+   `workers/edge/src/agent/settlement/usage-charge.ts`) — the caller pays for
    the turn they asked for, the platform for a translation they did not. Those
    tokens are metered nowhere yet: #1292.
 5. Send a turn with a deliberately wrong key. Expect `400` and NO run — never a

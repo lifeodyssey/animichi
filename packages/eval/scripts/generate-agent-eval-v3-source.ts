@@ -24,8 +24,7 @@
  * Run from packages/eval/ (writes datasets/, never calls a model):
  *   node --import tsx scripts/generate-agent-eval-v3-source.ts
  *
- * The canonical input is the frozen copy in `datasets/canonical/` (#1603);
- * this script no longer reaches into `apps/agent`.
+ * The canonical input is the frozen copy in `datasets/canonical/` (#1603).
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

@@ -3,7 +3,7 @@
  * single fact the agent tier needs from it: the text of the visitor's newest
  * message (W1-7 #1256).
  *
- * A PORT of `apps/agent/src/animichi/interfaces/routes/chat_body.py`, not a new
+ * A PORT of `animichi/interfaces/routes/chat_body.py`, not a new
  * shape. `apps/web` sends the same body to the same path whichever tier answers
  * it (`useChat` owns the envelope), so the reader has to agree with Python's on
  * all three of its rules: the LAST `role: "user"` message is the turn, its

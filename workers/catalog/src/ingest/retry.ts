@@ -1,8 +1,8 @@
 /**
  * Bounded exponential-backoff retry for upstream HTTP fetches (S0-v2 D3).
  *
- * Retryability is classified by status code ONLY, per the repo convention
- * (apps/agent/AGENTS.md): 5xx, 408, 429, and transport errors retry with
+ * Retryability is classified by status code ONLY, per the repo convention:
+ * 5xx, 408, 429, and transport errors retry with
  * backoff; every other error raises immediately. A `Retry-After` header
  * (delta-seconds or HTTP-date) overrides the backoff when present, capped at
  * `maxDelayMs`. Once attempts are exhausted the last transient failure is

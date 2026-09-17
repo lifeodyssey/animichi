@@ -4,15 +4,13 @@
 # every workspace project whose files changed plus every dependent of one, so
 # there is no components.json, no change-plan.py and no second router to drift
 # from. Two projects are subtracted from the matrix because they own a job of
-# their own: the root project `animichi-cloudflare-worker` (docs/**, .github/**
-# and the root lockfile land in it by directory containment, and it has no
-# lint/typecheck/test scripts) and `@animichi/agent-python` (a pnpm project whose
-# `test` is `uv run pytest` — the `agent` job runs it). `animichi-e2e` is
-# subtracted for the same reason: its `test` builds apps/web and serves the
-# emitted Worker before it runs a browser spec, and the `e2e` job owns that
-# lane, browser binary and all (B4 / #1362).
+# their own or have nothing to run: the root project `animichi-cloudflare-worker`
+# (docs/**, .github/** and the root lockfile land in it by directory containment,
+# and it has no lint/typecheck/test scripts) and `animichi-e2e`, whose `test` builds apps/web
+# and serves the emitted Worker before it runs a browser spec, and the `e2e` job
+# owns that lane, browser binary and all (B4 / #1362).
 #
-# The transitional `agent` / `db` / `e2e` / `codeql` jobs are all gone: B2,
+# The transitional `db` / `e2e` / `codeql` jobs are all gone: B2,
 # B5, B4 and B3 (#1361) rewrote or replaced each in place — CodeQL analysis
 # is GitHub's default setup now, and the ruleset's code_scanning rule consumes
 # its results directly.
@@ -34,7 +32,7 @@
 # A merged commit cannot be amended, so this lane runs the whole matrix except
 # `commits`: the whole-repository lanes — `contracts`, `docs`, and the six security
 # jobs behind `Security` — the lanes `plan` routes by the merged diff — `affected`,
-# `agent`, `e2e`, `db` — and the two aggregates that carry the required contexts.
+# `e2e`, `db` — and the two aggregates that carry the required contexts.
 # When the merge's bytes differ from the pull request's, it is exactly what those
 # diff-selected lanes read that changed, so gating them off would leave their
 # failure with no verdict at all. `plan` therefore routes the merge's own diff: on
@@ -93,7 +91,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       packages: ${{ steps.pnpm.outputs.packages }}
-      agent: ${{ steps.paths.outputs.agent }}
       web: ${{ steps.paths.outputs.web }}
       e2e: ${{ steps.paths.outputs.e2e }}
       migrations: ${{ steps.paths.outputs.migrations }}
@@ -122,9 +119,6 @@ jobs:
           base: ${{ github.event.merge_group.base_sha || github.event.before }}
           ref: ${{ github.event.merge_group.head_sha || github.sha }}
           filters: |
-            agent:
-              - 'apps/agent/**'
-              - 'packages/contract/**'
             web:
               - 'apps/web/**'
             e2e:
@@ -167,7 +161,7 @@ jobs:
             merge_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
             projects="$(pnpm ls -r --depth -1 --json --filter "...[$merge_base]")"
           fi
-          packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "@animichi/agent-python", "animichi-e2e"]' <<< "$projects")"
+          packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "animichi-e2e"]' <<< "$projects")"
           # `.github/**` lands in the root project, which is subtracted — so a
           # workflow-only change selects nothing. `edge-worker`'s suite is where
           # the tests that read deployment workflow text live, and several of them
@@ -226,7 +220,7 @@ jobs:
           pulumi-version-file: .pulumi.version
       # The tag has one declaration (packages/test-postgres/postgres-image.env),
       # which this builder sources rather than naming a copy of — the shape the
-      # `agent` and `e2e` jobs' builders already use.
+      # `e2e` job's builder already uses.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
         if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
         run: |
@@ -313,7 +307,6 @@ jobs:
           ruby .github/test/post-deploy-evidence-verifier.test.rb
           ruby .github/test/post-deploy-evidence.test.rb
           ruby .github/test/pr-verification-affected.test.rb
-          ruby .github/test/pr-verification-agent.test.rb
           ruby .github/test/pr-verification-browser.test.rb
           ruby .github/test/pr-verification-gates.test.rb
           ruby .github/test/pr-verification-login.test.rb
@@ -344,6 +337,7 @@ jobs:
           ruby .github/test/workflow-credentials.test.rb
           ruby .github/test/workflow-execution.test.rb
           ruby .github/test/workflow-invocations.test.rb
+          ruby .github/test/workflow-python-toolchain.test.rb
           ruby .github/test/workflow-variables.test.rb
           ruby .github/test/workflow-workspace.test.rb
       - name: Verify Orca delivery tools
@@ -362,10 +356,10 @@ jobs:
           ruby test/repo-config/e2e-no-skip.test.rb
           ruby test/repo-config/e2e-no-skip-mutation.test.rb
           ruby test/repo-config/lint-scope.test.rb
-          ruby test/repo-config/makefile.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
           ruby test/repo-config/pre-push-routing.test.rb
+          ruby test/repo-config/retired-python-agent-refs.test.rb
           ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
@@ -421,71 +415,6 @@ jobs:
           bash scripts/local-gates/check-docs-paths.sh
           bash scripts/local-gates/check-root-allowlist.sh
           bash scripts/local-gates/check-spec-references.sh
-
-  agent:
-    name: CI / agent
-    needs: plan
-    # `workflows` for the same reason the matrix adds `edge-worker`: a
-    # workflow-only PR must still reach a lane that runs a real suite.
-    # `pr-verification-affected.test.rb` pins both routes. No agent test reads a
-    # workflow file any more — #1373 moved those assertions onto the source
-    # files that own the contracts — so this route is the routing rule alone.
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.agent == 'true' || needs.plan.outputs.deps == 'true' || needs.plan.outputs.workflows == 'true') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-      id-token: write  # tokenless coverage upload (codecov `use_oidc`)
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: $/.github/actions/setup-workspace
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: "0.11.14"
-          prune-cache: "true"
-      - run: uv python install 3.11
-      # The tag has one declaration (packages/test-postgres/postgres-image.env);
-      # a `run:` reads it by sourcing it, so the builder keeps no copy either.
-      - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        run: |
-          set -euo pipefail
-          . packages/test-postgres/postgres-image.env
-          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
-      # One command, and it is the one pre-push runs: `make check` is ruff +
-      # ruff-format + vulture, mypy, the unit suite under the 87% floor
-      # (apps/agent/pyproject.toml addopts) and the integration suite. CI no
-      # longer keeps its own copy of that list to drift from.
-      #
-      # env -u strips the live/BYO database selectors so an exported TEST_DB can
-      # never route the integration arm at Neon: the offline Docker arm only.
-      - name: Run the agent's own gate
-        run: >
-          env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION
-          -u NEON_API_KEY -u NEON_PROJECT_ID -u NEON_ENDPOINT_SUFFIX
-          make check
-      - name: Build the agent image
-        run: docker build -f apps/agent/Dockerfile -t animichi-agent:ci .
-      # The two arms report under separate flags, which codecov.yml carries
-      # forward separately, so each needs its own report. `make check` writes
-      # both: the unit run at pytest's configured `coverage.xml`, the
-      # integration run at the name `Makefile`'s `test-integration` passes it.
-      - name: Publish unit coverage
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          files: apps/agent/coverage.xml
-          flags: unit
-          fail_ci_if_error: true
-          use_oidc: true
-      - name: Publish integration coverage
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          files: apps/agent/coverage-integration.xml
-          flags: integration
-          fail_ci_if_error: true
-          use_oidc: true
 
   e2e:
     name: CI / browser
@@ -592,8 +521,7 @@ jobs:
       # 0.30.0 is the repository's Atlas pin. C1 (#1364) retired the
       # `install-atlas` composite B5 named here: the matrix step above, the
       # production migration step in cd.yml, and this one all reach it through
-      # `ariga/setup-atlas`, and apps/agent/src/animichi/tests/atlas_helper.py:19
-      # names the same version. atlasgo.sh interpolates ATLAS_VERSION straight
+      # `ariga/setup-atlas`. atlasgo.sh interpolates ATLAS_VERSION straight
       # into the release file name, so it takes the tag form and the `v` stays.
       - uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
         with:
@@ -684,7 +612,7 @@ jobs:
           set -euo pipefail
           uv tool install --no-build "semgrep==$SEMGREP_VERSION"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      # The repository's own six ORM-boundary rules only (#999): the public
+      # The repository's own three ORM-boundary rules only (#999): the public
       # packs are CodeQL's job, and `semgrep ci` refuses `--config` anyway.
       - name: Run the repository's Semgrep ruleset
         run: |
@@ -786,7 +714,7 @@ jobs:
 
   aggregate:
     name: PR Verification
-    needs: [plan, affected, contracts, docs, agent, e2e, db, commits, security]
+    needs: [plan, affected, contracts, docs, e2e, db, commits, security]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -803,7 +731,7 @@ jobs:
   # other job is in `needs` so a failure in any of them reaches it.
   alert-failure:
     name: Ops / failure alert
-    needs: [plan, affected, contracts, docs, agent, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff, commits, security, aggregate]
+    needs: [plan, affected, contracts, docs, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff, commits, security, aggregate]
     if: ${{ always() && github.event_name == 'push' && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

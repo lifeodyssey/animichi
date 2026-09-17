@@ -6,18 +6,17 @@ stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules
 
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**:
 TypeScript Cloudflare Workers (the edge Worker's gateway + native Pi agent tier, catalog, users,
-migrator) + a TanStack web app. The Python PydanticAI agent stays in `apps/agent/` for local runs
-and evals only — it is not deployed. Data plane = Neon;
+migrator) + a TanStack web app. The Python PydanticAI agent was retired with its CI lane (#1607).
+Data plane = Neon;
 auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); the edge verifies Neon Auth
 JWTs only (AUTH-2 #950 hard cut — Supabase verification deleted); the users worker trusts only the
 edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Monorepo layout
 
-- `apps/agent/`        — Python PydanticAI agent (FastAPI); local runs and evals, not deployed. uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC user-data Worker over Neon; verifies nothing itself (no `jose`) — it trusts the edge-forwarded identity; 13 `test/*.worker.test.ts` files + CI lane. → `workers/users/AGENTS.md`
-- `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. Python remains `@animichi/agent-python`. → `packages/agent/AGENTS.md`
+- `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. → `packages/agent/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node native Pi task and preserved statistical oracles with `logfire/evals`. → `packages/eval/AGENTS.md`
 - `packages/prisma-geography/` — Private Prisma 8 PostGIS geography extension pack; control/runtime descriptors and disposable-DB evidence. → `packages/prisma-geography/AGENTS.md`
@@ -31,30 +30,28 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Package managers
 
-- **pnpm** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** for Python (in `apps/agent/`).
+- **pnpm** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** only installs the pinned
+  semgrep and sqlfluff lint tools.
 
 ## Core commands (from repo root)
 
-- `make check`         — lint + typecheck + unit + integration; the DB arm defaults offline. **Run before AND after any change.**
-- `make dev-db`        — agent-only Neon Local postgres-wire proxy on `:5432`; not for Workers.
-- `make dev-local`     — database + backend + web app, one command (never start services individually). Supabase is no longer required for auth — login is Neon Auth (AUTH-2 #950).
+- `make check-full`    — every package's lint + typecheck + test + test:integration, the fresh-schema
+  apply and the catalog spike. **Run before AND after a change that spans packages**; a single
+  package's own scripts are the loop for anything narrower.
+- `make dev-local`     — the web app, one command (never start services individually). Login is Neon Auth (AUTH-2 #950).
 - `make local-login`   — browser magic-link login for local dev.
-- `make test` — hermetic Python unit tests. `make test-integration` uses the offline Docker arm by
-  default; select live Neon with `TEST_DB=neon`, or a disposable BYO database with
-  `TEST_DATABASE_URL` + `TEST_DB_ALLOW_MUTATION=1`.
-- `make test-eval` — model-backed Python agent evals; no database by default.
 - `make e2e-setup` then `make e2e` — Playwright E2E (details in `docs/testing-strategy.md`).
 - `pnpm run test:worker` — edge worker tests. Per-package commands live in that package's `AGENTS.md`.
 
 ## Cross-stack guardrails (apply everywhere)
 
 - **1-10-50**: functions ≤10 lines, classes ≤50, files ≤300; ≤2 indent levels (early-return / extract).
-- **No `Any`** — Python: `object` + `isinstance()`; TS: no `any`. No `dict[str, object]` — model it.
+- **No `any`** in TypeScript — model the shape.
 - **No suppression without user approval** — no `eslint-disable` / `@ts-ignore` / `type: ignore` /
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
 - **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
   `--deny-warnings` across every package. ESLint left the repo with `frontend/` (#537).
-- **Coverage floors ratchet UP only** — `apps/agent` ≥87 (`pyproject.toml` `--cov-fail-under`); `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
+- **Coverage floors ratchet UP only** — `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (`block-local-deploy`, an owner-local rule — see Harness) — CD only: a push to
@@ -107,7 +104,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - **Skill-first** — invoke the Skill tool before acting when a request matches: bugs → `/investigate` ·
   ship/PR → `/ship` · qa → `/qa` · review → `/review` · docs → `/document-release` · retro → `/retro` ·
   design system → `/design-consultation` · visual → `/design-review` · architecture → `/plan-eng-review` ·
-  quality → `/health` · brainstorm → `/office-hours`. TDD: `/backend-tdd` (Python), `/frontend-tdd` (React).
+  quality → `/health` · brainstorm → `/office-hours`. TDD: `/frontend-tdd` (React).
 - **Orca card delivery** — backend/Infra/CI-CD Ready for Dev → merged PR follows
   `docs/ops/orca-card-delivery.md`: Codex Sol max with `/implement`, different-model Matt review workers,
   three review rounds maximum, all PR feedback resolved before merge. This scoped owner
@@ -134,7 +131,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   | `supabase-seichijunrei` | Read-only inspection of the **archived** `supabase/` history only (`list_tables`, `get_logs`, `get_advisors`, edge functions) — no mutation-capable ops (`apply_migration`) are listed any more (#1000). Auth is Neon Auth (edge, #950) and the data plane is Neon Postgres. |
   | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables, Drizzle). Branch/query Neon. |
   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
-  | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start, pydantic-ai). Prefer over memory. |
+  | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start). Prefer over memory. |
   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
   | logfire | Observability — the agent and Workers share the Logfire dashboard. |
 
@@ -142,17 +139,14 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
   These are user-scope installations on this machine, not CI dependencies. If a plugin skill is
   missing, install it with `claude plugin install <plugin>@<marketplace>` (for example
-  `ai@pydantic-skills`, `logfire@pydantic-skills`, `pulumi@pulumi-agent-skills`,
+  `logfire@pydantic-skills`, `pulumi@pulumi-agent-skills`,
   `better-auth@better-auth-agent-skills`, `cloudflare@cloudflare`); `neon`, `neon-postgres`,
-  `fastapi`, `ai-sdk`, and `atlas` are single-name local/user skills here. `atlas` is a manual
+  `ai-sdk`, and `atlas` are single-name local/user skills here. `atlas` is a manual
   skill; see atlasgo.io/guides/ai-tools.
 
   | Skill | Reach for it when |
   |---|---|
-  | `ai:building-pydantic-ai-agents` | Writing/altering the PydanticAI agent, tools, `ModelRetry` guards, typed output (`apps/agent`). |
-  | `pydantic-ai-harness:pydantic-ai-harness` | CodeMode, ManagedPrompt, capability composition, and harness integration (`apps/agent`). |
-  | `logfire:logfire-instrumentation` · `logfire:logfire-query` | Instrumentation / querying observability — the sanctioned OTel path (see F8 in `apps/agent/AGENTS.md`). |
-  | `fastapi` | FastAPI service surface, routing, lifespan, dependencies (`apps/agent`). |
+  | `logfire:logfire-instrumentation` · `logfire:logfire-query` | Instrumentation / querying observability. |
   | `cloudflare:workers-best-practices` · `cloudflare:wrangler` · `cloudflare:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
   | `neon` / `neon-postgres` | Neon data-plane queries, branching, egress tuning. |
   | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |

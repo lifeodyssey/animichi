@@ -1,9 +1,0 @@
-{
-  "branch": {
-    "id": "br-ephemeral",
-    "name": "scratch/phase-a",
-    "project_id": "project-test",
-    "parent_id": "br-test-base",
-    "default": false
-  }
-}

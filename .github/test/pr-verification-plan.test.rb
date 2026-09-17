@@ -28,7 +28,6 @@ class PrVerificationPlanTest < Minitest::Test
   # rest of CI stays green, the hole #1687 found in pre-push's routing table
   # (`test/repo-config/pre-push-routing.test.rb`). Both are pinned whole.
   REVIEWED_PATHS_FILTERS = {
-    "agent" => ["apps/agent/**", "packages/contract/**"],
     "web" => ["apps/web/**"],
     "e2e" => ["e2e/**", "packages/contract/**", "workers/edge/**", "packages/agent/**",
               "packages/pi-session-neon/**", "packages/test-postgres/**", "migrations/neon/**"],
@@ -37,7 +36,7 @@ class PrVerificationPlanTest < Minitest::Test
                     ".github/lib/**", ".github/test/**"],
     "deps" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".npmrc"]
   }.freeze
-  REVIEWED_MATRIX_EXCLUSIONS = ["animichi-cloudflare-worker", "@animichi/agent-python", "animichi-e2e"].freeze
+  REVIEWED_MATRIX_EXCLUSIONS = ["animichi-cloudflare-worker", "animichi-e2e"].freeze
 
   def paths_filters
     step = @ci.dig("jobs", "plan", "steps").find { |candidate| candidate["id"] == "paths" }
@@ -60,15 +59,14 @@ class PrVerificationPlanTest < Minitest::Test
   end
 
   def test_selects_dependents_but_leaves_owned_lanes_out_of_the_matrix
-    %w[animichi-cloudflare-worker @animichi/agent-python animichi-e2e].each do |name|
+    %w[animichi-cloudflare-worker animichi-e2e].each do |name|
       assert_includes @source, %Q("#{name}")
     end
     assert_includes @source, '--filter "...[$merge_base]"'
   end
 
-  def test_workflow_and_action_changes_reach_edge_and_python_gates
+  def test_workflow_and_action_changes_reach_the_edge_suite
     assert_includes @source, '["edge-worker"] | unique'
-    assert_includes @ci.dig("jobs", "agent", "if"), "outputs.workflows == 'true'"
     assert_equal "${{ steps.paths.outputs.workflows }}", @ci.dig("jobs", "plan", "outputs", "workflows")
   end
 end

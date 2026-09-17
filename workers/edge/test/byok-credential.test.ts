@@ -4,7 +4,7 @@ import { ByokRejection } from "../src/agent/byok/byok-credential.ts";
 import { byokCredentialIn, byokSignalIn } from "../src/agent/byok/byok-headers.ts";
 
 // W2-3 (#1289) — the four `X-BYOK-*` headers, parsed. The semantics are
-// ported from `apps/agent/src/animichi/agents/byok_models.py`
+// ported from `animichi/agents/byok_models.py`
 // (`parse_byok_credential` / `has_byok_signal`); the base-URL half is
 // delegated to `EgressPolicy`, so S5's red lines are enforced by the SAME
 // module the spike measured rather than by a second copy of them here.

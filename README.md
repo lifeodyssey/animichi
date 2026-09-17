@@ -5,7 +5,6 @@
 **AI-powered pilgrimage search and route planning for anime sacred sites**
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml?query=branch%3Amain)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
@@ -25,16 +24,16 @@ Tell the agent an anime title or a location in natural language. It finds real-w
 ## How It Works
 
 ```
-User text  →  PydanticAI Agent (animichi_agent)
+User text  →  native Pi agent (workers/edge/src/agent/)
                  ├── resolve_anime  → catalog Worker title resolve; Bangumi ingest on miss
                  ├── search_bangumi → catalog points for resolved bangumi_id
                  ├── search_nearby  → catalog geo retrieval (PostGIS on Neon)
                  ├── plan_route     → catalog route ordering
                  └── web_search / translate → attributed research / title translation
-              → AgentResult (typed output + tool call records)
+              → answer + tool call records
 ```
 
-A single PydanticAI agent handles planning and tool dispatch. Tools use `ModelRetry` guards to reject invalid parameters, and an `output_validator` rejects fabricated responses. Selected-point routes bypass the agent entirely.
+A single agent handles planning and tool dispatch. Selected-point routes bypass the agent entirely.
 
 `resolve_anime` is self-evolving: on first query for an unknown title it fetches metadata from Bangumi.tv, upserts it into the database, and all future queries hit the local DB.
 
@@ -46,23 +45,19 @@ A single PydanticAI agent handles planning and tool dispatch. Tools use `ModelRe
 - **Route planning** — nearest-neighbor ordering with optional user-selected points
 - **Generative UI** — three-column layout with chat panel + interactive result panel
 - **Edge auth** — Neon Auth (Better Auth) JWT (magic-link) enforced at Cloudflare Worker against the branch JWKS
-- **Eval harness** — 50+ plan-quality cases across 3 locales via pydantic_evals
+- **Eval harness** — 50+ plan-quality cases across 3 locales (`packages/eval`)
 
 ## Quick Start
 
 ```bash
-# Install Python dependencies
-uv sync --extra dev
+# Install dependencies
+pnpm install
 
-# Run the service locally
-make serve
+# Run the web app locally
+make dev-local
 
-# Run tests
-make test              # unit tests
-make test-integration  # stable acceptance tests
-make test-all          # unit + integration
-make test-eval         # model-backed evals (needs LLM access)
-make check             # lint + typecheck + test
+# Run every package's lint, typecheck and tests
+make check-full
 ```
 
 ## Database Migrations
@@ -101,45 +96,21 @@ exchange); `VITE_TURNSTILE_SITE_KEY`, `VITE_SHOWCASE_MODE` — see [`apps/web/.e
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
-**Python (direct):**
-```python
-import os
-
-from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.persistence.database import create_database_lifecycle
-from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
-from animichi.clients.catalog_client import CatalogClient
-
-async def main() -> None:
-    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
-    # plus its async_sessionmaker, owned by DatabaseLifecycle.
-    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
-    try:
-        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
-        catalog = CatalogClient(base_url="https://catalog.example")
-        result = await run_animichi_agent(
-            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
-        )
-        print(result.output)
-    finally:
-        await lifecycle.close()
-```
-
 **HTTP (authenticated):**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
+curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
   -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
-  -d '{"text":"吹響の聖地","locale":"ja"}'
+  -H 'x-locale: ja' \
+  -d '{"messages":[{"role":"user","parts":[{"type":"text","text":"吹響の聖地"}]}]}'
 ```
 
 ## Repository Map
 
-- `apps/agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
 - `workers/catalog/` — Cloudflare Worker: anime catalog API + data platform (TypeScript)
 - `workers/users/` — Cloudflare Worker: user-domain data service (`/v1/users/*`)
 - `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
@@ -148,7 +119,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `migrations/neon/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (the Python agent's own image, no longer part of a release snapshot, #1606) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code
+- `Makefile`, `package.json` — root tooling entrypoints; `workers/edge/wrangler.toml` (edge Worker config) lives beside its code
 
 ## Docs
 

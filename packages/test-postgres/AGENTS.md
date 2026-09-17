@@ -132,7 +132,7 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   generic timeout; that is the behaviour that changed, on purpose.
 - **Atlas is never applied to the image's own database.** The postgis image pre-initialises it with
   the tiger/topology schemas, which the chain's clean-check refuses. Every arm gets a database
-  created from pristine `template1` — the same rule as `apps/agent`'s `conftest_db.py`.
+  created from pristine `template1`.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
   drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
   returns a plane without that guarantee.

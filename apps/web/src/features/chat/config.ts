@@ -1,7 +1,7 @@
 import { type ApiOriginInput, resolveAgentBaseUrl } from "../../api/config";
 import { currentRuntimeConfig } from "../../lib/runtime-config/provider";
 
-/** Chat talks to the Python agent through the `/v1` edge routes. */
+/** Chat talks to the edge worker's TS agent tier through the `/v1` edge routes. */
 export interface ChatApiConfig {
   readonly baseUrl: string;
   readonly chatUrl: string;

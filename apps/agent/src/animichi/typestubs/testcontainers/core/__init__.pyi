@@ -1,1 +1,0 @@
-"""Core testcontainers typing surface."""

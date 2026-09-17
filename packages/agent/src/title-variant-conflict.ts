@@ -2,7 +2,7 @@
  * Does a resolved work conflict with the specific title the user asked for?
  *
  * Port of `looks_like_wrong_variant` in
- * `apps/agent/src/animichi/agents/title_matching.py` — the guard that turns a
+ * `animichi/agents/title_matching.py` — the guard that turns a
  * parent-series or wrong-season hit into `not_found` rather than confidently
  * answering about the wrong work. Only the conflict half is ported; the alias
  * index that module also serves belongs to the catalog, not to a tool.

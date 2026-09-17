@@ -1,7 +1,8 @@
 # workers/catalog — AGENTS.md
 
 TypeScript Cloudflare Worker: the anime **catalog REST API** + the **data platform** (ingest →
-enrich → publish). Owns catalog-domain data; the Python agent is a read-only client of it.
+enrich → publish). Owns catalog-domain data; the edge worker's TS agent tier (`workers/edge/src/agent/`)
+reads it through the oRPC contract.
 Root guide: `../../AGENTS.md`.
 
 ## Commands (from `workers/catalog/`)
@@ -31,8 +32,7 @@ Root guide: `../../AGENTS.md`.
   (`@animichi/contract/public-catalog` — the same allowlist the edge gateway reads, #1691); an
   undeclared parameter answers its 400 before any handler or database work, so the cache key stays
   the route's bounded query surface.
-- Error registry = **three mirrors, one registry** (contract zod → catalog no-zod mirror → Python
-  mirror). Never throw a bare `ORPCError` / `Error` for an actionable failure — register a code.
+- Error registry = **two mirrors, one registry** (contract zod → catalog no-zod mirror). Never throw a bare `ORPCError` / `Error` for an actionable failure — register a code.
   Full checklist + categories: `packages/contract/README.md`.
 
 ## Data platform

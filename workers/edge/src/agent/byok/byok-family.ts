@@ -51,7 +51,7 @@ export interface ByokDialect {
 
 /**
  * The two default model ids are ported verbatim from
- * `apps/agent/src/animichi/config/byok_defaults.py`; the openai-compatible
+ * `animichi/config/byok_defaults.py`; the openai-compatible
  * family has none for the reason that file gives — there is no safe default
  * across arbitrary endpoints.
  */

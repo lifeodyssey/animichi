@@ -19,13 +19,13 @@ ok "a package change does not carry an unowned root file through"
 
 # 2. Same for a bucket, which must also not have run.
 new_repo
-commit_change feature apps/agent/x.py test/repo-config-extra/y.rb
+commit_change feature migrations/neon/x.sql test/repo-config-extra/y.rb
 run_gate < /dev/null
-expect_status "agent + stray" 1 "$STATUS"
-expect "agent + stray" "test/repo-config-extra/y.rb" "$OUT"
-refute "agent + stray" "apps/agent/x.py" "$OUT"
-refute "agent + stray" "check" "$RECORDED"
-ok "an agent-bucket change does not carry an unowned path through"
+expect_status "schema + stray" 1 "$STATUS"
+expect "schema + stray" "test/repo-config-extra/y.rb" "$OUT"
+refute "schema + stray" "migrations/neon/x.sql" "$OUT"
+refute "schema + stray" "migrate validate" "$RECORDED"
+ok "a schema-bucket change does not carry an unowned path through"
 
 # 3. A root manifest selects every package, and drops the dependent closure.
 new_repo
@@ -37,7 +37,6 @@ for name in web catalog users @animichi/agent; do for script in lint typecheck t
   expect "lockfile" "--workspace-concurrency=1 --filter $name run --if-present $script" "$RECORDED"
 done; done
 refute "lockfile" "--filter ...web" "$RECORDED"
-refute "lockfile" "@animichi/agent-python" "$RECORDED"
 refute "lockfile" "animichi-cloudflare-worker" "$RECORDED"
 ok "a root manifest selects every package once, without the closure prefix"
 
@@ -132,18 +131,15 @@ expect "nested agent doc" "docs=1" "$OUT"
 refute "nested agent doc" "no gate covers" "$OUT"
 ok "a nested agent-context document fires the docs bucket instead of failing closed"
 
-# 12. The contract's routing row carries two buckets, and the agent one is why
-#     the Python lane runs: a contract change must reach `make check` as well as
-#     the package's own scripts, or the agent's half of the contract is ungated
-#     while the rest of the suite stays green (#1687).
+# 12. A contract change runs the contract's own scripts over its dependents, and
+#     nothing else: the Python lane that also consumed it is gone (#1607).
 new_repo
 commit_change feature packages/contract/src/x.ts
 run_gate < /dev/null
-expect_status "contract is routed to both buckets" 0 "$STATUS"
-expect "contract is routed to both buckets" "agent=1" "$OUT"
-expect "contract is routed to both buckets" "make check" "$RECORDED"
-expect "contract is routed to both buckets" "--filter ...@animichi/contract run --if-present test" "$RECORDED"
-ok "a contract change fires the agent bucket as well as the package's own scripts"
+expect_status "contract routes to its package" 0 "$STATUS"
+expect "contract routes to its package" "--filter ...@animichi/contract run --if-present test" "$RECORDED"
+refute "contract routes to its package" "make check" "$RECORDED"
+ok "a contract change runs the contract's own scripts over its dependents"
 
 # 13. A package pnpm reports that the routing table does not name has no bucket
 #     to fire, so it stops the push naming itself — including when the diff is
@@ -175,5 +171,68 @@ expect "catalog integration failure" "packages: catalog" "$OUT"
 expect "catalog integration failure" "--filter ...catalog run --if-present test:integration" "$RECORDED"
 expect "catalog integration failure" "--filter ...catalog run --if-present test" "$RECORDED"
 ok "a failing catalog test:integration stops the push"
+gate_env GATE_PROBE=1  # the failure injection must not leak into later cases
+
+# 15. A path the diff deletes has nothing left to gate — and a deleted package
+#     can never cover its own deleted files, because `pnpm ls` answers from the
+#     surviving tree (#1607). Deletions are waived; the surviving package of a
+#     mixed diff still gates.
+new_repo packages/old/src/x.ts packages/old/package.json
+commit_delete feature packages/old
+commit_message 'fix(catalog): probe the gate' workers/users/src/u.ts
+run_gate < /dev/null
+expect_status "deleted package" 0 "$STATUS"
+refute "deleted package" "no gate covers" "$OUT"
+expect "deleted package" "packages: users" "$OUT"
+expect "deleted package" "--filter ...users run --if-present lint" "$RECORDED"
+ok "a deleted package's paths are covered by definition; survivors still gate"
+
+# 16. A deletion inside a surviving package is still that package's change: it
+#     selects the package and covers its path — the waiver leaves selection
+#     alone (#1607).
+new_repo workers/catalog/src/gone.ts
+commit_delete feature workers/catalog/src/gone.ts
+run_gate < /dev/null
+expect_status "deleted file in package" 0 "$STATUS"
+expect "deleted file in package" "packages: catalog" "$OUT"
+expect "deleted file in package" "--filter ...catalog run --if-present lint" "$RECORDED"
+refute "deleted file in package" "no gate covers" "$OUT"
+ok "a deleted file inside a surviving package still selects that package"
+
+# 17. The retired stack's stragglers: the root analyzer configs name CI-side
+#     scanners with no local gate, and supabase/ is the archived historical
+#     migration dir (#1000), not a live surface — whitelisted, so a later
+#     touch of any of the three cannot block a push either (#1607).
+new_repo
+commit_change feature .codacy.yml .sonarcloud.properties supabase/README.md
+run_gate < /dev/null
+expect_status "analyzer configs" 0 "$STATUS"
+expect "analyzer configs" "packages: (none)" "$OUT"
+refute "analyzer configs" "no gate covers" "$OUT"
+refute "analyzer configs" "--filter" "$RECORDED"
+ok "root analyzer configs and the archived supabase/ doc need no gate"
+
+# 18. Waiving deletions must not waive the living: an unowned path that still
+#     exists stops the push exactly as before.
+new_repo
+commit_change feature nowhere/thing.txt
+run_gate < /dev/null
+expect_status "unowned survivor" 1 "$STATUS"
+expect "unowned survivor" "no gate covers" "$OUT"
+expect "unowned survivor" "nowhere/thing.txt" "$OUT"
+ok "an unowned surviving path still fails closed"
+
+# 19. Deletions keep counting in the bucket tallies: removing a docs file must
+#     still fire the docs checks rather than silently drop the bucket (#1607).
+new_repo docs/gone.md
+commit_delete feature docs/gone.md
+run_gate < /dev/null
+expect_status "deleted docs file" 0 "$STATUS"
+expect "deleted docs file" "docs=1" "$OUT"
+for check in agents-refs docs-paths root-allowlist spec-references; do
+  expect "deleted docs file" "check-$check" "$RECORDED"
+done
+refute "deleted docs file" "no gate covers" "$OUT"
+ok "a deleted docs file still fires the docs bucket"
 
 finish

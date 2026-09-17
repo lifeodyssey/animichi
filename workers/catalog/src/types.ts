@@ -1,7 +1,7 @@
 /**
  * Catalog wire types — the request/response shapes the read API exchanges with
- * the Python Agent client, mirroring `packages/contract/src/models.ts`
- * field-for-field.
+ * its TS clients (the edge agent tier and apps/web), mirroring
+ * `packages/contract/src/models.ts` field-for-field.
  *
  * TYPE-ONLY module: pure `interface` / `type` declarations, NO zod import and no
  * runtime values. Consumers `import type` from here, so this file is erased at

@@ -10,19 +10,11 @@
  * It is its own module rather than a section of `agent-contract.ts` because it
  * is its own surface: the reads the browser makes of conversations it already
  * owns, each with one use case on each tier
- * (`apps/agent/.../get_session_history.py` and
- * `workers/edge/src/agent/views/`). `agent-contract.ts` keeps the shapes that
+ * (`workers/edge/src/agent/views/`). `agent-contract.ts` keeps the shapes that
  * have no such home — health, the BYOK probe, the turn request.
  *
- * The transcript shapes are emitted like every other boundary model:
- * `scripts/emit-agent-python.ts` reads these declarations,
- * `test/agent-boundary.test.ts` fails on drift, and
- * `packages/contract/src/index.ts` re-exports them so the root import path is
- * unchanged. The list shapes below are deliberately NOT emitted: the route
- * they describe is edge-owned (`agent-paths.ts` marks it `runtime: "edge"`) and
- * the FastAPI list route was deleted with it, so there is no Python route for a
- * generated model to serve — the position the native stream boundary already
- * holds.
+ * `packages/contract/src/index.ts` re-exports these shapes so the root import
+ * path is unchanged.
  */
 
 import { z } from "zod";

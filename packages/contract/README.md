@@ -1,6 +1,6 @@
 # @animichi/contract
 
-Single source of truth for the types exchanged between the **Python Agent service** (client) and the **TS Catalog service** (server).
+Single source of truth for the types exchanged between the **Agent** (client) and the **TS Catalog service** (server).
 
 ## What lives here
 
@@ -46,22 +46,7 @@ import type { Point } from "../../packages/contract/src/models";
 import { Point } from "../../packages/contract/src/models";
 ```
 
-### 2. Do NOT codegen Python models
-
-The Python Agent client (`apps/agent/src/animichi/clients/catalog_client.py`) mirrors the contract
-shapes **by hand** and **intentionally diverges** via sentinel defaults:
-
-| Field | Contract (optional) | Python sentinel |
-|---|---|---|
-| `episode` | `int \| undefined` | `-1` |
-| `name_cn` | `string \| undefined` | `""` |
-| `distance_m` | `number \| undefined` | `-1.0` |
-
-Codegen from `openapi.json` would replace these sentinels with `Optional[...]` and
-break downstream logic that pattern-matches on sentinel values (e.g. `episode == -1`
-means "no episode data"). Keep the Python models **hand-written**.
-
-### 3. No pnpm workspace (yet)
+### 2. No pnpm workspace (yet)
 
 Until P5 wires up the pnpm workspace, catalog imports the contract via a relative path:
 
@@ -162,21 +147,17 @@ client into unexpected behavior.
 The envelope `message` is **untrusted upstream content**. Clients may log it,
 but must never show it to users, embed it in LLM prompts, or store it on
 exception `str()`. All user-visible text comes from the client's own mapping
-table (`apps/agent/src/animichi/agents/error_messages.py`), built from `code` +
-validated `data`.
+table, built from `code` + validated `data`.
 
-### Three mirrors, one registry
+### Two mirrors, one registry
 
 ```
 packages/contract/src/errors.ts        ← registry (zod, source of truth)
 workers/catalog/src/lib/errors.ts      ← Worker mirror (no zod) + ORPCError constructors
-apps/agent/src/animichi/clients/catalog_errors.py ← Python mirror: envelope parser → typed exceptions
-apps/agent/src/animichi/agents/error_messages.py  ← user-facing localized messages (ja/zh/en)
 ```
 
 Parity between the contract and the Worker mirror is enforced at compile time
-by `workers/catalog/test/contract-parity.worker.test.ts`; the Python mirror is
-pinned by `apps/agent/src/animichi/tests/unit/test_catalog_errors.py`.
+by `workers/catalog/test/contract-parity.worker.test.ts`.
 
 ### Adding a new error code (checklist for stories)
 
@@ -190,15 +171,7 @@ pinned by `apps/agent/src/animichi/tests/unit/test_catalog_errors.py`.
    `defined: true`). Throw it at the site. Extend the parity assertions in
    `test/contract-parity.worker.test.ts` and add a wire-shape test in
    `test/errors-wire.worker.test.ts`.
-3. **Agent client** — mirror in `apps/agent/src/animichi/clients/catalog_errors.py`:
-   data model (defaults for every field — wire data is untrusted), exception
-   class (subclass `TransientAPIError` too iff category is `retryable`), and
-   the code → builder registry entry. Pin it in
-   `apps/agent/src/animichi/tests/unit/test_catalog_errors.py`.
-4. **User messages** — add ja/zh/en templates to
-   `apps/agent/src/animichi/agents/error_messages.py`, formatted only from the typed
-   exception's fields.
-5. **Pick the category deliberately**: can the user change something to make
+3. **Pick the category deliberately**: can the user change something to make
    the call succeed? → `user_actionable`. Would an identical retry plausibly
    succeed? → `retryable`. Otherwise → `system`.
 

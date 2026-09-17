@@ -39,11 +39,13 @@ export function searchResultsPatch(envelope: Record<string, unknown>): Record<st
   return { ...envelope, intent: "search_bangumi", data: { results: { rows } } };
 }
 
-/** The real bypass step frames: `execute_selected_route` emits one
- * `plan_selected` running/done step pair (`test_selected_route.py`), which
- * `chat_stream._ToolPartTranslator` translates into exactly these tool
- * chunks. The UI must prove it SUPPRESSES them — a fixture without them
- * would certify the wrong tree (#461 review P1-1). */
+/** The real bypass step frames: the native selection tier emits one
+ * `plan_selected` running/done step pair
+ * (`packages/agent/src/selection-route.ts`), which the edge's stream
+ * projection (`workers/edge/src/agent/views/selection-response.ts`)
+ * translates into exactly these tool chunks. The UI must prove it SUPPRESSES
+ * them — a fixture without them would certify the wrong tree (#461 review
+ * P1-1). */
 const PLAN_SELECTED_STEP_FRAMES = [
   'data: {"type":"tool-input-start","toolCallId":"plan_selected-fixture","toolName":"plan_selected"}',
   'data: {"type":"tool-input-available","toolCallId":"plan_selected-fixture","toolName":"plan_selected","input":{}}',

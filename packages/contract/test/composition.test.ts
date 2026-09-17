@@ -9,8 +9,11 @@
  * test fails.
  *
  * Runtime parity (the other half of the truth) lives in
- * workers/users/test/operation-parity.worker.test.ts and the agent FastAPI
- * parity test.
+ * workers/users/test/operation-parity.worker.test.ts for the Users router and
+ * in workers/edge/test/operation-reachability.test.ts, which drives the real
+ * edge gateway with every operation the committed Agent and Users documents
+ * advertise and asserts each reaches exactly one receiver (this Worker's
+ * native agent tier, the edge in process, or the USERS binding).
  */
 
 import { describe, expect, it } from "vitest";

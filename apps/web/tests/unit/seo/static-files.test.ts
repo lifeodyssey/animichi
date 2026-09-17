@@ -11,7 +11,7 @@ import { CANONICAL_ORIGIN } from "../../../src/features/seo/site";
 /**
  * Guards `apps/web/public/*` — the crawler-facing static files.
  *
- * These assertions live in `apps/web` (not `apps/agent`) so the files under
+ * These assertions live in `apps/web` so the files under
  * test sit inside this package's own CI trigger path: a change to
  * `apps/web/public/**` can never land without this suite running.
  */

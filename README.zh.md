@@ -5,7 +5,6 @@
 **AI 驱动的动漫圣地搜索与路线规划**
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml?query=branch%3Amain)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
@@ -25,16 +24,16 @@
 ## 工作原理
 
 ```
-用户输入 → PydanticAI Agent（animichi_agent）
+用户输入 → 原生 Pi Agent（workers/edge/src/agent/）
               ├── resolve_anime  → catalog Worker 标题解析; 未命中时 Bangumi 入库
               ├── search_bangumi → 已解析 bangumi_id 的 catalog 点位
               ├── search_nearby  → catalog 地理检索（Neon 上的 PostGIS）
               ├── plan_route     → catalog 路线排序
               └── web_search / translate → 带出处调研 / 标题翻译
-           → AgentResult（类型化输出 + 工具调用记录）
+           → 回答 + 工具调用记录
 ```
 
-单一 PydanticAI Agent 负责规划和工具调度。工具使用 `ModelRetry` 守卫拒绝无效参数，`output_validator` 检测捏造的响应。选定点路线绕过 Agent 直接执行。
+单一 Agent 负责规划和工具调度。选定点路线绕过 Agent 直接执行。
 
 `resolve_anime` 具有自进化能力：首次查询未知标题时，从 Bangumi.tv 获取元数据并写入数据库，后续查询直接命中本地 DB。
 
@@ -51,18 +50,14 @@
 ## 快速开始
 
 ```bash
-# 安装 Python 依赖
-uv sync --extra dev
+# 安装依赖
+pnpm install
 
-# 本地启动服务
-make serve
+# 本地启动 Web 应用
+make dev-local
 
-# 运行测试
-make test              # 单元测试
-make test-integration  # 稳定版集成测试
-make test-all          # 单元 + 集成
-make test-eval         # 模型评估测试（需要 LLM 访问）
-make check             # lint + 类型检查 + 测试
+# 运行所有 package 的 lint、类型检查和测试
+make check-full
 ```
 
 ## 数据库迁移
@@ -96,45 +91,21 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-详见 [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) 和 [`.env.example`](.env.example)。
+默认值见 [`.env.example`](.env.example)。
 
 ## 使用示例
 
-**Python（直接调用）：**
-```python
-import os
-
-from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.persistence.database import create_database_lifecycle
-from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
-from animichi.clients.catalog_client import CatalogClient
-
-async def main() -> None:
-    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
-    # plus its async_sessionmaker, owned by DatabaseLifecycle.
-    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
-    try:
-        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
-        catalog = CatalogClient(base_url="https://catalog.example")
-        result = await run_animichi_agent(
-            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
-        )
-        print(result.output)
-    finally:
-        await lifecycle.close()
-```
-
 **HTTP（已认证）：**
 ```bash
-curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
+curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
   -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
-  -d '{"text":"吹響の聖地","locale":"ja"}'
+  -H 'x-locale: ja' \
+  -d '{"messages":[{"role":"user","parts":[{"type":"text","text":"吹響の聖地"}]}]}'
 ```
 
 ## 仓库结构地图
 
-- `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
 - `workers/catalog/` — 动漫目录 API + 数据平台 Cloudflare Worker（TypeScript）
 - `workers/users/` — 用户域数据 Worker（`/v1/users/*`）
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
@@ -143,7 +114,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `migrations/neon/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — 旧版兼容迁移与 Supabase 项目资产（auth 已迁至 Neon Auth，AUTH-2 #950）
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Makefile`、`package.json` — 根目录工具入口；`apps/agent/Dockerfile`（容器镜像）与 `workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
+- `Makefile`、`package.json` — 根目录工具入口；`workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
 
 ## 文档
 

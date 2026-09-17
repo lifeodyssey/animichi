@@ -2,7 +2,8 @@
  * The oRPC contract for the TS Catalog service procedures.
  *
  * This is the single source of truth for the request/response shapes the
- * Python Agent service (client) calls against the Catalog service (server).
+ * TS agent tier in the edge worker (client) calls against the Catalog service
+ * (server).
  */
 
 import { oc } from "@orpc/contract";

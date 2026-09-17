@@ -27,7 +27,6 @@ class PackageTestSegmentsTest < Minitest::Test
     "packages/test-postgres" => ["node --test"],
     "infra" => ["node --test", "test:program-load"],
     "apps/web" => ["vitest run"],
-    "apps/agent" => ["uv run pytest"],
     "e2e" => ["playwright test", "E2E_SERVE_EMITTED_WORKER=1",
               "web-404.spec.ts", "web-maplibre-canary.spec.ts",
               "web-chat-anonymous.spec.ts", "web-hero-query.spec.ts",

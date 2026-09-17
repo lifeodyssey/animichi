@@ -1,8 +1,7 @@
 # Canonical eval datasets (frozen)
 
-Byte-for-byte copies of the canonical sets that used to live in
-`apps/agent/src/animichi/tests/eval/datasets/` (#1603). `@animichi/eval` reads them here instead of
-reaching into `apps/agent`:
+Byte-for-byte copies of the canonical sets that used to live in the retired Python agent's
+`animichi/tests/eval/datasets/` (#1603). `@animichi/eval` reads them here:
 
 - `src/gate/case-strata.ts` resolves this directory for a set's case strata.
 - `test/gate-case-strata.test.ts` loads `agent_eval_v3`'s strata, proves every case and stratum

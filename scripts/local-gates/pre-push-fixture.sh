@@ -20,10 +20,9 @@
 REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 GATE="${GATE_UNDER_TEST:-$REPO_ROOT/scripts/local-gates/pre-push-affected.sh}"
-# The root project and the Python agent are in the list so the cases can prove
-# the gate subtracts them: the root by name, `apps/agent` because its routing
-# row names the agent bucket and not `package`.
-PROJECTS='.:animichi-cloudflare-worker apps/agent:@animichi/agent-python packages/agent:@animichi/agent packages/contract:@animichi/contract apps/web:web workers/catalog:catalog workers/users:users'
+# The root project is in the list so the cases can prove the gate subtracts it
+# by name.
+PROJECTS='.:animichi-cloudflare-worker packages/agent:@animichi/agent packages/contract:@animichi/contract apps/web:web workers/catalog:catalog workers/users:users'
 # The workspace's own CLI: the message cases assert the repository's real rules,
 # and a case that wants the check to fail closed points this somewhere absent.
 export REAL_COMMITLINT="$REPO_ROOT/node_modules/.bin/commitlint"
@@ -77,7 +76,7 @@ STUB
   chmod +x "$BIN"/* "$REPO/scripts/local-gates"/*.sh
 }
 
-new_repo() {
+new_repo() { # optional <path>... — extra files seeded before the first commit
   REPO="$(mktemp -d "$TMPROOT/case.XXXXXX")"
   BIN="$REPO/.bin"
   INVOCATIONS="$REPO/.invocations"
@@ -91,6 +90,8 @@ new_repo() {
   ln -s "$REPO_ROOT/node_modules" "$REPO/node_modules"
   install_stubs
   cp "$GATE" "$REPO/scripts/local-gates/pre-push-affected.sh"
+  local path
+  for path in "$@"; do mkdir -p "$REPO/$(dirname "$path")"; printf 'probe\n' > "$REPO/$path"; done
   (
     cd "$REPO"
     git init -q -b main
@@ -115,6 +116,14 @@ commit_change() { # <branch> <path>...
   shift
   git -C "$REPO" checkout -q -B "$branch" main
   commit_message 'fix(catalog): probe the gate' "$@"
+}
+
+commit_delete() { # <branch> <path>... — commits the deletion of existing paths
+  local branch="$1" path
+  shift
+  git -C "$REPO" checkout -q -B "$branch" main
+  for path in "$@"; do git -C "$REPO" rm -qr -- "$path"; done
+  git -C "$REPO" commit -qm 'fix(catalog): probe the gate'
 }
 
 # The extra environment `run_gate` passes to the gate. Every case starts from

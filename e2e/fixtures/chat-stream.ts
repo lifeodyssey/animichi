@@ -7,7 +7,7 @@ import { join } from "node:path";
  * id injection, final-envelope transforms for the D-state variants until the
  * backend error-boundary hook ships recordings of the actual failure frames).
  */
-const FIXTURE_DIR = join(__dirname, "..", "..", "apps", "agent", "tests", "fixtures", "chat_stream");
+const FIXTURE_DIR = join(__dirname, "..", "..", "packages", "contract", "fixtures", "chat-stream");
 
 export const SSE_HEADERS = {
   "content-type": "text/event-stream",

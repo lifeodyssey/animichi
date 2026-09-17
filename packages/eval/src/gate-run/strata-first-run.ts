@@ -10,7 +10,7 @@ import { loadCaseStrata, type CaseStrata } from '../gate/case-strata.ts';
  * lives in one named place both runners call rather than in a line someone can
  * move back up the file.
  *
- * `apps/agent/src/animichi/tests/eval/strata_first_run.py` is the same shape on
+ * `animichi/tests/eval/strata_first_run.py` was the same shape on
  * the Python side.
  */
 

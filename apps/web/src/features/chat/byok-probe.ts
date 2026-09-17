@@ -5,10 +5,13 @@ import { sessionHeaders } from "./session-headers";
  * Client for `POST /v1/byok/probe` (issue #284 Task 5/D5, consumed by the
  * Task 6 settings page). One request does double duty (OQ-2): it validates
  * the saved credential AND detects vision capability. The wire contract is
- * the generated boundary from `@animichi/contract` — `ByokProbeResponse`
+ * the shared zod models from `@animichi/contract` — `ByokProbeResponse`
  * (the probe verdict) and `ByokProbeErrorBody` (the shared agent error
- * envelope) — the handwritten zod mirrors are gone (AGENT-2 #953), so the
- * web caller can never drift from the emitted Pydantic model.
+ * envelope). The handwritten zod mirrors are gone (AGENT-2 #953), and so is
+ * the Pydantic service whose wire they mirrored (#1607): the web caller
+ * validates every response against the same declaration the edge builds its
+ * probe responses in, so drift from the shared contract fails this module's
+ * `safeParse` instead of passing silently.
  *
  * The failure taxonomy is deliberately collapsed server-side (spec P2-1):
  * only auth outcomes are distinguishable, everything else is the opaque

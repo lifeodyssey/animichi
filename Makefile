@@ -1,44 +1,25 @@
-# Animichi Agent - Makefile
+# Animichi - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck typecheck-ty check check-full clean build db-new db-list db-hash db-lint db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
+.PHONY: help dev-local check-full db-new db-list db-hash db-lint db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
 ATLAS_VERSION ?= 0.30.0
 export ATLAS_VERSION
 
-# What apps/agent/uv.lock resolves. `:=` so no environment variable can move the binary the
-# sanctioned lint command installs; CI runs that command rather than pinning its own copy.
+# `:=` so no environment variable can move the binary the sanctioned lint command installs;
+# CI runs that command rather than pinning its own copy.
 SQLFLUFF_VERSION := 4.2.2
-PYTHON ?= .venv/bin/python
-PYTEST ?= $(PYTHON) -m pytest
 
 help:
-	@echo "Animichi Agent - Available commands:"
+	@echo "Animichi - Available commands:"
 	@echo ""
 	@echo "Development:"
-	@echo "  make dev-db      Start agent-only Neon Local on postgres-wire port 5432"
-	@echo "  make dev-local   Start everything (database + backend + web app)"
+	@echo "  make dev-local   Start the web app"
 	@echo "  make dev-stop    Stop all local dev services"
 	@echo "  make local-login Open the Neon Auth magic link in your browser (AUTH-2 #950)"
-	@echo "  make install     Install production dependencies"
-	@echo "  make dev         Install all dependencies (including dev)"
-	@echo "  make serve       Run the HTTP runtime service only"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test        Run unit tests"
-	@echo "  make test-all    Run stable automated tests (unit + integration)"
-	@echo "  make test-cov    Run tests with coverage report"
-	@echo "  make test-eval   Run model-backed evals"
-	@echo "  make test-eval-fullstack  Run thin full-stack eval (opt-in, not a PR gate)"
-	@echo "  make test-docs   Run deterministic documentation guardrails"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  make lint        Run linters (ruff)"
-	@echo "  make format      Format code (ruff)"
-	@echo "  make typecheck   Run mypy type checker"
-	@echo "  make typecheck-ty Run the non-blocking ty baseline checker"
-	@echo "  make check       Run all checks (lint + typecheck + test)"
 	@echo "  make check-full  Every package + the Docker suites (manual; not a hook)"
 	@echo ""
 	@echo "Database:"
@@ -58,83 +39,18 @@ help:
 	@echo "  make visual-check  Pixel mockup comparison (PAGE=landing MODE=day RATIO=0.01; no PAGE = all frames; JSON -> e2e/visual/report/summary.json)"
 	@echo "  make visual-check-self-test  Atom contract check (all frames; needs docker + app up)"
 	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean       Remove build artifacts and caches"
-
-install:
-	cd apps/agent && uv sync --no-dev
-
-dev:
-	cd apps/agent && uv sync --extra dev
-
-serve:
-	cd apps/agent && uv run animichi-api
-
-test:
-	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v
-
-test-all:
-	cd apps/agent && $(PYTEST) src/animichi/tests/unit src/animichi/tests/integration -v
-
-test-cov:
-	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
-
-# The integration arm reports its own coverage under its own name: it is a
-# separate Codecov flag (codecov.yml), and pytest-cov's `xml:<path>` replaces
-# the addopts destination rather than adding to it, so the unit run's
-# coverage.xml survives `make check`. The floor belongs to the unit arm alone —
-# integration-only coverage is far below it, hence --cov-fail-under=0.
-test-integration:
-	cd apps/agent && $(PYTEST) src/animichi/tests/integration/ -v --cov-report=xml:coverage-integration.xml --cov-fail-under=0
-
-test-eval:
-	cd apps/agent && $(PYTHON) -m animichi.tests.eval.run_agent_eval
-	cd apps/agent && $(PYTEST) src/animichi/tests/eval/test_translation.py -v -m integration --no-cov
-
-test-eval-fullstack:
-	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m animichi.tests.eval.run_agent_eval
-
-test-docs:
-	cd apps/agent && uv run pytest src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov
-
-# test-docs is deliberately NOT a prerequisite here: the doc guardrails are
-# ordinary unit tests, so `make test` and CI's `pytest src/animichi/tests/unit/` both
-# already execute them. Keeping the dependency made `make check` run them twice.
-# The target stays as a fast standalone loop while editing docs.
-lint:
-	# The whole package, not just src/ and scripts/: conftest.py, pyproject.toml
-	# and tests/fixtures/ live outside both, and CI reaches ruff only through
-	# this target now — a narrower path here is lint coverage silently dropped.
-	cd apps/agent && uv run ruff check .
-	cd apps/agent && uv run ruff format --check src/animichi/ scripts/
-	# vulture runs in the affected agent CI gate; without it here a dead-code finding
-	# reaches CI as a bare "exit code 3" after `make check` was green locally.
-	cd apps/agent && uv run vulture src/animichi/ vulture_whitelist.py
-
-format:
-	cd apps/agent && uv run ruff format src/animichi/ scripts/
-	cd apps/agent && uv run ruff check --fix src/animichi/ scripts/
-
-typecheck:
-	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/
-
-typecheck-ty:
-	cd apps/agent && uv run ty check src/animichi/
-
-check: lint typecheck test test-integration
 
 # The manual everything-run. pre-push only gates what the branch changed
 # (scripts/local-gates/pre-push-affected.sh), so this is where the whole
 # workspace and the Docker-backed suites live: every package's own scripts, the
-# disposable fresh-schema apply, and the Python agent's gate. Nothing here is a
-# hook — run it before a large refactor lands, or when a lockfile change makes
-# "affected" mean everything.
+# disposable fresh-schema apply. Nothing here is a hook — run it before a large
+# refactor lands, or when a lockfile change makes "affected" mean everything.
 #
 # The two suite segments run one package at a time. pnpm's default is one job
-# per CPU, and several suites claim a fixed resource: the agent's
-# test:integration boots test-postgres, and so does catalog's (its `test` was a
-# second claimant until #1473 took the database suite out of `test`; #1726 named
-# the script `test:integration`, which check-full runs). Run in parallel they
+# per CPU, and several suites claim a fixed resource: a package's
+# test:integration boots test-postgres (catalog's `test` was a second claimant
+# until #1473 took the database suite out of `test`; #1726 named the script
+# `test:integration`, which check-full runs). Run in parallel they
 # starve each other -- measured 2026-09-08, nine browser specs failing with
 # ERR_CONNECTION_REFUSED while the same suite passes 43/43 on its own. The
 # browser suite is no longer one of the claimants: since #1692 it derives the
@@ -147,22 +63,11 @@ check-full:
 	pnpm -r --workspace-concurrency=1 run --if-present test
 	pnpm -r --workspace-concurrency=1 run --if-present test:integration
 	bash scripts/local-gates/db-fresh-schema.sh
-	$(MAKE) check
 
 # ── Edge worker ───────────────────────────────────────────────
 
 test-worker:
 	pnpm run test:worker
-
-clean:
-	rm -rf __pycache__ .pytest_cache .coverage htmlcov coverage.xml
-	rm -rf .ruff_cache .mypy_cache
-	rm -rf dist build *.egg-info
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-
-build:
-	cd apps/agent && uv build
 
 ATLAS_MIGRATIONS := file://migrations/neon
 
@@ -199,88 +104,26 @@ seed-gazetteer:
 
 # ── Local Dev (one-command startup) ──────────────────────────
 
-# Set NEON_DEV_BRANCH_ID for persistent mode. Leave it unset and set the
-# verified NEON_TEST_BASE_BRANCH_ID for an ephemeral child deleted on stop.
-dev-db:
-	@: "$${NEON_API_KEY:?NEON_API_KEY is required}"
-	@: "$${NEON_PROJECT_ID:?NEON_PROJECT_ID is required}"
-	@branch_env="PARENT_BRANCH_ID=$${NEON_TEST_BASE_BRANCH_ID:-}"; delete_branch=true; \
-	if [ -n "$${NEON_DEV_BRANCH_ID:-}" ]; then \
-		branch_env="BRANCH_ID=$$NEON_DEV_BRANCH_ID"; delete_branch=false; \
-	fi; \
-	if [ -z "$${branch_env#*=}" ]; then \
-		echo "Set NEON_TEST_BASE_BRANCH_ID, or NEON_DEV_BRANCH_ID for persistent mode" >&2; \
-		exit 1; \
-	fi; \
-	echo "Agent DSN: postgresql://neon:npg@localhost:5432/neondb?sslmode=require"; \
-	docker run --rm --name animichi-neon-local -p 5432:5432 \
-		-e NEON_API_KEY -e NEON_PROJECT_ID -e "$$branch_env" \
-		-e DELETE_BRANCH="$$delete_branch" neondatabase/neon_local:latest
-
 dev-local:
 	@echo "=== Animichi Local Dev ==="
-	@# 0. Kill stale processes from previous runs
-	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@# 1. Database — the backend's local Postgres, independent of auth E2E (AUTH-2
-	@#    #950): apps/web login is Neon Auth. Most of the Playwright suite stubs
-	@#    every transport, except e2e/web-neon-login.spec.ts, which drives the real
-	@#    Neon Auth origin (live, self-skipping without QA creds). The local
-	@#    Postgres is Neon Local via `make dev-db`.
-	@#    If the supabase CLI is present, it is also accepted as a legacy way to
-	@#    bring up a local Postgres for the backend (equal to make dev-db) — but it
-	@#    is never an auth plane. Otherwise the backend needs a Neon DB (make
-	@#    dev-db) or a .env DSN.
-	@-if command -v supabase >/dev/null 2>&1; then \
-		if supabase status >/dev/null 2>&1; then \
-			echo "Local Postgres already up via supabase — using it as the local DB (Neon Local: make dev-db)"; \
-		else \
-			echo "Starting a local Postgres via supabase CLI (backed by Neon Local, make dev-db)..."; \
-			supabase start --exclude vector,analytics --ignore-health-check; \
-		fi; \
-	else \
-		echo "⚠ supabase CLI not found — start the backend's local Postgres with make dev-db"; \
-	fi
-	@# 2. Wait for DB to be ready
-	@-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supabase_db_seichijunrei-agent$$'; then \
-		echo "Waiting for database..."; \
-		for i in $$(seq 1 30); do docker exec supabase_db_seichijunrei-agent psql -U postgres -c "SELECT 1" >/dev/null 2>&1 && break || sleep 1; done; \
-		echo "✓ Database ready"; \
-	fi
-	@# 3. Seed data if bangumi table is empty
-	@-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supabase_db_seichijunrei-agent$$'; then \
-		COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
-		if [ "$$COUNT" = "0" ]; then \
-			docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/src/animichi/tests/fixtures/seed.sql; \
-			echo "✓ Seed data applied"; \
-		else \
-			echo "✓ Data exists ($$COUNT bangumi)"; \
-		fi; \
-	fi
-	@# 4. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn animichi.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
-	@# 6. Wait for backend health
-	@echo "Waiting for backend..."
-	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
-	@curl -s http://localhost:8080/healthz >/dev/null 2>&1 && echo "✓ Backend ready on :8080" || (echo "✗ Backend failed — check /tmp/animichi-backend.log" && exit 1)
-	@# 7. Start the web app on :3000 (matching config.toml site_url)
+	@# The web app on :3000 (matching config.toml site_url). Login is Neon Auth
+	@# (AUTH-2 #950); most of the Playwright suite stubs every transport, except
+	@# e2e/web-neon-login.spec.ts, which drives the real Neon Auth origin.
 	@pnpm --filter web dev > /tmp/animichi-web.log 2>&1 & echo $$! > /tmp/animichi-web.pid
 	@sleep 3
 	@echo "✓ Web app starting on :3000"
 	@echo ""
 	@echo "=== Ready ==="
 	@echo "  Web app:   http://localhost:3000"
-	@echo "  Backend:   http://localhost:8080/healthz"
 	@echo "  Login:     make local-login   (Neon Auth magic link; needs VITE_NEON_AUTH_BASE_URL + NEON_DATABASE_URL)"
 	@echo "  Stop:      make dev-stop"
 
 dev-stop:
 	@echo "Stopping local dev services..."
-	@-test -f /tmp/animichi-backend.pid && kill $$(cat /tmp/animichi-backend.pid) 2>/dev/null && rm /tmp/animichi-backend.pid && echo "✓ Backend stopped" || true
 	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
-	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@echo "Done. (The database stays up — stop Neon Local with: docker stop animichi-neon-local ; or 'supabase stop' if the legacy supabase fallback was used)"
+	@echo "Done."
 
 # ── E2E Testing ──────────────────────────────────────────────
 
@@ -325,9 +168,3 @@ visual-check:
 # (E2E_WEB_BASE_URL) and docker; fails closed when either is missing.
 visual-check-self-test:
 	@E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)" bash e2e/visual/check-multiframe.sh
-
-# ── Setup ────────────────────────────────────────────────────
-
-setup: dev
-	@echo ""
-	@echo "Setup complete! Try: make test"

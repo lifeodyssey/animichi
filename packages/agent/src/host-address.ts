@@ -1,7 +1,7 @@
 // BYOK egress red lines (#1248, W0-S5): what a URL host actually *is*.
 //
 // A semantic port of `_is_address_accepted` in
-// `apps/agent/src/animichi/infrastructure/egress_guard.py`, with one deliberate
+// `animichi/infrastructure/egress_guard.py`, with one deliberate
 // difference forced by the runtime: workerd exposes no resolver, so nothing
 // here resolves DNS. A hostname is classified as a name, and the exact-host
 // provider allowlist — not a resolved address — is what keeps a caller from

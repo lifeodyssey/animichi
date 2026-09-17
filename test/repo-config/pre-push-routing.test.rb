@@ -15,7 +15,7 @@ class PrePushRoutingTest < Minitest::Test
   # The declared block: `ROUTES='`, one `<directory> <bucket>…` row per line,
   # closed by a line holding only a quote.
   ROUTING_TABLE = /^ROUTES='\n(.*?)^'\n/m
-  BUCKETS = %w[package agent].freeze
+  BUCKETS = %w[package].freeze
 
   def gate_source
     File.read(File.join(ROOT, GATE))

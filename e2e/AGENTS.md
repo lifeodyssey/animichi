@@ -6,7 +6,7 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 
 ## Commands (from repo root)
 
-- `make dev-local` — start the backend and web app. **Not a prerequisite for the suite**: every
+- `make dev-local` — start the web app. **Not a prerequisite for the suite**: every
   transport is stubbed via `page.route`, so E2E runs with just the web app up (auth E2E needs no
   Supabase — AUTH-2 #950 cut the local-login path over to Neon Auth).
 - `make e2e-setup` — install E2E deps + the Chromium binary and check the web app; it no longer
@@ -107,8 +107,7 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
 
 ## Conventions
 
-- Start `make dev-local` first if you want the real backend behind the stubbed edges, then run
-  setup/tests. The setup script does not launch the backend.
+- Start `make dev-local` first, then run setup/tests. The setup script does not launch the app.
 - `E2E_WEB_BASE_URL` targets `apps/web` (default `:3000`; the emitted-Worker lane sets it to its own
   derived port, `:8799` in the main checkout and in CI).
 - `E2E_EMITTED_WORKER_PORT` pins that derived port — set it when a specific port is wanted, or when
@@ -184,5 +183,3 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
   which is exactly why the live login spec signs in through the browser context's shared cookie
   jar rather than injecting a token. Recover the old fixture from git history only for reference.
 - The remaining `e2e/fixtures/` hold only `chat-stream.ts` and `map-spike.ts`.
-- Before running, inspect `http://localhost:8080/healthz` and confirm `git_branch` is the intended
-  checkout. The endpoint exposes the runtime's actual branch and commit.

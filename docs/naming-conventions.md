@@ -10,7 +10,6 @@ pattern won.
 | Artifact | Rule | Evidence (2026-08-05 scan) |
 |---|---|---|
 | TS/TSX directories | kebab-case | multi-word dirs: kebab wins (bubble-map, route-detail, map-spike) |
-| Python directories | snake_case | chat_stream, eval_gate, neon_api (all under `apps/agent`) |
 | React components / providers | `PascalCase.tsx` | 82 component PascalCase (91 incl. 9 stories) vs 7 non-conforming `.tsx` (6 component/provider + 1 hook — all in the audit inventory) |
 | Hooks | `use-foo-bar.ts(x)` (kebab) | kebab hooks 28 vs camel hooks 7 |
 | Test files | `kebab-case.test.ts(x)` | kebab 300 vs camel-base 27 (21 `workers/edge` + 6 `byokStorage*` in web) |
@@ -50,12 +49,10 @@ Exceptions (framework/tool conventions, not violations):
 
 - **Booleans read as a question.** Prefix with `is`/`has`/`can` (TS:
   `isOpen`, `hasQuota`, `canStream`), `was` for historical-result flags
-  (`wasSettled`, `wasAuthCalled`), or a verb flag (Python: `include_debug`,
-  `verify_identity`, `is_byok` — the measured dominant family in
-  `apps/agent`). Bare nouns/adjectives (`success`, `partial`, `active`,
+  (`wasSettled`, `wasAuthCalled`). Bare nouns/adjectives (`success`, `partial`, `active`,
   `done`) are violations.
 - **Event handlers** — TS props: `on*` (`onClick`, `onRetry`, measured 51/51
-  of the top props); Python: `handle_*` (measured 12 vs 3 `on_*`).
+  of the top props).
 - **Collections are plural** (`spots: Spot[]`, not `spot`).
 - **No abbreviations in two-word names.** Allowlist: `id`, `url`, `db`, `api`,
   `i18n`, `e2e`. Banned: `env`→`environment`, `usr`→`user`, `msg`→`message`,
@@ -69,8 +66,8 @@ Exceptions (framework/tool conventions, not violations):
 | Env var keys | SCREAMING_SNAKE with domain prefix | `AGENT_SVC_DATABASE_URL`, `E2E_WEB_BASE_URL`, `MIMO_API_KEY` |
 | DB tables / columns | snake_case | `locations`, `location_aliases` |
 | Make targets | kebab-case | `db-push-dry`, `dev-local`, `e2e-setup` |
-| GH workflow files | kebab-case | `agent-eval-nightly.yml` |
-| GH workflow job names | kebab-case | `agent-eval-full` |
+| GH workflow files | kebab-case | `verify-deploy-evidence.yml` |
+| GH workflow job names | kebab-case | `alert-failure` |
 | Wrangler bindings / route names | kebab-case | `catalog`, `map-tiles` |
 
 ## Tiering (how the audit classifies violations)
@@ -83,7 +80,6 @@ Exceptions (framework/tool conventions, not violations):
 
 ## Enforcement
 
-`make check` (ruff + vulture + mypy + pytest — the apps/agent Python chain
-only; the target runs no TS linting) does not yet enforce naming; the audit
+No gate enforces naming yet; the audit
 doc lists the rename batches that future cards should apply. New code: follow the table
 above; when in doubt, match the adjacent files.

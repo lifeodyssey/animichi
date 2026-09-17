@@ -12,8 +12,8 @@
 #     messages go through commitlint (the `commits` job's own command over the
 #     same narrowed range), then the changed files select the workspace packages
 #     (each runs its own lint / typecheck / test / test:integration scripts, the
-#     ones CI runs) plus three buckets: the Python agent, the migration chain,
-#     the documentation hygiene checks. Browser e2e, live Neon and deploys stay
+#     ones CI runs) plus two buckets: the migration chain and the
+#     documentation hygiene checks. Browser e2e, live Neon and deploys stay
 #     in CI; `make check-full` is the manual everything-run.
 #
 # Install: pre-commit install --hook-type pre-commit --hook-type commit-msg
@@ -52,10 +52,9 @@ repos:
         stages: [commit-msg]
         additional_dependencies: ["@commitlint/config-conventional@21.2.2"]
 
-  # Ruff over all repo Python paths (any staged .py — apps/agent, scripts/,
-  # .github/scripts/); previously scoped to apps/agent only, which let
-  # scripts/*.py lint failures (EXE001/BLE001/PLW1510) reach CI. Like every
-  # pre-commit hook, this lints staged files; the full tree is CI's job.
+  # Ruff over any staged .py (scripts/git-squash-daily.py is the one Python
+  # file left once the agent was retired, #1607). Like every pre-commit hook,
+  # this lints staged files.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.1
     hooks:
@@ -104,30 +103,29 @@ repos:
         files: ^\.github/workflows/.*\.ya?ml$
 
       # ORM-only database access (raw-SQL policy, #999). Runs the repository
-      # Semgrep ruleset (.semgrep/, six rules) on Python + TypeScript. Python
-      # rules are scoped to /apps/agent, TypeScript to /workers/catalog/src and
-      # /workers/users/src (paths.include); unrelated files simply match nothing
-      # and pass. semgrep is installed via uv tool (same version as the
-      # reusable-security CI job — 1.172.0). Atlas migration SQL and the
+      # Semgrep ruleset (.semgrep/, three rules) on TypeScript, scoped to
+      # /workers/catalog/src and /workers/users/src (paths.include); unrelated
+      # files simply match nothing and pass. semgrep is installed via uv tool
+      # (same version as the reusable-security CI job — 1.172.0). Atlas migration SQL and the
       # sanctioned typed-expression seams are excluded by the rules themselves.
       #
       # We scan the repo ROOT (target '.') rather than passing the staged files
       # explicitly: semgrep applies .semgrepignore (which excludes test/ and
       # tests/) only to directory scans, and applies the rules' anchored
-      # paths.include only when target-relative paths keep the /apps/agent,
+      # paths.include only when target-relative paths keep the
       # /workers/... prefix. Listing individual payload files bypasses BOTH of
       # those — the pre-commit hook would flag pre-existing raw SQL in test
-      # fixtures (e.g. apps/agent/**/tests/**) that the CI scan (.semgrepignore)
+      # fixtures (e.g. workers/**/test/**) that the CI scan (.semgrepignore)
       # skips. Scanning '.' reproduces the CI job's behavior exactly, and
       # --exclude mirrors the test/test directory exclusions explicitly.
       - id: semgrep-orm
         name: semgrep (ORM-only DB access)
         # pass_filenames:false so pre-commit does NOT append the changed files as
         # explicit targets (that bypasses .semgrepignore). The files regex still
-        # gates the hook to commits that touch a Python/TypeScript file.
+        # gates the hook to commits that touch a TypeScript file.
         entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error . --exclude '**/tests/**' --exclude '**/test/**'
         language: system
-        files: \.(py|ts)$
+        files: \.ts$
         pass_filenames: false
 
       # --- pre-push stage: the affected-package gate (#1371). ---

@@ -73,7 +73,7 @@ Bangumi /v0/subjects ───┼→ catalog Worker Ingest(请求驱动;S0-v2 �
 image.anitabi.cn ───────┘      ↓ raw_anitabi / raw_bangumi(JSONB 重放源)+ ingest_jobs(单飞/负缓存)
                           Enrich → bangumi / points / aliases(UPSERT)
                           Publish → cluster_version(蓝绿指针);媒体 → R2 catalog-media
-agent(Python 容器)= catalog 的只读消费者(不在请求期调外部 API)
+edge Worker 的 native Pi agent = catalog 的只读消费者(经 service binding 读目录)
 users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron 范式的参照实现)
 数据库 + 认证 = Neon(Atlas 迁移 migrations/neon;auth = Neon Auth,edge 仅验 Neon JWKS,AUTH-2 #950 已切净;无 Supabase 依赖)
 ```
@@ -94,10 +94,9 @@ merge → main push → cd.yml 按 before..sha 选出 affected 包，build 一�
 
 ## 5. 本地开发
 
-- `make dev-local`(Neon 本地 DB + 后端 + web,一条命令;禁止逐个起服务)· `make local-login`(浏览器 magic link)
-- `make dev-db`(agent 专用 Neon Local `:5432`)· `make check`(改动前后必跑)
+- `make dev-local`(web 应用,一条命令;禁止逐个起服务)· `make local-login`(浏览器 magic link)
+- `make check-full`(跨 package 改动前后必跑)
 - `make e2e-setup` → `make e2e`(Playwright;S0-v2 起 Test Agents 产物走晋升闸,见 launch spec)
-- 排障入口:`/healthz` 的 `git_commit/git_branch` 先核对「打的是哪个后端」
 
 ## 6. 已知坑速查(实证过的)
 

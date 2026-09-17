@@ -10,7 +10,7 @@ import { FROZEN_SIBLING_CASE_COUNT, frozenDataset } from '../src/dataset-sets.ts
  * the checked-in native source file and its task-gap sidecar must carry the
  * frozen `agent_eval_v3` IDs 1:1, in order, with nothing from the sibling
  * datasets and no seeded session payload dropped. The originals are read from
- * this package's frozen copy (#1603), so the proof survives `apps/agent`. */
+ * this package's frozen copy (#1603), so the proof survives the Python agent's retirement. */
 const PACKAGE_DIR = fileURLToPath(new URL('../', import.meta.url));
 const SOURCE_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.json');
 const SIDECAR_FILE = join(PACKAGE_DIR, 'datasets/source/agent_eval_v3.task-gaps.json');

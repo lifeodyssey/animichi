@@ -16,7 +16,7 @@ Current canonical docs:
 - `secrets.md` — repository/environment secret inventory, consumers, rotation impact
 - `integration.md` — single source for env/secrets layout, domain topology, data path, deploy chain, local dev
 - `auth-migration-neon.md` — Neon Auth (Better Auth) cutover runbook (the JWKS-only code cutover is complete: the edge verifies Neon JWKS only, AUTH-2 #950; production acceptance — verifying the seven production Neon Auth identities and email/login behavior — remains owner-pending; see the runbook checklist §5)
-- `neon-test-infra.md` · `neon-local-spike-findings.md` — Neon test-base / local proxy operator notes
+- `neon-test-infra.md` — Neon test-base / local proxy operator notes (the 2026-07-17 Neon Local spike findings are archived in `docs/archive/ops/`)
 - `git-daily-squash-runbook.md` — W8 git history daily-squash execution runbook (mirror/bundle backup, branch swap or force-with-lease, `main-legacy` retention ≥30 days, rollback, owner checklist; #851/#858)
 - `indexnow.md` · `privacy.md` — SEO push and privacy ops notes
 

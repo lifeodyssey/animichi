@@ -73,7 +73,7 @@ a real evaluation run of these cases are separate, authorization-gated work.
 
 The Python fixture export and its drift gate are gone (#1603). `fixtures/` are frozen bytes
 with no regeneration path; the canonical sets they were exported from now live in
-`datasets/canonical/`, and nothing in this package shells out to `uv`, Python or apps/agent —
+`datasets/canonical/`, and nothing in this package shells out to `uv` or Python —
 `pnpm test` runs on Node alone.
 
 The old `eval:staging`, `eval:gate` and HTTP prefix-capture commands are retired with their
@@ -93,7 +93,7 @@ modules retain their source behavior until an Eval Story replaces or retires the
 are source inputs and expected values, not completed native suite rosters or successful runs.
 `datasets/canonical/` holds the frozen canonical datasets the strata and the
 `agent_eval_v3` source migration read; `PINS.json` declares the pydantic-evals version they were
-exported with, so the package has no path into apps/agent at runtime or in tests.
+exported with, so the package reads no Python source at runtime or in tests.
 
 Keep the original input-guard, injection and translation cases and their canonical copies in
 `datasets/canonical/`.

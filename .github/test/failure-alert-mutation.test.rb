@@ -93,9 +93,9 @@ class FailureAlertMutationTest < Minitest::Test
     probe("cd.yml without the alert job", MUST_ALERT) { |dir| mutate(dir, "cd.yml") { |doc| doc.fetch("jobs").delete("alert-failure") } }
   end
 
-  def test_rejects_a_scheduled_workflow_that_forgot_to_alert
-    probe("the nightly without the alert job", MUST_ALERT) do |dir|
-      mutate(dir, "agent-eval-nightly.yml") { |doc| doc.fetch("jobs").delete("alert-failure") }
+  def test_rejects_a_release_build_that_forgot_to_alert
+    probe("release-build.yml without the alert job", MUST_ALERT) do |dir|
+      mutate(dir, "release-build.yml") { |doc| doc.fetch("jobs").delete("alert-failure") }
     end
   end
 

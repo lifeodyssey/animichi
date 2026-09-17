@@ -22,7 +22,7 @@ const strata = loadCaseStrata(canonicalDatasetPath(AGENT_EVAL_V3.name));
  * The canonical directory moved inside this package (#1603). That is the one
  * thing the rest of this file assumes, and the one thing a rename-away proof
  * alone cannot show: a copy with a missing file would load nothing and fail no
- * test that reads `apps/agent` instead.
+ * test that reads the Python agent's tree instead.
  */
 void test('the canonical datasets resolve inside this package', () => {
   const dataset = canonicalDatasetPath(AGENT_EVAL_V3.name);
