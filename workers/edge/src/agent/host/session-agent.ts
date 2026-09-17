@@ -20,8 +20,9 @@ import { reconcileModelAdmission } from "../admission/reconcile-model-admission.
 import { scanAdmissionIntents, scanSelectionIntents, scanUnsettledOperations } from "../recovery/scan.ts";
 import { prepareModelOperation } from "../recovery/prepare-model-operation.ts";
 import { settleModelOperation } from "../settlement/native-settlement.ts";
-import { persistPermanentRejection } from "../admission/permanent-rejection.ts";
-import { remainingTurnBudget, turnDeadline, TURN_DEADLINE_MS, type TurnWindow } from "./turn-deadline.ts";
+import { TURN_DEADLINE_MS } from "./turn-deadline.ts";
+import { TurnBudget } from "./turn-budget.ts";
+import { WAKE_INTERVAL_MS } from "./wake-interval.ts";
 import { bootstrapNativeSession, type NativeSessionResources } from "./native-bootstrap.ts";
 import { watchableReplay } from "./watchable-replay.ts";
 import { admitConfiguredModel, configuredReplayRequest } from "./configured-admission.ts";
@@ -44,11 +45,11 @@ export class SessionAgent extends Agent<Env> {
   #driving = false;
   #business?: AdmissionDatabase;
   #resources?: NativeSessionResources;
-  #turn?: TurnWindow;
+  #budget?: TurnBudget;
   #credentials = new Map<string, Awaited<ReturnType<typeof nativeByokModels>>>();
 
   override async onStart() {
-    await this.scheduleEvery(30, "wakeSession");
+    await this.scheduleEvery(this.wakeIntervalMs() / 1000, "wakeSession");
     if (!this.#source) await this.initializeSession();
   }
 
@@ -74,7 +75,7 @@ export class SessionAgent extends Agent<Env> {
   /** All future admission/selection/settlement writes enter here, before touching business state. */
   protected withSession<T>(work: (session: Session, lane: AgentLane, context: Context, harness: Harness) => Promise<T>, context: Context = BACKGROUND_CONTEXT): Promise<T> {
     const exclusive = this.#tail.then(async () => {
-      await this.scheduleEvery(30, "wakeSession");
+      await this.scheduleEvery(this.wakeIntervalMs() / 1000, "wakeSession");
       const durableContext = withoutAbortSignal(context);
       const attached = await this.#attach(durableContext);
       return work(attached.session, attached.lane, durableContext, attached.harness);
@@ -226,44 +227,22 @@ export class SessionAgent extends Agent<Env> {
     await this.schedule(when, "wakeSession", payload, { idempotent: true });
   }
 
+  /** The recurring recovery cadence; a host subclass may shrink it so a database lane need not wait 30 s of wall clock. */
+  protected wakeIntervalMs() { return WAKE_INTERVAL_MS; }
+
   /** SDK keepalive and one-shot schedules share the SDK's alarm multiplexer. */
   protected async driveLane(lane: AgentLane, operationId: string, context: Context) {
     this.#driving = true;
     try {
-      this.#turn = await this.#turnDeadline(lane, operationId, context);
-      if (this.#turn && remainingTurnBudget(this.#turn.deadlineAt, Date.now()) === 0) await this.#expireTurn(lane, this.#turn, context);
+      const budget = new TurnBudget(this.name, this.turnDeadlineMs(), this.#business);
+      this.#budget = budget;
+      await budget.open(lane, operationId, context);
       return await this.#driveAndSchedule(lane, operationId, context);
-    } finally { this.#driving = false; this.#turn = undefined; }
+    } finally { this.#driving = false; this.#budget = undefined; }
   }
 
   /** The one whole-turn budget; a host subclass may shrink it so a database lane need not wait 100 s of wall clock. */
   protected turnDeadlineMs() { return TURN_DEADLINE_MS; }
-
-  /** The SDK's durable acceptance witness plus the one budget; eviction and reattachment cannot reset it. */
-  async #turnDeadline(lane: AgentLane, operationId: string, context: Context): Promise<TurnWindow | undefined> {
-    const current = (await lane.inspectExecution(context)).current;
-    return current?.id === operationId ? { operationId, deadlineAt: turnDeadline(current.startedAt, this.turnDeadlineMs()) } : undefined;
-  }
-
-  /** The model-request boundary: no request outlives the budget, and a spent budget ends the turn here. */
-  async #boundModelRequest(lane: AgentLane, event: { readonly streamOptions: { readonly timeoutMs?: number } }, context: Context) {
-    const turn = this.#turn;
-    if (!turn) return undefined;
-    const budget = remainingTurnBudget(turn.deadlineAt, Date.now());
-    if (budget === 0) { await this.#expireTurn(lane, turn, context); return undefined; }
-    const configured = event.streamOptions.timeoutMs;
-    return { streamOptions: { timeoutMs: configured === undefined ? budget : Math.min(configured, budget) } };
-  }
-
-  /** One terminal path for both boundaries; the durable business reason precedes the SDK cancellation, which no failed write may suppress. */
-  async #expireTurn(lane: AgentLane, turn: TurnWindow, context: Context) {
-    const operation = { sessionId: this.name, operationId: turn.operationId };
-    let abort: Awaited<ReturnType<AgentLane["requestAbort"]>>;
-    try {
-      if (this.#business) await persistPermanentRejection(this.#business, operation, "deadline_exceeded");
-    } finally { abort = await lane.requestAbort(turn.operationId, context); }
-    if (!abort.ok) throw abort.error;
-  }
 
   async #driveAndSchedule(lane: AgentLane, operationId: string, context: Context) {
     const result = await this.keepAliveWhile(() => lane.drive({ operationId, waitForRetry: false }, context));
@@ -287,7 +266,7 @@ export class SessionAgent extends Agent<Env> {
       const { harness } = await createPilgrimageHarness({ ...source.compose(session), session }, context);
       const lane = await harness.lane("main", context);
       harness.events.on("fault", () => { this.#faulted = true; });
-      harness.hooks.on("before_request", (event, requestContext) => this.#boundModelRequest(lane, event, requestContext));
+      harness.hooks.on("before_request", (event, requestContext) => this.#budget?.boundModelRequest(lane, event, requestContext));
       this.#faulted = false;
       this.#attached = { session, harness, lane };
       return this.#attached;

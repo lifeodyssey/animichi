@@ -64,9 +64,10 @@ export class HostProbe extends SessionAgent {
   queueMarker() { return "entered"; }
 
   async report() {
-    const schedules = await this.listSchedules();
+    const wakes = (await this.listSchedules()).filter((schedule) => schedule.callback === "wakeSession" && schedule.type === "interval");
     return { writers: this.maxWriters, operations: this.operations, completed: this.completed,
-      scanCount: schedules.filter((schedule) => schedule.callback === "wakeSession" && schedule.type === "interval").length };
+      wakeIntervalSeconds: wakes[0]?.type === "interval" ? wakes[0].intervalSeconds : null,
+      scanCount: wakes.length };
   }
 
   /** The fake clock models both the slow provider call and the deadline; nothing here waits on wall time. */

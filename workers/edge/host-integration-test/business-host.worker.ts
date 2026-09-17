@@ -10,6 +10,7 @@ import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
 import { persistPermanentRejection } from "../src/agent/admission/permanent-rejection.ts";
 import { gateNativeResultReads, loseNativeReply } from "./lost-reply.ts";
+import { recoveryScanInterval } from "./wake-cadence.ts";
 import type { ModelAdmissionRequest } from "../src/agent/admission/types.ts";
 
 /** The lifecycle cases authorize no tool; the deadline case needs one permitted, locally-answerable call. */
@@ -26,6 +27,11 @@ function deadlineTools(session: Session) {
 
 /** The hold outlasts the published budget by this much, so the deadline is spent when the response lands. */
 const PAST_BUDGET_MS = 500;
+
+/** The payload a wake carries, or null when it carries none; the test classifies the row, the host does not. */
+function wakePayload(payload: unknown): object | null {
+  return typeof payload === "object" && payload !== null ? payload : null;
+}
 
 /** The lane's budget is wall clock, so waiting it out has to be too. */
 function wait(ms: number) {
@@ -57,9 +63,12 @@ export class BusinessHost extends SessionAgent {
   #retryResolve?: (notBefore: number) => void;
   readonly #retryScheduled = new Promise<number>((resolve) => { this.#retryResolve = resolve; });
 
+  /** The test classifies these rows; the report stays the SDK's own row, minus its id and retry policy. */
   async retrySchedules() {
     const notBefore = await this.#retryScheduled;
-    return this.withSession(async () => ({ notBefore, schedules: (await this.listSchedules()).map((schedule) => ({ type: schedule.type, time: schedule.time })) }));
+    return this.withSession(async () => ({ notBefore, schedules: (await this.listSchedules()).map((schedule) => ({
+      callback: schedule.callback, type: schedule.type, time: schedule.time, payload: wakePayload(schedule.payload),
+    })) }));
   }
 
 
@@ -72,6 +81,9 @@ export class BusinessHost extends SessionAgent {
     const configured = this.env.TEST_TURN_DEADLINE_MS;
     return configured === undefined ? super.turnDeadlineMs() : Number(configured);
   }
+
+  /** Only a case that waits for the recurring scan itself opts into a faster one; every other case runs production's. */
+  protected override wakeIntervalMs() { return recoveryScanInterval(this.env, super.wakeIntervalMs()); }
 
   providerRequests() { return { requests: this.#provider?.state.callCount ?? -1 }; }
 

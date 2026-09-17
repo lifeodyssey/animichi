@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { pool, SESSION } from "./postgres.ts";
 import { defaultWorker, chatHeaders, chatBody } from "./default-worker.ts";
 import { operationToolsNetwork } from "./operation-tools-fixture.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
 
 void test("actual BYOK tools use the caller's translation model and requested Chinese locale without platform spending", async (context) => {
   const { worker, requests } = await defaultWorker(context, { TEST_IDENTITY: "member-native", TEST_USER_TYPE: "user" }, operationToolsNetwork(true));
@@ -31,7 +32,7 @@ void test("actual BYOK tools use the caller's translation model and requested Ch
 });
 
 void test("a cold default host recovers the accepted operation's Japanese locale and shared GPS before executing catalog tools", async (context) => {
-  const resources = await defaultWorker(context, {}, operationToolsNetwork(false, true));
+  const resources = await defaultWorker(context, FAST_RECOVERY_SCAN, operationToolsNetwork(false, true));
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *");

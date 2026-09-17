@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { once } from "node:events";
 import { pool, IDENTITY } from "./postgres.ts";
-import { businessWorker, submission } from "./worker.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
+import { businessWorker, deadlineWakeTimes, submission, unexplainedWakes, type WakeRow } from "./worker.ts";
 
 void test("the actual scheduled host admits on Neon and settles without another client request", async (context) => {
   const { worker } = await businessWorker(context);
@@ -28,7 +29,7 @@ void test("the actual scheduled host admits on Neon and settles without another 
 });
 
 void test("a fresh host lost after native acceptance recovers from its existing scan with no client retry", async (context) => {
-  const resources = await businessWorker(context);
+  const resources = await businessWorker(context, FAST_RECOVERY_SCAN);
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *");
@@ -50,8 +51,8 @@ void test("a fresh host lost after native acceptance recovers from its existing 
   assert.equal(Number(quota.rows[0]?.message_count), 1);
 });
 
-async function lostReplyCase(context: TestContext, stage: "accept" | "terminal", status: number) {
-  const { worker } = await businessWorker(context, { TEST_LOST_REPLY: stage });
+async function lostReplyCase(context: TestContext, stage: "accept" | "terminal", status: number, cadence: Record<string, string> = {}) {
+  const { worker } = await businessWorker(context, { TEST_LOST_REPLY: stage, ...cadence });
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
   await observer.query("UNLISTEN *");
@@ -70,20 +71,23 @@ async function lostReplyCase(context: TestContext, stage: "accept" | "terminal",
 }
 
 void test("accepted-but-thrown native Neon commit survives first failed reattachment and settles legitimate work", async (context) => {
-  await lostReplyCase(context, "accept", 500);
+  await lostReplyCase(context, "accept", 500, FAST_RECOVERY_SCAN);
 });
 
 void test("terminal-but-thrown native Neon commit survives first failed reattachment without cancelling or rebilling", async (context) => {
   await lostReplyCase(context, "terminal", 200);
 });
 
-void test("a waiting native operation retains only its deadline wake instead of creating immediate wake loops", async (context) => {
+void test("a waiting native operation retains its deadline wake instead of re-arming immediate wakes", async (context) => {
   const { worker } = await businessWorker(context, { TEST_RETRY: "true" });
   const response = await worker.dispatchFetch("https://host.test/submit", { method: "POST", body: JSON.stringify(submission) });
   assert.equal(response.status, 200, await response.text());
   const report = await worker.dispatchFetch("https://host.test/retry-report", { method: "POST", body: JSON.stringify(submission) });
   const body = await report.text();
   assert.equal(report.status, 200, body);
-  const snapshot = JSON.parse(body) as { notBefore: number; schedules: { type: string; time: number }[] };
-  assert.deepEqual(snapshot.schedules.filter((schedule) => schedule.type !== "interval").map((schedule) => schedule.time), [Math.ceil(snapshot.notBefore / 1000)]);
+  const snapshot = JSON.parse(body) as { notBefore: number; schedules: WakeRow[] };
+  assert.deepEqual(deadlineWakeTimes(snapshot.schedules), [Math.ceil(snapshot.notBefore / 1000)],
+    "The retry boundary is armed as the one deadline wake; the recurrent scan and the operation's own recovery nudges are not deadline wakes");
+  assert.deepEqual(unexplainedWakes(snapshot.schedules), [],
+    "A waiting operation arms nothing beside the recurrent scan and its own { operationId } recovery nudges; any other wake is a re-arm loop");
 });

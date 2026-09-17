@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test, { type TestContext } from "node:test";
 import { pool, IDENTITY } from "./postgres.ts";
-import { businessWorker, submission } from "./worker.ts";
+import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
+import { businessWorker, deadlineWakeTimes, submission, unexplainedWakes, type WakeRow } from "./worker.ts";
 
 async function settlementObserver(context: TestContext, timeoutMs: number) {
   const observer = await pool.connect();
@@ -24,7 +25,7 @@ async function assertCompleted(operationId: string) {
 }
 
 void test("the same live host repairs business commit after accept through its recurring SDK scan", { timeout: 90_000 }, async (context) => {
-  const { worker } = await businessWorker(context);
+  const { worker } = await businessWorker(context, FAST_RECOVERY_SCAN);
   const { settled } = await settlementObserver(context, 45_000);
   await pool.query("ALTER TABLE agent_open_operations ADD CONSTRAINT host_test_same_instance CHECK(false)");
   try {
@@ -59,8 +60,11 @@ void test("an operation accepted after create remains pending during retry and c
   assert.ok(report, "An operation accepted after create must reach its native retry boundary");
   const reportBody = await report.text();
   assert.equal(report.status, 200, reportBody);
-  const snapshot = JSON.parse(reportBody) as { notBefore: number; schedules: { type: string; time: number }[] };
-  assert.deepEqual(snapshot.schedules.filter((schedule) => schedule.type !== "interval").map((schedule) => schedule.time), [Math.ceil(snapshot.notBefore / 1000)]);
+  const snapshot = JSON.parse(reportBody) as { notBefore: number; schedules: WakeRow[] };
+  assert.deepEqual(deadlineWakeTimes(snapshot.schedules), [Math.ceil(snapshot.notBefore / 1000)],
+    "The retry boundary is armed as the one deadline wake; the recurrent scan and the operation's own recovery nudges are not deadline wakes");
+  assert.deepEqual(unexplainedWakes(snapshot.schedules), [],
+    "A waiting operation arms nothing beside the recurrent scan and its own { operationId } recovery nudges; any other wake is a re-arm loop");
   const pending = await pool.query("SELECT a.state,a.quota_refunded_at,s.settled_at FROM agent_admissions a JOIN agent_settlements s USING(operation_id) WHERE operation_id=$1", [accepted.operationId]);
   assert.deepEqual(pending.rows, [{ state: "accepted", quota_refunded_at: null, settled_at: null }]);
   const terminal = await pool.query("SELECT key FROM pi_scalar_values WHERE namespace='pi.result' AND key=$1", [accepted.operationId]);
