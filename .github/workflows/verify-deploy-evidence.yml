@@ -1,0 +1,80 @@
+# #1695: the seat that could not observe staging now reads the observations the
+# deploy lane published. The judging job holds repository read access and
+# nothing else — no Cloudflare Access service token, no staging identity — and
+# its log is the evidence. Starting the run is NOT a read: the dispatch API
+# needs Actions write (or the classic `repo` scope) from the caller, and these
+# permissions bind only the run's own token. A seat with read access alone runs
+# `verify-evidence.mjs --fetch` from a checkout instead.
+name: Verify deploy evidence
+on:
+  workflow_dispatch:
+    inputs:
+      card:
+        description: Card whose post-deploy acceptance criteria to judge (e.g. 1596)
+        required: true
+        type: string
+      ac:
+        description: One criterion of that card, e.g. AC5; empty judges every criterion the catalog covers
+        required: false
+        type: string
+      run_id:
+        description: CD run whose staging receipt to read; empty reads the newest published receipt
+        required: false
+        type: string
+permissions:
+  contents: read
+  actions: read # list and download the receipt artifact the CD run published
+env:
+  GH_TOKEN: ${{ github.token }}
+concurrency:
+  group: verify-deploy-evidence-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  evidence:
+    name: Verify / deploy evidence
+    if: ${{ github.repository == 'lifeodyssey/animichi' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # `--fetch` is the whole point: the artifact is looked up and downloaded
+      # by the job itself, so the run needs no credential beyond the repository
+      # read token GitHub already issues it.
+      - name: Judge the published deploy evidence
+        env:
+          CARD: ${{ inputs.card }}
+          AC: ${{ inputs.ac }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          arguments=(--card "$CARD" --fetch "${RUN_ID:-latest}")
+          [ -z "$AC" ] || arguments+=(--ac "$AC")
+          node .github/scripts/release/verify-evidence.mjs "${arguments[@]}"
+
+  # A dispatched verification that fails is visible only on the run page unless
+  # it says so (#678 AC1): one deduplicated alert issue per failing-job set,
+  # through the run's own token and no new credential. The contract landed in
+  # #678 after this lane was written, so the lane is wired into it here.
+  alert-failure:
+    name: Ops / failure alert
+    needs: [evidence]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The key's own (workflow, ref) prefix: two runs that could share an alert
+    # must not interleave their read-then-create, and never cancel each other.
+    concurrency:
+      group: ops-alert-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, issues: write} # read this run's jobs; publish the alert issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish the failure alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_SELF_JOB: Ops / failure alert
+        run: ruby .github/scripts/alert/failure-alert.rb
