@@ -1,8 +1,12 @@
 /**
  * Immutable catalog snapshot orchestration (issue #1012, AC3/AC5/AC6).
  *
- * publishSnapshot runs the export -> stage -> validate -> activate pipeline over
- * the CatalogDb seam for reads and the ObjectStore seam for durable objects.
+ * publishSnapshot runs the export -> gate -> stage -> validate -> activate
+ * pipeline over the CatalogDb seam for reads and the ObjectStore seam for
+ * durable objects. The spot quality gate (X15 #285) interposes between the
+ * row read and the candidate build: it rejects unpublishable coordinates,
+ * merges same-episode duplicates, and alerts spot-count drift against the
+ * last publish, so the activated snapshot only ever carries gated rows.
  * Activation is a single atomic pointer write (see pointer.ts), so validation
  * success moves previous->old and activates the new run; validation failure
  * deletes NOTHING (no objects are staged until activation), and a staging
@@ -10,16 +14,24 @@
  * to a snapshot activated by an earlier attempt.
  */
 import type { CatalogDb } from "../db/client";
-import { exportCandidate, type CandidateExport, EXPORTED_TABLES } from "./candidate-export";
+import {
+  candidateFromRows, exportObjectKey, readPublicRows, type CandidateExport, EXPORTED_TABLES,
+} from "./candidate-export";
 import { buildManifest, manifestJson, type SnapshotManifest } from "./manifest";
 import { arrayBufferToText, textToArrayBuffer } from "./bytes";
 import type { ObjectStore } from "./object-store";
 import { POINTER_KEY, readPointer, snapshotIdFor, writePointer } from "./pointer";
+import { spotCountsByWork, type WorkSpotCounts } from "./spot-count-drift";
+import {
+  consoleSpotQualityAlerts, gateSpotRows, type SpotQualityAlerts,
+} from "./spot-quality-gate";
 
 /** Collaborators for publishing and reading snapshots. */
 export interface SnapshotDeps {
   db: CatalogDb;
   store: ObjectStore;
+  /** Quality-gate alert seam; defaults to the console observability. */
+  alerts?: SpotQualityAlerts;
 }
 
 /** Validation port; injected so a forced failure is testable (AC3). */
@@ -48,14 +60,45 @@ function manifestKey(snapshotId: string): string {
   return snapshotPrefix(snapshotId) + "/manifest.json";
 }
 
-/** Publish an immutable snapshot: export, stage, validate, then atomically activate. */
+/** Publish an immutable snapshot: gate the export, validate, stage, then atomically activate. */
 export async function publishSnapshot(
   deps: SnapshotDeps, input: PublishInput, validate: ValidatePort = validateExport,
 ): Promise<PublishResult> {
   const snapshotId = snapshotIdFor(input.sourceRunId);
-  const candidate = await exportCandidate(deps.db, dataPrefix(snapshotId));
+  const candidate = await gatedCandidate(deps, snapshotId);
   if (!(await validate(candidate)).valid) return invalid();
   return activate(deps, candidate, snapshotId, input);
+}
+
+/**
+ * The candidate export through the spot quality gate (X15 #285): reject
+ * unpublishable coordinates, merge same-episode duplicates, and alert drift
+ * against the last publish — the only spot rows bundled are gated rows.
+ */
+async function gatedCandidate(deps: SnapshotDeps, snapshotId: string): Promise<CandidateExport> {
+  const rows = await readPublicRows(deps.db);
+  const gated = gateSpotRows(
+    rows.points, await publishedSpotCounts(deps.store), deps.alerts ?? consoleSpotQualityAlerts(),
+  );
+  return candidateFromRows({ ...rows, points: gated.publishable }, dataPrefix(snapshotId));
+}
+
+/**
+ * Per-work spot counts of the currently published snapshot — the drift
+ * baseline. Read through the publish's own pointer + objects (no second data
+ * path); empty before any snapshot exists.
+ */
+async function publishedSpotCounts(store: ObjectStore): Promise<WorkSpotCounts> {
+  const pointer = await readPointer(store);
+  if (pointer.current === null) return new Map<string, number>();
+  const entry = await store.get(exportObjectKey(dataPrefix(pointer.current), "points"));
+  if (entry === null) return new Map<string, number>();
+  return spotCountsByWork(parsePublishedPoints(arrayBufferToText(entry.body)));
+}
+
+/** The published points object's rows, narrowed to the drift-count view at the boundary. */
+function parsePublishedPoints(json: string): readonly { bangumiId: string | null }[] {
+  return JSON.parse(json) as readonly { bangumiId: string | null }[];
 }
 
 /** Validation failure reports invalidity and deletes NOTHING (nothing is staged yet). */
