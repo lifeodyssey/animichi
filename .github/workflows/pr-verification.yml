@@ -307,6 +307,8 @@ jobs:
           ruby .github/test/failure-alert-behavior.test.rb
           ruby .github/test/failure-alert-ledger.test.rb
           ruby .github/test/failure-alert-mutation.test.rb
+          ruby .github/test/failure-alert-recipient-mutation.test.rb
+          ruby .github/test/failure-alert-recipient.test.rb
           ruby .github/test/failure-alert.test.rb
           ruby .github/test/merged-commit-lane.test.rb
           ruby .github/test/pr-verification-affected.test.rb

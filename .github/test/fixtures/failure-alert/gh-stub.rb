@@ -4,7 +4,9 @@
 # state file, and records every invocation, so a case can assert what the alert
 # published, what it left alone, and that the token it was handed never reached
 # argv. ALERT_STUB_FAIL names one "METHOD path" to refuse (query string aside),
-# which is how the fail-closed case is driven.
+# which is how the fail-closed case is driven. ALERT_STUB_DROP_ASSIGNEES reproduces
+# the documented silent drop of an assignee the caller may not set: the create
+# still answers 201, and the issue comes back carrying nobody.
 require "json"
 
 FIXTURES = ENV.fetch("ALERT_FIXTURES")
@@ -51,7 +53,15 @@ def refusing?
 end
 
 def summary(issue)
-  { "number" => issue.fetch("number"), "title" => issue.fetch("title"), "body" => issue.fetch("body") }
+  { "number" => issue.fetch("number"), "title" => issue.fetch("title"), "body" => issue.fetch("body"),
+    "assignees" => issue["assignees"] }
+end
+
+# The API carries an assignee as an object, and drops one the caller may not set
+# without changing the status code.
+def accepted_assignees(request)
+  return [] unless ENV["ALERT_STUB_DROP_ASSIGNEES"].to_s.empty?
+  Array(request["assignees"]).map { |login| { "login" => login } }
 end
 
 def open_issue(state, number)
@@ -70,7 +80,7 @@ when %r{\AGET repos/\S+/actions/runs/\d+/jobs} then puts JSON.generate(fixture("
 when %r{\AGET repos/\S+/issues\z} then puts JSON.generate(page_of(state.fetch("issues")).map { |issue| summary(issue) })
 when %r{\APOST repos/\S+/issues\z}
   issue = { "number" => state.fetch("next"), "title" => request.fetch("title"), "body" => request.fetch("body"),
-            "labels" => request["labels"] }
+            "labels" => request["labels"], "assignees" => accepted_assignees(request) }
   state["issues"] << issue
   state["next"] += 1
   File.write(STATE, JSON.generate(state))

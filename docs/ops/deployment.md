@@ -521,10 +521,13 @@ Local code and database tests do not replace the pending live bootstrap observat
    and the complete snapshot before opening environment credentials.
 3. Staging publishes the complete selected snapshot, smokes the edge and web workers.dev surfaces,
    and uploads an immutable receipt. Failure stops promotion.
-4. Inspect that release's receipt before approving the actual `production` environment job. After
-   approval the job re-downloads the same ID/digest, verifies the receipt, and checks production's
-   current baseline, registry and ledger before any mutation. Production observes its own script-scoped
-   version/deployment IDs and smokes `https://animichi.com` after publication.
+4. Inspect that release's receipt before approving the actual `production` environment job, and first
+   check for an open failure alert on the revision it names: `is:issue is:open in:title "Failure
+   alert:"` lists them, and an alert on the receipt's `source_sha` means that revision's own CI
+   failed — do not approve. After approval the job re-downloads the same ID/digest, verifies the
+   receipt, and checks production's current baseline, registry and ledger before any mutation.
+   Production observes its own script-scoped version/deployment IDs and smokes `https://animichi.com`
+   after publication.
 
 Rejecting production affects that run only. It does not block another staging selection. Rerunning
 uses the same selected artifact; if its artifact or receipt expired, select an available eligible
