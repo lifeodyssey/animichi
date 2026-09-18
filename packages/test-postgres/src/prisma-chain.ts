@@ -9,8 +9,8 @@
  * so the fixture exercises the real apply instead of re-implementing it.
  *
  * The chain is not the only thing that runs against a shared cluster: the five
- * service roles are cluster-global and are created by `service-roles.ts`, inside
- * the same turn (`chain-apply-turn.ts`).
+ * service roles are cluster-global and are created by `service-roles.ts`, under
+ * the same turn lock (`chain-apply-turn.ts`) and before any apply.
  */
 import { execFile } from "node:child_process";
 import { dirname, join } from "node:path";

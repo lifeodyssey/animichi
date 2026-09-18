@@ -1,5 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres } from "@animichi/test-postgres";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgresCluster, type TestPostgresCluster } from "@animichi/test-postgres";
 import pg from "pg";
 import { FIXED_NOW } from "../migrate.worker.helpers";
 import { nativeApp, TARGET, APP_MIGRATION_COUNT, BASELINE_OPERATION_COUNT } from "./prisma-fixture";
@@ -7,23 +7,22 @@ import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTar
 import { grantDatabaseCreate, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./neon-http-postgres";
 
-let server: Awaited<ReturnType<typeof startTestPostgres>>;
+let cluster: TestPostgresCluster;
 let client: pg.Client;
 let app: Awaited<ReturnType<typeof nativeApp>>;
 let databaseDsn: string;
-const resources: { server?: typeof server; client?: pg.Client } = {};
+const resources: { client?: pg.Client } = {};
 let caseNumber = 0;
 /** Each case's target database, dropped by the case that created it: the server is shared
  * (#1663), so a leftover would collide with the next run of this lane. */
 let caseTarget: PrismaMigrationTarget | undefined;
 
 beforeAll(async () => {
-  server = resources.server = await startTestPostgres({ database: "native_delivery", budget: SPIKE_SETUP_BUDGET });
+  cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
-afterAll(async () => { await resources.server?.stop(); });
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
-  caseTarget = await openPrismaMigrationTarget(server.dsn, `native_delivery_case_${String(caseNumber++)}`);
+  caseTarget = await openPrismaMigrationTarget(cluster.adminDsn, `native_delivery_case_${String(caseNumber++)}`);
   const dsn = databaseDsn = caseTarget.dsn;
   client = resources.client = new pg.Client(dsn);
   await client.connect();

@@ -8,18 +8,17 @@ import pg from "pg";
 import contractJson from "../src/contract.json" with { type: "json" };
 import { futureContract, tamperedContract } from "./migration-fixtures.ts";
 import { migrate, packageRoot, prisma, prismaCliOutput } from "./prisma-migration.ts";
-import { postgres } from "./postgres.ts";
+import { cluster } from "./postgres.ts";
 
 const migrationRoot = fileURLToPath(new URL("../migrations/app/", import.meta.url));
 const markerQuery = "SELECT core_hash FROM prisma_contract.marker WHERE space = 'app'";
 
 /** Each test migrates its own database created from pristine `template1` — never the
- * database `startTestPostgres` migrates for the fixture. The server is shared and outlives
- * this run (#1663), so the database this test owns is named per call and dropped by the test
- * that created it. */
+ * fixture's shared-suite database. The server is shared and outlives this run (#1663), so the
+ * database this test owns is named per call and dropped by the test that created it. */
 async function cleanTarget(suite: string) {
   const name = uniqueDatabaseName(suite);
-  const dsn = await createCleanDatabase(postgres.dsn, name);
+  const dsn = await createCleanDatabase(cluster.adminDsn, name);
   const client = new pg.Client({ connectionString: dsn });
   await client.connect();
   return { dsn, client, name };
@@ -52,7 +51,7 @@ void test("a fresh database applies the whole chain and the marker names the che
       RETURNING ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude`);
     assert.deepEqual((await client.query("SELECT latitude, longitude FROM points WHERE id = 'coordinate-proof'")).rows, written.rows);
     await assert.rejects(client.query("UPDATE points SET latitude = 1"), { code: "428C9" });
-  } finally { await client.end(); await dropCleanDatabase(postgres.dsn, name); }
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
 void test("replaying the applied chain changes neither the marker nor committed data", async () => {
@@ -64,7 +63,7 @@ void test("replaying the applied chain changes neither the marker nor committed 
     assert.match((await migrate(dsn)).stdout, /"migrationsApplied":0/);
     assert.deepEqual((await client.query("SELECT * FROM prisma_contract.marker ORDER BY 1")).rows, marker);
     assert.deepEqual((await client.query("SELECT id FROM pi_sessions")).rows, [{ id: "preserved" }]);
-  } finally { await client.end(); await dropCleanDatabase(postgres.dsn, name); }
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
 void test("an earlier head applies only up to itself and leaves the rest pending", async () => {
@@ -80,7 +79,7 @@ void test("an earlier head applies only up to itself and leaves the rest pending
     await assert.rejects(migrate(dsn, packageRoot, baseline), { stdout: /MIGRATION.PATH_UNREACHABLE/ });
     assert.deepEqual((await client.query("SELECT * FROM prisma_contract.marker ORDER BY 1")).rows, current);
     assert.deepEqual((await client.query("SELECT selection_request FROM agent_admissions")).rows, []);
-  } finally { await client.end(); await dropCleanDatabase(postgres.dsn, name); }
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
 void test("selecting artifact B while checkout is C applies only B and replay preserves its marker and data", async () => {
@@ -101,7 +100,7 @@ void test("selecting artifact B while checkout is C applies only B and replay pr
     await assert.rejects(migrate(dsn, directory, contractJson.storage.storageHash), { stdout: /MIGRATION.PATH_UNREACHABLE/ });
     assert.deepEqual((await client.query("SELECT * FROM prisma_contract.marker ORDER BY 1")).rows, currentMarker);
     assert.deepEqual((await client.query("SELECT future_field FROM pi_sessions")).rows, [{ future_field: null }]);
-  } finally { await client.end(); await dropCleanDatabase(postgres.dsn, name); await rm(directory, { recursive: true, force: true }); }
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); await rm(directory, { recursive: true, force: true }); }
 });
 
 void test("a conflicting pre-existing Pi table is refused without adoption or partial creation", async () => {
@@ -111,13 +110,13 @@ void test("a conflicting pre-existing Pi table is refused without adoption or pa
     await assert.rejects(migrate(dsn));
     assert.deepEqual((await client.query("SELECT * FROM pi_records")).rows, [{ legacy_value: "preserved" }]);
     assert.deepEqual((await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1")).rows, [{ tablename: "pi_records" }]);
-  } finally { await client.end(); await dropCleanDatabase(postgres.dsn, name); }
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
 void test("a tampered migration body is refused and names the divergent migration", async () => {
   const { directory, firstMigration } = await tamperedContract();
   const name = uniqueDatabaseName("native_tampered_migration");
-  const dsn = await createCleanDatabase(postgres.dsn, name);
+  const dsn = await createCleanDatabase(cluster.adminDsn, name);
   try {
     await assert.rejects(migrate(dsn, directory), (failure: unknown) => {
       const output = prismaCliOutput(failure);
@@ -130,7 +129,7 @@ void test("a tampered migration body is refused and names the divergent migratio
       return true;
     });
   } finally {
-    await dropCleanDatabase(postgres.dsn, name);
+    await dropCleanDatabase(cluster.adminDsn, name);
     await rm(directory, { recursive: true, force: true });
   }
 });

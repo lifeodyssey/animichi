@@ -1,42 +1,27 @@
 /** One disposable PostgreSQL + PostGIS + pgvector data plane, migrated and ready.
  *
- * Boot the offline image, wait for the server to accept sessions rather than
- * merely to bind the port, create a CLEAN database from `template1`, create the
- * five service roles, apply the committed Prisma chain, and hand back its DSN.
- * Zero Neon environment variables, zero network beyond the local daemon.
+ * Open the shared cluster (`test-postgres-cluster.ts`: the server, reused, with
+ * its five service roles), create a CLEAN database from `template1`, apply the
+ * committed Prisma chain, and hand back its DSN. Zero Neon environment
+ * variables, zero network beyond the local daemon. A suite that only creates
+ * databases of its own does not need this — it asks for the cluster (#1783).
  *
- * The container is REUSED (#1663): `.withReuse()` keys it on the image and the
- * create options, so every arm in every worktree on this host shares one server
- * and pays the emulated initdb once — and the server keeps running between runs.
- * The isolation unit is therefore the DATABASE, never the container: each call
+ * The isolation unit is the DATABASE, never the container (#1663): each call
  * owns a uniquely named database, and `stop()` drops that database alone. A
  * failure after the database exists drops it too, instead of the server.
  *
- * The bind and the two waits draw on ONE wall-clock deadline (#1318), so they
- * cannot sum past the hook that holds them. The role creation and the chain
- * apply hold the cluster's turn while they run: the roles are cluster-global and
- * created check-then-create, and the chain's grant matrix prechecks them (#1663).
+ * The bind and the three waits draw on ONE wall-clock deadline (#1318), so they
+ * cannot sum past the hook that holds them. The chain apply holds the cluster's
+ * turn, and runs after the cluster's own turn committed the roles its grant
+ * matrix prechecks (#1663).
  */
-import pg from "pg";
-import { GenericContainer, Wait, type StartedTestContainer, type WaitStrategy } from "testcontainers";
 import { ChainApplyTurn } from "./chain-apply-turn.ts";
 import { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
 import { uniqueDatabaseName } from "./database-name.ts";
-import { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
-import { PostgresStartupWait, type Pause } from "./postgres-startup-wait.ts";
 import { applyPrismaChain } from "./prisma-chain.ts";
-import { assertServiceRoles, createServiceRoles } from "./service-roles.ts";
 import type { SetupBudget } from "./setup-budget.ts";
 import { SetupDeadline } from "./setup-deadline.ts";
-
-export const POSTGRES_USER = "postgres";
-export const POSTGRES_PASSWORD = "postgres";
-const POSTGRES_PORT = 5432;
-/** The image's entrypoint logs this once for the initdb server it shuts down
- * again, and once for the server that finally binds TCP — so the second
- * occurrence is the one that means "connect now". */
-const READY_LOG = /database system is ready to accept connections/;
-const READY_LOG_OCCURRENCES = 2;
+import { awaitSessions, openCluster, type TestPostgresCluster } from "./test-postgres-cluster.ts";
 
 /** What a suite asks for: the base of its own database name, on its own budget. */
 export interface TestPostgresRequest {
@@ -57,91 +42,19 @@ interface OwnDatabase {
   drop(): Promise<void>;
 }
 
-const sleep: Pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-/** Both the published port and the second readiness log line, not just the port. */
-function acceptsSessionsWait(): WaitStrategy {
-  return Wait.forAll([
-    Wait.forListeningPorts(),
-    Wait.forLogMessage(READY_LOG, READY_LOG_OCCURRENCES),
-  ]);
-}
-
-/** One session against the server: the probe the startup wait repeats. */
-async function openSession(dsn: string): Promise<void> {
-  const client = new pg.Client(dsn);
-  try {
-    await client.connect();
-    await client.query("select 1");
-  } finally {
-    await client.end().catch(() => undefined);
-  }
-}
-
-function awaitSessions(dsn: string, deadline: SetupDeadline): Promise<void> {
-  const wait = new PostgresStartupWait(deadline.firstSessionLimits(), sleep);
-  return wait.until(() => openSession(dsn));
-}
-
-/** The bind is offered everything the deadline has not spent yet.
- *
- * `.withReuse()` keys the container on the hash of Docker's create options —
- * image, environment, exposed ports, labels — and on neither the wait strategy
- * nor the startup timeout below. Every arm reaches the same container, and a
- * new image tag or a testcontainers upgrade reaches a new one. */
-function bootContainer(deadline: SetupDeadline): Promise<StartedTestContainer> {
-  return new GenericContainer(OFFLINE_POSTGRES_IMAGE)
-    .withReuse()
-    .withEnvironment({ POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: POSTGRES_USER })
-    .withExposedPorts(POSTGRES_PORT)
-    .withWaitStrategy(acceptsSessionsWait())
-    .withStartupTimeout(deadline.remainingMs())
-    .start();
-}
-
-/** The admin database the image pre-initialises — never the migration target. */
-function adminDsn(container: StartedTestContainer): string {
-  const host = `${container.getHost()}:${String(container.getMappedPort(POSTGRES_PORT))}`;
-  return `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${host}/${POSTGRES_USER}`;
-}
-
-/** The same connection, named for what it is to a caller that has only a plane's
- * DSN: the image's default database (`POSTGRES_DB` in `bootContainer`), which is
- * the database every advisory-lock holder on the cluster shares (#1663) — an
- * advisory lock is scoped to the database that issued it, so a lock taken on a
- * suite's own database conflicts with nobody. */
-export function clusterAdminDsn(planeDsn: string): string {
-  const url = new URL(planeDsn);
-  url.pathname = `/${POSTGRES_USER}`;
-  return url.toString();
-}
-
 /** The call's own database: a fresh name on the shared server, plus its drop. */
-function ownDatabase(container: StartedTestContainer, suite: string): OwnDatabase {
-  const admin = adminDsn(container);
+function ownDatabase(cluster: TestPostgresCluster, suite: string): OwnDatabase {
+  const admin = cluster.adminDsn;
   const name = uniqueDatabaseName(suite);
   return { admin, name, drop: () => dropCleanDatabase(admin, name) };
 }
 
 /** `CREATE DATABASE` returns before the new database accepts its own sessions,
- * so the clean DSN is probed too — the reason `db-fresh-schema.sh` waits twice.
- *
- * Both cluster-global steps happen inside one turn: the roles are created, then
- * asserted by name, and then the chain whose grant matrix prechecks them runs.
- * An apply that ran outside the turn could read `pg_roles` before the creation
- * waiting on the turn committed, which is the precheck's only failure mode.
- *
- * The assertion is its own step, not part of the create: with the creation
- * removed, the failure has to name the roles that are missing. */
+ * so the clean DSN is probed too — the reason `db-fresh-schema.sh` waits twice. */
 async function migrateCleanDatabase(own: OwnDatabase, deadline: SetupDeadline): Promise<TestPostgres> {
-  await awaitSessions(own.admin, deadline);
   const dsn = await createCleanDatabase(own.admin, own.name);
   await awaitSessions(dsn, deadline);
-  await new ChainApplyTurn(own.admin).hold(async () => {
-    await createServiceRoles(own.admin);
-    await assertServiceRoles(own.admin);
-    await applyPrismaChain(dsn);
-  });
+  await new ChainApplyTurn(own.admin).hold(() => applyPrismaChain(dsn));
   return { dsn, stop: () => own.drop() };
 }
 
@@ -155,10 +68,10 @@ async function dropWithoutMaskingFailure(own: OwnDatabase): Promise<void> {
   }
 }
 
-/** Boot the shared server, prepare the call's own clean DB + services + chain, hand it over. */
+/** Open the shared cluster, prepare the call's own clean DB + chain, hand it over. */
 export async function startTestPostgres(request: TestPostgresRequest): Promise<TestPostgres> {
   const deadline = new SetupDeadline(request.budget);
-  const own = ownDatabase(await bootContainer(deadline), request.database);
+  const own = ownDatabase(await openCluster(deadline), request.database);
   try {
     return await migrateCleanDatabase(own, deadline);
   } catch (failure) {

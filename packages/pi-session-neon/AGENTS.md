@@ -15,8 +15,8 @@ No object has two migration owners; do not re-declare an object the chain alread
   tests; each test resets that database. Never point these tests at a live Neon database.
   `test/postgres.ts` creates the shared database from pristine `template1` and migrates it with
   this chain, which builds every object the suites touch; the migration-target ACs create their
-  own `template1` database the same way. Neither reads the database `startTestPostgres` migrates
-  for its own call — one chain per database.
+  own `template1` database the same way. Both are created on the cluster `startTestPostgresCluster`
+  opens, which applies no chain of its own (#1783) — one chain per database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 
 The owner approved three exceptions for Prisma's generated output, and only that output:

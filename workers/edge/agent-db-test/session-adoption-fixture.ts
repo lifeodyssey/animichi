@@ -3,7 +3,7 @@
 // Mirrors `settlement-fixture.ts` / `recovery-fixture.ts`: importing this
 // module registers the node:test hooks against the imported database.
 import { after, before, beforeEach } from "node:test";
-import { AGENT_DB_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
+import { AGENT_DB_SETUP_BUDGET, startTestPostgresCluster } from "@animichi/test-postgres";
 import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import type { Contract } from "@animichi/pi-session-neon/types";
@@ -37,10 +37,9 @@ export interface AdoptionWriteSnapshot {
 }
 
 export let db: PostgresClient<Contract>;
-let postgres: TestPostgres | undefined;
 let contractDsn: string;
 let pool: pg.Pool;
-const resources: { db?: PostgresClient<Contract>; postgres?: TestPostgres; contract?: ContractDatabase; pool?: pg.Pool } = {};
+const resources: { db?: PostgresClient<Contract>; contract?: ContractDatabase; pool?: pg.Pool } = {};
 
 const MARKER_COLUMNS = {
   session_id: { codecId: "pg/text@1", nullable: true },
@@ -63,8 +62,8 @@ const CONFLICT_TRIGGER_SQL = `CREATE TRIGGER session_adoption_conflict BEFORE IN
   FOR EACH ROW EXECUTE FUNCTION session_adoption_conflict()`;
 
 before(async () => {
-  postgres = resources.postgres = await startTestPostgres({ database: "native_adoption", budget: AGENT_DB_SETUP_BUDGET });
-  const contract = resources.contract = await startContractDatabase(postgres, "native_adoption");
+  const cluster = await startTestPostgresCluster({ budget: AGENT_DB_SETUP_BUDGET });
+  const contract = resources.contract = await startContractDatabase(cluster, "native_adoption");
   contractDsn = contract.dsn;
   db = resources.db = nativeClient(contractDsn);
   pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
@@ -83,18 +82,8 @@ beforeEach(async () => {
 
 after(async () => {
   try { await Promise.all([resources.db?.close(), resources.pool?.end()]); }
-  finally { await stopResources(); }
+  finally { await resources.contract?.stop(); }
 });
-
-/** Order matters: the contract database is dropped through the shared server the `TestPostgres`
- * owns, so its `stop()` — which drops that server's own database — comes second. */
-async function stopResources(): Promise<void> {
-  try {
-    await resources.contract?.stop();
-  } finally {
-    await postgres?.stop();
-  }
-}
 
 async function clearTables(): Promise<void> {
   await db.runtime().execute(db.raw.sql`DELETE FROM turn_reservations`.affectedCount().build());
