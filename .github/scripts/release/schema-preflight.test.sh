@@ -79,9 +79,19 @@ run "a 422 refusal fails at once" 1 STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=422 STUB_
 expect_eq "without asking a second time" 1 "$(preflight_calls)"
 expect_log "and the log names the refusal" 1 \
   "::error::migration preflight refused or unavailable (HTTP 422): atlas_leftovers_present"
+# #1781: the rebuild step before this one decides whether the ledger goes, and its log says why
+# it did not; the operator reading this refusal is sent there.
+expect_log "and points at the staging rebuild's own account" 1 \
+  "::notice::atlas_leftovers_present: on staging, the step before this one (infra/database-access/reset-staging-baseline.sh) logs why it left the Atlas chain in place"
 run "a refusal that is not a stable code is not echoed" 1 STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=422 \
   "STUB_REFUSAL=postgresql://user:pw@host/db"
 expect_log "and the log carries the status alone" 1 "::error::migration preflight refused or unavailable (HTTP 422)"
 expect_log "and none of the body" 0 "pw@host"
+expect_log "and no pointer at the rebuild" 0 "reset-staging-baseline.sh"
+PREFLIGHT_ENVIRONMENT=production run "production's refusal names itself too" 1 \
+  STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=422 STUB_REFUSAL=atlas_leftovers_present
+expect_log "and the log names the refusal" 1 \
+  "::error::migration preflight refused or unavailable (HTTP 422): atlas_leftovers_present"
+expect_log "but points at no rebuild, which production does not have" 0 "reset-staging-baseline.sh"
 echo
 report_suite "schema-preflight retry"

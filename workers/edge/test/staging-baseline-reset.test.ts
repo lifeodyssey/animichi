@@ -29,15 +29,20 @@ void test("staging reset is branch-backed and production-safe", () => {
 // mid-script failure could leave the schema dropped but not yet recreated/granted.
 void test("the reset SQL runs as a single transaction", () => {
   const sh = read("infra/database-access/reset-staging-baseline.sh");
-  assert.match(sh, /staging_psql "\$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -f "\$RESET_SQL"/);
+  assert.match(sh, /staging_psql "\$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema="\$DROP_MARKER_SCHEMA" -f "\$RESET_SQL"/);
 });
 
-void test("reset SQL has one exact destructive target", () => {
+// #1781: the marker schema is a second target, only when the owner's record names its marker, and
+// only its three tables by name: without CASCADE, anything else there rolls the reset back.
+void test("reset SQL drops public, and prisma_contract only when told to", () => {
   const sql = read("infra/database-access/reset-staging-baseline.sql");
+  assert.match(sql, /^\\if :drop_marker_schema\nDROP TABLE prisma_contract\.marker, prisma_contract\.ledger, prisma_contract\.contract;\nDROP SCHEMA prisma_contract;\n\\endif\n/);
   assert.match(sql, /DROP SCHEMA IF EXISTS public CASCADE/);
   assert.match(sql, /CREATE SCHEMA public/);
   assert.match(sql, /GRANT USAGE, CREATE ON SCHEMA public TO migrator/);
-  assert.doesNotMatch(sql, /DROP DATABASE|DROP ROLE|production/i);
+  assert.deepEqual(sql.match(/DROP \w+/g), ["DROP TABLE", "DROP SCHEMA", "DROP SCHEMA"]);
+  assert.deepEqual(sql.match(/CASCADE/g), ["CASCADE"]);
+  assert.doesNotMatch(sql, /neon_auth|production/i);
 });
 
 // Owner decision 2026-08-27 (reverses #539 for STAGING ONLY): the CD smoke
@@ -111,7 +116,7 @@ void test("the failure message survives a body larger than the pipe buffer", () 
 // audit §2.6: a failed `staging_psql` call (connection/permission failure) produced the
 // same empty stdout as a successful query answering "false" — both fell through
 // `grep -qx t` to "not applied" and triggered `DROP SCHEMA CASCADE`. These run the shipped
-// `query`/`query_bool`/`marker_schema_exists`/`baseline_applied` functions with a stub `staging_psql`
+// `query`/`query_bool`/`marker_schema_exists`/`app_marker_present` functions with a stub `staging_psql`
 // standing in for the real connection, so "cannot confirm" and "confirmed unapplied" are
 // proven to take different paths rather than just asserting the source text says so.
 const resetShellFunction = (name: string): string => {
@@ -126,7 +131,7 @@ const shippedBaselineCheck = [
   resetShellFunction("query"),
   resetShellFunction("query_bool"),
   resetShellFunction("marker_schema_exists"),
-  resetShellFunction("baseline_applied"),
+  resetShellFunction("app_marker_present"),
 ].join("\n");
 
 const runBaselineApplied = (stagingPsqlBody: string): { status: number | null; stdout: string } => {
@@ -139,7 +144,7 @@ staging_psql() {
 ${stagingPsqlBody}
 }
 ${shippedBaselineCheck}
-if baseline_applied; then echo "ALREADY_APPLIED"; else echo "NOT_APPLIED"; fi`;
+if app_marker_present; then echo "ALREADY_APPLIED"; else echo "NOT_APPLIED"; fi`;
   const result = spawnSync("bash", ["-c", source], { encoding: "utf8" });
   return { status: result.status, stdout: result.stdout };
 };
@@ -151,7 +156,7 @@ void test("a psql connection failure refuses the reset instead of treating it as
   assert.doesNotMatch(result.stdout, /NOT_APPLIED|ALREADY_APPLIED/);
 });
 
-// `baseline_applied` calls `staging_psql` twice — once through `marker_schema_exists` (does the
+// `app_marker_present` calls `staging_psql` twice — once through `marker_schema_exists` (does the
 // marker schema exist), once for the marker row (has this chain been applied). A
 // call-counter file lets the stub answer each call differently.
 const runBaselineAppliedTwoCalls = (
