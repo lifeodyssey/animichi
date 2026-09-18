@@ -118,8 +118,8 @@ void test("a bucket read that fails is a retryable 503, not an origin fallback",
 void test("a path outside the reserved namespace still proxies to the image origin", async (t) => {
   const requested: string[] = [];
   const response = await withCacheDouble(noHitCache(() => Promise.resolve()), () =>
-    withRecordingOrigin(t, requested, () => edgeAppRequest("/img/image/1234/point-1.jpg", {})));
+    withRecordingOrigin(t, requested, () => edgeAppRequest("/img/image/1234/point-1.jpg?plan=h160", {})));
   assert.equal(response.status, 200);
   assert.equal(await response.text(), "jpeg-bytes");
-  assert.deepEqual(requested, ["https://image.anitabi.cn/image/1234/point-1.jpg"]);
+  assert.deepEqual(requested, ["https://image.anitabi.cn/image/1234/point-1.jpg?plan=h160"]);
 });

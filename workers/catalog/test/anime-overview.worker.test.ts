@@ -18,6 +18,8 @@ interface FixtureRow {
   latitude: number;
   longitude: number;
   city: string | null;
+  origin?: string | null;
+  origin_url?: string | null;
 }
 
 function row(id: string, lat: number, lng: number, city: string | null, image: string | null = null): FixtureRow {
@@ -64,6 +66,18 @@ describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
     ]);
     const [top] = result.scenes;
     expect(top).toMatchObject({ name: "K1", screenshot_url: "https://img/k1.jpg", city: "Kamakura" });
+  });
+
+  it("carries the representative point's origin onto the scene", async () => {
+    const rows = [
+      { ...KAMAKURA_A, origin: "バンダイチャンネル", origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1" },
+      KAMAKURA_B,
+    ];
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "100" });
+    expect(result.scenes[0]).toMatchObject({
+      origin: "バンダイチャンネル",
+      origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+    });
   });
 
   it("suggests per-region sample routes ordered by spot count", async () => {

@@ -44,6 +44,7 @@ import { describe, expect, it } from "vitest";
 const WORKER_READ_MODULES = [
   "src/agent-paths.ts",
   "src/agent-tool-schemas.ts",
+  "src/anitabi-display.ts",
   "src/constants.ts",
   "src/identity-policy.ts",
   "src/internal-binding.ts",

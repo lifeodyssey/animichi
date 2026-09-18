@@ -1,4 +1,6 @@
 import type { AnimeScene } from "@animichi/contract";
+import { ANITABI_THUMBNAIL_PLAN } from "@animichi/contract/anitabi-display";
+import { LandmarkShot } from "../../lib/landmark-shot";
 import { SectionHead } from "./SectionHead";
 import type { AnimeCopy } from "./copy";
 
@@ -17,14 +19,15 @@ function SceneShotPlaceholder({ scene }: Readonly<{ scene: AnimeScene }>) {
   return <div role="img" aria-label={scene.name} className="anime-scene__shot" />;
 }
 
-function SceneImage({ url, name }: Readonly<{ url: string; name: string }>) {
-  return <img src={url} alt={name} loading="lazy" className="anime-scene__shot" />;
-}
-
 function SceneShot({ scene }: Readonly<{ scene: AnimeScene }>) {
   const url = scene.screenshot_url;
   if (!hasRenderableShot(url)) return <SceneShotPlaceholder scene={scene} />;
-  return <SceneImage url={url} name={scene.name} />;
+  return (
+    <LandmarkShot
+      image={{ src: url, alt: scene.name, plan: ANITABI_THUMBNAIL_PLAN, className: "anime-scene__shot" }}
+      credit={{ origin: scene.origin, originUrl: scene.origin_url }}
+    />
+  );
 }
 
 function sceneMeta(scene: AnimeScene, copy: AnimeCopy): string {

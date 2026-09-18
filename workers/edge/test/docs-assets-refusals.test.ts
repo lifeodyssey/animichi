@@ -72,8 +72,8 @@ void test("a two-level encoded climb is resolved before the Worker and never rea
   const requested: string[] = [];
   const response = await withCacheDouble(noHitCache(() => Promise.resolve()), () =>
     withRecordingOrigin(t, requested, () =>
-      edgeAppRequest("/img/docs/archive/%2e%2e/%2e%2e/secret.png", docsAssetBinding(reads))));
+      edgeAppRequest("/img/docs/archive/%2e%2e/%2e%2e/secret.png?plan=h160", docsAssetBinding(reads))));
   assert.equal(response.status, 200);
   assert.deepEqual(reads, []);
-  assert.deepEqual(requested, ["https://image.anitabi.cn/secret.png"]);
+  assert.deepEqual(requested, ["https://image.anitabi.cn/secret.png?plan=h160"]);
 });

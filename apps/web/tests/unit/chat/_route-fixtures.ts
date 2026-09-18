@@ -65,7 +65,11 @@ export function parsedPart(raw: unknown): ChatDataPart {
 
 export function ujiPoints(): readonly Record<string, unknown>[] {
   return [
-    routePoint({ id: "a", name: "宇治橋", lat: 34.891, lng: 135.807, screenshot: "/scene-a.webp", episode: 8 }),
+    {
+      ...routePoint({ id: "a", name: "宇治橋", lat: 34.891, lng: 135.807, screenshot: "/scene-a.webp", episode: 8 }),
+      origin: "バンダイチャンネル",
+      origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+    },
     routePoint({ id: "b", name: "京阪宇治駅", lat: 34.911, lng: 135.806 }),
     routePoint({ id: "c", name: "宇治神社", lat: 34.9, lng: 135.81 }),
   ];

@@ -91,7 +91,8 @@ function detailsQuery(ids: string[]): SQL {
     .select({
       id: pointsTable.id, bangumiId: pointsTable.bangumiId, nameCn: pointsTable.nameCn,
       image: pointsTable.image, episode: pointsTable.episode,
-      timeSeconds: pointsTable.timeSeconds, origin: pointsTable.origin, city: pointsTable.city,
+      timeSeconds: pointsTable.timeSeconds, origin: pointsTable.origin,
+      originUrl: pointsTable.originUrl, city: pointsTable.city,
     })
     .from(pointsTable)
     .where(inArray(pointsTable.id, ids))
