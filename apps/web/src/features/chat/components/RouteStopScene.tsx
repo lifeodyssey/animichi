@@ -1,3 +1,4 @@
+import { ShotCredit } from "../../../lib/landmark-shot";
 import type { SpotRow } from "./Cards";
 import type { ChatDict } from "../i18n";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
@@ -23,6 +24,7 @@ export function RouteStopScene({ scene, dict }: Readonly<{ scene?: SpotRow; dict
   return (
     <span className="flex-none [&>.chat-scene-thumb]:h-14! [&>.chat-scene-thumb]:w-[5.5rem]!">
       <SceneThumb src={scene.screenshot_url} alt={scene.name ?? ""} ep={episodeOf(scene)} dict={dict} />
+      <ShotCredit credit={{ origin: scene.origin, originUrl: scene.origin_url }} />
     </span>
   );
 }

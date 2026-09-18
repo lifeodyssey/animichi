@@ -1,8 +1,10 @@
+import { ANITABI_MOBILE_PLAN, withAnitabiImagePlan } from "@animichi/contract/anitabi-display";
 import { Button } from "animal-island-ui-tailwind/button";
 import { useState } from "react";
+import { ShotCredit } from "../../../lib/landmark-shot";
 import type { ChatDict } from "../i18n";
 import type { SceneViewpoint } from "../lib/scene-group";
-import { sceneGroupTitle } from "../lib/scene-group";
+import { sceneCredit, sceneGroupTitle } from "../lib/scene-group";
 import { sceneGroupCopy } from "../scene-group-copy";
 import { ScenePreview } from "./ScenePreview";
 import { SceneIcon } from "./SceneIcon";
@@ -20,10 +22,14 @@ function FrameNavigation({ index, count, onChange, dict }: NavigationProps) {
   </div>;
 }
 
+function PreviewFooter({ viewpoint, ...nav }: NavigationProps & Readonly<{ viewpoint: SceneViewpoint }>) {
+  return <><ShotCredit credit={sceneCredit(viewpoint)} /><FrameNavigation {...nav} /></>;
+}
+
 export function SceneGroupPreview({ viewpoint, placeName, dict, onClose }: Props) {
   const [index, setIndex] = useState(0);
   const frames = viewpoint.frames.filter((frame) => frame.url);
   const frame = frames[index];
   if (!frame?.url) return null;
-  return <ScenePreview src={frame.url} name={sceneGroupTitle(placeName, viewpoint)} caption={frame.caption} closeLabel={dict.search.closePreview} failureMessage={dict.search.sceneUnavailable} onClose={onClose} footer={<FrameNavigation index={index} count={frames.length} onChange={setIndex} dict={dict} />} />;
+  return <ScenePreview src={withAnitabiImagePlan(frame.url, ANITABI_MOBILE_PLAN)} name={sceneGroupTitle(placeName, viewpoint)} caption={frame.caption} closeLabel={dict.search.closePreview} failureMessage={dict.search.sceneUnavailable} onClose={onClose} footer={<PreviewFooter viewpoint={viewpoint} index={index} count={frames.length} onChange={setIndex} dict={dict} />} />;
 }

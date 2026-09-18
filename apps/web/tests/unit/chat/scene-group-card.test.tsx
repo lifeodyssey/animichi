@@ -38,10 +38,10 @@ describe("one choice per scene group", () => {
     preview.focus();
     fireEvent.click(preview);
     const dialog = within(screen.getByRole("dialog", { name: "宇治橋" }));
-    expect(dialog.getByRole("img").getAttribute("src")).toBe("/a.webp");
+    expect(dialog.getByRole("img").getAttribute("src")).toBe("/a.webp?plan=h360");
     expect(dialog.getByRole<HTMLButtonElement>("button", { name: "上一张" }).disabled).toBe(true);
     fireEvent.click(dialog.getByRole("button", { name: "下一张" }));
-    expect(dialog.getByRole("img").getAttribute("src")).toBe("/b.webp");
+    expect(dialog.getByRole("img").getAttribute("src")).toBe("/b.webp?plan=h360");
     expect(dialog.getByRole("status").textContent).toBe("2 / 2");
     expect(dialog.getByRole<HTMLButtonElement>("button", { name: "下一张" }).disabled).toBe(true);
     fireEvent.click(dialog.getByRole("button", { name: "上一张" }));
@@ -50,6 +50,20 @@ describe("one choice per scene group", () => {
     expect(document.activeElement).toBe(preview);
   });
 
+});
+
+describe("scene group screenshot credit", () => {
+  it("pairs origin text and origin_url with the rendered screenshot", () => {
+    render(<Card viewpoint={{
+      ...viewpoint,
+      origin: "バンダイチャンネル",
+      originUrl: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+    }} />);
+    const img = screen.getByRole("img", { name: "宇治橋" });
+    const credit = screen.getByRole("link", { name: "バンダイチャンネル" });
+    expect(img.closest("article")).toBe(credit.closest("article"));
+    expect(credit.getAttribute("href")).toBe("https://www.b-ch.com/ttl/index.php?ttl_c=1");
+  });
 });
 
 describe("scene group information and volume", () => {

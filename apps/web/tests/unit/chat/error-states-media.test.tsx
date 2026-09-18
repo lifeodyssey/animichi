@@ -47,7 +47,7 @@ describe("SceneThumb (D9 scene image 404)", () => {
     fireEvent.error(screen.getByRole("img", { name: "宇治橋" }));
     expect(document.querySelector("img")).toBeNull();
     view.rerender(<SceneThumb src="/scenes/fixed.webp" alt="宇治橋" ep={8} dict={ja} />);
-    expect(document.querySelector("img")?.getAttribute("src")).toBe("/scenes/fixed.webp");
+    expect(document.querySelector("img")?.getAttribute("src")).toBe("/scenes/fixed.webp?plan=h160");
   });
 
   it.each(["", "  "])("does not request an empty image source %j", src => {

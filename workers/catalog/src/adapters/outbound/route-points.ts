@@ -30,6 +30,7 @@ interface PointRow {
   latitude: number;
   longitude: number;
   origin: string | null;
+  origin_url: string | null;
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
@@ -64,7 +65,7 @@ function pointsQuery(ids: string[]): SQL {
       id: points.id, name: points.name, nameCn: points.nameCn,
       bangumiId: points.bangumiId, episode: points.episode, timeSeconds: points.timeSeconds,
       image: points.image, latitude: points.latitude, longitude: points.longitude,
-      origin: points.origin, city: points.city,
+      origin: points.origin, originUrl: points.originUrl, city: points.city,
       title: bangumi.title, titleCn: bangumi.titleCn, coverUrl: bangumi.coverUrl,
     })
     .from(points)
@@ -95,7 +96,7 @@ function scalarBase(r: PointRow): Omit<Point, "latitude" | "longitude"> {
 function scalarOptionals(r: PointRow): Record<string, unknown> {
   return {
     name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
-    origin: r.origin, title: r.title, title_cn: r.title_cn,
+    origin: r.origin, origin_url: r.origin_url, title: r.title, title_cn: r.title_cn,
     cover_url: r.cover_url, city: r.city,
   };
 }

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import { ANITABI_THUMBNAIL_PLAN, ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 import { serveImage, type ImageFetchLike, type ImgDeps } from "../src/media/img";
 import {
   databaseDescribe,
@@ -67,13 +68,19 @@ function getAsset(store: Map<string, { body: ArrayBuffer; contentType: string }>
 }
 
 // Call-counting fetch stub returning bytes (status 200) or a status (404/etc).
-function mockFetch(status: number, bytes: Uint8Array): { fetchImpl: ImageFetchLike; calls: () => number } {
+function mockFetch(status: number, bytes: Uint8Array): {
+  fetchImpl: ImageFetchLike; calls: () => number; urls: string[]; agents: (string | undefined)[];
+} {
   let count = 0;
-  const fetchImpl: ImageFetchLike = () => {
+  const urls: string[] = [];
+  const agents: (string | undefined)[] = [];
+  const fetchImpl: ImageFetchLike = (input, init) => {
     count += 1;
+    urls.push(input);
+    agents.push(init?.headers?.["User-Agent"]);
     return Promise.resolve(fetchResponse(status, bytes));
   };
-  return { fetchImpl, calls: () => count };
+  return { fetchImpl, calls: () => count, urls, agents };
 }
 
 function fetchResponse(status: number, bytes: Uint8Array) {
@@ -96,13 +103,15 @@ databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
   it("first request fetches origin once, stores in R2, writes media_assets, serves bytes", async () => {
     await seedPoint("ok-1", "https://image.anitabi.cn/ok-1.png");
     const { bucket, store } = mockBucket();
-    const { fetchImpl, calls } = mockFetch(200, new Uint8Array([1, 2, 3]));
+    const { fetchImpl, calls, urls, agents } = mockFetch(200, new Uint8Array([1, 2, 3]));
     const deps: ImgDeps = { db, bucket, fetchImpl };
-    const res = await serveImage(deps, "ok-1");
+    const res = await serveImage(deps, "ok-1", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toContain("public");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
     expect(calls()).toBe(1);
+    expect(urls[0]).toBe("https://image.anitabi.cn/ok-1.png?plan=h160");
+    expect(agents[0]).toBe(ANITABI_USER_AGENT);
     expect(store.has("points/ok-1")).toBe(true);
     expect((await assetOf("ok-1"))?.r2_key).toBe("points/ok-1");
   });
@@ -112,8 +121,8 @@ databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
     const { bucket } = mockBucket();
     const { fetchImpl, calls } = mockFetch(200, new Uint8Array([9, 9]));
     const deps: ImgDeps = { db, bucket, fetchImpl };
-    await serveImage(deps, "ok-2");
-    const res = await serveImage(deps, "ok-2");
+    await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
+    const res = await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(200);
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([9, 9]));
     expect(calls()).toBe(1);
@@ -125,7 +134,7 @@ databaseDescribe("serveImage tombstone path", () => {
     await seedPoint("gone-1", "https://image.anitabi.cn/gone-1.png");
     const { bucket, store } = mockBucket();
     const { fetchImpl, calls } = mockFetch(404, new Uint8Array());
-    const res = await serveImage({ db, bucket, fetchImpl }, "gone-1");
+    const res = await serveImage({ db, bucket, fetchImpl }, "gone-1", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
     expect(store.size).toBe(0);
@@ -136,8 +145,8 @@ databaseDescribe("serveImage tombstone path", () => {
     await seedPoint("gone-2", "https://image.anitabi.cn/gone-2.png");
     const { bucket } = mockBucket();
     const { fetchImpl, calls } = mockFetch(404, new Uint8Array());
-    await serveImage({ db, bucket, fetchImpl }, "gone-2");
-    const res = await serveImage({ db, bucket, fetchImpl }, "gone-2");
+    await serveImage({ db, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
+    const res = await serveImage({ db, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
   });

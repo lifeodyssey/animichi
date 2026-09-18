@@ -7,6 +7,7 @@
  */
 
 import { clusterByLocation, type LocationCluster } from "../domain/clustering/cluster";
+import { optional } from "../lib/optional";
 import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleItinerary, AnimeScene } from "../types";
 
 /** A published point row, as read and validated by the outbound adapter. */
@@ -17,6 +18,8 @@ export interface OverviewPointRow {
   latitude: number;
   longitude: number;
   city: string | null;
+  origin: string | null;
+  origin_url: string | null;
 }
 
 /** The two outbound reads the use case depends on. */
@@ -96,10 +99,15 @@ function buildScenes(rows: OverviewPointRow[]): AnimeScene[] {
 function toScene(cluster: LocationCluster<OverviewPointRow>): AnimeScene {
   const rep = representative(cluster);
   const base = sceneBase(rep, cluster.photoCount);
-  return rep.city ? { ...base, city: rep.city } : base;
+  return { ...base, ...optional({ city: namedCity(rep.city), origin: rep.origin, origin_url: rep.origin_url }) };
 }
 
-function sceneBase(rep: OverviewPointRow, shotCount: number): Omit<AnimeScene, "city"> {
+function namedCity(city: string | null): string | null {
+  if (city === null || city === "") return null;
+  return city;
+}
+
+function sceneBase(rep: OverviewPointRow, shotCount: number): Omit<AnimeScene, "city" | "origin" | "origin_url"> {
   return {
     id: rep.id,
     name: rep.name,
