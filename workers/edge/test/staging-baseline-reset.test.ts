@@ -116,9 +116,10 @@ void test("the failure message survives a body larger than the pipe buffer", () 
 // audit §2.6: a failed `staging_psql` call (connection/permission failure) produced the
 // same empty stdout as a successful query answering "false" — both fell through
 // `grep -qx t` to "not applied" and triggered `DROP SCHEMA CASCADE`. These run the shipped
-// `query`/`query_bool`/`marker_schema_exists`/`app_marker_present` functions with a stub `staging_psql`
-// standing in for the real connection, so "cannot confirm" and "confirmed unapplied" are
-// proven to take different paths rather than just asserting the source text says so.
+// `query`/`fail_unconfirmed`/`query_bool`/`marker_schema_exists`/`app_marker_present` functions
+// with a stub `staging_psql` standing in for the real connection, so "cannot confirm" and
+// "confirmed unapplied" are proven to take different paths rather than just asserting the source
+// text says so.
 const resetShellFunction = (name: string): string => {
   const lines = read("infra/database-access/reset-staging-baseline.sh").split("\n");
   const at = lines.findIndex((line) => line.startsWith(`${name}() {`));
@@ -129,6 +130,7 @@ const resetShellFunction = (name: string): string => {
 
 const shippedBaselineCheck = [
   resetShellFunction("query"),
+  resetShellFunction("fail_unconfirmed"),
   resetShellFunction("query_bool"),
   resetShellFunction("marker_schema_exists"),
   resetShellFunction("app_marker_present"),

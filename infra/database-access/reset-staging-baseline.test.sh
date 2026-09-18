@@ -67,6 +67,10 @@ if [ "$1" = psql ]; then
   while [ "$1" != "--" ]; do [ "$prev" != "--role-name" ] || role="$1"; prev="$1"; shift; done
   shift
   case " $* " in *" -f "*) echo "psql $role -f" ;; *) echo "psql $role" ;; esac >> "${CALL_LOG:?}"
+  # neonctl announces every psql connection on stderr (#1793) — "INFO: Connecting to the
+  # database using psql..." — and the reset script's reads swallow stderr, so the rehearsal
+  # reads back the real shape: diagnostic ahead of the rows, on every call.
+  printf 'INFO: Connecting to the database using psql...\n' >&2
   PGPASSWORD=gate exec psql -h 127.0.0.1 -p "${PORT:?}" -U postgres -d "${CASE_DB:?}" "$@"
 fi
 echo "branches $2" >> "${CALL_LOG:?}"
@@ -192,6 +196,7 @@ expect "the committed record names one app marker" "prisma_contract.marker space
 
 new_case "the marker the record names, beside the Atlas ledger" "$(recorded_marker '0') $ATLAS $APPROVED"
 run_script 0
+expect "and neonctl's connection diagnostic rode along, unread as data" yes "$(said "INFO: Connecting to the database using psql...")"
 expect "and it quotes the record it acted on" yes "$(said "stale marker approved by $ROOT/infra/database-access/reset-staging-baseline.approved-marker: $RECORDED")"
 expect "and it records the ledger it will drop" yes "$(said "pre-state: prisma_contract.ledger 2 rows")"
 expect "and the contract it will drop" yes "$(said "pre-state: prisma_contract.contract 1 rows")"

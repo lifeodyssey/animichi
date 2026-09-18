@@ -78,15 +78,44 @@ staging_psql() {
 # empty stdout as a successful query answering "false" — both fell through `grep -qx t` to
 # "not applied" and triggered `DROP SCHEMA CASCADE`. Capture staging_psql's own exit status
 # so "cannot confirm" (fail closed, refuse the reset) is distinguishable from "confirmed
-# unapplied" (the query itself ran and returned f). The answer lands in ROWS rather than on
-# stdout: read through a command substitution, `fail` would end only that subshell.
+# unapplied" (the query itself ran and returned f; psql exits 1 on a failed -c statement and
+# 2 on a dead connection, and neonctl propagates both). The answer lands in ROWS rather than
+# on stdout: read through a command substitution, `fail` would end only that subshell. Only
+# stdout lands there (#1793): neonctl announces every connection on stderr ("INFO: Connecting
+# to the database using psql..."), and folded into ROWS it rode beside every row — the marker
+# approval then compared the connection log against the owner's record and could never match,
+# and the business-rows read took the diagnostic for an unapproved table. Stderr is quoted
+# into the failure message, so "cannot confirm" still says why.
+# The file outlives neither ending of a read (#1796): `fail` ends the script, and a relay that
+# cannot reach stderr is a status `set -e` acts on, so a removal on the last line alone is
+# skipped by both — and CD runs this on every deploy, where a state that refuses every run
+# would leave one file per deploy. Each ending therefore takes the file with it: the refusal
+# by `fail_unconfirmed`, the relay by its own removal, and the relay's status is what `query`
+# returns so that a broken stderr still fails the run rather than passing silently.
 ROWS=""
 query() {
-  ROWS="$(staging_psql "$OWNER_ROLE" -tAc "$1" 2>&1)" || fail "cannot confirm staging state: $ROWS"
+  local out err rc=0 relay=0
+  err="$(mktemp)"
+  out="$(staging_psql "$OWNER_ROLE" -tAc "$1" 2>"$err")" || rc=$?
+  ROWS="$out"
+  [[ "$rc" -eq 0 ]] || fail_unconfirmed "$err" "$out"
+  cat "$err" >&2 || relay=$?
+  rm -f "$err"
+  return "$relay"
 }
 
-# Success-path match stays line-based (`grep -qx`): stderr is folded into ROWS for the
-# failure message above, so an incidental psql NOTICE must not defeat a real `t`.
+# What a read that could not be answered refuses with, and the file the read was written to:
+# `fail` exits the script, so the file is read for the reason and removed here — `query`'s own
+# last line is never reached on this path.
+fail_unconfirmed() {
+  local diagnostic="$1" partial="$2" why
+  why="$(cat "$diagnostic")"
+  rm -f "$diagnostic"
+  fail "cannot confirm staging state: $why$partial"
+}
+
+# Matches stay line-based (`grep -qx`): what `query` relays to stderr — neonctl's connection
+# notice, a psql NOTICE — never enters ROWS, so it cannot defeat a real `t`.
 query_bool() {
   query "$1"
   grep -qx t <<<"$ROWS"

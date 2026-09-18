@@ -61,9 +61,26 @@ query() { ROWS="${tables.join("\n")}"; }
 refuse_business_rows
 echo PROCEEDS`);
 
+// Through the shipped `query` and the shape neonctl actually emits (#1793): the connection
+// diagnostic reaches the read on stderr, ahead of the table names.
+const businessRowsLive = (tables: readonly string[], record = ""): Outcome => sourcedResetScript(`
+${record && `APPROVED_ROWS="${record}"`}
+staging_psql() {
+  printf 'INFO: Connecting to the database using psql...\\n' >&2
+  printf '%s\\n' ${tables.map((table) => `"${table}"`).join(" ")}
+}
+refuse_business_rows
+echo PROCEEDS`);
+
 void test("rows only in the tables the committed record approves proceed", () => {
   const outcome = businessRows(STAGING_2026_09_18);
   assert.equal(outcome.stderr, "");
+  assert.equal(outcome.stdout, "PROCEEDS\n");
+});
+
+void test("the connection diagnostic is not mistaken for a table holding rows", () => {
+  const outcome = businessRowsLive(STAGING_2026_09_18);
+  assert.equal(outcome.stderr, "INFO: Connecting to the database using psql...\n");
   assert.equal(outcome.stdout, "PROCEEDS\n");
 });
 
