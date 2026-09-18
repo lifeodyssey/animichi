@@ -19,6 +19,9 @@ import {
   withRetry,
   type RetryOptions,
 } from "./retry";
+import { statusFailure, UpstreamFetchError, UpstreamNotFoundError, type UpstreamName } from "./upstream-failures";
+
+export { UpstreamFetchError, UpstreamNotFoundError, UpstreamRefusedError, type UpstreamName } from "./upstream-failures";
 
 /** Minimal fetch surface we depend on; satisfied by the global `fetch`. */
 export type FetchLike = (
@@ -39,9 +42,6 @@ export interface SourceConfig {
 export interface BangumiSearchConfig extends SourceConfig {
   limit?: number;
 }
-
-/** Upstream identity retained on transport failures for typed boundary mapping. */
-export type UpstreamName = "anitabi" | "bangumi";
 
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
 export const BANGUMI_BASE = "https://api.bgm.tv";
@@ -70,24 +70,6 @@ export interface AnitabiLite {
 
 const BANGUMI_ID_RE = /^\d+$/;
 export const BANGUMI_FETCH_N = 8;
-
-/** A 404 from an upstream source: the resource has no data, NOT a transient
- * outage. Callers that treat "no data" as an empty result catch THIS
- * specifically; every other failure stays a generic (retryable) error. */
-export class UpstreamNotFoundError extends Error {
-  constructor(readonly url: string) {
-    super(`Upstream resource not found (404): ${url}`);
-    this.name = "UpstreamNotFoundError";
-  }
-}
-
-/** A transport or non-2xx failure distinct from a real upstream 404. */
-export class UpstreamFetchError extends Error {
-  constructor(readonly url: string, readonly upstream: UpstreamName, cause?: unknown) {
-    super(`Upstream fetch failed: ${url}`, { cause });
-    this.name = "UpstreamFetchError";
-  }
-}
 
 /** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
 function assertBangumiId(bangumiId: string): void {
@@ -209,7 +191,7 @@ function searchLimit(limit: number): number {
 export async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
   const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
-  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
+  if (!res.ok) throw statusFailure(url, res.status, upstream);
   return decodeJson(res, url, upstream);
 }
 
@@ -217,7 +199,7 @@ export async function fetchJson(url: string, upstream: UpstreamName, cfg: Source
 async function postJson(url: string, body: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
   const res = await fetchWithRetry(url, upstream, cfg, { method: "POST", headers, body });
-  if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
+  if (!res.ok) throw statusFailure(url, res.status, upstream);
   return decodeJson(res, url, upstream);
 }
 

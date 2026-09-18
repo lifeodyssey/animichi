@@ -46,6 +46,7 @@ function makeStore(rec: Recorder): IngestStore {
       rec.failed.push({ bangumiId: id, errorCode: opts.errorCode, ttlSeconds: opts.ttlSeconds });
       return Promise.resolve();
     },
+    hasLiveRefusal: () => Promise.resolve(false),
     saveRawBangumi: (id) => mark(rec, `save:bangumi:${id}`),
     saveRawAnitabi: (id) => mark(rec, `save:anitabi:${id}`),
   };
@@ -149,7 +150,7 @@ describe("IngestBangumi negative cache", () => {
     await expect(ingest.ingest("10380")).rejects.toMatchObject({
       code: "UPSTREAM_UNAVAILABLE", defined: true, status: 502, data: { upstream: "anitabi" },
     });
-    expect(rec.failed[0]?.errorCode).toBe("ingest_error");
+    expect(rec.failed[0]?.errorCode).toBe("upstream_fault");
   });
 });
 
