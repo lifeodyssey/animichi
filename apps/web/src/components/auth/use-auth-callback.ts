@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { replayDeferredSave } from "../../features/chat/save/complete-deferred-save";
 import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
 import { establishAuthSession } from "../../lib/auth/auth-session";
@@ -89,14 +89,21 @@ function failedLogin(error: unknown): RedeemResult {
 type SetAdoption = (adoption: AdoptionState) => void;
 type SetErrorMessage = (message: string | undefined) => void;
 
+/** A mount's live flag, read when a retry settles — not when it starts. */
+interface MountedRef { readonly current: boolean }
+
 /** `failed`/`nothing-adopted` are the reportable anomalies; a landed or
  * dismissed notice is history, not news (#507 review P1-3). */
 function isAnomaly(adoption: AdoptionState): adoption is AdoptionAnomaly {
   return adoption === "failed" || adoption === "nothing-adopted";
 }
 
-/** Reports the anomaly beside writing it to the screen it belongs to. */
-function surfaceAdoption(adoption: AdoptionState, setAdoption: SetAdoption): void {
+/** Surfaces an adoption — the anomaly report beside the state write — but only
+ * while its screen is still mounted: past unmount, both are moot (#1765). */
+function surfaceAdoptionIfActive(
+  adoption: AdoptionState, isActive: boolean, setAdoption: SetAdoption,
+): void {
+  if (!isActive) return;
   if (isAnomaly(adoption)) reportAdoptionAnomaly(adoption);
   setAdoption(adoption);
 }
@@ -106,8 +113,7 @@ function applyRedeem(
   setState: SetState, setAdoption: SetAdoption, setError: SetErrorMessage,
 ): void {
   if (!isActive) return;
-  if (isAnomaly(r.adoption)) reportAdoptionAnomaly(r.adoption);
-  setAdoption(r.adoption);
+  surfaceAdoptionIfActive(r.adoption, isActive, setAdoption);
   setState(r.state);
   setError(r.errorMessage);
 }
@@ -208,21 +214,33 @@ async function retriedAdoption(c: Collaborators): Promise<AdoptionState> {
   return runAdoption(c.adopt, token, c.expectsAdoption, visitTimeline);
 }
 
+/** Live while mounted; re-set inside the effect so a StrictMode remount
+ * recovers from its own simulated cleanup. */
+function useMountedRef(): MountedRef {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  return mounted;
+}
+
 /** Completes the retry: report, safety catch, then the state write. A retry is
- * always user-initiated on a live screen, so its anomaly surfaces here; the
- * initial redeem reports through `applyRedeem` instead (#1760). Extracted so
+ * user-initiated on a live screen but can settle on a gone one, so it surfaces
+ * through the same gate as the initial redeem (#1760, #1765). Extracted so
  * `useRetryAdoption`'s callback body stays within the two-level limit. */
-function settleRetry(attempt: Promise<AdoptionState>, setAdoption: SetAdoption): void {
+function settleRetry(attempt: Promise<AdoptionState>, alive: MountedRef, setAdoption: SetAdoption): void {
   void attempt
     .catch((): AdoptionState => "failed")
-    .then((adoption) => { surfaceAdoption(adoption, setAdoption); });
+    .then((adoption) => { surfaceAdoptionIfActive(adoption, alive.current, setAdoption); });
 }
 
 function useRetryAdoption(c: Collaborators, setAdoption: SetAdoption): () => void {
+  const alive = useMountedRef();
   const { establish, adopt, replay, expectsAdoption } = c;
   return useCallback(() => {
-    settleRetry(retriedAdoption({ establish, adopt, replay, expectsAdoption }), setAdoption);
-  }, [establish, adopt, replay, expectsAdoption, setAdoption]);
+    settleRetry(retriedAdoption({ establish, adopt, replay, expectsAdoption }), alive, setAdoption);
+  }, [establish, adopt, replay, expectsAdoption, alive, setAdoption]);
 }
 
 /** The save surface wins while it is showing: it is the thing the visitor

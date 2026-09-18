@@ -67,3 +67,32 @@ describe("useAuthCallback one visit = one redeem (#1760)", () => {
     expect(second.result.current.adoption).toBeUndefined();
   });
 });
+
+describe("useAuthCallback retry settling after unmount (#1765)", () => {
+  it("silences a retry that settles after the visitor has moved on", async () => {
+    // The retry is user-initiated on a live screen but can land on a dead one:
+    // the visitor gives up on a slow claim and navigates away, then the held
+    // attempt settles. Like the initial redeem (#1760), it must stay silent —
+    // no anomaly report with nobody home, no write into the gone mount.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let releaseRetry!: (outcome: SessionAdoptionOutcome) => void;
+    const heldRetry = (): Promise<SessionAdoptionOutcome> =>
+      new Promise((resolve) => { releaseRetry = resolve; });
+    const adopt = vi.fn(failedAdoption);
+    const view = renderHook(() => useAuthCallback(token, noReplay, adopt, true));
+    await waitFor(() => { expect(view.result.current.state).toBe("adoption-failed"); });
+    adopt.mockImplementation(heldRetry);
+    act(() => { view.result.current.retryAdoption(); });
+    await waitFor(() => { expect(adopt).toHaveBeenCalledTimes(2); });
+    view.unmount();
+    act(() => { releaseRetry("nothing"); });
+    // The settled retry is pure microtasks; one timer-loop pass drains them
+    // without firing the 4s adopt timeout. No real clock involved.
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(0);
+    vi.useRealTimers();
+    expect(warn).not.toHaveBeenCalledWith(
+      JSON.stringify({ event: "auth_session_adoption", anomaly: "nothing-adopted" }),
+    );
+  });
+});
