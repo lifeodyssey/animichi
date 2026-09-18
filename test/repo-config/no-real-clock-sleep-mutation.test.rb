@@ -2,9 +2,10 @@
 #
 # The contract asserts the absence of something, which is exactly the shape of
 # guard that survives a rewrite by passing. Every probe points the contract's
-# TEST_REPOSITORY_ROOT at a throwaway tree, injects one stated delay into a
-# probe test, and requires the contract to refuse it (the committed files are
-# never written to). A guard that cannot fail is not evidence (#1770).
+# TEST_REPOSITORY_ROOT at a throwaway tree, injects one probe line that
+# states a delay into a test, and requires the contract to refuse it by name
+# (the committed files are never written to). A guard that cannot fail is not
+# evidence (#1770).
 require "minitest/autorun"
 require "open3"
 require "tmpdir"
@@ -21,8 +22,13 @@ class NoRealClockSleepMutationTest < Minitest::Test
   MUTATIONS = {
     "a whole-second shell sleep" => ["sleep #{15}", ".github/test"],
     "a fractional sleep" => ["sleep #{0.5}", ".github/test"],
-    "a Kernel.sleep with a literal" => ["Kernel.sleep #{2}", ".github/test"],
+    "a leading-dot fractional sleep" => ["sleep #{'.5'}", ".github/test"],
+    "a parenthesised leading-dot sleep" => ["sleep(#{'.5'})", ".github/test"],
+    "a parenthesised sleep" => ["sleep(#{15})", ".github/test"],
+    "a receiver-qualified Kernel.sleep without parens" => ["Kernel.sleep #{2}", ".github/test"],
+    "a receiver-qualified Kernel.sleep with parens" => ["Kernel.sleep(#{2})", ".github/test"],
     "a sleep inside a generated stub" => ["  'containers info') sleep #{3} ;;", ".github/test"],
+    "two calls on one line, the first zero" => ["sleep #{0}; sleep #{5}", ".github/test"],
     "the same delay in the repo-config tree" => ["sleep #{9}", "test/repo-config"]
   }.freeze
 
@@ -31,6 +37,7 @@ class NoRealClockSleepMutationTest < Minitest::Test
       run_contract_with_probe(line, label, tree) do |status, output|
         refute status.success?, "mutation survived: #{label}"
         assert_includes output, CONSEQUENCE, "mutation must name its consequence: #{label}"
+        assert_includes output, line.strip, "mutation must be named in the refusal: #{label}"
       end
     end
   end
