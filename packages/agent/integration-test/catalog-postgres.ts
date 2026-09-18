@@ -9,9 +9,9 @@ import {
   createCleanDatabase,
   dropCleanDatabase,
   SPIKE_SETUP_BUDGET,
-  startTestPostgres,
+  startTestPostgresCluster,
   uniqueDatabaseName,
-  type TestPostgres,
+  type TestPostgresCluster,
 } from "@animichi/test-postgres";
 
 // Published multi-platform packaging of upstream Neon Proxy release-proxy-8853.
@@ -25,21 +25,19 @@ const execute = promisify(execFile);
 // worker's schema declares `points.embedding`. The data plane the Prisma chain builds makes the
 // coordinates GENERATED and deliberately omits `embedding`, so this lane keeps a database of its
 // OWN — from pristine `template1`, with the frozen fixture `@animichi/test-postgres` keeps for
-// exactly these two lanes — instead of reading the one `startTestPostgres` migrates (one chain per
-// database). The plane is still what this fixture boots: it owns the container and the five
-// service roles.
+// exactly these two lanes. It asks for the cluster alone (#1783): the server, its admin database
+// and the five service roles, with no Prisma-migrated database beside this one that nothing reads.
 //
 // This is the same isolation answer as the catalog suite's (`workers/catalog/test/integration-db-global.ts`)
 // and the same debt: #1628–#1631 move that query layer onto Prisma and delete this branch with it.
-const PLANE_DATABASE = "native_catalog_tools";
 const LEGACY_DATABASE = "native_catalog_tools_legacy";
 
 export async function catalogPostgres(context: TestContext) {
-  const plane = await startTestPostgres({ database: PLANE_DATABASE, budget: SPIKE_SETUP_BUDGET });
+  const cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
   const name = uniqueDatabaseName(LEGACY_DATABASE);
   try {
-    const dsn = await openLegacyDatabase(plane, name);
-    context.after(() => release(plane, name));
+    const dsn = await openLegacyDatabase(cluster, name);
+    context.after(() => dropCleanDatabase(cluster.adminDsn, name));
     const proxy = await startProxy(dsn);
     context.after(() => proxy.stop().then(() => undefined));
     const endpoint = `http://${proxy.getHost()}:${String(proxy.getMappedPort(4444))}/sql`;
@@ -48,28 +46,25 @@ export async function catalogPostgres(context: TestContext) {
     context.after(() => { neonConfig.fetchEndpoint = previous; });
     return { connectionString: connection.href, endpoint, sql: neon(connection.href) };
   } catch (failure) {
-    await release(plane, name);
+    await dropWithoutMaskingFailure(cluster, name);
     throw failure;
   }
 }
 
 /** This lane's database: pristine `template1`, then the frozen Drizzle-era shape. */
-async function openLegacyDatabase(plane: TestPostgres, name: string): Promise<string> {
-  const dsn = await createCleanDatabase(plane.dsn, name);
+async function openLegacyDatabase(cluster: TestPostgresCluster, name: string): Promise<string> {
+  const dsn = await createCleanDatabase(cluster.adminDsn, name);
   await applyDrizzleEraCatalog(dsn);
   return dsn;
 }
 
-/** Give both databases back in the order the shared server needs: this lane's own, which is
- * dropped through the plane's database, and then the plane's. A drop that has nothing to drop —
- * the failure above happened before the create — must not replace the failure that caused it. */
-async function release(plane: TestPostgres, name: string): Promise<void> {
+/** A drop that has nothing to drop — the failure above happened before the create — must not
+ * replace the failure that caused it. */
+async function dropWithoutMaskingFailure(cluster: TestPostgresCluster, name: string): Promise<void> {
   try {
-    await dropCleanDatabase(plane.dsn, name);
+    await dropCleanDatabase(cluster.adminDsn, name);
   } catch {
-    // best-effort: the plane's own stop is what must always run
-  } finally {
-    await plane.stop();
+    // best-effort: the failure being propagated is the one that matters
   }
 }
 

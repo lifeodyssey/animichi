@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
-import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres } from "@animichi/test-postgres";
+import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgresCluster } from "@animichi/test-postgres";
 import { issuedToken } from "../migrate.worker.helpers";
 import { requestMetadata, TARGET } from "./prisma-fixture";
 import { buildPrismaWorker } from "./prisma-bundle";
@@ -14,13 +14,13 @@ import { saveEvidence } from "./neon-http-postgres";
 
 let runtime: Awaited<ReturnType<typeof startPrismaWorker>>;
 let token: string;
-const resources: { runtime?: typeof runtime; server?: Awaited<ReturnType<typeof startTestPostgres>>; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
+const resources: { runtime?: typeof runtime; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
 
 beforeAll(async () => {
   const directory = resources.directory = await mkdtemp(join(tmpdir(), "native-migrator-worker-"));
   await buildPrismaWorker(directory);
-  const server = resources.server = await startTestPostgres({ database: "native_delivery_worker", budget: SPIKE_SETUP_BUDGET });
-  const target = resources.target = await openPrismaMigrationTarget(server.dsn, "native_delivery_worker_contract");
+  const cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
+  const target = resources.target = await openPrismaMigrationTarget(cluster.adminDsn, "native_delivery_worker_contract");
   const client = resources.client = new pg.Client(target.dsn);
   await client.connect();
   const dsn = await migratorRole(client, target.dsn);
@@ -32,13 +32,10 @@ beforeAll(async () => {
   await saveEvidence("native-workerd-startup-timing", { readyMs: performance.now() - started });
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 
-/** Order matters: the target is dropped through the plane's own database, so its `stop()` —
- * which drops that database — comes last. */
 afterAll(async () => {
   await resources.runtime?.close();
   await resources.client?.end();
   await resources.target?.stop();
-  await resources.server?.stop();
   await rm(resources.directory ?? "/nonexistent-native-worker-test", { recursive: true, force: true });
 });
 

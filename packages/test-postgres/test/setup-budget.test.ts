@@ -8,7 +8,8 @@
  * Pinning the values here is only half of it: the other
  * half is that the deadline is derived, never re-written — #1318's arm file
  * used to do the deriving, and since the native rewrite (#1582) retired that
- * arm, `startTestPostgres` derives from whatever budget the caller hands it.
+ * arm, both entry points — `startTestPostgresCluster` and `startTestPostgres` —
+ * derive from whatever budget the caller hands them.
  *
  * The fixture set is enumerated from the lane directories, never pinned to a
  * count: a number here is a tripwire that fires in this package whenever
@@ -62,14 +63,17 @@ void test("the agent-db arm still publishes a 240s deadline inside a 300s hook",
   assert.equal(hookTimeoutMs(AGENT_DB_SETUP_BUDGET), 300_000);
 });
 
-void test("startTestPostgres derives the deadline from the budget it is given", () => {
-  const source = read("packages/test-postgres/src/test-postgres.ts");
-  assert.match(source, /new SetupDeadline\(request\.budget\)/);
-  assert.match(source, /withStartupTimeout\(deadline\.remainingMs\(\)\)/);
-  assert.doesNotMatch(source, /= 240_000|= 300_000/);
+void test("both entry points derive the deadline from the budget they are given", () => {
+  const cluster = read("packages/test-postgres/src/test-postgres-cluster.ts");
+  const migrated = read("packages/test-postgres/src/test-postgres.ts");
+  for (const source of [cluster, migrated]) {
+    assert.match(source, /new SetupDeadline\(request\.budget\)/);
+    assert.doesNotMatch(source, /= 240_000|= 300_000/);
+  }
+  assert.match(cluster, /withStartupTimeout\(deadline\.remainingMs\(\)\)/);
 });
 
-void test("every edge lane fixture hands the shared budget to startTestPostgres", () => {
+void test("every edge lane fixture hands the shared budget to the shared recipe", () => {
   const fixtures = edgePostgresFixtures();
   assert.ok(fixtures.length > 0, `no startTestPostgres fixture found under ${EDGE_DIR}`);
   for (const fixture of fixtures) {

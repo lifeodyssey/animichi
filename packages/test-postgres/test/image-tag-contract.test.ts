@@ -55,6 +55,8 @@ function edgePostgresFixtures(): string[] {
 const IMAGE_LITERAL = /animichi-test-postgres:/;
 /** The only expression that may name an image to testcontainers. */
 const CONTAINER_CONSTRUCTION = /new GenericContainer\(/;
+/** Either entry point of the shared recipe: the cluster alone, or a migrated database on it. */
+const SHARED_RECIPE_CALL = /startTestPostgres(?:Cluster)?\(/;
 
 /** Resolve the tag the way bash does: source the declaration, print the value. */
 function shellResolvedImage(): string {
@@ -80,7 +82,7 @@ void test("the catalog integration fixture names no image and boots no container
   const fixture = read(CATALOG_FIXTURE);
   assert.doesNotMatch(fixture, IMAGE_LITERAL);
   assert.doesNotMatch(fixture, CONTAINER_CONSTRUCTION);
-  assert.match(fixture, /startTestPostgres\(/);
+  assert.match(fixture, SHARED_RECIPE_CALL);
 });
 
 void test("every edge lane fixture names no image and boots no container of its own", () => {
@@ -90,6 +92,6 @@ void test("every edge lane fixture names no image and boots no container of its 
     const source = read(fixture);
     assert.doesNotMatch(source, IMAGE_LITERAL, fixture);
     assert.doesNotMatch(source, CONTAINER_CONSTRUCTION, fixture);
-    assert.match(source, /startTestPostgres\(/, fixture);
+    assert.match(source, SHARED_RECIPE_CALL, fixture);
   }
 });

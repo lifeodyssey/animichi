@@ -1,26 +1,25 @@
 import { after, before, beforeEach } from "node:test";
-import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgres, uniqueDatabaseName, type TestPostgres } from "@animichi/test-postgres";
+import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgresCluster, uniqueDatabaseName, type TestPostgresCluster } from "@animichi/test-postgres";
 import { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import type { Contract } from "../src/contract.d.ts";
 import { contractClient } from "./contract-client.ts";
 import { migrate } from "./prisma-migration.ts";
 
-// `postgres` is the disposable cluster: this fixture uses the database `startTestPostgres`
-// migrates as the admin connection and as the source of the five service roles, which
-// `@animichi/test-postgres` creates because a disposable container has no Pulumi (#1625).
+// `cluster` is the disposable server: its admin database is where this fixture creates and drops
+// databases, and it carries the five service roles, which `@animichi/test-postgres` creates
+// because a disposable container has no Pulumi (#1625).
 // `contractDsn` is the shared-suite database: created from template1 and migrated by this
 // package's own single chain, so no test sees an overlay from another chain. The migration-target
 // ACs create their own chain-only database instead. Every object the business examples target —
 // the conversation ledger and the two quota meters included — comes from that chain.
-export let postgres: TestPostgres;
+export let cluster: TestPostgresCluster;
 export let contractDsn: string;
 export let pool: pg.Pool;
 export let database: PostgresClient<Contract>;
 export let servicePool: pg.Pool;
 export let serviceDatabase: PostgresClient<Contract>;
 interface Resources {
-  postgres?: TestPostgres;
   contractDatabase?: string;
   pool?: pg.Pool;
   database?: PostgresClient<Contract>;
@@ -32,11 +31,11 @@ export const SESSION_ID = "schema-test";
 export const METADATA = { id: SESSION_ID, createdAt: 123, storageVersion: 1, parentSessionId: "deleted-parent" };
 
 async function startContractDatabase(): Promise<string> {
-  postgres = resources.postgres = await startTestPostgres({ database: "harness_schema", budget: AGENT_DB_SETUP_BUDGET });
+  cluster = await startTestPostgresCluster({ budget: AGENT_DB_SETUP_BUDGET });
   // The server is shared and outlives this run (#1663), so the suite's database is named
   // per call and dropped by the fixture that created it.
   const name = resources.contractDatabase = uniqueDatabaseName("harness_contract");
-  contractDsn = await createCleanDatabase(postgres.dsn, name);
+  contractDsn = await createCleanDatabase(cluster.adminDsn, name);
   pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
   await migrate(contractDsn);
   return contractDsn;
@@ -58,16 +57,10 @@ beforeEach(async () => {
 
 after(async () => {
   try { await Promise.all([resources.database?.close(), resources.pool?.end(), resources.serviceDatabase?.close(), resources.servicePool?.end()]); }
-  finally { await stopDatabases(); }
+  finally { await dropContractDatabase(); }
 });
 
-/** Order matters: the contract database is dropped through the shared server `postgres.dsn`
- * reaches, so `stop()` — which drops that server's own database — comes second. */
-async function stopDatabases(): Promise<void> {
+async function dropContractDatabase(): Promise<void> {
   const contract = resources.contractDatabase;
-  try {
-    if (contract !== undefined) await dropCleanDatabase(postgres.dsn, contract);
-  } finally {
-    await resources.postgres?.stop();
-  }
+  if (contract !== undefined) await dropCleanDatabase(cluster.adminDsn, contract);
 }

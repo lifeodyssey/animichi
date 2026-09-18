@@ -32,7 +32,8 @@ disposable container has no Pulumi to create them (#1625).
 
 | Export | Is |
 |---|---|
-| `startTestPostgres({ database, budget })` | the whole recipe: reuse or boot → wait → clean database → five service roles → Prisma chain → `{ dsn, stop }` |
+| `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783) |
+| `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clean database → Prisma chain → `{ dsn, stop }`, for an arm that reads the data plane's schema |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
 | `SetupDeadline` | what is LEFT of that allowance, and what a phase may spend of it (#1318) |
 | `OFFLINE_POSTGRES_IMAGE` | the image tag, read from `postgres-image.env` |
@@ -146,8 +147,14 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   bundle to smoke.
 - **Role creation and chain applies are serialized, not parallel.** `CREATE ROLE` is cluster-global
   and not atomic (`IF NOT EXISTS` then `CREATE ROLE`), and the chain's grant matrix prechecks the
-  same rows, so `startTestPostgres` holds one session-level `pg_advisory_lock` on the admin
-  connection for both steps (#1663): two callers that reach the block together — two calls in one
-  process, two arms, two worktrees — would otherwise both read an empty `pg_roles` and the second
-  would die on `pg_authid_rolname_index`, which is how CI's edge lane failed. An arm that applies a
-  chain of its own takes the same turn (`ChainApplyTurn`) on the cluster's admin database.
+  same rows, so both steps run inside a session-level `pg_advisory_lock` on the admin connection
+  (#1663): two callers that reach the role block together — two calls in one process, two arms, two
+  worktrees — would otherwise both read an empty `pg_roles` and the second would die on
+  `pg_authid_rolname_index`, which is how CI's edge lane failed. The cluster creates and asserts the
+  roles in one turn; `startTestPostgres` applies its chain in a second turn, after the first has
+  committed them. An arm that applies a chain of its own takes the same turn (`ChainApplyTurn`) on
+  the cluster's admin database.
+- **Ask for the cluster unless a test reads the schema `startTestPostgres` builds.** An arm that
+  only creates databases of its own paid a whole chain apply (~3.5 s locally) on a database nothing
+  read, and queued on the turn for it (#1783). The cluster hands back no `dsn`, so a caller that
+  does need the schema cannot be given the cluster by accident.

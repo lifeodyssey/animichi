@@ -1,4 +1,4 @@
-import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgres, uniqueDatabaseName, type TestPostgres } from "@animichi/test-postgres";
+import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgresCluster, uniqueDatabaseName, type TestPostgresCluster } from "@animichi/test-postgres";
 import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import contractJson from "../../src/contract.json" with { type: "json" };
@@ -9,7 +9,6 @@ import { FILLER_SQL, KNOWN_POINTS } from "./fixtures.ts";
 import { prisma } from "./prisma-cli.ts";
 import { QueryLog, recordingPool } from "./recording-pool.ts";
 
-const DATABASE_SUITE = "prisma_geography";
 const CHAIN_SUITE = "prisma_geography_chain";
 
 /** This pack's migration declares a `geography(Point,4326)` column and no extension; the evidence
@@ -24,7 +23,6 @@ export interface ChainDatabase {
 }
 
 export interface DatabaseFixture {
-  readonly postgres: TestPostgres;
   readonly chain: ChainDatabase;
   readonly pool: pg.Pool;
   readonly db: PostgresClient<Contract>;
@@ -32,37 +30,24 @@ export interface DatabaseFixture {
 }
 
 export async function startDatabaseFixture(): Promise<DatabaseFixture> {
-  const postgres = await startTestPostgres({ database: DATABASE_SUITE, budget: AGENT_DB_SETUP_BUDGET });
-  const chain = await openAfterStopping(postgres);
+  const chain = await openChainDatabase(await startTestPostgresCluster({ budget: AGENT_DB_SETUP_BUDGET }));
   const [pool, driverPool] = createPools(chain.dsn);
   try {
-    return await initializeFixture(postgres, chain, pool, driverPool);
+    return await initializeFixture(chain, pool, driverPool);
   } catch (failure) {
     await closeFailedStart(chain, pool, driverPool);
-    await postgres.stop();
-    throw failure;
-  }
-}
-
-/** The plane's database is the container and the role source here; a failure opening the chain
- * database still gives it back before the error continues. */
-async function openAfterStopping(postgres: TestPostgres): Promise<ChainDatabase> {
-  try {
-    return await openChainDatabase(postgres);
-  } catch (failure) {
-    await postgres.stop();
     throw failure;
   }
 }
 
 /** The pack's own chain database: pristine `template1`, the extensions the pack's DDL relies on,
- * then `prisma db migrate`. It cannot be the plane's own database — that one carries the data
- * plane's chain (one chain per database, spec §4.7), and this pack's chain applied over its marker
- * is a `MIGRATION.MARKER_MISMATCH`. */
-async function openChainDatabase(postgres: TestPostgres): Promise<ChainDatabase> {
+ * then `prisma db migrate`. It carries only this pack's chain — never the data plane's, whose
+ * marker this pack's chain would meet as a `MIGRATION.MARKER_MISMATCH` (one chain per database,
+ * spec §4.7). */
+async function openChainDatabase(cluster: TestPostgresCluster): Promise<ChainDatabase> {
   const name = uniqueDatabaseName(CHAIN_SUITE);
-  const dsn = await createCleanDatabase(postgres.dsn, name);
-  const owned: ChainDatabase = { dsn, stop: () => dropCleanDatabase(postgres.dsn, name) };
+  const dsn = await createCleanDatabase(cluster.adminDsn, name);
+  const owned: ChainDatabase = { dsn, stop: () => dropCleanDatabase(cluster.adminDsn, name) };
   return useOwned(owned, async () => {
     await installExtensions(dsn);
     await prisma(["db", "migrate", "--db", dsn]);
@@ -94,18 +79,16 @@ async function installExtensions(dsn: string): Promise<void> {
 
 export async function stopDatabaseFixture(fixture: DatabaseFixture): Promise<void> {
   const failures = await closeResources(fixture);
-  failures.push(...await stopResource(fixture.chain), ...await stopResource(fixture.postgres));
+  failures.push(...await stopResource(fixture.chain));
   throwCleanupFailures(failures);
 }
 
-async function initializeFixture(
-  postgres: TestPostgres, chain: ChainDatabase, pool: pg.Pool, driverPool: pg.Pool,
-): Promise<DatabaseFixture> {
+async function initializeFixture(chain: ChainDatabase, pool: pg.Pool, driverPool: pg.Pool): Promise<DatabaseFixture> {
   const queryLog = new QueryLog();
   const db = createDatabaseClient(driverPool, queryLog);
   await db.connect();
   await seed(db, pool);
-  return { postgres, chain, pool, db, queryLog };
+  return { chain, pool, db, queryLog };
 }
 
 function createPools(dsn: string): readonly [pg.Pool, pg.Pool] {
