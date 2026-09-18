@@ -28,7 +28,8 @@ const SATTE: NearbyPoint = {
 };
 const DETAIL: PointDetail = {
   id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg",
-  episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki",
+  episode: 1, time_seconds: 12, origin: "anitabi",
+  origin_url: "https://anitabi.cn/point/washinomiya", city: "Kuki",
 };
 
 const fixedClock: NearbyClock = { now: () => 42 };
@@ -148,6 +149,7 @@ describe("nearbyPoints merge", () => {
       longitude: 139.6586,
       distance_m: 5,
       origin: "anitabi",
+      origin_url: "https://anitabi.cn/point/washinomiya",
       city: "Kuki",
     });
   });

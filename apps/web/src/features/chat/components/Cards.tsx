@@ -37,6 +37,8 @@ export type SpotRow = Readonly<{
   latitude?: number;
   longitude?: number;
   city?: string;
+  origin?: string;
+  origin_url?: string;
 }>;
 
 /** C3a/C3b search shape (issue #261 S1.4): spot cards + static map / bubbles. */

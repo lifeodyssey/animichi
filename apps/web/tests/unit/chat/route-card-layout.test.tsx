@@ -36,8 +36,10 @@ describe("route card reading order", () => {
     expect(screen.getAllByText("京阪宇治駅")).toHaveLength(1);
     expect(screen.queryByText("平等院")).toBeNull();
     const first = screen.getByText("宇治橋").closest("li");
-    expect(within(first as HTMLElement).getByRole("img").getAttribute("src")).toBe("/scene-a.webp");
+    expect(within(first as HTMLElement).getByRole("img").getAttribute("src")).toBe("/scene-a.webp?plan=h160");
     expect(within(first as HTMLElement).getByText("10:00–10:20")).toBeTruthy();
+    const credit = within(first as HTMLElement).getByRole("link", { name: "バンダイチャンネル" });
+    expect(credit.getAttribute("href")).toBe("https://www.b-ch.com/ttl/index.php?ttl_c=1");
   });
 
   it("resolves untimed ordered ids against results without inventing times", () => {
@@ -63,6 +65,6 @@ describe("route card reading order", () => {
   it("keeps a streamed point's own photo when its id has not arrived", () => {
     const part = parsedPart(routePartRaw([{ name: "宇治橋", screenshot_url: "/bridge.webp" }]));
     render(<RouteCard part={part} dict={dict} attach={attach} />);
-    expect(screen.getByRole("img", { name: "宇治橋" }).getAttribute("src")).toBe("/bridge.webp");
+    expect(screen.getByRole("img", { name: "宇治橋" }).getAttribute("src")).toBe("/bridge.webp?plan=h160");
   });
 });

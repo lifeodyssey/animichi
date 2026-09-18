@@ -17,7 +17,8 @@ describe("Point provenance field map (AC4)", () => {
   it("includes each of the contributing point columns", () => {
     const map = pointFieldMap();
     expect(Object.keys(map).sort()).toEqual([
-      "episode", "id", "image", "latitude", "longitude", "name", "name_cn", "time_seconds",
+      "episode", "id", "image", "latitude", "longitude", "name", "name_cn",
+      "origin", "origin_url", "time_seconds",
     ]);
   });
 });

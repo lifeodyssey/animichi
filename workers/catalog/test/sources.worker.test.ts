@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 import {
   fetchAnitabiLite,
   fetchAnitabiPoints,
@@ -66,6 +67,12 @@ describe("fetchAnitabiPoints", () => {
     expect(urls[0]).toBe(
       "https://api.anitabi.cn/bangumi/3302/points/detail?haveImage=true",
     );
+  });
+
+  it("sends the shared Anitabi user agent", async () => {
+    const { fetch, agents } = mockFetch({ points: [] });
+    await fetchAnitabiPoints("3302", { fetchImpl: fetch });
+    expect(agents[0]).toBe(ANITABI_USER_AGENT);
   });
 
   it("throws on a non-2xx upstream status", async () => {
