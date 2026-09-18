@@ -22,6 +22,7 @@ ALLOWED_ROOT_ENTRIES=(
   .oxlintrc.json
   .pre-commit-config.yaml
   .pulumi.version
+  .ruby-version
   .semgrep
   .semgrepignore
   .serena
@@ -30,6 +31,8 @@ ALLOWED_ROOT_ENTRIES=(
   AGENTS.md
   CLAUDE.md
   CONTEXT-MAP.md
+  Gemfile
+  Gemfile.lock
   Makefile
   README.ja.md
   README.md

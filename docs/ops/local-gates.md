@@ -210,7 +210,11 @@ Paths that need no package gate, because another hook or a CI job already owns t
 docs/**  .claude/**  .github/**  .semgrep*  scripts/**  test/repo-config/**
 root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
+Gemfile  Gemfile.lock  .ruby-version
 ```
+
+`Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby and minitest the `contracts` job runs
+(#1774); that job's `workflow-ruby-toolchain.test.rb` holds them to the workflows' setup-ruby steps.
 
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.

@@ -58,6 +58,10 @@ outputs/
 # The release tree bundle-release-worker.sh seals into (CD uploads it as the
 # build artifact; its behavioural test builds one at the repository root).
 /release/
+# ruby/setup-ruby's `bundler-cache` installs the Gemfile's gems in deployment mode,
+# writing `.bundle/config` and `vendor/bundle/` at the repository root.
+/.bundle/
+/vendor/bundle/
 # Raw source files documented in docs/data-sources.md
 data/raw/
 *.log

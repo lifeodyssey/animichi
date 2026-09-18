@@ -8,6 +8,8 @@ class WorkflowInvocationsTest < Minitest::Test
   PR_WORKFLOW = File.join(ROOT, ".github/workflows/pr-verification.yml")
   CHECKS = Dir.glob(File.join(ROOT, "{.github/test,test/repo-config}/*.test.rb")) +
            Dir.glob(File.join(ROOT, "{scripts,.github/scripts,infra}/**/*.test.sh"))
+  # `bundle exec ruby <file>` is the contracts job's form: the interpreter and gems the Gemfile pins.
+  INVOCATION = /\A(?:bundle\s+exec\s+)?(?:bash|ruby|node|sh|python3?)\s+(?<path>\S+)/
 
   def workflow_steps(paths = WORKFLOWS)
     paths.flat_map do |path|
@@ -26,7 +28,7 @@ class WorkflowInvocationsTest < Minitest::Test
 
   def invoked_scripts(paths = WORKFLOWS)
     workflow_steps(paths).flat_map { |step| step["run"].to_s.lines }.map(&:strip)
-                  .grep(/\A(?:bash|ruby|node|sh|python3?)\s+\S+/).map { |line| line.split[1] }
+                  .map { |line| line[INVOCATION, :path] }.compact
                   .select { |path| path.start_with?(".github/", "scripts/", "test/", "infra/") }
   end
 
