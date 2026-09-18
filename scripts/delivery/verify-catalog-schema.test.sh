@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/delivery/verify-catalog-schema.sh
 # Behaviour tests for verify-catalog-schema.sh (#1230 Phase 1).
 #
 # The claim this script gates on is "these three tables exist in the

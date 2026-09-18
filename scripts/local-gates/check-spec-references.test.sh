@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/check-spec-references.sh
 # Behavioral tests for check-spec-references.sh against throwaway fixture git
 # repos (the script resolves its root through `git rev-parse --show-toplevel`).
 # Each case builds its own repo, runs the real script, and asserts the exit

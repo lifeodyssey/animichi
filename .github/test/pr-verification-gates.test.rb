@@ -6,7 +6,7 @@ class PrVerificationAggregatesTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CI_FILE = File.join(ROOT, ".github", "workflows", "pr-verification.yml")
   SECURITY_JOBS = %w[gitleaks trufflehog osv semgrep zizmor].freeze
-  LANE_JOBS = %w[plan affected contracts docs e2e db foundation-install commits security].freeze
+  LANE_JOBS = %w[plan affected contracts delivery-toolchain docs e2e db foundation-install commits security].freeze
   AGGREGATE_GUARD = "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
 
   def setup

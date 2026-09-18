@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: .github/scripts/release/schema-preflight.sh
 # The release schema preflight's response body must never reach the job log (#1590). Probe
 # commits reached main during a CD debugging session and left the script echoing
 # `schema-preflight.json` into the job log while the migrator's 503 body carried the driver

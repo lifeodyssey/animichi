@@ -47,18 +47,30 @@ class FailureAlertMutationTest < Minitest::Test
   # TEST_REPOSITORY_ROOT moves.
   def with_root
     Dir.mktmpdir("failure-alert-mutation-") do |dir|
-      FileUtils.mkdir_p(File.join(dir, ".github/test"))
+      # The fixtures live with the contracts that use them now (#1776), so the
+      # copy's parent is the moved home; `cp_r` creates the leaf, not the chain.
+      FileUtils.mkdir_p(File.join(dir, ".github/test/delivery"))
       %w[workflows scripts lib].each do |part|
         FileUtils.cp_r(File.join(ROOT, ".github", part), File.join(dir, ".github", part))
       end
-      FileUtils.cp_r(File.join(ROOT, ".github/test/fixtures"), File.join(dir, ".github/test/fixtures"))
+      FileUtils.cp_r(File.join(ROOT, ".github/test/delivery/fixtures"), File.join(dir, ".github/test/delivery/fixtures"))
       yield dir
     end
   end
 
+  # The wiring contract still lives beside this twin; the behavior and ledger
+  # contracts are delivery-toolchain tests now, in their own directory (#1776).
+  def contract_path(name)
+    found = %w[.github/test/delivery .github/test]
+            .map { |home| File.join(ROOT, home, name) }
+            .find { |path| File.file?(path) }
+    flunk("no committed contract named #{name}") unless found
+    found
+  end
+
   def run_check(dir, name)
     out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => dir }, RbConfig.ruby,
-                                      File.join(ROOT, ".github/test", name))
+                                      contract_path(name))
     [name, out + err, status]
   end
 

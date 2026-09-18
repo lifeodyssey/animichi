@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/contract-drift.sh
 # Behavioral tests for the staged-snapshot OpenAPI drift check
 # (scripts/local-gates/contract-drift.sh), AC2.
 #

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/check-root-allowlist.sh
 # Behavioral tests for check-root-allowlist.sh. The pass case runs against the
 # real repo tree (locking the allowlist to today's reality); the fail case runs
 # against a throwaway fixture git repo in mktemp -d with the repo's top-level

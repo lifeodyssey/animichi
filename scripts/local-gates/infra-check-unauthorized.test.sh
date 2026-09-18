@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/infra-check.sh
+# EXCLUSIVE: the last case writes the real repo root's infra/Pulumi.preflight.yaml
+# and asserts the gate keeps it, and its sibling test's gate runs remove that same
+# path — so the two cannot run in one tree at the same time.
 # Behavioral tests for the unauthorized-diagnostic boundary of the
 # credential-free Pulumi program-load gate (scripts/local-gates/infra-check.sh),
 # AC4/AC7 #1003.

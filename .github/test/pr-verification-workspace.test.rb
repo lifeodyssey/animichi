@@ -7,7 +7,13 @@ class PrVerificationWorkspaceTest < Minitest::Test
   FILE = File.join(ROOT, ".github/workflows/pr-verification.yml")
   SETUP = "$/.github/actions/setup-workspace"
 
-  %w[affected contracts e2e db commits].each do |job|
+  # The jobs that install the workspace. `contracts` left the pair when the
+  # delivery toolchain's tests moved to their own lane (#1776) and it stopped
+  # running anything that drives the install; `delivery-toolchain` took its
+  # place, and `workflow-workspace.test.rb` holds the derived half of the rule —
+  # a step that needs the workspace must be preceded by the install — so a job
+  # that starts using it without installing still fails there.
+  %w[affected delivery-toolchain e2e db commits].each do |job|
     define_method("test_#{job}_installs_before_its_lane_runs") do
       steps = Psych.safe_load(File.read(FILE), aliases: true).dig("jobs", job, "steps")
       assert_match %r{\Aactions/checkout@}, steps.fetch(0).fetch("uses")

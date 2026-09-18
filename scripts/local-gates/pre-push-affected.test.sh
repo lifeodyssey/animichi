@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/pre-push-affected.sh — the selection a push's diff selects
 # Behavioral tests for pre-push-affected.sh's selection (#1371, #1687): which
 # packages a diff selects, which buckets fire, and which paths fail closed. The
-# fixture this file shares with pre-push-commitlint.test.sh — one throwaway
+# fixture this file shares with pre-push-affected-commitlint.test.sh — one throwaway
 # repository per case, a fake pnpm / make and the assertion helpers — is
 # pre-push-fixture.sh.
 set -euo pipefail
