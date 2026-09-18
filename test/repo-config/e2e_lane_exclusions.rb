@@ -2,9 +2,8 @@
 # The specs and cases the always-run e2e lane deliberately does not run, each
 # with a reason, all checked by test/repo-config/e2e-spec-coverage.test.rb.
 # Policy data rather than derivation: a repair card deletes its own entry
-# (#1721, #1722, #1723, #1724 and #1570 are the open ones), so this file
-# changes when a spec is parked, opted out or repaired — never because the
-# gate's regexes or the workflow changed.
+# (#1570 is the open one), so this file changes when a spec is parked, opted
+# out or repaired — never because the gate's regexes or the workflow changed.
 
 module E2eLaneExclusions
   # Deliberately outside the always-run lane. Named, never patterned: a pattern
@@ -48,23 +47,10 @@ module E2eLaneExclusions
   # Whether the card exists or is still open is not checked: that needs GitHub,
   # and this contract stays offline.
   KNOWN_FAILING = {
-    "web-chat-clarify-pick.spec.ts" =>
-      "both #1220 cases fail in the lane: the clarify candidate button never appears (:80); " \
-      "#1721 owns the repair",
-    "web-chat-selection.spec.ts" =>
-      "both #273 cases fail in the lane: getByText('宇治橋') resolves to 2 elements (:80); " \
-      "#1722 owns the repair",
-    "web-chat-save-login-wall.spec.ts" =>
-      "7 of 8 #1601 cases pass in the lane; 'the deferred intent survives a new tab of the " \
-      "same profile and replays once' reads null from localStorage (:250); #1723 owns the repair",
     "web-map-spike.spec.ts" =>
       "#237's colours are repaired (the fixture derives them from map-style.ts) and the " \
       "canvas does paint them — measured, 8 of 9 samples are the style background — but the " \
       "9th lands on the app's OWN route polyline (#c1440e, map-layers.ts), so " \
       "`backgroundPixels == sampledPixels` cannot hold; #1570 owns the repair",
-    "web-splash.spec.ts" =>
-      "4 of 5 non-perf cases pass in the lane; 'desktop index entry › stays on / until the " \
-      "visitor activates the chat CTA' times out on a[href=\"/chat\"] (:162), which the " \
-      "landing no longer has; #1724 owns the repair",
   }.freeze
 end

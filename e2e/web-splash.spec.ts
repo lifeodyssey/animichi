@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 const PROFILE = {
@@ -149,6 +150,11 @@ test.describe("desktop index entry", () => {
 
   test("stays on / until the visitor activates the chat CTA", async ({ page }) => {
     await stubTurnstileEntry(page);
+    // The doorway CTA opens a NEW conversation with the typed query (`?q=`
+    // auto-sends, web-hero-query.spec.ts), so the turn must land hermetically.
+    await page.route("**/v1/chat", (route) =>
+      route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") }),
+    );
     await page.goto("/", { waitUntil: "commit" });
     const splash = page.locator('[data-splash="static"]');
     await expect(splash).toHaveAttribute("data-splash-hold", "handoff");
@@ -157,10 +163,14 @@ test.describe("desktop index entry", () => {
     await page.setViewportSize({ width: 600, height: 1000 });
     await expect(splash).toBeHidden();
     await expect(page).toHaveURL(/\/$/);
-    // The postcard landing's only plain /chat anchor is the login CTA in the
-    // top bar (the search form submits, the chips carry ?q=) — 2026-08-30.
-    await page.locator('a[href="/chat"]').click();
-    await page.waitForURL("**/chat");
+    // The doorway has no plain /chat anchor: the top-bar login opens the modal
+    // in place (5a629e79a) and reaches chat only after the mailed link lands.
+    // The CTA a desktop visitor activates is the search form — a plain GET to
+    // /chat?q= that works before hydration (2026-08-30 postcard direction).
+    await page.locator('form[action="/chat"] input[name="q"]').fill("ハルヒ");
+    await page.locator('form[action="/chat"] button[type="submit"]').click();
+    // Decoded comparison: the address bar percent-encodes the query.
+    await page.waitForURL((url) => url.pathname === "/chat" && url.searchParams.get("q") === "ハルヒ");
     await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
   });
