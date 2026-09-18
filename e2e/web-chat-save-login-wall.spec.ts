@@ -244,13 +244,15 @@ test("the deferred intent survives a new tab of the same profile and replays onc
   // Origin-scoped, not tab-scoped: sessionStorage would be empty in the new tab.
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
 
+  // The intent's survival into this tab is observable only through its replay:
+  // the callback claims take-before-send (consume-once), so once the redeem has
+  // run there is no live entry left to read — a localStorage read-back here
+  // races the replay and loses once it wins (measured both ways across lanes).
   const callbackTab = await openCallbackTab(context);
   await callbackTab.goto("/auth/callback");
-  const stashed = await callbackTab.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY);
-  expect(stashed).toContain("p1");
-
   await expect.poll(() => bodies.length).toBe(1);
   expect((bodies[0] as { point_ids: string[] }).point_ids).toEqual(["p1", "p2"]);
+  // Consumed exactly once: the entry stays gone after the replay settled.
   await expect
     .poll(() => callbackTab.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY))
     .toBeNull();
