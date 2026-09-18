@@ -42,6 +42,7 @@ export class KeepaliveProbe extends SessionAgent {
    * has read the physical alarm an SDK re-arm writes. The delivery happens only after that observer arrives.
    */
   async deadline() {
+    this.#state.callbackEntered = true;
     this.#state.alarmAtCallbackEntry = await this.ctx.storage.getAlarm();
     await this.withSession(async (_session, lane, context) => {
       this.#state.boundary.arrived.resolve(undefined);
@@ -64,7 +65,9 @@ export class KeepaliveProbe extends SessionAgent {
     this.#state.clock.now = this.#state.deadline.time + 1;
     this.#state.firing = true;
     this.#state.firedAt = this.#state.clock.realNow();
-    await this.ctx.storage.setAlarm(this.#state.firedAt);
+    this.#state.probeArming = true;
+    try { await this.ctx.storage.setAlarm(this.#state.firedAt); }
+    finally { this.#state.probeArming = false; }
   }
 
   /** The observer's boundary: the fired deadline's callback is in flight and still undelivered. */

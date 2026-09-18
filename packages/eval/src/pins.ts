@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
@@ -18,7 +20,21 @@ export interface EvalFrameworkPins {
   'pydantic-evals': string;
 }
 
+/**
+ * The directories of the two `logfire` installs that matter to this package: the one its
+ * own manifest resolves (the pinned 0.22.5), and the one `@pydantic/logfire-node` resolves
+ * through its own `node_modules`. The node SDK names its `logfire` exactly, so a node SDK
+ * that names a different release installs a second runtime beside the pinned pair; the
+ * pin's invariant is that these two are one copy (#1746).
+ */
+export interface LogfireRuntimeInstalls {
+  evalInstall: string;
+  nodeSdkInstall: string;
+}
+
 const PACKAGE_DIR = fileURLToPath(new URL('../', import.meta.url));
+
+const require = createRequire(import.meta.url);
 
 /** The workspace manifest that declares the one catalog entry a shared dependency resolves through. */
 const WORKSPACE_MANIFEST = fileURLToPath(new URL('../../../pnpm-workspace.yaml', import.meta.url));
@@ -57,6 +73,20 @@ export function installedLogfireVersion(): string {
 /** The pinned Pi SDK version every native session and recorded prefix was written with. */
 export function installedPiAgentVersion(): string {
   return declaredDependency('@earendil-works/pi-agent-core');
+}
+
+/**
+ * The `logfire` installs this package and the node SDK resolve, so a bump that would split
+ * the pinned pair into two runtimes is a test failure rather than a silent second copy.
+ */
+export function logfireRuntimeInstalls(): LogfireRuntimeInstalls {
+  const nodeSdk = dirname(require.resolve('@pydantic/logfire-node', { paths: [PACKAGE_DIR] }));
+  return { evalInstall: logfireInstallDir(PACKAGE_DIR), nodeSdkInstall: logfireInstallDir(nodeSdk) };
+}
+
+/** The directory of the `logfire` install reachable from `from` — its resolved entry's own. */
+function logfireInstallDir(from: string): string {
+  return dirname(require.resolve('logfire', { paths: [from] }));
 }
 
 /**

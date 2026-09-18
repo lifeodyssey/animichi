@@ -37,24 +37,38 @@ blockExoticSubdeps: true
 
 catalogMode: strict
 
+# Hold-backs: a version this workspace keeps below its latest release on purpose, with the
+# gate its bump fails written on the same line, in one shape:
+#   `# hold-back: <package>@<declared> -> <latest> fails <gate>` then a dash and `#<issue>`,
+# the follow-up card that retires the pin. `dependency-hold-backs.json` records that number
+# per entry, so a line citing any other issue fails the contract.
+# `test/repo-config/dependency-hold-backs.test.rb` derives the set of below-latest pins from
+# `test/repo-config/fixtures/dependency-hold-backs.json` — refreshed by
+# `ruby test/repo-config/refresh-hold-backs.rb --write`, which reads `pnpm outdated -r
+# --format json` — and fails on an entry with no line and on a line whose entry is no longer
+# below latest. A version a `package.json` declares registers in the `# Manifest pins:` block
+# at the end of this file, because JSON carries no comments; a specifier that already admits
+# the latest release is not a hold-back and gets no line.
 # Every external dependency declared by two or more workspace importers (the root
 # included) is defined once here; each manifest references it with `catalog:`.
 # `catalogMode: strict` rejects a `pnpm add`/`pnpm update` that asks for a version
 # outside the entry, so the drift this consolidates cannot come back through the CLI.
 catalog:
-  "@cloudflare/vitest-pool-workers": "^0.18.8"
+  "@cloudflare/vitest-pool-workers": "^0.22.0"
+  # hold-back: @cloudflare/workers-types@5.20260727.1 -> 5.20260916.1 fails workers/edge lint (39 no-unsafe-any from the new `declare const process: any` global) — #1743
   "@cloudflare/workers-types": "5.20260727.1"
   "@earendil-works/chord": "0.85.1"
   "@earendil-works/pi-agent-core": "0.85.1"
   "@earendil-works/pi-ai": "0.85.1"
   "@modelcontextprotocol/sdk": "1.30.0"
   "@neondatabase/serverless": "^1.1.0"
-  "@orpc/client": "1.15.0"
-  "@orpc/contract": "1.15.0"
-  "@orpc/openapi": "1.15.0"
-  "@orpc/openapi-client": "1.15.0"
-  "@orpc/server": "1.15.0"
+  "@orpc/client": "1.15.1"
+  "@orpc/contract": "1.15.1"
+  "@orpc/openapi": "1.15.1"
+  "@orpc/openapi-client": "1.15.1"
+  "@orpc/server": "1.15.1"
   "@prisma/cli-engine": "0.3.0"
+  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
   "@prisma/orm-postgres": "8.0.0-rc.9"
   # TanStack ships the router/start family from one monorepo and pins the
   # packages to each other EXACTLY (router-generator@1.167.36 pins
@@ -73,25 +87,30 @@ catalog:
   "@tanstack/react-router-with-query": "1.130.17"
   "@tanstack/react-start": "1.168.56"
   "@tanstack/router-generator": "1.167.38"
-  "@types/node": "^26.5.1"
+  "@types/node": ^26.6.1
   "@types/pg": "^8.23.1"
+  # hold-back: @vitest/coverage-istanbul@4.1.11 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742
   "@vitest/coverage-istanbul": "4.1.11"
-  "ai": "^7.0.100"
+  "ai": ^7.0.102
   "drizzle-orm": "^0.45.2"
   "esbuild": "0.28.2"
   "hono": "^4.13.7"
   "jose": "^6.2.12"
+  # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck and test:integration (miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`) — #1742
   "miniflare": "4.20260722.0"
   "pg": "^8.23.0"
+  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741
   "prisma": "8.0.0-rc.13"
   "smol-toml": "1.8.0"
   "testcontainers": "^12.1.0"
   "tsx": "^4.23.13"
-  "typebox": 1.3.31
+  "typebox": 1.3.32
   "typescript": "^7.0.2"
+  # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742
   "vitest": "^4.1.11"
   "wrangler": "4.132.0"
   "yaml": "^2.9.1"
+  # hold-back: zod@4.4.3 -> 4.6.5 fails packages/contract test (10 failures: the agent-boundary emitter rejects zod 4.6's `type=string,null`) — #1745
   "zod": "4.4.3"
 
 overrides:
@@ -121,8 +140,8 @@ overrides:
   # and `Pool` becomes three unrelated types: `packages/prisma-geography` fails
   # TS2769 importing the repo's own `pg` and prisma's. Types only, so one copy.
   "@types/pg": "8.23.1"
-  # `@cloudflare/workers-types` 5.20260915.1 added a `nodejs_compat` global block
-  # to `index.d.ts` (`declare const process: any`, `Buffer: any`, `setImmediate`,
+  # `@cloudflare/workers-types` 5.20260916.1 carries a `nodejs_compat` global block
+  # in `index.d.ts` (`declare const process: any`, `Buffer: any`, `setImmediate`,
   # ...) that 5.20260727.1 does not have. Where a tsconfig lists both this package
   # and `node` in `types` — `workers/edge` does — the `any` wins, every
   # `process.*` in its 12 Node-side test files becomes unsafe-any, and
@@ -168,3 +187,11 @@ allowBuilds:
   workerd: false
 patchedDependencies:
   "@prisma/orm-target-postgres@8.0.0-rc.9": packages/pi-session-neon/patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch
+
+# Manifest pins: a `package.json` cannot carry a comment, so the register lines for the pins
+# declared there live in this block, in the same shape as the lines beside the catalog
+# entries above. Each line's gate is the gate that fails when the bump is attempted.
+# hold-back: @pydantic/logfire-node@0.18.21 -> 0.18.25 fails packages/eval test (the eval package and the node SDK must resolve one logfire runtime: 0.18.25 names logfire 0.22.9 exactly and installs a second copy beside the pinned 0.22.5) — #1746
+# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741
+# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web typecheck (h3 2.x drops `onBeforeResponse` from `H3Config`, so the server plugins would stop running) — #1744
+# hold-back: logfire@0.22.5 -> 0.22.9 fails packages/eval test (pins.test.ts: the installed logfire version must be the declared one, and the frozen oracle fixtures have no regeneration path) — #1746

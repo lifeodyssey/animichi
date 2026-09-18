@@ -1,62 +1,95 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { bundleBudgets, budgetKeyFor, type BundleBudgetKey } from "../../bundle-budget.config";
+import { bundleBudgets, budgetKeyFor, isOverBudget, landingPreloads, routeBudgets, type BundleBudgetKey } from "../../bundle-budget.config";
 
-const assetsDir = fileURLToPath(new URL("../../.output/public/assets", import.meta.url));
+const outputDir = fileURLToPath(new URL("../../.output", import.meta.url));
+const assetsDir = join(outputDir, "public/assets");
+const manifestDir = join(outputDir, "server/chunks/_");
+const MANIFEST_PREFIX = "_tanstack-start-manifest_v-";
 
 interface SizedChunk {
   basename: string;
   bytes: number;
 }
 
-function readBudgetedChunks(): SizedChunk[] {
+/** Every emitted client chunk, sized. A missing asset directory is a failed build, not an empty budget. */
+function readJavascriptChunks(): SizedChunk[] {
   return readdirSync(assetsDir)
     .filter((name) => name.endsWith(".js"))
-    .map((name) => ({ basename: name, bytes: statSync(join(assetsDir, name)).size }))
-    .filter((chunk) => budgetKeyFor(chunk.basename) !== null);
+    .map((name) => ({ basename: name, bytes: statSync(join(assetsDir, name)).size }));
+}
+
+/** The chunks a chunk-family budget names, by un-hashed basename prefix. */
+function readBudgetedChunks(): SizedChunk[] {
+  return readJavascriptChunks().filter((chunk) => budgetKeyFor(chunk.basename) !== null);
+}
+
+function sized(basename: string): SizedChunk {
+  const path = join(assetsDir, basename);
+  if (!existsSync(path)) throw new Error(`The built output does not contain ${basename}`);
+  return { basename, bytes: statSync(path).size };
+}
+
+/** The manifest of the build under test: a build leaves older manifests behind, so the one whose
+ * preloads are all present in the assets under test is the one that describes it. */
+function namesThisBuild(preloads: string[]): boolean {
+  return preloads.length > 0 && preloads.every((basename) => existsSync(join(assetsDir, basename)));
+}
+
+/** The emitted TanStack Start manifest: the per-route preload graph the document is served with. */
+function readStartManifest(): string {
+  const names = readdirSync(manifestDir).filter((name) => name.startsWith(MANIFEST_PREFIX) && name.endsWith(".mjs"));
+  const current = names.filter((name) => namesThisBuild(landingPreloads(readFileSync(join(manifestDir, name), "utf8"))));
+  expect(current, `one of [${names.join(", ")}] names this build's chunks`).toHaveLength(1);
+  return readFileSync(join(manifestDir, current[0] ?? ""), "utf8");
+}
+
+/** The landing route's first-load set: its entry chunk plus every chunk preloaded for the root route. */
+function landingChunks(): SizedChunk[] {
+  return landingPreloads(readStartManifest()).map(sized);
+}
+
+function totalBytes(chunks: SizedChunk[]): number {
+  return chunks.reduce((total, chunk) => total + chunk.bytes, 0);
+}
+
+function renderChunks(chunks: SizedChunk[]): string {
+  return chunks.map((chunk) => `${chunk.basename}: ${String(chunk.bytes)} bytes`).join("\n");
 }
 
 function expectedKeys(): BundleBudgetKey[] {
   return Object.keys(bundleBudgets) as BundleBudgetKey[];
 }
 
-/** The budget for a budgeted chunk. Only budgeted chunks reach this
- * (readBudgetedChunks filtered them), so a null key is a defensive 0. */
-function budgetFor(chunk: SizedChunk): number {
-  const key = budgetKeyFor(chunk.basename);
-  return key === null ? 0 : bundleBudgets[key];
-}
-
-/** Renders a per-chunk budget report for the failure/shift diagnostics. */
-function renderReport(chunks: SizedChunk[]): string {
-  return chunks
-    .map((chunk) => {
-      const bytes = String(chunk.bytes);
-      const budget = String(budgetFor(chunk));
-      return `${chunk.basename}: ${bytes} bytes (budget ${budget})`;
-    })
-    .join("\n");
-}
-
 describe("release bundle budgets", () => {
   it("emits budgeted route/component chunks in the built output", () => {
-    const chunks = readBudgetedChunks();
-    const emitted = new Set(chunks.map((chunk) => budgetKeyFor(chunk.basename)));
+    const emitted = new Set(readBudgetedChunks().map((chunk) => budgetKeyFor(chunk.basename)));
     for (const key of expectedKeys()) expect(emitted.has(key)).toBe(true);
+  });
+
+  it("resolves the landing route's first-load graph from the built manifest", () => {
+    const chunks = landingChunks();
+    // More than the entry chunk: a manifest that named one file would silently shrink the budget's subject.
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => chunk.bytes > 0)).toBe(true);
   });
 
   it("keeps every budgeted chunk at or under its release budget", () => {
     const chunks = readBudgetedChunks();
-    const over = chunks.filter((chunk) => chunk.bytes > budgetFor(chunk));
-    const report = renderReport(chunks);
-    expect(over, report).toEqual([]);
+    const over = chunks.filter((chunk) => isOverBudget(chunk.basename, chunk.bytes));
+    expect(over, renderChunks(chunks)).toEqual([]);
+  });
+
+  it("keeps the landing route's first load at or under its release budget", () => {
+    const chunks = landingChunks();
+    const report = `${renderChunks(chunks)}\nlanding first load: ${String(totalBytes(chunks))} bytes (budget ${String(routeBudgets.landing)})`;
+    expect(totalBytes(chunks), report).toBeLessThanOrEqual(routeBudgets.landing);
   });
 
   it("reports the exact bytes read (no fabricated snapshot fixtures)", () => {
-    const chunks = readBudgetedChunks();
-    for (const chunk of chunks.slice(0, 20)) {
+    for (const chunk of [...readBudgetedChunks(), ...landingChunks()].slice(0, 20)) {
       const raw = readFileSync(join(assetsDir, chunk.basename), "utf8");
       expect(Buffer.byteLength(raw)).toBe(chunk.bytes);
     }
