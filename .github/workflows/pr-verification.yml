@@ -357,9 +357,11 @@ jobs:
       - name: Verify repository configuration
         run: |
           set -euo pipefail
-          bundle exec ruby test/repo-config/coverage-report.test.rb
+          bundle exec ruby test/repo-config/contract-pin-set-mutation.test.rb
+          bundle exec ruby test/repo-config/contract-pin-set.test.rb
           bundle exec ruby test/repo-config/coverage-report-integration.test.rb
           bundle exec ruby test/repo-config/coverage-report-mutation.test.rb
+          bundle exec ruby test/repo-config/coverage-report.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs-mutation.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb

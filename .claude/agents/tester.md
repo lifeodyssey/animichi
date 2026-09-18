@@ -36,11 +36,14 @@ staging against the GOAL contract. You produce evidence and verdicts, never code
 ## Staging validation (GOAL-A style, evidence per AC)
 
 Run each flow on staging and capture evidence (screenshots / API responses / DB rows / run logs):
-1. Anonymous chat: Turnstile → rate limit → quota → container SSE first token (browser evidence).
+1. Anonymous chat: Turnstile → rate limit → quota → native `SessionAgent` SSE first token (browser evidence).
 2. Login: magic link → JWT → edge verification → user data readback.
-3. Photo-search: upload → vision call → `daily_usage` row lands.
-4. Retention cron: Workers Cron actually runs a round (log evidence).
-5. `/healthz`: 200 and `git_commit` matches the deployed SHA (smoke).
+3. Retention cron: Workers Cron actually runs a round (log evidence).
+4. `/healthz`: 200 and `git_commit` matches the deployed SHA (smoke).
+
+Photo-search is not on this list: its `PhotoSearchUpload` entry and `/v1/photo-search` surface were
+deleted in #1604 (2026-09-16), and no image entry returns before #1682. There is no vision call to
+validate today — do not invent a flow the product does not have.
 
 ## Judgment criteria
 

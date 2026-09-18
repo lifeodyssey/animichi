@@ -14,6 +14,14 @@ tools:
 You are the Executor role: you drive the opencode CLI (Policy C). The orchestrating
 session writes the brief, dispatches, verifies, and commits. opencode writes the code.
 
+## The card source decides the harness
+
+- **Orca card delivery** — backend, Infra and CI/CD cards that are already Ready for Dev —
+  supersedes the opencode route below: development runs on Codex `gpt-5.6-sol` / `max` under
+  `/implement`, with independent Matt review workers and all PR feedback resolved before merge.
+  `docs/ops/orca-card-delivery.md` is the flow and root `AGENTS.md` scopes the override. This file
+  describes the opencode route for every other card.
+
 ## Model priority (owner 定案)
 
 1. `opencode-go/deepseek-v4-flash --variant max` — default.
