@@ -7,7 +7,8 @@
  *   auth   — the signature is verified BEFORE the ceiling, so unauthenticated
  *            traffic cannot spend a single upstream slot
  *   ceiling— our promise to the upstream, enforced regardless of the caller
- *   relay  — the upstream's answer, verbatim, marked as the upstream's
+ *   relay  — the upstream's answer, verbatim, marked as the upstream's, asked
+ *            from the one URL this service built and never redirected off it
  *
  * Our own refusals are unmistakable: header `x-egress-response: refused-here`
  * plus a `x-egress-refusal` reason. Upstream answers carry
@@ -46,7 +47,19 @@ export type RefusalReason =
 /** The upstream fetch surface; the real service passes global `fetch`. */
 export type UpstreamFetch = (
   url: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+  init?: {
+    headers?: Record<string, string>;
+    signal?: AbortSignal;
+    /**
+     * Required, and only ever `"error"`. Global `fetch` follows a `Location`
+     * by default, which would let the upstream turn the one URL this service
+     * builds into a second destination nobody reviewed; stating the policy in
+     * the seam's own type is what keeps a caller from omitting it and
+     * inheriting the permissive default. `"follow"` and `"manual"` are not
+     * accepted here at all (#1806).
+     */
+    redirect: "error";
+  },
 ) => Promise<UpstreamResponseLike>;
 
 /** The part of a fetch Response the relay needs. */
@@ -109,6 +122,9 @@ async function relay(deps: EgressDeps, operation: EgressOperation): Promise<Resp
     upstream = await deps.upstreamFetch(url, {
       headers: { "user-agent": UPSTREAM_USER_AGENT },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      // The one URL the service built, and no other: a `Location` header would
+      // otherwise move the connection to a host nothing here chose.
+      redirect: "error",
     });
     // Read the body here, inside the same guard: arriving headers are not a
     // delivered answer, and a reset or stalled stream rejects on this line.

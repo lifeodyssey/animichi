@@ -33,20 +33,24 @@ function unsignedRequest(path: string): Request {
   return new Request(`https://egress.test${path}`);
 }
 
-/** An upstream stub that records every URL it is asked for. */
+/** An upstream stub that records every URL it is asked for, and how each request was allowed to redirect. */
 function recordingUpstream(status = 200, body = '{"ok":true}'): {
   urls: string[];
   userAgents: (string | undefined)[];
-  fetch: (url: string) => Promise<UpstreamResponseLike>;
+  redirects: (string | undefined)[];
+  fetch: (url: string, init?: { headers?: Record<string, string>; redirect?: string }) => Promise<UpstreamResponseLike>;
 } {
   const urls: string[] = [];
   const userAgents: (string | undefined)[] = [];
+  const redirects: (string | undefined)[] = [];
   return {
     urls,
     userAgents,
-    fetch: (url: string, init?: { headers?: Record<string, string> }) => {
+    redirects,
+    fetch: (url: string, init?: { headers?: Record<string, string>; redirect?: string }) => {
       urls.push(url);
       userAgents.push(init?.headers?.["user-agent"]);
+      redirects.push(init?.redirect);
       return Promise.resolve(new Response(body, { status, headers: { "content-type": "application/json" } }));
     },
   };
@@ -164,6 +168,28 @@ void describe("relayed upstream answers are marked as the upstream's", () => {
         "Animichi/1.0 (https://github.com/lifeodyssey/animichi)",
       ],
     );
+  });
+});
+
+void describe("the relay never follows a redirect off the one upstream URL", () => {
+  void it("tells the transport to refuse a redirect rather than follow it", async () => {
+    // Global `fetch` follows a `Location` by default, which would turn an
+    // allowlisted host into a second destination the service never reviewed.
+    // The policy travels with the request, so the production transport — the
+    // unwrapped global fetch — cannot follow one; the integration suite proves
+    // it against a real loopback redirect.
+    const upstream = recordingUpstream();
+    await handleEgressRequest(signedRequest("/anitabi/lite/2461"), deps(upstream.fetch));
+    assert.deepEqual(upstream.redirects, ["error"]);
+  });
+
+  void it("answers a refused redirect as our marked refusal, not silence", async () => {
+    const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
+      upstreamFetch: () => Promise.reject(new TypeError("unexpected redirect")),
+    });
+    assert.equal(facts.status, 504);
+    assert.equal(facts.marker, "refused-here");
+    assert.equal(facts.reason, "upstream-timeout");
   });
 });
 

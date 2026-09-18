@@ -18,7 +18,13 @@
 #                      already carry IPv4-shaped text that is not an address —
 #                      SVG path data, SSRF blocklists, version strings — and a
 #                      scan that flags those is a scan that gets switched off.
-#                      The residual (an address anywhere else) is #1809's
+#                      Within those surfaces it reaches EVERY file, dotfiles
+#                      included: without `File::FNM_DOTMATCH` a `*` skips a
+#                      leading dot, and `.oxlintrc.json` — or an `.env` that
+#                      lands there later — is not scanned at all (#1806), which
+#                      is the one place a key or an address most plausibly
+#                      arrives. The residual (an address anywhere else, and one
+#                      inside a file this scan reads as binary) is #1809's
 #                      disclosure-scope item, stated there rather than implied
 #                      away here.
 #
@@ -28,7 +34,9 @@
 # the whole IPv4 space brute-forces in seconds, so a committed hash discloses
 # the address while looking like it pins it.
 require "minitest/autorun"
+require "fileutils"
 require "open3"
+require "tmpdir"
 
 class AnitabiEgressDisclosureTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -97,6 +105,25 @@ class AnitabiEgressDisclosureTest < Minitest::Test
                  "an address just outside the documentation ranges must be flagged — the scanner can fail"
   end
 
+  # What the scan REACHES is a property of its glob, not of its scanner, and
+  # `Dir.glob`'s `*` does not match a leading dot: `.oxlintrc.json`, or an
+  # `.env`/`.dev.vars` that lands on one of these surfaces later, was invisible
+  # to the address scan entirely (#1806). The probe plants one in a throwaway
+  # root — never this tree — and runs the real scan over it.
+  def test_the_address_scan_reaches_a_dotfile_on_a_scanned_surface
+    Dir.mktmpdir("egress-disclosure-dotfile-") do |root|
+      planted = File.join(root, "apps/anitabi-egress/.env")
+      FileUtils.mkdir_p(File.dirname(planted))
+      # An address outside the documentation ranges, and NOT the operator's —
+      # which is nowhere in this tree (see check-egress-address.ts).
+      File.write(planted, "EGRESS_ADDRESS=203.0.114.9\n")
+      status, output = run_address_scan(root)
+      refute status.success?, "an address in a dotfile on a scanned surface must fail the address scan"
+      assert_includes output, "apps/anitabi-egress/.env",
+                      "the refusal must name the dotfile it found, not merely fail"
+    end
+  end
+
   def test_the_key_scanner_flags_every_shape_the_value_reaches_the_tree_in
     # The fixtures are assembled, never written out: a literal that is
     # deliberately key-shaped cannot sit in the tree it is scanning — the
@@ -126,6 +153,15 @@ class AnitabiEgressDisclosureTest < Minitest::Test
 
   private
 
+  # The address scan alone, over another root. Spawned rather than re-entered:
+  # the root the scan reads is the contract's own constant, and the probe's
+  # question is what THIS contract does over a tree that holds a dotfile.
+  def run_address_scan(root)
+    out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => root }, RbConfig.ruby, __FILE__,
+                                      "--name", "/test_no_egress_address_on_a_surface/")
+    [status, out + err]
+  end
+
   def tracked_text_files
     out, err, status = Open3.capture3("git", "ls-files", "-z", chdir: ROOT)
     assert_predicate status, :success?, "git ls-files failed: #{err}"
@@ -135,10 +171,21 @@ class AnitabiEgressDisclosureTest < Minitest::Test
   def address_scanned_files
     ADDRESS_SURFACES.flat_map do |entry|
       path = File.join(ROOT, entry)
-      File.file?(path) ? [entry] : Dir.glob(File.join(path, "**", "*")).map { |file| file.delete_prefix("#{ROOT}/") }
+      next [entry] if File.file?(path)
+
+      reach(path).map { |file| file.delete_prefix("#{ROOT}/") }
     end.reject { |path| path.split("/").include?("dist") || path.split("/").include?("node_modules") }
        .select { |path| File.file?(File.join(ROOT, path)) && !binary?(path) }
        .sort
+  end
+
+  # Every file under one scanned surface, dotfiles included. `File::FNM_DOTMATCH`
+  # is the whole point: without it `*` skips a leading dot, so `.oxlintrc.json`
+  # and any `.env`/`.dev.vars` that lands there is not scanned at all. The `.`
+  # and `..` entries it also introduces are directories, and the caller's
+  # `File.file?` drops them.
+  def reach(path)
+    Dir.glob(File.join(path, "**", "*"), File::FNM_DOTMATCH)
   end
 
   def binary?(path)

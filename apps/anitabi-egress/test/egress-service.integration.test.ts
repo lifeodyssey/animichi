@@ -46,11 +46,25 @@ function sign(path: string, at: number): string {
 }
 
 /** The stub upstream, plus the fetch shim that serves anitabi URLs from it. */
-async function startStubUpstream(): Promise<{ server: Server; shim: typeof fetch; requests: string[] }> {
+interface StubUpstream {
+  server: Server;
+  shim: typeof fetch;
+  requests: string[];
+  /** Arm this stub to answer with a 302 to `target`; `null` restores the ordinary answer. */
+  answerWithRedirect(target: string | null): void;
+}
+
+async function startStubUpstream(): Promise<StubUpstream> {
   const requests: string[] = [];
-  const server = createHttpServer((req, res) => {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end('{"points":[{"id":"p1"}],"pointsLength":1}');
+  let redirectTo: string | null = null;
+  const server = createHttpServer((_request, response) => {
+    if (redirectTo !== null) {
+      response.writeHead(302, { location: redirectTo });
+      response.end();
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end('{"points":[{"id":"p1"}],"pointsLength":1}');
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -64,7 +78,27 @@ async function startStubUpstream(): Promise<{ server: Server; shim: typeof fetch
     requests.push(url);
     return fetch(`${stubBase}${new URL(url).pathname}${new URL(url).search}`, init);
   };
-  return { server, shim, requests };
+  return { server, shim, requests, answerWithRedirect: (target) => { redirectTo = target; } };
+}
+
+/** A second destination, standing in for whatever an upstream `Location` might name. */
+interface SecondDestination {
+  server: Server;
+  url: string;
+  contacted: string[];
+}
+
+async function startSecondDestination(): Promise<SecondDestination> {
+  const contacted: string[] = [];
+  const server = createHttpServer((request, response) => {
+    contacted.push(request.url ?? "/");
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end("not the upstream");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address !== null && typeof address === "object");
+  return { server, url: `http://127.0.0.1:${String(address.port)}/second-destination`, contacted };
 }
 
 void describe("the egress service over real HTTP", () => {
@@ -119,5 +153,48 @@ void describe("the egress service over real HTTP", () => {
     assert.equal(answer.marker, "refused-here");
     assert.equal(answer.refusal, "auth");
     assert.equal(stub.requests.length, 2, "the refusal must not have reached the stub");
+  });
+});
+
+/**
+ * The service reaches ONE URL, built from its own capture. A `Location` header
+ * is the upstream naming a second destination this repository never reviewed,
+ * and global `fetch` follows redirects by default — so the hop has to be
+ * refused, and only the real transport can show that it is.
+ */
+void describe("the redirect the upstream may not send us through", () => {
+  const nowSeconds = () => 1_700_000_000;
+  const path = "/anitabi/lite/2461";
+  let service: { server: Server; port: number };
+  let stub: StubUpstream;
+
+  before(async () => {
+    stub = await startStubUpstream();
+    service = await startEgressServer({
+      env: { INGEST_SIGNING_KEY: KEY, UPSTREAM_REQUEST_CEILING_PER_HOUR: "100" },
+      port: 0,
+      nowSeconds,
+      upstreamFetch: stub.shim,
+    });
+  });
+
+  after(() => {
+    service.server.close();
+    stub.server.close();
+  });
+
+  void it("is refused, and the second destination is never contacted", async () => {
+    const second = await startSecondDestination();
+    try {
+      stub.answerWithRedirect(second.url);
+      const answer = await ask(service.port, path, signedHeaders(path, nowSeconds()));
+      assert.equal(answer.status, 504, "a redirect the service may not follow answers as ours, not as relayed");
+      assert.equal(answer.marker, "refused-here");
+      assert.equal(answer.refusal, "upstream-timeout");
+      assert.deepEqual(second.contacted, [], "the redirect target must never be contacted");
+    } finally {
+      stub.answerWithRedirect(null);
+      second.server.close();
+    }
   });
 });

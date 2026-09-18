@@ -1,14 +1,16 @@
 /**
  * The service's configuration, read once at boot — and failed closed
- * (#1792). A missing key, or a ceiling that is not a whole positive number the
- * service can actually exhaust, yields null, and the handler answers every
- * request with a configuration refusal; it never falls back to an
- * unauthenticated or unbounded path.
+ * (#1792). A key outside its documented form, a ceiling that is not a whole
+ * positive number the service can actually exhaust, or either one missing,
+ * yields null, and the handler answers every request with a configuration
+ * refusal; it never falls back to an unauthenticated or unbounded path.
  *
  * `INGEST_SIGNING_KEY` is set via `fly secrets` (its value is never in this
- * tree); `INGEST_SIGNING_KEY_PREVIOUS` is the optional rotation widow-mate.
- * The ceiling's canonical value lives in fly.toml's `[env]`, beside the
- * comment recording it as the agreement given to the upstream.
+ * tree) and must be a key `openssl rand -base64 48` produced — the runbook's
+ * one generator; `INGEST_SIGNING_KEY_PREVIOUS` is the optional rotation
+ * widow-mate, held to the same form. The ceiling's canonical value lives in
+ * fly.toml's `[env]`, beside the comment recording it as the agreement given
+ * to the upstream.
  */
 
 export interface EgressConfig {
@@ -26,13 +28,38 @@ export const CEILING_VAR = "UPSTREAM_REQUEST_CEILING_PER_HOUR";
 export function readEgressConfig(env: Record<string, string | undefined>): EgressConfig | null {
   const currentKey = env[CURRENT_KEY_VAR];
   const ceiling = parseCeiling(env[CEILING_VAR]);
-  if (typeof currentKey !== "string" || currentKey.length === 0 || ceiling === null) return null;
+  if (typeof currentKey !== "string" || !isSigningKey(currentKey) || ceiling === null) return null;
   const previousRaw = env[PREVIOUS_KEY_VAR];
   return {
     currentKey,
-    previousKey: typeof previousRaw === "string" && previousRaw.length > 0 ? previousRaw : null,
+    previousKey: typeof previousRaw === "string" && isSigningKey(previousRaw) ? previousRaw : null,
     ceilingPerHour: ceiling,
   };
+}
+
+/**
+ * The signing key's one documented form. `openssl rand -base64 48` — the
+ * command the runbook tells the operator to run, and the command the docs
+ * describe — writes 48 bytes as exactly 64 base64 characters, unpadded, so a
+ * value the generator cannot have produced is not a key this service will
+ * start on. That refuses a short key, a blank-looking one, a truncated paste,
+ * a value still carrying its newline, and the placeholder prose the runbook
+ * uses to talk ABOUT the variable — every one of which the service would
+ * otherwise sign with while the caller held something else, or while an
+ * attacker could guess it (CWE-326).
+ *
+ * It is a shape, not an entropy estimate, and this comment is the claim it
+ * keeps: 64 base64 characters of `a` passes. Nothing readable from a string
+ * can tell that value from a random one, so the guard checks the only thing it
+ * can — that the value came from the documented generator's alphabet and
+ * length — and the runbook says how to make a real one.
+ *
+ * The catalog caller (`workers/catalog`'s egress request module) holds the
+ * mirrored check: a key one side calls a key and the other does not is a
+ * configuration only one side can be signing with.
+ */
+export function isSigningKey(value: string): boolean {
+  return /^[A-Za-z0-9+/]{64}$/.test(value);
 }
 
 /**

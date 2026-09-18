@@ -42,7 +42,9 @@ GET /anitabi/lite/{bangumiId}
 
 The service builds the upstream URL itself. There is no "target" parameter anywhere in it. This
 is the control that survives a leaked credential: with the key in hand, the worst an attacker can
-do is ask for public landmark data. No code path can express another host.
+do is ask for public landmark data. No code path can express another host — and the connection set
+is that one URL, since a `Location` header on the upstream's answer is refused rather than followed
+(`redirect: "error"`, #1806).
 
 A forwarder taking a URL plus an allowlist would **not** be equivalent. An allowlist is
 configuration and drifts; an API surface is code and goes through review.

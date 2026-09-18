@@ -19,7 +19,10 @@ GET /anitabi/lite/{bangumiId}     → https://api.anitabi.cn/bangumi/{id}/lite
 There is no third operation and no way to express one: the upstream URL is
 built inside `src/upstream-operations.ts` from the parsed route alone. No
 parameter, header, or path segment names a destination — this is the control
-that survives a leaked key.
+that survives a leaked key. The connection set is the same one URL: a
+`Location` header on the upstream's answer is refused rather than followed
+(`redirect: "error"`), because global `fetch` follows redirects by default and
+that is a second destination this repository never reviewed (#1806).
 
 ## Authentication: signed requests, never a token
 
@@ -28,8 +31,10 @@ The caller sends `x-egress-timestamp` (unix seconds) and `x-egress-signature`
 crosses the wire; signatures outside a five-minute window are refused;
 comparison is constant-time. The service accepts a current and a previous key
 (`INGEST_SIGNING_KEY`, `INGEST_SIGNING_KEY_PREVIOUS`) so rotation needs no
-coordinated cut-over. Do not schedule rotation — the two-key window exists so
-rotation is painless when there is a reason.
+coordinated cut-over. Both must be keys `openssl rand -base64 48` produced —
+the service refuses to start on any other value, and the catalog resolves the
+same shape or resolves nothing. Do not schedule rotation — the two-key window
+exists so rotation is painless when there is a reason.
 
 ## The ceiling
 

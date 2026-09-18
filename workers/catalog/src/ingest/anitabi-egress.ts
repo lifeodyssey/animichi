@@ -50,12 +50,31 @@ export interface EgressKeyEnv {
  * the anitabi fetchers refuse. `INGEST_SIGNING_KEY` is a Cloudflare Secrets
  * Store binding in a deployed environment and a plain string locally; its value
  * is never in this tree.
+ *
+ * "Not configured" covers a value outside the documented form as well as an
+ * absent one. A key `openssl rand -base64 48` could not have produced is one
+ * the service refuses to start with, so resolving it here would buy nothing but
+ * requests this side can sign and no side can verify.
  */
 export async function egressSigningKeyFromEnv(env: EgressKeyEnv | undefined): Promise<string | undefined> {
   const key = env?.INGEST_SIGNING_KEY;
   if (key === undefined) return undefined;
   const value = typeof key === "string" ? key : await key.get();
-  return value.length > 0 ? value : undefined;
+  return isSigningKey(value) ? value : undefined;
+}
+
+/**
+ * The signing key's one documented form, mirrored from the service
+ * (`apps/anitabi-egress/src/egress-config.ts`): the runbook's generator,
+ * `openssl rand -base64 48`, writes 48 bytes as exactly 64 base64 characters,
+ * unpadded. Both sides hold the check deliberately — a form one side calls a
+ * key and the other does not is a deployment that can only refuse, and a value
+ * both sides accept while it is short enough to guess is a signature an
+ * attacker can forge (CWE-326). It is a shape, not an entropy estimate: 64
+ * base64 characters of `a` passes, and no string inspection can say otherwise.
+ */
+function isSigningKey(value: string): boolean {
+  return /^[A-Za-z0-9+/]{64}$/.test(value);
 }
 
 /** Thrown when an anitabi fetch runs without its signing key — our misconfiguration, fail closed. */
