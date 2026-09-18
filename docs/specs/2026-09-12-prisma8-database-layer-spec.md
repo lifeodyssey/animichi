@@ -284,7 +284,8 @@ JGD2011 / EPSG:6691 的 `utm_knn` 在 100k 行 / 东京 / 50 km 上是 **39.07 m
 - **staging（`br-gentle-king-aowjem8v`，`Pulumi.staging.yaml:3`）零业务行**。owner 记录：只有 PostGIS 自己的
   `spatial_ref_sys` 与 9 行 `atlas_schema_revisions`（9 = 链里 9 个 `.sql`）。它被
   `infra/database-access/reset-staging-baseline.sql:1-3`（`DROP SCHEMA IF EXISTS public CASCADE`）
-  重置过，所以现存对象是重置后由 `migrator` 角色重建的。
+  重置过，所以现存对象是重置后由 `migrator` 角色重建的。这次切换的重建由 CD 的 staging job 执行，
+  条件与顺序见 §七 第 4 条。
 - owner 已于 2026-09-10 裁定生产**没有用户**、允许直接删除重写
   （`docs/specs/2026-09-09-agent-on-pi-harness-spec.md` 第 7 行）。
 
@@ -1098,7 +1099,14 @@ owner 于 2026-09-15 裁定：生产的迁移权威**现在**切到 Prisma 链�
 2. **#1634**（migrator 删 Atlas 应用引擎，握手减半）。
 3. **#1635**（`stagingOnlyBaseline` 收发两端 + 闸门）。
 4. **#1636 减去 staging 证据那条 AC**（删链与所有读它的门禁）。staging 重建（§2.6）已获批准，
-   但那是**合并后 CD 的事**，不是本 PR 的；#1637（第一次生产迁移）仍由人工把关。
+   由 CD 在合并后执行；#1637（第一次生产迁移）仍由人工把关。
+   **第一轮评审补上（2026-09-18）**：原稿只写了「CD 会重建」，代码里 CD 并不跑重置脚本，第一次
+   staging 迁移会撞 `42710`。现在 `cd.yml` 的 staging job 在 migrator 预览之前跑
+   `infra/database-access/reset-staging-baseline.sh`：只在「无 `app` marker、`public` 里有 Atlas
+   遗留表、除扩展表和 Atlas 账本外没有业务行」时动手，先打印每张表的行数、建
+   `staging-before-prisma-baseline` 分支再删；其他状态一律点名跳过或点名拒绝。migrator 对仍带
+   `public.atlas_schema_revisions` 的库在 `/preflight` 与 `/migrate` 都回 `atlas_leftovers_present`，
+   不跑任何 DDL。生产 job 没有这一步。
 5. 本节这条修订本身。
 
 **两处 §四/§二 的文字在这一条之后描述的是过去**，已就地更新：§2.7 的「握手由两半组成」和

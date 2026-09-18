@@ -100,9 +100,13 @@ The preview is Prisma's public `executeMigrateShowPlan`, which reads the live ma
 initializing its schema, and returns `prisma: {targetHash, markerHash, migrations, usedLiveMarker}`.
 An identity the bundle does not carry returns retryable `409 stale_prisma_bundle`; an unusable
 live path returns `422` with a stable code and never a driver detail. Nothing here creates a
-schema, applies a migration or takes the apply lock. There is no artifact-level production gate
-in this request: the owner deleted it rather than rehousing it (#1621), and what protects
-production is the `production` GitHub environment's own approval.
+schema, applies a migration or takes the apply lock. A database still carrying the retired Atlas
+chain's revisions ledger is refused on both routes as
+`atlas_leftovers_present` before Prisma reads it (`src/atlas-leftovers.ts`, #1625): the baseline
+would otherwise fail with 42710 inside the apply. CD's staging job rebuilds that state first.
+There is no artifact-level production gate in this request: the owner deleted it rather than
+rehousing it (#1621), and what protects production is the `production` GitHub environment's own
+approval.
 
 `/migrate` requires the same metadata, rechecks the identity INSIDE the fixed lock — a prior
 preview is no authority — and then hands the exact snapshot and `refHash` to

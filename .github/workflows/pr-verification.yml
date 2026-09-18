@@ -131,6 +131,7 @@ jobs:
             migrations:
               - 'packages/pi-session-neon/migrations/**'
               - 'packages/pi-session-neon/src/contract.prisma'
+              - 'infra/database-access/reset-staging-baseline*'
             workflows:
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -513,6 +514,10 @@ jobs:
           docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Apply the whole chain to a disposable database
         run: bash scripts/local-gates/db-fresh-schema.sh
+      # CD's staging job runs the rebuild on every deploy; its gate is SQL, so it is proven
+      # against a disposable database on the same image, with only the Neon CLI stubbed.
+      - name: Rehearse the staging rebuild's gate on disposable databases
+        run: bash infra/database-access/reset-staging-baseline.test.sh
 
   gitleaks:
     name: CI / security (gitleaks)

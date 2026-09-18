@@ -68,7 +68,7 @@ case "$code" in
     "${STUB_PRISMA:?}" "${STUB_PRISMA:?}" > "$out" ;;
   409) printf '{"error":"stale_prisma_bundle","prismaTarget":"old","note":"LEAK_CANARY"}' > "$out" ;;
   503) printf '{"error":"preflight_unavailable","note":"LEAK_CANARY"}' > "$out" ;;
-  *) printf '{"error":"refused","note":"LEAK_CANARY"}' > "$out" ;;
+  *) printf '{"compatible":false,"error":"%s","note":"LEAK_CANARY"}' "${STUB_REFUSAL:-refused}" > "$out" ;;
 esac
 printf '%s' "$code"
 STUB

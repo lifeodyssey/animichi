@@ -1,3 +1,4 @@
+import { ATLAS_LEFTOVERS_PRESENT, carriesAtlasLeftovers } from "./atlas-leftovers";
 import { assertDirectDsn } from "./direct-dsn";
 import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
@@ -35,6 +36,7 @@ async function checkSelected(dsn: string, metadata: SelectedMetadata, directory:
   if (!await hasPrismaSnapshot(metadata.expectedPrismaRef, directory)) {
     return { compatible: false, error: "stale_prisma_bundle" };
   }
+  if (await carriesAtlasLeftovers(dsn)) return { compatible: false, error: ATLAS_LEFTOVERS_PRESENT };
   const native = await previewPrisma(dsn, metadata.expectedPrismaRef, directory);
   return native.ok ? { compatible: true, prisma: native.value } : { compatible: false, error: native.error };
 }

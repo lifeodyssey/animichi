@@ -10,9 +10,11 @@ class CdMigrationsTest < Minitest::Test
   EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
-  # Nothing in CD may reach the database except through the migrator Worker: a `psql`, a
+  # Nothing in CD may apply the chain except through the migrator Worker: a `psql`, a
   # `prisma db migrate`, or a migration CLI installed into the runner would each be a second
-  # apply path with a credential of its own.
+  # apply path with a credential of its own. The one staging step that reaches the database
+  # directly, the rebuild of a schema stranded on the Atlas chain, applies no chain and is
+  # pinned to staging by cd-stage.test.rb.
   DIRECT_APPLY = ["prisma db migrate", "psql ", "neonctl"].freeze
 
   def setup
@@ -56,13 +58,17 @@ class CdMigrationsTest < Minitest::Test
   # authority the only preflight worth running is the one against the migrator this release just
   # published, and that one still precedes the apply. What stays asserted here is the registry
   # read before every mutation, and the native preflight before the apply.
+  # Staging's eighth is the rebuild of a schema stranded on the Atlas chain.
+  MUTATIONS = { "stage" => 8, "promote-production" => 7 }.freeze
+  STAGING_REBUILD = "bash infra/database-access/reset-staging-baseline.sh"
+
   def test_real_registry_precedes_every_actual_mutation
     %w[stage promote-production].each do |job|
       steps = @cd.dig("jobs", job, "steps")
       registry = steps.index { |step| step["run"] == "ruby .github/scripts/release/inspect-images.rb" }
       refute_nil registry
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
-      assert_equal 7, mutations.length
+      assert_equal MUTATIONS.fetch(job), mutations.length
       mutations.each { |i| assert_operator i, :>, registry }
     end
   end
@@ -99,7 +105,8 @@ class CdMigrationsTest < Minitest::Test
       refute_nil preview
       retirements.each { |retirement| assert_operator retirement, :<, publish }
       assert_operator publish, :<, preview
-      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - (retirements + [publish])
+      rebuild = steps.index { |step| step['run'] == STAGING_REBUILD }
+      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - (retirements + [publish, rebuild])
       later_mutations.each { |i| assert_operator preview, :<, i }
     end
   end

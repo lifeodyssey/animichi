@@ -112,3 +112,18 @@ it("requires database CREATE for the non-superuser migrator and succeeds with th
   expect((await client.query("SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='prisma_contract'")).rows).toEqual([{ owner: "migrator" }]);
   await saveEvidence("native-migrator-role", { superuser: false, withoutDatabaseCreate: { preview: 200, apply: 500 }, withDatabaseCreate: { status: result.status, body }, markerSchemaOwner: "migrator" });
 });
+
+// #1625: the flip meets a staging database still on the retired Atlas chain, whose objects the
+// baseline would CREATE onto (42710). CD rebuilds that state first; if it did not, both routes
+// refuse it by name before any DDL rather than fail inside the apply.
+it("refuses a database still carrying the Atlas ledger by name before any DDL", async () => {
+  await client.query("CREATE TABLE public.atlas_schema_revisions (version text PRIMARY KEY); INSERT INTO atlas_schema_revisions VALUES ('20260826000003')");
+  const preview = await app.preview();
+  expect({ status: preview.status, body: await preview.json() }).toMatchObject({
+    status: 422, body: { compatible: false, error: "atlas_leftovers_present" } });
+  const refused = await app.migrate();
+  expect({ status: refused.status, body: await refused.json() }).toMatchObject({
+    status: 422, body: { success: false, error: "atlas_leftovers_present" } });
+  expect((await client.query("SELECT to_regnamespace('prisma_contract') AS marker")).rows).toEqual([{ marker: null }]);
+  expect((await client.query("SELECT to_regclass('public.pi_sessions') AS sessions")).rows).toEqual([{ sessions: null }]);
+});

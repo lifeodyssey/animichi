@@ -6,6 +6,10 @@ import { preflightRequest } from "./preflight-fixtures";
 const native = vi.hoisted(() => ({ show: vi.fn(), connect: vi.fn(), migrate: vi.fn(), close: vi.fn() }));
 vi.mock("@prisma/orm-toolchain/cli/control-api", () => ({ executeMigrateShowPlan: native.show }));
 vi.mock("@prisma/orm-postgres/control", () => ({ createPostgresControlClient: () => native }));
+const ledger = vi.hoisted(() => ({ stranded: vi.fn() }));
+vi.mock("../src/atlas-leftovers", async (original) => ({
+  ...await original<typeof import("../src/atlas-leftovers")>(), carriesAtlasLeftovers: ledger.stranded,
+}));
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
 beforeEach(() => {
@@ -13,6 +17,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map([["app", TARGET]]), usedLiveMarker: true } });
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
+  ledger.stranded.mockResolvedValue(false);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -36,6 +41,16 @@ it("refuses a native path failure before attempting either owner's DDL", async (
   const response = await (await nativeApp(DSN)).migrate();
   expect(response.status).toBe(422);
   expect(await response.json()).toMatchObject({ error: "NO_FORWARD_PATH" });
+  expect(native.connect).not.toHaveBeenCalled();
+});
+
+it("refuses a database still on the Atlas chain by name before Prisma reads it", async () => {
+  ledger.stranded.mockResolvedValue(true);
+  const app = await nativeApp(DSN);
+  expect(await (await app.preview()).json()).toEqual({ compatible: false, error: "atlas_leftovers_present" });
+  const refused = await app.migrate();
+  expect({ status: refused.status, body: await refused.json() }).toEqual({ status: 422, body: { success: false, error: "atlas_leftovers_present" } });
+  expect(native.show).not.toHaveBeenCalled();
   expect(native.connect).not.toHaveBeenCalled();
 });
 

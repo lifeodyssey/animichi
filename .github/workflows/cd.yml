@@ -94,6 +94,7 @@ jobs:
         id: pulumi-cli
         run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
+        id: esc
         uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
         with:
           version: ${{ steps.pulumi-cli.outputs.version }}
@@ -115,6 +116,17 @@ jobs:
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env staging --tag "sha-$SOURCE_SHA"
+      # The owner-approved staging rebuild of the Prisma flip (#1625). The baseline creates what
+      # the retired Atlas chain already created, so the first apply onto that schema would fail
+      # 42710; the migrator refuses it by name (`atlas_leftovers_present`). The script acts only
+      # on that cutover state — no app marker, Atlas leftovers, no business rows — and first
+      # records the pre-state and takes the `staging-before-prisma-baseline` branch; on every
+      # other run it is a named no-op. The Neon key comes from the ESC step's output, so it
+      # reaches this step alone.
+      - name: Rebuild a staging schema stranded on the Atlas chain
+        env:
+          NEON_API_KEY: ${{ steps.esc.outputs.NEON_API_KEY }}
+        run: bash infra/database-access/reset-staging-baseline.sh
       - name: Preview the selected native migration graph
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}

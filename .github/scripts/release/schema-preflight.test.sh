@@ -69,5 +69,19 @@ expect_log "and reports the stale bundle, not a 503 wait" 1 \
 run "the stale budget is still the caller's to set" 1 \
   STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=409 BUNDLE_POLL_SECONDS=0 STALE_BUNDLE_ATTEMPTS=5
 expect_eq "and five attempts is where it stops" 5 "$(preflight_calls)"
+
+echo
+echo "=== a refusal names its reason ==="
+# #1625: a staging database still on the Atlas chain is refused by the migrator as
+# `atlas_leftovers_present`. The job log has to say which refusal it was, and only a stable
+# code may reach it — a body carrying anything else is reported by status alone.
+run "a 422 refusal fails at once" 1 STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=422 STUB_REFUSAL=atlas_leftovers_present
+expect_eq "without asking a second time" 1 "$(preflight_calls)"
+expect_log "and the log names the refusal" 1 \
+  "::error::migration preflight refused or unavailable (HTTP 422): atlas_leftovers_present"
+run "a refusal that is not a stable code is not echoed" 1 STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=422 \
+  "STUB_REFUSAL=postgresql://user:pw@host/db"
+expect_log "and the log carries the status alone" 1 "::error::migration preflight refused or unavailable (HTTP 422)"
+expect_log "and none of the body" 0 "pw@host"
 echo
 report_suite "schema-preflight retry"

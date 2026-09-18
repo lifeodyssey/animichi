@@ -7,11 +7,13 @@ class PrVerificationSchemaTest < Minitest::Test
   CI_FILE = File.join(ROOT, ".github", "workflows", "pr-verification.yml")
   SCHEMA_JOB = "db"
   SCHEMA_FILTERS = %w[migrations deps].freeze
-  # Two questions, two steps, in this order: the graph is internally consistent (static), then
-  # it still applies from zero to a pristine database (a throwaway container).
+  # Three questions, three steps, in this order: the graph is internally consistent (static),
+  # it still applies from zero to a pristine database (a throwaway container), and CD's staging
+  # rebuild still acts only on the state it was approved for (the same image, #1625).
   SCHEMA_SEGMENTS = [
     "prisma migration check",
-    "bash scripts/local-gates/db-fresh-schema.sh"
+    "bash scripts/local-gates/db-fresh-schema.sh",
+    "bash infra/database-access/reset-staging-baseline.test.sh"
   ].freeze
   # A migration applies in exactly one place — the migrator Worker, in CD. Any of these in a PR
   # job would be a second apply path, with a database credential this workflow must never hold.

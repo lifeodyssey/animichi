@@ -38,6 +38,10 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
       "a verbatim freeze of the shape the retired chain built; its comments are that chain's own",
     "scripts/check-skeleton-w0-docs.sh" => "it asserts that a dated iteration record still says what it said",
     "docs/ops/migrations.md" => "the runbook states which authority was retired and why",
+    "infra/database-access/reset-staging-baseline.sh" => "the staging rebuild finds and drops the ledger it names (#1625)",
+    "infra/database-access/reset-staging-baseline.test.sh" => "its cutover fixture builds the ledger the rebuild must drop",
+    "workers/migrator/src/atlas-leftovers.ts" => "the migrator refuses a database by the ledger it names (#1625)",
+    "workers/migrator/test/integration/prisma.integration.ts" => "one case builds the ledger the migrator must refuse",
   }.freeze
 
   def test_no_live_surface_names_a_retired_migration_authority

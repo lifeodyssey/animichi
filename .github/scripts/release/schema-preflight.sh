@@ -39,7 +39,9 @@ while :; do
     continue
   fi
   if [ "$code" != 409 ] || ! jq -e '.error == "stale_prisma_bundle"' schema-preflight.json > /dev/null; then
-    echo "::error::migration preflight refused or unavailable (HTTP $code)"; exit 1
+    # A refusal names itself (`atlas_leftovers_present`, #1625); only a stable code is echoed.
+    reason="$(jq -r '.error | select(type == "string" and test("^[a-z_]+$"))' schema-preflight.json 2>/dev/null || true)"
+    echo "::error::migration preflight refused or unavailable (HTTP $code)${reason:+: $reason}"; exit 1
   fi
   [ "$attempt" -lt "${STALE_BUNDLE_ATTEMPTS:-3}" ] || { echo '::error::native preflight remained on a stale bundle'; exit 1; }
   attempt=$((attempt + 1))

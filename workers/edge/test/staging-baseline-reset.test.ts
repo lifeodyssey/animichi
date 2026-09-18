@@ -20,7 +20,7 @@ void test("staging reset is branch-backed and production-safe", () => {
   assert.match(sh, /BACKUP_NAME="staging-before-prisma-baseline"/);
   assert.match(sh, /branches create[\s\S]*--parent "\$BRANCH_ID"[\s\S]*--no-compute/);
   assert.match(sh, /--role-name "\$role"/);
-  assert.match(sh, /staging_psql neondb_owner/);
+  assert.match(sh, /OWNER_ROLE="neondb_owner"/);
   assert.match(sh, /neonctl@3\.6\.0/);
   assert.doesNotMatch(sh, /neonctl@latest/);
 });
@@ -29,7 +29,7 @@ void test("staging reset is branch-backed and production-safe", () => {
 // mid-script failure could leave the schema dropped but not yet recreated/granted.
 void test("the reset SQL runs as a single transaction", () => {
   const sh = read("infra/database-access/reset-staging-baseline.sh");
-  assert.match(sh, /staging_psql neondb_owner -1 -v ON_ERROR_STOP=1 -f "\$RESET_SQL"/);
+  assert.match(sh, /staging_psql "\$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -f "\$RESET_SQL"/);
 });
 
 void test("reset SQL has one exact destructive target", () => {
@@ -111,7 +111,7 @@ void test("the failure message survives a body larger than the pipe buffer", () 
 // audit §2.6: a failed `staging_psql` call (connection/permission failure) produced the
 // same empty stdout as a successful query answering "false" — both fell through
 // `grep -qx t` to "not applied" and triggered `DROP SCHEMA CASCADE`. These run the shipped
-// `query_bool`/`marker_schema_exists`/`baseline_applied` functions with a stub `staging_psql`
+// `query`/`query_bool`/`marker_schema_exists`/`baseline_applied` functions with a stub `staging_psql`
 // standing in for the real connection, so "cannot confirm" and "confirmed unapplied" are
 // proven to take different paths rather than just asserting the source text says so.
 const resetShellFunction = (name: string): string => {
@@ -123,6 +123,7 @@ const resetShellFunction = (name: string): string => {
 };
 
 const shippedBaselineCheck = [
+  resetShellFunction("query"),
   resetShellFunction("query_bool"),
   resetShellFunction("marker_schema_exists"),
   resetShellFunction("baseline_applied"),
@@ -131,6 +132,8 @@ const shippedBaselineCheck = [
 const runBaselineApplied = (stagingPsqlBody: string): { status: number | null; stdout: string } => {
   const source = `set -euo pipefail
 MARKER_SCHEMA="prisma_contract"
+OWNER_ROLE="neondb_owner"
+ROWS=""
 fail() { echo "FAILED:$*"; exit 1; }
 staging_psql() {
 ${stagingPsqlBody}

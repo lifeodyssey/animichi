@@ -389,15 +389,25 @@ with no pending migrations. Staging receipt verification compares that marker wi
 the same selected artifact. SQL and secret failures return stable codes, never internal exception
 messages.
 
-CD performs no staging baseline reset. Missing/empty/native-baseline state requires an explicit
-bootstrap or recovery decision. **Production promotion is protected only by the `production`
+CD's staging job rebuilds staging once, for the Prisma flip (#1625). Before the migrator's preview,
+`infra/database-access/reset-staging-baseline.sh` reads the staging branch and acts only when there
+is no `prisma_contract.marker` `app` row and `public` still holds tables the retired Atlas chain
+left. It prints every `public` table with its row count, refuses by name if any table other than an
+extension's or the Atlas ledger holds a row, takes the `staging-before-prisma-baseline` branch, and
+drops and recreates `public` in one transaction. Every later run is a named no-op. The migrator
+refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
+`/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
+inside the apply. Production has no such step: a missing, empty or native-baseline production
+database still requires an explicit bootstrap or recovery decision. **Production promotion is protected only by the `production`
 GitHub environment's approval** — the artifact-level baseline gate was deleted rather than
 rehoused, and [#1621](https://github.com/lifeodyssey/animichi/issues/1621) records the residual
 risk and the conditions under which an artifact-level check comes back. The migrator binding,
 role and existing topology must be bootstrapped before selected
 executor publication; selected-artifact deployment does not provision its own access prerequisites.
 Staging and production retain separate DSN bindings and exact main-controller OIDC
-policies. CI receives no database credential and does not run direct database migrations.
+policies. CI receives no database credential and does not run direct database migrations; the
+staging rebuild above is the one step that reaches the database without the migrator, and it
+applies no migration.
 
 Expand/contract remains necessary: schema is applied before its consumers, and a Worker rollback
 does not reverse migrations. Follow [migrations.md](migrations.md) and
@@ -505,8 +515,9 @@ staging credential reused under a different label.
 
 Build exports `CLOUDFLARE_API_TOKEN` for registry publication. Deployment exports the Cloudflare
 credential for native Wrangler and Pulumi. Staging additionally exports its Access service-token
-pair for smoke. CD no longer exports `NEON_API_KEY` or resets staging; the Neon provider reads its
-encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
+pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild step alone reads it, from the ESC
+step's own output (`steps.esc.outputs.NEON_API_KEY`), and production never does. The Neon provider
+reads its encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
 #1370's required provisioning, and must not be copied into artifact or job outputs.
 
 Each ESC opening is followed by a nonempty-value check because the action otherwise only warns.

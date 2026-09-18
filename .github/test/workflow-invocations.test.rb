@@ -7,7 +7,7 @@ class WorkflowInvocationsTest < Minitest::Test
   WORKFLOWS = Dir.glob(File.join(ROOT, ".github/workflows/*.yml")).sort
   PR_WORKFLOW = File.join(ROOT, ".github/workflows/pr-verification.yml")
   CHECKS = Dir.glob(File.join(ROOT, "{.github/test,test/repo-config}/*.test.rb")) +
-           Dir.glob(File.join(ROOT, "{scripts,.github/scripts}/**/*.test.sh"))
+           Dir.glob(File.join(ROOT, "{scripts,.github/scripts,infra}/**/*.test.sh"))
 
   def workflow_steps(paths = WORKFLOWS)
     paths.flat_map do |path|
@@ -27,7 +27,7 @@ class WorkflowInvocationsTest < Minitest::Test
   def invoked_scripts(paths = WORKFLOWS)
     workflow_steps(paths).flat_map { |step| step["run"].to_s.lines }.map(&:strip)
                   .grep(/\A(?:bash|ruby|node|sh|python3?)\s+\S+/).map { |line| line.split[1] }
-                  .select { |path| path.start_with?(".github/", "scripts/", "test/") }
+                  .select { |path| path.start_with?(".github/", "scripts/", "test/", "infra/") }
   end
 
   def test_every_committed_check_runs_in_pr_verification

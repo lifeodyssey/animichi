@@ -32,8 +32,30 @@ class CdStageTest < Minitest::Test
     end
   end
 
-  def test_no_automatic_schema_reset_or_affected_package_filter
-    refute_match(/reset-staging|needs\.plan|fromJSON/, @cd.to_s)
+  # The Prisma flip (#1625) meets a staging database still carrying the retired Atlas chain's
+  # objects, and the baseline would CREATE onto them (42710). The owner approved rebuilding
+  # staging, and a deploy happens only in CD, so the rebuild is a step of the staging job: after
+  # the migrator it would be refused by is published, before that migrator's preview. The step
+  # carries no `if:` — the script's own gate (reset-staging-baseline.test.sh) makes every later
+  # run a no-op, and a workflow condition could only skip the cutover it exists for.
+  RESET = "Rebuild a staging schema stranded on the Atlas chain".freeze
+
+  def test_staging_rebuilds_a_stranded_schema_between_the_publish_and_the_preview
+    reset = step("stage", RESET)
+    assert_equal "bash infra/database-access/reset-staging-baseline.sh", reset["run"]
+    refute reset.key?("if"), "the script's gate decides whether to rebuild, not the workflow"
+    assert_operator position("stage", "Publish the selected migrator"), :<, position("stage", RESET)
+    assert_operator position("stage", RESET), :<, position("stage", "Preview the selected native migration graph")
+  end
+
+  def test_only_the_staging_environment_runs_the_rebuild
+    assert_equal "staging", @cd.dig("jobs", "stage", "environment")
+    holders = @cd.fetch("jobs").select { |_id, job| job.to_s.include?("reset-staging") }.keys
+    assert_equal ["stage"], holders
+  end
+
+  def test_no_affected_package_filter
+    refute_match(/needs\.plan|fromJSON/, @cd.to_s)
   end
 
   def test_only_read_only_observation_and_receipt_upload_follow_smoke

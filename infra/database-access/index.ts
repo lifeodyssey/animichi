@@ -116,8 +116,9 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   //
   // Roles are PROJECT-scoped in Neon, so creating `migrator` here also makes it
   // available on every branch (production `main` compute included); GRANTs and
-  // ownership are branch-scoped and shipped as Atlas migrations
-  // (the migration chain). The DSN here composes against THIS branch's
+  // ownership are branch-scoped and shipped in the Prisma chain's baseline
+  // (packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts).
+  // The DSN here composes against THIS branch's
   // read-write endpoint, so each stack writes its own: staging publishes
   // MIGRATOR_DATABASE_URL against the staging branch and the prod stack
   // (Pulumi.prod.yaml, #1048) publishes MIGRATOR_DATABASE_URL_PROD against the
