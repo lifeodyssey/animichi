@@ -19,6 +19,8 @@ import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { ingestJobs } from "../db/schema";
 import * as x from "../db/expressions";
+import { fetchStage, IngestErrorCode } from "./ingest-failure";
+import type { UpstreamName } from "./upstream-failures";
 
 export const RUNNING_TTL_SECONDS = 15 * 60;
 
@@ -35,6 +37,8 @@ export interface FailureOptions {
   errorCode: string;
   ttlSeconds: number;
   error?: string;
+  /** Where the pipeline stopped, e.g. `fetch:anitabi`; absent when not an upstream fetch. */
+  stage?: string;
 }
 
 /** Singleflight + negative-cache gate over `ingest_jobs`. */
@@ -65,6 +69,12 @@ export class JobStore {
   async markFailed(bangumiId: string, opts: FailureOptions): Promise<void> {
     if (opts.ttlSeconds <= 0) throw new Error("ttlSeconds must be > 0");
     await markJobFailed(this.db, bangumiId, opts);
+  }
+
+  /** Whether `upstream` already has a refusal parked behind a live negative cache. */
+  async hasLiveRefusal(upstream: UpstreamName): Promise<boolean> {
+    const result = await this.db.execute(liveRefusalStatement(upstream));
+    return result.rows.length > 0;
   }
 }
 
@@ -97,7 +107,7 @@ function ensurePendingStatement(bangumiId: string): SQL {
 }
 
 function pendingReset() {
-  return { status: "pending", startedAt: null, finishedAt: null, error: null, errorCode: null, negativeCachedUntil: null } as const;
+  return { status: "pending", startedAt: null, finishedAt: null, error: null, errorCode: null, stage: null, negativeCachedUntil: null } as const;
 }
 
 /** Shared eligibility for request parking and cron acquisition. */
@@ -155,7 +165,7 @@ function markDoneStatement(bangumiId: string): SQL {
     .update(ingestJobs)
     .set({
       status: "done", finishedAt: x.now(),
-      error: null, errorCode: null, negativeCachedUntil: null,
+      error: null, errorCode: null, stage: null, negativeCachedUntil: null,
     })
     .where(and(eq(ingestJobs.workId, bangumiId), eq(ingestJobs.status, "running")))
     .getSQL();
@@ -170,10 +180,24 @@ function markFailedStatement(bangumiId: string, opts: FailureOptions): SQL {
     .update(ingestJobs)
     .set({
       status: "failed", finishedAt: x.now(),
-      error: opts.error ?? null, errorCode: opts.errorCode,
+      error: opts.error ?? null, errorCode: opts.errorCode, stage: opts.stage ?? null,
       negativeCachedUntil: addIntervalSeconds(opts.ttlSeconds),
     })
     .where(and(eq(ingestJobs.workId, bangumiId), eq(ingestJobs.status, "running")))
+    .getSQL();
+}
+
+/** One live refusal row for the source, if any: the refusal alarm's ledger. */
+function liveRefusalStatement(upstream: UpstreamName): SQL {
+  return statementBuilder()
+    .select({ workId: ingestJobs.workId })
+    .from(ingestJobs)
+    .where(and(
+      eq(ingestJobs.errorCode, IngestErrorCode.UpstreamRefused),
+      eq(ingestJobs.stage, fetchStage(upstream)),
+      sql`${ingestJobs.negativeCachedUntil} > NOW()`,
+    ))
+    .limit(1)
     .getSQL();
 }
 

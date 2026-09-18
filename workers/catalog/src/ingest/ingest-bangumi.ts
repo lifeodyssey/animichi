@@ -8,8 +8,10 @@
  * It composes three outbound ports — `source`, `store`, `publisher` — so the
  * pipeline is testable with in-memory fakes and the workerd/Neon adapters stay
  * out of the use case. Retry policy is owned HERE, in the negative-cache TTLs:
- * an empty upstream parks for a week (`emptySeconds`), any other failure for an
- * hour (`failureSeconds`), and the claim re-acquires once the TTL elapses.
+ * an empty upstream parks for a week (`emptySeconds`), a refusing upstream for
+ * a day (`refusalSeconds`), any other failure for an hour (`failureSeconds`),
+ * and the claim re-acquires once the TTL elapses. What kind of failure a row
+ * records is `./ingest-failure`'s taxonomy.
  *
  * Pipeline callers funnel through {@link ingest}: it acquires the claim and
  * runs the pipeline, or reports the persisted guard without touching upstream.
@@ -22,7 +24,11 @@
 import type { CatalogDb } from "../db/client";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";
 import { upstreamUnavailable } from "../lib/errors";
+import {
+  classifyIngestFailure, failedStage, IngestErrorCode, operatorRecord, type IngestFailure,
+} from "./ingest-failure";
 import { JobStore, type FailureOptions, type IngestGuard } from "./jobs";
+import { consoleRefusalAlarm, type RefusalAlarm } from "./refusal-alarm";
 import { saveRawAnitabi as writeRawAnitabi, saveRawBangumi as writeRawBangumi, type RawPayload } from "./raw-store";
 import {
   fetchAnitabiPoints,
@@ -30,21 +36,19 @@ import {
   type AnitabiPoint,
   type BangumiSubject,
   type FetchLike,
+  type UpstreamName,
   UpstreamFetchError,
-  UpstreamNotFoundError,
 } from "./sources";
 
-/** Error codes parked behind the negative cache (no bare strings). */
-export type IngestErrorCode = (typeof IngestErrorCode)[keyof typeof IngestErrorCode];
-
-export const IngestErrorCode = {
-  NotFound: "not_found",
-  IngestError: "ingest_error",
-} as const;
-
-/** Negative-cache TTLs: retry ordinary failures hourly, recheck empties weekly. */
+/**
+ * Negative-cache TTLs: retry ordinary failures hourly, recheck empties weekly.
+ * A refusal is not a failure that clears with time, so its TTL is a recheck
+ * cadence rather than a backoff: one request per refused work per day, so
+ * restored access is picked up within a day without being asked for hourly.
+ */
 export const DEFAULT_INGEST_TTL = {
   failureSeconds: 60 * 60,
+  refusalSeconds: 24 * 60 * 60,
   emptySeconds: 7 * 24 * 60 * 60,
 } as const;
 
@@ -88,6 +92,8 @@ export interface IngestStore {
   ensurePending(bangumiId: string): Promise<void>;
   markDone(bangumiId: string): Promise<void>;
   markFailed(bangumiId: string, opts: FailureOptions): Promise<void>;
+  /** Whether a refusal from `upstream` is already parked behind a live negative cache. */
+  hasLiveRefusal(upstream: UpstreamName): Promise<boolean>;
   saveRawBangumi(bangumiId: string, payload: RawPayload): Promise<void>;
   saveRawAnitabi(bangumiId: string, payload: RawPayload): Promise<void>;
 }
@@ -100,6 +106,7 @@ export interface IngestPublisher {
 /** Negative-cache TTL policy for {@link IngestBangumi}. */
 export interface IngestTtl {
   failureSeconds: number;
+  refusalSeconds: number;
   emptySeconds: number;
 }
 
@@ -109,6 +116,7 @@ interface IngestRuntime {
   store: IngestStore;
   publisher: IngestPublisher;
   ttl: IngestTtl;
+  alarm: RefusalAlarm;
 }
 
 /** The complete Bangumi ingest lifecycle, composed over three ports. */
@@ -119,8 +127,9 @@ export class IngestBangumi {
     store: IngestStore,
     publisher: IngestPublisher,
     ttl: IngestTtl = DEFAULT_INGEST_TTL,
+    alarm: RefusalAlarm = consoleRefusalAlarm(),
   ) {
-    this.runtime = { source, store, publisher, ttl };
+    this.runtime = { source, store, publisher, ttl, alarm };
   }
 
   /** Read the persisted marker without claiming ready work. */
@@ -167,12 +176,9 @@ async function runSafely(runtime: IngestRuntime, bangumiId: string, fetchImpl?: 
   }
 }
 
-/** Park the failure with the right TTL; rethrow transport outages as defined 502s. */
+/** Park the classified failure; rethrow upstream failures as defined 502s. */
 async function handleError(runtime: IngestRuntime, bangumiId: string, err: unknown): Promise<IngestResult> {
-  if (err instanceof UpstreamNotFoundError) {
-    return fail(runtime, bangumiId, IngestErrorCode.NotFound, errorMessage(err));
-  }
-  const result = await fail(runtime, bangumiId, IngestErrorCode.IngestError, errorMessage(err));
+  const result = await fail(runtime, bangumiId, classifyIngestFailure(err));
   if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
   return result;
 }
@@ -180,7 +186,7 @@ async function handleError(runtime: IngestRuntime, bangumiId: string, err: unkno
 /** Fetch -> raw -> enrich -> publish -> completion for the held claim. */
 async function runPipeline(runtime: IngestRuntime, bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
   const { subject, points } = await fetchUpstream(runtime.source, bangumiId, fetchImpl);
-  if (points.length === 0) return fail(runtime, bangumiId, IngestErrorCode.NotFound, "no points");
+  if (points.length === 0) return fail(runtime, bangumiId, { code: IngestErrorCode.NotFound, cause: "no points", upstream: null });
   await runtime.store.saveRawBangumi(bangumiId, subject);
   await runtime.store.saveRawAnitabi(bangumiId, points);
   const enriched = await runtime.publisher.publish(bangumiId);
@@ -201,23 +207,39 @@ async function fetchUpstream(
   return { subject, points };
 }
 
-/** Negative-cache the failure (clears the 'running' row) and report it. */
-async function fail(runtime: IngestRuntime, bangumiId: string, errorCode: IngestErrorCode, reason: string): Promise<IngestResult> {
-  const ttlSeconds = errorCode === IngestErrorCode.NotFound
-    ? runtime.ttl.emptySeconds
-    : runtime.ttl.failureSeconds;
-  await runtime.store.markFailed(bangumiId, { errorCode, ttlSeconds, error: reason });
-  const status = errorCode === IngestErrorCode.NotFound ? "empty" : "failed";
-  return { status, reason };
+/** Negative-cache the failure (clears the 'running' row), alarm a new refusal, report it. */
+async function fail(runtime: IngestRuntime, bangumiId: string, failure: IngestFailure): Promise<IngestResult> {
+  const alarmDue = await refusalAlarmDue(runtime.store, failure);
+  await runtime.store.markFailed(bangumiId, parkedFailure(runtime.ttl, failure));
+  if (alarmDue && failure.upstream !== null) {
+    runtime.alarm.upstreamRefused({ upstream: failure.upstream, workId: bangumiId, detail: operatorRecord(failure) });
+  }
+  const status = failure.code === IngestErrorCode.NotFound ? "empty" : "failed";
+  return { status, reason: failure.cause };
 }
 
-/** Preserve the root cause: message for real Errors, a stable string otherwise. */
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+/** A refusal alarms only when its source has no live refusal on record yet. */
+async function refusalAlarmDue(store: IngestStore, failure: IngestFailure): Promise<boolean> {
+  if (failure.code !== IngestErrorCode.UpstreamRefused || failure.upstream === null) return false;
+  return !(await store.hasLiveRefusal(failure.upstream));
+}
+
+function parkedFailure(ttl: IngestTtl, failure: IngestFailure): FailureOptions {
+  return {
+    errorCode: failure.code, ttlSeconds: parkedSeconds(ttl, failure.code),
+    error: operatorRecord(failure), stage: failedStage(failure),
+  };
+}
+
+/** How long each kind parks before the work is claimable again. */
+function parkedSeconds(ttl: IngestTtl, code: IngestErrorCode): number {
+  if (code === IngestErrorCode.NotFound) return ttl.emptySeconds;
+  if (code === IngestErrorCode.UpstreamRefused) return ttl.refusalSeconds;
+  return ttl.failureSeconds;
 }
 
 /** The production `IngestBangumi` over a Drizzle `CatalogDb`. */
-export function catalogIngestBangumi(db: CatalogDb): IngestBangumi {
+export function catalogIngestBangumi(db: CatalogDb, alarm: RefusalAlarm = consoleRefusalAlarm()): IngestBangumi {
   const jobs = new JobStore(db);
   return new IngestBangumi(
     {
@@ -230,9 +252,12 @@ export function catalogIngestBangumi(db: CatalogDb): IngestBangumi {
       ensurePending: (bangumiId) => jobs.ensurePending(bangumiId),
       markDone: (bangumiId) => jobs.markDone(bangumiId),
       markFailed: (bangumiId, opts) => jobs.markFailed(bangumiId, opts),
+      hasLiveRefusal: (upstream) => jobs.hasLiveRefusal(upstream),
       saveRawBangumi: (bangumiId, payload) => writeRawBangumi(db, bangumiId, payload),
       saveRawAnitabi: (bangumiId, payload) => writeRawAnitabi(db, bangumiId, payload),
     },
     { publish: (bangumiId) => enrichWork(db, bangumiId) },
+    DEFAULT_INGEST_TTL,
+    alarm,
   );
 }
