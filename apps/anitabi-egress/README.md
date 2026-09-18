@@ -37,7 +37,10 @@ rotation is painless when there is a reason.
 repository that states the number) caps upstream requests per hour. It is a
 promise to the upstream, not a tuning knob: changing it means changing the
 agreement. The service refuses past it with a response marked as its own, so
-the caller never mistakes our ceiling for an upstream refusal.
+the caller never mistakes our ceiling for an upstream refusal. The window is
+counted **per process** — the service has no storage — so a restart (deploy,
+rotation, crash) starts a fresh hour, and a restart mid-window can admit a
+second hour's worth across the two.
 
 ## Reading the answers
 
@@ -71,6 +74,10 @@ fly deploy . --config apps/anitabi-egress/fly.toml \
   --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
 ```
 
-Rotate the key with `fly secrets set INGEST_SIGNING_KEY=<new>` (stage with
-`--stage` to defer the restart), and set the previous key as
-`INGEST_SIGNING_KEY_PREVIOUS` for the overlap window.
+Rotate both values in one release —
+`fly secrets set INGEST_SIGNING_KEY=<new> INGEST_SIGNING_KEY_PREVIOUS=<old>`,
+where `<old>` is the value now current (Fly never shows a secret it already
+holds, so it is the one you generated and kept). One release means one restart,
+with the old key accepted from the first request after it; set them in two
+releases and the restart between them drops the old key first. Update the
+caller, then remove the previous key after the overlap window.

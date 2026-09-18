@@ -4,7 +4,16 @@
  * elapses starts the next one. In-memory on purpose — this service is one
  * Fly app with one machine, because the app boundary IS the allowlisted
  * address boundary (#1792); a second instance would be a second address, so
- * the state never needs to leave this process.
+ * the window never needs to be shared BETWEEN processes.
+ *
+ * It does not survive a process. A deploy, a secret rotation or a crash starts
+ * with `used = 0`, so a restart can admit a second hour's worth across the two.
+ * That is a bounded, rare overage — restarts are manual here and rotation is
+ * explicitly unscheduled — and closing it means giving this service storage it
+ * deliberately does not have (no database, no write path). The docs say
+ * "per process" for the same reason this comment does: the promise the ceiling
+ * makes is the one it keeps. The durable-window trade is a follow-up, not a
+ * claim.
  */
 
 /** The ceiling: at most `limit` upstream requests in any rolling-fixed hour. */

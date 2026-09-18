@@ -104,11 +104,17 @@ function authenticated(config: EgressConfig, request: Request, path: string, now
 async function relay(deps: EgressDeps, operation: EgressOperation): Promise<Response> {
   const url = upstreamUrlFor(operation);
   let upstream: UpstreamResponseLike;
+  let body: ArrayBuffer;
   try {
     upstream = await deps.upstreamFetch(url, {
       headers: { "user-agent": UPSTREAM_USER_AGENT },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
+    // Read the body here, inside the same guard: arriving headers are not a
+    // delivered answer, and a reset or stalled stream rejects on this line.
+    // Outside it, that rejection would escape the handler and the caller would
+    // get no response at all rather than our marked refusal.
+    body = await upstream.arrayBuffer();
   } catch {
     return refusal("upstream-timeout", 504);
   }
@@ -117,7 +123,7 @@ async function relay(deps: EgressDeps, operation: EgressOperation): Promise<Resp
   const retryAfter = upstream.headers.get("retry-after");
   if (contentType !== null) headers.set("content-type", contentType);
   if (retryAfter !== null) headers.set("retry-after", retryAfter);
-  return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers });
+  return new Response(body, { status: upstream.status, headers });
 }
 
 /** This service's own refusal: marked, reasoned, and never confusable with an upstream answer. */

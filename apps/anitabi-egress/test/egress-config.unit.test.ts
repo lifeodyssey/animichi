@@ -58,6 +58,38 @@ void describe("readEgressConfig", () => {
   });
 });
 
+/** The ceiling is a promise to the upstream: a value it cannot exhaust is not a ceiling. */
+void describe("readEgressConfig — the ceiling the service can actually enforce", () => {
+  void it("refuses a ceiling that would overflow rather than start with an unenforceable limit", () => {
+    // `Number("9".repeat(30))` is Infinity, and an infinite ceiling is never
+    // exhausted — the promise to the upstream would be ungated rather than
+    // generous. Every one of these must fail closed at boot instead.
+    const unenforceable = ["9".repeat(30), "1" + "0".repeat(309), "Infinity", "NaN", "-5", "10.5", ""];
+    for (const ceiling of unenforceable) {
+      const config = readEgressConfig({ INGEST_SIGNING_KEY: "k", UPSTREAM_REQUEST_CEILING_PER_HOUR: ceiling });
+      assert.ok(config === null || Number.isFinite(config.ceilingPerHour),
+        `ceiling ${JSON.stringify(ceiling)} must never configure an unenforceable limit`);
+      assert.equal(config, null, `ceiling ${JSON.stringify(ceiling)} must fail closed`);
+    }
+  });
+
+  void it("refuses a ceiling above one request per second of its own window", () => {
+    // The window is an hour; a ceiling above one request per second is not a
+    // rate limit at all. The bound is the window's own arithmetic, not a
+    // second opinion about the agreed number.
+    assert.equal(
+      readEgressConfig({ INGEST_SIGNING_KEY: "k", UPSTREAM_REQUEST_CEILING_PER_HOUR: String(60 * 60) })?.ceilingPerHour,
+      3600,
+      "the largest enforceable ceiling is one request per second of the window",
+    );
+    assert.equal(
+      readEgressConfig({ INGEST_SIGNING_KEY: "k", UPSTREAM_REQUEST_CEILING_PER_HOUR: String(60 * 60 + 1) }),
+      null,
+      "a ceiling above one request per second is an absence of a limit, not a large one",
+    );
+  });
+});
+
 void describe("readListenPort", () => {
   void it("defaults to 8080", () => {
     assert.equal(readListenPort({}), 8080);

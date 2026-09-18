@@ -91,15 +91,14 @@ void describe("verifyRequestSignature — rotation and tampering", () => {
 
 });
 
-/** Verify once with a single generated key; used by the refusal cases below. */
-function verifyOne(headers: SignatureHeaders, path: string, at = NOW): { ok: boolean } {
-  const key = randomKey();
+/**
+ * Verify once against `key`. The malformed-header cases sign with the SAME key
+ * they verify with: otherwise a key mismatch fails them and a regression in
+ * header parsing hides behind it — the case would stay green while testing
+ * nothing.
+ */
+function verifyOne(key: string, headers: SignatureHeaders, path: string, at = NOW): { ok: boolean } {
   return verifyRequestSignature({ current: key, previous: null }, headers, path, at);
-}
-
-/** A signature over `path` made at `at`, from a fresh key. */
-function signatureFor(at: number, path: string): string {
-  return sign(randomKey(), at, path);
 }
 
 void describe("verifyRequestSignature — the window and malformed headers", () => {
@@ -137,16 +136,18 @@ void describe("verifyRequestSignature — malformed headers", () => {
   const nowSeconds = NOW;
 
   void it("refuses a missing, empty, or non-numeric timestamp", () => {
-    const signature = signatureFor(nowSeconds, path);
+    const key = randomKey();
     for (const timestamp of [undefined, "", "now", "1e9", "1700000000.5", " 1700000000"]) {
-      const verified = verifyOne({ timestamp, signature }, path, nowSeconds);
+      const headers = { timestamp, signature: sign(key, nowSeconds, path) };
+      const verified = verifyOne(key, headers, path, nowSeconds);
       assert.equal(verified.ok, false, `timestamp ${String(timestamp)} must not verify`);
     }
   });
 
   void it("refuses a missing or malformed signature", () => {
+    const key = randomKey();
     for (const signature of [undefined, "", "deadbeef", "g".repeat(64)] as (string | undefined)[]) {
-      const verified = verifyOne({ timestamp: String(nowSeconds), signature }, path, nowSeconds);
+      const verified = verifyOne(key, { timestamp: String(nowSeconds), signature }, path, nowSeconds);
       assert.equal(verified.ok, false, `signature ${String(signature)} must not verify`);
     }
   });

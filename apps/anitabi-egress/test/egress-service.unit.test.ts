@@ -248,10 +248,29 @@ void describe("our ceiling and fail-closed refusals", () => {
     assert.equal(facts.reason, "configuration");
     assert.equal(facts.upstreamCalls, 0);
   });
+});
 
+void describe("a failed upstream answer is our marked refusal, never silence", () => {
   void it("refuses when the upstream times out or fails to answer at all", async () => {
     const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
       upstreamFetch: () => Promise.reject(new Error("connection reset")),
+    });
+    assert.equal(facts.status, 504);
+    assert.equal(facts.marker, "refused-here");
+    assert.equal(facts.reason, "upstream-timeout");
+  });
+
+  void it("refuses when the upstream body fails to read AFTER its headers arrived", async () => {
+    // Headers arriving is not the answer arriving: a reset or stalled body
+    // stream rejects in `arrayBuffer()`. That must land in the same marked
+    // refusal, not escape into the detached server promise and leave the
+    // caller with no response at all.
+    const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
+      upstreamFetch: () => Promise.resolve({
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        arrayBuffer: () => Promise.reject(new Error("body stream reset")),
+      }),
     });
     assert.equal(facts.status, 504);
     assert.equal(facts.marker, "refused-here");
