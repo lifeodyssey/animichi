@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "@animichi/test-postgres": "workspace:*",
+    "@cloudflare/workers-types": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
     "@neondatabase/serverless": "catalog:",
     "@types/node": "catalog:",

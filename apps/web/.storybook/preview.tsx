@@ -1,4 +1,4 @@
-import type { Decorator, Preview } from "@storybook/react";
+import type { Decorator, Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 import { ChatReviewSurface } from "./chat-chrome/ChatReviewSurface";
 import { StoryProviders } from "./chat-chrome/StoryProviders";

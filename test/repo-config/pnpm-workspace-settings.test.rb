@@ -20,14 +20,18 @@ class PnpmWorkspaceSettingsTest < Minitest::Test
   LOCAL_PROTOCOLS = %w[workspace: file: link: portal:].freeze
 
   # pnpm answers a setting it cannot find with its own default, so a deleted key is
-  # not "no opinion" — it is that default, silently. Deleting any of these three was
-  # green here and green through `pnpm install --frozen-lockfile`, the only other
-  # reader; this pin is the one place the deletion is visible, and it names the key.
+  # not "no opinion" — it is that default, silently. Deleting it was green here and
+  # green through `pnpm install --frozen-lockfile`, the only other reader; this pin is
+  # the one place the deletion is visible, and it names the key.
   SETTING_VALUES = {
-    "nodeLinker" => "hoisted",
-    "shamefullyHoist" => true,
     "catalogMode" => "strict"
   }.freeze
+
+  # The layout is pnpm's default isolated linker (#1730): each package sees only what
+  # its own manifest declares, and every worktree links into the one shared store. A
+  # flat layout lets a package borrow a neighbour's dependency unnoticed (#578).
+  FLAT_LAYOUT_SETTINGS = %w[nodeLinker shamefullyHoist].freeze
+  PUBLIC_HOIST = "publicHoistPattern"
 
   # The settings this card moved out of a `package.json#pnpm`: the root's `overrides`
   # and `patchedDependencies`, and `infra/database-access`'s own `overrides` (not a
@@ -70,6 +74,30 @@ class PnpmWorkspaceSettingsTest < Minitest::Test
 
       "#{WORKSPACE_MANIFEST}: #{key} is #{workspace[key].inspect}, must be #{expected.inspect}"
     end.compact
+  end
+
+  def flat_layout_settings
+    FLAT_LAYOUT_SETTINGS.select { |key| workspace.key?(key) }
+  end
+
+  # Psych drops comments, so the reason beside an entry is read from the raw lines:
+  # the block that follows the key, up to the next top-level line.
+  def public_hoist_lines
+    lines = File.readlines(File.join(ROOT, WORKSPACE_MANIFEST))
+    start = lines.index { |line| line.start_with?("#{PUBLIC_HOIST}:") }
+    return [] unless start
+
+    lines[start..-1].drop(1).take_while { |line| line.strip.empty? || line.start_with?(" ", "#") }
+  end
+
+  def unexplained_public_hoists
+    entries = Array(workspace[PUBLIC_HOIST])
+    lines = public_hoist_lines
+    items = lines.each_index.select { |index| lines[index].match?(/\A\s*-\s/) }
+    return ["#{PUBLIC_HOIST} must be a block list, one entry per line"] unless items.length == entries.length
+
+    items.reject { |index| index.positive? && lines[index - 1].strip.start_with?("#") }
+         .map { |index| lines[index].strip }
   end
 
   def moved_setting_drift
@@ -153,9 +181,22 @@ class PnpmWorkspaceSettingsTest < Minitest::Test
     drift = setting_value_drift
     assert_empty drift,
                  "these settings must stay declared with the values the pnpm 12 move chose (#{drift.join('; ')}); " \
-                 "pnpm answers a key it cannot find with its own default, so a dropped `nodeLinker` re-links every " \
-                 "consumer, a dropped `shamefullyHoist` un-hoists the root `node_modules` wrangler resolves " \
-                 "through, and a dropped `catalogMode` makes strict catalogs a suggestion again"
+                 "pnpm answers a key it cannot find with its own default, so a dropped `catalogMode` makes strict " \
+                 "catalogs a suggestion again"
+  end
+
+  def test_the_workspace_keeps_the_isolated_linker
+    offenders = flat_layout_settings
+    assert_empty offenders,
+                 "#{WORKSPACE_MANIFEST} may not declare a flat layout (#{offenders.join(', ')}); the isolated linker " \
+                 "is the default, and a hoisted tree hides a dependency a package uses without declaring it"
+  end
+
+  def test_every_public_hoist_pattern_carries_its_reason
+    offenders = unexplained_public_hoists
+    assert_empty offenders,
+                 "every #{PUBLIC_HOIST} entry needs a comment on the line above naming the tool that needs it " \
+                 "(#{offenders.join(', ')}); an unexplained hoist is the global hoist coming back one pattern at a time"
   end
 
   def test_the_settings_the_move_carried_over_keep_their_declaration

@@ -1,4 +1,4 @@
-import type { Decorator } from "@storybook/react";
+import type { Decorator } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ChatActionsProvider } from "../../src/features/chat/ChatActions";
 import { ChatReturnTargetProvider } from "../../src/features/chat/ChatReturnTarget";

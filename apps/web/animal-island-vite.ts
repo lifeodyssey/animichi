@@ -4,7 +4,7 @@ import type { Alias } from "vite";
 type AnimalComponent = "Button" | "Checkbox" | "Cursor" | "Input" | "Radio" | "Select" | "Switch";
 
 function component(name: AnimalComponent): string {
-  return fileURLToPath(new URL(`../../node_modules/animal-island-ui-tailwind/dist/es/components/${name}/${name}.js`, import.meta.url));
+  return fileURLToPath(new URL(`./node_modules/animal-island-ui-tailwind/dist/es/components/${name}/${name}.js`, import.meta.url));
 }
 
 /** The package barrel eagerly evaluates an unrelated bundled ReactDOM client. */

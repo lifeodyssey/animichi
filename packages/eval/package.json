@@ -22,10 +22,13 @@
     "@earendil-works/pi-ai": "catalog:",
     "@pydantic/logfire-node": "0.18.21",
     "logfire": "0.22.5",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
-    "tsx": "catalog:"
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
   }
 }

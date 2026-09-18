@@ -19,6 +19,8 @@ class PnpmWorkspaceSettingsMutationTest < Minitest::Test
   KEBAB = "loads only camelCase settings"
   UNCATALOGUED = "declared by two or more importers"
   UNRESOLVED = "must name a dependency that catalog defines"
+  FLAT_LAYOUT = "may not declare a flat layout"
+  UNEXPLAINED_HOIST = "needs a comment on the line above"
 
   def importer_paths
     workspace = Psych.safe_load(File.read(File.join(ROOT, MANIFEST)))
@@ -99,8 +101,8 @@ class PnpmWorkspaceSettingsMutationTest < Minitest::Test
 
   def test_rejects_a_kebab_case_workspace_setting
     with_tree do |root|
-      rewrite(root, MANIFEST, "nodeLinker: hoisted", "node-linker: hoisted", "kebab-case nodeLinker")
-      reject_tree(root, "node-linker in pnpm-workspace.yaml", KEBAB)
+      rewrite(root, MANIFEST, "catalogMode: strict", "catalog-mode: strict", "kebab-case catalogMode")
+      reject_tree(root, "catalog-mode in pnpm-workspace.yaml", KEBAB)
     end
   end
 
@@ -128,14 +130,6 @@ class PnpmWorkspaceSettingsMutationTest < Minitest::Test
   # home pnpm still reads — `.npmrc` or `package.json#pnpm` — and deleting the key
   # is what a "clean up the config" change does; every probe below has to go red
   # and name the key, or the guard would be green with its subject gone.
-  def test_rejects_a_deleted_node_linker
-    reject_deleted_setting(MANIFEST, "nodeLinker", "nodeLinker is missing")
-  end
-
-  def test_rejects_a_deleted_shamefully_hoist
-    reject_deleted_setting(MANIFEST, "shamefullyHoist", "shamefullyHoist is missing")
-  end
-
   def test_rejects_a_deleted_catalog_mode
     reject_deleted_setting(MANIFEST, "catalogMode", "catalogMode is missing")
   end
@@ -150,5 +144,37 @@ class PnpmWorkspaceSettingsMutationTest < Minitest::Test
 
   def test_rejects_deleted_overrides_in_the_nested_workspace
     reject_deleted_setting(NESTED_MANIFEST, "overrides", "#{NESTED_MANIFEST}: overrides is missing")
+  end
+
+  # The flat layout this repo left (#1730) comes back as one appended line, so each
+  # probe appends it to the committed manifest and must be refused by name.
+  def reject_appended(text, label, consequence)
+    with_tree do |root|
+      File.open(File.join(root, MANIFEST), "a") { |file| file.write(text) }
+      reject_tree(root, label, consequence)
+    end
+  end
+
+  def test_rejects_a_hoisted_node_linker
+    reject_appended("nodeLinker: hoisted\n", "nodeLinker: hoisted", "(nodeLinker)")
+  end
+
+  def test_rejects_shamefully_hoist
+    reject_appended("shamefullyHoist: true\n", "shamefullyHoist: true", "(shamefullyHoist)")
+  end
+
+  def test_rejects_a_public_hoist_pattern_with_no_reason
+    reject_appended("publicHoistPattern:\n  - \"*\"\n", "an unexplained public hoist", UNEXPLAINED_HOIST)
+  end
+
+  def test_rejects_a_public_hoist_pattern_in_flow_style
+    reject_appended("# workerd: resolved by path\npublicHoistPattern: [\"workerd\"]\n", "a flow-style hoist", "block list")
+  end
+
+  def test_accepts_a_public_hoist_pattern_with_its_reason
+    with_tree do |root|
+      File.open(File.join(root, MANIFEST), "a") { |file| file.write("publicHoistPattern:\n  # workerd: resolved by path\n  - workerd\n") }
+      accept_tree(root, "a public hoist with its reason")
+    end
   end
 end

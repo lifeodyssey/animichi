@@ -29,6 +29,7 @@
     "@animichi/test-postgres": "workspace:*",
     "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@vitest/coverage-istanbul": "catalog:",
     "miniflare": "catalog:",
