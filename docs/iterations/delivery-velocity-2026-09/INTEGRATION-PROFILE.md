@@ -132,7 +132,7 @@ nothing to commit, working tree clean
 
 `startTestPostgres` 之外的准备(中位数 ms):第二个库 `CREATE DATABASE` 125–138;第二次链 apply 3450–3634;Drizzle 时代 catalog 2436–2444;migrator 每个目标库装 4 个扩展 2206;geography 装 2 个扩展 2145、它自己的小链 753、种子 3553;agent 的 neon-proxy 容器 338。
 
-结论:**④ 链 apply 占 `startTestPostgres` 的 86–90 %**;容器复用挂接 + 就绪探测 + 建库 + 建角色合计约 0.4–0.6 s。agent-db 的 3.7 s 等锁是它三个 fixture 的 `before` 并发执行、在 `ChainApplyTurn` 上排队造成的。
+结论:在**九次低争用调用**中,④ 链 apply 占 `startTestPostgres` 全程的 **85–88 %**(3 434–3 672 ms ÷ 3 907–4 321 ms;其余四项——容器复用挂接 + 就绪探测 + 建库 + 建角色——合计 378–405 ms)。第十次调用**不在这个区间内**:edge agent-db 是 3 600 ÷ 8 032 ms ≈ **45 %**,因为它的 3.7 s 等锁(三个 fixture 的 `before` 并发执行、在 `ChainApplyTurn` 上排队)占了这次调用的一半以上。报告先前的 86–90 % 既没有排除这次争用调用,两端也与上表任何一行都对不上。
 
 本地测的是**复用挂接**(90–300 ms)。CI 每个 job 都是冷启动:先 `docker build` 镜像(`pr-verification.yml:222-229`),再跑容器的 initdb。这部分我在本地测不到,见第 7 节。
 

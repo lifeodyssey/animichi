@@ -39,9 +39,12 @@ the raw files were working material, not a record.
 ## The one finding that outlives all of them
 
 Two separate investigations, on two separate days, found a test passing **for the wrong reason**:
-a 142-second real-clock wait that no assertion ever read, and a 90-second settlement window inside
+a 135.44-second real-clock wait that no assertion ever read, and a 90-second settlement window inside
 which a recurrent scan satisfied the obligation the test claimed to prove. Neither was visible
-from a green suite.
+from a green suite. The 135.44 s is measured, not estimated: it is the `Finished in 135.440791s`
+line in `CI / repository contracts` on run `35312913725`, quoted with its timestamps in
+`CI-PARALLELISM-MECHANISMS.md` §0.3 — the earlier draft's "142 seconds" was the task's own estimate
+and is superseded here.
 
 The measurement that would have caught both is the same one: ask what a test asserts, then break
 exactly that thing and watch it fail. A suite that has never been broken on purpose has not been

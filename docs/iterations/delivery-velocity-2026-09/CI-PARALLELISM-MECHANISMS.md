@@ -33,30 +33,37 @@ All of the below is primary-source: either `file:line` in the working tree, or `
    (`name: CI / affected (${{ matrix.package }})`). Computes the affected set with
    `pnpm ls -r --depth -1 --json --filter "...[$merge_base]"` where `merge_base` is
    `git merge-base "$BASE_SHA" "$HEAD_SHA"` (PR base / merge-group base), subtracts
-   `animichi-cloudflare-worker`, `@animichi/agent`, `animichi-e2e` (each owns its own job/lane),
-   and re-adds `edge-worker` unconditionally when `.github/workflows/**` changed (comment: several
-   of its tests "extract shipped shell blocks and RUN them"). The matrix itself is GitHub's own
-   `fromJSON(needs.plan.outputs.packages)` mechanic — see §1/Q1(c) below.
-3. **`.github/workflows/cd.yml`**, "Select the affected packages" step. A
-   **third**, independently-written invocation of `pnpm ls -r --depth -1 --json --filter
-   "...[$BASE_SHA]"`, but `BASE_SHA` here is not a merge-base — it is the SHA of the last
-   completed run that reached a green staging smoke (computed earlier in the same job by walking
-   run history), falling back to `HEAD~1`. It subtracts the same three projects as #2 for the same
-   stated reason, then further filters to a `deployable` allow-list (`catalog`, `edge-worker`,
-   `migrator`, `users`, `web`) since library-only packages (`contract`, `eval`, `test-postgres`)
-   have no deploy stage.
+   `animichi-cloudflare-worker` and `animichi-e2e` only — the root project, which owns no test
+   scripts, and the e2e project, whose `test` is the browser lane (`pr-verification.yml:165` at the
+   cited SHA, `:189` on `main` today) — and re-adds `edge-worker` unconditionally when
+   `.github/workflows/**` changed (comment: several of its tests "extract shipped shell blocks and
+   RUN them"). **`@animichi/agent` is not subtracted**; it runs in the affected matrix like any other
+   package (its coverage upload is guarded at `pr-verification.yml:216`). The matrix itself is
+   GitHub's own `fromJSON(needs.plan.outputs.packages)` mechanic — see §1/Q1(c) below.
+3. **`.github/workflows/cd.yml`** — **not reproducible at the cited SHA; treated as withdrawn.**
+   This slot describes a "Select the affected packages" step: a third, independently-written
+   `pnpm ls ... --filter "...[$BASE_SHA]"`, with `BASE_SHA` being the SHA of the last run that reached
+   a green staging smoke, then a `deployable` allow-list. That file is gone — `cd.yml` at `0a06d848`
+   is 377 lines with no `pnpm ls` in it, and the only workflow that invokes `pnpm ls` is
+   `pr-verification.yml` (`:157`, `:163`). CD now selects a sealed release snapshot by artifact ID
+   (`ruby .github/scripts/release/resolve.rb`, then hydrate). The step was deleted by `60e36d973`
+   ("ci(delivery): deploy selected release artifacts", 2026-09-11), and in its last revision it
+   subtracted `animichi-cloudflare-worker`, **`@animichi/agent-python`** (the retired Python agent)
+   and `animichi-e2e` — which is where the `@animichi/agent` in #2 above appears to have come from.
+   No figure in this report is derived from that step.
 
-**All three call the same underlying pnpm primitive** (`pnpm ls -r --depth -1 --json[--filter
+**Both call the same underlying pnpm primitive** (`pnpm ls -r --depth -1 --json[--filter
 "...[ref]"]`). They diverge on exactly three things, not on selection algorithm:
-   - **base-ref semantics**: merge-base (CI) vs. last-green-staging-smoke (CD) vs.
+   - **base-ref semantics**: merge-base (CI) vs.
      pushed-remote-sha-if-ancestor-else-HEAD~1 (pre-push).
    - **subtraction/allow-list policy**: which projects are "not really a package" for this
-     purpose (root, agent, e2e) vs. "not deployable" (library packages).
+     purpose — root and e2e in CI. (The CD arm of this bullet went with the `cd.yml` step noted
+     above.)
    - **pnpm/pnpm#12626**: the pre-push gate cannot use the `[<ref>]` selector at all from a
      nested worktree, so it reimplements the same selection with `grep` over `pnpm ls` output.
 
-This directly informs Q4 (§4 below): unifying "selection algorithm" gains little, because the
-three implementations already share one; what's hand-written per-call is the base-ref and the
+This directly informs Q4 (§4 below): unifying "selection algorithm" gains little, because the two
+implementations that exist already share one; what's hand-written per-call is the base-ref and the
 policy list, which are business decisions no tool supplies.
 
 ### 0.2 The measured run, reconciled exactly
@@ -501,12 +508,12 @@ Confirmed from [turborepo.dev/docs/reference/run](https://turborepo.dev/docs/ref
 (2026-09-18): `--affected` defaults to `--filter=...[main...HEAD]`, but is overridable with
 `TURBO_SCM_BASE` and `TURBO_SCM_HEAD` environment variables (example given in the docs:
 `TURBO_SCM_BASE=development turbo run build --affected`). This means turbo can be pointed at any
-base ref, but **something still has to compute that ref** — merge-base for CI, last-green-staging
-SHA for CD, pushed-remote-sha-or-HEAD~1 for pre-push. Swapping the selector from `pnpm ls --filter
+base ref, but **something still has to compute that ref** — merge-base for CI,
+pushed-remote-sha-or-HEAD~1 for pre-push (the CD base-ref walk this sentence used to list is
+withdrawn with §0.1's third implementation). Swapping the selector from `pnpm ls --filter
 "...[ref]"` to `TURBO_SCM_BASE=<ref> turbo ls --affected` changes which CLI receives the
-already-computed ref; it does not remove the code in `pr-verification.yml`'s `plan` job or
-`cd.yml`'s run-history walk that computes it. Point (1) from §0.1 stays hand-written under any
-tool.
+already-computed ref; it does not remove the code in `pr-verification.yml`'s `plan` job that
+computes it. Point (1) from §0.1 stays hand-written under any tool.
 
 **Independent corroboration that base-ref computation is a real, recurring, ecosystem-wide problem
 rather than this repo's own tooling debt**: `nx-set-shas`
@@ -514,9 +521,9 @@ rather than this repo's own tooling debt**: `nx-set-shas`
 exists as a standalone, separately-maintained GitHub Action for exactly this one problem, because
 Nx itself does not solve it either. It walks GitHub's own Actions API to find "the commit SHA of
 the last successful CI run" on the base branch for `push` events (falling back to `HEAD~1` with a
-logged warning if none is found — the identical shape, down to the same `HEAD~1` fallback, as this
-repo's own `cd.yml` run-history walk in §0.1, independently arrived at), or "the commit SHA from
-which the PR originated" for `pull_request` events. That a well-maintained, widely-used, official
+logged warning if none is found — the identical `HEAD~1` fallback shape as the pre-push gate in
+§0.1, independently arrived at), or "the commit SHA from which the PR originated" for
+`pull_request` events. That a well-maintained, widely-used, official
 Nx-organization tool exists solely to compute a base SHA is strong evidence that no monorepo task
 runner — turbo included — makes this part go away; it only changes which CLI the computed ref is
 handed to. This directly corroborates the conclusion above, from a second, independent tool.
