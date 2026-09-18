@@ -113,3 +113,67 @@ describe("X-Robots-Tag noindex header", () => {
     expect(noindexPlugin).toBe(registerNoindexHook);
   });
 });
+
+interface CaptureHost {
+  hooks: {
+    hook: (
+      name: "beforeResponse",
+      callback: (event: { context: Record<string, unknown> }) => void | Promise<void>,
+    ) => unknown;
+  };
+}
+
+/** Registers the plugin and returns the captured nitro hook callback. */
+function captureHook(): (event: { context: Record<string, unknown> }) => void | Promise<void> {
+  let hook: ((event: { context: Record<string, unknown> }) => void | Promise<void>) | undefined;
+  registerNoindexHook({
+    hooks: { hook: (_name, callback) => { hook = callback; } },
+  } satisfies CaptureHost);
+  if (hook === undefined) throw new Error("plugin did not register its hook");
+  return hook;
+}
+
+describe("X-Robots-Tag across h3 generations", () => {
+  // The plugin must survive nitro's h3 upgrade (#1744): its hook callback is
+  // written against the event slice both generations share, and the header
+  // write discriminates on the response surface the event carries. These
+  // cases drive each surface with plain objects — no second h3 copy needed.
+  it("writes through the node adapter when the event has no response store (nitro 2.13 / h3 1.15 runtime)", () => {
+    const written: [string, string][] = [];
+    const event = {
+      context: { cloudflare: { env: { APP_ENV: "staging" } } },
+      node: { res: { setHeader: (name: string, value: string) => written.push([name, value]) } },
+    };
+    void captureHook()(event);
+    expect(written).toEqual([["X-Robots-Tag", "noindex, nofollow"]]);
+  });
+
+  it("writes through the h3 2 response store when the event carries one", () => {
+    const headers = new Headers();
+    const event = {
+      context: { cloudflare: { env: { APP_ENV: "staging" } } },
+      res: { headers },
+    };
+    void captureHook()(event);
+    expect(headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+  });
+
+  it("fails loud when an event carries neither response surface", () => {
+    expect(() =>
+      void captureHook()({ context: { cloudflare: { env: { APP_ENV: "staging" } } } }),
+    ).toThrow(/neither an h3 2 response store nor a node adapter/);
+  });
+
+  it("writes nothing on either surface when APP_ENV is production", () => {
+    const written: [string, string][] = [];
+    const headers = new Headers();
+    const event = {
+      context: { cloudflare: { env: { APP_ENV: "production" } } },
+      node: { res: { setHeader: (name: string, value: string) => written.push([name, value]) } },
+      res: { headers },
+    };
+    void captureHook()(event);
+    expect(written).toEqual([]);
+    expect(headers.get("X-Robots-Tag")).toBeNull();
+  });
+});

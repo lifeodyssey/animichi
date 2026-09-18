@@ -37,6 +37,7 @@
  * as a suite; it is imported by the lanes that do.
  */
 import assert from "node:assert/strict";
+import { process } from "../test-support/node-globals.ts";
 
 import {
   accessServiceTokenHeaders,

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { process } from "../test-support/node-globals.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { URL, fileURLToPath } from "node:url";

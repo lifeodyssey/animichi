@@ -3,6 +3,7 @@
 // Mirrors `settlement-fixture.ts` / `recovery-fixture.ts`: importing this
 // module registers the node:test hooks against the imported database.
 import { after, before, beforeEach } from "node:test";
+import { process } from "../test-support/node-globals.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";

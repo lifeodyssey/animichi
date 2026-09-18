@@ -1,5 +1,6 @@
 /** Native hard cut authorized on 2026-09-10: verify execution and graph boundaries, not validator brand names. */
 import test, { after } from "node:test";
+import { Buffer } from "../test-support/node-globals.ts";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -1,5 +1,6 @@
 /** The official dry-run build includes Workers' Node compatibility plugins and supplies its own graph. */
 import { URL } from "node:url";
+import { process } from "../test-support/node-globals.ts";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import type { Metafile } from "esbuild";

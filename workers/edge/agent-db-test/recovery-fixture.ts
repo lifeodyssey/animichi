@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { process } from "../test-support/node-globals.ts";
 import { after, before, beforeEach } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
