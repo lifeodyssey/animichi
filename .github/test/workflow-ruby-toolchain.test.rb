@@ -1,8 +1,9 @@
 # SUT: every workflow job that runs Ruby, and the interpreter it runs (#1774).
 # A job reaches `ruby` — directly or through a local action — only after a SHA-pinned
-# ruby/setup-ruby step, and every such step resolves the version `.ruby-version` pins and
-# `Gemfile.lock` records, so CI runs the interpreter a developer's `bundle exec` runs rather
-# than whichever one the runner image ships.
+# ruby/setup-ruby step, and every ruby/setup-ruby step — in a job or inside a local action it
+# reaches — is SHA-pinned and resolves the version `.ruby-version` pins and `Gemfile.lock`
+# records, so CI runs the interpreter a developer's `bundle exec` runs rather than whichever
+# one the runner image ships.
 require "minitest/autorun"
 require "psych"
 
@@ -29,20 +30,26 @@ class WorkflowRubyToolchainTest < Minitest::Test
     Psych.safe_load(File.read(manifest), aliases: true).dig("runs", "steps").to_a
   end
 
-  def runs_ruby?(step, ancestors = [])
+  # The step itself, then every step of each local action it reaches, depth first; a nested
+  # step's location names the chain of local actions it sits inside.
+  def reachable_steps(where, step, ancestors = [])
     ref = step["uses"].to_s
     raise "recursive local action: #{ref}" if ancestors.include?(ref)
-    step["run"].to_s.match?(RUBY_COMMAND) ||
-      local_action_steps(step).any? { |child| runs_ruby?(child, ancestors + [ref]) }
+    nested = local_action_steps(step).flat_map { |child| reachable_steps("#{where} > #{ref}", child, ancestors + [ref]) }
+    [[where, step]] + nested
+  end
+
+  def runs_ruby?(where, step)
+    reachable_steps(where, step).any? { |_where, reached| reached["run"].to_s.match?(RUBY_COMMAND) }
   end
 
   def ruby_jobs
-    jobs.map { |where, steps| [where, steps, steps.index { |step| runs_ruby?(step) }] }
+    jobs.map { |where, steps| [where, steps, steps.index { |step| runs_ruby?(where, step) }] }
         .reject { |_where, _steps, first| first.nil? }
   end
 
   def setup_steps
-    jobs.flat_map { |where, steps| steps.map { |step| [where, step] } }
+    jobs.flat_map { |where, steps| steps.flat_map { |step| reachable_steps(where, step) } }
         .select { |_where, step| step["uses"].to_s.start_with?("ruby/setup-ruby@") }
   end
 
@@ -68,9 +75,10 @@ class WorkflowRubyToolchainTest < Minitest::Test
     assert_equal version_file, locked, "Gemfile.lock's RUBY VERSION must be .ruby-version's; run `bundle lock`"
   end
 
-  def test_every_setup_ruby_step_resolves_the_version_ruby_version_pins
+  def test_every_reachable_setup_ruby_step_is_sha_pinned_and_resolves_the_version_ruby_version_pins
     refute_empty setup_steps, "no workflow sets up ruby; this guard would pass with its subject deleted"
     setup_steps.each do |where, step|
+      assert_match SETUP_RUBY, step["uses"], "#{where}: ruby/setup-ruby must be pinned to a commit SHA"
       assert_equal version_file, resolved_version(step), "#{where}: ruby/setup-ruby must resolve .ruby-version's interpreter"
     end
   end
