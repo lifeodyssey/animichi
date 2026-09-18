@@ -9,9 +9,11 @@ unset "${!GIT_@}"
 cd "$(git rev-parse --show-toplevel)"
 
 # Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`)
-# name CI-side scanners with no local gate; `supabase/` is the archived
-# historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
+# name CI-side scanners with no local gate; `.gitleaks.toml` is the one whose
+# scanner already ran on this change at pre-commit, and whose contract tests
+# live in `test/repo-config/` like every other CI-only config test;
+# `supabase/` is the archived historical migration dir (#1000), not a live surface.
+NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
