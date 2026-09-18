@@ -15,6 +15,8 @@ Current active iteration artifacts:
 - [Platform-over-hand-written inventory](production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md) — ADR 0008's evidence base: every in-scope hand-written mechanism sorted into platform-already-does-this, semantics-insufficient (owner adjudicates in #1593), and platform-genuinely-lacks-it, plus two excluded sets (language ports and recorded decisions)
 - [#1317 decomposition](production-readiness-2026-08/1317-DECOMPOSITION.md) — why deleting `apps/agent` is a migration campaign: the eleven surviving container surfaces, the `/healthz` ordering constraint, and the thirteen cards it was split into
 
+- [Delivery velocity, September 2026](delivery-velocity-2026-09/README.md) — the evidence base for #1768: where integration-test time actually goes, what the 91 contract-test files are worth, unit and integration test shape, and what 23 public monorepos really do about CI parallelism
+
 Inherited execution inputs, superseded as program boards:
 - `docs/iterations/iter6/` — retained until #1017 archives/reconciles its still-relevant design evidence
 - `docs/iterations/s0v2/` — retained until #1017 classifies its harness artifacts
