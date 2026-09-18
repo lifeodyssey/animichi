@@ -20,8 +20,10 @@ class E2eSpecCoverageMutationTest < Minitest::Test
 
   ORPHAN = "probe-orphan.spec.ts"
   EXEMPTION_PATTERN = "web-*.spec.ts"
-  OWNED_SPEC = "web-chat-selection.spec.ts"
-  OWNER_CLAUSE = "#1722 owns the repair"
+  # The one still-parked spec: every repaired card's entry is gone from the
+  # registry, so the probe mutates the survivor (#1721–#1724 were the others).
+  OWNED_SPEC = "web-map-spike.spec.ts"
+  OWNER_CLAUSE = "#1570 owns the repair"
   PERF_TAG = "@perf-mobile-cold"
   PERF_SPECS = %w[web-map-spike.spec.ts web-splash.spec.ts].freeze
   NO_SUCH_SPEC = "EXEMPT/KNOWN_FAILING entries with no such spec on disk"

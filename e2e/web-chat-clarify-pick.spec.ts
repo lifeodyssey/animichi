@@ -18,7 +18,11 @@ test.use({
 });
 
 const ja = chatDictFor("ja");
-const HARUHI_LABEL = "凉宫春日的忧郁(涼宮ハルヒの憂鬱)";
+/** Bilingual candidates lead with the reader's display language (#1642's
+ * localizedWorkTitle contract): a ja reader sees the original title first and
+ * the Chinese title trailing in parens. The spec was written against the
+ * pre-#1642 fixed `cn(ja)` order and never ran to notice the change. */
+const HARUHI_LABEL = "涼宮ハルヒの憂鬱(凉宫春日的忧郁)";
 
 const clarifyBody = patchFinalFrame(chatStreamRecording("clarify"), (envelope) => ({
   ...envelope,
@@ -84,7 +88,10 @@ test("picking a clarify candidate reaches that work's results through the struct
   const sent: SentTurn[] = [];
   await askUntilClarify(page, sent);
   await page.getByRole("button", { name: HARUHI_LABEL }).click();
-  await expect(page.getByText("西宮北高校")).toBeVisible();
+  // Exact: the name also sits in the pick checkbox's sr-only accessible
+  // label, so a substring match resolves to 2 elements (same as the
+  // selection suite).
+  await expect(page.getByText("西宮北高校", { exact: true })).toBeVisible();
   // No dead end, and no dishonest disconnect strip anywhere on the way.
   await expect(page.getByText(ja.errorStates.d4Message)).toHaveCount(0);
   expect(sent).toHaveLength(2);
@@ -104,7 +111,10 @@ test("a 409 on the pick shows the honest in-flight copy and retry resends the pi
   await expect(page.getByRole("button", { name: HARUHI_LABEL })).toBeEnabled();
   // …and the strip's retry resends the failed pick, landing on results.
   await page.getByRole("button", { name: ja.errorStates.d15Retry }).click();
-  await expect(page.getByText("西宮北高校")).toBeVisible();
+  // Exact: the name also sits in the pick checkbox's sr-only accessible
+  // label, so a substring match resolves to 2 elements (same as the
+  // selection suite).
+  await expect(page.getByText("西宮北高校", { exact: true })).toBeVisible();
   expect(sent).toHaveLength(3);
   expect(sent[2]?.selected_candidate_ids).toEqual(["115908"]);
   expect(sent[2]?.turnId).toBe(sent[1]?.turnId);
