@@ -86,15 +86,32 @@ staging_psql() {
 # approval then compared the connection log against the owner's record and could never match,
 # and the business-rows read took the diagnostic for an unapproved table. Stderr is quoted
 # into the failure message, so "cannot confirm" still says why.
+# The file outlives neither ending of a read (#1796): `fail` ends the script, and a relay that
+# cannot reach stderr is a status `set -e` acts on, so a removal on the last line alone is
+# skipped by both — and CD runs this on every deploy, where a state that refuses every run
+# would leave one file per deploy. Each ending therefore takes the file with it: the refusal
+# by `fail_unconfirmed`, the relay by its own removal, and the relay's status is what `query`
+# returns so that a broken stderr still fails the run rather than passing silently.
 ROWS=""
 query() {
-  local out err rc=0
+  local out err rc=0 relay=0
   err="$(mktemp)"
   out="$(staging_psql "$OWNER_ROLE" -tAc "$1" 2>"$err")" || rc=$?
   ROWS="$out"
-  [[ "$rc" -eq 0 ]] || fail "cannot confirm staging state: $(cat "$err")$out"
-  cat "$err" >&2
+  [[ "$rc" -eq 0 ]] || fail_unconfirmed "$err" "$out"
+  cat "$err" >&2 || relay=$?
   rm -f "$err"
+  return "$relay"
+}
+
+# What a read that could not be answered refuses with, and the file the read was written to:
+# `fail` exits the script, so the file is read for the reason and removed here — `query`'s own
+# last line is never reached on this path.
+fail_unconfirmed() {
+  local diagnostic="$1" partial="$2" why
+  why="$(cat "$diagnostic")"
+  rm -f "$diagnostic"
+  fail "cannot confirm staging state: $why$partial"
 }
 
 # Matches stay line-based (`grep -qx`): what `query` relays to stderr — neonctl's connection
