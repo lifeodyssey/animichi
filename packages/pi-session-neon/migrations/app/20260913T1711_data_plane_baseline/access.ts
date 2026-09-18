@@ -31,7 +31,7 @@ const ACCUMULATING_GRANTS = ['INSERT', 'SELECT', 'UPDATE'] as const;
  * raw-SQL objects rather than contract tables, so the type below — not a table definition —
  * is what stops one drifting out of the matrix: adding a table there without a grant here is
  * a compile error. `agent_svc` owns all four; `jobs_svc` retains the two the retention sweep
- * clears, and `readonly` reads the turn ledger, exactly as `migrations/neon` granted them. */
+ * clears, and `readonly` reads the turn ledger, exactly as the chain this one replaced did. */
 type LedgerTable = (typeof CONVERSATION_LEDGER_TABLES)[number] | (typeof USAGE_METER_TABLES)[number];
 const AGENT_LEDGER_GRANTS: Record<LedgerTable, readonly string[]> = {
   anon_daily_message_count: MUTABLE_GRANTS,

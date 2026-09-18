@@ -4,7 +4,7 @@ import { rawSql } from '@prisma/orm-postgres/migration';
 // the pg_trgm operator class on idx_location_aliases_trgm and the descending key on
 // idx_raw_payload_history_work_source. The contract declares what schema verification
 // can read (table, columns, access method); this operation installs the DDL
-// migrations/neon handed over and proves the semantics in pg_catalog. Contract and
+// the retired chain handed over and proves the semantics in pg_catalog. Contract and
 // live DDL therefore agree on the columns without dropping gin_trgm_ops or seq DESC.
 const TRIGRAM_INDEX = `CREATE INDEX "idx_location_aliases_trgm"
   ON "public"."location_aliases" USING gin (alias_normalized gin_trgm_ops)`;

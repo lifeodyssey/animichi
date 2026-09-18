@@ -20,7 +20,7 @@ class MergedCommitLaneTest < Minitest::Test
   # The lanes whose subject is the committed text of the repository rather than a
   # diff: repository contracts, documentation hygiene, the six security jobs, and
   # the two aggregates that carry the required contexts.
-  WHOLE_TREE = %w[aggregate contracts docs gitleaks osv security semgrep sqlfluff trufflehog zizmor].freeze
+  WHOLE_TREE = %w[aggregate contracts docs gitleaks osv security semgrep trufflehog zizmor].freeze
   # The lanes `plan` routes, by the merged diff itself: `github.event.before` is the
   # trunk tip the merge landed on and `github.sha` is the squash commit, so a merge
   # whose bytes differ from the pull request's still selects every package it

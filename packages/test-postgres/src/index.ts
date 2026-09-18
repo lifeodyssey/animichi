@@ -10,6 +10,7 @@ export { ChainApplyTurn } from "./chain-apply-turn.ts";
 export { applyPrismaChain } from "./prisma-chain.ts";
 export { assertServiceRoles, createServiceRoles, SERVICE_ROLES } from "./service-roles.ts";
 export { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
+export { applyDrizzleEraCatalog } from "./drizzle-era-catalog.ts";
 export { uniqueDatabaseName } from "./database-name.ts";
 export {
   isStartingUp,

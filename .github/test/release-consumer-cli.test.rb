@@ -11,8 +11,11 @@ module ReleaseConsumerFixture
   FOUNDATION_FILES = { 'infra/AGENTS.md' => "# 基础设施\nNeon 数据库规则\n", 'infra/Pulumi.yaml' => 'foundation A', 'infra/database-access/Pulumi.yaml' => 'database A',
                        'package.json' => '{}', 'pnpm-lock.yaml' => 'lockfileVersion: 9.0',
                        'pnpm-workspace.yaml' => 'packages: []', '.pulumi.version' => '3.255.0' }.freeze
-  MIGRATION_FILES = { 'atlas.sum' => 'A checksum', 'A.sql' => 'catalog A schema -- 宇治の聖地' }.freeze
-  PRISMA_FILES = { 'src/contract.json' => '{"storageHash":"native-B"}', 'migrations/app/B/ops.json' => 'native B operations' }.freeze
+  # One chain, so one set of migration files: the sealed copy lives inside the migrator bundle
+  # (#1636). The non-ASCII body is deliberate — the tar round-trip must not transcode it.
+  PRISMA_FILES = { 'src/contract.json' => '{"storageHash":"native-B"}',
+                   'migrations/app/A/ops.json' => 'catalog A schema -- 宇治の聖地',
+                   'migrations/app/B/ops.json' => 'native B operations' }.freeze
   BUILT_FILES = %w[catalog/bundle/index.js users/bundle/index.js edge/bundle/entry.js migrator/bundle/index.js
                    catalog/wrangler.json users/wrangler.json edge/wrangler.json migrator/wrangler.json web/wrangler.json
                    web/.output/server/index.mjs web/.output/public/app.js
@@ -53,19 +56,17 @@ module ReleaseConsumerFixture
 
   def write_history
     FOUNDATION_FILES.each { |path, content| write(path, content) }
-    MIGRATION_FILES.each { |path, content| write("migrations/neon/#{path}", content) }
     PRISMA_FILES.each { |path, content| write("packages/pi-session-neon/#{path}", content) }
     commit('A')
     write('web.txt', 'B web')
     @source = commit('B')
     write('web.txt', 'C web')
-    write('migrations/neon/C.sql', 'C schema')
+    write('packages/pi-session-neon/migrations/app/C/ops.json', 'C schema')
     @controller = commit('C')
   end
 
   def write_release
     FOUNDATION_FILES.each { |path, content| write("release/foundation/#{path}", content) }
-    MIGRATION_FILES.each { |path, content| write("release/migrations/#{path}", content) }
     BUILT_FILES.each { |path| write("release/#{path}", 'B built with A') }
     PRISMA_FILES.each { |path, content| write("release/migrator/bundle/#{path.delete_prefix('src/')}", content) }
   end
@@ -97,10 +98,10 @@ class ReleaseConsumerCliTest < Minitest::Test
     pack
     _out, error, status = verify
     assert status.success?, error
-    assert_equal 'catalog A schema -- 宇治の聖地', File.read(File.join(@root, 'release/migrations/A.sql'))
+    assert_equal 'catalog A schema -- 宇治の聖地', File.read(File.join(@root, 'release/migrator/bundle/migrations/app/A/ops.json'))
     assert_equal 'B built with A', File.read(File.join(@root, 'release/web/.output/public/app.js'))
     assert_equal "# 基础设施\nNeon 数据库规则\n", File.read(File.join(@root, 'release/foundation/infra/AGENTS.md'))
-    refute File.exist?(File.join(@root, 'release/migrations/C.sql'))
+    refute File.exist?(File.join(@root, 'release/migrator/bundle/migrations/app/C/ops.json'))
   end
 
   def test_native_consumer_refuses_content_changed_after_sealing

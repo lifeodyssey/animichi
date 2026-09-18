@@ -1,8 +1,8 @@
 import { rawSql } from '@prisma/orm-postgres/migration';
 import { tableOid } from './table-oid.ts';
 
-// A conversation and the turns reserved against it. Both tables came from
-// `migrations/neon/20260826000004_agent.sql`; the Python agent that owned the rest of that
+// A conversation and the turns reserved against it. Both tables came from the retired chain's
+// agent domain; the Python agent that owned the rest of that
 // domain retired with #1607, but `workers/edge/src` still reads and writes these two through
 // `db.raw.sql` (admission/session-owner.ts, identity/session-adoption-store.ts,
 // agent/views/conversation-list.ts). The data-plane contract does not declare them (spec

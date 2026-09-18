@@ -21,7 +21,7 @@ definition to drift from, so nothing has to prove local and CI agree (#1371).
 4. **No suppressions.** Fix the failing gate or triage it explicitly; `--no-verify` is a policy
    violation (CI still enforces).
 5. **No cloud mutation, no local deploy.** No hook runs a mutating `pulumi up/destroy`,
-   `wrangler deploy` (only `--dry-run`, inside a package's own script), or `atlas migrate apply`
+   `wrangler deploy` (only `--dry-run`, inside a package's own script), or a migration apply
    outside a disposable local container.
 
 Install all three stages from the repository root:
@@ -178,7 +178,7 @@ pnpm project, which would otherwise be invisible to the join:
 
 | Changed path | Bucket |
 |---|---|
-| `migrations/neon/**` | `atlas migrate validate --dir file://migrations/neon` — no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
+| `packages/pi-session-neon/migrations/**` | `prisma migration check` — artifact integrity and a connected graph, no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
 | `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. `.npmrc` was deleted with the pnpm 12 settings move (#1672) but stays in the pattern: `test/repo-config/pnpm-workspace-settings.test.rb` refuses a non-auth key there, and a re-added one still selects every package. |
 
@@ -275,13 +275,13 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
 
 An installed workspace (`pnpm install`) — the message check runs `pnpm exec commitlint` and every
 selected package's scripts need their dependencies — plus `git`, `pnpm`, `node` ≥ 24, `jq`,
-`atlas` v0.30.0 (migrations bucket), plus the pre-commit tools: `shellcheck`,
+plus the pre-commit tools: `shellcheck`,
 `actionlint`, `uv` (it installs `semgrep` 1.172.0), `ruby` for the contracts.
 
 ## Failure handling
 
 - pre-commit: fix in the working tree and re-run — the fixer hooks modify files, so re-stage.
-- pre-push: fix it. When the failure is environmental (no Docker daemon, no `atlas`), say so in the
+- pre-push: fix it. When the failure is environmental (no Docker daemon), say so in the
   push and repair it; do not reach for `--no-verify`.
 - "no gate covers these files": read the list. Each name is a path the repository has no opinion
   about yet.
@@ -301,8 +301,8 @@ selected package's scripts need their dependencies — plus `git`, `pnpm`, `node
   own `test`)
 - `test/repo-config/pre-push-routing.test.rb` — the routing table against the workspace: every
   `pnpm-workspace.yaml` package has a row, every row names a workspace package and a known bucket
-- `scripts/local-gates/pre-push-fixture.sh` — the throwaway repository, the fake `pnpm` / `make` /
-  `atlas` and the assertions `pre-push-affected.test.sh` (which packages a diff selects) and
+- `scripts/local-gates/pre-push-fixture.sh` — the throwaway repository, the fake `pnpm` / `make`
+  and the assertions `pre-push-affected.test.sh` (which packages a diff selects) and
   `pre-push-commitlint.test.sh` (which messages a push carries) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`

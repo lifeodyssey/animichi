@@ -8,27 +8,28 @@
 
 - **Production is an empty data plane**: the production Neon branch (`main` compute) has
   **no tables in `public`** (confirmed during the #846 spike — `public` is empty; the only
-  object is an orphaned `atlas_schema_revisions` schema on some envs. Nothing reads or writes prod
-  today, so the cutover has **zero traffic risk** — the first Atlas apply *creates* the schema.
+  object is an orphaned revision ledger left by the retired Atlas chain on some envs. Nothing
+  reads or writes prod today, so the cutover has **zero traffic risk** — the first apply *creates*
+  the schema.
 - Prod runtime DSNs today come from **GitHub environment secrets** (`NEON_DATABASE_URL` owner
   DSN + `CATALOG_DATABASE_URL` / `USERS_DATABASE_URL` / `AGENT_DATABASE_URL`), injected by
   the production phase in `cd.yml`. This is exactly the P4 target state
   that staging is being migrated away from (ADR 0003; P4 = #912).
 - **Roles are Neon-project-scoped, not branch-scoped**; GRANTs are branch/schema-scoped and
-  shipped as Atlas migrations. The role matrix lives in
-  `migrations/neon/20260826000001_roles.sql`, with each role's GRANTs beside the tables they
+  shipped as migrations. Role DDL is Pulumi's since #1636; the GRANT matrix lives in the chain's
+  `access.ts`, with each role's grants beside the tables they
   apply to (`20260826000003_catalog.sql` · `…04_agent.sql` · `…05_users.sql`):
-  `catalog_svc` · `agent_svc` · `users_svc` · `jobs_svc` · `readonly` (all `NOLOGIN` in Atlas;
+  `catalog_svc` · `agent_svc` · `users_svc` · `jobs_svc` · `readonly` (all `NOLOGIN`;
   LOGIN state comes from Pulumi `neon.Role`, which also owns the password).
 
 ## Target
 
 - Runtime DSNs for catalog / agent / users / jobs are **role-scoped** (never owner/migrator).
-- **Migrator/owner DSN** exists only for Atlas apply (deploy workflow, production approval gate).
+- **Migrator/owner DSN** exists only for the migration apply (deploy workflow, production approval gate).
 - Roles built by **Pulumi** (`neon.Role` ×4, passwords Neon-generated), connection strings
   composed by Pulumi and written **once** to the **Cloudflare Secrets Store** (not readable
   back); Workers bind Secrets Store values (`wrangler.toml` bindings — P4 shape).
-- Schema + GRANTs applied by **Atlas** via the deploy path (`search_path=public`).
+- Schema + GRANTs applied by **the migrator Worker's Prisma chain** via the deploy path.
 
 ## Agent DSN mechanism (native Worker tier)
 
@@ -108,7 +109,7 @@ operator rather than committed. Steps:
    apply): confirms prod roles (import, project-scoped), composes prod DSNs (main-branch
    endpoint), writes them to the **Secrets Store** for the prod environment (store strategy
    above). Verify with the deploy report hash row.
-3. **First prod Atlas apply** (deploy workflow, `production` environment approval): creates the
+3. **First prod migration apply** (deploy workflow, `production` environment approval): creates the
    schema in the empty `public` + applies `*_grants.sql` GRANTs. Empty data plane ⇒ this is a
    pure creation, nothing to preserve; soft-baseline decision for the future history squash
    stays per #845/#849.
@@ -136,7 +137,7 @@ operator rather than committed. Steps:
   3. **Data**: Neon PITR / backup window (runbook `docs/ops/neon-backup-rpo.md`); with an
      empty pre-cutover data plane there is nothing to restore from the cutover itself — PITR
      only matters for post-cutover prod data.
-  4. Migration rollback: `atlas migrate` down is not a routine path (revisions are forward-only
+  4. Migration rollback: a down migration is not a routine path (the chain is forward-only
      in this repo); bad-migration recovery is the HITL checklist in `docs/ops/neon-backup-rpo.md`.
 - **No wipe**: production is no-wipe by policy (`docs/ops/neon-env-topology.md`), cutover
   included.
@@ -147,4 +148,4 @@ operator rather than committed. Steps:
 |---|---|
 | Agent (this PR / #855 prep) | Documents steps, prepares scripts/docs, records redacted evidence |
 | Owner | Prod window approval; Secrets Store value write verification (once, not readable back); Pulumi prod apply approval |
-| CI deploy | Pulumi prod `up` + Atlas apply via the `production` environment approval gate |
+| CI deploy | Pulumi prod `up` + the migration apply via the `production` environment approval gate |

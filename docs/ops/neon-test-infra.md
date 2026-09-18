@@ -17,7 +17,7 @@ with `neonctl connection-string dev/<name>`. Put that secret in the Worker's ign
 ## Refreshing `test-base`
 
 The refresh path is non-destructive: it verifies the exact branch name, ID, parent project, and
-project ID; applies `migrations/neon/` with Atlas 0.30.0; reapplies the idempotent seeds (gazetteer
+project ID; applies the committed migration chain; reapplies the idempotent seeds (gazetteer
 seed first, then the fixture seed); and restores the service-role grants. It never runs the
 provisioner's database-wipe path.
 
@@ -29,9 +29,11 @@ retired script from git history to refresh:
 git show <pre-retirement-sha>:scripts/neon-test-base.sh > /tmp/neon-test-base.sh && chmod +x /tmp/neon-test-base.sh
 export NEON_API_KEY='<personal-secret>'
 export NEON_PROJECT_ID='<project-id>'
-ATLAS_VERSION=0.30.0 /tmp/neon-test-base.sh refresh test-base
+/tmp/neon-test-base.sh refresh test-base
 ```
-Refresh manually after a change to `migrations/neon/**` or `workers/catalog/data/gazetteer_seed.sql`.
+Refresh manually after a change to the migration chain or `workers/catalog/data/gazetteer_seed.sql`.
+The retired script applied the Atlas chain that #1636 deleted, so recovering it now also means
+repointing its apply step at the Prisma chain.
 The fixture seed the retired script also reapplied lived in the Python agent's tree and left with it
 (#1607); recover it from the same pre-retirement commit when a refresh needs it. Use `provision test-base` only for an owner-approved
 deterministic rebuild; that mode drops and recreates the target database after the same identity
@@ -39,17 +41,18 @@ rails pass. The branch itself stays in Neon (it is data), but nothing in CI refe
 
 ## Migration source rule
 
-`migrations/neon/` is the integration-test and Neon data-plane **schema** source. New catalog/user
-changes are authored there directly, and `atlas.sum` is regenerated in the same change. The
+`packages/pi-session-neon/` is the integration-test and Neon data-plane **schema** source. New
+catalog/user changes are authored in its contract, and its artifacts are regenerated in the same
+change. The
 older `supabase/migrations/` files are archived/historical (issue #1000) and are not an apply or
 source surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
 The gazetteer seed is **not** a migration — it lives at `workers/catalog/data/gazetteer_seed.sql`
 and is loaded idempotently (`make seed-gazetteer`; the retired test-base refresh script also
 loaded it) after the schema exists.
 
-Never reintroduce Python migration splitting, statement filtering, pgvector neutralization, or
-swallowed migration failures. Atlas owns ordering, checksums, transactions, and the revision
-ledger (`public.atlas_schema_revisions`).
+Never reintroduce migration splitting, statement filtering, pgvector neutralization, or swallowed
+migration failures. Prisma owns ordering, artifact hashes, transactions, its advisory lock and the
+marker (`prisma_contract.marker`).
 
 ## Quota and plan semantics
 

@@ -24,14 +24,11 @@ class ReleaseSourceClosureTest < Minitest::Test
     commit('A')
     write('web.txt', 'B depends on catalog A')
     @selected = commit('B')
-    write('migrations/neon/C.sql', 'schema C')
     write('packages/pi-session-neon/migrations/app/C/ops.json', 'native C')
     commit('C')
   end
 
   def write_prerequisites
-    write('migrations/neon/atlas.sum', 'A checksum')
-    write('migrations/neon/A.sql', 'catalog A schema')
     write('infra/index.ts', 'foundation A')
     write('packages/pi-session-neon/src/contract.json', '{"storageHash":"B"}')
     write('packages/pi-session-neon/migrations/app/B/ops.json', 'native B')
@@ -47,8 +44,6 @@ class ReleaseSourceClosureTest < Minitest::Test
   def seal_selected_source
     FileUtils.mkdir_p(File.join(@release, 'foundation'))
     FileUtils.cp_r(File.join(@repository, 'infra'), File.join(@release, 'foundation'))
-    FileUtils.cp_r(File.join(@repository, 'migrations/neon'), File.join(@release, 'migrations'))
-    File.delete(File.join(@release, 'migrations/C.sql'))
     bundle = File.join(@release, 'migrator/bundle')
     FileUtils.mkdir_p(bundle)
     FileUtils.cp(File.join(@repository, 'packages/pi-session-neon/src/contract.json'), bundle)
@@ -93,12 +88,13 @@ class ReleaseSourceClosureTest < Minitest::Test
   end
 
   def test_omitted_a_migration_fails
-    File.delete(File.join(@release, 'migrations/A.sql'))
+    File.delete(File.join(@release, 'migrator/bundle/migrations/app/B/ops.json'))
     assert_raises(ArgumentError) { validate }
   end
 
-  def test_substituted_c_schema_fails
-    File.write(File.join(@release, 'migrations/C.sql'), 'schema C')
+  def test_substituted_later_migration_fails
+    FileUtils.mkdir_p(File.join(@release, 'migrator/bundle/migrations/app/C'))
+    File.write(File.join(@release, 'migrator/bundle/migrations/app/C/ops.json'), 'native C')
     assert_raises(ArgumentError) { validate }
   end
 

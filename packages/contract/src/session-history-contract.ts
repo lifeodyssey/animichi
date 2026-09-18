@@ -34,7 +34,7 @@ export type SessionHistoryMessage = z.infer<typeof SessionHistoryMessage>;
 
 /**
  * Why a turn ended `failed` — the `runs_failure_reason_check` vocabulary
- * verbatim (`migrations/neon/20260902000000_agent_runs.sql`). Bounded on
+ * verbatim (the retired `runs` table's status vocabulary). Bounded on
  * purpose: the reason reaches the browser, so it may name a lifecycle outcome
  * and never an internal detail. `workers/edge/test/agent-runs-schema.test.ts`
  * holds this list and the database's CHECK to each other.

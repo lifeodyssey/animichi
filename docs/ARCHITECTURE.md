@@ -28,7 +28,7 @@ operation lifecycle, tool replay, transcript, compaction and usage ledger.
 
 The old run machine, lease queue, SessionEnvelope, hand-written tool runtime and SQL
 runs/messages/run_steps history reader are deleted. There is no compatibility converter,
-dual read or dual write. Applied Atlas migrations and online data are unchanged.
+dual read or dual write. Applied migrations and online data are unchanged.
 
 ## Tools, domain facts and selection
 
@@ -71,9 +71,9 @@ free from unpriced usage because the published ledger does not provide that dist
 
 Neon is the data plane. Prisma 8 owns native agent queries/storage and the migration chain in
 `packages/pi-session-neon/migrations/`, which builds the seven native agent tables and the 19
-catalog/users data-plane tables it adopted from `migrations/neon/`. Catalog and Users retain their
-query-only Drizzle mappings; Atlas and the migrator Worker stay the production apply path for
-`migrations/neon`, which is read-only evidence of the objects the native chain replaced until W4.
+catalog/users data-plane tables it adopted from the retired Atlas chain. Catalog and Users retain
+their query-only Drizzle mappings until #1629–#1631; the migrator Worker applies that one chain and
+nothing else (#1636).
 Each object has one migration owner. Source deletion does not drop tables or erase history.
 
 ## Browser and evaluations

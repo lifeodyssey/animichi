@@ -117,7 +117,7 @@ while read -r dir name; do
     if has_bucket "$buckets" package; then packages="$packages $name"; fi
   fi
 done <<<"$projects"
-schema=$(grep -cE '^migrations/neon/' <<<"$changed" || true)
+schema=$(grep -cE '^packages/pi-session-neon/migrations/' <<<"$changed" || true)
 docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES|$AGENT_CONTEXT" <<<"$changed" || true)
 printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$schema" "$deps" "$docs"
 
@@ -128,7 +128,7 @@ printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none
 # tree, so a deleted package could never cover its own deleted files (#1607) —
 # and is waived here only: above, deletions still select packages and buckets.
 [ "$deps" = 0 ] || covered="$covered|$ROOT_MANIFEST"
-[ "$schema" = 0 ] || covered="$covered|^migrations/neon/"
+[ "$schema" = 0 ] || covered="$covered|^packages/pi-session-neon/migrations/"
 [ "$docs" = 0 ] || covered="$covered|$AGENT_CONTEXT"
 surviving="$changed"
 [ -z "$deleted" ] || surviving="$(grep -vxF -f <(printf '%s\n' "$deleted") <<<"$changed" || true)"
@@ -140,5 +140,5 @@ for name in $packages; do
     pnpm -r --workspace-concurrency=1 --filter "$closure$name" run --if-present "$script"
   done
 done
-[ "$schema" = 0 ] || atlas migrate validate --dir file://migrations/neon
+[ "$schema" = 0 ] || pnpm --filter @animichi/pi-session-neon exec prisma migration check
 [ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done

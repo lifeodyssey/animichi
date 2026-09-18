@@ -1,5 +1,5 @@
 // Agent-native storage and the catalog/users data plane share this Prisma contract.
-// The latter tables are adopted from migrations/neon; their write semantics remain
+// The latter tables are adopted from the chain this one replaced; their write semantics remain
 // owned by the catalog/users services until their query cards move them.
 
 enum RecordKind {

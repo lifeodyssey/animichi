@@ -61,7 +61,7 @@ void test("the turn ledger refuses a payer and a status no admission produces", 
   await assert.rejects(pool.query("INSERT INTO turn_reservations (session_id, turn_key, payer, revision, status) VALUES ($1, 'bad-status', 'anon', 1, 'queued')", [SESSION]), { code: "23514" });
 });
 
-void test("the agent service holds exactly the ledger grants migrations/neon granted it", async () => {
+void test("the agent service holds exactly the ledger grants the retired chain granted it", async () => {
   assert.deepEqual(await explicitAgentGrants(pool, "sessions"), ["DELETE", "INSERT", "SELECT", "UPDATE"]);
   assert.deepEqual(await explicitAgentGrants(pool, "turn_reservations"), ["DELETE", "INSERT", "SELECT", "UPDATE"]);
 });

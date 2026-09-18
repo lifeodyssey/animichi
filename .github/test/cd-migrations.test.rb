@@ -10,7 +10,10 @@ class CdMigrationsTest < Minitest::Test
   EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
-  DIRECT_APPLY = ["atlas migrate apply", "ariga/setup-atlas"].freeze
+  # Nothing in CD may reach the database except through the migrator Worker: a `psql`, a
+  # `prisma db migrate`, or a migration CLI installed into the runner would each be a second
+  # apply path with a credential of its own.
+  DIRECT_APPLY = ["prisma db migrate", "psql ", "neonctl"].freeze
 
   def setup
     @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)

@@ -5,8 +5,7 @@ import type { TestContext } from "node:test";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { GenericContainer, Wait } from "testcontainers";
 import {
-  ChainApplyTurn,
-  clusterAdminDsn,
+  applyDrizzleEraCatalog,
   createCleanDatabase,
   dropCleanDatabase,
   SPIKE_SETUP_BUDGET,
@@ -22,19 +21,18 @@ const execute = promisify(execFile);
 // WHAT this lane's database is, and why it is not the plane's own (#1625).
 //
 // The native tools are served by `workers/catalog`, whose Drizzle layer still reads and writes the
-// Atlas-era shape: `catalog-seed.ts` writes `points.latitude` / `longitude` as scalars and the
+// pre-Prisma shape: `catalog-seed.ts` writes `points.latitude` / `longitude` as scalars and the
 // worker's schema declares `points.embedding`. The data plane the Prisma chain builds makes the
 // coordinates GENERATED and deliberately omits `embedding`, so this lane keeps a database of its
-// OWN — from pristine `template1`, with the committed `migrations/neon` chain — instead of reading
-// the one `startTestPostgres` migrates (one chain per database). The plane is still what this
-// fixture boots: it owns the container and the five service roles.
+// OWN — from pristine `template1`, with the frozen fixture `@animichi/test-postgres` keeps for
+// exactly these two lanes — instead of reading the one `startTestPostgres` migrates (one chain per
+// database). The plane is still what this fixture boots: it owns the container and the five
+// service roles.
 //
 // This is the same isolation answer as the catalog suite's (`workers/catalog/test/integration-db-global.ts`)
 // and the same debt: #1628–#1631 move that query layer onto Prisma and delete this branch with it.
-const LEGACY_CHAIN = new URL("../../../migrations/neon/", import.meta.url);
 const PLANE_DATABASE = "native_catalog_tools";
 const LEGACY_DATABASE = "native_catalog_tools_legacy";
-const OUTPUT_CEILING_BYTES = 10 * 1024 * 1024;
 
 export async function catalogPostgres(context: TestContext) {
   const plane = await startTestPostgres({ database: PLANE_DATABASE, budget: SPIKE_SETUP_BUDGET });
@@ -55,26 +53,11 @@ export async function catalogPostgres(context: TestContext) {
   }
 }
 
-/** This lane's database: pristine `template1`, then the committed `migrations/neon` chain. */
+/** This lane's database: pristine `template1`, then the frozen Drizzle-era shape. */
 async function openLegacyDatabase(plane: TestPostgres, name: string): Promise<string> {
   const dsn = await createCleanDatabase(plane.dsn, name);
-  await new ChainApplyTurn(clusterAdminDsn(plane.dsn)).hold(() => applyLegacyChain(dsn));
+  await applyDrizzleEraCatalog(dsn);
   return dsn;
-}
-
-/** The apply holds the cluster turn (#1663) for the same reason the catalog spike's does: the
- * Atlas chain's role block is cluster-global and check-then-create, and two appliers that read an
- * empty `pg_roles` together collide on `pg_authid_rolname_index`. */
-async function applyLegacyChain(dsn: string): Promise<void> {
-  await promisify(execFile)(process.env.ATLAS_BIN ?? "atlas", [
-    "migrate", "apply",
-    "--dir", LEGACY_CHAIN.href,
-    "--url", dsn,
-    "--revisions-schema", "public",
-  ], {
-    env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" },
-    maxBuffer: OUTPUT_CEILING_BYTES,
-  });
 }
 
 /** Give both databases back in the order the shared server needs: this lane's own, which is

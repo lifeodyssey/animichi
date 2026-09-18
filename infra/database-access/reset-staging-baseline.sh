@@ -5,8 +5,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STAGING_YAML="$ROOT/infra/database-access/Pulumi.staging.yaml"
 PRODUCTION_YAML="$ROOT/infra/database-access/Pulumi.prod.yaml"
 RESET_SQL="$ROOT/infra/database-access/reset-staging-baseline.sql"
-BASELINE_VERSION="20260826000005"
-BACKUP_NAME="staging-before-${BASELINE_VERSION}-baseline"
+# The one schema identity the Prisma chain writes (#1636). A staging database that already
+# carries a marker has been migrated by the chain and must not be dropped; one that carries none
+# is either empty or still on the retired Atlas chain, and is what this reset exists for.
+MARKER_SCHEMA="prisma_contract"
+BACKUP_NAME="staging-before-prisma-baseline"
 PROJECT_ID=""
 BRANCH_ID=""
 
@@ -50,13 +53,13 @@ query_bool() {
   grep -qx t <<<"$output"
 }
 
-ledger_exists() {
-  query_bool "SELECT to_regclass('public.atlas_schema_revisions') IS NOT NULL"
+marker_schema_exists() {
+  query_bool "SELECT to_regnamespace('$MARKER_SCHEMA') IS NOT NULL"
 }
 
 baseline_applied() {
-  ledger_exists || return 1
-  query_bool "SELECT EXISTS (SELECT 1 FROM public.atlas_schema_revisions WHERE version = '$BASELINE_VERSION' AND applied >= total)"
+  marker_schema_exists || return 1
+  query_bool "SELECT EXISTS (SELECT 1 FROM $MARKER_SCHEMA.marker WHERE space = 'app')"
 }
 
 backup_exists() {

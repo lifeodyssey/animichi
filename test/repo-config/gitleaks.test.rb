@@ -22,7 +22,7 @@ class GitleaksConfigTest < Minitest::Test
   GITLEAKS_ACTION = "gitleaks/gitleaks-action@"
 
   CONSEQUENCE = 'gitleaks runs with zero rules and reports "no leaks found" for every secret'
-  ABSENT = "gitleaks falls back to its default rules and loses the atlas.sum allowlist this file exists for"
+  ABSENT = "gitleaks falls back to its default rules and nothing in the repository pins that inheritance"
   DISABLED = 'the named rules stop running and gitleaks reports "no leaks found" for the secrets they catch'
   REDEFINED = "redefining that inherited rule can stop it from reporting the secrets it is meant to catch"
   EXEMPTED = 'every matching file is exempt from every rule and gitleaks reports "no leaks found" for its secrets'

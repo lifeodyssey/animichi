@@ -15,7 +15,6 @@ class RetiredPythonAgentRefsTest < Minitest::Test
     %r{\Adocs/adr/} => "accepted decision records are immutable; a new ADR supersedes",
     %r{\Adocs/naming-audit-} => "a dated audit snapshot",
     %r{\Adocs/ops/pr-comment-debt-} => "a dated PR-comment ledger",
-    %r{\Amigrations/} => "applied migrations are checksummed by atlas.sum; their SQL comments cannot change",
   }.freeze
   # Files that must spell a retired pattern out to do their own job:
   SPELLERS = {

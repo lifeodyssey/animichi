@@ -18,12 +18,19 @@ const jobBlock = (workflow: string, id: string): string => {
   return end === -1 ? body : body.slice(0, end);
 };
 
-void test("Atlas files are the only Neon migration authority", () => {
-  const files = readdirSync(`${ROOT}migrations/neon`).filter((file) => file.endsWith(".sql"));
-  const sum = read("migrations/neon/atlas.sum");
-  assert.notEqual(files.length, 0);
-  for (const file of files) assert.match(sum, new RegExp(`^${file} h1:`, "m"));
-  assert.match(read("docs/ops/migrations.md"), /migrations\/neon\/\*\.sql.*atlas\.sum/s);
+// One authority owns the Neon data plane (#1636): the committed Prisma chain, whose identity is
+// the contract's own `storage.storageHash`. What this pins is that the chain exists, that the
+// runbook sends an operator to it, and — the part a text search would miss — that no second
+// directory of `.sql` migrations has appeared beside it.
+void test("the Prisma chain is the only Neon migration authority", () => {
+  const chain = `${ROOT}packages/pi-session-neon/migrations/app`;
+  const migrations = readdirSync(chain, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  assert.notEqual(migrations.length, 0);
+  for (const migration of migrations) {
+    assert.ok(existsSync(`${chain}/${migration.name}/migration.json`), `${migration.name} has no manifest`);
+  }
+  assert.match(read("docs/ops/migrations.md"), /packages\/pi-session-neon\/migrations/);
+  assert.deepEqual(readdirSync(ROOT).filter((entry) => entry === "migrations"), []);
 });
 
 void test("Drizzle schemas cannot become migration runners", () => {
@@ -68,10 +75,12 @@ void test("both environments migrate through the migrator Worker on an OIDC iden
   assert.doesNotMatch(cd, /NEON_DATABASE_URL/);
 });
 
+// Every environment reaches the database through the migrator Worker's OIDC door, so no CD job
+// may carry a migration CLI or a client of its own.
 void test("no job applies the chain itself", () => {
   const cd = read(".github/workflows/cd.yml");
-  assert.doesNotMatch(cd, /atlas migrate apply/);
-  assert.doesNotMatch(cd, /ariga\/setup-atlas/);
+  assert.doesNotMatch(cd, /prisma db migrate/);
+  assert.doesNotMatch(cd, /\bpsql\b/);
 });
 
 // #1332: the deploy call returning is not the new bundle serving. The handshake waits on the

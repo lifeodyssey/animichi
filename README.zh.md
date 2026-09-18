@@ -62,18 +62,18 @@ make check-full
 
 ## 数据库迁移
 
-Neon catalog 与 user 数据面的 schema 变更统一记录在 `migrations/neon/`，由固定版本的
-Atlas CLI 应用；`migrations/neon/atlas.sum` 是生成的完整性清单，必须和迁移文件一起更新。
+Neon 数据面的 schema 在 `packages/pi-session-neon/src/contract.prisma` 里声明，作为一条 Prisma 8
+迁移链版本化在 `packages/pi-session-neon/migrations/` 下；生成的产物必须和迁移一起更新。
 Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。`supabase/`
 是已归档的历史 Supabase 迁移树（issue #1000），不应用，也不能作为 Neon 新表的来源。
 
 ```bash
-make db-list           # 列出仓库中的 Atlas 迁移
-make db-hash           # 重新生成 migrations/neon/atlas.sum
-make db-validate       # 校验 checksum 与 SQL 结构
-make db-push-dry       # 对 NEON_DATABASE_URL 做 dry-run
-make db-push           # 对 NEON_DATABASE_URL 应用迁移
+make db-new NAME=x     # 在链里起草一条迁移
+make db-lint           # 产物完整性与图的连通性
+make db-status         # 迁移路径与待应用项
 ```
+
+本地没有 apply 目标：唯一持有数据库凭据的是 migrator Worker，只有 CD 会应用迁移。
 
 边界、CI 门禁和部署顺序见 [`docs/ops/migrations.md`](docs/ops/migrations.md)。迁移应在部署时的专用步骤中执行，而非应用启动时。
 
@@ -111,7 +111,6 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
 - `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
-- `migrations/neon/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — 旧版兼容迁移与 Supabase 项目资产（auth 已迁至 Neon Auth，AUTH-2 #950）
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
 - `Makefile`、`package.json` — 根目录工具入口；`workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
@@ -120,7 +119,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [架构文档](docs/ARCHITECTURE.md) — 系统设计参考
 - [部署指南](docs/ops/deployment.md) — Cloudflare Workers 部署
-- [迁移边界](docs/ops/migrations.md) — Atlas authority 与 Drizzle 查询/类型边界
+- [迁移边界](docs/ops/migrations.md) — Prisma 链的权威与 Drizzle 查询/类型边界
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings
 - [实现计划（归档）](docs/archive/plans/) — 历史执行计划（平层 `plans/` 不再新增）

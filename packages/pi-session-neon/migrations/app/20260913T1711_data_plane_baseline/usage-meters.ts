@@ -2,9 +2,9 @@ import { rawSql } from '@prisma/orm-postgres/migration';
 import { tableOid } from './table-oid.ts';
 
 // The two daily meters the agent tier keeps: what the platform spent per scope, and how many
-// messages one anonymous identity has reserved today. `migrations/neon/20260826000004_agent.sql`
-// created them and `20260904000000_platform_usage_scope.sql` widened the scope vocabulary to
-// four; `workers/edge/src/agent/{admission/reserve-quota,admission/void-unaccepted,
+// messages one anonymous identity has reserved today. The retired chain created them and later
+// widened the scope vocabulary to four (#1292);
+// `workers/edge/src/agent/{admission/reserve-quota,admission/void-unaccepted,
 // settlement/settlement-accounting,host/native-authority}.ts` still read and write both.
 //
 // They stay out of the data-plane contract for two reasons, not one. Spec §4.12 keeps the
@@ -13,7 +13,7 @@ import { tableOid } from './table-oid.ts';
 // `numeric` and settlement would stop rounding once at six decimal places
 // (settlement-accounting.ts:54 states that as the destination's contract).
 /** Every scope `chargeUsage` can produce: the three payers plus the platform's own share of a
- * BYOK turn (`migrations/neon/20260904000000_platform_usage_scope.sql`). */
+ * BYOK turn (#1292, which widened the retired chain's scope check). */
 const SETTLEMENT_SCOPES = ['anon', 'user', 'byok', 'platform'] as const;
 const scopeList = SETTLEMENT_SCOPES.map((scope) => `'${scope}'`).join(', ');
 

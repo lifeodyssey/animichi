@@ -30,8 +30,8 @@ class PrVerificationPlanTest < Minitest::Test
   REVIEWED_PATHS_FILTERS = {
     "web" => ["apps/web/**"],
     "e2e" => ["e2e/**", "packages/contract/**", "workers/edge/**", "packages/agent/**",
-              "packages/pi-session-neon/**", "packages/test-postgres/**", "migrations/neon/**"],
-    "migrations" => ["migrations/neon/**"],
+              "packages/pi-session-neon/**", "packages/test-postgres/**"],
+    "migrations" => ["packages/pi-session-neon/migrations/**", "packages/pi-session-neon/src/contract.prisma"],
     "workflows" => [".github/workflows/**", ".github/actions/**", ".github/scripts/**",
                     ".github/lib/**", ".github/test/**"],
     "deps" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".npmrc"]

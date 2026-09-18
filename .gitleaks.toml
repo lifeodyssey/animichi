@@ -4,9 +4,3 @@
 # https://github.com/gitleaks/gitleaks/blob/v8.24.3/README.md#configuration
 [extend]
   useDefault = true
-
-# atlas.sum lines are base64 sha256 checksums ("h1:..."), not secrets.
-# gitleaks' generic-api-key rule false-positives on SQL table names in the same
-# line; allowlist the checksum file only.
-[allowlist]
-  paths = ['''atlas\.sum$''']

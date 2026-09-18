@@ -53,7 +53,7 @@ becomes one `affected` matrix leg running that package's own `lint`, `typecheck`
 own `package.json`, which is also what `pre-push` runs.
 
 Three paths sit outside the package graph and are routed by `dorny/paths-filter` instead:
-`apps/web/**` and `e2e/**` (the browser job), `migrations/neon/**` (the schema job), and the root dependency files, whose change
+`apps/web/**` and `e2e/**` (the browser job), `packages/pi-session-neon/migrations/**` (the schema job), and the root dependency files, whose change
 means "every package" because pnpm answers a root-lockfile change with the root project alone.
 The six security jobs are never path-gated. `PR Verification` and `Security` each aggregate their
 dependencies with `always()` and fail on any failed or cancelled one.
@@ -353,7 +353,7 @@ deploys and tags never trigger deployment.
 
 ### Schema change policy
 
-Neon migrations run from `migrations/neon/` before the Worker rollout, but the previously published
+Neon migrations run from the Prisma chain before the Worker rollout, but the previously published
 Worker version can still serve traffic while that step is running. A destructive change can therefore briefly break
 old code that still reads or writes the removed schema; the `route_anime` release, for example,
 dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where

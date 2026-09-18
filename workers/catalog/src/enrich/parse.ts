@@ -5,7 +5,7 @@
  * (`backend/clients/anitabi.py`, `backend/clients/bangumi.py`): same legacy vs
  * official Anitabi point schemas and the same Bangumi v0 subject shape, mapped
  * onto the catalog table columns
- * (`migrations/neon/20260623000001_init.sql`: `bangumi`, `points`).
+ * (the data-plane contract: `bangumi`, `points`).
  *
  * This is the JSON trust boundary: every field is narrowed defensively from
  * `unknown` (object + isinstance-style guards, no `any`). A point lacking an id,

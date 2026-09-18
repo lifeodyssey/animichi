@@ -30,7 +30,7 @@ set -euo pipefail
 #   scripts/spike/pi-s4-durable.sh format < "$OUT/results.txt"
 #
 # The Worker needs its SPIKE_DATABASE_URL secret set to a throwaway Neon branch
-# carrying the migrations/neon chain; GET /healthz reports `database` as a
+# carrying the migration chain; GET /healthz reports `database` as a
 # boolean so you can check that before spending five minutes.
 #
 # Records accumulate in "$OUT/results.txt" as `name|label|ms|status|detail`

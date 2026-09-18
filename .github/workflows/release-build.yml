@@ -49,15 +49,12 @@ jobs:
         run: bash .github/scripts/release/seal-foundation.sh
       - name: Seal source-pinned dependency patches
         run: node .github/scripts/release/seal-pnpm-patches.mjs "$GITHUB_SHA" release/foundation
-      - name: Seal the complete migration chain
-        run: |
-          mkdir -p release/migrations
-          cp -R migrations/neon/. release/migrations/
-      - uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
-        with:
-          version: v0.30.0
-      - name: Validate the full native Atlas chain
-        run: atlas migrate validate --dir file://release/migrations
+      # The chain travels inside the migrator bundle (`prepare-migrations.ts`), and
+      # `source_closure.rb` proves that copy is the selected commit's own bytes. `migration check`
+      # is the static integrity check: every emitted artifact still matches its authored
+      # migration, and the graph is connected.
+      - name: Check the sealed migration graph's integrity
+        run: pnpm --filter @animichi/pi-session-neon exec prisma migration check
       - name: Log into the registry build principal
         uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
         with:

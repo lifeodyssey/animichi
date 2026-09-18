@@ -4,10 +4,10 @@
 #
 # The gate is required and must FAIL CLOSED with an actionable message when
 # Docker or the offline image is unavailable — it never silently skips. The
-# atlas and docker tools are stubbed (scripts/local-gates/stub-env.sh +
+# pnpm and docker tools are stubbed (scripts/local-gates/stub-env.sh +
 # test-stub.sh); the success path asserts the gate waits for the admin
 # database, creates the pristine target database from template1, and applies
-# atlas only to that disposable 127.0.0.1 container (never the image-
+# the chain only to that disposable 127.0.0.1 container (never the image-
 # preinitialised POSTGRES_DB, never shared Neon).
 set -euo pipefail
 
@@ -47,16 +47,15 @@ assert_lacks() {
   fi
 }
 
-# A bin dir with the atlas stub and bash but NO docker: `command -v
-# docker` must come up empty regardless of what the host has installed
-# (the bash symlink keeps the gate's `#!/usr/bin/env bash` shebang
-# resolvable under a PATH that cannot contain docker).
-make_only_atlas_bin() {
-  local only_atlas="$GATE_STUB_ROOT/only-atlas"
-  mkdir -p "$only_atlas"
-  ln -s "$GATE_STUB_BIN/atlas" "$only_atlas/atlas"
-  ln -s "$(command -v bash)" "$only_atlas/bash"
-  printf '%s\n' "$only_atlas"
+# A bin dir with the pnpm stub and bash but NO docker: `command -v docker` must come up empty
+# regardless of what the host has installed (the bash symlink keeps the gate's
+# `#!/usr/bin/env bash` shebang resolvable under a PATH that cannot contain docker).
+make_dockerless_bin() {
+  local dockerless="$GATE_STUB_ROOT/dockerless"
+  mkdir -p "$dockerless"
+  ln -s "$GATE_STUB_BIN/pnpm" "$dockerless/pnpm"
+  ln -s "$(command -v bash)" "$dockerless/bash"
+  printf '%s\n' "$dockerless"
 }
 
 run_with_path() {
@@ -71,7 +70,7 @@ run_with_path() {
 
 test_docker_not_installed_fails_closed() {
   local rc
-  rc="$(run_with_path "$(make_only_atlas_bin)")"
+  rc="$(run_with_path "$(make_dockerless_bin)")"
   [ "$rc" != "0" ] || { echo "FAIL: missing docker must fail closed" >&2; exit 1; }
   assert_msg "Docker is required"
   assert_msg "colima"
@@ -112,8 +111,9 @@ assert_fresh_chain() {
   assert_has "$GATE_STUB_ROOT/log" "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d gate"
 }
 
-assert_atlas_disposable_only() {
-  assert_has "$GATE_STUB_ROOT/log" "atlas migrate apply --dir file://migrations/neon --url postgresql://postgres:gate@127.0.0.1"
+assert_chain_applied_to_the_disposable_target_only() {
+  assert_has "$GATE_STUB_ROOT/log" "psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c CREATE ROLE \"agent_svc\" NOLOGIN"
+  assert_has "$GATE_STUB_ROOT/log" "pnpm --filter @animichi/pi-session-neon exec prisma db migrate --db postgresql://postgres:gate@127.0.0.1"
   assert_lacks "$GATE_STUB_ROOT/log" "-e POSTGRES_DB=gate"
 }
 
@@ -122,7 +122,7 @@ test_success_applies_only_to_pristine_template1_schema() {
   rc="$(run_gate)" || true
   [ "$rc" = "0" ] || { echo "FAIL: success path exited $rc" >&2; exit 1; }
   assert_fresh_chain
-  assert_atlas_disposable_only
+  assert_chain_applied_to_the_disposable_target_only
   echo "ok: applies the full chain to the pristine template1 database on the disposable container"
 }
 

@@ -71,7 +71,7 @@ pnpm run typecheck
 ```
 
 The DB spikes are **hermetic and fail-loudly** (card 1049): they boot a Docker Postgres+PostGIS
-container, apply the committed `migrations/neon` Atlas chain to a clean database, and need **zero
+container, install the frozen Drizzle-era shape on a clean database, and need **zero
 Neon credentials** — a setup failure throws instead of skipping.
 
 The live counts and timings belong in CI evidence, not this stable stack verdict.

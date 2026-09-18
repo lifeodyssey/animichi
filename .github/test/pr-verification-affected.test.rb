@@ -11,10 +11,10 @@ class PrVerificationAffectedTest < Minitest::Test
   # the migrator's transition handshake; the packages whose gates reach it only
   # through the shared plane (#1625) are not listed (#1634 retires it entirely).
   MATRIX_TOOLCHAINS = [
-    ["catalog", "ariga/setup-atlas"],
-    ["migrator", "ariga/setup-atlas"],
+
+
     ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
-    ["@animichi/agent", "ariga/setup-atlas"],
+
     ["@animichi/agent", "docker build -f packages/test-postgres/Dockerfile"],
     ["edge-worker", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/test-postgres", "docker build -f packages/test-postgres/Dockerfile"],

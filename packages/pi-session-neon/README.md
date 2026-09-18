@@ -29,7 +29,7 @@ tables follow the Atlas grant matrix in `access.ts`, and no role is created here
 test plane creates them for the cluster it owns (`@animichi/test-postgres`, #1625). Pi entries
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
 One Prisma chain owns every table this package builds: the seven native tables and the 19
-catalog/users data-plane tables rebuilt from `migrations/neon`. No applied Atlas migration is
+catalog/users data-plane tables rebuilt from the chain it replaced. No applied migration is
 altered, and no object has two owners. The migration-target ACs run against a per-test `template1`
 database migrated only by that chain, and the shared fixture installs nothing on top of it, so
 the suite no longer compares against an Atlas-built database.

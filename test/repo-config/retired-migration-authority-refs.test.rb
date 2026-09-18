@@ -7,29 +7,45 @@ require "open3"
 
 class RetiredMigrationAuthorityRefsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  # The staging-only baseline: the owner deleted the gate rather than rehousing it (#1621), so
-  # the field, the marker and the guard script all have to be unreachable by name.
+  # Two retirements, one authority. The staging-only baseline: the owner deleted the gate rather
+  # than rehousing it (#1621), so the field, the marker and the guard script are unreachable by
+  # name. The Atlas chain (#1636): its directory, its checksum file, its ledger table, its CLI and
+  # a chain head derived from filenames. A live file that still names one is either a gate reading
+  # a directory that no longer exists, or a reader being pointed at a second authority.
   RETIRED = [/stagingOnlyBaseline/, /STAGING_ONLY_BASELINE/, /staging_only_baseline/,
-             %r{production-baseline-guard}].freeze
+             %r{production-baseline-guard},
+             %r{migrations/neon}, /atlas\.sum/, /atlas_schema_revisions/,
+             /\batlas\s+migrate\b/, /ariga\/setup-atlas/, /ATLAS_BIN/, /ATLAS_VERSION/].freeze
   # History, not live surfaces — exempt by path family, one stated reason each:
   HISTORY = {
     %r{\Adocs/archive/} => "read-only history (DOCS_POLICY)",
     %r{\Adocs/specs/\d{4}-\d{2}-\d{2}-} => "a dated spec (and its subfolder) records the design of its day",
     %r{\Adocs/iterations/} => "dated iteration plans and their execution records",
     %r{\Adocs/adr/} => "accepted decision records are immutable; a new ADR supersedes",
+    %r{\Adocs/naming-audit-} => "a dated audit snapshot",
+    %r{\Asupabase/} => "the archived Supabase tree records what it replaced (issue #1000)",
   }.freeze
   # Files that must spell a retired name out to do their own job:
   SPELLERS = {
     "test/repo-config/retired-migration-authority-refs.test.rb" => "this contract names what it forbids",
     "workers/migrator/test/preflight.worker.metadata.test.ts" =>
       "one case sends the retired body verbatim, so the deleted branch is proved gone rather than unreachable",
+    "workers/migrator/test/atlas-engine-retired.test.ts" => "that contract names the modules it forbids",
+    "packages/test-postgres/test/prisma-chain.test.ts" => "that contract names the Atlas surface it forbids",
+    "packages/test-postgres/test/integration/prisma-chain.test.ts" =>
+      "its falsifier runs the whole apply with a broken Atlas binary on PATH, so the name is the probe",
+    "packages/test-postgres/sql/drizzle-era-catalog.sql" =>
+      "a verbatim freeze of the shape the retired chain built; its comments are that chain's own",
+    "scripts/check-skeleton-w0-docs.sh" => "it asserts that a dated iteration record still says what it said",
+    "docs/ops/migrations.md" => "the runbook states which authority was retired and why",
   }.freeze
 
-  def test_no_live_surface_names_the_retired_staging_only_baseline
+  def test_no_live_surface_names_a_retired_migration_authority
     offenders = live_files.flat_map { |path| retired_lines(path) }
     assert_empty(offenders,
-                 "these live surfaces still name the deleted staging-only baseline gate (#1621, " \
-                 "#1635). Delete the reference, or move a dated record under docs/archive/:\n  " \
+                 "these live surfaces still name a deleted migration authority — the staging-only " \
+                 "baseline gate (#1621, #1635) or the Atlas chain (#1636). Delete the reference, " \
+                 "or move a dated record under docs/archive/:\n  " \
                  "#{offenders.join("\n  ")}")
   end
 

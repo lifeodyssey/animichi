@@ -2,7 +2,7 @@
 # Behavioral tests for pre-push-affected.sh's selection (#1371, #1687): which
 # packages a diff selects, which buckets fire, and which paths fail closed. The
 # fixture this file shares with pre-push-commitlint.test.sh — one throwaway
-# repository per case, a fake pnpm / make / atlas and the assertion helpers — is
+# repository per case, a fake pnpm / make and the assertion helpers — is
 # pre-push-fixture.sh.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/pre-push-fixture.sh"
@@ -19,11 +19,11 @@ ok "a package change does not carry an unowned root file through"
 
 # 2. Same for a bucket, which must also not have run.
 new_repo
-commit_change feature migrations/neon/x.sql test/repo-config-extra/y.rb
+commit_change feature packages/pi-session-neon/migrations/app/x/ops.json test/repo-config-extra/y.rb
 run_gate < /dev/null
 expect_status "schema + stray" 1 "$STATUS"
 expect "schema + stray" "test/repo-config-extra/y.rb" "$OUT"
-refute "schema + stray" "migrations/neon/x.sql" "$OUT"
+refute "schema + stray" "packages/pi-session-neon/migrations/app/x/ops.json" "$OUT"
 refute "schema + stray" "migrate validate" "$RECORDED"
 ok "a schema-bucket change does not carry an unowned path through"
 

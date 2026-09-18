@@ -62,19 +62,20 @@ make check-full
 
 ## Database Migrations
 
-Neon catalog and user schema changes are versioned in `migrations/neon/` and applied by the
-pinned Atlas CLI. `migrations/neon/atlas.sum` is generated metadata and must be regenerated in
-the same change. Drizzle schemas in the Workers are runtime query/type metadata only; they do
-not generate or apply migrations. `supabase/` is an archived historical Supabase migration
-tree (issue #1000); it is not applied and is not a source for new Neon tables.
+Neon schema changes are declared in `packages/pi-session-neon/src/contract.prisma` and versioned
+as one Prisma 8 chain under `packages/pi-session-neon/migrations/`. Its emitted artifacts must be
+regenerated in the same change. Drizzle schemas in the Workers are runtime query/type metadata
+only; they do not generate or apply migrations. `supabase/` is an archived historical Supabase
+migration tree (issue #1000); it is not applied and is not a source for new Neon tables.
 
 ```bash
-make db-list           # list checked-in Atlas migrations
-make db-hash           # regenerate migrations/neon/atlas.sum
-make db-validate       # verify the checksum and SQL structure
-make db-push-dry       # dry-run against NEON_DATABASE_URL
-make db-push           # apply against NEON_DATABASE_URL
+make db-new NAME=x     # scaffold a migration in the chain
+make db-lint           # artifact integrity and a connected graph
+make db-status         # the migration path and what is pending
 ```
+
+There is no local apply target: the migrator Worker holds the only database credential, and CD is
+the only thing that applies a migration.
 
 See [`docs/ops/migrations.md`](docs/ops/migrations.md) for the boundary, CI gates, and deploy
 order. Apply migrations in a dedicated deploy step, not at application startup.
@@ -116,7 +117,6 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
 - `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
 - `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
-- `migrations/neon/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
 - `Makefile`, `package.json` — root tooling entrypoints; `workers/edge/wrangler.toml` (edge Worker config) lives beside its code
@@ -125,7 +125,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [Architecture](docs/ARCHITECTURE.md) — full system design reference
 - [Deployment](docs/ops/deployment.md) — Cloudflare Workers deploy guide
-- [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
+- [Migrations](docs/ops/migrations.md) — the Prisma chain's authority and the Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
 - [Implementation plans (archive)](docs/archive/plans/) — historical execution plans (flat `plans/` no longer accepts new files)

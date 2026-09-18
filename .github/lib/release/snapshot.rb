@@ -3,11 +3,15 @@ require 'digest'
 require_relative 'selection'
 
 module ReleaseSnapshot
+  # The sealed migration chain is not named here: it has no fixed filename (every directory is a
+  # timestamp), and `source_closure.rb` already asserts the sealed `migrator/bundle/migrations`
+  # is byte-for-byte the selected commit's own chain — a stronger claim than a required path.
+  # `migrator/bundle/contract.json` is the identity the handshake compares against.
   REQUIRED_FILES = %w[
     catalog/bundle/index.js catalog/wrangler.json users/bundle/index.js users/wrangler.json
     edge/bundle/entry.js edge/wrangler.json migrator/bundle/index.js migrator/wrangler.json
     migrator/bundle/contract.json
-    web/.output/server/index.mjs web/wrangler.json migrations/atlas.sum
+    web/.output/server/index.mjs web/wrangler.json
     foundation/infra/Pulumi.yaml foundation/infra/database-access/Pulumi.yaml
     foundation/infra/database-access/sdks/neon/bin/index.js
     foundation/package.json foundation/pnpm-lock.yaml foundation/pnpm-workspace.yaml foundation/.pulumi.version

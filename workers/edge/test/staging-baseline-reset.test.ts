@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -15,58 +13,11 @@ import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
-const BASELINE_FILES = [
-  "20260826000000_extensions.sql",
-  "20260826000001_roles.sql",
-  "20260826000002_functions.sql",
-  "20260826000003_catalog.sql",
-  "20260826000004_agent.sql",
-  "20260826000005_users.sql",
-  "20260829000000_fix_coordinate_sync_precedence.sql",
-  "20260902000000_agent_runs.sql",
-  "20260904000000_platform_usage_scope.sql",
-  "20260915060017_photo_offers.sql",
-];
-const baselineSql = (): string => BASELINE_FILES.map((name) => read(`migrations/neon/${name}`)).join("\n");
-
-void test("Neon history is the baseline chain plus append-only amendments, applied in dependency order", () => {
-  const files = readdirSync(`${ROOT}migrations/neon`).filter((name) => name.endsWith(".sql"));
-  assert.deepEqual(files.sort(), [...BASELINE_FILES].sort());
-  const sum = read("migrations/neon/atlas.sum");
-  for (const name of BASELINE_FILES) {
-    assert.match(sum, new RegExp(`^${name} h1:`, "m"));
-  }
-});
-
-void test("baseline contains only the final schema", () => {
-  const sql = baselineSql();
-  assert.doesNotMatch(sql, /public\.api_keys/i);
-  assert.match(sql, /CREATE TABLE public\.turn_reservations/);
-  assert.match(sql, /request_digest text NULL/);
-  assert.match(sql, /outcome_payload jsonb NULL/);
-  assert.doesNotMatch(sql, /ALTER TABLE public\.turn_reservations/i);
-});
-
-void test("baseline closes the catalog runtime grant gap", () => {
-  const sql = read("migrations/neon/20260826000003_catalog.sql");
-  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.catalog_runs TO catalog_svc/);
-  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.raw_payload_history TO catalog_svc/);
-  assert.match(sql, /GRANT SELECT, USAGE ON SEQUENCE public\.raw_payload_history_seq_seq TO catalog_svc/);
-});
-
-// system-health-audit 2026-08-26 §3: catalog_svc's write grants were `GRANT ALL`
-// (TRUNCATE/REFERENCES/TRIGGER included) on 14/16 catalog tables; locations and
-// location_aliases already used the narrower form. All 16 are now consistent.
-void test("catalog_svc write grants are narrowed to CRUD, never GRANT ALL", () => {
-  const sql = read("migrations/neon/20260826000003_catalog.sql");
-  assert.doesNotMatch(sql, /GRANT ALL ON TABLE/);
-});
-
 void test("staging reset is branch-backed and production-safe", () => {
   const sh = read("infra/database-access/reset-staging-baseline.sh");
   assert.match(sh, /Pulumi\.staging\.yaml/);
   assert.match(sh, /Pulumi\.prod\.yaml/);
-  assert.match(sh, /staging-before-\$\{BASELINE_VERSION\}-baseline/);
+  assert.match(sh, /BACKUP_NAME="staging-before-prisma-baseline"/);
   assert.match(sh, /branches create[\s\S]*--parent "\$BRANCH_ID"[\s\S]*--no-compute/);
   assert.match(sh, /--role-name "\$role"/);
   assert.match(sh, /staging_psql neondb_owner/);
@@ -102,11 +53,6 @@ void test("workers_dev is open for staging only, never production", () => {
   assert.doesNotMatch(production, /^workers_dev = true$/m);
 });
 
-void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
-  const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "1d68cb3a4cccc5c4b66eeba6f7b106a3dbaaeff99daa68090200047a04d61b12");
-});
-
 // #1216 — the migrator's own error lived only in the discarded response body, so
 // a reset staging database failed as a bare "HTTP 500". This repository is
 // public: the body is logged, and any DSN in it must lose its password first.
@@ -137,9 +83,9 @@ const reportFailure = (body: string): { status: number | null; stdout: string } 
 };
 
 void test("a migrator failure logs its response body instead of only the status", () => {
-  const reported = reportFailure(JSON.stringify({ detail: 'relation "public.atlas_schema_revisions" does not exist' }));
+  const reported = reportFailure(JSON.stringify({ detail: 'relation "prisma_contract.marker" does not exist' }));
   assert.equal(reported.status, 1);
-  assert.match(reported.stdout, /atlas_schema_revisions/);
+  assert.match(reported.stdout, /prisma_contract\.marker/);
   assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
 });
 
@@ -165,7 +111,7 @@ void test("the failure message survives a body larger than the pipe buffer", () 
 // audit §2.6: a failed `staging_psql` call (connection/permission failure) produced the
 // same empty stdout as a successful query answering "false" — both fell through
 // `grep -qx t` to "not applied" and triggered `DROP SCHEMA CASCADE`. These run the shipped
-// `query_bool`/`ledger_exists`/`baseline_applied` functions with a stub `staging_psql`
+// `query_bool`/`marker_schema_exists`/`baseline_applied` functions with a stub `staging_psql`
 // standing in for the real connection, so "cannot confirm" and "confirmed unapplied" are
 // proven to take different paths rather than just asserting the source text says so.
 const resetShellFunction = (name: string): string => {
@@ -178,13 +124,13 @@ const resetShellFunction = (name: string): string => {
 
 const shippedBaselineCheck = [
   resetShellFunction("query_bool"),
-  resetShellFunction("ledger_exists"),
+  resetShellFunction("marker_schema_exists"),
   resetShellFunction("baseline_applied"),
 ].join("\n");
 
 const runBaselineApplied = (stagingPsqlBody: string): { status: number | null; stdout: string } => {
   const source = `set -euo pipefail
-BASELINE_VERSION="20260826000005"
+MARKER_SCHEMA="prisma_contract"
 fail() { echo "FAILED:$*"; exit 1; }
 staging_psql() {
 ${stagingPsqlBody}
@@ -202,8 +148,8 @@ void test("a psql connection failure refuses the reset instead of treating it as
   assert.doesNotMatch(result.stdout, /NOT_APPLIED|ALREADY_APPLIED/);
 });
 
-// `baseline_applied` calls `staging_psql` twice — once through `ledger_exists` (does the
-// ledger table exist), once for the version check (has this baseline been applied). A
+// `baseline_applied` calls `staging_psql` twice — once through `marker_schema_exists` (does the
+// marker schema exist), once for the marker row (has this chain been applied). A
 // call-counter file lets the stub answer each call differently.
 const runBaselineAppliedTwoCalls = (
   firstAnswer: string,
@@ -221,13 +167,13 @@ if [ "$count" = 1 ]; then echo "${firstAnswer}"; else echo "${secondAnswer}"; fi
   return result;
 };
 
-void test("a confirmed-unapplied baseline (ledger exists, version query answers f) allows the reset to proceed", () => {
+void test("a confirmed-unapplied baseline (marker schema exists, marker query answers f) allows the reset to proceed", () => {
   const result = runBaselineAppliedTwoCalls("t", "f");
   assert.equal(result.status, 0);
   assert.match(result.stdout, /NOT_APPLIED/);
 });
 
-void test("a confirmed-applied baseline (ledger exists, version query answers t) skips the reset", () => {
+void test("a confirmed-applied baseline (marker schema exists, marker query answers t) skips the reset", () => {
   const result = runBaselineAppliedTwoCalls("t", "t");
   assert.equal(result.status, 0);
   assert.match(result.stdout, /ALREADY_APPLIED/);

@@ -40,16 +40,16 @@ class PrVerificationBrowserTest < Minitest::Test
   def test_native_runtime_changes_select_the_browser_lane
     paths = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "paths" }
     filters = Psych.safe_load(paths.dig("with", "filters"), aliases: true)
-    %w[workers/edge/** packages/agent/** packages/pi-session-neon/** packages/test-postgres/** migrations/neon/**].each do |path|
+    %w[workers/edge/** packages/agent/** packages/pi-session-neon/** packages/test-postgres/**].each do |path|
       assert_includes filters.fetch("e2e"), path
     end
   end
 
+  # The chain's own CLI is a workspace devDependency now, so the only thing this lane has to
+  # provision before the suite is the hermetic image (#1636 removed the Atlas CLI step).
   def test_native_browser_database_is_prepared_before_the_package_gate
     source = browser_step_source
-    assert_includes source, "ariga/setup-atlas"
     assert_includes source, "docker build -f packages/test-postgres/Dockerfile"
-    assert_operator source.index("ariga/setup-atlas"), :<, source.index('pnpm --filter animichi-e2e')
     assert_operator source.index("docker build"), :<, source.index('pnpm --filter animichi-e2e')
   end
 end

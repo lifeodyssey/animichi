@@ -3,11 +3,10 @@
 Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../../AGENTS.md`.
 Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
 `migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
-from `migrations/neon/`, and — as raw SQL rather than contract tables — the conversation ledger
-and the two usage meters `workers/edge/src` still writes (`conversation-ledger.ts`,
-`usage-meters.ts`). `migrations/neon/` is read-only evidence of the objects the baseline
-replaced until W4 deletes it — it owns nothing here. No object has two migration owners; do not
-re-declare an object the chain already builds.
+from the retired chain this one replaced, and — as raw SQL rather than contract tables — the
+conversation ledger and the two usage meters `workers/edge/src` still writes
+(`conversation-ledger.ts`, `usage-meters.ts`). One authority owns the whole data plane (#1636).
+No object has two migration owners; do not re-declare an object the chain already builds.
 
 - `pnpm run lint` — type-aware oxlint, warnings denied.
 - `pnpm run typecheck` — TypeScript 7.
@@ -65,11 +64,16 @@ semantics in `pg_catalog` (`data-plane-indexes.ts`), because dropping them to ma
 introspectable IR weakens live PostgreSQL. Runtime record validation belongs to native Pi
 session APIs.
 
-Atlas SQL under `migrations/neon/` is immutable, read-only evidence of the objects #1626's native
-Prisma chain replaced; only W4 deletes it, and this package drops no old table. The two unpublished
-#1539 draft migrations were replaced by that two-node chain. The omissions here — `points.embedding`
-and `idx_points_embedding`, `locations.location`, and every agent-domain table with no live
-reader — are authorized by `docs/specs/2026-09-12-prisma8-database-layer-spec.md` §4.8.3–§4.8.4 and
-§4.12, not by #1539. The four `workers/edge/src` still reads — `sessions`, `turn_reservations`,
-`daily_usage`, `anon_daily_message_count` — are built here, carrying every column a live statement
-names and no other.
+The chain this one replaced was deleted in #1636, so there is nothing left to consult: this
+package's contract and `migrations/app/` are the whole record of what a database contains. The two
+unpublished #1539 draft migrations were replaced by that two-node chain. The omissions —
+`points.embedding` and `idx_points_embedding`, `locations.location`, and every agent-domain table
+with no live reader — are authorized by `docs/specs/2026-09-12-prisma8-database-layer-spec.md`
+§4.8.3–§4.8.4 and §4.12, not by #1539. The four `workers/edge/src` still reads — `sessions`,
+`turn_reservations`, `daily_usage`, `anon_daily_message_count` — are built here, carrying every
+column a live statement names and no other.
+
+One frozen copy of the shape this chain replaced survives as a TEST FIXTURE
+(`packages/test-postgres/sql/drizzle-era-catalog.sql`), because `workers/catalog` and the agent's
+catalog tools still query scalar coordinates. It is not an authority and nothing applies it to a
+real database; it is deleted with #1629–#1631.
