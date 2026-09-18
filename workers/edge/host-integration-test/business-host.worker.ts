@@ -10,7 +10,7 @@ import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
 import { persistPermanentRejection } from "../src/agent/admission/permanent-rejection.ts";
 import { gateNativeResultReads, loseNativeReply } from "./lost-reply.ts";
-import { recoveryScanInterval } from "./wake-cadence.ts";
+import { recoveryScanInterval, RETRY_DELAY_MS } from "./wake-cadence.ts";
 import type { ModelAdmissionRequest } from "../src/agent/admission/types.ts";
 
 /** The lifecycle cases authorize no tool; the deadline case needs one permitted, locally-answerable call. */
@@ -128,7 +128,7 @@ export class BusinessHost extends SessionAgent {
         this.#lost = true; this.#failReattach = true; this.#evidenceBlocked = this.env.TEST_WITNESS_OUTAGE === "true";
       });
       gateNativeResultReads(session, () => this.#evidenceBlocked, () => { this.#evidenceFailures += 1; this.#evidenceFailed.resolve(undefined); });
-      return { models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 60_000 },
+      return { models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: RETRY_DELAY_MS },
         toolContext: this.#toolsFor(session) }; });
     if (this.env.TEST_REJECT === "true") await this.withSession((_session, lane, _context, harness) => {
       harness.hooks.on("before_drive", async (_event, context) => {
