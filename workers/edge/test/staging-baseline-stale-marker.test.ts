@@ -20,8 +20,25 @@ describe_marker_beside_ledger() { ROWS="${markerRows.join(", ")}; 10 Atlas revis
 query() { ROWS="${markerRows.join("\n")}"; }
 if stranded_on_atlas; then echo "REBUILD drop_marker_schema=$DROP_MARKER_SCHEMA"; else echo NO_OP; fi`);
 
-const withRecord = (markerRows: readonly string[], lines: string): Outcome =>
-  withRecordFile(`# approved\n${lines}\n`, (record) => besideLedger(markerRows, record));
+const withRecord = (markerRows: readonly string[], record: string): Outcome =>
+  withRecordFile(`# approved\n${record}\n`, (approved) => besideLedger(markerRows, approved));
+
+// The real Neon path (#1793): `neonctl psql` announces every connection on stderr
+// (neonctl's log.info), and the shipped `query` reads the command's output — so the record is
+// matched against what the query actually reads back, diagnostic and all.
+const besideLedgerLive = (markerRows: readonly string[], record: string): Outcome => sourcedResetScript(`
+APPROVED_MARKER="${record}"
+app_marker_present() { return 0; }
+atlas_ledger_present() { return 0; }
+describe_marker_beside_ledger() { ROWS="${markerRows.join(", ")}; 10 Atlas revisions, 42 tables in public"; }
+staging_psql() {
+  printf 'INFO: Connecting to the database using psql...\\n' >&2
+  printf '%s\\n' ${markerRows.map((row) => `"${row}"`).join(" ")}
+}
+if stranded_on_atlas; then echo "REBUILD drop_marker_schema=$DROP_MARKER_SCHEMA"; else echo NO_OP; fi`);
+
+const withRecordLive = (markerRows: readonly string[], lines: string): Outcome =>
+  withRecordFile(`# approved\n${lines}\n`, (approved) => besideLedgerLive(markerRows, approved));
 
 const assertRefusedBesideLedger = (outcome: Outcome): void => {
   assert.equal(outcome.status, 1);
@@ -48,6 +65,22 @@ void test("a record naming another space refuses", () => {
 void test("a record that leaves a row of the marker table unnamed refuses", () => {
   const extension = "prisma_contract.marker space=geography updated_at=2026-09-12T06:49:07.200000Z";
   assertRefusedBesideLedger(withRecord([STALE, extension], STALE));
+});
+
+void test("a connection diagnostic ahead of the row is read as the row alone", () => {
+  withRecordFile(`# approved\n${STALE}\n`, (record) => {
+    const outcome = besideLedgerLive([STALE], record);
+    assert.equal(outcome.status, 0);
+    assert.equal(outcome.stdout, `stale marker approved by ${record}: ${STALE}\nREBUILD drop_marker_schema=true\n`);
+    assert.equal(outcome.stderr, "INFO: Connecting to the database using psql...\n");
+  });
+});
+
+void test("the diagnostic does not soften the match: one character off still refuses", () => {
+  const outcome = withRecordLive([STALE.replace("07.123456Z", "07.123457Z")], STALE);
+  assert.equal(outcome.status, 1);
+  assert.equal(outcome.stdout, "");
+  assert.match(outcome.stderr, /^INFO: Connecting to the database using psql\.\.\.\nrefusing reset: a Prisma app marker stands beside the Atlas ledger/);
 });
 
 void test("no record is the refusal the rebuild already gave", () => {

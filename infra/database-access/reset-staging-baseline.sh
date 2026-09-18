@@ -78,15 +78,27 @@ staging_psql() {
 # empty stdout as a successful query answering "false" — both fell through `grep -qx t` to
 # "not applied" and triggered `DROP SCHEMA CASCADE`. Capture staging_psql's own exit status
 # so "cannot confirm" (fail closed, refuse the reset) is distinguishable from "confirmed
-# unapplied" (the query itself ran and returned f). The answer lands in ROWS rather than on
-# stdout: read through a command substitution, `fail` would end only that subshell.
+# unapplied" (the query itself ran and returned f; psql exits 1 on a failed -c statement and
+# 2 on a dead connection, and neonctl propagates both). The answer lands in ROWS rather than
+# on stdout: read through a command substitution, `fail` would end only that subshell. Only
+# stdout lands there (#1793): neonctl announces every connection on stderr ("INFO: Connecting
+# to the database using psql..."), and folded into ROWS it rode beside every row — the marker
+# approval then compared the connection log against the owner's record and could never match,
+# and the business-rows read took the diagnostic for an unapproved table. Stderr is quoted
+# into the failure message, so "cannot confirm" still says why.
 ROWS=""
 query() {
-  ROWS="$(staging_psql "$OWNER_ROLE" -tAc "$1" 2>&1)" || fail "cannot confirm staging state: $ROWS"
+  local out err rc=0
+  err="$(mktemp)"
+  out="$(staging_psql "$OWNER_ROLE" -tAc "$1" 2>"$err")" || rc=$?
+  ROWS="$out"
+  [[ "$rc" -eq 0 ]] || fail "cannot confirm staging state: $(cat "$err")$out"
+  cat "$err" >&2
+  rm -f "$err"
 }
 
-# Success-path match stays line-based (`grep -qx`): stderr is folded into ROWS for the
-# failure message above, so an incidental psql NOTICE must not defeat a real `t`.
+# Matches stay line-based (`grep -qx`): what `query` relays to stderr — neonctl's connection
+# notice, a psql NOTICE — never enters ROWS, so it cannot defeat a real `t`.
 query_bool() {
   query "$1"
   grep -qx t <<<"$ROWS"
