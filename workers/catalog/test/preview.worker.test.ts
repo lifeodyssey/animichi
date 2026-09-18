@@ -25,6 +25,8 @@ const LITE_POINTS = [
     image: "/lite/p1.jpg",
     ep: 1,
     s: 12,
+    origin: "バンダイチャンネル",
+    originURL: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
   },
   {
     id: "p2",
@@ -54,6 +56,8 @@ describe("previewForQuery (api/preview.ts)", () => {
         longitude: 135.8078,
         episode: 1,
         time_seconds: 12,
+        origin: "バンダイチャンネル",
+        origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
       },
       {
         id: "p2",

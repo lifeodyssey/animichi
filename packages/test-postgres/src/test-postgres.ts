@@ -1,24 +1,22 @@
 /** One disposable PostgreSQL + PostGIS + pgvector data plane, migrated and ready.
  *
  * Open the shared cluster (`test-postgres-cluster.ts`: the server, reused, with
- * its five service roles), create a CLEAN database from `template1`, apply the
- * committed Prisma chain, and hand back its DSN. Zero Neon environment
- * variables, zero network beyond the local daemon. A suite that only creates
- * databases of its own does not need this — it asks for the cluster (#1783).
+ * its five service roles), clone a database from the migrated template (#1769),
+ * and hand back its DSN. Zero Neon environment variables, zero network beyond
+ * the local daemon. A suite that only creates databases of its own does not
+ * need this — it asks for the cluster (#1783).
  *
  * The isolation unit is the DATABASE, never the container (#1663): each call
  * owns a uniquely named database, and `stop()` drops that database alone. A
  * failure after the database exists drops it too, instead of the server.
  *
  * The bind and the three waits draw on ONE wall-clock deadline (#1318), so they
- * cannot sum past the hook that holds them. The chain apply holds the cluster's
- * turn, and runs after the cluster's own turn committed the roles its grant
- * matrix prechecks (#1663).
+ * cannot sum past the hook that holds them. The template seed holds the
+ * cluster's turn; cloning does not.
  */
-import { ChainApplyTurn } from "./chain-apply-turn.ts";
-import { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
+import { dropCleanDatabase } from "./clean-database.ts";
 import { uniqueDatabaseName } from "./database-name.ts";
-import { applyPrismaChain } from "./prisma-chain.ts";
+import { createMigratedDatabase } from "./migrated-template.ts";
 import type { SetupBudget } from "./setup-budget.ts";
 import { SetupDeadline } from "./setup-deadline.ts";
 import { awaitSessions, openCluster, type TestPostgresCluster } from "./test-postgres-cluster.ts";
@@ -50,11 +48,10 @@ function ownDatabase(cluster: TestPostgresCluster, suite: string): OwnDatabase {
 }
 
 /** `CREATE DATABASE` returns before the new database accepts its own sessions,
- * so the clean DSN is probed too — the reason `db-fresh-schema.sh` waits twice. */
-async function migrateCleanDatabase(own: OwnDatabase, deadline: SetupDeadline): Promise<TestPostgres> {
-  const dsn = await createCleanDatabase(own.admin, own.name);
+ * so the cloned DSN is probed too — the reason `db-fresh-schema.sh` waits twice. */
+async function cloneOwnDatabase(own: OwnDatabase, deadline: SetupDeadline): Promise<TestPostgres> {
+  const dsn = await createMigratedDatabase(own.admin, own.name);
   await awaitSessions(dsn, deadline);
-  await new ChainApplyTurn(own.admin).hold(() => applyPrismaChain(dsn));
   return { dsn, stop: () => own.drop() };
 }
 
@@ -73,7 +70,7 @@ export async function startTestPostgres(request: TestPostgresRequest): Promise<T
   const deadline = new SetupDeadline(request.budget);
   const own = ownDatabase(await openCluster(deadline), request.database);
   try {
-    return await migrateCleanDatabase(own, deadline);
+    return await cloneOwnDatabase(own, deadline);
   } catch (failure) {
     await dropWithoutMaskingFailure(own);
     throw failure;

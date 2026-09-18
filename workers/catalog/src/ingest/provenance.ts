@@ -83,4 +83,5 @@ export function pointFieldMap(): FieldSourceMap {
 /** The point row fields Anitabi contributes (the field-level source map keys). */
 const POINT_FIELDS = [
   "id", "name", "name_cn", "latitude", "longitude", "image", "episode", "time_seconds",
+  "origin", "origin_url",
 ] as const;

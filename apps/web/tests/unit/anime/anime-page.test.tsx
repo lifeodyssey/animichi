@@ -32,7 +32,7 @@ describe("AnimePage full state", () => {
   it("cites the top-3 cities and the Anitabi attribution", () => {
     render(<AnimePage overview={fullOverviewFixture} locale="ja" />);
     expect(screen.getByText(/Takayama、Tokyo、Hida/)).toBeTruthy();
-    expect(screen.getByText(/Anitabi/)).toBeTruthy();
+    expect(screen.getAllByText(/Anitabi/).length).toBeGreaterThan(0);
     expect(screen.getByText(/CC BY-NC-SA/)).toBeTruthy();
   });
 

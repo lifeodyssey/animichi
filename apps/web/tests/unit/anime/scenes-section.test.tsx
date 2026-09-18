@@ -31,7 +31,7 @@ describe("ScenesSection screenshots", () => {
     renderScenes(makeScene({}));
     const img = screen.getByRole("img", { name: "Suga Shrine Stairs" });
     expect(img.tagName).toBe("IMG");
-    expect(img.getAttribute("src")).toBe("https://cdn.test/scene-1.jpg");
+    expect(img.getAttribute("src")).toBe("https://cdn.test/scene-1.jpg?plan=h160");
   });
 
   it("renders the placeholder when the contract delivers a null screenshot_url", () => {
@@ -58,5 +58,16 @@ describe("ScenesSection screenshots", () => {
     renderScenes(makeScene({ screenshot_url: "" }));
     expect(screen.getByText("Suga Shrine Stairs")).toBeTruthy();
     expect(screen.getByText(/カット数 5/)).toBeTruthy();
+  });
+
+  it("pairs origin text and origin_url with the rendered screenshot", () => {
+    renderScenes(makeScene({
+      origin: "バンダイチャンネル",
+      origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+    }));
+    const img = screen.getByRole("img", { name: "Suga Shrine Stairs" });
+    const credit = screen.getByRole("link", { name: "バンダイチャンネル" });
+    expect(img.closest("figure")).toBe(credit.closest("figure"));
+    expect(credit.getAttribute("href")).toBe("https://www.b-ch.com/ttl/index.php?ttl_c=1");
   });
 });

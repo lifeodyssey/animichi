@@ -27,6 +27,8 @@ export const hidaFurukawaStation = {
   lat: 36.2381,
   lng: 137.1863,
   city: "Hida",
+  origin: "バンダイチャンネル",
+  origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
 };
 
 export const fullOverviewFixture = {
@@ -47,6 +49,8 @@ export const fullOverviewFixture = {
       lat: 35.6852,
       lng: 139.7195,
       city: "Tokyo",
+      origin: "Anitabi",
+      origin_url: "https://anitabi.cn/map#google=1",
     },
   ],
   sample_itineraries: [

@@ -4,6 +4,7 @@ import { topSpots } from "../lib/spot-clusters";
 import { episodeTag } from "../search-copy";
 import { useSpotSelection } from "../selection/use-spot-selection";
 import type { ChatDict } from "../i18n";
+import { ShotCredit } from "../../../lib/landmark-shot";
 import { SearchScenePhoto, useSpotScene } from "./SearchScenePhoto";
 import { GalleryFooter, GalleryHeader } from "./SearchGalleryControls";
 import { ScenePick } from "./ScenePick";
@@ -39,6 +40,7 @@ function SpotCard({ spot, dict }: SpotProps) {
   const scene = useSpotScene(spot, dict);
   return <li className={CARD} data-selected={selected.has(spot.id)} data-image={Boolean(scene.src)}>
     <SceneImageAction spot={spot} dict={dict} scene={scene} />
+    {scene.src ? <ShotCredit credit={{ origin: spot.origin, originUrl: spot.originUrl }} /> : null}
     <SpotDetails spot={spot} dict={dict} />
     {scene.preview}
   </li>;
