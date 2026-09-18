@@ -23,9 +23,14 @@ class ReleaseSchemaGateTest < Minitest::Test
   end
 
   def request_environment
+    # Every wait the script can spend is the caller's to set, and the suite sets
+    # them all: a 503 exhausts its two-attempt cap with a zero-second poll, so
+    # `test_unavailable_ledger_is_not_success` proves the fail-closed branch
+    # without burning nine real 15-second sleeps (#1770).
     { 'PATH' => "#{@directory}:#{ENV.fetch('PATH')}", 'MIGRATOR_URL' => 'https://migrator.example.invalid',
                      'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'test-request-token', 'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://oidc.example.invalid?request=1',
-                     'PROBE_STATUS' => '200', 'BUNDLE_POLL_ATTEMPTS' => '2', 'BUNDLE_POLL_SECONDS' => '0', 'STALE_BUNDLE_ATTEMPTS' => '2' }
+                     'PROBE_STATUS' => '200', 'BUNDLE_POLL_ATTEMPTS' => '2', 'BUNDLE_POLL_SECONDS' => '0', 'STALE_BUNDLE_ATTEMPTS' => '2',
+                     'UNAVAILABLE_ATTEMPTS' => '2', 'UNAVAILABLE_POLL_SECONDS' => '0' }
   end
 
   def teardown

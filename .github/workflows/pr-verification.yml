@@ -349,6 +349,8 @@ jobs:
           ruby test/repo-config/e2e-no-skip.test.rb
           ruby test/repo-config/e2e-no-skip-mutation.test.rb
           ruby test/repo-config/lint-scope.test.rb
+          ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
+          ruby test/repo-config/no-real-clock-sleep.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
           ruby test/repo-config/pre-push-routing.test.rb
