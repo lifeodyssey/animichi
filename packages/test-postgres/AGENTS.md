@@ -100,7 +100,7 @@ offered `remainingMs()`, and each wait converts what survives into attempts.
 measured) and crosses testcontainers' own 60 s default on a container that is fine.
 
 **The catalog arm has no runner-imposed hook deadline at all.** vitest's `hookTimeout` governs
-in-file `beforeAll`/`afterAll`, not `globalSetup`: `_initializeGlobalSetup()` in vitest 4.1.10
+in-file `beforeAll`/`afterAll`, not `globalSetup`: `_initializeGlobalSetup()` in vitest 4.1.11
 simply `await`s the setup with no timeout wrapper (checked in `node_modules/vitest`, not assumed).
 So `vitest.integration.config.ts`'s `hookTimeout` is unrelated to the data plane, and `deadlineMs` is
 the catalog arm's only bound. Do not wire one to the other.
@@ -117,8 +117,10 @@ bash. `test/image-tag-contract.test.ts` resolves it **both ways** — it runs th
 than reading the shell — and then checks that no consumer kept a tag of its own to drift with.
 
 Building the image is the one step that needs network, and it is the fourth consumer
-(`.github/workflows/pr-verification.yml`). Every `run:` that builds it — the affected matrix,
-`agent`, `e2e` and `db` jobs — sources the declaration like any other shell and names no tag:
+(`.github/workflows/pr-verification.yml`). Every `run:` that builds it sources the declaration like
+any other shell and names no tag — the `affected`, `e2e` and `db` jobs each have one such step, and
+`.github/test/pr-verification-affected.test.rb` derives that set from the workflow itself rather than
+reading this guide:
 
 ```bash
 . packages/test-postgres/postgres-image.env

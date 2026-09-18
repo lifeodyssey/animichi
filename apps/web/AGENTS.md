@@ -62,7 +62,7 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
   server, `location.origin` in the browser). `query-client.ts` builds a fresh `QueryClient`; `getRouter`
   creates one per request and `routerWithQueryClient` wires dehydrate/hydrate (no cross-request leak,
   no double fetch).
-- MSW has three swimlanes (`tests/msw/`): `node.ts` (`setupServer`, component/loader unit tests),
+- MSW has two swimlanes (`tests/msw/`): `node.ts` (`setupServer`, component/loader unit tests),
   `browser.ts` (`setupWorker`, client-navigation tests). SSR is deliberately NOT covered by MSW —
   it is validated against a real local Worker + backend at the G1 gate. Handlers never hand-write
   JSON: `contract-handler.ts` `parse()`s requests and responses against the `@animichi/contract`
@@ -77,17 +77,16 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
      `src/platform/`. Prefer no imports from other features' internals — share via `src/lib/`
      or `src/api/hooks/`. **Known exception:** map geometry/controller under
      `src/features/bubble-map/` is a shared map primitive used by chat maps until a
-     `src/lib/map/` extract (TODO(refactor-skeleton): see #842).
+     `src/lib/map/` extract retires that allowlist edge (#842, pinned by `tests/unit/state-ownership/checker.ts`).
   3. `src/api/` (transport + hooks) · `src/lib/` (pure utilities) · `src/platform/` — never import
      UI or features. Nothing may reverse this order.
 - A feature owns everything it needs under `src/features/<feature>/` — components/, hooks, and a
   `lib/` subfolder for pure logic. `src/lib/` is reserved for cross-cutting/platform-adjacent
-  utilities (auth, byok, turnstile, route-detail); it must never hold a feature's code twice.
+  utilities (auth, byok, turnstile); it must never hold a feature's code twice.
 - Chat is single-homed (consolidated in #842): its pure logic lives in
   `src/features/chat/lib/` — do NOT recreate `src/lib/chat/`.
-- Remaining dual home tracked in #842: `route-detail` still spans `src/lib/route-detail/` +
-  `src/components/route-detail/`; consolidate under `src/features/route-detail/` and delete
-  `src/lib/route-detail/` (see the `TODO(refactor-skeleton)` markers in that folder).
+- `route-detail` is single-homed too: `src/features/route-detail/` holds its components, hooks and
+  `lib/` — do NOT recreate `src/lib/route-detail/` or `src/components/route-detail/`.
 
 ## Key files + entrypoints
 
@@ -132,8 +131,9 @@ renew the idle watchdog, so a healthy silent turn has no browser whole-turn time
   (vitest `globalSetup`) emits it before the suite; a normal build regenerates it otherwise.
 - Coverage sweeps `src/**` (routes + `router.tsx` included, per campaign plan §0.6); the enforced
   floor is `statements 98 / branches 95 / functions 98 / lines 99`, read from `vitest.config.ts`,
-  which is the authority — ratchet UP only. `routeTree.gen.ts` is the only exclusion (plus the
-  WebGL map glue listed in the config's exclude ledger).
+  which is the authority — ratchet UP only. `routeTree.gen.ts` and the Storybook fixtures
+  (`src/**/*.stories.{ts,tsx}`) are the only exclusions besides the WebGL map glue listed in the
+  config's exclude ledger.
 - `OpenAPILink` captures `globalThis.fetch` at construction: build clients at call time (the lazy
   `catalog()` / `users()` singletons do), not at module top, or MSW patching is missed in tests.
 - A normal build must run before preview or build-output integration checks inspect `.output/`.
