@@ -21,6 +21,8 @@ import type { Origin } from "./types";
 export interface CatalogContext {
   db: CatalogDb;
   fetchImpl?: typeof fetch;
+  /** The anitabi egress signing key (#1792); anitabi fetches refuse without it. */
+  egressSigningKey?: string;
   waitUntil?: (promise: Promise<unknown>) => void;
 }
 
@@ -31,8 +33,9 @@ export interface CatalogContext {
 const os = implement(catalogContract).$context<CatalogContext>();
 
 const search = os.search.handler(async ({ input, context }) =>
-  searchHandler(searchDb(context.db), input, {
+  searchHandler(searchDb(context.db, context.egressSigningKey), input, {
     fetchImpl: context.fetchImpl,
+    egressSigningKey: context.egressSigningKey,
     waitUntil: context.waitUntil,
   }),
 );
@@ -44,8 +47,9 @@ const resolve = os.resolve.handler(async ({ input, context }) =>
 );
 
 const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
-  pointsByBangumiId(workPointsDb(context.db), input.bangumi_id, {
+  pointsByBangumiId(workPointsDb(context.db, context.egressSigningKey), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
+    egressSigningKey: context.egressSigningKey,
   }),
 );
 

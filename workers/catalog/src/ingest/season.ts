@@ -6,15 +6,12 @@
  * (retry + UpstreamFetchError), so a Bangumi outage surfaces as a typed failure
  * the caller may degrade. A malformed body yields an empty list, never a throw.
  */
-import { BANGUMI_BASE, fetchJson, type SourceConfig, type UpstreamName } from "./sources";
+import { fetchJson, type SourceConfig } from "./sources";
 
 /** Fetch the current calendar week's bangumi ids (deduped, order-stable). */
 export async function fetchCurrentSeason(cfg: SourceConfig = {}): Promise<readonly string[]> {
-  const url = (cfg.bangumiBaseUrl ?? BANGUMI_BASE) + "/calendar";
-  return calendarIds(await fetchJson(url, BANGUMI_UPSTREAM, cfg));
+  return calendarIds(await fetchJson({ upstream: "bangumi", operation: "calendar" }, cfg));
 }
-
-const BANGUMI_UPSTREAM: UpstreamName = "bangumi";
 
 /** Coerce a calendar week body into a deduped, order-stable bangumi id list. */
 function calendarIds(body: unknown): string[] {

@@ -8,6 +8,7 @@ class LintScopeTest < Minitest::Test
   OXLINT_CONFIG = ".oxlintrc.json"
   OXLINT_REVIEWED_IGNORES = {
     "." => [],
+    "apps/anitabi-egress" => [],
     "apps/web" => ["node_modules/**", ".output/**", ".nitro/**", ".tanstack/**", "coverage/**",
                    "dist/**", "vitest*.config.ts", "vite.config.ts", "**/routeTree.gen.ts"],
     "packages/agent" => ["coverage/**"],

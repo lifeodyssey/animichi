@@ -49,6 +49,8 @@ export type { MissPreview } from "./preview";
 /** Knobs for the search miss path: the injectable `fetch` + the background hook. */
 export interface SearchOptions {
   fetchImpl?: FetchLike;
+  /** The anitabi egress signing key (#1792); the anitabi preview + ingest refuse without it. */
+  egressSigningKey?: string;
   /** `ExecutionContext.waitUntil` — when set, the full ingest runs in the
    * background and an L1 preview returns immediately; when absent the full
    * ingest runs synchronously (the prior behavior). */
@@ -72,7 +74,7 @@ export interface SearchOptions {
 export interface SearchDb {
   bangumiIdForAlias(aliasNormalized: string): Promise<string | undefined>;
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
-  resolvePreview(query: string, fetchImpl?: FetchLike): Promise<MissPreview | null>;
+  resolvePreview(query: string, fetchImpl?: FetchLike, egressSigningKey?: string): Promise<MissPreview | null>;
   runFullIngest(bangumiId: string, fetchImpl?: FetchLike): Promise<void>;
 }
 
@@ -93,7 +95,7 @@ async function missResult(
   query: string,
   opts: SearchOptions,
 ): Promise<SearchResult> {
-  const preview = await db.resolvePreview(query, opts.fetchImpl);
+  const preview = await db.resolvePreview(query, opts.fetchImpl, opts.egressSigningKey);
   if (!preview) return emptyResult();
   if (!opts.waitUntil) return syncFallback(db, preview, opts.fetchImpl);
   return backgroundIngest(db, preview, opts);
@@ -125,13 +127,13 @@ function emptyResult(): SearchResult {
   return { rows: [], synced_at: new Date().toISOString() };
 }
 
-/** Build the production `SearchDb` over a Drizzle `CatalogDb`. */
-export function searchDb(db: CatalogDb): SearchDb {
-  const ingest = catalogIngestBangumi(db);
+/** Build the production `SearchDb` over a Drizzle `CatalogDb` (#1792: egress required for anitabi). */
+export function searchDb(db: CatalogDb, egressSigningKey?: string): SearchDb {
+  const ingest = catalogIngestBangumi(db, egressSigningKey);
   return {
     bangumiIdForAlias: (normalized) => firstBangumiId(db, normalized),
     pointsForBangumi: (bangumiId) => bangumiPoints(db).pointsForBangumi(bangumiId),
-    resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl),
+    resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl, egressSigningKey),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { previewForQuery, previewForWork } from "../src/api/preview";
+import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 import { upstreamUnavailable } from "../src/lib/errors";
 import { mockFetchSequence } from "./mock-fetch-sequence";
 
@@ -43,7 +44,7 @@ describe("previewForQuery (api/preview.ts)", () => {
       { status: 200, body: { pointsLength: 2, litePoints: LITE_POINTS } },
     ]);
 
-    const preview = await previewForQuery("けいおん！", fetch);
+    const preview = await previewForQuery("けいおん！", lenientEgressFetch(fetch), stubEgressSigningKey());
 
     expect(preview?.bangumiId).toBe("10380");
     expect(preview?.points).toEqual([
@@ -72,7 +73,7 @@ describe("previewForQuery (api/preview.ts)", () => {
 
   it("returns null when the title resolves to no bangumi subject", async () => {
     const { fetch } = mockFetchSequence([{ status: 200, body: SEARCH_EMPTY }]);
-    expect(await previewForQuery("nothing here", fetch)).toBeNull();
+    expect(await previewForQuery("nothing here", lenientEgressFetch(fetch), stubEgressSigningKey())).toBeNull();
   });
 
   it("returns null when the work has an empty lite preview", async () => {
@@ -80,7 +81,7 @@ describe("previewForQuery (api/preview.ts)", () => {
       { status: 200, body: SEARCH_BODY },
       { status: 200, body: { pointsLength: 0, litePoints: [] } },
     ]);
-    expect(await previewForQuery("けいおん！", fetch)).toBeNull();
+    expect(await previewForQuery("けいおん！", lenientEgressFetch(fetch), stubEgressSigningKey())).toBeNull();
   });
 });
 
@@ -93,7 +94,7 @@ describe("previewForWork (api/preview.ts)", () => {
       },
     ]);
 
-    const preview = await previewForWork("10380", fetch);
+    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
 
     expect(preview.points).toEqual([
       { id: "p3", name: "bad", bangumi_id: "10380", screenshot_url: "", latitude: 0, longitude: 0 },
@@ -102,13 +103,13 @@ describe("previewForWork (api/preview.ts)", () => {
 
   it("treats an Anitabi 404 as an empty preview, not an outage", async () => {
     const { fetch } = mockFetchSequence([{ status: 404, body: null }]);
-    const preview = await previewForWork("10380", fetch);
+    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
     expect(preview).toEqual({ bangumiId: "10380", points: [] });
   });
 
   it("maps an Anitabi outage to a typed retryable upstream error", async () => {
     const { fetch } = mockFetchSequence([{ status: 503, body: null }]);
-    await expect(previewForWork("10380", fetch)).rejects.toEqual(
+    await expect(previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey())).rejects.toEqual(
       upstreamUnavailable("anitabi", expect.anything() as unknown),
     );
   });
@@ -124,7 +125,7 @@ describe("previewForWork (api/preview.ts)", () => {
       },
     ]);
 
-    const preview = await previewForWork("10380", fetch);
+    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
 
     expect(preview.points[0]).toMatchObject({ episode: 3, time_seconds: 7 });
   });

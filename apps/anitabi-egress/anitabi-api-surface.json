@@ -1,0 +1,29 @@
+{
+  "document": "https://github.com/anitabi/anitabi.cn-document",
+  "capturedFrom": "docs/api-reference/anitabi-api.md",
+  "apiOrigin": "https://api.anitabi.cn",
+  "imageOrigin": "https://image.anitabi.cn",
+  "forbiddenMainOrigin": "https://anitabi.cn",
+  "bangumiBasePath": "/bangumi",
+  "userAgent": "Animichi/1.0 (https://github.com/lifeodyssey/animichi)",
+  "agreedUpstreamRequestsPerHour": 100,
+  "imagePlans": {
+    "queryParameter": "plan",
+    "values": ["h160", "h360"],
+    "fullResolution": "omit the plan parameter"
+  },
+  "operations": [
+    {
+      "name": "points",
+      "egressPathTemplate": "/anitabi/points/{bangumiId}",
+      "upstreamPathTemplate": "/bangumi/{bangumiId}/points/detail",
+      "query": [{ "name": "haveImage", "value": "true" }]
+    },
+    {
+      "name": "lite",
+      "egressPathTemplate": "/anitabi/lite/{bangumiId}",
+      "upstreamPathTemplate": "/bangumi/{bangumiId}/lite",
+      "query": []
+    }
+  ]
+}

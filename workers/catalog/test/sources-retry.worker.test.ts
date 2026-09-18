@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fetchAnitabiPoints, UpstreamFetchError, UpstreamNotFoundError, type FetchLike } from "../src/ingest/sources";
 import { fakeSleep, mockFetchReject, mockFetchSequence } from "./mock-fetch-sequence";
+import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 
 describe("retry wiring — transient retries", () => {
   it("honors Retry-After on a 429, then succeeds on the retry", async () => {
@@ -10,7 +11,8 @@ describe("retry wiring — transient retries", () => {
       { status: 200, body: { points: [{ id: "p1" }] } },
     ]);
     const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
+      fetchImpl: lenientEgressFetch(fetch),
+      egressSigningKey: stubEgressSigningKey(),
       retry: { sleep },
     });
     expect(points).toHaveLength(1);
@@ -26,7 +28,8 @@ describe("retry wiring — transient retries", () => {
       { status: 200, body: { points: [{ id: "p1" }] } },
     ]);
     const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
+      fetchImpl: lenientEgressFetch(fetch),
+      egressSigningKey: stubEgressSigningKey(),
       retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
     });
     expect(points).toHaveLength(1);
@@ -49,7 +52,8 @@ describe("retry wiring — transport errors", () => {
       });
     };
     const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
+      fetchImpl: lenientEgressFetch(fetch),
+      egressSigningKey: stubEgressSigningKey(),
       retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
     });
     expect(points).toHaveLength(1);
@@ -66,7 +70,8 @@ describe("retry wiring — transport errors", () => {
     const { fetch, callCount } = mockFetchReject(new Error("network down"));
     await expect(
       fetchAnitabiPoints("3302", {
-        fetchImpl: fetch,
+        fetchImpl: lenientEgressFetch(fetch),
+        egressSigningKey: stubEgressSigningKey(),
         retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
       }),
     ).rejects.toEqual(
@@ -82,7 +87,11 @@ describe("retry wiring — terminal failures", () => {
     const { sleep, waits } = fakeSleep();
     const { fetch, callCount } = mockFetchSequence([{ status: 404, body: null }]);
     await expect(
-      fetchAnitabiPoints("3302", { fetchImpl: fetch, retry: { sleep } }),
+      fetchAnitabiPoints("3302", {
+        fetchImpl: lenientEgressFetch(fetch),
+        egressSigningKey: stubEgressSigningKey(),
+        retry: { sleep },
+      }),
     ).rejects.toEqual(expect.objectContaining({ name: UpstreamNotFoundError.name }));
     expect(callCount()).toBe(1);
     expect(waits).toEqual([]);
@@ -97,7 +106,8 @@ describe("retry wiring — terminal failures", () => {
     ]);
     await expect(
       fetchAnitabiPoints("3302", {
-        fetchImpl: fetch,
+        fetchImpl: lenientEgressFetch(fetch),
+        egressSigningKey: stubEgressSigningKey(),
         retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
       }),
     ).rejects.toEqual(

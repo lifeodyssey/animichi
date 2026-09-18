@@ -19,12 +19,14 @@ interface PendingIngest {
 
 export interface WorkPointsOptions {
   fetchImpl?: FetchLike;
+  /** The anitabi egress signing key (#1792); the preview + ingest refuse without it. */
+  egressSigningKey?: string;
 }
 
 /** The read path's port over published points and durable pending intent. */
 export interface WorkPointsPort {
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
-  previewForWork(bangumiId: string, fetchImpl?: FetchLike): Promise<MissPreview>;
+  previewForWork(bangumiId: string, fetchImpl?: FetchLike, egressSigningKey?: string): Promise<MissPreview>;
   ingest: PendingIngest;
 }
 
@@ -46,7 +48,7 @@ async function uncoveredWork(
   if (guard === "empty") return emptyResult();
   if (guard !== "ready") return syncingResult();
   await db.ingest.ensurePending(bangumiId);
-  const preview = await db.previewForWork(bangumiId, options.fetchImpl);
+  const preview = await db.previewForWork(bangumiId, options.fetchImpl, options.egressSigningKey);
   return previewResult(preview);
 }
 
@@ -62,12 +64,12 @@ function syncingResult(): PointsByBangumiResult {
   return { ...emptyResult(), partial: true };
 }
 
-/** Bind the read port to the shared points reader and ingest infrastructure. */
-export function workPointsDb(db: CatalogDb): WorkPointsPort {
+/** Bind the read port to the shared points reader and ingest infrastructure (#1792: egress required for anitabi). */
+export function workPointsDb(db: CatalogDb, egressSigningKey?: string): WorkPointsPort {
   const points = bangumiPoints(db);
   return {
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
-    previewForWork,
-    ingest: catalogIngestBangumi(db),
+    previewForWork: (bangumiId, fetchImpl) => previewForWork(bangumiId, fetchImpl, egressSigningKey),
+    ingest: catalogIngestBangumi(db, egressSigningKey),
   };
 }

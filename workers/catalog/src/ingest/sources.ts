@@ -5,11 +5,18 @@
  * `backend/clients/bangumi.py`): same endpoints/params, Workers-native fetch.
  * Retry (bounded backoff, `Retry-After` honored) lives in `./retry`.
  *
- *   Anitabi GET {base}/{id}/points/detail?haveImage=true (base api.anitabi.cn/bangumi)
- *   Bangumi GET {base}/v0/subjects/{id} (base api.bgm.tv)
+ *   Anitabi GET {egress}/anitabi/points/{id} — the egress service (#1792)
+ *     calls api.anitabi.cn/bangumi/{id}/points/detail?haveImage=true; the
+ *     only path to anitabi, signed and ceiling-guarded. Direct upstream
+ *     access no longer exists.
+ *   Bangumi GET {base}/v0/subjects/{id} (base api.bgm.tv, fetched directly)
  *
- * The base URL and `fetch` are injectable for tests. Return shapes are verbatim
- * upstream JSON, destined straight for the raw zone — parsing is downstream.
+ * Nothing here takes a URL: a fetch is an {@link UpstreamRequest} — an
+ * enumerated operation plus a validated bangumi id — and `./upstream-requests`
+ * builds the URL from it. The egress endpoint and `fetch` are injectable for
+ * tests; without the signing key the anitabi fetchers refuse (fail closed).
+ * Return shapes are verbatim upstream JSON, destined straight for the raw
+ * zone — parsing is downstream.
  */
 
 import {
@@ -19,7 +26,15 @@ import {
   withRetry,
   type RetryOptions,
 } from "./retry";
-import { statusFailure, UpstreamFetchError, UpstreamNotFoundError, type UpstreamName } from "./upstream-failures";
+import { statusFailure, UpstreamFetchError, UpstreamNotFoundError } from "./upstream-failures";
+import { requireEgressSigningKey, signedEgressFetch, type AnitabiOperation } from "./anitabi-egress";
+import { EgressRefusedError } from "./egress-refusal";
+import {
+  BANGUMI_BASE,
+  upstreamNameOf,
+  upstreamUrlFor,
+  type UpstreamRequest,
+} from "./upstream-requests";
 import { ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 
 export { UpstreamFetchError, UpstreamNotFoundError, UpstreamRefusedError, type UpstreamName } from "./upstream-failures";
@@ -33,10 +48,14 @@ export type FetchLike = (
 /** Injectable knobs for the source fetchers (defaulted for prod). */
 export interface SourceConfig {
   fetchImpl?: FetchLike;
-  anitabiBaseUrl?: string;
+  /** The anitabi egress signing key (#1792) — REQUIRED for the anitabi
+   *  fetchers, which refuse without it (fail closed). Bangumi does not use it. */
+  egressSigningKey?: string;
   bangumiBaseUrl?: string;
   /** Retry knobs (bounded backoff, `Retry-After` cap); defaulted for prod. */
   retry?: RetryOptions;
+  /** Injectable clock for the request signature; defaulted to `Date.now`. */
+  nowMs?: () => number;
 }
 
 /** Search-specific Bangumi knobs; `limit` is sent as a query parameter. */
@@ -44,8 +63,6 @@ export interface BangumiSearchConfig extends SourceConfig {
   limit?: number;
 }
 
-const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
-export const BANGUMI_BASE = "https://api.bgm.tv";
 /** A single raw Anitabi point (legacy or official schema; kept verbatim). */
 export type AnitabiPoint = Record<string, unknown>;
 
@@ -66,25 +83,14 @@ export interface AnitabiLite {
   total: number;
 }
 
-const BANGUMI_ID_RE = /^\d+$/;
 export const BANGUMI_FETCH_N = 8;
 
-/** Throw if `bangumiId` is not a pure numeric string (prevents path injection). */
-function assertBangumiId(bangumiId: string): void {
-  if (!BANGUMI_ID_RE.test(bangumiId)) {
-    throw new Error(String.raw`Invalid bangumi_id: "${bangumiId}" — must match /^\d+$/`);
-  }
-}
-
-/** Fetch the raw pilgrimage point list for a bangumi id from Anitabi. */
+/** Fetch the raw pilgrimage point list for a bangumi id, through the egress service. */
 export async function fetchAnitabiPoints(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<AnitabiPoint[]> {
-  assertBangumiId(bangumiId);
-  const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
-  const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
-  const body = await fetchJson(url, "anitabi", cfg);
+  const body = await fetchAnitabi("points", bangumiId, cfg);
   return normalizePoints(body);
 }
 
@@ -102,10 +108,27 @@ export async function fetchAnitabiLite(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<AnitabiLite> {
-  assertBangumiId(bangumiId);
-  const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
-  const body = await fetchJson(`${base}/${bangumiId}/lite`, "anitabi", cfg);
+  const body = await fetchAnitabi("lite", bangumiId, cfg);
   return parseLite(body);
+}
+
+/**
+ * One anitabi fetch through the egress service (#1792): the request is the
+ * service's named operation plus a validated id, the fetch signs it and
+ * polices the markers, and the ordinary retry/status machinery runs on top.
+ * The upstream URL itself is built inside the service.
+ */
+async function fetchAnitabi(
+  operation: AnitabiOperation,
+  bangumiId: string,
+  cfg: SourceConfig,
+): Promise<unknown> {
+  const signingKey = requireEgressSigningKey(cfg);
+  const doFetch = signedEgressFetch(signingKey, cfg.fetchImpl ?? fetch, cfg.nowMs ?? Date.now);
+  // `await`, not a bare `return`: a request the builder refuses (a bad bangumi
+  // id) must reject through an awaited promise. Returning it defers handler
+  // attachment by a microtask, which workerd reports as an unhandled rejection.
+  return await fetchJson({ upstream: "anitabi", operation, bangumiId }, { ...cfg, fetchImpl: doFetch });
 }
 
 /** Read `litePoints` + `pointsLength` from a `/lite` body; empty on any miss. */
@@ -127,10 +150,7 @@ export async function fetchBangumiSubject(
   bangumiId: string,
   cfg: SourceConfig = {},
 ): Promise<BangumiSubject> {
-  assertBangumiId(bangumiId);
-  const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
-  const url = `${base}/v0/subjects/${bangumiId}`;
-  const body = await fetchJson(url, "bangumi", cfg);
+  const body = await fetchJson({ upstream: "bangumi", operation: "subject", bangumiId }, cfg);
   return expectObject(body);
 }
 
@@ -139,11 +159,10 @@ export async function fetchBangumiSubjects(
   keywords: string,
   cfg: BangumiSearchConfig = {},
 ): Promise<BangumiSearchSubject[]> {
-  const limit = searchLimit(cfg.limit ?? BANGUMI_FETCH_N);
-  const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
+  const limit = cfg.limit ?? BANGUMI_FETCH_N;
+  const request: UpstreamRequest = { upstream: "bangumi", operation: "search-subjects", limit };
   const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
-  const url = `${base}/v0/search/subjects?limit=${String(limit)}&offset=0`;
-  return searchSubjects(await postJson(url, body, "bangumi", cfg), limit);
+  return searchSubjects(await postJson(request, body, cfg), limit);
 }
 
 /** Resolve a title to the relevance-head subject id; retained for ingest preview. */
@@ -179,22 +198,19 @@ function subjectId(subject: Record<string, unknown>): string | null {
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
-/** Validate the adapter's internal result cap before interpolating it into the URL. */
-function searchLimit(limit: number): number {
-  if (!Number.isInteger(limit) || limit < 1) throw new Error("Bangumi search limit must be a positive integer");
-  return limit;
-}
-
 /** GET + JSON-decode with retry + status guarding; throws on a non-2xx response. */
-export async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
-  const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": ANITABI_USER_AGENT } });
+export async function fetchJson(request: UpstreamRequest, cfg: SourceConfig = {}): Promise<unknown> {
+  const url = upstreamUrlFor(request, cfg.bangumiBaseUrl ?? BANGUMI_BASE);
+  const res = await fetchWithRetry(url, upstreamNameOf(request), cfg, { headers: { "User-Agent": ANITABI_USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
-  if (!res.ok) throw statusFailure(url, res.status, upstream);
-  return decodeJson(res, url, upstream);
+  if (!res.ok) throw statusFailure(url, res.status, upstreamNameOf(request));
+  return decodeJson(res, url, upstreamNameOf(request));
 }
 
 /** POST a JSON body + JSON-decode with retry + status guarding; throws on a non-2xx response. */
-async function postJson(url: string, body: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
+async function postJson(request: UpstreamRequest, body: string, cfg: SourceConfig = {}): Promise<unknown> {
+  const url = upstreamUrlFor(request, cfg.bangumiBaseUrl ?? BANGUMI_BASE);
+  const upstream = upstreamNameOf(request);
   const headers = { "User-Agent": ANITABI_USER_AGENT, "Content-Type": "application/json" };
   const res = await fetchWithRetry(url, upstream, cfg, { method: "POST", headers, body });
   if (!res.ok) throw statusFailure(url, res.status, upstream);
@@ -203,7 +219,7 @@ async function postJson(url: string, body: string, upstream: UpstreamName, cfg: 
 
 /** Fetch with retry on transient failures; exhaustion rethrows as UpstreamFetchError. */
 async function fetchWithRetry(
-  url: string, upstream: UpstreamName, cfg: SourceConfig, init: Parameters<FetchLike>[1],
+  url: string, upstream: ReturnType<typeof upstreamNameOf>, cfg: SourceConfig, init: Parameters<FetchLike>[1],
 ): Promise<Awaited<ReturnType<FetchLike>>> {
   const doFetch = cfg.fetchImpl ?? (fetch);
   try {
@@ -213,7 +229,7 @@ async function fetchWithRetry(
   }
 }
 
-function upstreamError(url: string, upstream: UpstreamName, err: unknown): never {
+function upstreamError(url: string, upstream: ReturnType<typeof upstreamNameOf>, err: unknown): never {
   if (!(err instanceof RetryableError)) throw err;
   const suffix = err.status !== undefined ? ` (${String(err.status)})` : "";
   throw new UpstreamFetchError(`${url}${suffix}`, upstream, err.cause);
@@ -226,6 +242,10 @@ async function attemptFetch(
   try {
     return await fetchOnce(doFetch, url, init);
   } catch (err) {
+    // An egress refusal is OUR service refusing — final, never retried
+    // (the ceiling clears on its own within the hour); it must not be
+    // mistaken for a transient upstream fault (#1792).
+    if (err instanceof EgressRefusedError) throw err;
     throw err instanceof RetryableError ? err : new RetryableError(undefined, undefined, err);
   }
 }
@@ -247,7 +267,7 @@ function checkRetryable(res: Awaited<ReturnType<FetchLike>>): void {
 }
 
 /** Convert malformed response bodies into source-aware upstream failures. */
-async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: UpstreamName): Promise<unknown> {
+async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: ReturnType<typeof upstreamNameOf>): Promise<unknown> {
   try {
     return await res.json();
   } catch (err) {

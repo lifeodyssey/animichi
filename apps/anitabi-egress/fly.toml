@@ -1,0 +1,50 @@
+# The anitabi egress service (#1792). Deployed by hand from this directory —
+# an owner-granted exemption to the repository's block-local-deploy rule
+# (2026-09-18), because the app boundary IS the allowlisted-address boundary.
+# Everything else in the repository deploys through CD.
+#
+#   cd apps/anitabi-egress && fly deploy --app animichi-anitabi-egress
+#
+# No address and no secret appears here. The signing key is set with
+# `fly secrets set INGEST_SIGNING_KEY=…`; its value never enters this tree.
+
+app = "animichi-anitabi-egress"
+primary_region = "nrt"
+
+[env]
+  # THE RECORDED AGREEMENT with the upstream: at most 100 upstream requests
+  # per hour, whatever the caller asks for. This is the one place in the
+  # repository that states the number (#1792); the service reads it from the
+  # environment at boot and refuses everything if it is absent. Changing it
+  # means changing the agreement with the upstream, not turning a knob —
+  # and the catalog-side contract test converts the Worker's per-hour work
+  # caps into requests and holds them under this number.
+  UPSTREAM_REQUEST_CEILING_PER_HOUR = "100"
+
+[build]
+  # Built from the repository root context:
+  #   fly deploy . --config apps/anitabi-egress/fly.toml \
+  #     --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
+  dockerfile = "apps/anitabi-egress/Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  protocol = "tcp"
+  force_https = true
+  # One machine, kept running: this app exists so its address stays put.
+  auto_stop_machines = false
+  auto_start_machines = true
+
+  [[http_service.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[http_service.ports]]
+    port = 80
+    handlers = ["http"]
+
+[checks.ping]
+  port = 8080
+  type = "tcp"
+  interval = "60s"
+  timeout = "5s"

@@ -1,0 +1,76 @@
+# anitabi-egress
+
+The fixed-address egress service the catalog fetches anitabi through (#1792).
+One Fly app, `animichi-anitabi-egress`, in Tokyo; TypeScript on Node, no
+runtime dependencies, no database, no user data, no write path.
+
+The operations, the checks and the hostname are all public — the repository is
+public and the design never depended on hiding them. The only things that stay
+out of this tree are the signing key (Fly secrets) and the egress address (the
+upstream allowlists it; see the guard below).
+
+## What it serves — and all it can serve
+
+```
+GET /anitabi/points/{bangumiId}   → https://api.anitabi.cn/bangumi/{id}/points/detail?haveImage=true
+GET /anitabi/lite/{bangumiId}     → https://api.anitabi.cn/bangumi/{id}/lite
+```
+
+There is no third operation and no way to express one: the upstream URL is
+built inside `src/upstream-operations.ts` from the parsed route alone. No
+parameter, header, or path segment names a destination — this is the control
+that survives a leaked key.
+
+## Authentication: signed requests, never a token
+
+The caller sends `x-egress-timestamp` (unix seconds) and `x-egress-signature`
+(lowercase-hex HMAC-SHA256 over `${timestamp}\n${path}`). The key never
+crosses the wire; signatures outside a five-minute window are refused;
+comparison is constant-time. The service accepts a current and a previous key
+(`INGEST_SIGNING_KEY`, `INGEST_SIGNING_KEY_PREVIOUS`) so rotation needs no
+coordinated cut-over. Do not schedule rotation — the two-key window exists so
+rotation is painless when there is a reason.
+
+## The ceiling
+
+`UPSTREAM_REQUEST_CEILING_PER_HOUR` (fly.toml `[env]`, the one place in the
+repository that states the number) caps upstream requests per hour. It is a
+promise to the upstream, not a tuning knob: changing it means changing the
+agreement. The service refuses past it with a response marked as its own, so
+the caller never mistakes our ceiling for an upstream refusal.
+
+## Reading the answers
+
+Every response carries `x-egress-response`:
+
+- `relayed-upstream` — status and body are the upstream's, verbatim
+  (`content-type` and `retry-after` forwarded).
+- `refused-here` — this service refused; `x-egress-refusal` says why:
+  `auth`, `ceiling`, `no-such-operation`, `method-not-allowed`,
+  `configuration`, or `upstream-timeout`.
+
+## The address guard
+
+The asset is the allowlisted address; the quiet failure is it changing. The
+expected address is **not in this public tree** (a committed hash proves
+nothing — IPv4 brute-forces in seconds); it reaches the guard through the
+`ANITABI_EGRESS_EXPECTED_IPV4` environment variable, held in the operator's
+shell or a CI secret:
+
+```bash
+ANITABI_EGRESS_EXPECTED_IPV4=<address> pnpm run guard:egress-address
+```
+
+Read-only (`fly ips list`); exit 1 on any mismatch or unavailability, naming
+no address in its output.
+
+## Deploy (manual, by owner-granted exemption)
+
+```bash
+fly deploy . --config apps/anitabi-egress/fly.toml \
+  --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
+```
+
+Rotate the key with `fly secrets set INGEST_SIGNING_KEY=<new>` (stage with
+`--stage` to defer the restart), and set the previous key as
+`INGEST_SIGNING_KEY_PREVIOUS` for the overlap window.

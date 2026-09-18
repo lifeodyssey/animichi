@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import {
   ANITABI_POINTS,
   MISS_POINTS,
@@ -6,6 +7,17 @@ import {
   MISS_WORK_ID,
   NEW_TITLE,
 } from "./fixtures/integration-suite-seed";
+
+/**
+ * The anitabi arm of these stubs answers the EGRESS SERVICE's routes, not the
+ * upstream's (#1792): the catalog no longer calls api.anitabi.cn directly, so a
+ * stub that still routed on `/points/detail` would be answering a URL nothing
+ * requests. Routing on the egress base keeps the stub honest about which hop it
+ * is standing in for.
+ */
+function isEgress(url: string): boolean {
+  return url.startsWith(ANITABI_EGRESS_BASE_URL);
+}
 
 /**
  * Route every upstream call to a canned response. The neon serverless driver
@@ -29,7 +41,7 @@ export function stubUpstream(): void {
 
 function newWorkResponse(url: string): Response {
   if (url.includes("/v0/subjects/")) return jsonResponse({ name: NEW_TITLE, name_cn: "轻音少女" });
-  if (url.includes("/points/detail")) return jsonResponse(ANITABI_POINTS);
+  if (isEgress(url) && url.includes("/anitabi/points/")) return relayedResponse(ANITABI_POINTS);
   throw new Error(`unexpected upstream url: ${url}`);
 }
 
@@ -51,12 +63,15 @@ export function stubSearchMiss(): { urls: string[] } {
 /** Route a stubbed upstream URL to its canned response for the search-miss flow.
  * The miss path now resolves the id, fetches the Anitabi `/lite` preview, then
  * (synchronously here, since the Node harness has no ExecutionContext.waitUntil)
- * runs the full ingest off `/points/detail`. */
+ * runs the full ingest off `/points/detail`. Both anitabi calls go through the
+ * egress service, so both answers carry its relayed marker. */
 function searchMissResponse(url: string): Response {
   if (url.includes("/v0/search/subjects")) return jsonResponse({ data: [{ id: Number(MISS_WORK_ID), name: MISS_TITLE }] });
-  if (url.includes("/lite")) return jsonResponse({ pointsLength: MISS_POINTS.length, litePoints: MISS_POINTS });
+  if (isEgress(url) && url.includes("/anitabi/lite/")) {
+    return relayedResponse({ pointsLength: MISS_POINTS.length, litePoints: MISS_POINTS });
+  }
   if (url.includes("/v0/subjects/")) return jsonResponse({ name: MISS_TITLE, name_cn: "吹响吧！上低音号" });
-  if (url.includes("/points/detail")) return jsonResponse(MISS_POINTS);
+  if (isEgress(url) && url.includes("/anitabi/points/")) return relayedResponse(MISS_POINTS);
   throw new Error(`unexpected upstream url: ${url}`);
 }
 
@@ -66,6 +81,18 @@ export function jsonResponse(body: unknown): Response {
     status: 200,
     headers: { "content-type": "application/json" },
   });
+}
+
+/**
+ * A response as the egress service relays it (#1792): the upstream's own status
+ * and body, under the service's `relayed-upstream` marker. The catalog refuses
+ * any anitabi answer without that marker — an answer that did not come through
+ * the service is not one it will accept.
+ */
+function relayedResponse(body: unknown): Response {
+  const response = jsonResponse(body);
+  response.headers.set("x-egress-response", "relayed-upstream");
+  return response;
 }
 
 export function unresolvableResponse(url: string): Response {

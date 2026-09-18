@@ -26,6 +26,7 @@ class PackageTestSegmentsTest < Minitest::Test
     "packages/eval" => [TSX_LOADED_TEST_RUNNER],
     "packages/test-postgres" => ["node --test"],
     "infra" => ["node --test", "test:program-load"],
+    "apps/anitabi-egress" => [TSX_LOADED_TEST_RUNNER, "test/*.unit.test.ts"],
     "apps/web" => ["vitest run"],
     "e2e" => ["playwright test", "E2E_SERVE_EMITTED_WORKER=1",
               "web-404.spec.ts", "web-maplibre-canary.spec.ts",

@@ -8,6 +8,8 @@ import {
   type FetchLike,
 } from "../src/ingest/sources";
 import { mockFetch } from "./mock-fetch-sequence";
+import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
+import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 
 /**
  * Unit tests for the upstream source fetchers (catalog/src/ingest/sources.ts).
@@ -21,14 +23,14 @@ import { mockFetch } from "./mock-fetch-sequence";
 describe("bangumi_id validation", () => {
   it("rejects non-numeric bangumi_id in fetchAnitabiPoints", async () => {
     const { fetch } = mockFetch({});
-    await expect(fetchAnitabiPoints("abc/123", { fetchImpl: fetch })).rejects.toThrow(
+    await expect(fetchAnitabiPoints("abc/123", { fetchImpl: fetch, egressSigningKey: stubEgressSigningKey() })).rejects.toThrow(
       "Invalid bangumi_id",
     );
   });
 
   it("rejects non-numeric bangumi_id in fetchAnitabiLite", async () => {
     const { fetch } = mockFetch({});
-    await expect(fetchAnitabiLite("../etc", { fetchImpl: fetch })).rejects.toThrow(
+    await expect(fetchAnitabiLite("../etc", { fetchImpl: fetch, egressSigningKey: stubEgressSigningKey() })).rejects.toThrow(
       "Invalid bangumi_id",
     );
   });
@@ -42,42 +44,42 @@ describe("bangumi_id validation", () => {
 });
 
 describe("fetchAnitabiPoints", () => {
-  it("hits /{id}/points/detail?haveImage=true and parses a {points:[...]} body", async () => {
+  it("hits the egress points operation and parses a {points:[...]} body", async () => {
     const { fetch, urls } = mockFetch({
       points: [{ id: "p1", name: "鷲宮神社", geo: [36.1, 139.6] }],
     });
     const points = await fetchAnitabiPoints("2461", {
-      fetchImpl: fetch,
-      anitabiBaseUrl: "https://anitabi.test",
+      fetchImpl: lenientEgressFetch(fetch),
+      egressSigningKey: stubEgressSigningKey(),
     });
-    expect(urls[0]).toBe("https://anitabi.test/2461/points/detail?haveImage=true");
+    expect(urls[0]).toBe(`${ANITABI_EGRESS_BASE_URL}/anitabi/points/2461`);
     expect(points).toHaveLength(1);
     expect(points[0]?.id).toBe("p1");
   });
 
   it("parses a bare-array response shape", async () => {
     const { fetch } = mockFetch([{ id: "p1" }, { id: "p2" }]);
-    const points = await fetchAnitabiPoints("3302", { fetchImpl: fetch });
+    const points = await fetchAnitabiPoints("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() });
     expect(points).toHaveLength(2);
   });
 
-  it("defaults to the api.anitabi.cn/bangumi base (matches the Python client)", async () => {
+  it("refuses rather than fetching when no egress endpoint is configured (fail closed)", async () => {
     const { fetch, urls } = mockFetch({ points: [] });
-    await fetchAnitabiPoints("3302", { fetchImpl: fetch });
-    expect(urls[0]).toBe(
-      "https://api.anitabi.cn/bangumi/3302/points/detail?haveImage=true",
+    await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toThrow(
+      /anitabi egress is not configured/,
     );
+    expect(urls).toEqual([]);
   });
 
   it("sends the shared Anitabi user agent", async () => {
     const { fetch, agents } = mockFetch({ points: [] });
-    await fetchAnitabiPoints("3302", { fetchImpl: fetch });
+    await fetchAnitabiPoints("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() });
     expect(agents[0]).toBe(ANITABI_USER_AGENT);
   });
 
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
-    await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toThrow("503");
+    await expect(fetchAnitabiPoints("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() })).rejects.toThrow("503");
   });
 
   it("maps malformed JSON to an Anitabi upstream failure", async () => {
@@ -87,44 +89,46 @@ describe("fetchAnitabiPoints", () => {
       json: () => Promise.reject(new Error("invalid Anitabi JSON")),
     });
 
-    await expect(fetchAnitabiPoints("3302", { fetchImpl: fetch })).rejects.toEqual(
+    await expect(fetchAnitabiPoints("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() })).rejects.toEqual(
       expect.objectContaining({ name: UpstreamFetchError.name, upstream: "anitabi" }),
     );
   });
 });
 
 describe("fetchAnitabiLite", () => {
-  it("hits /{id}/lite and returns litePoints + the total point count", async () => {
+  it("hits the egress lite operation and returns litePoints + the total point count", async () => {
     const { fetch, urls } = mockFetch({
       pointsLength: 68,
       litePoints: [{ id: "p1", name: "宇治橋", geo: [34.89, 135.8] }],
     });
     const lite = await fetchAnitabiLite("10380", {
-      fetchImpl: fetch,
-      anitabiBaseUrl: "https://anitabi.test",
+      fetchImpl: lenientEgressFetch(fetch),
+      egressSigningKey: stubEgressSigningKey(),
     });
-    expect(urls[0]).toBe("https://anitabi.test/10380/lite");
+    expect(urls[0]).toBe(`${ANITABI_EGRESS_BASE_URL}/anitabi/lite/10380`);
     expect(lite.total).toBe(68);
     expect(lite.points).toHaveLength(1);
     expect(lite.points[0]?.id).toBe("p1");
   });
 
-  it("defaults to the api.anitabi.cn/bangumi base", async () => {
+  it("refuses the lite fetch rather than fetching when no egress endpoint is configured", async () => {
     const { fetch, urls } = mockFetch({ pointsLength: 0, litePoints: [] });
-    await fetchAnitabiLite("3302", { fetchImpl: fetch });
-    expect(urls[0]).toBe("https://api.anitabi.cn/bangumi/3302/lite");
+    await expect(fetchAnitabiLite("3302", { fetchImpl: fetch })).rejects.toThrow(
+      /anitabi egress is not configured/,
+    );
+    expect(urls).toEqual([]);
   });
 
   it("returns an empty preview defensively when litePoints is missing", async () => {
     const { fetch } = mockFetch({ id: 3302 });
-    const lite = await fetchAnitabiLite("3302", { fetchImpl: fetch });
+    const lite = await fetchAnitabiLite("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() });
     expect(lite.points).toEqual([]);
     expect(lite.total).toBe(0);
   });
 
   it("throws on a non-2xx upstream status", async () => {
     const { fetch } = mockFetch(null, { ok: false, status: 503 });
-    await expect(fetchAnitabiLite("3302", { fetchImpl: fetch })).rejects.toThrow("503");
+    await expect(fetchAnitabiLite("3302", { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() })).rejects.toThrow("503");
   });
 });
 

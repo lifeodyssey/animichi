@@ -47,7 +47,7 @@ describe("scheduled pending drain", () => {
       ENVIRONMENT: "staging",
     });
 
-    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1");
+    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1", undefined);
   });
 
   it("folds pending work into production's existing TTL cron", async () => {
@@ -62,7 +62,7 @@ describe("scheduled pending drain", () => {
       ENVIRONMENT: "production",
     });
 
-    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1");
+    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1", undefined);
   });
 
   it("stops before a work that does not fit the shared budget", async () => {

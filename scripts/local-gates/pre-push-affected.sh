@@ -31,6 +31,7 @@ AGENT_CONTEXT='^(.*/)?(AGENTS|CLAUDE|CONTEXT)\.md$'
 # `test/repo-config/pre-push-routing.test.rb`. Bucket rationale:
 # docs/ops/local-gates.md.
 ROUTES='
+apps/anitabi-egress package
 apps/web package
 e2e package
 infra package

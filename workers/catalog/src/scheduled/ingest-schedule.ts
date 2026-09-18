@@ -10,6 +10,7 @@ import type { CatalogDb } from "../db/client";
 import { connectionString, dbFor } from "../db/connections";
 import { catalogIngestBangumi } from "../ingest/ingest-bangumi";
 import type { IngestResult } from "../ingest/ingest-bangumi";
+import { egressSigningKeyFromEnv } from "../ingest/anitabi-egress";
 import { PENDING_DRAIN_BATCH_CAP, TTL_BATCH_CAP } from "../cron-config";
 import { Budget, canSpendWork, spendWork } from "../ingest/budgets";
 import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../ingest/cron-queries";
@@ -57,11 +58,11 @@ export interface CronJobResult {
 /** Injectable seams for the cron jobs; tests substitute every one. */
 export interface CronDependencies {
   connect: (connectionString: string) => Promise<CatalogDb>;
-  ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
+  ingestBangumi: (db: CatalogDb, bangumiId: string, egressSigningKey?: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listDrainableBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
-  runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<DailyRunOutcome>;
+  runDailyIngest: (db: CatalogDb, store: ObjectStore | null, egressSigningKey?: string) => Promise<DailyRunOutcome>;
   snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
   publishRun: (db: CatalogDb, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
@@ -76,15 +77,16 @@ interface IngestBatchPlan {
   dependencies: CronDependencies;
   bangumiIds: readonly string[];
   budget?: Budget;
+  egressSigningKey?: string;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
   connect: async (connStr) => (await dbFor(connStr)).db,
-  ingestBangumi: (db, bangumiId) => catalogIngestBangumi(db).ingest(bangumiId),
+  ingestBangumi: (db, bangumiId, egressSigningKey) => catalogIngestBangumi(db, egressSigningKey).ingest(bangumiId),
   listDoneBangumiIds,
   listDrainableBangumiIds,
   listStaleBangumiIds,
-  runDailyIngest: (db) => runDailyJob(db),
+  runDailyIngest: (db, store, egressSigningKey) => runDailyJob(db, egressSigningKey),
   snapshotStore: (bucket) => (bucket ? r2ObjectStore(bucket) : null),
   publishRun: (db, store, sourceRunId, createdAt) => publishSnapshot({ db, store }, { sourceRunId, createdAt }),
   gcSnapshots: (store) => gcSnapshots(store, SNAPSHOT_KEEP),
@@ -102,7 +104,8 @@ export function createScheduledHandler(
     const store = dependencies.snapshotStore(env.SNAPSHOT_BUCKET);
     const environment = runtimeEnvironment(env.ENVIRONMENT);
     const source = dependencies.importSource(env);
-    const result = await runCron(controller.cron, db, dependencies, store, environment, source);
+    const egressSigningKey = await egressSigningKeyFromEnv(env);
+    const result = await runCron(controller.cron, db, dependencies, store, environment, source, egressSigningKey);
     logCronCompletion(cronKind(controller.cron), result);
   };
 }
@@ -121,17 +124,18 @@ async function runCron(
   store: ObjectStore | null,
   environment: RuntimeEnvironment,
   importSource: SnapshotSource | null,
+  egressSigningKey?: string,
 ): Promise<CronJobResult> {
   const kind = cronKind(cron);
   if (kind === "unknown") throw new Error("Unknown catalog cron: " + cron);
   if (guardCron(kind, environment).denied) return { attempted: 0, ingested: 0, skipped: 0 };
   switch (kind) {
     case "seed":
-      return runSeedJob(db, dependencies);
+      return runSeedJob(db, dependencies, egressSigningKey);
     case "ttl":
-      return runProductionHourlyJob(db, dependencies);
+      return runProductionHourlyJob(db, dependencies, egressSigningKey);
     case "pendingDrain":
-      return runPendingDrainJob(db, dependencies);
+      return runPendingDrainJob(db, dependencies, undefined, egressSigningKey);
     case "dailyDiscover":
       await publishAfterRun(db, store, dependencies);
       return { attempted: 0, ingested: 0, skipped: 0 };
@@ -145,10 +149,11 @@ async function runCron(
 async function runProductionHourlyJob(
   db: CatalogDb,
   dependencies: CronDependencies,
+  egressSigningKey?: string,
 ): Promise<CronJobResult> {
   const budget = new Budget(hourlyIngestBudget());
-  const pending = await runPendingDrainJob(db, dependencies, budget);
-  const stale = await runTtlJob(db, dependencies, budget);
+  const pending = await runPendingDrainJob(db, dependencies, budget, egressSigningKey);
+  const stale = await runTtlJob(db, dependencies, budget, egressSigningKey);
   return combineResults(pending, stale);
 }
 
@@ -184,12 +189,13 @@ function logImportOutcome(result: ImportResult): void {
 export async function runSeedJob(
   db: CatalogDb,
   dependencies: CronDependencies,
+  egressSigningKey?: string,
 ): Promise<CronJobResult> {
   const done = await dependencies.listDoneBangumiIds(db, SEED_BANGUMI_IDS);
   const pending = SEED_BANGUMI.filter((title) => !done.has(title.bangumiId)).map(
     (title) => title.bangumiId,
   );
-  return ingestBatch({ db, dependencies, bangumiIds: pending });
+  return ingestBatch({ db, dependencies, bangumiIds: pending, egressSigningKey });
 }
 
 /** TTL pass: re-ingest the stalest raw works, one at a time, capped per run. */
@@ -197,28 +203,31 @@ export async function runTtlJob(
   db: CatalogDb,
   dependencies: CronDependencies,
   budget = new Budget(hourlyIngestBudget()),
+  egressSigningKey?: string,
 ): Promise<CronJobResult> {
   const stale = await dependencies.listStaleBangumiIds(db, TTL_BATCH_CAP);
-  return ingestBatch({ db, dependencies, bangumiIds: stale.slice(0, TTL_BATCH_CAP), budget });
+  return ingestBatch({ db, dependencies, bangumiIds: stale.slice(0, TTL_BATCH_CAP), budget, egressSigningKey });
 }
 
 /** Drain request-parked work in creation order, bounded per invocation. */
 export async function runPendingDrainJob(
   db: CatalogDb,
   dependencies: CronDependencies,
-  budget = new Budget(hourlyIngestBudget()),
+  budget: Budget | undefined = new Budget(hourlyIngestBudget()),
+  egressSigningKey?: string,
 ): Promise<CronJobResult> {
   const pending = await dependencies.listDrainableBangumiIds(db, PENDING_DRAIN_BATCH_CAP);
-  return ingestBatch({ db, dependencies, bangumiIds: pending, budget });
+  return ingestBatch({ db, dependencies, bangumiIds: pending, budget, egressSigningKey });
 }
 
 /** The production daily discovery + ingest run (#1006). Returns the run status. */
 export async function runDailyJob(
   db: CatalogDb,
+  egressSigningKey?: string,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
 ): Promise<DailyRunOutcome> {
   const inventory = await buildDailyInventory(db, seasonalResolver);
-  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
+  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy(), egressSigningKey);
 }
 
 /**
@@ -244,7 +253,7 @@ async function ingestBatch(plan: IngestBatchPlan): Promise<CronJobResult> {
   for (const bangumiId of plan.bangumiIds) {
     if (!reserveWork(plan.budget)) break;
     attempted++;
-    if (await ingestOne(plan.db, plan.dependencies, bangumiId)) ingested++;
+    if (await ingestOne(plan.db, plan.dependencies, bangumiId, plan.egressSigningKey)) ingested++;
   }
   return { attempted, ingested, skipped: attempted - ingested };
 }
@@ -261,9 +270,10 @@ async function ingestOne(
   db: CatalogDb,
   dependencies: CronDependencies,
   bangumiId: string,
+  egressSigningKey?: string,
 ): Promise<boolean> {
   try {
-    return (await dependencies.ingestBangumi(db, bangumiId)).status === "ingested";
+    return (await dependencies.ingestBangumi(db, bangumiId, egressSigningKey)).status === "ingested";
   } catch (err) {
     console.error("[cron] ingest failed for work " + bangumiId + ": " + String(err));
     return false;

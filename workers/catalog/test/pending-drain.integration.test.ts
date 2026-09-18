@@ -7,6 +7,8 @@ import { catalogIngestBangumi } from "../src/ingest/ingest-bangumi";
 import { JobStore } from "../src/ingest/jobs";
 import type { FetchLike } from "../src/ingest/sources";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
+import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
+import { stubEgressSigningKey } from "./egress-stub";
 import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 
 const SUBJECT = {
@@ -21,13 +23,17 @@ const POINTS = [
   { id: "washinomiya", name: "鷲宮神社", geo: [36.1019, 139.6586], ep: 1, s: 42 },
 ];
 const WORK_IDS = ["460200", "460201", "460202"] as const;
+/** Anitabi goes through the egress service, so its arm is keyed by the egress URL (#1792). */
 const FETCH_BODIES = new Map<string, unknown>(WORK_IDS.flatMap((workId): [string, unknown][] => [
   [`https://api.bgm.tv/v0/subjects/${workId}`, SUBJECT],
-  [`https://api.anitabi.cn/bangumi/${workId}/points/detail?haveImage=true`, POINTS],
+  [`${ANITABI_EGRESS_BASE_URL}/anitabi/points/${workId}`, POINTS],
 ]));
+/** The relayed marker the egress service stamps; Bangumi is fetched directly and carries none. */
+const RELAYED = { get: (name: string) => (name === "x-egress-response" ? "relayed-upstream" : null) };
 const fetchImpl: FetchLike = (url) => Promise.resolve({
   ok: true,
   status: 200,
+  headers: url.startsWith(ANITABI_EGRESS_BASE_URL) ? RELAYED : undefined,
   json: () => Promise.resolve(FETCH_BODIES.get(url)),
 });
 
@@ -35,7 +41,7 @@ let db: CatalogDb;
 
 const dependencies: CronDependencies = {
   connect: () => Promise.resolve(db),
-  ingestBangumi: (catalogDb, id) => catalogIngestBangumi(catalogDb).ingest(id, { fetchImpl }),
+  ingestBangumi: (catalogDb, id, egressSigningKey) => catalogIngestBangumi(catalogDb, egressSigningKey).ingest(id, { fetchImpl }),
   listDoneBangumiIds,
   listDrainableBangumiIds,
   listStaleBangumiIds,
@@ -70,6 +76,7 @@ async function runScheduled(cron: string, environment: "staging" | "production")
   await createScheduledHandler(dependencies)({ cron }, {
     DATABASE_URL: "postgresql://suite-owned/test",
     ENVIRONMENT: environment,
+    INGEST_SIGNING_KEY: stubEgressSigningKey(),
   });
 }
 

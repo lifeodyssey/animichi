@@ -4,6 +4,7 @@ import { upstreamUnavailable } from "../src/lib/errors";
 import type { FetchLike } from "../src/ingest/sources";
 import { fakeDb, type AliasIndex, ROW, catalogDb } from "./in-memory-search-db";
 import { PREVIEW_POINT } from "./fixtures/l1-preview-point";
+import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 import { searchError } from "./search-contract-asserts";
 
 describe("search (alias miss — upstream errors)", () => {
@@ -74,9 +75,9 @@ describe("search (alias miss — production SearchDb wrapper)", () => {
           });
 
     const result = await search(
-      searchDb(catalogDb([])),
+      searchDb(catalogDb([]), stubEgressSigningKey()),
       { query: "けいおん！" },
-      { fetchImpl },
+      { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
     );
 
     expect(result.partial).toBe(true);
@@ -93,7 +94,11 @@ describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", ()
         ? Promise.resolve(bangumiHit)
         : Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
 
-    const result = await search(searchDb(catalogDb([])), { query: "work with no anitabi data" }, { fetchImpl });
+    const result = await search(
+      searchDb(catalogDb([]), stubEgressSigningKey()),
+      { query: "work with no anitabi data" },
+      { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
+    );
 
     expect(result.rows).toEqual([]);
     expect(result.partial).toBeUndefined();
@@ -107,7 +112,11 @@ describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", ()
         : Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve(null) });
 
     const err = await searchError(() =>
-      search(searchDb(catalogDb([])), { query: "anitabi outage" }, { fetchImpl }),
+      search(
+        searchDb(catalogDb([]), stubEgressSigningKey()),
+        { query: "anitabi outage" },
+        { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
+      ),
     );
 
     expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
