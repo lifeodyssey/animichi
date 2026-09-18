@@ -5,8 +5,14 @@ require "psych"
 class WorkflowWorkspaceTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   SETUP = "$/.github/actions/setup-workspace"
+  # The paths whose presence in a step's `run` means that step drives the installed
+  # workspace. `delivery-toolchain-tests.sh` is the delivery toolchain's own runner
+  # (#1776): its suite includes `build-worker.test.sh` (a real
+  # `wrangler deploy --dry-run`) and the pre-push commitlint cases (the workspace's
+  # real commitlint), so the lane that invokes the runner is the job that needs the
+  # install — `contracts`, which used to run those files one by one, no longer does.
   WORKSPACE_SCRIPTS = %w[
-    .github/scripts/bundle-release-worker.test.sh
+    .github/scripts/delivery-toolchain-tests.sh
     .github/scripts/release/build-worker.mjs .github/scripts/release/verify-config.mjs
     .github/scripts/release/seal-foundation.sh .github/scripts/release/registry-login.sh
     .github/scripts/release/record-receipt.mjs .github/scripts/release/publish-services.sh

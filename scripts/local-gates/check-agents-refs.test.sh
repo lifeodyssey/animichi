@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/check-agents-refs.sh
 # Behavioral tests for check-agents-refs.sh, driven against throwaway fixture
 # git repos in mktemp -d (the script resolves its root via
 # `git rev-parse --show-toplevel`, so each case cd's into its own repo).

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/delivery/migrate-through-worker.sh
 # Behaviour tests for migrate-through-worker.sh (card C3 / #1365).
 #
 # The defect this script exists to prevent (#1332) is invisible in its source:

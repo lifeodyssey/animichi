@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: .github/scripts/check-e2e-promotion.sh
 # Behavioral tests for check-e2e-promotion.sh, driven against throwaway fixture
 # git repos in mktemp -d (the script resolves its root via
 # `git rev-parse --show-toplevel`, so each case cd's into its own repo).

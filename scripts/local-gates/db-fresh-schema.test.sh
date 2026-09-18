@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/db-fresh-schema.sh
 # Behavioral tests for the disposable fresh-schema gate
 # (scripts/local-gates/db-fresh-schema.sh), AC3/AC6.
 #

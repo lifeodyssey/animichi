@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: .github/scripts/release/schema-preflight.sh
 # What the release schema preflight's two retries do (#1590). The 503 wait is a real fix that
 # reached main during a CD debugging session: it waits for a migrator published seconds ago
 # that is not serving this request yet, then fails closed at its cap. The stale-bundle wait is

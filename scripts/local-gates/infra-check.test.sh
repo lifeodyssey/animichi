@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/infra-check.sh
+# EXCLUSIVE: every case runs the real gate against the real repo root, and the
+# gate removes infra/Pulumi.preflight.yaml wherever it did not find one — a path
+# its sibling test holds while it asserts the gate keeps a pre-existing file, so
+# the two cannot run in one tree at the same time.
 # Behavioral tests for the credential-free Pulumi program-load gate
 # (scripts/local-gates/infra-check.sh), AC4/AC7.
 #

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: .github/scripts/staging-smoke-check.sh
 # Behavior tests for the staging smoke check (#1198 park lifted by owner decision,
 # docs/specs/2026-08-26-system-health-audit.md §6.3): the script must fail closed on a
 # broken healthz, a broken SSR shell, or a status that never recovers, and must retry
