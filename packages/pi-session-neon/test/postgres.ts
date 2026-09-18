@@ -1,18 +1,17 @@
 import { after, before, beforeEach } from "node:test";
-import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgresCluster, uniqueDatabaseName, type TestPostgresCluster } from "@animichi/test-postgres";
+import { AGENT_DB_SETUP_BUDGET, createMigratedDatabase, dropCleanDatabase, startTestPostgresCluster, uniqueDatabaseName, type TestPostgresCluster } from "@animichi/test-postgres";
 import { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import type { Contract } from "../src/contract.d.ts";
 import { contractClient } from "./contract-client.ts";
-import { migrate } from "./prisma-migration.ts";
 
 // `cluster` is the disposable server: its admin database is where this fixture creates and drops
 // databases, and it carries the five service roles, which `@animichi/test-postgres` creates
 // because a disposable container has no Pulumi (#1625).
-// `contractDsn` is the shared-suite database: created from template1 and migrated by this
-// package's own single chain, so no test sees an overlay from another chain. The migration-target
-// ACs create their own chain-only database instead. Every object the business examples target —
-// the conversation ledger and the two quota meters included — comes from that chain.
+// `contractDsn` is the shared-suite database: cloned from the migrated template (#1769), so no
+// test sees an overlay from another chain. The migration-target ACs create their own chain-only
+// database instead. Every object the business examples target — the conversation ledger and the
+// two quota meters included — comes from that schema.
 export let cluster: TestPostgresCluster;
 export let contractDsn: string;
 export let pool: pg.Pool;
@@ -35,9 +34,8 @@ async function startContractDatabase(): Promise<string> {
   // The server is shared and outlives this run (#1663), so the suite's database is named
   // per call and dropped by the fixture that created it.
   const name = resources.contractDatabase = uniqueDatabaseName("harness_contract");
-  contractDsn = await createCleanDatabase(cluster.adminDsn, name);
+  contractDsn = await createMigratedDatabase(cluster.adminDsn, name);
   pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
-  await migrate(contractDsn);
   return contractDsn;
 }
 
