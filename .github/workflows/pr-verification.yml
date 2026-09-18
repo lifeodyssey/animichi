@@ -96,6 +96,7 @@ jobs:
       migrations: ${{ steps.paths.outputs.migrations }}
       workflows: ${{ steps.paths.outputs.workflows }}
       deps: ${{ steps.paths.outputs.deps }}
+      foundation: ${{ steps.paths.outputs.foundation }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -143,6 +144,13 @@ jobs:
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - '.npmrc'
+            foundation:
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.pulumi.version'
+              - 'infra/database-access/**'
+              - '.github/scripts/release/**'
       - id: pnpm
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
@@ -348,6 +356,8 @@ jobs:
           ruby test/repo-config/gitleaks.test.rb
           ruby test/repo-config/e2e-no-skip.test.rb
           ruby test/repo-config/e2e-no-skip-mutation.test.rb
+          ruby test/repo-config/install-build-decisions-mutation.test.rb
+          ruby test/repo-config/install-build-decisions.test.rb
           ruby test/repo-config/lint-scope.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
@@ -519,6 +529,60 @@ jobs:
       - name: Rehearse the staging rebuild's gate on disposable databases
         run: bash infra/database-access/reset-staging-baseline.test.sh
 
+  # The foundation install gate (#1772). The release build's seal runs the one CI
+  # install that executes dependency build scripts, so it is the one whose
+  # manifest must carry a complete `allowBuilds` decision — pnpm 11 made
+  # `strictDepBuilds` true by default, and the seal's protobufjs error reached
+  # `main` red because no pull-request lane ran this install. This job runs the
+  # same three steps the release build does before CD's installs — the seal unit
+  # (SDK generation, the scripts-running install), the patch seal that copies the
+  # lockfile's `patchedDependencies` into the sealed copy, and then CD's two
+  # `--ignore-scripts` installs against the sealed copy — so both install shapes
+  # fail on the pull request that breaks them. The patch seal is not optional
+  # bookkeeping: the first seal archives `infra/` plus the root manifests only,
+  # so the copy it leaves behind references patches it does not contain, and an
+  # install from it dies on the missing patch file before any build decision is
+  # exercised (#1777's red lane was exactly that hole). Routed like the other
+  # diff-selected lanes: the install's own inputs select it — the two manifests
+  # and their lockfile, the root `package.json` whose `packageManager` bump
+  # caused #1772, the seal script, and the pinned Pulumi CLI — so a
+  # root-manifest-only change is caught without paying for the job on every
+  # documentation PR.
+  foundation-install:
+    name: CI / foundation install
+    needs: plan
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.foundation == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The seal's install runs scripts, so it needs the real toolchain installed.
+      - uses: $/.github/actions/setup-workspace
+      - name: Install the pinned Pulumi CLI the release build seals under
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      # Lines 3–6 of the script are the unit under test; running the script also
+      # produces the sealed copy the next step installs from. Credential-free by
+      # construction: `--no-dependencies --no-plugins` keeps pulumi offline.
+      - name: Seal the foundation and run its build scripts
+        run: bash .github/scripts/release/seal-foundation.sh
+      # The release build's second seal step, verbatim (`GITHUB_SHA` is a default
+      # environment variable on every trigger of this workflow and names the
+      # commit this job checked out — the merge ref on a pull request, the squash
+      # commit on the merged-commit lane — so the script's `git show`/`git archive`
+      # resolve the very tree under test even on the shallow default checkout,
+      # the same property the first seal's `git archive "$GITHUB_SHA" infra`
+      # relies on).
+      - name: Seal source-pinned dependency patches
+        run: node .github/scripts/release/seal-pnpm-patches.mjs "$GITHUB_SHA" release/foundation
+      - name: Install the sealed foundation the way CD does
+        run: |
+          pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
+          pnpm install --dir release/foundation/infra/database-access --frozen-lockfile --ignore-scripts
+
   gitleaks:
     name: CI / security (gitleaks)
     runs-on: ubuntu-latest
@@ -674,7 +738,7 @@ jobs:
 
   aggregate:
     name: PR Verification
-    needs: [plan, affected, contracts, docs, e2e, db, commits, security]
+    needs: [plan, affected, contracts, docs, e2e, db, foundation-install, commits, security]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -691,7 +755,7 @@ jobs:
   # other job is in `needs` so a failure in any of them reaches it.
   alert-failure:
     name: Ops / failure alert
-    needs: [plan, affected, contracts, docs, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, commits, security, aggregate]
+    needs: [plan, affected, contracts, docs, e2e, db, foundation-install, gitleaks, trufflehog, osv, semgrep, zizmor, commits, security, aggregate]
     if: ${{ always() && github.event_name == 'push' && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

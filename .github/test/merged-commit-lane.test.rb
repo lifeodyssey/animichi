@@ -26,7 +26,7 @@ class MergedCommitLaneTest < Minitest::Test
   # whose bytes differ from the pull request's still selects every package it
   # changed. Gated off the push, one of them going red would leave no verdict and no
   # alert — the hole #1715's review found in the first cut of this lane.
-  DIFF_SELECTED = %w[affected db e2e plan].freeze
+  DIFF_SELECTED = %w[affected db e2e foundation-install plan].freeze
   # The one lane whose subject is the pull request itself: the commits and the PR
   # title the merge consumes.
   PULL_REQUEST_ONLY = %w[commits].freeze
