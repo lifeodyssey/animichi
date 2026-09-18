@@ -1,0 +1,36 @@
+# The Prisma control schema the staging rebuild may drop, identified by its marker
+# (reset-staging-baseline.sh, #1781).
+#
+# What approving the line below does: the rebuild drops the whole `prisma_contract` schema, not one
+# row. That is three tables and every row in each — `marker`, `ledger` (with its id sequence) and
+# `contract` — which is everything a Prisma migration writes there. It drops them by name, in the
+# same transaction as `public` and after the backup branch; if the schema holds any other object,
+# or anything outside it depends on one of the three, the drop fails and the whole transaction,
+# `public` included, rolls back. No other schema is reachable from it, `neon_auth` included.
+#
+# What the guard checks: only the marker rows. It proceeds only when the lines below are every row
+# `prisma_contract.marker` holds, each written exactly as the refusal quotes it — the space and the
+# updated_at instant to the microsecond. Another space, another instant, or a row this record does
+# not name, refuses as though the record were absent. The ledger's and contract's rows are not
+# enumerated here; they go because they belong to the marker named below. A line that is not
+# exactly one marker row refuses the reset by name, so no pattern can approve a schema. A backup
+# branch the rebuild would reuse that was taken before the schema's last write refuses.
+#
+# Recorded 2026-09-18 under the repository owner's decision of that day to delete and rebuild
+# staging: https://github.com/lifeodyssey/animichi/issues/1781#issuecomment-5727282215
+# That decision named the rows; this record carries it to the one schema that blocks the same
+# rebuild, and states why it is stale so that step can be reviewed on its own.
+# Read-only against the staging branch (br-gentle-king-aowjem8v) on 2026-09-18: `marker` holds one
+# row — space app, core_hash 43e6a56069f5c68b78e9a97be86e8a3ec011c87f1d94be3f40892e2b1929dce9,
+# profile_hash 3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2, canonical_version
+# NULL, updated_at 2026-09-12T06:49:39.423732Z — and the schema's tables are exactly `contract`,
+# `ledger` and `marker`.
+# Why it is stale: the migrator refuses a database that carries the Atlas ledger
+# (`atlas_leftovers_present`, on /preflight and /migrate, before any DDL), and staging has carried
+# that ledger throughout, so no CD migration can have written this schema. It was written on
+# 2026-09-12, six days before the Prisma flip merged, by a spike run against staging. The Prisma
+# chain has never owned this database; after the rebuild the migrator creates the schema afresh.
+#
+# The approval covers this marker, not a future one. Once staging is rebuilt the record approves
+# nothing that can exist, and it can be deleted.
+prisma_contract.marker space=app updated_at=2026-09-12T06:49:39.423732Z

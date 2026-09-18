@@ -1,0 +1,35 @@
+# Tables whose rows the staging rebuild may drop (reset-staging-baseline.sh, #1781).
+#
+# The rebuild drops `public`. Before it does, it lists every table in `public` holding a row
+# (an extension's own table and the retired chain's ledger aside) and proceeds only when each one
+# is named below; otherwise it refuses, naming the tables this record does not. A table that
+# gains rows later, or one created after this record, therefore refuses without anyone having to
+# re-arm the guard. One literal table per line: a line that is not `public.<table>` makes the
+# rebuild refuse, so no pattern can approve a table it does not spell out.
+#
+# Approved 2026-09-18 by the repository owner, on read-only queries against the staging branch:
+# https://github.com/lifeodyssey/animichi/issues/1781
+# Reason: every row is one QA account's automated validation traffic from the morning of
+# 2026-09-18 (its address is on the reserved `.test` domain, which cannot route), plus two
+# ingest jobs that failed the same morning. No real user content is present.
+#
+# The approval covers these tables, not future ones. Adding a line here is a new owner decision:
+# record its date, its evidence and its reason the same way.
+
+# 4 rows: one per QA session, all kind=model, state=settled.
+public.agent_admissions
+# 4 rows: the settlements of the same four turns.
+public.agent_settlements
+# 2 rows: work_id 276 and 27364, both failed, 02:04 on 2026-09-18.
+public.ingest_jobs
+# 44 rows: 34 entry and 10 usage records, the transcript of the four QA turns.
+public.pi_records
+# 20 rows, all belonging to the same four QA sessions: four `animichi.operation.input` rows and
+# four `pi.result` rows, each keyed by one turn's operation UUID, plus `pi.branch.tip`,
+# `pi.lane.config` and `pi.lane.state` at four rows each with `key='main'`. Nothing else is in
+# that table.
+public.pi_scalar_values
+# 4 rows: the Pi sessions of the four QA turns.
+public.pi_sessions
+# 4 rows: one QA account, one identical Japanese prompt, 02:02 / 02:38 / 02:40 / 02:43.
+public.sessions

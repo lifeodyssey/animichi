@@ -103,11 +103,11 @@ fresh_release_workspace() { # a throwaway cwd holding the release artifacts the 
 # regression that puts a DSN back into it would otherwise be reported by copying that DSN into
 # the job log: when an assertion says "X must not appear", its failure message may not contain
 # X. A failure names the case; re-run that one case locally to read its output.
-run() { # run <label> <want-exit> [env...]
+run() { # [PREFLIGHT_ENVIRONMENT=production] run <label> <want-exit> [env...]
   local label="$1" want="$2" rc; shift 2
   fresh_release_workspace
   LAST_OUT="$(cd "$LAST_WORK_DIR" && env "${RUN_ENV[@]}" "$@" STUB_STATE_DIR="$LAST_STATE_DIR" \
-    PATH="$TMP/bin:$PATH" bash "$SCRIPT" staging 2>&1)" && rc=0 || rc=$?
+    PATH="$TMP/bin:$PATH" bash "$SCRIPT" "${PREFLIGHT_ENVIRONMENT:-staging}" 2>&1)" && rc=0 || rc=$?
   [ "$rc" -ne "$want" ] || { printf 'PASS %-64s exit=%s\n' "$label" "$rc"; return; }
   fail=$((fail + 1))
   printf 'FAIL %-64s want=%s got=%s\n' "$label" "$want" "$rc"

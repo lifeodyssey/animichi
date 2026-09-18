@@ -41,7 +41,11 @@ while :; do
   if [ "$code" != 409 ] || ! jq -e '.error == "stale_prisma_bundle"' schema-preflight.json > /dev/null; then
     # A refusal names itself (`atlas_leftovers_present`, #1625); only a stable code is echoed.
     reason="$(jq -r '.error | select(type == "string" and test("^[a-z_]+$"))' schema-preflight.json 2>/dev/null || true)"
-    echo "::error::migration preflight refused or unavailable (HTTP $code)${reason:+: $reason}"; exit 1
+    echo "::error::migration preflight refused or unavailable (HTTP $code)${reason:+: $reason}"
+    # Staging's rebuild step, before this one, decides whether the Atlas chain's objects go
+    # (#1781); production has no such step.
+    [ "$reason" != atlas_leftovers_present ] || [ "$1" != staging ] || echo "::notice::atlas_leftovers_present: on staging, the step before this one (infra/database-access/reset-staging-baseline.sh) logs why it left the Atlas chain in place"
+    exit 1
   fi
   [ "$attempt" -lt "${STALE_BUNDLE_ATTEMPTS:-3}" ] || { echo '::error::native preflight remained on a stale bundle'; exit 1; }
   attempt=$((attempt + 1))

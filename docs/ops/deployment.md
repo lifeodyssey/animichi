@@ -392,12 +392,23 @@ messages.
 CD's staging job rebuilds staging once, for the Prisma flip (#1625). Before the migrator's preview,
 `infra/database-access/reset-staging-baseline.sh` reads the staging branch and acts only when there
 is no `prisma_contract.marker` `app` row and `public` still holds tables the retired Atlas chain
-left. It prints every `public` table with its row count, refuses by name if any table other than an
-extension's or the Atlas ledger holds a row, takes the `staging-before-prisma-baseline` branch, and
-drops and recreates `public` in one transaction. Every later run is a named no-op. The migrator
+left. It prints every `public` table with its row count, refuses by name if a table other than an
+extension's or the Atlas ledger holds a row and is not named in
+`infra/database-access/reset-staging-baseline.approved-rows` (the owner's dated approval, #1781),
+takes the `staging-before-prisma-baseline` branch, and drops and recreates `public` in one
+transaction. An `app` marker beside the Atlas ledger is neither state: the script refuses it, naming
+each marker row's `space` and exact `updated_at` and what the chain left. Nobody drops that marker
+by hand. The owner's dated decision that it is stale is a committed record,
+`infra/database-access/reset-staging-baseline.approved-marker`, naming every row exactly as the
+refusal prints it. It approves the whole `prisma_contract` schema, not one row: with it the rebuild
+takes the backup branch and then drops that schema's three tables (`marker`, `ledger`, `contract`)
+by name and the schema itself, without `CASCADE`, in the same transaction as `public`; any other
+object in or depending on the schema rolls the whole transaction back, and a reused backup older
+than the schema's last write refuses. Every
+later run is a named no-op. The migrator
 refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
 `/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
-inside the apply. Production has no such step: a missing, empty or native-baseline production
+inside the apply; the preflight step's log then points back at the rebuild step's own account. Production has no such step: a missing, empty or native-baseline production
 database still requires an explicit bootstrap or recovery decision. **Production promotion is protected only by the `production`
 GitHub environment's approval** — the artifact-level baseline gate was deleted rather than
 rehoused, and [#1621](https://github.com/lifeodyssey/animichi/issues/1621) records the residual
