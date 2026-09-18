@@ -58,6 +58,23 @@ class PrVerificationAffectedTest < Minitest::Test
     assert_includes matrix_step_source, "@animichi/prisma-geography) file=packages/prisma-geography/coverage/lcov.info ;;"
   end
 
+  COVERAGE_CHECK = 'pnpm --filter "$PACKAGE" exec ruby "$GITHUB_WORKSPACE/test/repo-config/check-coverage-report.rb"'
+
+  def step_index(steps)
+    steps.index { |step| yield step }
+  end
+
+  # node passes a coverage threshold on a report that measured nothing (#1766): the check reads
+  # the report the package's gates wrote, so it runs after them and before Codecov receives it.
+  def test_matrix_checks_the_coverage_report_between_the_gates_and_its_upload
+    steps = @ci.dig("jobs", "affected", "steps").to_a
+    gates = step_index(steps) { |step| step["run"].to_s.include?("run --if-present \"$script\"") }
+    check = step_index(steps) { |step| step["run"].to_s.include?(COVERAGE_CHECK) }
+    upload = step_index(steps) { |step| step["uses"].to_s.start_with?("codecov/codecov-action@") }
+    refute_nil check, "pr-verification.yml: the affected matrix must run #{COVERAGE_CHECK}"
+    assert check > gates && check < upload, "pr-verification.yml: the coverage check must sit between the gates and the upload"
+  end
+
   def provisions?(step, package, tool)
     step.is_a?(Hash) && step["if"].to_s.include?(package) && "#{step['uses']}#{step['run']}".include?(tool)
   end

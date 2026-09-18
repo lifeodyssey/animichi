@@ -150,6 +150,16 @@ changed packages is gated once per push instead of once per selector (#1770).
 `--no-renames` lists both sides of a rename, so a cross-package move gates the
 source package too.
 
+**Then the coverage reports.** After the fourth script the same union runs
+`pnpm -r … exec ruby "$PWD/test/repo-config/check-coverage-report.rb"` (absolute, because `exec`
+runs inside each package directory). node's test runner prints `100.00`
+for a report whose `--test-coverage-include` matched nothing from its cwd — zero lines out of zero —
+so a threshold passes having measured nothing (#1766). The check refuses a report with no `SF:`
+entry, or with one that is not the package's own file at its repository-root-relative path (the
+anchor Codecov maps). A package whose scripts run no node coverage passes untouched: which packages
+are checked is read from their scripts, never listed. CI's `affected` job runs the same check for its
+package before the Codecov upload.
+
 **One package at a time.** `pnpm -r run` defaults to a concurrency of 4 (`pnpm help recursive`, pnpm
 10.33.2) and a `...<name>` closure is wide — `packages/contract` pulls in all eight TypeScript
 packages — so the suites used to run side by side on one laptop: `apps/web`'s vitest run blew its
