@@ -55,7 +55,7 @@ describe("buildSceneImages", () => {
     expect(images).toHaveLength(2);
     expect(images[0]?.["@type"]).toBe("ImageObject");
     expect(images[0]?.license).toBe("https://creativecommons.org/licenses/by-nc-sa/4.0/");
-    expect(images[0]?.creditText).toBe("Anitabi");
+    expect(images[0]?.creditText).toBe("バンダイチャンネル");
     expect(images[0]?.contentUrl).toBe("https://cdn.test/scene-2.jpg");
   });
 

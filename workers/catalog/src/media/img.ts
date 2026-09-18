@@ -22,6 +22,11 @@ import { statementBuilder } from "../db/client";
 import { mediaAssets, points } from "../db/schema";
 import * as x from "../db/expressions";
 import { getImage, putImage } from "./r2";
+import {
+  ANITABI_USER_AGENT,
+  withAnitabiImagePlan,
+  type AnitabiImagePlan,
+} from "@animichi/contract/anitabi-display";
 
 const IMAGE_BASE = "https://image.anitabi.cn";
 const CACHE_CONTROL = "public, max-age=604800, s-maxage=2592000";
@@ -51,11 +56,13 @@ interface MediaAsset {
 }
 
 /** Serve a point photo: R2 hit, lazy origin pull + store, or tombstone fallback. */
-export async function serveImage(deps: ImgDeps, pointId: string): Promise<Response> {
+export async function serveImage(
+  deps: ImgDeps, pointId: string, plan: AnitabiImagePlan,
+): Promise<Response> {
   const asset = await loadAsset(deps.db, pointId);
   if (asset?.tombstoned) return tombstone();
   if (asset?.r2_key) return serveFromR2(deps.bucket, asset.r2_key);
-  return lazyPull(deps, pointId);
+  return lazyPull(deps, pointId, plan);
 }
 
 /** Read the existing `media_assets` row for a point, or null on first request. */
@@ -77,10 +84,12 @@ async function serveFromR2(bucket: R2Bucket, key: string): Promise<Response> {
 }
 
 /** First request: pull origin, store in R2 + record the asset, then serve. */
-async function lazyPull(deps: ImgDeps, pointId: string): Promise<Response> {
-  const origin = await originUrl(deps.db, pointId);
+async function lazyPull(
+  deps: ImgDeps, pointId: string, plan: AnitabiImagePlan,
+): Promise<Response> {
+  const origin = await originUrl(deps.db, pointId, plan);
   if (!origin) return tombstone();
-  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": "Animichi/1.0" } });
+  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT } });
   if (res.status === 404 || res.status === 410) return tombstoneAsset(deps.db, pointId);
   if (!res.ok) return new Response("Upstream error", { status: 502 });
   return storeAndServe(deps, pointId, res);
@@ -99,7 +108,9 @@ async function storeAndServe(
 }
 
 /** Look up the point's origin image URL, expanding leading-slash paths. */
-async function originUrl(db: CatalogDb, pointId: string): Promise<string | null> {
+async function originUrl(
+  db: CatalogDb, pointId: string, plan: AnitabiImagePlan,
+): Promise<string | null> {
   const statement = statementBuilder()
     .select({ image: points.image })
     .from(points)
@@ -108,7 +119,13 @@ async function originUrl(db: CatalogDb, pointId: string): Promise<string | null>
   const result = await db.execute(statement);
   const image = (result.rows as { image: string | null }[])[0]?.image;
   if (!image) return null;
-  return image.startsWith("/") ? `${IMAGE_BASE}${image}` : image;
+  return originPullUrl(image, plan);
+}
+
+/** The origin URL a public display path may fetch: an explicit size plan is required. */
+export function originPullUrl(stored: string, plan: AnitabiImagePlan): string {
+  const expanded = stored.startsWith("/") ? `${IMAGE_BASE}${stored}` : stored;
+  return withAnitabiImagePlan(expanded, plan);
 }
 
 /** UPSERT a stored asset (r2_key + content_hash + last_origin_pull). */

@@ -17,13 +17,17 @@ interface SequenceFetch {
 }
 
 /** Build a mock FetchLike that records the URL and returns a canned JSON body. */
-export function mockFetch(body: unknown, opts: MockOptions = {}): { fetch: FetchLike; urls: string[] } {
+export function mockFetch(body: unknown, opts: MockOptions = {}): {
+  fetch: FetchLike; urls: string[]; agents: (string | undefined)[];
+} {
   const urls: string[] = [];
-  const fetch: FetchLike = (url) => {
+  const agents: (string | undefined)[] = [];
+  const fetch: FetchLike = (url, init) => {
     urls.push(url);
+    agents.push(init?.headers?.["User-Agent"]);
     return Promise.resolve(cannedResponse(body, opts));
   };
-  return { fetch, urls };
+  return { fetch, urls, agents };
 }
 
 function cannedResponse(body: unknown, opts: MockOptions) {

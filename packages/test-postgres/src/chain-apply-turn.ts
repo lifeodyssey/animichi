@@ -20,7 +20,7 @@ import pg from "pg";
 
 /** One fixed key: every chain apply on this cluster, whoever runs it, queues
  * here. The value carries no meaning; only being the same number matters. */
-const CHAIN_APPLY_LOCK_KEY = 1663;
+export const CHAIN_APPLY_LOCK_KEY = 1663;
 
 export class ChainApplyTurn {
   #adminDsn: string;

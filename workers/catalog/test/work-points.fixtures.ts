@@ -28,6 +28,8 @@ export const PUBLISHED: PublishedPointRow = {
   title: "響け！ユーフォニアム",
   title_cn: null,
   cover_url: null,
+  origin: null,
+  origin_url: null,
   synced_at: "2026-07-17T00:00:00.000Z",
 };
 

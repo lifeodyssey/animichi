@@ -1,6 +1,29 @@
 # Anitabi API Reference
 
-Source: [github.com/anitabi/anitabi.cn-document](https://github.com/anitabi/anitabi.cn-document)
+Source: [`anitabi/anitabi.cn-document` → `api.md`](https://github.com/anitabi/anitabi.cn-document/blob/main/api.md)
+
+- **Pinned upstream commit**: `513aa80e` — 2025-01-10, the last change to `api.md`
+- **Transcribed here**: 2026-06-23 · **pin verified**: 2026-09-18
+
+This file is the repository's authority on what we are permitted to request. It is a
+**transcription**, not a copy, and there are two things it cannot prove about itself:
+
+- **Currency.** Check it against the *path*, not the repository — that repo takes commits to its
+  README and tutorials that do not touch the API terms, so watching the repo HEAD produces false
+  alarms while watching `api.md` produces a real signal:
+
+  ```bash
+  gh api "repos/anitabi/anitabi.cn-document/commits?path=api.md&per_page=1" -q '.[0].sha'
+  ```
+
+  When that stops matching the pin, read their `changelog.md` — terms changes are announced there.
+
+- **Fidelity.** Nothing checks that the transcription below is faithful. Where this file and the
+  upstream disagree, the upstream is right.
+
+**Anything not described here is not permitted**, including paths that look analogous to one that
+is. Never request the main domain. How this is enforced in code, and the agreed rate, are in
+[`../ops/anitabi-egress.md`](../ops/anitabi-egress.md).
 
 ## Base URLs
 

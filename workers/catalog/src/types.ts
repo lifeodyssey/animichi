@@ -57,6 +57,7 @@ export interface Point {
   title_cn?: string;
   distance_m?: number;
   origin?: string;
+  origin_url?: string;
   cover_url?: string;
   city?: string;
 }
@@ -78,6 +79,8 @@ export interface AnimeScene {
   lat: number;
   lng: number;
   city?: string;
+  origin?: string;
+  origin_url?: string;
 }
 
 /** A per-region sample itinerary — mirrors `AnimeSampleItinerary`. */

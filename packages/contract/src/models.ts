@@ -45,6 +45,7 @@ export const Point = z.object({  id: z.string(),
   title_cn: z.string().optional(),
   distance_m: z.number().optional(),
   origin: z.string().optional(),
+  origin_url: z.string().optional(),
   cover_url: z.string().optional(),
   city: z.string().optional(),
 });
@@ -75,6 +76,8 @@ export const AnimeScene = z.object({
   lat: Latitude,
   lng: Longitude,
   city: z.string().optional(),
+  origin: z.string().optional(),
+  origin_url: z.string().optional(),
 });
 export type AnimeScene = z.infer<typeof AnimeScene>;
 

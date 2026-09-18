@@ -25,6 +25,7 @@ stable boundaries, current entry points, and active plans only.
 | `docs/ARCHITECTURE.md` | Current runtime source reference and deployment evidence boundary |
 | `docs/ops/deployment.md` | Deployment runbook |
 | `docs/ops/secrets.md` | What each repository secret is for, who consumes it, and rotation impact |
+| `docs/ops/anitabi-egress.md` | The fixed-address egress service the catalog fetches anitabi through, and how to operate it |
 | `docs/iterations/README.md` | Main task tracker / session log / findings — pointer into the live iteration (no hardcoded `iterN`) |
 
 ## Docs Tree Map (W1)

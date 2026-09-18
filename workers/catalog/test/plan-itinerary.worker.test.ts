@@ -152,7 +152,7 @@ function seamRow(id: string, lat: number, image: string): unknown {
   return {
     id, name: id.toUpperCase(), name_cn: null, bangumi_id: "k", episode: null,
     time_seconds: null, image, latitude: lat, longitude: 135.0,
-    origin: null, title: "Lucky Star", title_cn: null, cover_url: null, city: "Tokyo",
+    origin: null, origin_url: null, title: "Lucky Star", title_cn: null, cover_url: null, city: "Tokyo",
   };
 }
 async function callItinerary(body: unknown, ctx: CatalogContext): Promise<Response> {

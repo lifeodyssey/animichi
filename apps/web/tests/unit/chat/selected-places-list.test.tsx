@@ -8,6 +8,14 @@ afterEach(cleanup);
 nativeDialogFixture();
 
 describe("selection review browsing", () => {
+  it("pairs origin text and origin_url with the rendered screenshot", () => {
+    render(<ReviewFixture />);
+    const img = screen.getByRole("img", { name: "宇治橋 · 橋上" });
+    const credit = screen.getByRole("link", { name: "バンダイチャンネル" });
+    expect(img.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(credit.getAttribute("href")).toBe("https://www.b-ch.com/ttl/index.php?ttl_c=1");
+  });
+
   it("counts places once and only expands places with multiple selected viewpoints", () => {
     render(<ReviewFixture />);
     expect(screen.getByText("2 个地点")).toBeTruthy();
@@ -26,7 +34,7 @@ describe("selection review browsing", () => {
     trigger.focus();
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("button", { name: "下一张" }));
-    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("/b.webp");
+    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("/b.webp?plan=h360");
     fireEvent.click(screen.getByRole("button", { name: "关闭预览" }));
     expect(document.activeElement).toBe(trigger);
     expect(onChange).not.toHaveBeenCalled();

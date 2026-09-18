@@ -257,6 +257,13 @@ jobs:
           for script in lint typecheck test test:integration; do
             pnpm --filter "$PACKAGE" run --if-present "$script"
           done
+      # node prints 100.00 for a coverage report that measured nothing (#1766),
+      # so the report the gates just wrote is read back before it is published;
+      # a package that runs no node coverage passes untouched.
+      - name: Refuse a coverage report that measured nothing
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: pnpm --filter "$PACKAGE" exec ruby "$GITHUB_WORKSPACE/test/repo-config/check-coverage-report.rb"
       - name: Resolve this package's coverage report
         id: coverage
         env:
@@ -350,6 +357,9 @@ jobs:
       - name: Verify repository configuration
         run: |
           set -euo pipefail
+          bundle exec ruby test/repo-config/coverage-report.test.rb
+          bundle exec ruby test/repo-config/coverage-report-integration.test.rb
+          bundle exec ruby test/repo-config/coverage-report-mutation.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs-mutation.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb

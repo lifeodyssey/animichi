@@ -252,4 +252,22 @@ runs="$(grep -c 'run --if-present' <<<"$RECORDED")"
 [ "$runs" = 4 ] || fail "closure union" "expected one run per script over the union (4), got $runs: $RECORDED"
 ok "three overlapping closures run as one union per script, in routing order"
 
+# 21. node passes a coverage threshold on a report that measured nothing, so the
+#     reports the scripts wrote are read back over the same union, after the last
+#     of them — and a refused report stops the push (#1766).
+new_repo
+commit_change feature packages/contract/src/c.ts workers/catalog/src/x.ts
+run_gate < /dev/null
+expect_status "coverage report check" 0 "$STATUS"
+check="--workspace-concurrency=1 --filter ...@animichi/contract --filter ...catalog exec ruby"
+expect "coverage report check" "$check" "$RECORDED"
+expect "coverage report check" "test/repo-config/check-coverage-report.rb" "$RECORDED"
+last="$(tail -n 1 <<<"$RECORDED")"
+expect "coverage report check" "exec ruby" "$last"
+gate_env PNPM_FAIL_SCRIPT=exec
+run_gate < /dev/null
+expect_status "coverage report refused" 1 "$STATUS"
+gate_env GATE_PROBE=1
+ok "the coverage reports are checked over the same union after the scripts, and a refusal blocks"
+
 finish

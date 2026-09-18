@@ -33,7 +33,8 @@ disposable container has no Pulumi to create them (#1625).
 | Export | Is |
 |---|---|
 | `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783) |
-| `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clean database → Prisma chain → `{ dsn, stop }`, for an arm that reads the data plane's schema |
+| `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clone from the migrated template (#1769) → `{ dsn, stop }`, for an arm that reads the data plane's schema |
+| `createMigratedDatabase(adminDsn, name)` | clone `name` from the container's one Prisma-migrated template; the seed applies the chain once per identity and holds the cluster turn, the clone does not |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
 | `SetupDeadline` | what is LEFT of that allowance, and what a phase may spend of it (#1318) |
 | `OFFLINE_POSTGRES_IMAGE` | the image tag, read from `postgres-image.env` |
@@ -57,11 +58,12 @@ rather than an orphan.
 
 The isolation unit is therefore the **database**, not the container. Every `startTestPostgres` call
 creates a uniquely named database — `uniqueDatabaseName(suite)`: the suite name plus 12 hex
-characters, inside PostgreSQL's 63-byte identifier ceiling — from pristine `template1`, waits for
-it, and applies the chain, exactly as before. The `stop()` it hands back drops THAT database with
+characters, inside PostgreSQL's 63-byte identifier ceiling — by cloning the container's one
+migrated template (#1769). The `stop()` it hands back drops THAT database with
 `DROP DATABASE ... WITH (FORCE)` and leaves the server running; a failure after the database exists
 drops it too. A consumer that creates databases of its own (`workers/migrator`, `pi-session-neon`)
-names them with `uniqueDatabaseName` and drops them with `dropCleanDatabase`.
+names them with `uniqueDatabaseName` and drops them with `dropCleanDatabase`. Arms that need the
+data-plane schema without going through `startTestPostgres` call `createMigratedDatabase`.
 
 Reuse is on unless `TESTCONTAINERS_REUSE_ENABLE=false`. Testcontainers' creation lock is in-process
 only (`async-lock`), so two processes booting at the same moment may each create a container: the
@@ -138,22 +140,24 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   generic timeout; that is the behaviour that changed, on purpose.
 - **No chain is applied to the image's own database.** The postgis image pre-initialises it with
   the tiger/topology schemas, which the migration chain would be asked to take over even though it
-  names none of them. Every arm gets a database created from pristine `template1`.
+  names none of them. `createCleanDatabase` still creates from pristine `template1`;
+  `startTestPostgres` clones the migrated template instead.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
   drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
   returns a plane without that guarantee.
 - **Never bundled.** `test/never-bundled.test.ts` scans both consumers' `src/` trees for all four
   module-load shapes. A `bundle-smoke`-style gate would prove nothing — the package is never in a
   bundle to smoke.
-- **Role creation and chain applies are serialized, not parallel.** `CREATE ROLE` is cluster-global
+- **Role creation and template seeding are serialized, not parallel.** `CREATE ROLE` is cluster-global
   and not atomic (`IF NOT EXISTS` then `CREATE ROLE`), and the chain's grant matrix prechecks the
-  same rows, so both steps run inside a session-level `pg_advisory_lock` on the admin connection
-  (#1663): two callers that reach the role block together — two calls in one process, two arms, two
-  worktrees — would otherwise both read an empty `pg_roles` and the second would die on
-  `pg_authid_rolname_index`, which is how CI's edge lane failed. The cluster creates and asserts the
-  roles in one turn; `startTestPostgres` applies its chain in a second turn, after the first has
-  committed them. An arm that applies a chain of its own takes the same turn (`ChainApplyTurn`) on
-  the cluster's admin database.
+  same rows, so role creation and the one-time template seed run inside a session-level
+  `pg_advisory_lock` on the admin connection (#1663): two callers that reach the role block together
+  — two calls in one process, two arms, two worktrees — would otherwise both read an empty
+  `pg_roles` and the second would die on `pg_authid_rolname_index`, which is how CI's edge lane
+  failed. Cloning a database from the template does not take that lock. The cluster creates and
+  asserts the roles in one turn; `startTestPostgres` clones after that turn has committed them. An
+  arm that applies a chain of its own still takes the same turn (`ChainApplyTurn`) on the cluster's
+  admin database.
 - **Ask for the cluster unless a test reads the schema `startTestPostgres` builds.** An arm that
   only creates databases of its own paid a whole chain apply (~3.5 s locally) on a database nothing
   read, and queued on the turn for it (#1783). The cluster hands back no `dsn`, so a caller that

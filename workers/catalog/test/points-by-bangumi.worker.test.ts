@@ -35,6 +35,8 @@ const ROW: PublishedPointRow = {
   title_cn: "幸运星",
   cover_url: "https://image.anitabi.cn/cover1.jpg",
   city: "Kuki",
+  origin: "バンダイチャンネル",
+  origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
   synced_at: "2026-06-20T00:00:00.000Z",
 };
 
@@ -78,6 +80,8 @@ describe("pointsByBangumi use case", () => {
       title_cn: "幸运星",
       cover_url: "https://image.anitabi.cn/cover1.jpg",
       city: "Kuki",
+      origin: "バンダイチャンネル",
+      origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
     });
     expect(result.partial).toBeUndefined();
   });

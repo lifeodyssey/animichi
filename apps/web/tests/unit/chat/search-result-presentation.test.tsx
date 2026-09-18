@@ -12,7 +12,10 @@ afterEach(cleanup);
 nativeDialogFixture();
 const dict = chatDictFor("ja");
 const attach: AttachBasemap = ({ onStatus }) => { onStatus("ready"); return () => undefined; };
-const spot: SearchSpot = { id: "bridge", name: "宇治橋", ep: 8, city: "宇治市", coord: { lat: 34.891, lng: 135.807 } };
+const spot: SearchSpot = {
+  id: "bridge", name: "宇治橋", ep: 8, city: "宇治市", coord: { lat: 34.891, lng: 135.807 },
+  origin: "バンダイチャンネル", originUrl: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+};
 
 function Harness({ screenshotUrl }: Readonly<{ screenshotUrl?: string }>) {
   const selection = useSpotSelectionState();
@@ -20,6 +23,14 @@ function Harness({ screenshotUrl }: Readonly<{ screenshotUrl?: string }>) {
 }
 
 describe("search result selection and imagery", () => {
+  it("pairs origin text and origin_url with the rendered screenshot", () => {
+    render(<Harness screenshotUrl="/bridge.webp" />);
+    const img = screen.getByRole("img", { name: spot.name });
+    const credit = screen.getByRole("link", { name: "バンダイチャンネル" });
+    expect(img.closest("li")).toBe(credit.closest("li"));
+    expect(credit.getAttribute("href")).toBe("https://www.b-ch.com/ttl/index.php?ttl_c=1");
+  });
+
   it("previews the image independently and preserves the selected place on close", () => {
     render(<Harness screenshotUrl="/bridge.webp" />);
     fireEvent.click(screen.getByRole("checkbox"));
@@ -27,7 +38,7 @@ describe("search result selection and imagery", () => {
     trigger.focus();
     fireEvent.click(trigger);
     const dialog = screen.getByRole("dialog", { name: spot.name });
-    expect(within(dialog).getByRole("img", { name: spot.name }).getAttribute("src")).toBe("/bridge.webp");
+    expect(within(dialog).getByRole("img", { name: spot.name }).getAttribute("src")).toBe("/bridge.webp?plan=h360");
     const close = within(dialog).getByRole("button", { name: dict.search.closePreview });
     close.focus();
     fireEvent.click(close);
@@ -71,7 +82,7 @@ describe("search result missing and changed imagery", () => {
     fireEvent.error(screen.getByRole("img", { name: spot.name }));
     fireEvent.click(screen.getByRole("checkbox"));
     view.rerender(<Harness screenshotUrl="/new.webp" />);
-    expect(screen.getByRole("img", { name: spot.name }).getAttribute("src")).toBe("/new.webp");
+    expect(screen.getByRole("img", { name: spot.name }).getAttribute("src")).toBe("/new.webp?plan=h160");
     expect(screen.getByRole("checkbox", { checked: true })).toBeTruthy();
   });
 });
