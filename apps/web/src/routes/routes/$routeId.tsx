@@ -18,7 +18,7 @@ function parseSearch(search: Record<string, unknown>): { readonly hl?: Locale } 
 }
 
 async function assertRouteExists(queryClient: QueryClient, routeId: string): Promise<void> {
-  const { saved_routes } = await queryClient.ensureQueryData(listSavedRoutesOptions());
+  const { saved_routes } = await queryClient.query({ ...listSavedRoutesOptions(), staleTime: "static" });
   if (!saved_routes.some((route) => route.id === routeId)) throw notFoundError();
 }
 

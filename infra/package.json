@@ -8,15 +8,15 @@
     "test:program-load": "bash ../scripts/local-gates/infra-check.sh"
   },
   "dependencies": {
-    "@pulumi/cloudflare": "^6.0.0",
-    "@pulumi/pulumi": "^3.0.0",
+    "@pulumi/cloudflare": "^6.20.0",
+    "@pulumi/pulumi": "^3.262.0",
     "@pulumi/random": "^4.21.1",
-    "js-yaml": "4.3.2"
+    "js-yaml": "5.4.2"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",
-    "@types/node": "^26.1.1",
-    "smol-toml": "1.8.0",
-    "typescript": "^5.0.0"
+    "@types/node": "catalog:",
+    "smol-toml": "catalog:",
+    "typescript": "catalog:"
   }
 }

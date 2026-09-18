@@ -17,14 +17,15 @@
   "dependencies": {
     "@animichi/agent": "workspace:*",
     "@animichi/contract": "workspace:*",
-    "@earendil-works/chord": "0.85.1",
-    "@earendil-works/pi-agent-core": "0.85.1",
-    "@earendil-works/pi-ai": "0.85.1",
+    "@earendil-works/chord": "catalog:",
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
     "@pydantic/logfire-node": "0.18.21",
-    "logfire": "0.22.5"
+    "logfire": "0.22.5",
+    "yaml": "catalog:"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "tsx": "4.23.1"
+    "@modelcontextprotocol/sdk": "catalog:",
+    "tsx": "catalog:"
   }
 }

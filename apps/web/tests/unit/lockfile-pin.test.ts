@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse } from "yaml";
+import { parseAllDocuments } from "yaml";
 import { describe, expect, it } from "vitest";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -32,7 +32,14 @@ function readWebPackage(): WebPackage {
 }
 
 function readPnpmLock(): PnpmLock {
-  return parse(readText(lockfilePath)) as PnpmLock;
+  // pnpm 12 writes the lockfile as two YAML documents: the first carries the
+  // package-manager dependency it installs for itself (`@pnpm/exe`), the second
+  // the workspace. `parse` reads only the first and throws on the second, so
+  // select the document that actually holds this package's importer.
+  const documents = parseAllDocuments(readText(lockfilePath)).map((document) => document.toJS() as PnpmLock);
+  const workspace = documents.find((document) => document.importers["apps/web"] !== undefined);
+  if (workspace === undefined) throw new Error("pnpm-lock.yaml declares no apps/web importer");
+  return workspace;
 }
 
 describe("animal-island-ui-tailwind lockfile pin", () => {

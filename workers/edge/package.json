@@ -23,27 +23,27 @@
     "@animichi/agent": "workspace:*",
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.85.1",
-    "@earendil-works/pi-ai": "0.85.1",
-    "@neondatabase/serverless": "^1.1.0",
-    "@prisma/orm-postgres": "8.0.0-rc.9",
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
+    "@neondatabase/serverless": "catalog:",
+    "@prisma/orm-postgres": "catalog:",
     "agents": "0.22.0",
-    "ai": "7.0.77",
-    "hono": "^4.13.7",
-    "jose": "^6.2.4",
-    "typebox": "1.3.7",
-    "zod": "4.4.3"
+    "ai": "catalog:",
+    "hono": "catalog:",
+    "jose": "catalog:",
+    "typebox": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@animichi/test-postgres": "workspace:*",
-    "@cloudflare/workers-types": "^5.20260727.1",
-    "@earendil-works/chord": "0.85.1",
-    "@types/pg": "^8.20.0",
-    "esbuild": "0.28.1",
-    "miniflare": "4.20260722.0",
-    "pg": "^8.22.0",
+    "@cloudflare/workers-types": "catalog:",
+    "@earendil-works/chord": "catalog:",
+    "@types/pg": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "pg": "catalog:",
     "pi-agent-core-smoke": "npm:@earendil-works/pi-agent-core@0.85.1",
     "pi-ai-smoke": "npm:@earendil-works/pi-ai@0.85.1",
-    "smol-toml": "1.7.1"
+    "smol-toml": "catalog:"
   }
 }

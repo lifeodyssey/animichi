@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi migrator — GitHub-OIDC-gated bounded migration apply",
+  "description": "Animichi migrator \u2014 GitHub-OIDC-gated bounded migration apply",
   "scripts": {
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
@@ -16,23 +16,23 @@
   "dependencies": {
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
-    "@neondatabase/serverless": "^1.1.0",
-    "@prisma/orm-postgres": "8.0.0-rc.9",
+    "@neondatabase/serverless": "catalog:",
+    "@prisma/orm-postgres": "catalog:",
     "@prisma/orm-toolchain": "8.0.0-rc.9",
-    "hono": ">=4.13.7",
-    "jose": "^6.2.4"
+    "hono": "catalog:",
+    "jose": "catalog:"
   },
   "devDependencies": {
     "@animichi/test-postgres": "workspace:*",
-    "@cloudflare/workers-types": "^5.20260727.1",
-    "@types/node": "^26.1.1",
-    "@types/pg": "^8.20.0",
-    "@vitest/coverage-istanbul": "4.1.11",
-    "esbuild": "0.28.1",
-    "miniflare": "4.20260722.0",
-    "pg": "^8.22.0",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11",
-    "wrangler": "^4.132.0"
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@vitest/coverage-istanbul": "catalog:",
+    "esbuild": "catalog:",
+    "miniflare": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

@@ -30,8 +30,15 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Package managers
 
-- **pnpm** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** only installs the pinned
+- **pnpm 12** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** only installs the pinned
   semgrep and sqlfluff lint tools.
+- **Every setting lives in `pnpm-workspace.yaml`** — pnpm 11 moved them out of `.npmrc` (auth/registry
+  only) and removed the `package.json#pnpm` field; pnpm 12 rejects a key it does not recognise and
+  ignores a kebab-case one. Keys are camelCase. CI installs with `--frozen-lockfile`.
+- **Catalogs are the version surface.** Every external dependency two or more importers declare is
+  defined once in the default `catalog:` and referenced as `catalog:`; `catalogMode: strict` refuses a
+  `pnpm add`/`pnpm update` that asks for a version outside a catalog entry. Add the catalog entry
+  first, then reference it — `test/repo-config/pnpm-workspace-settings.test.rb` fails otherwise.
 
 ## Core commands (from repo root)
 

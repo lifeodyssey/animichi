@@ -11,9 +11,13 @@ class CdPublishTest < Minitest::Test
     @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
   end
 
+  # cd.yml runs the workspace's own `pnpm exec wrangler`. An exact pin is what
+  # makes a deploy reproducible; since #1672 it lives in the default catalog and
+  # the manifest reaches it through `catalog:`.
   def test_native_wrangler_is_pinned_in_the_installed_workspace
-    version = JSON.parse(File.read(File.join(ROOT, "package.json"))).dig("devDependencies", "wrangler")
-    assert_match(/\A\d+\.\d+\.\d+\z/, version)
+    declared = JSON.parse(File.read(File.join(ROOT, "package.json"))).dig("devDependencies", "wrangler")
+    catalog = Psych.safe_load(File.read(File.join(ROOT, "pnpm-workspace.yaml"))).fetch("catalog")
+    assert_match(/\A\d+\.\d+\.\d+\z/, declared == "catalog:" ? catalog.fetch("wrangler") : declared)
   end
 
   def test_migrator_publication_uses_sealed_config_and_selected_source

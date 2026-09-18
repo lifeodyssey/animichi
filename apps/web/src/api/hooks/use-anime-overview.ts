@@ -3,7 +3,7 @@ import { catalog } from "../orpc";
 
 /**
  * Query options for the public anime overview, shared by the route loader
- * (`ensureQueryData` prefetch on the server) and the suspense hook (hydrated
+ * (`queryClient.query` prefetch on the server) and the suspense hook (hydrated
  * client read — no double fetch, wired by `routerWithQueryClient`).
  */
 export function animeOverviewOptions(bangumiId: string) {

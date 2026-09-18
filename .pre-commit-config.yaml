@@ -32,6 +32,23 @@ repos:
         # line (event terminator); do not let the fixer collapse it.
         exclude: '\.sse$'
       - id: check-yaml
+        # pnpm 12 writes pnpm-lock.yaml as a two-document stream; the lockfile
+        # entry below is the only YAML that may hold more than one, so it is
+        # filtered out here and parsed there. Every other YAML file keeps the
+        # single-document guarantee.
+        exclude: '(^|/)pnpm-lock\.yaml$'
+      # pnpm 12 splits its lockfile: document 1 pins the pnpm it installs for
+      # itself (`packageManagerDependencies` + the `@pnpm/exe.*` platform
+      # packages), document 2 is the ordinary workspace lockfile. `check-yaml`
+      # rejects the second document by default, so the lockfile gets its own
+      # entry with --allow-multiple-documents; `alias` is what lets the same
+      # hook id be listed twice. This is still the safe loader and still a
+      # parse — it no longer proves "exactly one document" for this file.
+      - id: check-yaml
+        alias: check-yaml-lockfile
+        name: check yaml (pnpm-lock.yaml, multi-document)
+        files: '(^|/)pnpm-lock\.yaml$'
+        args: [--allow-multiple-documents]
       - id: check-toml
       # The two halves of the shebang/exec-bit agreement, upstream's own
       # implementation of what shebang-exec-bit.sh hand-rolled (#1371): a file

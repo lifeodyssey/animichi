@@ -19,19 +19,19 @@
     "test:unit": "node --test test/*.unit.test.ts test/contract-types.test.ts"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.85.1",
-    "@prisma/orm-postgres": "8.0.0-rc.9",
-    "zod": "4.4.3"
+    "@earendil-works/pi-agent-core": "catalog:",
+    "@prisma/orm-postgres": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@animichi/test-postgres": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.30.0",
-    "@types/node": "^26.1.1",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.22.0",
-    "typescript": "^7.0.2",
-    "prisma": "8.0.0-rc.13",
-    "@prisma/cli-engine": "0.3.0",
-    "esbuild": "0.28.1"
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "prisma": "catalog:",
+    "@prisma/cli-engine": "catalog:",
+    "esbuild": "catalog:"
   }
 }

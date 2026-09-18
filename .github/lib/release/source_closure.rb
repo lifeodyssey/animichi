@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require 'open3'
 require 'json'
+require 'psych'
 require_relative 'selection'
 
 # Compare every tracked infrastructure and migration byte with the accepted
@@ -19,14 +20,20 @@ module ReleaseSourceClosure
   end
 
   def validate(sha, root)
-    patches = JSON.parse(git('show', "#{sha}:package.json")).dig('pnpm', 'patchedDependencies').to_h.values
-    paths = git('ls-tree', '-rz', '--name-only', sha, '--', 'infra', NATIVE_CONTRACT, *MIGRATION_DIRECTORIES.keys, *ROOT_FILES, *patches).split("\0")
+    paths = git('ls-tree', '-rz', '--name-only', sha, '--', 'infra', NATIVE_CONTRACT, *MIGRATION_DIRECTORIES.keys, *ROOT_FILES, *patched_dependencies(sha)).split("\0")
     ReleaseSelection.require_value(!paths.empty?, 'source closure is empty')
-    ReleaseSelection.require_value((patches - paths).empty?, 'selected dependency patch is not tracked')
+    ReleaseSelection.require_value((patched_dependencies(sha) - paths).empty?, 'selected dependency patch is not tracked')
     ReleaseSelection.require_value(paths.include?(NATIVE_CONTRACT), 'selected source has no native agent contract')
     paths.each { |path| validate_file(sha, root, path) }
     MIGRATION_DIRECTORIES.each { |source, sealed| validate_directory(root, paths, source, sealed) }
     true
+  end
+
+  # pnpm 11 removed the `pnpm` field from package.json; the patch map lives in
+  # the workspace manifest, which is also a source-closure file.
+  def patched_dependencies(sha)
+    manifest = Psych.safe_load(git('show', "#{sha}:pnpm-workspace.yaml")) || {}
+    manifest.fetch('patchedDependencies', {}).to_h.values
   end
 
   def validate_directory(root, paths, source, sealed)

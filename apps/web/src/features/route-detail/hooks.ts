@@ -6,7 +6,7 @@ import { projectRouteDetail, selectSavedRoute } from "./load-route-detail";
 import type { RouteDetail } from "./lib/data-state";
 
 /** Query options for the caller's saved routes, shared by the route-detail
- * loader (`ensureQueryData` prefetch + existence check on the server) and the
+ * loader (`queryClient.query` prefetch + existence check on the server) and the
  * suspense hook (hydrated client read — no double fetch, wired by
  * `routerWithQueryClient`). */
 export function listSavedRoutesOptions() {
