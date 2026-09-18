@@ -4,8 +4,15 @@
 # against this file rather than the root's. pnpm 11 removed `package.json#pnpm`,
 # so this package's two overrides live here now.
 packages: []
+# The root manifest's declaration, repeated so this standalone project states its
+# own strictness: the `allowBuilds` map below is then the complete decision, and
+# a script-bearing dependency missing from it fails the install here instead of
+# surfacing as a post-merge release-build red (#1772).
+strictDepBuilds: true
 overrides:
   brace-expansion: ">=5.0.9"
   js-yaml: ^4.3.2
 allowBuilds:
-  "@pulumi/neon": true
+  '@pulumi/neon': true
+  '@pulumi/neon@file:sdks/neon': true
+  protobufjs: false

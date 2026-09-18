@@ -35,7 +35,9 @@ class PrVerificationPlanTest < Minitest::Test
                      "infra/database-access/reset-staging-baseline*"],
     "workflows" => [".github/workflows/**", ".github/actions/**", ".github/scripts/**",
                     ".github/lib/**", ".github/test/**"],
-    "deps" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".npmrc"]
+    "deps" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".npmrc"],
+    "foundation" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".pulumi.version",
+                     "infra/database-access/**", ".github/scripts/release/**"]
   }.freeze
   REVIEWED_MATRIX_EXCLUSIONS = ["animichi-cloudflare-worker", "animichi-e2e"].freeze
 
