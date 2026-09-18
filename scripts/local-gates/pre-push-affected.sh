@@ -150,6 +150,10 @@ if [ -n "$packages" ]; then
   for script in lint typecheck test test:integration; do
     pnpm -r --workspace-concurrency=1 "${filters[@]}" run --if-present "$script"
   done
+  # node prints 100.00 for a coverage report that measured nothing (#1766), so the
+  # reports those scripts just wrote are read back over the same selection; a
+  # package that runs no node coverage passes the check untouched.
+  pnpm -r --workspace-concurrency=1 "${filters[@]}" exec ruby "$PWD/test/repo-config/check-coverage-report.rb"
 fi
 [ "$schema" = 0 ] || pnpm --filter @animichi/pi-session-neon exec prisma migration check
 [ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done
