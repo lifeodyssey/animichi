@@ -5,13 +5,19 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
 import pg from "pg";
+import { DATA_PLANE_ACCESS } from "../migrations/app/20260913T1711_data_plane_baseline/access.ts";
 import contractJson from "../src/contract.json" with { type: "json" };
-import { futureContract, tamperedContract } from "./migration-fixtures.ts";
+import { droppedCatalogGrant, futureContract, tamperedContract } from "./migration-fixtures.ts";
 import { migrate, packageRoot, prisma, prismaCliOutput } from "./prisma-migration.ts";
 import { cluster } from "./postgres.ts";
 
 const migrationRoot = fileURLToPath(new URL("../migrations/app/", import.meta.url));
 const markerQuery = "SELECT core_hash FROM prisma_contract.marker WHERE space = 'app'";
+const EXACT_SET_STEP = "information_schema.role_table_grants";
+
+/** Every exact-set grant step, each one coupled to the role and the table its failure text
+ * names. The closing step reads schema and sequence privileges instead, so it is not one. */
+const grantSteps = DATA_PLANE_ACCESS.postcheck.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
 
 /** Each test migrates its own database created from pristine `template1` — never the
  * fixture's shared-suite database. The server is shared and outlives this run (#1663), so the
@@ -27,6 +33,12 @@ async function cleanTarget(suite: string) {
 async function baselineHead(): Promise<string> {
   const manifest = await readFile(join(migrationRoot, "20260913T1711_data_plane_baseline/migration.json"), "utf8");
   return (JSON.parse(manifest) as { to: string }).to;
+}
+
+/** What the runner answers on: the first column of the step's one row. */
+async function postcheckVerdict(client: pg.Client, sql: string): Promise<boolean> {
+  const { rows } = await client.query<{ result: boolean }>(sql);
+  return rows[0]?.result === true;
 }
 
 void test("a fresh database applies the whole chain and the marker names the checkout head", async () => {
@@ -52,6 +64,40 @@ void test("a fresh database applies the whole chain and the marker names the che
     assert.deepEqual((await client.query("SELECT latitude, longitude FROM points WHERE id = 'coordinate-proof'")).rows, written.rows);
     await assert.rejects(client.query("UPDATE points SET latitude = 1"), { code: "428C9" });
   } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
+});
+
+void test("a fresh database satisfies every exact-set grant postcheck the baseline declares", async () => {
+  const { dsn, client, name } = await cleanTarget("native_chain_grants");
+  try {
+    await migrate(dsn);
+    assert.ok(grantSteps.length > 50, `read only ${String(grantSteps.length)} grant steps`);
+    for (const { description, sql } of grantSteps) assert.equal(await postcheckVerdict(client, sql), true, description);
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
+});
+
+void test("a dropped catalog grant fails the apply by role and table where effective privileges still answer yes", async () => {
+  const directory = await droppedCatalogGrant();
+  const { dsn, client, name } = await cleanTarget("native_chain_dropped_grant");
+  try {
+    // The blindness `has_table_privilege` has on Neon comes from privileges the grantee holds
+    // outside its own ACL — there through `neon_superuser` membership, here through a default
+    // privilege carried by PUBLIC. Membership cannot stand in for it: roles are cluster-global
+    // and the container is shared (#1663), while a default privilege is this database's alone.
+    await client.query("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO PUBLIC");
+    await client.query("CREATE TABLE public.blindness_probe (id int)");
+    assert.deepEqual((await client.query("SELECT has_table_privilege('catalog_svc', 'public.blindness_probe', 'UPDATE') AS result")).rows, [{ result: true }]);
+    // The failed apply rolls its own work back — a rejected migration leaves no half-built
+    // schema to inspect — so the failure text is the whole artefact: the runner's code, the
+    // operation it happened in, and the step naming the role and the table.
+    await assert.rejects(migrate(dsn, directory), (failure: unknown) => {
+      const output = prismaCliOutput(failure);
+      assert.match(output, /MIGRATION\.POSTCHECK_FAILED/u);
+      assert.match(output, /data-plane-access/u);
+      assert.match(output, /catalog_svc's explicit grants on aliases are exactly DELETE, INSERT, SELECT, UPDATE/u);
+      return true;
+    });
+    assert.deepEqual((await client.query("SELECT count(*)::int AS aliases FROM pg_class WHERE relname = 'aliases'")).rows, [{ aliases: 0 }]);
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); await rm(directory, { recursive: true, force: true }); }
 });
 
 void test("replaying the applied chain changes neither the marker nor committed data", async () => {

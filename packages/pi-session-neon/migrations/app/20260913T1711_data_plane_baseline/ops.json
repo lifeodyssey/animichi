@@ -2639,7 +2639,7 @@
       },
       {
         "description": "grant catalog service table access",
-        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.aliases, public.bangumi, public.catalog_provenance, public.catalog_runs, public.cluster_version, public.ingest_jobs, public.itinerary_snapshots, public.leg_cache, public.location_aliases, public.locations, public.media_assets, public.points, public.raw_anitabi, public.raw_bangumi, public.raw_payload_history, public.series_edges TO catalog_svc"
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.aliases, public.bangumi, public.catalog_provenance, public.catalog_runs, public.cluster_version, public.ingest_jobs, public.itinerary_snapshots, public.leg_cache, public.location_aliases, public.locations, public.media_assets, public.points, public.raw_anitabi, public.raw_bangumi, public.raw_payload_history, public.series_edges TO catalog_svc"
       },
       {
         "description": "grant readonly catalog table access",
@@ -2647,7 +2647,7 @@
       },
       {
         "description": "grant users service table access",
-        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.saved_route_anime, public.saved_route_idempotency, public.saved_routes TO users_svc"
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.saved_route_anime, public.saved_route_idempotency, public.saved_routes TO users_svc"
       },
       {
         "description": "grant readonly user table access",
@@ -2655,11 +2655,11 @@
       },
       {
         "description": "grant mutable native agent table access",
-        "sql": "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.pi_list_values, public.pi_scalar_values, public.pi_sessions, public.agent_admissions, public.agent_open_operations, public.agent_settlements TO agent_svc"
+        "sql": "GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.pi_list_values, public.pi_scalar_values, public.pi_sessions, public.agent_admissions, public.agent_open_operations, public.agent_settlements TO agent_svc"
       },
       {
         "description": "grant append-only native history access",
-        "sql": "GRANT SELECT, INSERT ON TABLE public.pi_records TO agent_svc"
+        "sql": "GRANT INSERT, SELECT ON TABLE public.pi_records TO agent_svc"
       },
       {
         "description": "grant agent catalog read access",
@@ -2687,7 +2687,7 @@
       },
       {
         "description": "grant jobs retention access to the conversation and anonymous meters",
-        "sql": "GRANT SELECT, DELETE ON TABLE public.sessions, public.anon_daily_message_count TO jobs_svc"
+        "sql": "GRANT DELETE, SELECT ON TABLE public.sessions, public.anon_daily_message_count TO jobs_svc"
       },
       {
         "description": "grant readonly turn ledger access",
@@ -2699,6 +2699,154 @@
       }
     ],
     "postcheck": [
+      {
+        "description": "verify catalog_svc's explicit grants on aliases are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'aliases'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on bangumi are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'bangumi'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on catalog_provenance are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'catalog_provenance'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on catalog_runs are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'catalog_runs'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on cluster_version are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'cluster_version'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on ingest_jobs are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'ingest_jobs'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on itinerary_snapshots are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'itinerary_snapshots'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on leg_cache are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'leg_cache'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on location_aliases are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'location_aliases'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on locations are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'locations'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on media_assets are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'media_assets'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on points are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'points'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on raw_anitabi are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'raw_anitabi'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on raw_bangumi are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'raw_bangumi'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on raw_payload_history are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'raw_payload_history'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify catalog_svc's explicit grants on series_edges are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'catalog_svc' AND table_schema = 'public' AND table_name = 'series_edges'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on aliases are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'aliases'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on bangumi are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'bangumi'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on catalog_provenance are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'catalog_provenance'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on catalog_runs are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'catalog_runs'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on cluster_version are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'cluster_version'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on itinerary_snapshots are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'itinerary_snapshots'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on leg_cache are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'leg_cache'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on location_aliases are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'location_aliases'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on locations are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'locations'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on media_assets are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'media_assets'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on points are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'points'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on raw_anitabi are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'raw_anitabi'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on raw_bangumi are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'raw_bangumi'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on raw_payload_history are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'raw_payload_history'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on series_edges are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'series_edges'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify users_svc's explicit grants on saved_route_anime are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'users_svc' AND table_schema = 'public' AND table_name = 'saved_route_anime'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify users_svc's explicit grants on saved_route_idempotency are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'users_svc' AND table_schema = 'public' AND table_name = 'saved_route_idempotency'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify users_svc's explicit grants on saved_routes are exactly DELETE, INSERT, SELECT, UPDATE",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'users_svc' AND table_schema = 'public' AND table_name = 'saved_routes'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on saved_route_anime are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'saved_route_anime'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on saved_route_idempotency are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'saved_route_idempotency'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on saved_routes are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'saved_routes'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
       {
         "description": "verify agent_svc's explicit grants on pi_list_values are exactly DELETE, INSERT, SELECT, UPDATE",
         "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_list_values'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
@@ -2728,6 +2876,22 @@
         "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'pi_records'), ARRAY[]::text[])) = ARRAY['INSERT', 'SELECT']::text[] AS result"
       },
       {
+        "description": "verify agent_svc's explicit grants on bangumi are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'bangumi'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on points are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'points'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify agent_svc's explicit grants on saved_routes are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'saved_routes'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify jobs_svc's explicit grants on saved_routes are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'jobs_svc' AND table_schema = 'public' AND table_name = 'saved_routes'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
         "description": "verify agent_svc's explicit grants on anon_daily_message_count are exactly DELETE, INSERT, SELECT, UPDATE",
         "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'anon_daily_message_count'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
       },
@@ -2744,8 +2908,20 @@
         "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'agent_svc' AND table_schema = 'public' AND table_name = 'turn_reservations'), ARRAY[]::text[])) = ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::text[] AS result"
       },
       {
-        "description": "verify the data-plane grant matrix",
-        "sql": "SELECT has_schema_privilege('agent_svc', 'public', 'USAGE')\n      AND has_schema_privilege('catalog_svc', 'public', 'USAGE')\n      AND has_schema_privilege('jobs_svc', 'public', 'USAGE')\n      AND has_schema_privilege('readonly', 'public', 'USAGE')\n      AND has_schema_privilege('users_svc', 'public', 'USAGE')\n      AND (SELECT bool_and(has_table_privilege('catalog_svc', table_name, 'SELECT')\n        AND has_table_privilege('catalog_svc', table_name, 'INSERT')\n        AND has_table_privilege('catalog_svc', table_name, 'UPDATE')\n        AND has_table_privilege('catalog_svc', table_name, 'DELETE'))\n        FROM unnest(ARRAY['aliases','bangumi','catalog_provenance','catalog_runs','cluster_version','ingest_jobs','itinerary_snapshots','leg_cache','location_aliases','locations','media_assets','points','raw_anitabi','raw_bangumi','raw_payload_history','series_edges']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('readonly', table_name, 'SELECT'))\n        FROM unnest(ARRAY['aliases','bangumi','catalog_provenance','catalog_runs','cluster_version','itinerary_snapshots','leg_cache','location_aliases','locations','media_assets','points','raw_anitabi','raw_bangumi','raw_payload_history','series_edges']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('users_svc', table_name, 'SELECT')\n        AND has_table_privilege('users_svc', table_name, 'INSERT')\n        AND has_table_privilege('users_svc', table_name, 'UPDATE')\n        AND has_table_privilege('users_svc', table_name, 'DELETE'))\n        FROM unnest(ARRAY['saved_route_anime','saved_route_idempotency','saved_routes']) AS table_name)\n      AND (SELECT bool_and(has_table_privilege('readonly', table_name, 'SELECT'))\n        FROM unnest(ARRAY['saved_route_anime','saved_route_idempotency','saved_routes']) AS table_name)\n      AND has_table_privilege('agent_svc', 'public.bangumi', 'SELECT')\n      AND has_table_privilege('agent_svc', 'public.points', 'SELECT')\n      AND has_table_privilege('agent_svc', 'public.saved_routes', 'SELECT')\n      AND has_table_privilege('jobs_svc', 'public.saved_routes', 'SELECT')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'SELECT')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'USAGE') AS result"
+        "description": "verify jobs_svc's explicit grants on sessions are exactly DELETE, SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'jobs_svc' AND table_schema = 'public' AND table_name = 'sessions'), ARRAY[]::text[])) = ARRAY['DELETE', 'SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify jobs_svc's explicit grants on anon_daily_message_count are exactly DELETE, SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'jobs_svc' AND table_schema = 'public' AND table_name = 'anon_daily_message_count'), ARRAY[]::text[])) = ARRAY['DELETE', 'SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify readonly's explicit grants on turn_reservations are exactly SELECT",
+        "sql": "SELECT (COALESCE((SELECT array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) FROM information_schema.role_table_grants WHERE grantee = 'readonly' AND table_schema = 'public' AND table_name = 'turn_reservations'), ARRAY[]::text[])) = ARRAY['SELECT']::text[] AS result"
+      },
+      {
+        "description": "verify the data-plane public-schema and sequence grants",
+        "sql": "SELECT has_schema_privilege('agent_svc', 'public', 'USAGE')\n      AND has_schema_privilege('catalog_svc', 'public', 'USAGE')\n      AND has_schema_privilege('jobs_svc', 'public', 'USAGE')\n      AND has_schema_privilege('readonly', 'public', 'USAGE')\n      AND has_schema_privilege('users_svc', 'public', 'USAGE')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'SELECT')\n      AND has_sequence_privilege('catalog_svc', 'public.raw_payload_history_seq_seq', 'USAGE') AS result"
       }
     ]
   }
