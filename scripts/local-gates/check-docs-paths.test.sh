@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SUT: scripts/local-gates/check-docs-paths.sh
 # Behavioral tests for check-docs-paths.sh against throwaway fixture git repos
 # (the script resolves its root via `git rev-parse --show-toplevel`). Each case
 # builds its own repo, runs the real script, and asserts pass/fail + output.

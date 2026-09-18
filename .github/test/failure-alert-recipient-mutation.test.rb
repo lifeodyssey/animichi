@@ -26,18 +26,26 @@ class FailureAlertRecipientMutationTest < Minitest::Test
   # committed tree; only TEST_REPOSITORY_ROOT moves.
   def with_root
     Dir.mktmpdir("failure-alert-recipient-") do |dir|
-      FileUtils.mkdir_p(File.join(dir, ".github/test"))
+      # The fixtures live with the contracts that use them now (#1776), so the
+      # copy's parent is the moved home; `cp_r` creates the leaf, not the chain.
+      FileUtils.mkdir_p(File.join(dir, ".github/test/delivery"))
       %w[scripts lib].each do |part|
         FileUtils.cp_r(File.join(ROOT, ".github", part), File.join(dir, ".github", part))
       end
-      FileUtils.cp_r(File.join(ROOT, ".github/test/fixtures"), File.join(dir, ".github/test/fixtures"))
+      FileUtils.cp_r(File.join(ROOT, ".github/test/delivery/fixtures"), File.join(dir, ".github/test/delivery/fixtures"))
       yield dir
     end
   end
 
+  # The recipient contract is a delivery-toolchain test now, in its own
+  # directory (#1776); this twin stayed with the wiring contracts.
+  def contract_path
+    File.join(ROOT, ".github/test/delivery", CONTRACT.first)
+  end
+
   def contract(dir)
     out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => dir }, RbConfig.ruby,
-                                      File.join(ROOT, ".github/test", CONTRACT.first))
+                                      contract_path)
     status.success? ? "" : out + err
   end
 
