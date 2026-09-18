@@ -132,6 +132,64 @@ export function anomalyOf(
   return undefined;
 }
 
+/** One adoption attempt's timeout memory, shared across the initial run and
+ * every retry (SESSION-2 #960): a timed-out attempt's outcome is unknown, so a
+ * later `"nothing"` may be observing the server landing the earlier one — and
+ * must not be flagged as a no-op anomaly. */
+export interface AdoptionTimeline {
+  timedOut: boolean;
+}
+
+/** Runs `run` under a `ms` timeout, reporting whether the timeout fired so the
+ * caller can remember an unknown outcome (SESSION-2 #960). `async` on purpose:
+ * a *synchronous* throw from `run` becomes a rejection that `.catch` folds
+ * into `onTimeout` — it never rejects the caller. */
+async function timedRace<T>(
+  run: () => Promise<T>, ms: number, onTimeout: T,
+): Promise<{ value: T; timedOut: boolean }> {
+  let timedOut = false;
+  const value = await Promise.race([
+    Promise.resolve().then(run).catch((): T => onTimeout),
+    new Promise<T>((resolve) => { setTimeout(() => { timedOut = true; resolve(onTimeout); }, ms); }),
+  ]);
+  return { value, timedOut };
+}
+
+/**
+ * One adoption attempt: the adopt call under the mobile-first timeout, the
+ * outcome judged against `expected` and the timeline's memory. Structurally
+ * incapable of rejecting (#507 review P2) — it rides a `Promise.all` beside
+ * the deferred-save replay, so a throw here would reject the whole redeem and
+ * report a *successful* login as `"error"`. `adoptSessions` already catches,
+ * but relying on a collaborator's internals for that is the fragile version —
+ * this makes it a property of the call site, and a throwing-adopt test pins
+ * it.
+ *
+ * A timeout is recorded as `failed` (and remembered in `timeline`). The race
+ * does not abort the request, so the server may still succeed afterwards and
+ * this becomes a false negative. This is **the one** case the #507 owner
+ * ruling actually rescues: under the old edge the server's success would have
+ * retired the `aid` cookie, leaving the retry with no identity to present.
+ * Every other failure branch already kept its cookie — retirement was gated on
+ * success — so "keeping the cookie makes failures recoverable" is true for
+ * this timing race and not in general. Either way the retry is the same
+ * idempotent `UPDATE`; the remembered timeout lets that retry recognise a
+ * late-landed success as success (SESSION-2 #960).
+ *
+ * The anomaly is **returned, not reported**: the report belongs where the
+ * outcome meets a live screen, so an abandoned mount (#1760) cannot emit
+ * `auth_session_adoption` with nobody home.
+ */
+export async function runAdoption(
+  adopt: (token: string) => Promise<SessionAdoptionOutcome>,
+  token: string, expected: boolean, timeline: AdoptionTimeline,
+): Promise<AdoptionAnomaly | undefined> {
+  const priorTimeout = timeline.timedOut;
+  const { value: outcome, timedOut } = await timedRace(() => adopt(token), ADOPT_TIMEOUT_MS, "failed");
+  timeline.timedOut ||= timedOut;
+  return anomalyOf(outcome, expected, priorTimeout);
+}
+
 /**
  * Structured, credential-free record. Deliberately **not** the reporting
  * channel: `apps/web` has no telemetry sink, so a `console.warn` reaches the
