@@ -135,15 +135,20 @@ pre-push: packages/orphan is a workspace package with no routing row
 So a package cannot leave the table, or be added without a row, and still be pushed:
 `test/repo-config/pre-push-routing.test.rb` pins the table's domain against the
 `pnpm-workspace.yaml` globs resolved against the tree, and the gate routes by that table, so the two
-cannot disagree. Each selected package then runs, through
-`pnpm -r --workspace-concurrency=1 --filter "...<name>" run --if-present`:
+cannot disagree. Each script then runs once over the union of the selected
+packages' dependent closures, through
+`pnpm -r --workspace-concurrency=1 --filter "...<name>" … run --if-present`:
 
 ```text
 lint → typecheck → test → test:integration
 ```
 
-`...<name>` pulls in that package's dependents, so a `packages/contract` change gates its consumers.
-`--no-renames` lists both sides of a rename, so a cross-package move gates the source package too.
+Every selected package's `...<name>` selector is handed to that one invocation —
+pnpm unions repeated filters and runs each selected package exactly once — so a
+`packages/contract` change gates its consumers, and a dependent shared by two
+changed packages is gated once per push instead of once per selector (#1770).
+`--no-renames` lists both sides of a rename, so a cross-package move gates the
+source package too.
 
 **One package at a time.** `pnpm -r run` defaults to a concurrency of 4 (`pnpm help recursive`, pnpm
 10.33.2) and a `...<name>` closure is wide — `packages/contract` pulls in all eight TypeScript

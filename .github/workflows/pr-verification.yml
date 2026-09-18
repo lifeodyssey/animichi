@@ -359,6 +359,8 @@ jobs:
           ruby test/repo-config/install-build-decisions-mutation.test.rb
           ruby test/repo-config/install-build-decisions.test.rb
           ruby test/repo-config/lint-scope.test.rb
+          ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
+          ruby test/repo-config/no-real-clock-sleep.test.rb
           ruby test/repo-config/package-test-segments.test.rb
           ruby test/repo-config/playwright.test.rb
           ruby test/repo-config/pre-push-routing.test.rb

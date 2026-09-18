@@ -33,9 +33,9 @@ commit_change feature pnpm-lock.yaml
 run_gate < /dev/null
 expect_status "lockfile" 0 "$STATUS"
 expect "lockfile" "deps=1" "$OUT"
-for name in web catalog users @animichi/agent; do for script in lint typecheck test test:integration; do
-  expect "lockfile" "--workspace-concurrency=1 --filter $name run --if-present $script" "$RECORDED"
-done; done
+for script in lint typecheck test test:integration; do
+  expect "lockfile" "--workspace-concurrency=1 --filter @animichi/agent --filter @animichi/contract --filter web --filter catalog --filter users run --if-present $script" "$RECORDED"
+done
 refute "lockfile" "--filter ...web" "$RECORDED"
 refute "lockfile" "animichi-cloudflare-worker" "$RECORDED"
 ok "a root manifest selects every package once, without the closure prefix"
@@ -234,5 +234,20 @@ for check in agents-refs docs-paths root-allowlist spec-references; do
 done
 refute "deleted docs file" "no gate covers" "$OUT"
 ok "a deleted docs file still fires the docs bucket"
+
+# 20. Three changed packages whose dependent closures overlap must hand pnpm
+#     the union of the closures — one selection per script — so a dependent
+#     shared by two closures is gated once per push, not once per selector
+#     (#1770). The selectors keep the routing order the table gives.
+new_repo
+commit_change feature apps/web/src/w.ts packages/contract/src/c.ts workers/catalog/src/x.ts
+run_gate < /dev/null
+expect_status "closure union" 0 "$STATUS"
+for script in lint typecheck test test:integration; do
+  expect "closure union" "--filter ...@animichi/contract --filter ...web --filter ...catalog run --if-present $script" "$RECORDED"
+done
+runs="$(grep -c 'run --if-present' <<<"$RECORDED")"
+[ "$runs" = 4 ] || fail "closure union" "expected one run per script over the union (4), got $runs: $RECORDED"
+ok "three overlapping closures run as one union per script, in routing order"
 
 finish
