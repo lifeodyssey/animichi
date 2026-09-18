@@ -6,8 +6,15 @@
  */
 
 export { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
-export { ChainApplyTurn } from "./chain-apply-turn.ts";
+export { CHAIN_APPLY_LOCK_KEY, ChainApplyTurn } from "./chain-apply-turn.ts";
 export { applyPrismaChain } from "./prisma-chain.ts";
+export { createMigratedDatabase } from "./migrated-template.ts";
+export {
+  assertCurrentTemplate,
+  migratedTemplateName,
+  prismaChainHead,
+  prismaChainIdentity,
+} from "./chain-identity.ts";
 export { assertServiceRoles, createServiceRoles, SERVICE_ROLES } from "./service-roles.ts";
 export { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
 export { applyDrizzleEraCatalog } from "./drizzle-era-catalog.ts";
