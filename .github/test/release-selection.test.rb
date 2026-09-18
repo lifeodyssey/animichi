@@ -1,6 +1,7 @@
 # SUT: artifact selection validates repository, original successful attempt and immutable digest.
 # frozen_string_literal: true
 require 'minitest/autorun'
+require 'minitest/mock'
 require_relative '../lib/release/selection'
 
 class ReleaseSelectionTest < Minitest::Test

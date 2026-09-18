@@ -14,7 +14,7 @@ class InstallBuildDecisionsMutationTest < Minitest::Test
   MANIFEST = "pnpm-workspace.yaml"
   NESTED_MANIFEST = "infra/database-access/pnpm-workspace.yaml"
   SEAL_INSTALL = ".github/scripts/release/seal-foundation.sh:6 runs `pnpm install --frozen-lockfile`"
-  CD_INSTALL = ".github/workflows/cd.yml:81 runs `pnpm install --frozen-lockfile`"
+  CD_INSTALL = ".github/workflows/cd.yml:83 runs `pnpm install --frozen-lockfile`"
 
   def with_tree
     Dir.mktmpdir("install-build-decisions-mutation-") do |root|

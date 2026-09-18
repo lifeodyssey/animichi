@@ -277,99 +277,105 @@ jobs:
       # bundle-release-worker.test.sh drives a real `wrangler deploy --dry-run`,
       # so this job needs the same installed workspace as the application lanes.
       - uses: $/.github/actions/setup-workspace
+      # `.ruby-version`'s interpreter and `Gemfile.lock`'s gems — the pair
+      # `bundle exec` resolves on a developer's machine too (#1774).
+      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+        with:
+          bundler-cache: true
       - name: Verify workflow and action responsibilities
         run: |
           set -euo pipefail
-          ruby .github/test/cd-artifact.test.rb
-          ruby .github/test/cd-credentials.test.rb
-          ruby .github/test/cd-post-deploy-evidence.test.rb
-          ruby .github/test/cd-delivery-jobs.test.rb
-          ruby .github/test/cd-migrations.test.rb
-          ruby .github/test/migrator-container-retirement.test.rb
-          ruby .github/test/edge-container-retirement.test.rb
-          ruby .github/test/cd-publish.test.rb
-          ruby .github/test/cd-receipt.test.rb
-          ruby .github/test/cd-schema-verification.test.rb
-          ruby .github/test/cd-selection.test.rb
-          ruby .github/test/cd-stage-smoke.test.rb
-          ruby .github/test/cd-stage.test.rb
-          ruby .github/test/failure-alert-behavior.test.rb
-          ruby .github/test/failure-alert-ledger.test.rb
-          ruby .github/test/failure-alert-mutation.test.rb
-          ruby .github/test/failure-alert-recipient-mutation.test.rb
-          ruby .github/test/failure-alert-recipient.test.rb
-          ruby .github/test/failure-alert.test.rb
-          ruby .github/test/merged-commit-lane.test.rb
-          ruby .github/test/post-deploy-evidence-mutation.test.rb
-          ruby .github/test/post-deploy-evidence-refusals.test.rb
-          ruby .github/test/post-deploy-evidence-smoke-interval.test.rb
-          ruby .github/test/post-deploy-evidence-verifier.test.rb
-          ruby .github/test/post-deploy-evidence.test.rb
-          ruby .github/test/pr-verification-affected.test.rb
-          ruby .github/test/pr-verification-browser.test.rb
-          ruby .github/test/pr-verification-gates.test.rb
-          ruby .github/test/pr-verification-login.test.rb
-          ruby .github/test/pr-verification-plan.test.rb
-          ruby .github/test/pr-verification-schema.test.rb
-          ruby .github/test/pr-verification-workspace.test.rb
-          ruby .github/test/pr-verification-zizmor.test.rb
-          ruby .github/test/release-archive.test.rb
-          ruby .github/test/release-build.test.rb
-          ruby .github/test/release-config.test.rb
-          ruby .github/test/release-consumer-cli.test.rb
-          ruby .github/test/release-container-observation.test.rb
-          ruby .github/test/release-receipt-record.test.rb
-          ruby .github/test/release-dispatch.test.rb
-          ruby .github/test/release-migration-request.test.rb
-          ruby .github/test/release-observation.test.rb
-          ruby .github/test/release-publish-services.test.rb
-          ruby .github/test/release-receipt-cli.test.rb
-          ruby .github/test/release-receipt.test.rb
-          ruby .github/test/release-registry-cli.test.rb
-          ruby .github/test/release-registry.test.rb
-          ruby .github/test/release-resolver.test.rb
-          ruby .github/test/release-schema-gate.test.rb
-          ruby .github/test/release-selection.test.rb
-          ruby .github/test/release-snapshot.test.rb
-          ruby .github/test/release-source-closure.test.rb
-          ruby .github/test/setup-workspace-action.test.rb
-          ruby .github/test/workflow-credentials.test.rb
-          ruby .github/test/workflow-execution.test.rb
-          ruby .github/test/workflow-invocations.test.rb
-          ruby .github/test/workflow-python-toolchain.test.rb
-          ruby .github/test/workflow-variables.test.rb
-          ruby .github/test/workflow-workspace.test.rb
+          bundle exec ruby .github/test/cd-artifact.test.rb
+          bundle exec ruby .github/test/cd-credentials.test.rb
+          bundle exec ruby .github/test/cd-post-deploy-evidence.test.rb
+          bundle exec ruby .github/test/cd-delivery-jobs.test.rb
+          bundle exec ruby .github/test/cd-migrations.test.rb
+          bundle exec ruby .github/test/migrator-container-retirement.test.rb
+          bundle exec ruby .github/test/edge-container-retirement.test.rb
+          bundle exec ruby .github/test/cd-publish.test.rb
+          bundle exec ruby .github/test/cd-receipt.test.rb
+          bundle exec ruby .github/test/cd-schema-verification.test.rb
+          bundle exec ruby .github/test/cd-selection.test.rb
+          bundle exec ruby .github/test/cd-stage-smoke.test.rb
+          bundle exec ruby .github/test/cd-stage.test.rb
+          bundle exec ruby .github/test/failure-alert-behavior.test.rb
+          bundle exec ruby .github/test/failure-alert-ledger.test.rb
+          bundle exec ruby .github/test/failure-alert-mutation.test.rb
+          bundle exec ruby .github/test/failure-alert-recipient-mutation.test.rb
+          bundle exec ruby .github/test/failure-alert-recipient.test.rb
+          bundle exec ruby .github/test/failure-alert.test.rb
+          bundle exec ruby .github/test/merged-commit-lane.test.rb
+          bundle exec ruby .github/test/post-deploy-evidence-mutation.test.rb
+          bundle exec ruby .github/test/post-deploy-evidence-refusals.test.rb
+          bundle exec ruby .github/test/post-deploy-evidence-smoke-interval.test.rb
+          bundle exec ruby .github/test/post-deploy-evidence-verifier.test.rb
+          bundle exec ruby .github/test/post-deploy-evidence.test.rb
+          bundle exec ruby .github/test/pr-verification-affected.test.rb
+          bundle exec ruby .github/test/pr-verification-browser.test.rb
+          bundle exec ruby .github/test/pr-verification-gates.test.rb
+          bundle exec ruby .github/test/pr-verification-login.test.rb
+          bundle exec ruby .github/test/pr-verification-plan.test.rb
+          bundle exec ruby .github/test/pr-verification-schema.test.rb
+          bundle exec ruby .github/test/pr-verification-workspace.test.rb
+          bundle exec ruby .github/test/pr-verification-zizmor.test.rb
+          bundle exec ruby .github/test/release-archive.test.rb
+          bundle exec ruby .github/test/release-build.test.rb
+          bundle exec ruby .github/test/release-config.test.rb
+          bundle exec ruby .github/test/release-consumer-cli.test.rb
+          bundle exec ruby .github/test/release-container-observation.test.rb
+          bundle exec ruby .github/test/release-receipt-record.test.rb
+          bundle exec ruby .github/test/release-dispatch.test.rb
+          bundle exec ruby .github/test/release-migration-request.test.rb
+          bundle exec ruby .github/test/release-observation.test.rb
+          bundle exec ruby .github/test/release-publish-services.test.rb
+          bundle exec ruby .github/test/release-receipt-cli.test.rb
+          bundle exec ruby .github/test/release-receipt.test.rb
+          bundle exec ruby .github/test/release-registry-cli.test.rb
+          bundle exec ruby .github/test/release-registry.test.rb
+          bundle exec ruby .github/test/release-resolver.test.rb
+          bundle exec ruby .github/test/release-schema-gate.test.rb
+          bundle exec ruby .github/test/release-selection.test.rb
+          bundle exec ruby .github/test/release-snapshot.test.rb
+          bundle exec ruby .github/test/release-source-closure.test.rb
+          bundle exec ruby .github/test/setup-workspace-action.test.rb
+          bundle exec ruby .github/test/workflow-credentials.test.rb
+          bundle exec ruby .github/test/workflow-execution.test.rb
+          bundle exec ruby .github/test/workflow-invocations.test.rb
+          bundle exec ruby .github/test/workflow-python-toolchain.test.rb
+          bundle exec ruby .github/test/workflow-ruby-toolchain.test.rb
+          bundle exec ruby .github/test/workflow-variables.test.rb
+          bundle exec ruby .github/test/workflow-workspace.test.rb
       - name: Verify Orca delivery tools
         run: |
           set -euo pipefail
-          ruby scripts/orca/test/run.rb
-          ruby scripts/orca-headless/test/run.rb
+          bundle exec ruby scripts/orca/test/run.rb
+          bundle exec ruby scripts/orca-headless/test/run.rb
       - name: Verify repository configuration
         run: |
           set -euo pipefail
-          ruby test/repo-config/dependency-hold-backs-mutation.test.rb
-          ruby test/repo-config/dependency-hold-backs.test.rb
-          ruby test/repo-config/e2e-spec-coverage.test.rb
-          ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
-          ruby test/repo-config/gitleaks-mutation.test.rb
-          ruby test/repo-config/gitleaks-pin-mutation.test.rb
-          ruby test/repo-config/gitleaks.test.rb
-          ruby test/repo-config/e2e-no-skip.test.rb
-          ruby test/repo-config/e2e-no-skip-mutation.test.rb
-          ruby test/repo-config/install-build-decisions-mutation.test.rb
-          ruby test/repo-config/install-build-decisions.test.rb
-          ruby test/repo-config/lint-scope.test.rb
-          ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
-          ruby test/repo-config/no-real-clock-sleep.test.rb
-          ruby test/repo-config/package-test-segments.test.rb
-          ruby test/repo-config/playwright.test.rb
-          ruby test/repo-config/pre-push-routing.test.rb
-          ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
-          ruby test/repo-config/pnpm-workspace-settings.test.rb
-          ruby test/repo-config/refresh-hold-backs.test.rb
-          ruby test/repo-config/retired-migration-authority-refs.test.rb
-          ruby test/repo-config/retired-python-agent-refs.test.rb
-          ruby test/repo-config/wrangler-path-claims.test.rb
+          bundle exec ruby test/repo-config/dependency-hold-backs-mutation.test.rb
+          bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
+          bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb
+          bundle exec ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
+          bundle exec ruby test/repo-config/gitleaks-mutation.test.rb
+          bundle exec ruby test/repo-config/gitleaks-pin-mutation.test.rb
+          bundle exec ruby test/repo-config/gitleaks.test.rb
+          bundle exec ruby test/repo-config/e2e-no-skip.test.rb
+          bundle exec ruby test/repo-config/e2e-no-skip-mutation.test.rb
+          bundle exec ruby test/repo-config/install-build-decisions-mutation.test.rb
+          bundle exec ruby test/repo-config/install-build-decisions.test.rb
+          bundle exec ruby test/repo-config/lint-scope.test.rb
+          bundle exec ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
+          bundle exec ruby test/repo-config/no-real-clock-sleep.test.rb
+          bundle exec ruby test/repo-config/package-test-segments.test.rb
+          bundle exec ruby test/repo-config/playwright.test.rb
+          bundle exec ruby test/repo-config/pre-push-routing.test.rb
+          bundle exec ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
+          bundle exec ruby test/repo-config/pnpm-workspace-settings.test.rb
+          bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
+          bundle exec ruby test/repo-config/retired-migration-authority-refs.test.rb
+          bundle exec ruby test/repo-config/retired-python-agent-refs.test.rb
+          bundle exec ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
       # only runner was quality.sh, which #1371 deleted with the pre-push
       # orchestrator; neither the affected matrix nor any package script can
@@ -771,6 +777,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
       - name: Publish the failure alert
         env:
           GH_TOKEN: ${{ github.token }}

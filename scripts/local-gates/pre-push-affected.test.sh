@@ -42,7 +42,8 @@ ok "a root manifest selects every package once, without the closure prefix"
 
 # 4. Whitelisted paths need no package; the docs bucket still runs its checks.
 new_repo
-commit_change feature docs/a.md .github/workflows/x.yml test/repo-config/gitleaks.test.rb .gitignore
+commit_change feature docs/a.md .github/workflows/x.yml test/repo-config/gitleaks.test.rb .gitignore \
+  Gemfile Gemfile.lock .ruby-version
 run_gate < /dev/null
 expect_status "docs" 0 "$STATUS"
 expect "docs" "packages: (none)" "$OUT"

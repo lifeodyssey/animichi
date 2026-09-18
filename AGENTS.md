@@ -31,7 +31,9 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 ## Package managers
 
 - **pnpm 12** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** only installs the pinned
-  semgrep lint tool.
+  semgrep lint tool. **Bundler** runs the Ruby contract suites: install `.ruby-version`'s Ruby
+  (rbenv, mise and asdf read it), then `bundle install` and `bundle exec ruby <file>` — the
+  `contracts` job's form; it refuses other Rubies.
 - **Every setting lives in `pnpm-workspace.yaml`** — pnpm 11 moved them out of `.npmrc` (auth/registry
   only) and removed the `package.json#pnpm` field; pnpm 12 rejects a key it does not recognise and
   ignores a kebab-case one. Keys are camelCase. CI installs with `--frozen-lockfile`.
