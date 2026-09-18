@@ -534,9 +534,15 @@ jobs:
   # manifest must carry a complete `allowBuilds` decision — pnpm 11 made
   # `strictDepBuilds` true by default, and the seal's protobufjs error reached
   # `main` red because no pull-request lane ran this install. This job runs the
-  # seal unit itself (SDK generation, the scripts-running install) and then CD's
-  # two `--ignore-scripts` installs against the sealed copy, so both install
-  # shapes fail on the pull request that breaks them. Routed like the other
+  # same three steps the release build does before CD's installs — the seal unit
+  # (SDK generation, the scripts-running install), the patch seal that copies the
+  # lockfile's `patchedDependencies` into the sealed copy, and then CD's two
+  # `--ignore-scripts` installs against the sealed copy — so both install shapes
+  # fail on the pull request that breaks them. The patch seal is not optional
+  # bookkeeping: the first seal archives `infra/` plus the root manifests only,
+  # so the copy it leaves behind references patches it does not contain, and an
+  # install from it dies on the missing patch file before any build decision is
+  # exercised (#1777's red lane was exactly that hole). Routed like the other
   # diff-selected lanes: the install's own inputs select it — the two manifests
   # and their lockfile, the root `package.json` whose `packageManager` bump
   # caused #1772, the seal script, and the pinned Pulumi CLI — so a
@@ -563,6 +569,15 @@ jobs:
       # construction: `--no-dependencies --no-plugins` keeps pulumi offline.
       - name: Seal the foundation and run its build scripts
         run: bash .github/scripts/release/seal-foundation.sh
+      # The release build's second seal step, verbatim (`GITHUB_SHA` is a default
+      # environment variable on every trigger of this workflow and names the
+      # commit this job checked out — the merge ref on a pull request, the squash
+      # commit on the merged-commit lane — so the script's `git show`/`git archive`
+      # resolve the very tree under test even on the shallow default checkout,
+      # the same property the first seal's `git archive "$GITHUB_SHA" infra`
+      # relies on).
+      - name: Seal source-pinned dependency patches
+        run: node .github/scripts/release/seal-pnpm-patches.mjs "$GITHUB_SHA" release/foundation
       - name: Install the sealed foundation the way CD does
         run: |
           pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
