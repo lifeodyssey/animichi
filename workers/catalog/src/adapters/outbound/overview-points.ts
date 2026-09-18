@@ -32,6 +32,7 @@ function pointsForWorkStatement(bangumiId: string): SQL {
     .select({
       id: points.id, name: points.name, image: points.image,
       latitude: points.latitude, longitude: points.longitude, city: points.city,
+      origin: points.origin, originUrl: points.originUrl,
     })
     .from(points)
     .where(eq(points.bangumiId, bangumiId))
@@ -63,6 +64,8 @@ function parseRow(row: unknown): OverviewPointRow {
     latitude: Number(record.latitude),
     longitude: Number(record.longitude),
     city: nullableStringField(record.city),
+    origin: nullableStringField(record.origin),
+    origin_url: nullableStringField(record.origin_url),
   };
 }
 

@@ -38,6 +38,8 @@ interface PointRow {
   latitude: number;
   longitude: number;
   city?: string | null;
+  origin: string | null;
+  origin_url: string | null;
 }
 
 /** Thrown when the work has no pilgrimage points to represent it. */
@@ -56,6 +58,7 @@ function representativeQuery(bangumiId: string) {
       bangumiId: pointsTable.bangumiId, episode: pointsTable.episode,
       timeSeconds: pointsTable.timeSeconds, image: pointsTable.image,
       latitude: pointsTable.latitude, longitude: pointsTable.longitude, city: pointsTable.city,
+      origin: pointsTable.origin, originUrl: pointsTable.originUrl,
     })
     .from(pointsTable)
     .where(eq(pointsTable.bangumiId, bangumiId))
@@ -71,6 +74,7 @@ function toPoint(r: PointRow): Point {
     ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
     ...(r.name_cn ? { name_cn: r.name_cn } : {}),
     ...(r.city ? { city: r.city } : {}),
+    ...optional({ origin: r.origin, origin_url: r.origin_url }),
   };
 }
 

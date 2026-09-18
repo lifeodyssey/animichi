@@ -1,4 +1,5 @@
 import type { AnimeOverview, AnimeScene } from "@animichi/contract";
+import { ANITABI_ATTRIBUTION, ANITABI_LICENSE_URL } from "@animichi/contract/anitabi-display";
 import type { Locale } from "../../i18n/locales";
 import type { JsonLdNode } from "../../lib/json-ld";
 import { animeTitle } from "./head";
@@ -15,8 +16,6 @@ import { animeTitle } from "./head";
  */
 
 const SCHEMA = "https://schema.org";
-const LICENSE = "https://creativecommons.org/licenses/by-nc-sa/4.0/";
-const CREDIT = "Anitabi";
 const HOME_LABEL: Record<Locale, string> = { ja: "ホーム", zh: "首页", en: "Home" };
 const WORK_LABEL: Record<Locale, string> = { ja: "作品", zh: "作品", en: "Anime" };
 
@@ -65,7 +64,7 @@ function sceneImage(scene: AnimeScene): JsonLdNode | null {
   if (scene.screenshot_url === null) return null;
   return {
     "@type": "ImageObject", "@id": scene.screenshot_url, contentUrl: scene.screenshot_url,
-    name: scene.name, license: LICENSE, creditText: CREDIT,
+    name: scene.name, license: ANITABI_LICENSE_URL, creditText: scene.origin ?? ANITABI_ATTRIBUTION,
   };
 }
 

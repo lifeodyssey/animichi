@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ANITABI_THUMBNAIL_PLAN, withAnitabiImagePlan } from "@animichi/contract/anitabi-display";
 import type { ChatDict } from "../../i18n";
 import { SceneIcon } from "../SceneIcon";
 
@@ -25,5 +26,5 @@ export function SceneThumb({ src, alt, ep, dict }: Props) {
   const [failed, setFailed] = useState(false), [prevSrc, setPrevSrc] = useState(src);
   if (prevSrc !== src) { setPrevSrc(src); setFailed(false); }
   if (!src?.trim() || failed) return <ScenePlaceholder alt={alt} ep={ep} dict={dict} failed={failed} />;
-  return <img key={src} className={FRAME} src={src} alt={alt} loading="lazy" decoding="async" onError={() => { setFailed(true); }} />;
+  return <img key={src} className={FRAME} src={withAnitabiImagePlan(src, ANITABI_THUMBNAIL_PLAN)} alt={alt} decoding="async" onError={() => { setFailed(true); }} />;
 }

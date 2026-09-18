@@ -72,7 +72,7 @@ void test("an image whose cache write fails is still served, and the failure is 
   const upstreamFetch = () => Promise.resolve(new Response("jpeg-bytes", { status: 200 }));
   const lines = await withWarnSpy(async () => {
     const response = await withCacheDouble(noHitCache(rejectingPut), () =>
-      withImageOrigin(t, upstreamFetch, () => edgeAppRequest("/img/p1.jpg", {}, {}, collectingCtx(settled))));
+      withImageOrigin(t, upstreamFetch, () => edgeAppRequest("/img/p1.jpg?plan=h160", {}, {}, collectingCtx(settled))));
     assert.equal(response.status, 200);
     await Promise.all(settled);
   });

@@ -39,7 +39,8 @@ function pointsForBangumiStatement(bangumiId: string): SQL {
       id: points.id, name: points.name, nameCn: points.nameCn,
       bangumiId: points.bangumiId, episode: points.episode, timeSeconds: points.timeSeconds,
       image: points.image, latitude: points.latitude, longitude: points.longitude,
-      city: points.city, title: bangumi.title, titleCn: bangumi.titleCn,
+      city: points.city, origin: points.origin, originUrl: points.originUrl,
+      title: bangumi.title, titleCn: bangumi.titleCn,
       coverUrl: bangumi.coverUrl, syncedAt: bangumi.updatedAt,
     })
     .from(points)
@@ -61,6 +62,8 @@ function readPublishedPointRow(row: unknown): PublishedPointRow {
     longitude: requiredNumber(r, "longitude"),
     title: nullableString(r, "title"), title_cn: nullableString(r, "title_cn"),
     cover_url: nullableString(r, "cover_url"),
-    city: nullableString(r, "city"), synced_at: nullableTimestamp(r, "synced_at"),
+    city: nullableString(r, "city"), origin: nullableString(r, "origin"),
+    origin_url: nullableString(r, "origin_url"),
+    synced_at: nullableTimestamp(r, "synced_at"),
   };
 }

@@ -20,6 +20,7 @@ import {
   type RetryOptions,
 } from "./retry";
 import { statusFailure, UpstreamFetchError, UpstreamNotFoundError, type UpstreamName } from "./upstream-failures";
+import { ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 
 export { UpstreamFetchError, UpstreamNotFoundError, UpstreamRefusedError, type UpstreamName } from "./upstream-failures";
 
@@ -45,9 +46,6 @@ export interface BangumiSearchConfig extends SourceConfig {
 
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
 export const BANGUMI_BASE = "https://api.bgm.tv";
-const USER_AGENT =
-  "Animichi/1.0 (https://github.com/lifeodyssey/animichi)";
-
 /** A single raw Anitabi point (legacy or official schema; kept verbatim). */
 export type AnitabiPoint = Record<string, unknown>;
 
@@ -189,7 +187,7 @@ function searchLimit(limit: number): number {
 
 /** GET + JSON-decode with retry + status guarding; throws on a non-2xx response. */
 export async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
-  const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": USER_AGENT } });
+  const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": ANITABI_USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
   if (!res.ok) throw statusFailure(url, res.status, upstream);
   return decodeJson(res, url, upstream);
@@ -197,7 +195,7 @@ export async function fetchJson(url: string, upstream: UpstreamName, cfg: Source
 
 /** POST a JSON body + JSON-decode with retry + status guarding; throws on a non-2xx response. */
 async function postJson(url: string, body: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
-  const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
+  const headers = { "User-Agent": ANITABI_USER_AGENT, "Content-Type": "application/json" };
   const res = await fetchWithRetry(url, upstream, cfg, { method: "POST", headers, body });
   if (!res.ok) throw statusFailure(url, res.status, upstream);
   return decodeJson(res, url, upstream);

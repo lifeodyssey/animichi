@@ -28,6 +28,7 @@ interface RouteRow {
   latitude: number;
   longitude: number;
   origin: string | null;
+  origin_url: string | null;
   title: string | null;
   title_cn: string | null;
   cover_url: string | null;
@@ -77,7 +78,7 @@ function routeRows(count: number): RouteRow[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `p${String(i).padStart(3, "0")}`, name: `P${String(i)}`, name_cn: null,
     bangumi_id: "k", episode: null, time_seconds: null, image: null,
-    latitude: 35 + i * 0.001, longitude: 135, origin: null,
+    latitude: 35 + i * 0.001, longitude: 135, origin: null, origin_url: null,
     title: "Lucky Star", title_cn: "幸运星", cover_url: "cover.jpg",
   }));
 }

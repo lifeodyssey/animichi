@@ -16,6 +16,8 @@ export const ROW: PublishedPointRow = {
   title_cn: "幸运星",
   cover_url: "https://image.anitabi.cn/cover1.jpg",
   city: "Kuki",
+  origin: null,
+  origin_url: null,
   synced_at: new Date("2026-06-20T00:00:00.000Z"),
 };
 

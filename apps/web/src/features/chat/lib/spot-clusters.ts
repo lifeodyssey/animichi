@@ -14,6 +14,8 @@ export interface SearchSpot {
   readonly screenshotUrl?: string;
   readonly ep?: number;
   readonly city?: string;
+  readonly origin?: string;
+  readonly originUrl?: string;
   readonly coord?: LatLng;
 }
 
@@ -47,6 +49,8 @@ export interface SpotRowLike {
   readonly ep?: number;
   readonly episode?: number;
   readonly city?: string;
+  readonly origin?: string;
+  readonly origin_url?: string;
 }
 
 function coordOf(row: SpotRowLike): LatLng | undefined {
@@ -68,7 +72,10 @@ function toSearchSpot(row: SpotRowLike, index: number): SearchSpot {
   const ep = rawEp !== undefined && rawEp >= 0 ? rawEp : undefined;
   // Not `??`: the sentinel is the empty string, which `??` passes straight through.
   const screenshotUrl = row.screenshot_url === "" ? undefined : row.screenshot_url;
-  return { id, name: row.name ?? "", screenshotUrl, ep, city: row.city, coord: coordOf(row) };
+  return {
+    id, name: row.name ?? "", screenshotUrl, ep, city: row.city,
+    origin: row.origin, originUrl: row.origin_url, coord: coordOf(row),
+  };
 }
 
 export function toSearchSpots(rows: readonly SpotRowLike[]): readonly SearchSpot[] {

@@ -1,3 +1,9 @@
+import {
+  ANITABI_USER_AGENT,
+  parseAnitabiImagePlan,
+  withAnitabiImagePlan,
+  type AnitabiImagePlan,
+} from "@animichi/contract/anitabi-display";
 import type { WorkerExecutionContext } from "../env.ts";
 import { gatewayRejection } from "../gateway/responses.ts";
 import { cacheWrite } from "./cache-write.ts";
@@ -48,8 +54,13 @@ function imagePathOf(request: Request): string | null {
   return namesTraversal(imagePath) || namesTraversal(decoded) || decoded.includes("%") ? null : imagePath;
 }
 
-async function fetchImage(imagePath: string): Promise<Response> {
-  return fetch(`https://image.anitabi.cn/${imagePath}`, { headers: { "User-Agent": "Animichi/1.0" } });
+function refusedFullResolution(): Response {
+  return gatewayRejection("image_plan_required", 400, "Public image requests must include a documented size plan.");
+}
+
+async function fetchImage(imagePath: string, plan: AnitabiImagePlan): Promise<Response> {
+  const url = withAnitabiImagePlan(`https://image.anitabi.cn/${imagePath}`, plan);
+  return fetch(url, { headers: { "User-Agent": ANITABI_USER_AGENT } });
 }
 
 function upstreamError(upstream: Response): Response {
@@ -67,8 +78,10 @@ function cacheableResponse(upstream: Response): Response {
   return new Response(upstream.body, { status: 200, headers });
 }
 
-async function imageResponse(imagePath: string): Promise<Response> {
-  const upstream = await fetchImage(imagePath);
+async function imageResponse(imagePath: string, request: Request): Promise<Response> {
+  const plan = parseAnitabiImagePlan(new URL(request.url).searchParams.get("plan"));
+  if (plan === null) return refusedFullResolution();
+  const upstream = await fetchImage(imagePath, plan);
   return upstream.ok ? cacheableResponse(upstream) : upstreamError(upstream);
 }
 
@@ -100,7 +113,7 @@ async function proxiedImageResponse(request: Request, imagePath: string, ctx: Wo
   const cache: Cache = caches.default;
   const cached: Response | undefined = await cache.match(cacheKey);
   if (cached) return cached;
-  const response = await imageResponse(imagePath);
+  const response = await imageResponse(imagePath, request);
   if (response.ok) cacheWrite(ctx, cache.put(cacheKey, response.clone()), "edge_image_cache_write_failed");
   return response;
 }

@@ -20,6 +20,7 @@ import {
   type AnitabiPoint,
   type BangumiSubject,
 } from "./sources";
+import { ANITABI_ATTRIBUTION, ANITABI_LICENSE_URL } from "@animichi/contract/anitabi-display";
 
 /** The upstream fetch-outcome for one work, or null when the subject fails. */
 /** The fetch result: an ok payload pair, or the exact source that failed. */
@@ -123,8 +124,8 @@ function pointProvenance(bangumiId: string, entityId: string, map: Record<string
     workId: bangumiId,
     source: "anitabi",
     upstreamId: entityId,
-    attribution: "Anitabi",
-    license: "https://anitabi.cn",
+    attribution: ANITABI_ATTRIBUTION,
+    license: ANITABI_LICENSE_URL,
     fieldMap: map,
   };
 }

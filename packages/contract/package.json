@@ -22,6 +22,7 @@
     "./agent-tool-schemas": "./src/agent-tool-schemas.ts",
     "./internal-binding": "./src/internal-binding.ts",
     "./constants": "./src/constants.ts",
+    "./anitabi-display": "./src/anitabi-display.ts",
     "./jwt": "./src/jwt.ts",
     "./oidc-github": "./src/oidc-github.ts"
   },
