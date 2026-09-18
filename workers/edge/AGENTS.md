@@ -43,7 +43,8 @@ retired run engine and envelope paths have no forwarding modules.
 - `pnpm run test:agent-db` runs the bounded native recovery scanners against disposable
   PostgreSQL (`agent-db-test/README.md`). Admission and host integration have their own
   native lanes. Coordinate Docker use; never substitute a live database implicitly.
-- `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 via workspace hoist).
+- `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 from the workspace catalog; the isolated
+  linker means the package declares it itself).
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Deploy is CI-only: `wrangler deploy -c workers/edge/wrangler.toml` from the repo root
   (hook `block-local-deploy`). Never deploy locally.
@@ -124,4 +125,4 @@ used to pin pipeline text was deleted or repointed at the file owning the contra
 `staging-baseline-reset.test.ts` reads the reset SQL and the committed chain rather than
 extracting shell out of `cd.yml`.
 Do not add a new assertion about a job name, a step name, or an `if:` condition: pipeline shape
-belongs to the contract tests in `.github/scripts`.
+belongs to the contract tests in `.github/test`.
