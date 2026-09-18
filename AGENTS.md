@@ -57,6 +57,12 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 - **1-10-50**: functions ≤10 lines, classes ≤50, files ≤300; ≤2 indent levels (early-return / extract).
 - **No `any`** in TypeScript — model the shape.
+- **Never request a third-party upstream from a test, a script, or a development machine.**
+  `api.anitabi.cn` and `image.anitabi.cn` are reached only by the deployed egress service, and only
+  in the shapes `docs/api-reference/anitabi-api.md` describes — that document is the authority, and
+  anything it does not describe is not permitted. Tests stub the upstream; to see a real response,
+  read the pinned document. We are rate-limited by agreement and have already been refused once, so
+  an exploratory `curl` spends a relationship rather than a request.
 - **No suppression without user approval** — no `eslint-disable` / `@ts-ignore` / `type: ignore` /
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
 - **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
@@ -105,6 +111,9 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - Web rebuild target (still canonical for `apps/web`) → `docs/specs/2026-07-06-frontend-rebuild-spec.md`
 - Current runtime **reference** (native chat, remaining services and verification boundaries) → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
+- **What we may request from Anitabi** (the pinned upstream document; nothing outside it is
+  permitted) → `docs/api-reference/anitabi-api.md`, with the egress service and the agreed rate in
+  `docs/ops/anitabi-egress.md`
 - **Single Source-of-Truth table + doc-change rules** → `docs/DOCS_POLICY.md` (the one canonical topic→path map)
 - Current **campaign tracking** (merged restructure-spec × GOAL; waves P0–P8; ADRs 0003–0005) →
   `docs/specs/2026-08-08-repo-closeout-spec.md`
