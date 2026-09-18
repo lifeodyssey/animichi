@@ -5,6 +5,14 @@ import { pool, IDENTITY } from "./postgres.ts";
 import { FAST_RECOVERY_SCAN } from "./wake-cadence.ts";
 import { businessWorker, deadlineWakeTimes, submission, unexplainedWakes, type WakeRow } from "./worker.ts";
 
+/**
+ * How long the retry case waits for settlement. The deadline wake comes due `RETRY_DELAY_MS`, plus
+ * under a second of rounding, after the failure. The recurrent scan could finish the turn too, but it
+ * first comes due 30 s after the host starts (`WAKE_INTERVAL_MS`, floored to the second); closing the
+ * wait well before that tick means only the persisted deadline wake can satisfy it.
+ */
+const DEADLINE_WAKE_BOUND_MS = 20_000;
+
 async function settlementObserver(context: TestContext, timeoutMs: number) {
   const observer = await pool.connect();
   context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
@@ -48,7 +56,7 @@ void test("the same live host repairs business commit after accept through its r
 
 void test("an operation accepted after create remains pending during retry and completes from its native deadline wake", { timeout: 120_000 }, async (context) => {
   const { worker } = await businessWorker(context, { TEST_RETRY: "true" });
-  const { settled } = await settlementObserver(context, 90_000);
+  const { settled } = await settlementObserver(context, DEADLINE_WAKE_BOUND_MS);
   const response = await worker.dispatchFetch("https://host.test/submit", { method: "POST", body: JSON.stringify(submission) });
   const responseBody = await response.text();
   assert.equal(response.status, 200, responseBody);
