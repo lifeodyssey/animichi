@@ -19,21 +19,23 @@ specifications first (`lane-port.test.ts` — the port derivation is a specifica
 and `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two),
 then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
-`webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the twelve specs the lane
-owns — `web-404`, `web-maplibre-canary`, `web-chat-anonymous`, `web-chat-error-states`,
+`webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the sixteen specs the lane
+owns — `web-404`, `web-maplibre-canary`, `web-chat-anonymous`, `web-chat-clarify-pick`,
+`web-chat-error-states`, `web-chat-save-login-wall`, `web-chat-selection`,
 `web-chat-settings-return`, `web-hero-query`, `web-state-ownership`, `web-a11y-axe`,
-`web-a11y-keyboard`, `web-a11y-states`, `web-cwv`, `web-runtime-config` — with `--grep-invert
-@perf-mobile-cold`, so the timed cold-start cases stay in `test:perf-mobile-cold`; the promotion
+`web-a11y-keyboard`, `web-a11y-states`, `web-cwv`, `web-runtime-config`, `web-splash` — with
+`--grep-invert @perf-mobile-cold`, so the timed cold-start cases stay in `test:perf-mobile-cold`; the promotion
 gate forbids timing asserts, and a runner's CPU is not a budget.
 `test/repo-config/e2e-spec-coverage.test.rb` fails whenever a committed `*.spec.ts` is named by no
 script the gate runs, and pins that `--grep-invert` too: every other spec is named in one of the
 tables in `test/repo-config/e2e_lane_exclusions.rb`, which the contract reads — `EXEMPT` for the
 deliberate ones (the opt-in `visual` project, the MCP `seed` scaffold, the credentialed Neon
-login, whose own lane is `pnpm --filter animichi-e2e run test:login`) and `KNOWN_FAILING` for the
-five whose assertions do not hold yet (`web-chat-clarify-pick`, `web-chat-selection`,
-`web-chat-save-login-wall`, `web-map-spike` — #1570 — and `web-splash`, each with its failing
+login, whose own lane is `pnpm --filter animichi-e2e run test:login`) and `KNOWN_FAILING` for
+those whose assertions do not hold yet (`web-map-spike` — #1570 — the last of five that #1702
+found never running; #1721, #1722, #1723 and #1724 repaired theirs into the lane), each with its
+failing
 case, line, and the card that owns its repair in the `#N owns the repair` clause the contract
-matches). A `KNOWN_FAILING` reason without that clause fails the contract, so parking a broken
+matches. A `KNOWN_FAILING` reason without that clause fails the contract, so parking a broken
 spec out of the lane always names a repair card; whether that card exists or is still open is not
 checked, because that means calling GitHub and this contract stays offline. Naming it in a table
 is what keeps an unrun spec visible instead of reading as green.
