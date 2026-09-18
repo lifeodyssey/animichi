@@ -19,12 +19,12 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. → `packages/agent/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node native Pi task and preserved statistical oracles with `logfire/evals`. → `packages/eval/AGENTS.md`
+- `packages/pi-session-neon/` — Native Pi session storage (`NeonStorage`/`NeonSessionRepo`) and the data plane's one Prisma 8 chain (`migrations/`), the whole migration authority (#1636). → `packages/pi-session-neon/AGENTS.md`
 - `packages/prisma-geography/` — Private Prisma 8 PostGIS geography extension pack; control/runtime descriptors and disposable-DB evidence. → `packages/prisma-geography/AGENTS.md`
 - `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, the Prisma chain, the five service roles) shared by every database-backed suite. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`workers/edge/src/entry.ts`): the gateway (auth, `/v1` routing, the image/tile proxies incl. the private `docs-assets` arm at `/img/docs/*`; no page fallback — unmatched paths 404) **and**, the native Pi agent tier (`workers/edge/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/edge/AGENTS.md`
-- `workers/migrator/`  — TS Worker that applies the one Prisma chain (bundled into the Worker) behind GitHub OIDC. → `workers/migrator/AGENTS.md`
-  The chain itself lives with the contract that owns it, `packages/pi-session-neon/`; `supabase/` is an archived historical Supabase migration dir (issue #1000), not a live surface.
+- `workers/migrator/`  — TS Worker that applies the one Prisma chain (bundled into the Worker) behind GitHub OIDC; `supabase/` is an archived historical migration dir (issue #1000), not a live surface. → `workers/migrator/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
@@ -34,9 +34,10 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   semgrep lint tool. **Bundler** runs the Ruby contract suites: install `.ruby-version`'s Ruby
   (rbenv, mise and asdf read it), then `bundle install` and `bundle exec ruby <file>` — the
   `contracts` job's form; it refuses other Rubies.
-- **Every setting lives in `pnpm-workspace.yaml`** — pnpm 11 moved them out of `.npmrc` (auth/registry
-  only) and removed the `package.json#pnpm` field; pnpm 12 rejects a key it does not recognise and
-  ignores a kebab-case one. Keys are camelCase. CI installs with `--frozen-lockfile`.
+- **Every setting lives in `pnpm-workspace.yaml`** — pnpm 11 moved them here out of `.npmrc` and
+  removed the `package.json#pnpm` field; pnpm 12 rejects a key it does not recognise and ignores a
+  kebab-case one. Keys are camelCase, and the workspace file is the only settings surface — there is
+  no `.npmrc`. CI installs with `--frozen-lockfile`.
 - **Catalogs are the version surface.** Every external dependency two or more importers declare is
   defined once in the default `catalog:` and referenced as `catalog:`; `catalogMode: strict` refuses a
   `pnpm add`/`pnpm update` that asks for a version outside a catalog entry. Add the catalog entry
@@ -137,8 +138,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
   | Server | Use it for |
   |---|---|
-  | `supabase-seichijunrei` | Read-only inspection of the **archived** `supabase/` history only (`list_tables`, `get_logs`, `get_advisors`, edge functions) — no mutation-capable ops (`apply_migration`) are listed any more (#1000). Auth is Neon Auth (edge, #950) and the data plane is Neon Postgres. |
-  | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables, Drizzle). Branch/query Neon. |
+  | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables). Prisma 8 owns the schema — one chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1636); catalog/users still query it through Drizzle raw SQL over neon-http until #1629–#1631. Branch/query Neon. |
   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
   | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start). Prefer over memory. |
   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
