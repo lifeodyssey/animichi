@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const dependencies = fileURLToPath(new URL("../../../node_modules/", import.meta.url));
+const dependencies = fileURLToPath(new URL("../node_modules/", import.meta.url));
 const contract = fileURLToPath(new URL("../src/contract", import.meta.url));
 const imports = `import postgres from "@prisma/orm-postgres/runtime";
 import type { Entry } from "@earendil-works/pi-agent-core/harness/session";

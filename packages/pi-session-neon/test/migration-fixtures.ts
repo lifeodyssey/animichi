@@ -1,25 +1,17 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import contractJson from "../src/contract.json" with { type: "json" };
 import { packageRoot, prisma } from "./prisma-migration.ts";
 
-const workspaceModules = fileURLToPath(new URL("../../../node_modules/", import.meta.url));
-const workspaceScope = join(packageRoot, "node_modules/@animichi");
+const packageModules = fileURLToPath(new URL("../node_modules/", import.meta.url));
 
-/** The copy lives outside the workspace, so it needs its own `node_modules`: the hoisted root
- * store (the CLI and `.bin`, Prisma) plus the workspace packages this package depends on.
- * `prisma.config.ts` imports `@animichi/prisma-geography/control`, and pnpm links workspace
- * packages only into the package that depends on them — never into the root. */
+/** The copy lives outside the workspace, so it links this package's own `node_modules`: every
+ * dependency it declares — the Prisma CLI and `.bin`, and `@animichi/prisma-geography`, which
+ * `prisma.config.ts` imports — and nothing it does not. */
 async function linkModules(directory: string) {
-  const modules = join(directory, "node_modules");
-  const scope = join(modules, "@animichi");
-  await mkdir(scope, { recursive: true });
-  const rootLinks = (await readdir(workspaceModules)).filter((entry) => entry !== "@animichi")
-    .map((entry) => symlink(join(workspaceModules, entry), join(modules, entry)));
-  const scopeLinks = (await readdir(workspaceScope)).map((name) => symlink(join(workspaceScope, name), join(scope, name)));
-  await Promise.all([...rootLinks, ...scopeLinks]);
+  await symlink(packageModules, join(directory, "node_modules"));
 }
 
 const FUTURE_FIELD = "model PiSession {\n  futureField String? @map(\"future_field\")";

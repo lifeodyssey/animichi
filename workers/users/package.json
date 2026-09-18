@@ -26,6 +26,7 @@
     "@cloudflare/workers-types": "catalog:",
     "@vitest/coverage-istanbul": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

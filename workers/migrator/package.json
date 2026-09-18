@@ -33,6 +33,7 @@
     "miniflare": "catalog:",
     "pg": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

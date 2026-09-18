@@ -8,12 +8,12 @@ packages:
 # pnpm 11 moved every non-auth setting here out of `.npmrc` and removed the
 # `package.json#pnpm` field; 12 rejects a key it does not recognise. Keys are
 # camelCase — a kebab-case key is silently ignored with a warning. This file is
-# the only settings surface: `nodeLinker`/`shamefullyHoist` were `.npmrc`'s only
-# two lines, so `.npmrc` is deleted. Both keep their pre-migration values; the
-# flat root `node_modules` that wrangler, vitest-pool-workers and esbuild resolve
-# through is unchanged, and swapping the linker is a separate, testable decision.
-nodeLinker: hoisted
-shamefullyHoist: true
+# the only settings surface, so there is no `.npmrc`.
+#
+# The linker is pnpm's default isolated one (#1730): no `nodeLinker`, no
+# `shamefullyHoist`. A package resolves only what its own manifest declares, so
+# a dependency borrowed from a neighbour fails the install instead of shipping
+# (#578), and every worktree links into the one shared store.
 
 # v11/v12 defaults kept deliberately, each with its reason:
 #   strictDepBuilds: true   — kept. The `allowBuilds` map below is the explicit
@@ -66,6 +66,7 @@ catalog:
   "@orpc/openapi": "1.15.1"
   "@orpc/openapi-client": "1.15.1"
   "@orpc/server": "1.15.1"
+  "@playwright/test": "^1.63.0"
   "@prisma/cli-engine": "0.3.0"
   # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
   "@prisma/orm-postgres": "8.0.0-rc.9"
@@ -105,6 +106,7 @@ catalog:
   "tsx": "^4.23.13"
   "typebox": 1.3.32
   "typescript": "^7.0.2"
+  "vite": "^8.3.0"
   # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742
   "vitest": "^4.1.11"
   "wrangler": "4.132.0"
@@ -139,15 +141,22 @@ overrides:
   # TS2769 importing the repo's own `pg` and prisma's. Types only, so one copy.
   "@types/pg": "8.23.1"
   lodash: ">=4.18.1 <5"
+  # `vite` is an optional peer of the `@prisma/orm-*` family, and pnpm keys each
+  # copy of a package by its resolved peers. `workers/edge` never declares vite,
+  # so its graph kept an older auto-installed one and got its own
+  # `@prisma/orm-postgres`; `param()` from `@animichi/pi-session-neon`'s copy is
+  # then a foreign value to the edge runtime's `sql` (RAW_SQL_UNSUPPORTED_
+  # INTERPOLATION). The hoisted linker hid it by linking one directory for both.
+  vite: "catalog:"
 
 # `allowBuilds` replaces pnpm 10's `onlyBuiltDependencies` family. Under
 # `strictDepBuilds: true` every dependency that declares an install script must
 # appear here or the install fails, so this map is the complete set pnpm named in
 # `ERR_PNPM_IGNORED_BUILDS`, not a sample. All twelve are `false`: none of them
 # has ever run here. pnpm 10 blocked dependency build scripts by default and CI
-# installs with `--ignore-scripts`, and `node_modules/esbuild/bin/esbuild` and
-# `node_modules/workerd/bin/workerd` are still the JS shims — proof the scripts
-# have never executed. Read each entry as "the shell is not needed":
+# installs with `--ignore-scripts`, and `esbuild/bin/esbuild` and
+# `workerd/bin/workerd` under `node_modules/.pnpm/` are still the JS shims — proof
+# the scripts have never executed. Read each entry as "the shell is not needed":
 #   workerd, esbuild      — optional-platform packages supply the binary; the
 #                           install script only validates/hardlinks it.
 #   @parcel/watcher       — `scripts/build-from-source.js` is a no-op unless
