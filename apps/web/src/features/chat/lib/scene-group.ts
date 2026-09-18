@@ -9,7 +9,13 @@ export interface SceneViewpoint {
   readonly id: string;
   /** Only display a viewpoint label if the caller actually has one. */
   readonly name?: string;
+  readonly origin?: string;
+  readonly originUrl?: string;
   readonly frames: readonly SceneFrame[];
+}
+
+export function sceneCredit(viewpoint: SceneViewpoint) {
+  return { origin: viewpoint.origin, originUrl: viewpoint.originUrl };
 }
 
 export function sceneGroupLabel(placeName: string, viewpoint: SceneViewpoint): string {

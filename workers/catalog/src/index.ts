@@ -6,6 +6,7 @@ import { catalogRouter } from "./router";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
 import { serveImage } from "./media/img";
+import { parseAnitabiImagePlan } from "@animichi/contract/anitabi-display";
 import { mountSnapshotRoutes } from "./api/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
@@ -97,16 +98,15 @@ function waitUntilFor(
 }
 
 app.get("/catalog/img/:pointId", async (c) => {
+  const plan = parseAnitabiImagePlan(c.req.query("plan"));
+  if (plan === null) return c.json({ error: "image plan required" }, 400);
   const connStr = await connectionString(c.env);
   const bucket = c.env.MEDIA_BUCKET;
   if (!connStr || !bucket) {
     return c.json({ error: "catalog media not configured" }, 503);
   }
   const { db } = await dbFor(connStr);
-  return serveImage(
-    { db, bucket, fetchImpl: fetch },
-    c.req.param("pointId"),
-  );
+  return serveImage({ db, bucket, fetchImpl: fetch }, c.req.param("pointId"), plan);
 });
 
 app.use("/catalog/*", async (c, next) => {

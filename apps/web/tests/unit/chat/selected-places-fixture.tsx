@@ -6,7 +6,7 @@ import type { SelectedPlace } from "../../../src/features/chat/lib/selected-plac
 import { chatDictFor } from "../../../src/features/chat/i18n";
 
 export const reviewPlaces = [
-  { id: "a", name: "宇治橋", viewpoints: [{ id: "a1", name: "橋上", frames: [{ id: "1", url: "/a.webp" }, { id: "2", url: "/b.webp" }] }, { id: "a2", name: "橋下", frames: [{ id: "3", url: "/c.webp" }] }] },
+  { id: "a", name: "宇治橋", viewpoints: [{ id: "a1", name: "橋上", origin: "バンダイチャンネル", originUrl: "https://www.b-ch.com/ttl/index.php?ttl_c=1", frames: [{ id: "1", url: "/a.webp" }, { id: "2", url: "/b.webp" }] }, { id: "a2", name: "橋下", frames: [{ id: "3", url: "/c.webp" }] }] },
   { id: "b", name: "宇治神社", viewpoints: [{ id: "b1", frames: [{ id: "4", url: "/d.webp" }] }] },
 ] as const satisfies readonly SelectedPlace[];
 

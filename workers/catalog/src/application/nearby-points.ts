@@ -38,6 +38,7 @@ export interface PointDetail {
   episode: number | null;
   time_seconds: number | null;
   origin: string | null;
+  origin_url: string | null;
   city?: string | null;
 }
 
@@ -167,6 +168,7 @@ function optionals(detail: PointDetail | undefined): Record<string, unknown> {
     episode: detail?.episode,
     time_seconds: detail?.time_seconds,
     origin: detail?.origin,
+    origin_url: detail?.origin_url,
     city: detail?.city,
   };
 }

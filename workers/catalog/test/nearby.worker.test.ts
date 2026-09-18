@@ -35,6 +35,7 @@ interface DetailRow {
   episode: number | null;
   time_seconds: number | null;
   origin: string | null;
+  origin_url: string | null;
   city: string | null;
 }
 
@@ -45,12 +46,12 @@ const GEO: GeoRow[] = [
 
 const WASHINOMIYA: DetailRow = {
   id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg",
-  episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki",
+  episode: 1, time_seconds: 12, origin: "anitabi", origin_url: null, city: "Kuki",
 };
 
 const SATTE: DetailRow = {
   id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null,
-  episode: null, time_seconds: null, origin: null, city: null,
+  episode: null, time_seconds: null, origin: null, origin_url: null, city: null,
 };
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];

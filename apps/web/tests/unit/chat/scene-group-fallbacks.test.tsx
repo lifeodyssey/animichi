@@ -30,14 +30,14 @@ describe("scene groups with incomplete images", () => {
     expect(screen.getByText(dict.search.sceneUnavailable)).toBeTruthy();
     expect(screen.getByRole("checkbox")).toBeTruthy();
     view.rerender(<SceneGroupCard {...props} viewpoint={{ id: "bridge", frames: [{ id: "a", url: "/fixed" }] }} />);
-    expect(screen.getByRole("img").getAttribute("src")).toBe("/fixed");
+    expect(screen.getByRole("img").getAttribute("src")).toBe("/fixed?plan=h160");
   });
 
   it("counts only viewable frames and skips missing URLs when opening the preview", () => {
     render(<SceneGroupCard {...props} viewpoint={{ id: "bridge", frames: [{ id: "missing" }, { id: "a", url: "/a.webp" }] }} />);
     expect(screen.queryByText("2 张")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "查看大图: 宇治橋" }));
-    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("/a.webp");
+    expect(within(screen.getByRole("dialog")).getByRole("img").getAttribute("src")).toBe("/a.webp?plan=h360");
   });
 
   it("can continue to another frame after a full-size image fails", () => {
@@ -47,7 +47,7 @@ describe("scene groups with incomplete images", () => {
     fireEvent.error(dialog.getByRole("img"));
     expect(dialog.getByText(dict.search.sceneUnavailable)).toBeTruthy();
     fireEvent.click(dialog.getByRole("button", { name: "下一张" }));
-    expect(dialog.getByRole("img").getAttribute("src")).toBe("/b.webp");
+    expect(dialog.getByRole("img").getAttribute("src")).toBe("/b.webp?plan=h360");
   });
 
   it("renders no orphan modal when a preview receives no images", () => {

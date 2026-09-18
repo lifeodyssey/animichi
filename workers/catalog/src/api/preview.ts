@@ -60,7 +60,10 @@ function litePoint(point: AnitabiPoint, bangumiId: string): Point {
   const [latitude, longitude] = liteGeo(point.geo);
   return {
     ...liteBase(point, bangumiId, latitude, longitude),
-    ...optional({ episode: liteInt(point.ep), time_seconds: liteInt(point.s) }),
+    ...optional({
+      episode: liteInt(point.ep), time_seconds: liteInt(point.s),
+      origin: liteText(point.origin), origin_url: liteText(point.originURL ?? point.origin_url),
+    }),
   };
 }
 
@@ -87,6 +90,11 @@ function liteImage(raw: unknown): string {
 
 function liteString(raw: unknown): string {
   return typeof raw === "string" ? raw : "";
+}
+
+function liteText(raw: unknown): string | null {
+  const text = liteString(raw);
+  return text === "" ? null : text;
 }
 
 function liteInt(raw: unknown): number | null {

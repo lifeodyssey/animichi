@@ -110,6 +110,9 @@
                           "origin": {
                             "type": "string"
                           },
+                          "origin_url": {
+                            "type": "string"
+                          },
                           "cover_url": {
                             "type": "string"
                           },
@@ -467,6 +470,9 @@
                           "origin": {
                             "type": "string"
                           },
+                          "origin_url": {
+                            "type": "string"
+                          },
                           "cover_url": {
                             "type": "string"
                           },
@@ -680,6 +686,9 @@
                         "origin": {
                           "type": "string"
                         },
+                        "origin_url": {
+                          "type": "string"
+                        },
                         "cover_url": {
                           "type": "string"
                         },
@@ -870,6 +879,9 @@
                             "type": "number"
                           },
                           "origin": {
+                            "type": "string"
+                          },
+                          "origin_url": {
                             "type": "string"
                           },
                           "cover_url": {
@@ -1128,6 +1140,9 @@
                             "type": "number"
                           },
                           "origin": {
+                            "type": "string"
+                          },
+                          "origin_url": {
                             "type": "string"
                           },
                           "cover_url": {
@@ -1597,6 +1612,12 @@
                             "maximum": 180
                           },
                           "city": {
+                            "type": "string"
+                          },
+                          "origin": {
+                            "type": "string"
+                          },
+                          "origin_url": {
                             "type": "string"
                           }
                         },

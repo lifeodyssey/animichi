@@ -1,4 +1,6 @@
 import type { AnimeScene } from "@animichi/contract";
+import { ANITABI_THUMBNAIL_PLAN } from "@animichi/contract/anitabi-display";
+import { LandmarkShot, type LandmarkCredit, type LandmarkImage } from "../../lib/landmark-shot";
 import type { BubbleMapCopy } from "./copy";
 
 type Props = Readonly<{
@@ -16,14 +18,25 @@ function hasRenderableShot(url: string | null): url is string {
 }
 
 function SpotShot({ scene, copy }: Readonly<{ scene: AnimeScene; copy: BubbleMapCopy }>) {
-  if (!hasRenderableShot(scene.screenshot_url)) {
-    return (
-      <div role="img" aria-label={scene.name} className="grid aspect-video w-full place-items-center rounded-lg bg-[var(--color-muted)] text-xs text-[var(--color-muted-fg)]">
-        {copy.noPhoto}
-      </div>
-    );
-  }
-  return <img src={scene.screenshot_url} alt={scene.name} loading="lazy" className="aspect-video w-full rounded-lg object-cover" />;
+  const url = scene.screenshot_url;
+  if (!hasRenderableShot(url)) return <SpotPlaceholder name={scene.name} copy={copy} />;
+  return <LandmarkShot image={spotImage(url, scene.name)} credit={spotCredit(scene)} />;
+}
+
+function SpotPlaceholder({ name, copy }: Readonly<{ name: string; copy: BubbleMapCopy }>) {
+  return (
+    <div role="img" aria-label={name} className="grid aspect-video w-full place-items-center rounded-lg bg-[var(--color-muted)] text-xs text-[var(--color-muted-fg)]">
+      {copy.noPhoto}
+    </div>
+  );
+}
+
+function spotImage(src: string, alt: string): LandmarkImage {
+  return { src, alt, plan: ANITABI_THUMBNAIL_PLAN, className: "aspect-video w-full rounded-lg object-cover" };
+}
+
+function spotCredit(scene: AnimeScene): LandmarkCredit {
+  return { origin: scene.origin, originUrl: scene.origin_url };
 }
 
 function SpotItem({ scene, copy }: Readonly<{ scene: AnimeScene; copy: BubbleMapCopy }>) {

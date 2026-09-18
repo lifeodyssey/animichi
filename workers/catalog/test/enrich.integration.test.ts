@@ -30,7 +30,7 @@ const RAW_BANGUMI = {
 };
 // Two points ~12m apart (one 50m cluster) + a far one (a second cluster).
 const RAW_ANITABI = [
-  { id: "p-washinomiya", name: "鷲宮神社", geo: [36.1019, 139.6586], image: "/2024/shrine.jpg", ep: 1, s: 42 },
+  { id: "p-washinomiya", name: "鷲宮神社", geo: [36.1019, 139.6586], image: "/2024/shrine.jpg", ep: 1, s: 42, origin: "バンダイチャンネル", originURL: "https://www.b-ch.com/ttl/index.php?ttl_c=1" },
   { id: "p-torii", cn: "鳥居", geo: [36.10199, 139.65861], image: "https://img/torii.jpg", ep: 1 },
   { id: "p-tokyo", name: "東京駅", lat: 35.6812, lng: 139.7671, screenshot: "/2024/tokyo.jpg", episode: 3 },
 ];
@@ -129,6 +129,23 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
       await db.execute(sql`SELECT image FROM points WHERE id = 'p-washinomiya'`)
     ).rows as { image: string }[];
     expect(rows[0]?.image).toBe("https://image.anitabi.cn/2024/shrine.jpg");
+  });
+
+  it("stores origin and origin_url from the upstream payload", async () => {
+    const rows = (
+      await db.execute(sql`SELECT origin, origin_url FROM points WHERE id = 'p-washinomiya'`)
+    ).rows as { origin: string | null; origin_url: string | null }[];
+    expect(rows[0]).toEqual({
+      origin: "バンダイチャンネル",
+      origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+    });
+  });
+
+  it("leaves origin null when the payload omits it", async () => {
+    const rows = (
+      await db.execute(sql`SELECT origin, origin_url FROM points WHERE id = 'p-tokyo'`)
+    ).rows as { origin: string | null; origin_url: string | null }[];
+    expect(rows[0]).toEqual({ origin: null, origin_url: null });
   });
 
   it("writes normalized aliases from the bangumi titles", assertEnrichAliases);

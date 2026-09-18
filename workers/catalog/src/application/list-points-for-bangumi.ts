@@ -30,6 +30,8 @@ export interface PublishedPointRow {
   title_cn: string | null;
   cover_url: string | null;
   city?: string | null;
+  origin: string | null;
+  origin_url: string | null;
   // workerd's raw pg returns timestamptz as a string (Node parses it to Date) — accept both.
   synced_at: Date | string | null;
 }
@@ -79,6 +81,7 @@ function meta(r: PublishedPointRow): Partial<Point> {
   return optional({
     name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
     title: r.title, title_cn: r.title_cn, cover_url: r.cover_url, city: r.city,
+    origin: r.origin, origin_url: r.origin_url,
   });
 }
 
