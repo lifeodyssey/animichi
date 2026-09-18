@@ -1,6 +1,6 @@
 /**
  * Atomic version publish over `cluster_version`
- * (`migrations/neon/20260623000001_init.sql`):
+ * (the data-plane contract):
  *   id, bangumi_id, version, is_current, created_at, with the partial unique index
  *   `uq_cluster_version_one_current` (bangumi_id) WHERE is_current.
  *

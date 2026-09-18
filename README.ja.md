@@ -62,20 +62,21 @@ make check-full
 
 ## データベースマイグレーション
 
-Neon の catalog/user データ面のスキーマ変更は `migrations/neon/` に記録し、固定した
-Atlas CLI で適用します。`migrations/neon/atlas.sum` は生成される整合性マニフェストなので、
+Neon データ面のスキーマは `packages/pi-session-neon/src/contract.prisma` で宣言し、
+`packages/pi-session-neon/migrations/` の 1 本の Prisma 8 チェーンとして版管理します。生成物は
 マイグレーションと同じ変更で再生成してください。Worker の Drizzle schema は実行時の
 クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。`supabase/` は
 アーカイブ対象の歴史的 Supabase マイグレーションツリー（issue #1000）で、適用されず
 Neon の新しいテーブルのソースでもありません。
 
 ```bash
-make db-list           # リポジトリ内の Atlas マイグレーション一覧
-make db-hash           # migrations/neon/atlas.sum を再生成
-make db-validate       # checksum と SQL 構造を検証
-make db-push-dry       # NEON_DATABASE_URL に対する dry-run
-make db-push           # NEON_DATABASE_URL に適用
+make db-new NAME=x     # チェーンにマイグレーションを起草
+make db-lint           # 生成物の整合性とグラフの連結性
+make db-status         # 適用パスと未適用の一覧
 ```
+
+ローカルに apply ターゲットはありません。データベース資格情報を持つのは migrator Worker
+だけで、マイグレーションを適用するのは CD だけです。
 
 境界、CI ゲート、デプロイ順序は [`docs/ops/migrations.md`](docs/ops/migrations.md) を参照してください。マイグレーションはアプリ起動時ではなく、デプロイ時の専用ステップで適用してください。
 
@@ -113,7 +114,6 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
 - `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
-- `migrations/neon/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — 旧版互換マイグレーションと Supabase プロジェクト資産（auth は Neon Auth へ移行済み、AUTH-2 #950）
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
 - `Makefile`、`package.json` — ルートに残すツール入口。`workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
@@ -122,7 +122,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [アーキテクチャ](docs/ARCHITECTURE.md) — システム設計リファレンス
 - [デプロイ](docs/ops/deployment.md) — Cloudflare Workers デプロイガイド
-- [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
+- [マイグレーション境界](docs/ops/migrations.md) — Prisma チェーンの権威と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
 - [実装計画（アーカイブ）](docs/archive/plans/) — 過去の実行計画（平層 `plans/` には新規を置かない）

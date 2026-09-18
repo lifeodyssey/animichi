@@ -29,18 +29,21 @@ it("refuses apply for an unavailable native snapshot before database configurati
   expect(await response.json()).toEqual({ error: "stale_prisma_bundle", prismaTarget: PRISMA_TARGET });
 });
 
-it("refuses a staging-only native baseline in production before database configuration", async () => {
+// #1621: the production gate is the GitHub environment approval, not a field in the request
+// body. A caller that adds one is refused for the reason that still holds — the receiver
+// compares the key set exactly — and never because of what the extra field claims.
+it("refuses a production request carrying a field the contract does not declare", async () => {
   const { jwk, token } = await issuedToken({ environment: "production", sub: "repo:lifeodyssey/animichi:environment:production" });
   const app = createMigratorApp({ jwks: joseEnv(jwk), migrationsDir: MIGRATIONS });
-  const response = await app.request(post({ ...requestMetadata, stagingOnlyBaseline: true }, token), {}, {
+  const response = await app.request(post({ ...requestMetadata, stagingOnly: true }, token), {}, {
     MIGRATOR_OIDC_POLICY: "production",
   });
-  expect(response.status).toBe(422);
-  expect(await response.json()).toEqual({ error: "staging_only_baseline" });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: "invalid_migration" });
 });
 
 it("refuses native preview when its shared apply lock is unconfigured", async () => {
-  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS });
+  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: undefined });
   const response = await app.request(preflightRequest(requestMetadata, token), {}, testEnv());
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "preflight_unavailable" });

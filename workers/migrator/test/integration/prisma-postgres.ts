@@ -1,31 +1,41 @@
 import pg from "pg";
 import { expect, vi } from "vitest";
+import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
+import { useOwnedDatabase } from "./owned-database";
+
+const EXTENSIONS = ["postgis", "pgcrypto", "pg_trgm", "vector"] as const;
+
+/** The extensions are already present in the database Neon hands the non-superuser migrator; the
+ * chain's `IF NOT EXISTS` then only proves their versions, which is what lets a role without
+ * superuser reach the end of the baseline. */
+async function installExtensions(dsn: string): Promise<void> {
+  const client = new pg.Client(dsn);
+  await client.connect();
+  try {
+    for (const extension of EXTENSIONS) await client.query(`CREATE EXTENSION "${extension}"`);
+  } finally { await client.end(); }
+}
+
+/** The migration target: a pristine `template1` database carrying the extensions Neon preinstalls
+ * and nothing else, so the sealed graph is the only owner of every object in it. Named per call
+ * and dropped by `stop()`, like every database created on the shared container (#1663). */
+export interface PrismaMigrationTarget {
+  readonly dsn: string;
+  stop(): Promise<void>;
+}
+
+export async function openPrismaMigrationTarget(adminDsn: string, suite: string): Promise<PrismaMigrationTarget> {
+  const name = uniqueDatabaseName(suite);
+  const dsn = await createCleanDatabase(adminDsn, name);
+  const target: PrismaMigrationTarget = { dsn, stop: () => dropCleanDatabase(adminDsn, name) };
+  return useOwnedDatabase(target, async () => {
+    await installExtensions(dsn);
+    return target;
+  });
+}
 
 interface Query { query: string; params: unknown[] }
 interface Batch { queries: Query[] }
-
-/** Native database cloning keeps each test isolated without replaying Atlas.
- *
- * The template comes from the DSN, not from a name written here: the shared
- * container names each call's database per call (#1663), so a hard-coded
- * `native_delivery` is a database that no longer exists. */
-export async function clonePrismaDatabase(serverDsn: string, name: string): Promise<string> {
-  const url = new URL(serverDsn);
-  const admin = await adminClient(url);
-  try { await admin.query(`CREATE DATABASE "${name}" TEMPLATE "${url.pathname.slice(1)}"`); }
-  finally { await admin.end(); }
-  url.pathname = `/${name}`;
-  return url.toString();
-}
-
-/** A session on the same server's admin database, where a clone is created. */
-async function adminClient(url: URL): Promise<pg.Client> {
-  const adminUrl = new URL(url);
-  adminUrl.pathname = "/postgres";
-  const client = new pg.Client(adminUrl.toString());
-  await client.connect();
-  return client;
-}
 
 async function query(client: pg.Client, statement: Query) {
   return client.query<unknown[]>({ text: statement.query, values: statement.params, rowMode: "array" });

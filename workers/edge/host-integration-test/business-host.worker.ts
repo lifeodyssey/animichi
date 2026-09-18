@@ -1,11 +1,11 @@
-import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import type { Contract } from "@animichi/pi-session-neon/types";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import type { Session, SessionMetadata } from "@earendil-works/pi-agent-core/harness/session";
 import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type FauxProviderHandle, type FauxResponseStep } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
+import { nativeClient } from "../src/native-client.ts";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
 import { persistPermanentRejection } from "../src/agent/admission/permanent-rejection.ts";
@@ -111,7 +111,7 @@ export class BusinessHost extends SessionAgent {
   protected override async initializeSession() {
     const url = this.env.AGENT_SVC_DATABASE_URL;
     if (typeof url !== "string") throw new Error("Disposable database is missing");
-    const db = this.configureDatabase(postgresClient<Contract>({ contractJson, url }));
+    const db = this.configureDatabase(nativeClient(url));
     const metadata = await db.orm.public.PiSession.where({ id: this.name }).first();
     const created = metadata ? undefined : await new NeonSessionRepo(db).create({ id: this.name }, BACKGROUND_CONTEXT);
     const nativeMetadata = created?.metadata ?? metadata?.metadata as unknown as SessionMetadata;

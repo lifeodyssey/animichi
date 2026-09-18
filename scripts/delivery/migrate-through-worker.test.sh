@@ -10,7 +10,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="$ROOT/scripts/delivery/migrate-through-worker.sh"
-SEALED_HEAD="20260904000000_platform_usage_scope"
+SEALED_REF="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+OTHER_REF="cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 WORKSPACE=""
 # Resolved before any test puts the stub on PATH, so the stub can still reach the
 # shipped curl. Every URL below is loopback port 1: the real curl either refuses
@@ -22,7 +23,7 @@ export REAL_CURL
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # `curl` reaches three endpoints here: the OIDC mint, /healthz and /migrate.
-# Each call appends its kind to CALL_LOG; /healthz answers STUB_HEADS one entry
+# Each call appends its kind to CALL_LOG; /healthz answers STUB_TARGETS one entry
 # per call (the last entry repeats), /migrate answers STUB_CODES the same way.
 make_curl_stub() {
   cat > "$WORKSPACE/bin/curl" <<'STUB'
@@ -45,14 +46,14 @@ pick() { local list="$1" index="$2"; awk -v i="$index" '{ print (i + 1 <= NF) ? 
 case "$args" in
   *"/healthz"*)
     echo healthz >> "${CALL_LOG:?}"
-    printf '{"bundleHead":"%s","prismaTarget":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}\n' "$(pick "${STUB_HEADS:?}" "$(count_of "$STUB_STATE/healthz")")"
+    printf '{"prismaTarget":"%s"}\n' "$(pick "${STUB_TARGETS:?}" "$(count_of "$STUB_STATE/healthz")")"
     ;;
   *"/migrate"*)
     echo migrate >> "${CALL_LOG:?}"
     out="${args#*-o }"; out="${out%% *}"
     code="$(pick "${STUB_CODES:?}" "$(count_of "$STUB_STATE/migrate")")"
-    printf '{"success":true,"appliedHead":"%s","prisma":{"markerHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","migrationsApplied":0}}\n' "${STUB_APPLIED:?}" > "$out"
-    [ "$code" != 409 ] || printf '{"error":"stale_bundle"}\n' > "$out"
+    printf '{"success":true,"prisma":{"markerHash":"%s","migrationsApplied":0}}\n' "${STUB_MARKER:?}" > "$out"
+    [ "$code" != 409 ] || printf '{"error":"stale_prisma_bundle"}\n' > "$out"
     printf '%s' "$code"
     ;;
   *)
@@ -68,38 +69,36 @@ STUB
 
 setup() {
   WORKSPACE="$(mktemp -d)"
-  mkdir -p "$WORKSPACE/bin" "$WORKSPACE/state" "$WORKSPACE/migrations"
+  mkdir -p "$WORKSPACE/bin" "$WORKSPACE/state"
   make_curl_stub
-  : > "$WORKSPACE/migrations/$SEALED_HEAD.sql"
-  printf '{"storage":{"storageHash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}\n' > "$WORKSPACE/contract.json"
-  printf 'h1:fixture\n%s.sql h1:fixture\n' "$SEALED_HEAD" > "$WORKSPACE/migrations/atlas.sum"
+  printf '{"storage":{"storageHash":"%s"}}\n' "$SEALED_REF" > "$WORKSPACE/contract.json"
   export PATH="$WORKSPACE/bin:$PATH"
   export CALL_LOG="$WORKSPACE/calls" STUB_STATE="$WORKSPACE/state"
   export RUNNER_TEMP="$WORKSPACE" MIGRATOR_URL="https://127.0.0.1:1"
   export ACTIONS_ID_TOKEN_REQUEST_URL="https://127.0.0.1:1/token?a=1"
   export ACTIONS_ID_TOKEN_REQUEST_TOKEN="request-token"
   export BUNDLE_POLL_ATTEMPTS=3 BUNDLE_POLL_SECONDS=0 STALE_BUNDLE_ATTEMPTS=2
-  export STUB_HEADS="$SEALED_HEAD" STUB_CODES="200" STUB_APPLIED="$SEALED_HEAD"
+  export STUB_TARGETS="$SEALED_REF" STUB_CODES="200" STUB_MARKER="$SEALED_REF"
   : > "$CALL_LOG"
 }
 
 teardown() { rm -rf "$WORKSPACE"; }
 
-run_script() { bash "$SCRIPT" production "$WORKSPACE/migrations" "$WORKSPACE/contract.json" 2>&1; }
+run_script() { bash "$SCRIPT" production "$WORKSPACE/contract.json" 2>&1; }
 
 calls() { tr '\n' ' ' < "$CALL_LOG"; }
 
 case_applies_after_the_bundle_is_serving() {
   setup
   run_script > "$WORKSPACE/out" || fail "a serving bundle must migrate"
-  grep -q "migrator applied $SEALED_HEAD" "$WORKSPACE/out" || fail "must report the applied head"
+  grep -q "migrator applied $SEALED_REF" "$WORKSPACE/out" || fail "must report the applied identity"
   [ "$(calls)" = "token healthz migrate " ] || fail "polled: $(calls)"
   teardown
 }
 
 case_waits_for_the_new_bundle_before_posting() {
   setup
-  STUB_HEADS="old-head old-head $SEALED_HEAD"
+  STUB_TARGETS="$OTHER_REF $OTHER_REF $SEALED_REF"
   run_script > /dev/null || fail "must migrate once the new bundle serves"
   [ "$(calls)" = "token healthz healthz healthz migrate " ] || fail "did not wait: $(calls)"
   teardown
@@ -107,9 +106,9 @@ case_waits_for_the_new_bundle_before_posting() {
 
 case_fails_when_the_new_bundle_never_serves() {
   setup
-  STUB_HEADS="old-head"
+  STUB_TARGETS="$OTHER_REF"
   run_script > "$WORKSPACE/out" && fail "a bundle that never updates must fail the release"
-  grep -q "never served bundle head $SEALED_HEAD" "$WORKSPACE/out" || fail "wrong message: $(cat "$WORKSPACE/out")"
+  grep -q "never served schema identity $SEALED_REF" "$WORKSPACE/out" || fail "wrong message: $(cat "$WORKSPACE/out")"
   grep -q migrate "$CALL_LOG" && fail "must never POST to a stale bundle"
   teardown
 }
@@ -118,7 +117,7 @@ case_retries_a_409_stale_bundle() {
   setup
   STUB_CODES="409 200"
   run_script > "$WORKSPACE/out" || fail "a 409 must be retried, not fail the release"
-  grep -q "409 stale_bundle" "$WORKSPACE/out" || fail "must say why it retried"
+  grep -q "409 stale_prisma_bundle" "$WORKSPACE/out" || fail "must say why it retried"
   [ "$(calls)" = "token healthz migrate healthz migrate " ] || fail "did not re-poll: $(calls)"
   teardown
 }
@@ -128,6 +127,16 @@ case_gives_up_on_an_endless_409() {
   STUB_CODES="409"
   run_script > "$WORKSPACE/out" && fail "an endless 409 must fail the release"
   grep -q "still served a stale bundle after 2 attempts" "$WORKSPACE/out" || fail "wrong message"
+  teardown
+}
+
+# The marker the migrator reports IS the release's identity claim: a success naming another
+# graph must fail the release rather than be reported as applied.
+case_refuses_a_receipt_for_another_identity() {
+  setup
+  STUB_MARKER="$OTHER_REF"
+  run_script > "$WORKSPACE/out" && fail "a receipt for another identity must fail the release"
+  grep -q "did not apply schema identity $SEALED_REF" "$WORKSPACE/out" || fail "wrong message: $(cat "$WORKSPACE/out")"
   teardown
 }
 
@@ -167,6 +176,7 @@ for test_case in \
   case_fails_when_the_new_bundle_never_serves \
   case_retries_a_409_stale_bundle \
   case_gives_up_on_an_endless_409 \
+  case_refuses_a_receipt_for_another_identity \
   case_fails_on_any_other_status \
   case_refuses_a_plaintext_token_endpoint \
   case_refuses_a_plaintext_migrator_url; do

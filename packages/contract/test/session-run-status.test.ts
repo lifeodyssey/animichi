@@ -14,7 +14,7 @@
  * and the route sets no `response_model_exclude_none`); both parse.
  *
  * The reason vocabulary is `runs_failure_reason_check` verbatim
- * (`migrations/neon/20260902000000_agent_runs.sql`); the edge holds the two
+ * (the retired `runs` table's status vocabulary); the edge holds the two
  * sides to each other in `workers/edge/test/agent-runs-schema.test.ts`.
  *
  * test-type: api.

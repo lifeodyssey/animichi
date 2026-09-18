@@ -11,6 +11,7 @@ const contract = fileURLToPath(new URL("../src/contract", import.meta.url));
 const imports = `import postgres from "@prisma/orm-postgres/runtime";
 import type { Entry } from "@earendil-works/pi-agent-core/harness/session";
 import type { Contract } from "${contract}.d.ts";
+import type { FieldOutputTypes } from "${contract}.d.ts";
 import contractJson from "${contract}.json" with { type: "json" };
 const db = postgres<Contract>({ contractJson });
 const entry: Entry = { id: "entry", parentId: null, seq: 0, timestamp: 123,
@@ -44,4 +45,10 @@ void test("a string cannot replace the native numeric sequence", async () => {
   const result = await compile('db.sql.public.pi_sessions.insert([{ id: entry.id, metadata: {}, next_seq: "wrong" }]).build();');
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.match(result.stdout, /Type 'string' is not assignable to type/);
+});
+
+void test("the emitted catalog array field remains readonly", async () => {
+  const result = await compile('declare const route: FieldOutputTypes["public"]["SavedRoute"]; route.pointIds.push("point");');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /Property 'push' does not exist on type/);
 });

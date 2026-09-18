@@ -1,25 +1,19 @@
 import { after, before, beforeEach } from "node:test";
-import { process } from "../test-support/node-globals.ts";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
 import { AGENT_DB_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
-import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../src/native-client.ts";
+import { startContractDatabase, type ContractDatabase } from "../test/contract-database.ts";
 
 export let db: PostgresClient<Contract>;
 let postgres: TestPostgres | undefined;
-const resources: { db?: PostgresClient<Contract> } = {};
+const resources: { db?: PostgresClient<Contract>; contract?: ContractDatabase } = {};
 export const SESSION = "settlement-session";
 
 before(async () => {
   postgres = await startTestPostgres({ database: "native_settlement", budget: AGENT_DB_SETUP_BUDGET });
-  await promisify(execFile)("pnpm", ["exec", "prisma", "db", "migrate", "--db", postgres.dsn, "--json"], {
-    cwd: fileURLToPath(new URL("../../../packages/pi-session-neon/", import.meta.url).href),
-    env: { ...process.env, DO_NOT_TRACK: "1" },
-  });
-  db = resources.db = postgresClient<Contract>({ contractJson, url: postgres.dsn });
+  const contract = resources.contract = await startContractDatabase(postgres, "native_settlement");
+  db = resources.db = nativeClient(contract.dsn);
 });
 
 beforeEach(async () => {
@@ -31,9 +25,19 @@ beforeEach(async () => {
 
 after(async () => {
   try { await resources.db?.close(); }
-  finally { await postgres?.stop(); }
+  finally { await stopResources(); }
 });
 
 export function session(id: string) {
   return db.orm.public.PiSession.create({ id, metadata: { id, createdAt: 1, storageVersion: 1 } });
+}
+
+/** Order matters: the contract database is dropped through the shared server the `TestPostgres`
+ * owns, so its `stop()` — which drops that server's own database — comes second. */
+async function stopResources(): Promise<void> {
+  try {
+    await resources.contract?.stop();
+  } finally {
+    await postgres?.stop();
+  }
 }

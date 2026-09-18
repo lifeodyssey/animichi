@@ -17,7 +17,7 @@ describe("catalog database helper", () => {
     expect(CATALOG_TABLES).toHaveLength(15);
     expect(statement).toContain('"saved_route_anime"');
     expect(statement).not.toMatch(/CASCADE/u);
-    expect(statement).not.toMatch(/locations|location_aliases|atlas_schema_revisions/u);
+    expect(statement).not.toMatch(/locations|location_aliases|prisma_contract/u);
     expect(statement).toMatch(/RESTART IDENTITY$/u);
   });
 

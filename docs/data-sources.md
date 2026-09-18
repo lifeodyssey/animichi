@@ -1,8 +1,8 @@
 # Gazetteer data sources
 
 The catalog gazetteer is compiled into an independent seed file
-(`workers/catalog/data/gazetteer_seed.sql`), **not** an Atlas migration: it is loaded
-idempotently after the schema exists, keeping the `migrations/neon/` chain schema-only.
+(`workers/catalog/data/gazetteer_seed.sql`), **not** a migration: it is loaded idempotently after
+the schema exists, keeping the migration chain schema-only.
 Raw source files are not committed.
 
 ## MLIT N02-2023 railway stations
@@ -33,7 +33,7 @@ node --import tsx workers/catalog/scripts/build-gazetteer.ts \
   --out-audit workers/catalog/data/gazetteer-audit.csv
 ```
 
-No `atlas migrate hash` step is needed — the seed is not part of the migration chain.
+No migration step is needed — the seed is not part of the migration chain.
 
 The generator verifies both extracted inputs against
 `workers/catalog/data/gazetteer-sources.json` before building. A deliberate source refresh may use
@@ -49,7 +49,7 @@ byte-identical.
 ## Loading the seed
 
 The seed requires the `locations` / `location_aliases` schema to already exist (apply the
-`migrations/neon/` chain first). It is idempotent (`INSERT ... ON CONFLICT DO NOTHING`),
+the migration chain first). It is idempotent (`INSERT ... ON CONFLICT DO NOTHING`),
 so re-running is a no-op:
 
 ```sh
@@ -59,6 +59,6 @@ DATABASE_URL='postgres://user:pass@host/db' make seed-gazetteer
 
 The retired Neon test-base refresh script (test-infra retirement, #1053) loaded it as part of
 `provision`/`refresh` of the `test-base` branch; `test-base` is now refreshed manually with a
-personal Neon key (data, not CI). `make seed-gazetteer`, `atlas_helper`, and the hermetic
-Docker integration lane (`conftest_db.py` applying `migrations/neon/`) all still load the
+personal Neon key (data, not CI). `make seed-gazetteer` and the hermetic Docker integration
+lane still load the
 gazetteer idempotently.

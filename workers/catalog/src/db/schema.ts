@@ -1,7 +1,8 @@
 /**
  * Drizzle mapping for the Catalog service data plane.
  *
- * Mirrors the live Postgres schema exactly (migrations/neon/*). This is the
+ * Mirrors the live Postgres schema exactly (`packages/pi-session-neon/src/contract.prisma`).
+ * This is the
  * single source of table/column mappings under stories 7-9 of #992: reads and
  * writes are built with the Drizzle query builder so column checks happen in
  * TypeScript. Complete hand-written SQL lives nowhere outside the typed
@@ -10,7 +11,7 @@
  *
  * Runtime-only: this schema never generates or applies migrations. It is
  * query-only runtime metadata for the Drizzle query builder; Atlas migrations
- * (migrations/neon/*.sql) remain the sole DDL authority.
+ * (the Prisma chain) remains the sole DDL authority.
  *
  * - Geography (`points.location`, `locations.location`) is PostGIS
  *   GEOGRAPHY(Point,4326). Drizzle has no native geography column, so it is

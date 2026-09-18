@@ -83,12 +83,12 @@ async function assertVerifierMutation(): Promise<void> {
 }
 
 async function assertVerified(): Promise<void> {
-  const result = await prisma(["db", "verify", "--db", fixture.postgres.dsn]);
+  const result = await prisma(["db", "verify", "--db", fixture.chain.dsn]);
   assert.match(result.stdout, /Database schema satisfies contract/u);
 }
 
 async function assertSridDrift(): Promise<void> {
-  const drift = await prismaFailure(["db", "verify", "--db", fixture.postgres.dsn]);
+  const drift = await prismaFailure(["db", "verify", "--db", fixture.chain.dsn]);
   assert.notEqual(drift.exitCode, 0);
   assert.match(drift.stdout, /geography\(Point,4269\)/u);
 }

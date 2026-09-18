@@ -1,6 +1,6 @@
 /**
  * Singleflight job tracking over the `ingest_jobs` table
- * (`migrations/neon/20260623000001_init.sql`):
+ * (the data-plane contract):
  *   work_id (PK), status, stage, error, error_code, negative_cached_until.
  *
  * One ingest per bangumi id runs at a time (singleflight). `acquire` is the

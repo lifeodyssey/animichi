@@ -2,7 +2,7 @@
 
 Canonical ops page for **N5** of the Neon DBA capability map
 ([`2026-08-06-neon-dba-capability-map.md`](../specs/2026-08-06-neon-dba-capability-map.md)
-— D10 / D12 / D15). Schema authoring and deploy-time Atlas apply remain in
+— D10 / D12 / D15). Schema authoring and the deploy-time apply remain in
 [`migrations.md`](./migrations.md); Worker/code rollback remains in
 [`deployment.md`](./deployment.md).
 
@@ -65,9 +65,9 @@ multi-region active-active, or zero-touch restore from CI.
 | Signal | Desired alert | Status |
 |---|---|---|
 | Neon compute/storage/history quota or project-level outage | Neon Console / email notification | **HITL** — no repo-owned pager wiring; owner enables Neon notifications in Console |
-| Atlas `migrate apply` failure in deploy | GitHub Actions `CD` database phase red | **CD-visible**; not a phone page. Owner watches the main-SHA promotion run |
+| Migration apply failure in deploy | GitHub Actions `CD` database phase red | **CD-visible**; not a phone page. Owner watches the main-SHA promotion run |
 | Logfire DB error rate / latency SLO | Logfire alert on staging/prod projects | **HITL** — Logfire tokens exist per environment; **no** Neon-specific alert rules checked into this repo yet (D12 gap) |
-| Staging/prod table count or Atlas revision drift after deploy | Automated post-deploy probe | **HITL** — still manual (see failed-migrate checklist); post-deploy suites partially TODO |
+| Staging/prod table count or marker drift after deploy | Automated post-deploy probe | **HITL** — still manual (see failed-migrate checklist); post-deploy suites partially TODO |
 
 Do **not** invent webhook secrets or production DSNs to “close” this gap in a
 docs PR. Closing automated pages is a follow-up with owner + secrets review.
@@ -78,14 +78,14 @@ docs PR. Closing automated pages is a follow-up with owner + secrets review.
 shared project **and** **GitHub Environment** access for `staging` /
 `production` (same people who approve production deploys).
 
-Run **at least monthly** (and after any production Atlas apply):
+Run **at least monthly** (and after any production migration apply):
 
 | # | Check | How (no secrets in tickets) | Pass? |
 |---|---|---|---|
 | 1 | History window ≥ target | Neon Console → Settings → Instant restore; record days only | ☐ |
 | 2 | Root branches still named as expected | Console Branches list: production / staging roots present; no surprise renames | ☐ |
 | 3 | Neon notifications on | Project settings → notifications / email for failures & usage | ☐ |
-| 4 | Last production deploy Atlas step green | GitHub Actions run for the last prod promotion; Atlas step succeeded | ☐ |
+| 4 | Last production deploy migration step green | GitHub Actions run for the last prod promotion; the migration step succeeded | ☐ |
 | 5 | Spot-check table presence (staging first) | Via Console SQL editor or approved read-only path: `public` has expected business tables; **never paste DSNs** | ☐ |
 | 6 | Drill note | Optional quarterly: Time Travel Assist against **staging root** to a known timestamp (read-only); record date in the PR/issue that closes the drill | ☐ |
 
@@ -96,12 +96,12 @@ After the checklist, leave a short durable note (issue comment or ops PR):
 
 ## Failed migrate checklist
 
-Use when Atlas `migrate apply` fails in CI/deploy, or apply “succeeds” but the
+Use when the migration apply fails in CI/deploy, or apply “succeeds” but the
 Worker cannot query the expected schema.
 
 1. **Stop promotion.** Do not re-run production apply in a loop. Staging first
    always.
-2. **Capture non-secret evidence:** workflow run URL, Atlas exit class
+2. **Capture non-secret evidence:** workflow run URL, the migrator's failure code
    (checksum / SQL error / connection), migration filename, environment name.
    Redact DSNs from any pasted logs.
 3. **Classify:**
@@ -112,9 +112,10 @@ Worker cannot query the expected schema.
      [`migrations.md`](./migrations.md)).
    - *Applied but app incompatible* — schema moved; old or new Workers break;
      go to [Bad-migration recovery stub](#bad-migration-recovery-stub).
-4. **Verify ledger** on the target branch (Console SQL / approved readonly):
-   inspect `public.atlas_schema_revisions` (or Atlas status via migrator DSN
-   **offline from tickets**). Confirm which versions are present.
+4. **Verify the marker** on the target branch (Console SQL / approved readonly):
+   inspect `prisma_contract.marker`, or read the migrator's `/healthz`
+   `prismaTarget` and its last apply receipt **offline from tickets**. Confirm
+   which schema identity is installed.
 5. **Decide path:** forward-fix migration vs PITR (only when data/schema
    destruction requires time travel — owner call).
 6. **Record** branch identity, revision, operator, and outcome in the deploy
@@ -125,9 +126,8 @@ Worker cannot query the expected schema.
 ## Bad-migration recovery stub
 
 **Default narrative (already in deploy docs):** a Worker rollback does **not**
-un-apply Atlas. Prefer **forward-fix**: new timestamped migration that restores
-a safe shape (expand/contract). Never rewrite an applied file in
-`migrations/neon/`.
+un-apply a migration. Prefer **forward-fix**: a new migration that restores a
+safe shape (expand/contract). Never rewrite an applied migration.
 
 ### A. Forward-fix (preferred)
 
@@ -135,8 +135,9 @@ a safe shape (expand/contract). Never rewrite an applied file in
 2. If new Workers are broken but old Workers work with the new schema: roll
    Workers back per [deployment.md](./deployment.md) **only if** the rolled-back
    code is compatible with the **current** schema.
-3. Author a new migration that repairs data/constraints; `atlas migrate hash` +
-   validate; land via normal PR → staging apply → smoke → production.
+3. Author a new migration that repairs data/constraints; `make db-lint` to
+   check its artifacts and graph; land via normal PR → staging apply → smoke →
+   production.
 4. Add/adjust tests that would have caught the failure (unit or integration).
 
 ### B. Neon instant restore (destructive; owner-only)
@@ -151,7 +152,7 @@ seed) and the damage is inside the history window.
 4. Neon Console → root branch → Backup & Restore → restore from history (or
    CLI `neon branches restore` with `preserve_under_name` / auto backup
    branch). Expect brief connection blip; strings unchanged.
-5. Re-check Atlas revision ledger vs `migrations/neon` on the restored state.
+5. Re-check `prisma_contract.marker` against the committed chain on the restored state.
    You may need a careful forward migration to re-align code with the restored
    schema, or redeploy the Worker version that matched that schema.
 6. Keep the `{branch}_old_*` backup branch until smoke passes; then decide
@@ -171,7 +172,7 @@ seed) and the damage is inside the history window.
 
 ## Related entry points
 
-- [`docs/ops/migrations.md`](./migrations.md) — Atlas authority, apply command, expand/contract
+- [`docs/ops/migrations.md`](./migrations.md) — the chain's authority, apply path, expand/contract
 - [`docs/ops/deployment.md`](./deployment.md) — deploy order; Worker/Pulumi rollback; schema non-rollback
 - [`migrations/AGENTS.md`](../../migrations/AGENTS.md) — migration conventions
 - [`docs/ops/neon-test-infra.md`](./neon-test-infra.md) — test-base / branch quota (not production PITR)

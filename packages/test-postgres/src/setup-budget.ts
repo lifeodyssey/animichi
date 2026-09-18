@@ -7,8 +7,9 @@
  * phase that overran. Here the phases share `deadlineMs`: the bind is capped by
  * all of it, and each wait by whatever the bind left behind.
  *
- * `chainMarginMs` is the room after those phases for the clean database and the
- * Atlas chain — a local socket with no network, seconds in practice — and the
+ * `chainMarginMs` is the room after those phases for the clean database, the
+ * service roles and the migration chain — a local socket with no network, tens
+ * of seconds in practice — and the
  * room for an exhausted deadline to throw and be read as an error rather than
  * as a killed hook. `hookTimeoutMs` is their sum: what a `before` awaiting the
  * whole setup must allow.
@@ -26,7 +27,7 @@ export interface SetupBudget {
   readonly deadlineMs: number;
   /** Ceiling on the first-session attempts, and the pause between them. */
   readonly firstSession: StartupWaitLimits;
-  /** Room after the deadline's phases for the clean database and the Atlas chain. */
+  /** Room after the deadline's phases for the clean database, the roles and the chain. */
   readonly chainMarginMs: number;
 }
 

@@ -75,7 +75,7 @@ image.anitabi.cn ───────┘      ↓ raw_anitabi / raw_bangumi(JSO
                           Publish → cluster_version(蓝绿指针);媒体 → R2 catalog-media
 edge Worker 的 native Pi agent = catalog 的只读消费者(经 service binding 读目录)
 users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron 范式的参照实现)
-数据库 + 认证 = Neon(Atlas 迁移 migrations/neon;auth = Neon Auth,edge 仅验 Neon JWKS,AUTH-2 #950 已切净;无 Supabase 依赖)
+数据库 + 认证 = Neon(一条 Prisma 迁移链 packages/pi-session-neon/migrations;auth = Neon Auth,edge 仅验 Neon JWKS,AUTH-2 #950 已切净;无 Supabase 依赖)
 ```
 
 ## 4. 部署链

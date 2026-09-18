@@ -9,9 +9,11 @@ unset "${!GIT_@}"
 cd "$(git rev-parse --show-toplevel)"
 
 # Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`)
-# name CI-side scanners with no local gate; `supabase/` is the archived
-# historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
+# name CI-side scanners with no local gate; `.gitleaks.toml` is the one whose
+# scanner already ran on this change at pre-commit, and whose contract tests
+# live in `test/repo-config/` like every other CI-only config test;
+# `supabase/` is the archived historical migration dir (#1000), not a live surface.
+NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
@@ -117,7 +119,7 @@ while read -r dir name; do
     if has_bucket "$buckets" package; then packages="$packages $name"; fi
   fi
 done <<<"$projects"
-schema=$(grep -cE '^migrations/neon/' <<<"$changed" || true)
+schema=$(grep -cE '^packages/pi-session-neon/migrations/' <<<"$changed" || true)
 docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES|$AGENT_CONTEXT" <<<"$changed" || true)
 printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$schema" "$deps" "$docs"
 
@@ -128,7 +130,7 @@ printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none
 # tree, so a deleted package could never cover its own deleted files (#1607) —
 # and is waived here only: above, deletions still select packages and buckets.
 [ "$deps" = 0 ] || covered="$covered|$ROOT_MANIFEST"
-[ "$schema" = 0 ] || covered="$covered|^migrations/neon/"
+[ "$schema" = 0 ] || covered="$covered|^packages/pi-session-neon/migrations/"
 [ "$docs" = 0 ] || covered="$covered|$AGENT_CONTEXT"
 surviving="$changed"
 [ -z "$deleted" ] || surviving="$(grep -vxF -f <(printf '%s\n' "$deleted") <<<"$changed" || true)"
@@ -140,5 +142,5 @@ for name in $packages; do
     pnpm -r --workspace-concurrency=1 --filter "$closure$name" run --if-present "$script"
   done
 done
-[ "$schema" = 0 ] || atlas migrate validate --dir file://migrations/neon
+[ "$schema" = 0 ] || pnpm --filter @animichi/pi-session-neon exec prisma migration check
 [ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done

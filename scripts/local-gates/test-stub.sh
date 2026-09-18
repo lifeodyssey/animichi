@@ -33,11 +33,11 @@
 # A `pnpm exec wrangler deploy --dry-run --outdir <dir>` invocation also emits
 # the bundle that dry run would have written; see emit_wrangler_bundle below.
 #
-# `node -v` and `atlas version` are SILENT probes: check_prereqs runs them on
+# `node -v` is a SILENT probe: check_prereqs runs it on
 # every gate run, and the invocation log must stay the record of GATES that
-# ran (tests assert_lacks "atlas"/"pulumi" on it). They exit 0, printing the
-# pinned-compliant versions unless GATE_NODE_OLD=1 / GATE_ATLAS_OLD=1 ask for
-# the documented-mismatch versions.
+# ran (tests assert_lacks "pulumi" on it). It exits 0, printing the
+# pinned-compliant version unless GATE_NODE_OLD=1 asks for the
+# documented-mismatch version.
 set -u
 
 log() { printf '%s :: %s %s\n' "$PWD" "$(basename "$0")" "$*" >> "${GATE_TEST_LOG:?}"; }
@@ -78,13 +78,6 @@ case "$tool:$*" in
       printf 'vunknown\n'
     else
       printf 'v24.0.0\n'
-    fi
-    exit 0 ;;
-  atlas:version*)
-    if [ "${GATE_ATLAS_OLD:-}" = "1" ]; then
-      printf 'atlas version v0.29.9\n'
-    else
-      printf 'atlas version v0.30.0\n'
     fi
     exit 0 ;;
 esac

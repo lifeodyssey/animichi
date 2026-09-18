@@ -72,8 +72,12 @@ Root guide: `../../AGENTS.md`.
   TCP, Docker, or child-process work. Filesystem parity checks belong here, not in Worker tests —
   **unless the check must never be skippable**. The suite is **hermetic and fail-loudly** (card
   1049): its `globalSetup` (`test/integration-db-global.ts`) boots a **Docker Postgres+PostGIS**
-  container, applies the committed `migrations/neon` Atlas chain to a clean database, and any setup
-  failure throws — there is no silent-skip path and **zero Neon environment variables**.
+  container and installs the frozen Drizzle-era shape
+  (`packages/test-postgres/sql/drizzle-era-catalog.sql`) on a database of its own — the plane's own
+  database is migrated by the Prisma chain now (#1625), and this query layer still reads the
+  pre-Prisma shape, so the suite keeps a database of its own until #1628–#1631 land
+  (`integration-db-global.ts` carries the same note). Any setup failure throws — there is no
+  silent-skip path and **zero Neon environment variables**.
   The suite is `test:integration`, one of the four scripts every lane already runs for an affected
   package: pre-push (`scripts/local-gates/pre-push-affected.sh`), CI's affected matrix
   (`.github/workflows/pr-verification.yml`) and `make check-full`. It is *not* chained into `test`

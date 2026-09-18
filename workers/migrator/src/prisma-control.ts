@@ -1,9 +1,10 @@
 import { createPostgresControlClient, type ControlClient } from "@prisma/orm-postgres/control";
+import geographyExtensionDescriptor from "@animichi/prisma-geography/control";
 import { defineConfig } from "@prisma/orm-postgres/config";
 import { readContractSnapshotJson } from "@prisma/orm-postgres/migration-tools/contract-snapshot-store";
 import { executeMigrateShowPlan, type MigrateShowMigration } from "@prisma/orm-toolchain/cli/control-api";
 import { PRISMA_MIGRATIONS_DIR, validPrismaRef } from "./prisma-target";
-import { assertDirectDsn } from "./sql";
+import { assertDirectDsn } from "./direct-dsn";
 
 export interface PrismaPreview {
   targetHash: string;
@@ -33,7 +34,7 @@ export async function migratePrisma(dsn: string, ref: string, directory = PRISMA
   assertDirectDsn(dsn);
   if (!validPrismaRef(ref)) return { ok: false, error: "invalid_prisma_ref" };
   const contract = await readContractSnapshotJson(directory, ref);
-  const client = createPostgresControlClient();
+  const client = createPostgresControlClient({ extensions: [geographyExtensionDescriptor] });
   try {
     await client.connect(dsn);
     const result = await client.migrate({ contract, migrationsDir: directory, refHash: ref });

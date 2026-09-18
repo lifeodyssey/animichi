@@ -1,4 +1,4 @@
-# SUT: cd.yml migrations use the authenticated migrator and reject staging-only baselines in production.
+# SUT: cd.yml migrations reach the database only through the authenticated migrator.
 require "minitest/autorun"
 require "psych"
 
@@ -10,10 +10,12 @@ class CdMigrationsTest < Minitest::Test
   EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
-  BASELINE_GUARD_SCRIPT = "infra/database-access/production-baseline-guard.sh"
-  BASELINE_GUARD_MARKER = "release/migrations/STAGING_ONLY_BASELINE"
-  BASELINE_GUARD_RUN = /\A\s*bash\s+#{Regexp.escape(BASELINE_GUARD_SCRIPT)}\s+#{Regexp.escape(BASELINE_GUARD_MARKER)}\b/
-  DIRECT_APPLY = ["atlas migrate apply", "ariga/setup-atlas"].freeze
+  # Nothing in CD may apply the chain except through the migrator Worker: a `psql`, a
+  # `prisma db migrate`, or a migration CLI installed into the runner would each be a second
+  # apply path with a credential of its own. The one staging step that reaches the database
+  # directly, the rebuild of a schema stranded on the Atlas chain, applies no chain and is
+  # pinned to staging by cd-stage.test.rb.
+  DIRECT_APPLY = ["prisma db migrate", "psql ", "neonctl"].freeze
 
   def setup
     @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
@@ -42,41 +44,54 @@ class CdMigrationsTest < Minitest::Test
     end
   end
 
-  def test_baseline_guard_precedes_the_production_migration
-    assert(File.exist?(File.join(ROOT, BASELINE_GUARD_SCRIPT)),
-                     "cd.yml:promote-production: #{BASELINE_GUARD_SCRIPT} does not exist")
-    runs = @cd.dig("jobs", "promote-production", "steps").to_a.map { |step| step["run"].to_s }
-    guard = runs.index { |run| run.match?(BASELINE_GUARD_RUN) }
-    migrate = runs.index { |run| run.include?("#{MIGRATION_SCRIPT} production") }
-    assert(!guard.nil?,
-                     "cd.yml:promote-production: no step runs " \
-                     "`bash #{BASELINE_GUARD_SCRIPT} #{BASELINE_GUARD_MARKER}`")
-    assert(!guard.nil? && !migrate.nil? && guard < migrate,
-                     "cd.yml:promote-production: the staging-only guard must refuse before production migrates")
+  # #1621: the owner deleted the artifact-level production baseline gate rather than rehousing
+  # it. What protects production is the `production` environment's own approval, so the job that
+  # migrates it must declare that environment — a promotion job without one has no gate at all.
+  def test_production_migration_runs_under_the_approved_environment
+    environment = @cd.dig("jobs", "promote-production", "environment")
+    name = environment.is_a?(Hash) ? environment["name"] : environment
+    assert_equal("production", name,
+                 "cd.yml:promote-production: the production migration must run under the approved environment")
   end
 
-  def test_real_registry_and_ledger_preflight_precede_every_actual_mutation
+  # The pre-publication compatibility read left with the Atlas ledger it read (#1634): with one
+  # authority the only preflight worth running is the one against the migrator this release just
+  # published, and that one still precedes the apply. What stays asserted here is the registry
+  # read before every mutation, and the native preflight before the apply.
+  # Staging's eighth is the rebuild of a schema stranded on the Atlas chain.
+  MUTATIONS = { "stage" => 8, "promote-production" => 7 }.freeze
+  STAGING_REBUILD = "bash infra/database-access/reset-staging-baseline.sh"
+
+  def test_real_registry_precedes_every_actual_mutation
     %w[stage promote-production].each do |job|
       steps = @cd.dig("jobs", job, "steps")
       registry = steps.index { |step| step["run"] == "ruby .github/scripts/release/inspect-images.rb" }
-      schema = steps.index { |step| step["name"] == "Read applied migration compatibility" }
       refute_nil registry
-      refute_nil schema
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
-      assert_equal 7, mutations.length
-      mutations.each { |i| assert_operator i, :>, registry; assert_operator i, :>, schema }
+      assert_equal MUTATIONS.fetch(job), mutations.length
+      mutations.each { |i| assert_operator i, :>, registry }
+    end
+  end
+
+  def test_native_preflight_precedes_the_apply_in_every_job
+    %w[stage promote-production].each do |job|
+      steps = @cd.dig("jobs", job, "steps")
+      preflight = steps.index { |step| step["run"].to_s.match?(/schema-preflight\.sh/) }
+      apply = steps.index { |step| step["run"].to_s.match?(/migrate-through-worker\.sh/) }
+      refute_nil preflight, "#{job}: the native preflight must run"
+      assert_operator apply, :>, preflight, "#{job}: the apply must follow its preflight"
+    end
+  end
+
+  # The retired mode cannot come back quietly: it read a ledger no authority writes any more.
+  def test_no_job_runs_the_retired_atlas_only_preflight
+    @cd.fetch("jobs").each_value do |job|
+      job.fetch("steps", []).each { |step| refute_match(/--atlas-only/, step["run"].to_s) }
     end
   end
 
   def mutates?(step)
     step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|retire-edge-container\.sh|reset-staging/)
-  end
-
-  def test_production_baseline_guard_precedes_every_mutation
-    steps = @cd.dig("jobs", "promote-production", "steps")
-    guard = steps.index { |step| step["run"].to_s.match?(BASELINE_GUARD_RUN) }
-    refute_nil guard
-    steps.each_index.select { |i| mutates?(steps[i]) }.each { |i| assert_operator guard, :<, i }
   end
 
   def test_native_graph_is_published_before_preview_and_application_changes
@@ -90,7 +105,8 @@ class CdMigrationsTest < Minitest::Test
       refute_nil preview
       retirements.each { |retirement| assert_operator retirement, :<, publish }
       assert_operator publish, :<, preview
-      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - (retirements + [publish])
+      rebuild = steps.index { |step| step['run'] == STAGING_REBUILD }
+      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - (retirements + [publish, rebuild])
       later_mutations.each { |i| assert_operator preview, :<, i }
     end
   end

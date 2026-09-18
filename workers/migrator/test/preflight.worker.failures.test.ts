@@ -1,19 +1,24 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { FIXED_NOW } from "./migrate.worker.helpers";
-import { metadata, preflightRequest, signedApp } from "./preflight-fixtures";
+import { metadata, preflightRequest, recordingExecutor, signedApp } from "./preflight-fixtures";
 import { PRISMA_TARGET } from "../src/prisma-target";
+import type { SelectedExecutor } from "../src/selected-migration";
 
 beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW }));
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const privateMessage = "postgresql://admin:secret@private.test/db SELECT secret FROM private";
+const throwingExecutor: SelectedExecutor = {
+  preflight: () => Promise.reject(new Error(privateMessage)),
+  migrate: () => Promise.reject(new Error(privateMessage)),
+};
 
 it("sanitizes a rejected secret binding", async () => {
   // observability is on at head_sampling_rate 1, so a console.error here ships the driver
   // exception — the DSN — off the worker. The count is the assertion, never the calls: a
   // diagnostic for "the DSN must not appear" may not print the DSN.
   const consoleError = vi.spyOn(console, "error").mockReturnValue(undefined);
-  const { app, token, env } = await signedApp();
+  const { app, token, env } = await signedApp({}, { selected: recordingExecutor().selected });
   const get = vi.fn(() => Promise.reject(new Error(privateMessage)));
   const response = await app.request(preflightRequest(metadata, token), undefined,
     { ...env, MIGRATOR_DATABASE_URL: { get } });
@@ -23,40 +28,36 @@ it("sanitizes a rejected secret binding", async () => {
   expect(consoleError.mock.calls.length).toBe(0);
 });
 
-it.each([undefined, "", "invalid-dsn"])("refuses an unavailable binding %s", async (dsn) => {
-  const { app, token, env } = await signedApp();
+// Only an ABSENT binding is decided here. A DSN that is present but unusable is the
+// executor's refusal now that Prisma owns every connection, and is proved against a real
+// database in `test/integration/prisma.integration.ts`.
+it.each([undefined, ""])("refuses an unavailable binding %s", async (dsn) => {
+  const { app, token, env } = await signedApp({}, { selected: recordingExecutor().selected });
   const response = await app.request(preflightRequest(metadata, token), undefined,
     { ...env, MIGRATOR_DATABASE_URL: dsn });
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "preflight_unavailable" });
 });
 
-it.each([
-  ["42P01", 422, { compatible: false, error: "ledger_missing" }],
-  ["42501", 503, { error: "preflight_unavailable" }],
-  ["08006", 503, { error: "preflight_unavailable" }],
-  ["XX000", 503, { error: "preflight_unavailable" }],
-])("sanitizes native Neon SQLSTATE %s", async (code, status, expected) => {
-  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(Response.json({ code, message: privateMessage }, { status: 400 }))));
-  const { app, token, env } = await signedApp();
-  const response = await app.request(preflightRequest(metadata, token), undefined, env);
-  expect(response.status).toBe(status);
-  expect(await response.json()).toEqual(expected);
-});
+it.each(["stale_prisma_bundle", "prisma_marker_unavailable", "preflight_unavailable"])(
+  "returns the stable code %s without a driver detail", async (error) => {
+    const { app, token, env } = await signedApp({}, { selected: recordingExecutor({ compatible: false, error }).selected });
+    const response = await app.request(preflightRequest(metadata, token), undefined, env);
+    expect(response.status).toBe(422);
+    expect(await response.text()).not.toContain("private.test");
+  });
 
-it("sanitizes an unexpected transport failure", async () => {
-  vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error(privateMessage))));
-  const { app, token, env } = await signedApp();
+it("sanitizes an unexpected executor failure", async () => {
+  const { app, token, env } = await signedApp({}, { selected: throwingExecutor });
   const response = await app.request(preflightRequest(metadata, token), undefined, env);
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "preflight_unavailable" });
 });
 
-it("keeps healthz as public bundle metadata without reading the ledger", async () => {
+it("keeps healthz as public bundle metadata without reading the database", async () => {
   const { app, env } = await signedApp();
   const get = vi.fn(() => Promise.reject(new Error(privateMessage)));
   const response = await app.request("/healthz", undefined, { ...env, MIGRATOR_DATABASE_URL: { get } });
-  expect(await response.json()).toEqual({ status: "ok", service: "migrator", env: "staging", bundleHead: "20251201000000_old",
-    prismaTarget: PRISMA_TARGET });
+  expect(await response.json()).toEqual({ status: "ok", service: "migrator", env: "staging", prismaTarget: PRISMA_TARGET });
   expect(get).not.toHaveBeenCalled();
 });

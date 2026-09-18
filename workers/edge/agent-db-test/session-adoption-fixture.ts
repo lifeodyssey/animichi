@@ -3,16 +3,13 @@
 // Mirrors `settlement-fixture.ts` / `recovery-fixture.ts`: importing this
 // module registers the node:test hooks against the imported database.
 import { after, before, beforeEach } from "node:test";
-import { process } from "../test-support/node-globals.ts";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
 import { AGENT_DB_SETUP_BUDGET, startTestPostgres, type TestPostgres } from "@animichi/test-postgres";
-import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
 import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../src/native-client.ts";
 import { handleSessionAdopt, ADOPT_TURN_KEY_PREFIX } from "../src/identity/session-adopt.ts";
+import { startContractDatabase, type ContractDatabase } from "../test/contract-database.ts";
 import { TEST_ANON_SECRET } from "../test/doubles/signed-anonymous-cookie.ts";
 
 export const ANON_ID = "anon_" + "a".repeat(32);
@@ -41,8 +38,9 @@ export interface AdoptionWriteSnapshot {
 
 export let db: PostgresClient<Contract>;
 let postgres: TestPostgres | undefined;
+let contractDsn: string;
 let pool: pg.Pool;
-const resources: { db?: PostgresClient<Contract>; postgres?: TestPostgres; pool?: pg.Pool } = {};
+const resources: { db?: PostgresClient<Contract>; postgres?: TestPostgres; contract?: ContractDatabase; pool?: pg.Pool } = {};
 
 const MARKER_COLUMNS = {
   session_id: { codecId: "pg/text@1", nullable: true },
@@ -66,12 +64,10 @@ const CONFLICT_TRIGGER_SQL = `CREATE TRIGGER session_adoption_conflict BEFORE IN
 
 before(async () => {
   postgres = resources.postgres = await startTestPostgres({ database: "native_adoption", budget: AGENT_DB_SETUP_BUDGET });
-  await promisify(execFile)("pnpm", ["exec", "prisma", "db", "migrate", "--db", postgres.dsn, "--json"], {
-    cwd: fileURLToPath(new URL("../../../packages/pi-session-neon/", import.meta.url).href),
-    env: { ...process.env, DO_NOT_TRACK: "1" },
-  });
-  db = resources.db = postgresClient<Contract>({ contractJson, url: postgres.dsn });
-  pool = resources.pool = new pg.Pool({ connectionString: postgres.dsn });
+  const contract = resources.contract = await startContractDatabase(postgres, "native_adoption");
+  contractDsn = contract.dsn;
+  db = resources.db = nativeClient(contractDsn);
+  pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
 });
 
 beforeEach(async () => {
@@ -87,8 +83,18 @@ beforeEach(async () => {
 
 after(async () => {
   try { await Promise.all([resources.db?.close(), resources.pool?.end()]); }
-  finally { await resources.postgres?.stop(); }
+  finally { await stopResources(); }
 });
+
+/** Order matters: the contract database is dropped through the shared server the `TestPostgres`
+ * owns, so its `stop()` — which drops that server's own database — comes second. */
+async function stopResources(): Promise<void> {
+  try {
+    await resources.contract?.stop();
+  } finally {
+    await postgres?.stop();
+  }
+}
 
 async function clearTables(): Promise<void> {
   await db.runtime().execute(db.raw.sql`DELETE FROM turn_reservations`.affectedCount().build());
@@ -153,7 +159,7 @@ export async function removeConflictTrigger(): Promise<void> {
 
 /** Drive the real adoption route against the disposable database. */
 export async function adoptResponse(toUserId: string, cookie?: string): Promise<Response> {
-  const env = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: TEST_ANON_SECRET, AGENT_SVC_DATABASE_URL: postgres?.dsn };
+  const env = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: TEST_ANON_SECRET, AGENT_SVC_DATABASE_URL: contractDsn };
   const request = new Request("https://animichi.test/v1/sessions/adopt", {
     method: "POST", headers: cookie === undefined ? {} : { Cookie: cookie },
   });

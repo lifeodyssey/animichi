@@ -2,16 +2,16 @@
 # Disposable fresh-schema apply (#1003, AC3/AC6).
 #
 # Boots a throwaway postgres container (the same offline postgis+pgvector
-# image the agent integration arm uses), applies the full migration chain to
-# the pristine schema, and tears the container down. Never points atlas at
+# image every database-backed suite uses), applies the full migration chain to
+# the pristine schema, and tears the container down. Never points the chain at
 # shared Neon. The image build command is the documented prerequisite.
 #
 # The postgis image pre-initialises POSTGRES_DB (here the `postgres` admin
-# database) with the tiger/topology objects, so Atlas must never be applied
-# to that database — a clean-schema test needs a database created from
-# pristine template1, exactly as conftest_db.py does. The gate waits for the
-# admin database, creates the target `gate` database from template1, and only
-# then runs Atlas against `gate`.
+# database) with the tiger/topology objects, so the chain must never be applied
+# to that database — a clean-schema test needs a database created from pristine
+# template1. The gate waits for the admin database, creates the target `gate`
+# database from template1, creates the five cluster-global service roles the
+# chain's grant matrix prechecks, and only then applies the chain to `gate`.
 #
 # AC6: this is a REQUIRED local Docker-backed gate — it fails closed with an
 # actionable message when Docker (or the offline image) is unavailable; it
@@ -66,12 +66,12 @@ wait_for_tcp() {
 
 # POSTGRES_DB names the ADMIN database (the image pre-initialises it with the
 # postgis/tiger/topology extensions). The target `gate` database is created
-# from pristine template1 below; Atlas never touches this admin database.
+# from pristine template1 below; the chain never touches this admin database.
 cid="$(docker run -d -e POSTGRES_PASSWORD=gate -e POSTGRES_DB=postgres -p 127.0.0.1::5432 "$IMAGE")"
 port="$(docker port "$cid" 5432/tcp | sed 's/.*://')"
 # The image entrypoint starts a temporary Unix-socket-only server while it
 # runs init scripts. A socket-only pg_isready can therefore report ready
-# before the final TCP server is listening, which lets Atlas race the restart
+# before the final TCP server is listening, which lets the apply race the restart
 # and fail with "connection reset by peer". Probe TCP explicitly so this gate
 # only proceeds once the final server is accepting host connections.
 wait_for_tcp postgres
@@ -86,10 +86,17 @@ if ! docker exec "$cid" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
 fi
 
 # Creating a database is asynchronous from the client's perspective. Probe
-# the target over TCP as well, so Atlas never connects during that transition.
+# the target over TCP as well, so the chain never connects during that transition.
 wait_for_tcp gate
 
-set -f
-atlas migrate apply --dir "file://migrations/neon" --url "postgresql://postgres:gate@127.0.0.1:${port}/gate?sslmode=disable" --revisions-schema public
-set +f
+# The five data-plane service roles are cluster-global, and the chain's grant matrix PRECHECKS
+# them rather than creating them (spec §4.8.5 gives role DDL to Pulumi, and a throwaway
+# container has no Pulumi). `packages/test-postgres` does the same for every suite.
+for role in agent_svc catalog_svc jobs_svc readonly users_svc; do
+  docker exec "$cid" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+    -c "CREATE ROLE \"$role\" NOLOGIN" >/dev/null
+done
+
+DO_NOT_TRACK=1 pnpm --filter @animichi/pi-session-neon exec prisma db migrate \
+  --db "postgresql://postgres:gate@127.0.0.1:${port}/gate?sslmode=disable"
 echo "fresh-schema apply: OK"

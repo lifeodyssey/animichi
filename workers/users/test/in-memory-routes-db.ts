@@ -208,7 +208,7 @@ function selectUserId(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
 }
 
 /** Real Postgres/neon-http shape for a `routes_pkey` unique_violation (SQLSTATE
- * 23505), so a duplicate `saved_routes.id` insert (migrations/neon: `CONSTRAINT
+ * 23505), so a duplicate `saved_routes.id` insert (the data-plane contract: `CONSTRAINT
  * routes_pkey PRIMARY KEY (id)`) rejects the same way the fake insert would
  * against the live DB, instead of silently overwriting/duplicating a row. */
 function routesPkeyViolation(id: string): NeonDbError {

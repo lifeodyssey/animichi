@@ -1,15 +1,12 @@
 # Animichi - Makefile
 
-.PHONY: help dev-local check-full db-new db-list db-hash db-lint db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
+.PHONY: help dev-local check-full db-new db-lint db-status seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
-ATLAS_VERSION ?= 0.30.0
-export ATLAS_VERSION
 
 # `:=` so no environment variable can move the binary the sanctioned lint command installs;
 # CI runs that command rather than pinning its own copy.
-SQLFLUFF_VERSION := 4.2.2
 
 help:
 	@echo "Animichi - Available commands:"
@@ -23,15 +20,11 @@ help:
 	@echo "  make check-full  Every package + the Docker suites (manual; not a hook)"
 	@echo ""
 	@echo "Database:"
-	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
-	@echo "  make db-list        List checked-in Atlas migrations"
-	@echo "  make db-hash        Regenerate migrations/neon/atlas.sum"
-	@echo "  make db-lint        Lint migrations/neon (the command CI runs)"
-	@echo "  make db-validate    Validate Atlas checksums and SQL"
-	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
-	@echo "  make db-push        Apply Atlas migrations against Neon"
+	@echo "  make db-new NAME=x  Scaffold a migration in the Prisma chain"
+	@echo "  make db-lint        Check the chain's artifact and graph integrity"
+	@echo "  make db-status      Show the chain's migration path and pending state"
 	@echo "  make seed-gazetteer Load gazetteer seed (needs DATABASE_URL; schema first)"
-	@echo "  db-diff/db-pull/db-reset are retired; use the Atlas targets above"
+	@echo "  db-diff/db-pull/db-reset and the Atlas db-* targets are retired"
 	@echo ""
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Install E2E deps + Playwright browser (no Supabase; auth E2E is Neon, AUTH-2 #950)"
@@ -69,34 +62,23 @@ check-full:
 test-worker:
 	pnpm run test:worker
 
-ATLAS_MIGRATIONS := file://migrations/neon
+# The chain lives in packages/pi-session-neon, so every target below runs Prisma's own CLI
+# there. `db-push*` are deliberately absent: they required NEON_DATABASE_URL in a developer's
+# shell, and ADR 0006 decision 6 says the migrator Worker is the only thing that ever holds a
+# database credential. An apply goes through CD.
+PRISMA_CHAIN := --filter @animichi/pi-session-neon
 
 db-new:
 	@test -n "$(NAME)" || (echo "NAME is required (for example: make db-new NAME=add_routes_index)" >&2; exit 1)
-	atlas migrate new "$(NAME)" --dir $(ATLAS_MIGRATIONS)
+	pnpm $(PRISMA_CHAIN) exec prisma migration plan --name "$(NAME)"
 
-db-list:
-	atlas migrate ls --dir $(ATLAS_MIGRATIONS)
-
-db-hash:
-	atlas migrate hash --dir $(ATLAS_MIGRATIONS)
-
-# The one migration lint command, and the one CI's security job runs. `--config` is explicit
-# because sqlfluff discovers `db/.sqlfluff` only for targets under `db/`; `env -u UV_CACHE_DIR`
-# keeps the cache export at the top of this file out of a job that never had it.
+# The one migration lint command, and the one CI's security job runs: it verifies that every
+# emitted artifact still matches its authored migration and that the graph is connected.
 db-lint:
-	env -u UV_CACHE_DIR uvx --no-build "sqlfluff==$(SQLFLUFF_VERSION)" lint migrations/neon --config db/.sqlfluff
+	pnpm $(PRISMA_CHAIN) exec prisma migration check
 
-db-validate:
-	atlas migrate validate --dir $(ATLAS_MIGRATIONS)
-
-db-push-dry:
-	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
-	atlas migrate apply --dry-run --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
-
-db-push:
-	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
-	atlas migrate apply --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
+db-status:
+	pnpm $(PRISMA_CHAIN) exec prisma migration list
 
 seed-gazetteer:
 	@: "$${DATABASE_URL:?DATABASE_URL is required}"

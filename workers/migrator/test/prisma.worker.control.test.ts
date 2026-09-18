@@ -2,19 +2,22 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nativeApp, requestMetadata, TARGET } from "./integration/prisma-fixture";
 import { FIXED_NOW, makeApp, testEnv } from "./migrate.worker.helpers";
 import { preflightRequest } from "./preflight-fixtures";
-import { serveSelectedLedger } from "./prisma-ledger-fixture";
 
 const native = vi.hoisted(() => ({ show: vi.fn(), connect: vi.fn(), migrate: vi.fn(), close: vi.fn() }));
 vi.mock("@prisma/orm-toolchain/cli/control-api", () => ({ executeMigrateShowPlan: native.show }));
 vi.mock("@prisma/orm-postgres/control", () => ({ createPostgresControlClient: () => native }));
+const ledger = vi.hoisted(() => ({ stranded: vi.fn() }));
+vi.mock("../src/atlas-leftovers", async (original) => ({
+  ...await original<typeof import("../src/atlas-leftovers")>(), carriesAtlasLeftovers: ledger.stranded,
+}));
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
   vi.resetAllMocks();
-  serveSelectedLedger();
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map([["app", TARGET]]), usedLiveMarker: true } });
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
+  ledger.stranded.mockResolvedValue(false);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -41,6 +44,16 @@ it("refuses a native path failure before attempting either owner's DDL", async (
   expect(native.connect).not.toHaveBeenCalled();
 });
 
+it("refuses a database still on the Atlas chain by name before Prisma reads it", async () => {
+  ledger.stranded.mockResolvedValue(true);
+  const app = await nativeApp(DSN);
+  expect(await (await app.preview()).json()).toEqual({ compatible: false, error: "atlas_leftovers_present" });
+  const refused = await app.migrate();
+  expect({ status: refused.status, body: await refused.json() }).toEqual({ status: 422, body: { success: false, error: "atlas_leftovers_present" } });
+  expect(native.show).not.toHaveBeenCalled();
+  expect(native.connect).not.toHaveBeenCalled();
+});
+
 it("refuses a preview whose native marker is unavailable", async () => {
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map(), usedLiveMarker: true } });
   const response = await (await nativeApp(DSN)).preview();
@@ -63,15 +76,6 @@ it("returns only the native failure code and closes the control client", async (
   expect(native.close).toHaveBeenCalledOnce();
 });
 
-it("sanitizes Atlas apply errors on the native selected route", async () => {
-  const atlas = await import("../src/http-apply");
-  vi.spyOn(atlas, "applyChain").mockResolvedValueOnce({ kind: "failure", exitCode: 1, error: "password=fixture; private SQL" });
-  const response = await (await nativeApp(DSN)).migrate();
-  expect(response.status).toBe(500);
-  expect(await response.json()).toEqual({ success: false, exitCode: 1, appliedHead: null, error: "migration_failed" });
-  expect(native.connect).not.toHaveBeenCalled();
-});
-
 it("refuses a successful native result that names a different marker", async () => {
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: "f".repeat(64), migrationsApplied: 0 } });
   const response = await (await nativeApp(DSN)).migrate();
@@ -87,7 +91,7 @@ it("sanitizes connection failures and still closes the native client", async () 
   expect(native.close).toHaveBeenCalledOnce();
 });
 
-it("rejects native metadata with arbitrary SQL instead of falling back to legacy apply", async () => {
+it("rejects native metadata carrying arbitrary SQL rather than ignoring the extra field", async () => {
   const { app, token } = await makeApp();
   const response = await app.request(preflightRequest({ ...requestMetadata, sql: "DROP TABLE pi_sessions" }, token), {}, testEnv());
   expect(response.status).toBe(400);

@@ -20,18 +20,18 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node native Pi task and preserved statistical oracles with `logfire/evals`. → `packages/eval/AGENTS.md`
 - `packages/prisma-geography/` — Private Prisma 8 PostGIS geography extension pack; control/runtime descriptors and disposable-DB evidence. → `packages/prisma-geography/AGENTS.md`
-- `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, Atlas chain) shared by the catalog spike, the edge agent-db arm and `db-fresh-schema.sh`. → `packages/test-postgres/AGENTS.md`
+- `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, the Prisma chain, the five service roles) shared by every database-backed suite. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`workers/edge/src/entry.ts`): the gateway (auth, `/v1` routing, the image/tile proxies incl. the private `docs-assets` arm at `/img/docs/*`; no page fallback — unmatched paths 404) **and**, the native Pi agent tier (`workers/edge/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/edge/AGENTS.md`
-- `workers/migrator/`  — TS Worker that applies the `migrations/neon` Atlas chain (bundled into the Worker) behind GitHub OIDC. → `workers/migrator/AGENTS.md`
-- `migrations/neon/`    — Atlas/Neon migrations (moved from `db/migrations`); `supabase/` is an archived historical Supabase migration dir (issue #1000), not a live surface. → `migrations/AGENTS.md`
+- `workers/migrator/`  — TS Worker that applies the one Prisma chain (bundled into the Worker) behind GitHub OIDC. → `workers/migrator/AGENTS.md`
+  The chain itself lives with the contract that owns it, `packages/pi-session-neon/`; `supabase/` is an archived historical Supabase migration dir (issue #1000), not a live surface.
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
 ## Package managers
 
 - **pnpm 12** workspace for all TypeScript (`pnpm-workspace.yaml`). **uv** only installs the pinned
-  semgrep and sqlfluff lint tools.
+  semgrep lint tool.
 - **Every setting lives in `pnpm-workspace.yaml`** — pnpm 11 moved them out of `.npmrc` (auth/registry
   only) and removed the `package.json#pnpm` field; pnpm 12 rejects a key it does not recognise and
   ignores a kebab-case one. Keys are camelCase. CI installs with `--frozen-lockfile`.
@@ -148,8 +148,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   missing, install it with `claude plugin install <plugin>@<marketplace>` (for example
   `logfire@pydantic-skills`, `pulumi@pulumi-agent-skills`,
   `better-auth@better-auth-agent-skills`, `cloudflare@cloudflare`); `neon`, `neon-postgres`,
-  `ai-sdk`, and `atlas` are single-name local/user skills here. `atlas` is a manual
-  skill; see atlasgo.io/guides/ai-tools.
+  `ai-sdk` are single-name local/user skills here.
 
   | Skill | Reach for it when |
   |---|---|
@@ -159,7 +158,6 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
   | `better-auth:create-auth-skill` · `better-auth:better-auth-best-practices` | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
   | `ai-sdk` | Frontend AI SDK streaming/UI in the TanStack rebuild (`apps/web`). |
-  | `atlas` | Schema migrations in `migrations/neon` — diff/lint/apply. |
 
 ## Harness (4-role agent system)
 

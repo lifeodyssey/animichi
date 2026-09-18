@@ -1,6 +1,4 @@
-import postgres from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../native-client.ts";
 import type { Env } from "../env.ts";
 import { readNativeHistory } from "../agent/views/history.ts";
 
@@ -18,7 +16,7 @@ export async function nativeHistoryResponse(env: Env, request: Request, identity
   const binding = env.AGENT_SVC_DATABASE_URL;
   const url = typeof binding === "string" ? binding : await binding?.get();
   if (!url) throw new Error("The native agent database is not configured");
-  const db = postgres<Contract>({ contractJson, url });
+  const db = nativeClient(url);
   try {
     const result = await readNativeHistory(db, sessionId, identityId, page);
     return Response.json(result ?? { error: "Conversation not found." }, { status: result ? 200 : 404, headers: { "cache-control": "no-store" } });

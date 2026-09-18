@@ -1,5 +1,6 @@
-// Native agent schema. Existing Atlas objects remain outside this contract ownership.
-// Pi prepareStorageCommit/validateCommittedWrites own write order and visible parents.
+// Agent-native storage and the catalog/users data plane share this Prisma contract.
+// The latter tables are adopted from the chain this one replaced; their write semantics remain
+// owned by the catalog/users services until their query cards move them.
 
 enum RecordKind {
   @@type("pg/text@1")
@@ -10,7 +11,7 @@ enum RecordKind {
 model PiSession {
   id       String       @id
   metadata Jsonb
-  nextSeq  BigIntNumber  @default(0) @map("next_seq")
+  nextSeq  BigIntNumber @default(0) @map("next_seq")
 
   @@check(expression: "next_seq >= 0", name: "pi_sessions_next_seq")
   @@check(expression: "(metadata->>'id') IS NOT DISTINCT FROM id", name: "pi_sessions_metadata_id")
@@ -57,28 +58,28 @@ model PiListValue {
 }
 
 model AgentAdmission {
-  id                Uuid                @id @default(dbgenerated("uuidv7()"))
-  sessionId         String              @map("session_id")
-  clientMessageId   String              @map("client_message_id")
+  id                Uuid               @id @default(dbgenerated("uuidv7()"))
+  sessionId         String             @map("session_id")
+  clientMessageId   String             @map("client_message_id")
   kind              String
-  operationId       String?             @unique @map("operation_id")
-  identityId        String              @map("identity_id")
+  operationId       String?            @unique @map("operation_id")
+  identityId        String             @map("identity_id")
   payer             String
-  requestDigest     String              @map("request_digest")
-  selectionRequest  Jsonb?              @map("selection_request")
-  state             String              @default("pending")
-  rejectionReason   String?             @map("rejection_reason")
-  createdAt         TimestamptzString    @default(now()) @map("created_at")
-  quotaUsageDate    DateString?         @map("quota_usage_date")
-  quotaReservedAt   TimestamptzString?   @map("quota_reserved_at")
-  quotaRefundedAt   TimestamptzString?   @map("quota_refunded_at")
-  session           PiSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
+  requestDigest     String             @map("request_digest")
+  state             String             @default("pending")
+  rejectionReason   String?            @map("rejection_reason")
+  selectionRequest  Jsonb?             @map("selection_request")
+  createdAt         TimestamptzString  @default(now()) @map("created_at")
+  quotaUsageDate    DateString?        @map("quota_usage_date")
+  quotaReservedAt   TimestamptzString? @map("quota_reserved_at")
+  quotaRefundedAt   TimestamptzString? @map("quota_refunded_at")
+  session           PiSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
 
   @@unique([sessionId, clientMessageId])
   @@check(expression: "kind IN ('model', 'selection')", name: "agent_admissions_kind")
-  @@check(expression: "(kind = 'selection') = (selection_request IS NOT NULL)", name: "agent_admissions_selection_input")
   @@check(expression: "payer IN ('anon', 'user', 'byok')", name: "agent_admissions_payer")
   @@check(expression: "state IN ('pending', 'accepted', 'settled', 'void')", name: "agent_admissions_state")
+  @@check(expression: "(kind = 'selection') = (selection_request IS NOT NULL)", name: "agent_admissions_selection_input")
   @@check(expression: "(kind = 'model') = (operation_id IS NOT NULL)", name: "agent_admissions_operation")
   @@check(expression: "(quota_usage_date IS NULL) = (quota_reserved_at IS NULL)", name: "agent_admissions_reservation")
   @@check(expression: "quota_reserved_at IS NULL OR (payer = 'anon' AND kind = 'model')", name: "agent_admissions_anon_reservation")
@@ -88,20 +89,283 @@ model AgentAdmission {
 }
 
 model AgentOpenOperation {
-  operationId String             @id @map("operation_id")
-  createdAt   TimestamptzString   @default(now()) @map("created_at")
-  admission   AgentAdmission     @relation(fields: [operationId], references: [operationId], onDelete: Cascade, index: false)
+  operationId String            @id @map("operation_id")
+  createdAt   TimestamptzString @default(now()) @map("created_at")
+  admission   AgentAdmission   @relation(fields: [operationId], references: [operationId], onDelete: Cascade, index: false)
 
   @@map("agent_open_operations")
 }
 
 model AgentSettlement {
-  operationId  String              @id @map("operation_id")
-  lastUsageSeq BigIntNumber        @default(-1) @map("last_usage_seq")
-  settledAt    TimestamptzString?   @map("settled_at")
-  admission    AgentAdmission      @relation(fields: [operationId], references: [operationId], onDelete: Cascade, index: false)
+  operationId  String             @id @map("operation_id")
+  lastUsageSeq BigIntNumber       @default(-1) @map("last_usage_seq")
+  settledAt    TimestamptzString?  @map("settled_at")
+  admission    AgentAdmission     @relation(fields: [operationId], references: [operationId], onDelete: Cascade, index: false)
 
   @@check(expression: "last_usage_seq >= -1", name: "agent_settlements_last_usage_seq")
   @@index([operationId], where: "settled_at IS NULL", name: "agent_settlements_unsettled")
   @@map("agent_settlements")
+}
+
+model Alias {
+  id              Uuid   @id @default(dbgenerated("uuidv7()"))
+  bangumiId       String @map("bangumi_id")
+  alias           String
+  aliasNormalized  String @map("alias_normalized")
+  source          String
+  priority        Int    @default(0)
+
+  @@unique([bangumiId, alias, source])
+  @@index([aliasNormalized], map: "idx_aliases_normalized")
+  @@map("aliases")
+}
+
+model CatalogProvenance {
+  id          Uuid              @id @default(dbgenerated("uuidv7()"))
+  scope       String
+  entityId    String            @map("entity_id")
+  workId      String?           @map("work_id")
+  source      String
+  upstreamId  String?           @map("upstream_id")
+  attribution String?
+  license     String?
+  fieldMap    Jsonb?            @map("field_map")
+  capturedAt  TimestamptzString @default(now()) @map("captured_at")
+
+  @@unique([scope, entityId])
+  @@index([workId], map: "idx_catalog_provenance_work")
+  @@map("catalog_provenance")
+}
+
+model CatalogRun {
+  runId             String             @id @map("run_id")
+  status            String             @default("pending")
+  targets           Jsonb?
+  sourceOutcomes    Jsonb?             @map("source_outcomes")
+  budgetUsed        Jsonb?             @map("budget_used")
+  failures          Jsonb?
+  publishedVersions Jsonb?             @map("published_versions")
+  startedAt         TimestamptzString? @map("started_at")
+  finishedAt        TimestamptzString? @map("finished_at")
+  createdAt         TimestamptzString  @default(now()) @map("created_at")
+
+  @@index([status], map: "idx_catalog_runs_status")
+  @@map("catalog_runs")
+}
+
+model ClusterVersion {
+  id        Uuid              @id @default(dbgenerated("uuidv7()"))
+  bangumiId String            @map("bangumi_id")
+  version   Int
+  isCurrent Boolean           @default(false) @map("is_current")
+  createdAt TimestamptzString @default(now()) @map("created_at")
+
+  @@unique([bangumiId, version])
+  @@index([bangumiId, isCurrent], map: "idx_cluster_version_current")
+  @@index([bangumiId], where: "is_current", unique: true, map: "uq_cluster_version_one_current")
+  @@map("cluster_version")
+}
+
+model IngestJob {
+  workId             String             @id @map("work_id")
+  status             String             @default("pending")
+  stage              String?
+  error              String?
+  errorCode          String?            @map("error_code")
+  negativeCachedUntil TimestamptzString? @map("negative_cached_until")
+  startedAt          TimestamptzString? @map("started_at")
+  finishedAt         TimestamptzString? @map("finished_at")
+  createdAt          TimestamptzString  @default(now()) @map("created_at")
+
+  @@map("ingest_jobs")
+}
+
+model ItinerarySnapshot {
+  id             Uuid              @id @default(dbgenerated("uuidv7()"))
+  bangumiId      String            @map("bangumi_id")
+  clusterVersion Int               @map("cluster_version")
+  payload        Jsonb
+  createdAt      TimestamptzString @default(now()) @map("created_at")
+
+  @@index([bangumiId, clusterVersion], map: "idx_itinerary_snapshots_bangumi_version")
+  @@map("itinerary_snapshots")
+}
+
+model LegCache {
+  fromCluster     String             @map("from_cluster")
+  toCluster       String             @map("to_cluster")
+  mode            String
+  durationMinutes Float?             @map("duration_minutes")
+  distanceM       Float?             @map("distance_m")
+  createdAt       TimestamptzString  @default(now()) @map("created_at")
+
+  @@id([fromCluster, toCluster, mode])
+  @@map("leg_cache")
+}
+
+model Location {
+  id        String             @id
+  name      String
+  kind      String
+  latitude  Float
+  longitude Float
+  source    String
+  pref      String?
+  createdAt TimestamptzString? @default(now()) @map("created_at")
+  updatedAt TimestamptzString? @default(now()) @map("updated_at")
+
+  @@check(expression: "kind IN ('station', 'city', 'ward', 'landmark', 'prefecture')", name: "locations_kind")
+  @@check(expression: "source IN ('seed', 'mlit', 'geonames', 'manual')", name: "locations_source")
+  @@map("locations")
+}
+
+model MediaAsset {
+  pointId        String             @id @map("point_id")
+  r2Key          String?            @map("r2_key")
+  contentHash    String?            @map("content_hash")
+  lastOriginPull TimestamptzString? @map("last_origin_pull")
+  tombstoned     Boolean            @default(false)
+
+  @@map("media_assets")
+}
+
+model RawAnitabi {
+  workId    String            @id @map("work_id")
+  payload   Jsonb
+  fetchedAt TimestamptzString @default(now()) @map("fetched_at")
+
+  @@map("raw_anitabi")
+}
+
+model RawBangumi {
+  workId    String            @id @map("work_id")
+  payload   Jsonb
+  fetchedAt TimestamptzString @default(now()) @map("fetched_at")
+
+  @@map("raw_bangumi")
+}
+
+model RawPayloadHistory {
+  seq       BigIntNumber      @id @default(autoincrement())
+  workId    String            @map("work_id")
+  source    String
+  payload   Jsonb
+  runId     String?           @map("run_id")
+  fetchedAt TimestamptzString @default(now()) @map("fetched_at")
+
+  @@index([workId, source, seq], map: "idx_raw_payload_history_work_source")
+  @@map("raw_payload_history")
+}
+
+model SeriesEdge {
+  fromBangumiId String @map("from_bangumi_id")
+  toBangumiId   String @map("to_bangumi_id")
+  relation      String
+
+  @@id([fromBangumiId, toBangumiId, relation])
+  @@index([toBangumiId], map: "idx_series_edges_to_bangumi")
+  @@map("series_edges")
+}
+
+model LocationAlias {
+  aliasNormalized String   @map("alias_normalized")
+  locationId      String   @map("location_id")
+  alias           String
+  lang            String?
+  priority        Int      @default(0)
+  location        Location @relation(fields: [locationId], references: [id], onDelete: Cascade, index: false)
+
+  @@id([aliasNormalized, locationId])
+  @@index([aliasNormalized], map: "idx_location_aliases_norm")
+  @@index([aliasNormalized], map: "idx_location_aliases_trgm", type: "gin")
+  @@check(expression: "lang IS NULL OR lang IN ('ja', 'zh', 'en')", name: "location_aliases_lang")
+  @@map("location_aliases")
+}
+
+model Bangumi {
+  id           String             @id
+  title        String
+  titleCn      String?            @map("title_cn")
+  coverUrl     String?            @map("cover_url")
+  airDate      String?            @map("air_date")
+  summary      String?
+  epsCount     Int?               @map("eps_count")
+  rating       Real?
+  pointsCount  Int?               @default(0) @map("points_count")
+  primaryColor String?            @map("primary_color")
+  city         String?
+  platform     String?
+  createdAt    TimestamptzString? @default(now()) @map("created_at")
+  updatedAt    TimestamptzString? @default(now()) @map("updated_at")
+
+  @@map("bangumi")
+}
+
+model Point {
+  id          String             @id
+  bangumiId   String?            @map("bangumi_id")
+  name        String
+  nameCn      String?            @map("name_cn")
+  location    geo.Geography(4326)
+  latitude    Float
+  longitude   Float
+  image       String?
+  episode     Int?
+  timeSeconds Int?               @default(0) @map("time_seconds")
+  sceneDesc   String?            @map("scene_desc")
+  origin      String?
+  originUrl   String?            @map("origin_url")
+  city        String?
+  createdAt   TimestamptzString? @default(now()) @map("created_at")
+  updatedAt   TimestamptzString? @default(now()) @map("updated_at")
+  bangumi     Bangumi            @relation(fields: [bangumiId], references: [id], onDelete: NoAction, index: false)
+
+  @@index([bangumiId], map: "idx_points_bangumi")
+  @@index([location], type: "gist", map: "idx_points_location")
+  @@map("points")
+}
+
+model SavedRouteIdempotency {
+  ownerUserId String             @map("owner_user_id")
+  op          String
+  key         String
+  fingerprint String
+  state       String             @default("in_progress")
+  result      Jsonb?
+  resultId    Uuid?              @map("result_id")
+  createdAt   TimestamptzString? @default(now()) @map("created_at")
+  expiresAt   TimestamptzString  @map("expires_at")
+
+  @@id([ownerUserId, op, key])
+  @@index([expiresAt], map: "idx_saved_route_idempotency_expires")
+  @@check(expression: "state IN ('in_progress', 'committed')", name: "saved_route_idempotency_state")
+  @@map("saved_route_idempotency")
+}
+
+model SavedRoute {
+  id        Uuid               @id @default(dbgenerated("uuidv7()"))
+  pointIds  String[]           @noCheck(elementNotNull) @map("point_ids")
+  createdAt TimestamptzString? @default(now()) @map("created_at")
+  userId    String?            @map("user_id")
+  title     String?
+  status    String             @default("draft")
+  savedAt   TimestamptzString? @map("saved_at")
+  updatedAt TimestamptzString  @default(now()) @map("updated_at")
+
+  @@check(expression: "status IN ('draft', 'saved', 'completed')", name: "saved_routes_status")
+  @@index([userId], map: "idx_saved_routes_user")
+  @@map("saved_routes")
+}
+
+model SavedRouteAnime {
+  savedRouteId Uuid       @map("saved_route_id")
+  bangumiId    String     @map("bangumi_id")
+  position     Int        @default(0)
+  savedRoute   SavedRoute @relation(fields: [savedRouteId], references: [id], onDelete: Cascade, index: false)
+  bangumi      Bangumi    @relation(fields: [bangumiId], references: [id], onDelete: NoAction, index: false)
+
+  @@id([savedRouteId, bangumiId])
+  @@unique([savedRouteId, position])
+  @@index([bangumiId], map: "idx_saved_route_anime_bangumi")
+  @@map("saved_route_anime")
 }

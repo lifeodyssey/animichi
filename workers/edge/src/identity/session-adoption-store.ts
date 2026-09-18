@@ -1,7 +1,7 @@
-import postgres, { type PostgresClient } from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
+import { type PostgresClient } from "@prisma/orm-postgres/runtime";
 import type { Contract } from "@animichi/pi-session-neon/types";
 import { readStoreOrString, type Env } from "../env.ts";
+import { nativeClient } from "../native-client.ts";
 import { ADOPT_TURN_KEY_PREFIX } from "./session-adoption-marker.ts";
 
 export type AdoptionNoopClass = "adopted" | "no_anonymous_identity" | "no_rows";
@@ -75,7 +75,7 @@ export async function adoptSessions(
 async function openDatabase(env: Env): Promise<AdoptionDatabase> {
   const url = await readStoreOrString(env.AGENT_SVC_DATABASE_URL);
   if (!url) throw new Error("The native agent database is not configured");
-  return postgres<Contract>({ contractJson, url });
+  return nativeClient(url);
 }
 
 async function adoptWithNativeDatabase(

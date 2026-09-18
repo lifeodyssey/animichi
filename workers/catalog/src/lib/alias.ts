@@ -2,7 +2,7 @@
  * Alias normalization + multi-source priority ranking.
  *
  * Feeds the `aliases` catalog table
- * (`migrations/neon/20260623000001_init.sql`):
+ * (the data-plane contract):
  *   bangumi_id, alias, alias_normalized, source, priority.
  *
  * `alias_normalized` is the NFKC-folded form used for exact-match lookup

@@ -12,7 +12,7 @@ export { edgeRuntimeSecretNames } from "./runtime-secrets.ts";
 // Manages, for one Neon branch (the branch is stack config: staging =
 // Pulumi.staging.yaml, production = Pulumi.prod.yaml):
 //   - Neon service roles. The pre-existing roles were created by the SQL
-//     migrations (migrations/neon/20260826000001_roles.sql) as
+//     the retired Atlas role migration as
 //     NOLOGIN roles WITHOUT a control-plane-stored password:
 //       * reveal_password returns an empty password for them (200, len 0),
 //       * reset_password refuses them (422 ROLE_PASSWORD_NOT_AVAILABLE), and
@@ -26,7 +26,7 @@ export { edgeRuntimeSecretNames } from "./runtime-secrets.ts";
 //       2. `pulumi up` — the role is created here with a Neon-generated
 //          password that the provider can always read back (reveal_password).
 //       3. Re-run the idempotent migration chain against the branch
-//          (migrations/neon/20260826000001_roles.sql is a no-op once the role
+//          (role DDL left the chain with #1636; this is a no-op once the role
 //          exists; the per-context migrations restore the role's GRANTs, which
 //          die with the role and now sit beside the tables they apply to).
 //     Rollback: re-run the migrations to recreate the NOLOGIN roles and point
@@ -116,8 +116,9 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   //
   // Roles are PROJECT-scoped in Neon, so creating `migrator` here also makes it
   // available on every branch (production `main` compute included); GRANTs and
-  // ownership are branch-scoped and shipped as Atlas migrations
-  // (migrations/neon/*). The DSN here composes against THIS branch's
+  // ownership are branch-scoped and shipped in the Prisma chain's baseline
+  // (packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts).
+  // The DSN here composes against THIS branch's
   // read-write endpoint, so each stack writes its own: staging publishes
   // MIGRATOR_DATABASE_URL against the staging branch and the prod stack
   // (Pulumi.prod.yaml, #1048) publishes MIGRATOR_DATABASE_URL_PROD against the

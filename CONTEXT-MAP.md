@@ -14,7 +14,7 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Agent domain (TypeScript)** | [`packages/agent/CONTEXT.md`](./packages/agent/CONTEXT.md) | `packages/agent` (`@animichi/agent`), hosted by edge |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
-| **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon` (single authority, Atlas); `supabase/migrations/` is archived history (issue #1000) |
+| **Migrations** | `packages/pi-session-neon/AGENTS.md` | One Prisma 8 chain in `packages/pi-session-neon/migrations/` (single authority); `supabase/migrations/` is archived history (issue #1000) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
 | **Auth appliance** | — | Neon Auth (Better Auth) integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950). `supabase/` is archived history, no package guide |
 | **Browser E2E** | `e2e/CONTEXT.md` (lazy) | `e2e/` |

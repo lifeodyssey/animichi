@@ -3,9 +3,8 @@
 TypeScript Cloudflare Worker: the **migration executor** (spec
 `docs/specs/2026-08-16-migration-executor-spec.md`, issue #1051; Option 2
 connectivity spec / #1124). A request authenticated by a GitHub Actions OIDC
-token applies the committed Neon Atlas chain over neon-http and the sealed
-Prisma graph through the official control client. It returns both owners'
-applied markers. Both environments go through it since #1365
+token applies the sealed Prisma graph through the official control client, and
+returns that one authority's applied marker (#1634). Both environments go through it since #1365
 (#1055 closed): `[env.staging]` and `[env.production]` are separate Workers with
 separate DSN secrets and separate OIDC allowlists. Root guide:
 `../../AGENTS.md`.
@@ -17,7 +16,7 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
   (vitest + coverage). Never `wrangler deploy` locally (hook `block-local-deploy`).
 - `pnpm run test:integration` runs authenticated HTTP and the actual bundled
   workerd entry against disposable PostgreSQL (including the fixed Durable Object),
-  using `@animichi/test-postgres`, Docker and Atlas v0.30.0 (`ATLAS_BIN` may select the pinned binary).
+  using `@animichi/test-postgres` and Docker. No Atlas binary is involved.
 
 ## What this worker does
 
@@ -37,53 +36,41 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    door, so a GitHub OIDC token minted for anything else is rejected rather
    than cross-accepted. The reusable verifier lives in
    `packages/contract/src/oidc-github.ts` (`@animichi/contract/oidc-github`).
-2. **Apply the chain over neon-http (#1124)**: after OIDC, a fixed-name
+2. **Apply the sealed graph (#1124, #1634)**: after OIDC, a fixed-name
    Durable Object mutex (`migrator-apply-lock`, not `migrator-job-*`)
-   serializes apply. The Worker executes committed `migrations/neon` files
-   (compile-time Text modules + `atlas.sum` order) via
-   `@neondatabase/serverless`, writes `public.atlas_schema_revisions` with
-   Atlas v0.30 version/hash semantics (`operator_version =
-   animichi-http-apply/0.30.0`), and skips already-applied versions. The
-   revision row rides in the file's own transaction (#1338), so no crash can
-   leave a file applied and its ledger row missing. `CREATE INDEX
-   CONCURRENTLY` files cannot be transactional; on that path alone the window
-   is inherent, so a duplicate-object error (`42P07`) is read as
-   already-applied — but only for a version the ledger holds no attempt at
-   under a different hash — and the re-run finishes the file instead of
-   wedging the chain. A `-pooler` DSN is rejected before SQL. SQL is never taken from the
-   request body (OIDC + required `{expectedHead, atlasSum, stagingOnlyBaseline}` metadata only).
+   serializes apply. Inside that gate the Worker rechecks the requested schema
+   identity against the graph it carries and then calls Prisma's control client,
+   which owns graph traversal, per-migration transactions, its advisory lock and
+   the marker. The migrator no longer carries an apply loop, a revision ledger,
+   a checksum parser, a statement splitter or a SQL client of its own; one
+   authority owns the database. A `-pooler` DSN is still rejected before any
+   connection (`src/direct-dsn.ts`), because Neon schema DDL needs the direct
+   host. SQL is never taken from the request body (OIDC + a required
+   `{expectedPrismaRef}` key set only, compared exactly).
    The retired batch container has no binding, class, image or runtime path (#1589).
-   Tests inject the `applyChain` boundary and exercise the same selected-chain
-   apply that production reaches through `MigratorApplyLock`.
-3. **Answer for the bundle it carries (#1365, closes #1332)**: `wrangler deploy`
-   returning is not the new bundle serving, and the old bundle answering a POST
-   would apply a chain the release never packaged. `GET /healthz` therefore
-   reports `bundleHead` — the last head of the chain compiled into THIS
-   deployment — and `POST /migrate` answers `409 {error:"stale_bundle",
-   bundleHead}` to an `expectedHead` the carried chain cannot reach, before it
-   resolves a DSN. `scripts/delivery/migrate-through-worker.sh` polls the first
-   and retries the second, bounded (over https only — curl refuses any lesser
-   transport, redirects included, for calls that carry the OIDC token).
-   That same `expectedHead` also BOUNDS the apply (`src/requested-chain.ts`):
-   the carried chain is truncated after the file that leaves that head in the
-   ledger, so a request for an earlier head applies up to it and leaves the
-   rest pending — before this, an `A` request against an `A→B` bundle advanced
-   the database to `B` and only then failed the head check. A request the
-   ledger already stands past is refused `422 {error}` with nothing applied:
-   409 is the retryable `stale_bundle`, and no amount of waiting makes this
-   request satisfiable.
-4. **Report**: returns success + applied head from
-   `public.atlas_schema_revisions` (`src/ledger.ts`) + `pathVerification`.
-   CI fails unless applied head == expected head; it does not gate on
-   `pathVerification`. The applied head is visible **only** through this
-   OIDC-authenticated response: #1339 removed the anonymous `GET /ledger-head`
-   route (it resolved the DDL-capable DSN on every anonymous hit of a public
-   `workers_dev` host and had no caller), and `test/migrate.worker.http.test.ts`
-   pins the 404. The post-staging smoke (#1198,
-   `.github/scripts/staging-smoke-check.sh`) probes the edge and the web shell,
-   not the head; if it is ever extended to assert the applied head, it must read
-   a short-TTL value written at apply time (KV / DO storage), never a live DSN
-   read.
+   `test/atlas-engine-retired.test.ts` fails if any deleted module, or an import
+   of one, reappears.
+3. **Answer for the identity it carries (#1365, closes #1332, #1634)**: `wrangler
+   deploy` returning is not the new bundle serving, and the old bundle answering a
+   POST would apply a graph the release never packaged. `GET /healthz` therefore
+   reports `prismaTarget` — the contract hash compiled into THIS deployment — and
+   `/preflight` and `/migrate` answer `409 {error:"stale_prisma_bundle",
+   prismaTarget}` to an identity the carried graph does not hold, before they
+   resolve a DSN. `scripts/delivery/migrate-through-worker.sh` polls the first and
+   retries the second, bounded (over https only — curl refuses any lesser
+   transport, redirects included, for calls that carry the OIDC token). There is
+   one identity on both sides; a request the graph cannot reach is refused, never
+   partially applied.
+4. **Report**: returns success plus Prisma's own receipt — `markerHash`,
+   `migrationsApplied` and `applied`. A receipt whose marker is not the requested
+   identity refuses success (`prisma_marker_mismatch`). That receipt is visible
+   **only** through this OIDC-authenticated response: #1339 removed the anonymous
+   `GET /ledger-head` route (it resolved the DDL-capable DSN on every anonymous hit
+   of a public `workers_dev` host and had no caller), and
+   `test/migrate.worker.http.test.ts` pins the 404. The post-staging smoke (#1198,
+   `.github/scripts/staging-smoke-check.sh`) probes the edge and the web shell, not
+   the marker; if it is ever extended to assert it, it must read a short-TTL value
+   written at apply time (KV / DO storage), never a live DSN read.
 5. **Answer for the promoted catalog schema (#1230 Phase 1)**: `GET
    /catalog-schema` reads `bangumi`, `points` and `ingest_jobs` out of the
    target in one read-only repeatable-read transaction and answers `200` or
@@ -100,42 +87,33 @@ no down-migration. The migrator DSN is Secrets Store only (non-resident);
 `workers/edge/test/migrator-role-isolation.test.ts` asserts it is not bound
 by any runtime worker.
 
-## Read-only compatibility preflight (#1575)
+## Read-only compatibility preflight (#1575, #1634)
 
-`POST /preflight` accepts `{expectedHead, atlasSum, stagingOnlyBaseline}` and an
-optional `expectedPrismaRef` from
-verified release metadata. `expectedHead` omits `.sql`; the complete Atlas checksum
-file is bounded with the whole JSON body to 65,536 bytes. Metadata contains no SQL,
-URL, DSN or environment override. The selected chain may be newer than this bundle.
-The existing jose policy verifies identity before any secret or SQL; this endpoint
-also requires `ref == refs/heads/main` independently of a valid production subject.
+`POST /preflight` accepts exactly `{expectedPrismaRef}`; the key set is
+compared by exact match, so an extra or missing key is an invalid request rather than an ignored
+field — which is why sender and receiver can only change together. The whole JSON body is bounded
+to 65,536 bytes. Metadata contains no SQL, URL, DSN or environment override. The existing jose
+policy verifies identity before any secret or preview; this endpoint also requires
+`ref == refs/heads/main` independently of a valid production subject.
 
-The native Neon driver reads the full ledger in one read-only repeatable-read
-transaction. Only a completely executed type=2 prefix with matching version,
-description and canonical Atlas/HTTP hashes returns `200 {compatible:true,
-expectedHead, appliedHead, pendingCount}`. Missing/empty ledger, baseline/resolved
-rows, malformed or partial history, errors, gaps, duplicates and newer schema refuse.
-Every response is `no-store`; failures contain stable codes, never driver details.
-`parsePreflightMetadata` and `compareMigrationPrefix` are reusable domain functions.
+The preview is Prisma's public `executeMigrateShowPlan`, which reads the live marker without
+initializing its schema, and returns `prisma: {targetHash, markerHash, migrations, usedLiveMarker}`.
+An identity the bundle does not carry returns retryable `409 stale_prisma_bundle`; an unusable
+live path returns `422` with a stable code and never a driver detail. Nothing here creates a
+schema, applies a migration or takes the apply lock. A database still carrying the retired Atlas
+chain's revisions ledger is refused on both routes as
+`atlas_leftovers_present` before Prisma reads it (`src/atlas-leftovers.ts`, #1625): the baseline
+would otherwise fail with 42710 inside the apply. CD's staging job rebuilds that state first.
+There is no artifact-level production gate in this request: the owner deleted it rather than
+rehousing it (#1621), and what protects production is the `production` GitHub environment's own
+approval.
 
-The Atlas-only transition route never creates a ledger, applies a chain or
-acquires the apply lock. It remains available for the first pre-publication
-check while the previous migrator bundle is serving. Requests containing
-`expectedPrismaRef` use the same fixed DO as apply, verify the bundled Atlas
-prefix and native snapshot, and call Prisma's public `executeMigrateShowPlan`.
-The native preview reads the live marker without initializing its schema.
-
-#1564 reuses the same bounded metadata parser and main-controller authentication on `/migrate`.
-The fixed apply Durable Object compares the requested checksum prefix with its carried bundle,
-then rereads the complete native ledger and applies the same compatibility predicate while
-holding `blockConcurrencyWhile`. Refusal precedes even ledger creation. Only a compatible
-prefix reaches the existing per-file transactional executor, bounded to the selected head.
-The HTTP response contains stable failure codes instead of SQL/secret exception messages.
-
-`test/selected-*.workerd.test.ts` exercises real Hono/jose, the native DO and Neon HTTP payloads
-through Miniflare. `test/integration/selected-apply.integration.ts` executes those native HTTP
-requests on disposable PostgreSQL, including a ledger change between preflight and apply,
-missing-ledger refusal, failed-file rollback and queued-request revalidation.
+`/migrate` requires the same metadata, rechecks the identity INSIDE the fixed lock — a prior
+preview is no authority — and then hands the exact snapshot and `refHash` to
+`ControlClient.migrate`. `test/selected-request.workerd.test.ts` exercises real Hono/jose and the
+native DO through Miniflare for the boundaries decided before any database contact;
+`test/integration/prisma.integration.ts` and `prisma.workerd.integration.ts` execute the apply,
+the replay, the rollback and the concurrent apply on disposable PostgreSQL.
 Activation still requires authorized staging and production preflight bootstrap.
 Local tests prove neither deployment nor production approval; see the canonical
 [deployment runbook](../../docs/ops/deployment.md#read-only-migration-preflight-1575).
@@ -152,31 +130,24 @@ and `migrations/**/*.d.ts` as Text modules with preserved file names. Native
 filesystem APIs then read the graph at `/bundle/migrations`.
 
 Native requests select only a 64-character hash in a packaged snapshot. They
-cannot supply SQL, a graph, a path or a DSN. `/preflight` returns
-`prisma: {targetHash, markerHash, migrations, usedLiveMarker}` with the native
-migration array and live-marker flag. `/migrate` requires the same complete
-metadata, rechecks Atlas compatibility and the native path inside the fixed
-lock, applies Atlas, then calls `ControlClient.migrate` with that exact snapshot
-and `refHash`. Prisma owns its transactions, advisory lock, operations and marker.
-The response preserves its native receipt, including `markerHash`,
-`migrationsApplied` and `applied`; a mismatched marker refuses success. Unknown
-snapshots return retryable 409; an incompatible live path returns 422.
+cannot supply SQL, a graph, a path or a DSN.
 
-Atlas continues to own existing SQL tables; Prisma alone owns the seven new
-session tables and `prisma_contract` marker schema. The direct migrator role
-needs database `CREATE` to initialize that schema plus its existing table/schema
-privileges. The disposable PostgreSQL suite proves this with a NOSUPERUSER
+Prisma alone owns every object in the data plane and the `prisma_contract`
+marker schema. The direct migrator role needs database `CREATE` to initialize
+that schema plus its existing table/schema privileges. The disposable PostgreSQL suite proves this with a NOSUPERUSER
 role: missing CREATE fails apply, the inherited grant succeeds, and replay
 applies zero migrations. CI receives no DSN; the Worker resolves its secret.
 
 ## Tests
 
 TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
-`test/migrate.worker.http.test.ts` + `test/http-apply*.test.ts`): valid
-test-signed JWT → apply + success + applied head; wrong repo / wrong audience /
-expired → 403; HTTP apply of a fixture chain against a fake `neon()`;
-`-pooler` rejected before SQL; fake-lock concurrency. The bounded apply and
-JWKS are injected in plain Vitest. `test/deployment-contract.test.ts` resolves
+`test/migrate.worker.http.test.ts` + `test/apply-lock.test.ts` +
+`test/direct-dsn.test.ts`): valid test-signed JWT → apply + success; wrong repo /
+wrong audience / expired → 403; `-pooler` rejected before any connection;
+fixed-name lock and in-process queueing. The executor and JWKS are injected in
+plain Vitest, and `test/selected-executor-double.ts` records every DSN the route
+hands it — so a refusal test asserts the route never reached the database, not
+merely that it answered a refusal. `test/deployment-contract.test.ts` resolves
 all three Wrangler rings and bundles the deployed entry with an esbuild
 metafile, pinning the deleted class and the absence of the retired binding,
 container configuration and SDK import. Release contracts prove the migrator
@@ -190,10 +161,7 @@ both allowlists (the cross-replay matrix, plus the control case: an
 `test/migrate.worker.policy-selection.test.ts` proves the deployed Worker
 actually picks one — without it `policyFor` could be dead code and every claims
 test would still pass. `test/migrate.worker.handshake.test.ts` owns `/healthz`'s
-`bundleHead` and the 409, including that it precedes the DSN.
-`test/migrate.worker.bound.test.ts` owns the apply bound: it drives the real
-apply over the fake neon-http client, so it asserts the SQL that reached the
-database, not the arguments it was called with.
+`prismaTarget` and the 409, including that it precedes the DSN.
 
 Test timeouts are budgets, not defaults (#1594). `test/test-timeout-budget.ts`
 declares one number per suite kind with the measurement that justifies it: the

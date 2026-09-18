@@ -5,19 +5,17 @@ import {
   type GitHubOidcPolicy,
 } from "@animichi/contract/oidc-github";
 import { createMigratorApp, type Env as MigratorEnv, type MigratorDeps } from "../src/create-app";
-import type { ApplyOutcome } from "../src/migration";
 import {
   MIGRATOR_OIDC_AUDIENCE,
   TRUSTED_CD_WORKFLOW,
 } from "../src/policy";
-import { fixtureChain, HEAD_A, HEAD_B } from "./http-apply.helpers";
+import { MIGRATIONS, requestMetadata } from "./sealed-migrations";
+import { recordingExecutor } from "./selected-executor-double";
 
-// #1051 — shared HTTP-seam fixtures for the migrator worker tests: faked
-// bounded apply + injected JWKS (spec §Testing Decisions 1). jose resolves
-// exp against the wall clock, so the clock is pinned to a fixed instant.
+// #1051 — shared HTTP-seam fixtures for the migrator worker tests: injected JWKS and executor
+// (spec §Testing Decisions 1). jose resolves exp against the wall clock, so the clock is
+// pinned to a fixed instant.
 export const FIXED_NOW = new Date("2026-03-01T00:00:00.000Z");
-
-export type { ApplyOutcome };
 
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
@@ -72,17 +70,15 @@ export function joseEnv(jwk: JWK) {
   return createLocalJWKSet({ keys: [jwk] });
 }
 
-// The app under test carries the fixture chain (`http-apply.helpers`), not the
-// repository's own `migrations/neon` bundle: these tests are about the HTTP
-// seam, and the #1365 handshake answers `/healthz` and the 409 from whichever
-// chain the Worker carries. Its head is HEAD_B — the head `post()` expects.
+// The app under test carries the repository's own sealed graph: these tests are about the HTTP
+// seam, and the #1365 handshake answers `/healthz` and the 409 from whichever schema identity
+// the Worker carries (#1634).
 export async function makeApp(overrides: Partial<MigratorDeps> = {}) {
   const { token, jwk } = await issuedToken();
   const deps: MigratorDeps = {
-    chain: fixtureChain,
+    migrationsDir: MIGRATIONS,
     verifier: createGitHubOidcVerifier(policy, joseEnv(jwk)),
-    applyChain: (): Promise<ApplyOutcome> => Promise.resolve({ kind: "success", exitCode: 0 }),
-    readAppliedHead: (): Promise<string | null> => Promise.resolve("20260814191301_turn_idempotency_outbox"),
+    selected: recordingExecutor().selected,
     ...overrides,
   };
   return { app: createMigratorApp(deps), token };
@@ -92,12 +88,6 @@ export function post(body: Record<string, unknown>, token: string): Request {
   return new Request("https://migrator.test/migrate", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ expectedHead: HEAD_B, atlasSum: requestedSum(body.expectedHead), stagingOnlyBaseline: false, ...body }),
+    body: JSON.stringify({ ...requestMetadata, ...body }),
   });
-}
-
-/** Native Atlas v0.30.0 fixture checksums, including the cumulative A-only directory. */
-function requestedSum(head: unknown): string {
-  if (head === HEAD_A) return "h1:WggkOYIHPi39gCs0atYwAl9FWP+l8eSKywqBfcVybl4=\n20260811000001_turn_outcome.sql h1:kDkRLCxK9e7se3NrHdn0RSlV4npGr8xO++D3MwUX03I=\n";
-  return fixtureChain.atlasSum().replace(HEAD_B, typeof head === "string" ? head : HEAD_B);
 }

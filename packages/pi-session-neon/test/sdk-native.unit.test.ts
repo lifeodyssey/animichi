@@ -4,10 +4,8 @@ import { test } from "node:test";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import type { SessionRepo, Storage } from "@earendil-works/pi-agent-core/harness/session";
 import { NeonSessionRepo, NeonStorage } from "@animichi/pi-session-neon";
-import postgresClient from "@prisma/orm-postgres/runtime";
-import contractJson from "../src/contract.json" with { type: "json" };
-import type { Contract } from "../src/contract.d.ts";
 import { build } from "esbuild";
+import { contractClient } from "./contract-client.ts";
 
 void test("the resolved public SDK package is exactly 0.85.1", async () => {
   const metadata: unknown = JSON.parse(await readFile(new URL(import.meta.resolve("@earendil-works/pi-agent-core/package.json")), "utf8"));
@@ -16,7 +14,7 @@ void test("the resolved public SDK package is exactly 0.85.1", async () => {
 });
 
 void test("the native Storage seals admission without opening a database connection", async () => {
-  const db = postgresClient<Contract>({ contractJson, url: "postgresql://unused:unused@127.0.0.1:1/unused" });
+  const db = contractClient("postgresql://unused:unused@127.0.0.1:1/unused");
   const storage: Storage = new NeonStorage(db, { sessionId: "closed" });
   const repo: SessionRepo = new NeonSessionRepo(db);
   assert(repo instanceof NeonSessionRepo);

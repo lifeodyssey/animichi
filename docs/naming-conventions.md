@@ -40,7 +40,7 @@ Exceptions (framework/tool conventions, not violations):
 - Underscore-prefixed files under `tests/` (`_fixtures.ts`, `_chat-page.tsx`)
   are vitest helper modules — excluded from test discovery by design.
 - `__snapshots__/` dirs and `*.snap` (vitest-generated).
-- `migrations/neon/` Atlas-generated files (timestamp_snake_case).
+- `packages/pi-session-neon/migrations/app/` migration directories (timestamp_snake_case).
 - Established domain terms used as-is (measured dominant usage, repo-wide):
   `byok`, `shiori`, `turnstile`, `maplibre` — kebab them like any word
   (`byok-storage.ts`, `maplibre-adapter.ts`), but never expand them.
@@ -65,7 +65,7 @@ Exceptions (framework/tool conventions, not violations):
 | HTTP routes (workers `/v1/*`, web routes) | kebab-case | `/v1/byok/probe`, `routes/routes/$routeId` |
 | Env var keys | SCREAMING_SNAKE with domain prefix | `AGENT_SVC_DATABASE_URL`, `E2E_WEB_BASE_URL`, `MIMO_API_KEY` |
 | DB tables / columns | snake_case | `locations`, `location_aliases` |
-| Make targets | kebab-case | `db-push-dry`, `dev-local`, `e2e-setup` |
+| Make targets | kebab-case | `db-status`, `dev-local`, `e2e-setup` |
 | GH workflow files | kebab-case | `verify-deploy-evidence.yml` |
 | GH workflow job names | kebab-case | `alert-failure` |
 | Wrangler bindings / route names | kebab-case | `catalog`, `map-tiles` |

@@ -44,7 +44,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   (`.dev.vars` locally — see `.dev.vars.example`; `wrangler secret put` / deploy-lane env
   in CI). The users worker no longer reads `NEON_AUTH_JWKS_URL` (identity arrives as headers).
 - Envs: `[env.staging]` = `users-staging`, `[env.production]` = `users` (routeless; binding-only).
-- DB schema changes ride `migrations/neon/` (atlas, timestamped files + `atlas migrate hash`).
+- DB schema changes ride the one Prisma chain in `packages/pi-session-neon/` (`make db-new`).
 
 ## Tests
 

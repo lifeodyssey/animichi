@@ -14,7 +14,8 @@ class ReleaseSnapshotTest < Minitest::Test
     end
     FileUtils.mkdir_p(File.join(@root, 'web/.output/public'))
     File.write(File.join(@root, 'web/.output/public/app.js'), 'built B with catalog A')
-    File.write(File.join(@root, 'migrations/20260901000000_a.sql'), 'catalog A')
+    FileUtils.mkdir_p(File.join(@root, 'migrator/bundle/migrations/app/20260901000000_a'))
+    File.write(File.join(@root, 'migrator/bundle/migrations/app/20260901000000_a/ops.json'), 'catalog A')
     @metadata = snapshot_metadata
   end
 
@@ -36,7 +37,7 @@ class ReleaseSnapshotTest < Minitest::Test
 
   def test_b_contains_cumulative_a_catalog_and_schema
     assert ReleaseSnapshot.validate(@root, manifest, @metadata)
-    assert_equal 'catalog A', File.read(File.join(@root, 'migrations/20260901000000_a.sql'))
+    assert_equal 'catalog A', File.read(File.join(@root, 'migrator/bundle/migrations/app/20260901000000_a/ops.json'))
   end
 
   def test_refuses_missing_catalog_even_when_manifest_is_resealed

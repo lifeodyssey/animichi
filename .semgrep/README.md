@@ -19,7 +19,7 @@ by the `semgrep` CI job and the pre-commit hook via `--config .semgrep`.
 - The rules are scoped via `paths.include: [/workers/catalog/src,
   /workers/users/src]`; `test/` and `tests/` directories are already excluded by
   the default `.semgrepignore` patterns (required restatement).
-- Atlas migration SQL under `migrations/neon/` is out of scope: the rules are
+- The migration chain's own DDL is out of scope: the rules are
   TypeScript-only and never match `.sql` files.
 
 ## Narrow exceptions (documented AT-C fully)
@@ -28,7 +28,7 @@ The ORM boundary has exactly two sanctioned escapes. Both are enforced by
 `paths.exclude` on the relevant rules and are the ONLY places raw PostgreSQL is
 allowed:
 
-1. **Atlas migrations** (`migrations/neon/`) — schema DDL owned by Atlas/`atlas
+1. **The migration chain** (`packages/pi-session-neon/migrations/`) — schema DDL owned by the chain/`prisma
    migrate`. Out of scope by language; the rules do not target `.sql` files.
 2. **Dedicated typed-expression modules** — complete hand-written SQL may live
    only in:

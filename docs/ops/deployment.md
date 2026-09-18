@@ -53,7 +53,7 @@ becomes one `affected` matrix leg running that package's own `lint`, `typecheck`
 own `package.json`, which is also what `pre-push` runs.
 
 Three paths sit outside the package graph and are routed by `dorny/paths-filter` instead:
-`apps/web/**` and `e2e/**` (the browser job), `migrations/neon/**` (the schema job), and the root dependency files, whose change
+`apps/web/**` and `e2e/**` (the browser job), `packages/pi-session-neon/migrations/**` (the schema job), and the root dependency files, whose change
 means "every package" because pnpm answers a root-lockfile change with the root project alone.
 The six security jobs are never path-gated. `PR Verification` and `Security` each aggregate their
 dependencies with `always()` and fail on any failed or cancelled one.
@@ -353,7 +353,7 @@ deploys and tags never trigger deployment.
 
 ### Schema change policy
 
-Neon migrations run from `migrations/neon/` before the Worker rollout, but the previously published
+Neon migrations run from the Prisma chain before the Worker rollout, but the previously published
 Worker version can still serve traffic while that step is running. A destructive change can therefore briefly break
 old code that still reads or writes the removed schema; the `route_anime` release, for example,
 dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where
@@ -364,42 +364,50 @@ construction. The full authoring/apply boundary is [`migrations.md`](./migration
 
 ### Migration promotion
 
-The selected artifact carries the complete committed `migrations/neon/` chain, `atlas.sum` and any
-`STAGING_ONLY_BASELINE` marker. It also carries Prisma's unchanged `contract.json` and complete native
-migration directory beside the migrator bundle. The controller checks every source byte against the
+The selected artifact carries Prisma's unchanged `contract.json` and complete native migration
+directory beside the migrator bundle. The controller checks every source byte against the
 selected release commit; newer graph files cannot enter an older selected artifact.
 
-The first authenticated `POST /preflight` sends `{expectedHead, atlasSum, stagingOnlyBaseline}` to the
-already deployed #1575 endpoint. This Atlas-only read precedes every deployment mutation and rejects
-an unknown or incompatible ledger. A missing endpoint requires authorized bootstrap CD.
+CD publishes the selected migration executor first. An older executor cannot preview a migration
+graph it does not carry, so there is nothing worth asking it beforehand: `/healthz` must report the
+selected contract's own `prismaTarget`, and a request naming any other identity is refused before
+any database contact. Then CD calls `/preflight` with `expectedPrismaRef` read from the selected
+contract's `storageHash`. Public Prisma `executeMigrateShowPlan` reads the actual marker and graph
+without applying DDL. Its configured `contractHash` is not proof of the selected or installed
+target; the receipt uses the requested target, native path and live marker. Application foundation
+changes and service publication occur only after this preview succeeds.
 
-After that check, CD publishes the selected migration executor only. An older executor cannot preview
-native migration files it does not carry. Both `/healthz` identities must match: `bundleHead` for
-Atlas and `prismaTarget` for the native contract. Then CD calls `/preflight` with `expectedPrismaRef`
-read from the selected contract's `storageHash`. Public Prisma `executeMigrateShowPlan` reads the
-actual marker and graph without applying DDL. Its configured `contractHash` is not proof of the
-selected or installed target; the receipt uses the requested target, native path and live marker.
-Application foundation changes and service publication occur only after this preview succeeds.
+`scripts/delivery/migrate-through-worker.sh <environment>` sends the same Prisma ref to `/migrate`
+using the existing `animichi:github-actions:migrator` OIDC audience. Under the fixed apply Durable
+Object lock, the endpoint revalidates that identity before any DDL — a prior preview is no
+authority — and then hands the selected snapshot to Prisma's public control client, which owns the
+transactions, the advisory lock and the marker. One authority owns the whole data plane (#1634),
+so there is no cross-owner transaction to leave half-committed.
 
-`scripts/delivery/migrate-through-worker.sh <environment>` sends the same sealed Atlas metadata and
-Prisma ref to `/migrate` using the existing `animichi:github-actions:migrator` OIDC audience. Under the
-fixed apply Durable Object lock, the endpoint revalidates both owners before DDL. Atlas applies only
-its selected original chain; Prisma's public control client applies its selected snapshot and native
-graph. Neither owner may alter the other's objects. Existing Atlas SQL remains immutable; Prisma owns
-only the new agent contract tables. There is no cross-owner transaction: a later Prisma failure can
-leave an already committed compatible Atlas prefix, and retry must revalidate that state.
+The final read-only observation must show the exact selected Prisma target and installed marker,
+with no pending migrations. Staging receipt verification compares that marker with the contract in
+the same selected artifact. SQL and secret failures return stable codes, never internal exception
+messages.
 
-The final read-only observation must show the exact selected Atlas head, Prisma target and installed
-marker, with no pending migrations for either owner. Staging receipt verification compares that
-native marker with the contract in the same selected artifact. A matching Atlas head alone cannot
-approve promotion. SQL and secret failures return stable codes, never internal exception messages.
-
-CD performs no staging baseline reset. Missing/empty/native-baseline state requires an explicit
-bootstrap or recovery decision. Production's baseline marker guard runs before Pulumi and every
-other mutation. The migrator binding, role and existing topology must be bootstrapped before selected
+CD's staging job rebuilds staging once, for the Prisma flip (#1625). Before the migrator's preview,
+`infra/database-access/reset-staging-baseline.sh` reads the staging branch and acts only when there
+is no `prisma_contract.marker` `app` row and `public` still holds tables the retired Atlas chain
+left. It prints every `public` table with its row count, refuses by name if any table other than an
+extension's or the Atlas ledger holds a row, takes the `staging-before-prisma-baseline` branch, and
+drops and recreates `public` in one transaction. Every later run is a named no-op. The migrator
+refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
+`/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
+inside the apply. Production has no such step: a missing, empty or native-baseline production
+database still requires an explicit bootstrap or recovery decision. **Production promotion is protected only by the `production`
+GitHub environment's approval** — the artifact-level baseline gate was deleted rather than
+rehoused, and [#1621](https://github.com/lifeodyssey/animichi/issues/1621) records the residual
+risk and the conditions under which an artifact-level check comes back. The migrator binding,
+role and existing topology must be bootstrapped before selected
 executor publication; selected-artifact deployment does not provision its own access prerequisites.
 Staging and production retain separate DSN bindings and exact main-controller OIDC
-policies. CI receives no database credential and does not run direct database migrations.
+policies. CI receives no database credential and does not run direct database migrations; the
+staging rebuild above is the one step that reaches the database without the migrator, and it
+applies no migration.
 
 Expand/contract remains necessary: schema is applied before its consumers, and a Worker rollback
 does not reverse migrations. Follow [migrations.md](migrations.md) and
@@ -408,18 +416,19 @@ does not reverse migrations. Follow [migrations.md](migrations.md) and
 ### Read-only migration preflight (#1575)
 
 The migrator exposes authenticated `POST /preflight` for the selected-artifact
-controller. Its Atlas-only phase sends `{expectedHead, atlasSum, stagingOnlyBaseline}`
-from its verified artifact, with a main-ref GitHub OIDC token for the existing
-environment-selected migrator policy. `expectedHead` is the final filename without
-`.sql`. That phase accepts a selected Atlas chain newer than its own bundle, reads the
-complete revision ledger using native Neon `readOnly: true` / `RepeatableRead`, and
-returns `200 {compatible:true, expectedHead, appliedHead, pendingCount}` only for a
-completed matching prefix. Unknown metadata or database history fails closed.
+controller. It sends exactly `{expectedPrismaRef}` from its
+verified artifact, with a main-ref GitHub OIDC token for the existing
+environment-selected migrator policy. The key set is compared by exact match, so an
+added field is an invalid request rather than an ignored one. Public Prisma
+`executeMigrateShowPlan` reads the live marker and the forward path without
+initializing a schema, and the endpoint returns `200 {compatible:true, prisma:
+{targetHash, markerHash, migrations, usedLiveMarker}}`. Unknown metadata or an
+unusable database path fails closed.
 
-An authenticated missing/empty ledger returns `422 ledger_missing` / `ledger_empty`;
-partial history, hash divergence, native baseline/resolved rows, newer schema and a
-production staging-only baseline flag also return stable refusals. Missing identity
-is 401, disallowed identity 403, malformed metadata 400 (oversized input 413), and
+An identity this bundle does not carry returns retryable `409 stale_prisma_bundle`
+naming the `prismaTarget` it does carry; an unusable forward path returns a stable
+`422` refusal. Missing identity is 401,
+disallowed identity 403, malformed metadata 400 (oversized input 413), and
 secret/driver unavailability 503. Responses are `Cache-Control: no-store` and contain
 no database credentials or driver messages. `/healthz` still describes the bundle.
 
@@ -506,8 +515,9 @@ staging credential reused under a different label.
 
 Build exports `CLOUDFLARE_API_TOKEN` for registry publication. Deployment exports the Cloudflare
 credential for native Wrangler and Pulumi. Staging additionally exports its Access service-token
-pair for smoke. CD no longer exports `NEON_API_KEY` or resets staging; the Neon provider reads its
-encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
+pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild step alone reads it, from the ESC
+step's own output (`steps.esc.outputs.NEON_API_KEY`), and production never does. The Neon provider
+reads its encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
 #1370's required provisioning, and must not be copied into artifact or job outputs.
 
 Each ESC opening is followed by a nonempty-value check because the action otherwise only warns.
@@ -782,7 +792,7 @@ Then check health on a route that actually exists for that Worker:
 - web: `https://animichi-web-staging.zhenjiazhou0127.workers.dev/` — the SSR shell, that step's
   second probe.
 - migrator: `GET $MIGRATOR_STAGING_URL/healthz` (the workflow variable of that name). It answers
-  `{status, service, env, bundleHead, prismaTarget}` from the chain and native contract carried by
+  `{status, service, env, prismaTarget}` from the native contract carried by
   `workers/migrator/src/create-app.ts`.
 - catalog and users: **no public host** — both configs set `workers_dev = false` and are reached only
   through the edge's service bindings. Verify them with `deployments list` plus a request through the

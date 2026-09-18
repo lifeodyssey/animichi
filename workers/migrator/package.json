@@ -16,6 +16,7 @@
   "dependencies": {
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
+    "@animichi/prisma-geography": "workspace:*",
     "@neondatabase/serverless": "catalog:",
     "@prisma/orm-postgres": "catalog:",
     "@prisma/orm-toolchain": "8.0.0-rc.9",

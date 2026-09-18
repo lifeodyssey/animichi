@@ -24,9 +24,9 @@
 
 ## Apply path (current)
 
-1. **PR / affected CI:** the `db` component lane runs `atlas migrate validate` hermetically; the live-Neon dry-run was dropped with the test-infra retirement #1053.
-2. **Deploy:** `cd.yml` builds one sealed `db` payload. Staging sends its expected head to the OIDC-authenticated migrator; production applies the same payload with its protected `NEON_DATABASE_URL` and `search_path=public` after approval.
-3. **Local:** same Atlas pin as CI for **empty/dev/test-base** only. Staging/prod apply is the deploy workflow; laptop apply to staging/prod requires explicit owner HITL (not routine).
+1. **PR / affected CI:** the `db` component lane runs `prisma migration check` and a disposable fresh-schema apply hermetically; the live-Neon dry-run was dropped with the test-infra retirement #1053.
+2. **Deploy:** `cd.yml` builds one sealed migrator bundle. Both environments send the selected schema identity to their own OIDC-authenticated migrator, which holds the DSN; production applies the same bundle after approval.
+3. **Local:** there is no local apply. `make db-lint` / `make db-status` are static, and the disposable fresh-schema gate applies to a throwaway container only.
 
 ## Align with campaign decisions
 

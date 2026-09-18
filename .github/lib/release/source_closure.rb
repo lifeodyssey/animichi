@@ -9,8 +9,7 @@ require_relative 'selection'
 module ReleaseSourceClosure
   ROOT_FILES = %w[package.json pnpm-lock.yaml pnpm-workspace.yaml .pulumi.version].freeze
   NATIVE_CONTRACT = 'packages/pi-session-neon/src/contract.json'
-  MIGRATION_DIRECTORIES = { 'migrations/neon' => 'migrations',
-                           'packages/pi-session-neon/migrations' => 'migrator/bundle/migrations' }.freeze
+  MIGRATION_DIRECTORIES = { 'packages/pi-session-neon/migrations' => 'migrator/bundle/migrations' }.freeze
   module_function
 
   def git(*arguments)

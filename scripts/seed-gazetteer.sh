@@ -6,7 +6,7 @@
 #
 # Usage: DATABASE_URL=postgres://... scripts/seed-gazetteer.sh
 #   DATABASE_URL must target a database with the locations/location_aliases
-#   schema applied (Atlas migrations/neon chain) — the seed never creates
+#   schema applied (the Prisma chain) — the seed never creates
 #   schema. See docs/data-sources.md for provenance and regeneration.
 set -euo pipefail
 umask 077

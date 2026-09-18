@@ -12,9 +12,6 @@ async function workerBundle(): Promise<string> {
     conditions: ["workerd", "worker"], external: ["cloudflare:workers", "node:*", ...builtinModules],
     banner: { js: 'import { createRequire as createSelectedTestRequire } from "node:module"; const require = createSelectedTestRequire("/bundle/selected-worker.js");' },
     stdin: { contents: 'export { MigratorApplyLock } from "./apply-lock"; import { createMigratorApp } from "./create-app"; export default createMigratorApp();', resolveDir: resolve("src") },
-    loader: { ".sql": "text", ".sum": "text" }, plugins: [{ name: "fixture-chain", setup(builder) {
-      builder.onResolve({ filter: /\/bundled-chain$/ }, () => ({ path: resolve("test/fixtures/selected-chain.ts") }));
-    } }],
   });
   return built.outputFiles[0]?.text ?? "";
 }

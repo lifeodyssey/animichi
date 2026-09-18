@@ -1,12 +1,14 @@
-/** The one-at-a-time turn in which a caller applies the Atlas chain (#1663).
+/** The one-at-a-time turn in which a caller creates the service roles and applies
+ * the Prisma chain (#1663).
  *
- * The chain is not safe to apply twice at once: the role block of
- * `20260826000001_roles.sql` is CLUSTER-global and checks `pg_roles` before it
- * creates, so two applies that reach it together both read an empty catalog and
- * the second one to commit dies on `pg_authid_rolname_index`. A container per
- * suite made that impossible; on the shared one (#1663) every arm in every
- * worktree on this host applies the chain beside the others, and the observed
- * failure is CI's edge lane.
+ * Two cluster-global writes are not safe to run twice at once. `CREATE ROLE` is
+ * check-then-create (`service-roles.ts`), so two callers that reach it together
+ * both read an empty `pg_roles` and the second one to commit dies on
+ * `pg_authid_rolname_index`; and the chain's grant matrix prechecks those same
+ * rows, so an apply ordered before the creation that would satisfy it fails its
+ * precheck instead. A container per suite made both impossible; on the shared
+ * one (#1663) every arm in every worktree on this host writes beside the
+ * others, and the observed failure is CI's edge lane.
  *
  * The lock is PostgreSQL's own, so it holds across processes and worktrees, not
  * just across calls in one process. It is taken on the cluster's ADMIN database,

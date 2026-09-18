@@ -5,7 +5,7 @@ require "psych"
 class CdCredentialsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   RETIRED = %w[PULUMI_BACKEND_URL PULUMI_CONFIG_PASSPHRASE R2_ACCESS_KEY_ID
-               R2_SECRET_ACCESS_KEY CLOUDFLARE_PULUMI_API_TOKEN NEON_API_KEY].freeze
+               R2_SECRET_ACCESS_KEY CLOUDFLARE_PULUMI_API_TOKEN].freeze
   RUNTIME = %w[MIMO_API_KEY ZEN_GO_API_KEY SUPABASE_DB_URL
                GOOGLE_MAPS_API_KEY LOGFIRE_TOKEN TURNSTILE_SECRET ANON_ID_SECRET].freeze
 
@@ -56,6 +56,21 @@ class CdCredentialsTest < Minitest::Test
     end
     assert_includes steps("stage").to_s, "staging-smoke-check.sh"
     assert_includes File.read(File.join(ROOT, ".github/scripts/staging-smoke-check.sh")), "CF_ACCESS_CLIENT_ID"
+  end
+
+  # The Neon key opens every branch of the project, production's included, so it reaches exactly
+  # one step: the staging rebuild reads it from the ESC step's own output (pulumi/esc-action sets
+  # an output for every environment variable) instead of the job-wide export list above, and no
+  # other step's process ever holds it.
+  def test_neon_key_reaches_only_the_staging_rebuild
+    holders = @cd.fetch("jobs").flat_map do |id, job|
+      job.fetch("steps").select { |item| item.to_s.include?("NEON_API_KEY") }.map { |item| [id, item["name"]] }
+    end
+    assert_equal [["stage", "Rebuild a staging schema stranded on the Atlas chain"]], holders
+    rebuild = steps("stage").find { |item| item["name"] == holders.first.last }
+    assert_equal({ "NEON_API_KEY" => "${{ steps.esc.outputs.NEON_API_KEY }}" }, rebuild["env"])
+    esc = steps("stage").find { |item| item["uses"].to_s.start_with?("pulumi/esc-action@") }
+    assert_equal "esc", esc["id"]
   end
 
   def test_no_runtime_secret_upload_database_credential_or_retired_key

@@ -203,11 +203,11 @@ in CI.
 
 ### Migration Testing
 
-The test fixture never parses, filters, splits, or swallows migration SQL. Atlas 0.30.0 applies
-`migrations/neon/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
+The test fixture never parses, filters, splits, or swallows migration SQL. Prisma applies the one
+committed chain transactionally and records its marker in `prisma_contract.marker`; tests
 then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. New
-catalog/user schema changes are authored in `migrations/neon/` directly; the archived Supabase
-compatibility files (`supabase/`, issue #1000) are not a source and never require an Atlas twin. See
+catalog/user schema changes are authored in the Prisma contract directly; the archived Supabase
+compatibility files (`supabase/`, issue #1000) are not a source and never require a twin. See
 `docs/ops/neon-test-infra.md` for the source rule; `test-base` refresh is manual since #1053.
 
 ### SQL Review Standards
@@ -355,7 +355,7 @@ not define a second coverage policy.
 affected set is pnpm's: `pnpm ls -r --depth -1 --json --filter "...[<merge-base>]"` selects every
 workspace project whose files changed plus every dependent, and each selected package runs its own
 `lint` / `typecheck` / `test` / `test:integration`. The paths outside the package graph
-(`apps/web`, `migrations/neon`, `e2e`, the root dependency files) are routed by
+(`apps/web`, the migration chain, `e2e`, the root dependency files) are routed by
 `dorny/paths-filter` into dedicated jobs, and a root dependency change means every package.
 `PR Verification` blocks merge unless every lane succeeds; the direct `Security` context separately
 fail-closes the six always-on security jobs.

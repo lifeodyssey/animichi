@@ -4,7 +4,7 @@
 # `pre-push-commitlint.test.sh` (which messages a push carries).
 #
 # Hermetic: every case builds a throwaway git repository under one temp root
-# with its own `origin/main`, a fake `pnpm` / `make` / `atlas` on PATH and the
+# with its own `origin/main`, a fake `pnpm` / `make` on PATH and the
 # four documentation checks stubbed. No real suite, container or network call.
 # The fake pnpm does double duty — it answers `ls -r --depth -1 --json` and
 # records every `run` asked of it: the selected set, the serial flag and the
@@ -66,9 +66,8 @@ if [ -n "${PNPM_FAIL_SCRIPT:-}" ]; then
   for argument in "$@"; do [ "$argument" = "$PNPM_FAIL_SCRIPT" ] || continue; exit 1; done
 fi
 STUB
-  for tool in make atlas; do
-    printf '#!/usr/bin/env bash\nprintf "%s %%s\\n" "$*" >> "$INVOCATIONS"\n' "$tool" > "$BIN/$tool"
-  done
+  # `make` is the one non-pnpm tool a routed bucket still shells out to; it records and succeeds.
+  printf '#!/usr/bin/env bash\nprintf "make %%s\\n" "$*" >> "$INVOCATIONS"\n' > "$BIN/make"
   for check in agents-refs docs-paths root-allowlist spec-references; do
     printf '#!/usr/bin/env bash\nprintf "check-%s\\n" >> "$INVOCATIONS"\n' "$check" \
       > "$REPO/scripts/local-gates/check-$check.sh"

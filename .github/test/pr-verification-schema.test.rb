@@ -1,4 +1,4 @@
-# SUT: pr-verification.yml db job validates the migration chain and its migrator package.
+# SUT: pr-verification.yml's db job checks the migration chain's integrity and applies it fresh.
 require "minitest/autorun"
 require "psych"
 
@@ -7,14 +7,17 @@ class PrVerificationSchemaTest < Minitest::Test
   CI_FILE = File.join(ROOT, ".github", "workflows", "pr-verification.yml")
   SCHEMA_JOB = "db"
   SCHEMA_FILTERS = %w[migrations deps].freeze
+  # Three questions, three steps, in this order: the graph is internally consistent (static),
+  # it still applies from zero to a pristine database (a throwaway container), and CD's staging
+  # rebuild still acts only on the state it was approved for (the same image, #1625).
   SCHEMA_SEGMENTS = [
-    "atlas migrate validate --dir file://migrations/neon",
+    "prisma migration check",
     "bash scripts/local-gates/db-fresh-schema.sh",
-    "pnpm --filter migrator test"
+    "bash infra/database-access/reset-staging-baseline.test.sh"
   ].freeze
-  SCHEMA_FORBIDDEN = ["atlas migrate apply", "supabase db push"].freeze
-  ATLAS_ACTION = "ariga/setup-atlas@"
-  ATLAS_VERSION = "v0.30.0"
+  # A migration applies in exactly one place — the migrator Worker, in CD. Any of these in a PR
+  # job would be a second apply path, with a database credential this workflow must never hold.
+  SCHEMA_FORBIDDEN = ["prisma db migrate", "supabase db push", "psql "].freeze
 
   def setup
     @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
@@ -45,14 +48,6 @@ class PrVerificationSchemaTest < Minitest::Test
     assert(found == found.uniq && found == found.sort,
                      "pr-verification.yml:#{SCHEMA_JOB}: the segments must be separate steps in the order " \
                      "#{SCHEMA_SEGMENTS.join(' -> ')}")
-  end
-
-  def test_schema_job_pins_atlas
-    atlas = @ci.dig("jobs", SCHEMA_JOB, "steps").to_a.find { |step| step["uses"].to_s.start_with?("ariga/setup-atlas") }
-    assert(atlas && atlas["uses"].start_with?(ATLAS_ACTION),
-                     "pr-verification.yml:#{SCHEMA_JOB}: Atlas must come from ariga/setup-atlas")
-    assert(atlas&.dig("with", "version") == ATLAS_VERSION,
-                     "pr-verification.yml:#{SCHEMA_JOB}: setup-atlas must pin version #{ATLAS_VERSION}")
   end
 
   def job_commands

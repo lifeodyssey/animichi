@@ -62,9 +62,11 @@ retired run engine and envelope paths have no forwarding modules.
 - `@animichi/agent/harness` composes the seven native tools. Catalog uses the original oRPC
   contract validators; model/web/catalog transport uses Workers-supported manual redirects
   and refuses redirects before any credential can leave the permitted origin.
-- Native business tables and runtime storage are in `packages/pi-session-neon`. Existing
-  Atlas quota/ownership tables are queried directly through bounded native SQL; do not copy
-  them or revive old run state.
+- Native business tables and runtime storage are in `packages/pi-session-neon`. The conversation
+  ledger (`sessions`, `turn_reservations`) and the two usage meters (`daily_usage`,
+  `anon_daily_message_count`) are built by that same chain as raw-SQL objects the data-plane
+  contract does not declare (spec §4.12), and are queried directly through bounded native SQL;
+  do not copy them or revive old run state.
 - Selection and facts use shared native tools/hooks and typed custom entries. Live chat uses
   native watch with AI SDK framing; transcript GET reads native storage directly. The request
   digest and current owner authorize read-only reconnection while the driver remains exclusive.
@@ -101,8 +103,9 @@ retired run engine and envelope paths have no forwarding modules.
 - The native BYOK egress guard (`src/agent/egress/`) is the Worker-side egress policy, and it is a
   separate mechanism from the retired container `DENIED_EGRESS_HOSTS` glob list: it guards what
   this Worker's own agent tools may call, not an external process's network namespace.
-- The agent tier reads `AGENT_SVC_DATABASE_URL` via direct Prisma 8 `postgres<Contract>`
-  and native `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
+- The agent tier reads `AGENT_SVC_DATABASE_URL` through the one client construction site,
+  `src/native-client.ts` (contract JSON plus the geography runtime descriptor), and native
+  `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
   Secret Store/string bindings are resolved in default startup, never from `process.env`.
 - New Agent execution uses the published Cloudflare `Agent` class and its own schedules.
   Do not add custom alarm state machines or a replacement Session implementation.
@@ -118,7 +121,7 @@ and they are the whole list: `auth-config.test.ts` (#1047 — no deploy surface 
 `.github/workflows/` must keep `pnpm run test:worker` green for those two. Everything else that
 used to pin pipeline text was deleted or repointed at the file owning the contract (#1373) —
 `release-toolchain.test.ts` reads `package.json` manifests, not workflows, and
-`staging-baseline-reset.test.ts` now executes
-`infra/database-access/production-baseline-guard.sh` instead of extracting it from `cd.yml`.
+`staging-baseline-reset.test.ts` reads the reset SQL and the committed chain rather than
+extracting shell out of `cd.yml`.
 Do not add a new assertion about a job name, a step name, or an `if:` condition: pipeline shape
 belongs to the contract tests in `.github/scripts`.

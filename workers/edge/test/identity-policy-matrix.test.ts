@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { identityPolicySchema } from "@animichi/contract/identity";
 import { DEFAULT_IDENTITY_POLICY } from "@animichi/contract/identity-policy";
@@ -17,7 +17,6 @@ import { authRateLimitConfigFrom, rateLimitConfigFrom } from "../src/protect/rat
 
 const WRANGLER_TOML = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
 const wranglerToml = readFileSync(WRANGLER_TOML, "utf8");
-const MIGRATIONS_DIR = fileURLToPath(new URL("../../../migrations/neon/", import.meta.url));
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -77,22 +76,14 @@ void test("the identity matrix is closed: an agent class is rejected by the sche
   assert.equal(identityPolicySchema.safeParse(withAgent).success, false, "an accepted agent class would resurrect the deleted identity path");
 });
 
-void test("api_keys is absent from the hard-cut baseline", () => {
-  const files = readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort();
-  const sql = (name: string): string => readFileSync(`${MIGRATIONS_DIR}${name}`, "utf8");
-  assert.deepEqual(files, [
-    "20260826000000_extensions.sql",
-    "20260826000001_roles.sql",
-    "20260826000002_functions.sql",
-    "20260826000003_catalog.sql",
-    "20260826000004_agent.sql",
-    "20260826000005_users.sql",
-    "20260829000000_fix_coordinate_sync_precedence.sql",
-    "20260902000000_agent_runs.sql",
-    "20260904000000_platform_usage_scope.sql",
-    "20260915060017_photo_offers.sql",
-  ]);
-  assert.ok(files.every((name) => !/public\.api_keys/i.test(sql(name))));
+// AUTH-1 (#945) deleted the `sk_*` API-key path. The chain that used to be read here is gone
+// (#1636), so the surviving machine-checkable claim is about the data plane the chain BUILDS:
+// its contract declares no `api_keys` table, and a contract that declared one would be a
+// credential store this gateway has no code to read.
+void test("api_keys is absent from the data-plane contract", () => {
+  const contract = readFileSync(fileURLToPath(new URL("../../../packages/pi-session-neon/src/contract.json", import.meta.url)), "utf8");
+  const roots = Object.keys((JSON.parse(contract) as { roots: Record<string, unknown> }).roots);
+  assert.ok(!roots.some((table) => /api_keys/i.test(table)), `contract declares ${roots.join(", ")}`);
 });
 
 void test("anonymous BYOK is never promoted to authenticated (the native identity stays anonymous)", async () => {

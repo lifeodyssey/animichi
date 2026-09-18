@@ -1,9 +1,9 @@
 /** One disposable PostgreSQL + PostGIS + pgvector data plane, migrated and ready.
  *
  * Boot the offline image, wait for the server to accept sessions rather than
- * merely to bind the port, create a CLEAN database from `template1`, apply the
- * committed `migrations/neon` Atlas chain, and hand back its DSN. Zero Neon
- * environment variables, zero network beyond the local daemon.
+ * merely to bind the port, create a CLEAN database from `template1`, create the
+ * five service roles, apply the committed Prisma chain, and hand back its DSN.
+ * Zero Neon environment variables, zero network beyond the local daemon.
  *
  * The container is REUSED (#1663): `.withReuse()` keys it on the image and the
  * create options, so every arm in every worktree on this host shares one server
@@ -13,17 +13,19 @@
  * failure after the database exists drops it too, instead of the server.
  *
  * The bind and the two waits draw on ONE wall-clock deadline (#1318), so they
- * cannot sum past the hook that holds them. The chain apply holds the cluster's
- * turn while it runs, because the chain writes cluster-global roles (#1663).
+ * cannot sum past the hook that holds them. The role creation and the chain
+ * apply hold the cluster's turn while they run: the roles are cluster-global and
+ * created check-then-create, and the chain's grant matrix prechecks them (#1663).
  */
 import pg from "pg";
 import { GenericContainer, Wait, type StartedTestContainer, type WaitStrategy } from "testcontainers";
-import { applyAtlasChain } from "./atlas-chain.ts";
 import { ChainApplyTurn } from "./chain-apply-turn.ts";
 import { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
 import { uniqueDatabaseName } from "./database-name.ts";
 import { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
 import { PostgresStartupWait, type Pause } from "./postgres-startup-wait.ts";
+import { applyPrismaChain } from "./prisma-chain.ts";
+import { assertServiceRoles, createServiceRoles } from "./service-roles.ts";
 import type { SetupBudget } from "./setup-budget.ts";
 import { SetupDeadline } from "./setup-deadline.ts";
 
@@ -103,6 +105,17 @@ function adminDsn(container: StartedTestContainer): string {
   return `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${host}/${POSTGRES_USER}`;
 }
 
+/** The same connection, named for what it is to a caller that has only a plane's
+ * DSN: the image's default database (`POSTGRES_DB` in `bootContainer`), which is
+ * the database every advisory-lock holder on the cluster shares (#1663) — an
+ * advisory lock is scoped to the database that issued it, so a lock taken on a
+ * suite's own database conflicts with nobody. */
+export function clusterAdminDsn(planeDsn: string): string {
+  const url = new URL(planeDsn);
+  url.pathname = `/${POSTGRES_USER}`;
+  return url.toString();
+}
+
 /** The call's own database: a fresh name on the shared server, plus its drop. */
 function ownDatabase(container: StartedTestContainer, suite: string): OwnDatabase {
   const admin = adminDsn(container);
@@ -111,12 +124,24 @@ function ownDatabase(container: StartedTestContainer, suite: string): OwnDatabas
 }
 
 /** `CREATE DATABASE` returns before the new database accepts its own sessions,
- * so the clean DSN is probed too — the reason `db-fresh-schema.sh` waits twice. */
+ * so the clean DSN is probed too — the reason `db-fresh-schema.sh` waits twice.
+ *
+ * Both cluster-global steps happen inside one turn: the roles are created, then
+ * asserted by name, and then the chain whose grant matrix prechecks them runs.
+ * An apply that ran outside the turn could read `pg_roles` before the creation
+ * waiting on the turn committed, which is the precheck's only failure mode.
+ *
+ * The assertion is its own step, not part of the create: with the creation
+ * removed, the failure has to name the roles that are missing. */
 async function migrateCleanDatabase(own: OwnDatabase, deadline: SetupDeadline): Promise<TestPostgres> {
   await awaitSessions(own.admin, deadline);
   const dsn = await createCleanDatabase(own.admin, own.name);
   await awaitSessions(dsn, deadline);
-  await new ChainApplyTurn(own.admin).hold(() => applyAtlasChain(dsn));
+  await new ChainApplyTurn(own.admin).hold(async () => {
+    await createServiceRoles(own.admin);
+    await assertServiceRoles(own.admin);
+    await applyPrismaChain(dsn);
+  });
   return { dsn, stop: () => own.drop() };
 }
 
@@ -130,7 +155,7 @@ async function dropWithoutMaskingFailure(own: OwnDatabase): Promise<void> {
   }
 }
 
-/** Boot the shared server, prepare the call's own clean DB + Atlas chain, hand it over. */
+/** Boot the shared server, prepare the call's own clean DB + services + chain, hand it over. */
 export async function startTestPostgres(request: TestPostgresRequest): Promise<TestPostgres> {
   const deadline = new SetupDeadline(request.budget);
   const own = ownDatabase(await bootContainer(deadline), request.database);

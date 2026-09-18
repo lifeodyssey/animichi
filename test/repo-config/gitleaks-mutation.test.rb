@@ -12,7 +12,6 @@ class GitleaksMutationTest < Minitest::Test
 
   EXTEND_BLOCK = /^\[extend\]\n\s*useDefault\s*=\s*true\n/
   USE_DEFAULT = /useDefault\s*=\s*true/
-  ALLOWLIST_PATHS = /paths\s*=\s*\[.*\]/
   ALLOWLIST = "[allowlist]"
   ZERO_RULES = "zero rules"
   REDEFINED = "redefining that inherited rule can stop it"
@@ -72,8 +71,11 @@ class GitleaksMutationTest < Minitest::Test
     probe("#{File.read(CONFIG)}\n#{block}\n", label, REDEFINED)
   end
 
+  # The committed config declares no allowlist at all, so every allowlist probe ADDS the table
+  # it is testing. The property is unchanged: a config whose allowlist exempts, hides or
+  # silences too much must be rejected — whether that allowlist was widened or newly written.
   def probe_allowlist(assignment, label, consequence)
-    probe("#{File.read(CONFIG)}\n#{assignment}\n", label, consequence)
+    probe("#{File.read(CONFIG)}\n#{ALLOWLIST}\n  #{assignment}\n", label, consequence)
   end
 
   def probe_absent(label, consequence)
@@ -165,22 +167,18 @@ class GitleaksMutationTest < Minitest::Test
   end
 
   def test_rejects_allowlist_for_every_path
-    mutate(ALLOWLIST_PATHS, "paths = ['''.*''']",
-           "allowlist path widened to every file", "exempt from every rule")
+    probe_allowlist("paths = ['''.*''']", "allowlist path exempted every file", "exempt from every rule")
   end
 
   def test_rejects_allowlist_for_every_value
-    mutate(ALLOWLIST, "#{ALLOWLIST}\n  regexes = ['''.*''']",
-           "allowlist regex hid every secret value", HIDDEN)
+    probe_allowlist("regexes = ['''.*''']", "allowlist regex hid every secret value", HIDDEN)
   end
 
   def test_rejects_stopwords_that_silence_a_rule_class
-    mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"GHP_\"]",
-           "allowlist stopword silenced a whole rule class", SILENCED)
+    probe_allowlist(%(stopwords = ["GHP_"]), "allowlist stopword silenced a whole rule class", SILENCED)
   end
 
   def test_rejects_stopwords_that_silence_google_api_keys
-    mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"AIzaSy\"]",
-           "allowlist stopword silenced Google API keys", SILENCED)
+    probe_allowlist(%(stopwords = ["AIzaSy"]), "allowlist stopword silenced Google API keys", SILENCED)
   end
 end

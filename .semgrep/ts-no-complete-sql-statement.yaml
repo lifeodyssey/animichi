@@ -6,7 +6,8 @@
 #
 # Narrow exception (documented in .semgrep/README.md): ONLY
 #   workers/catalog/src/db/expressions.ts  (typed fragments, never complete DML).
-# Atlas migrations in migrations/neon are excluded by language scope (SQL files).
+# The migration chain is TypeScript, and its `rawSql` operations are the sanctioned place for
+# complete statements; the exclusion below is by path, not by file name.
 rules:
   - id: ts-no-complete-sql-statement
     languages: [ts]
@@ -18,7 +19,7 @@ rules:
       and compose any PostgreSQL-specific fragment via
       workers/catalog/src/db/expressions.ts. Complete raw DML lives only in
       that expression module (fragments) and in Atlas migrations
-      (migrations/neon).
+      (the migration chain).
     paths:
       include:
         - /workers/catalog/src

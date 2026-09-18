@@ -1,6 +1,4 @@
-import postgres from "@prisma/orm-postgres/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
+import { nativeClient } from "../src/native-client.ts";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/pi-agent-core/harness/context";
 import { dsn, pool, SESSION, IDENTITY } from "./postgres.ts";
@@ -11,7 +9,7 @@ export const selectedItinerary = { ordered_points: [selectedPoint], point_count:
 
 /** A catalog offer committed by the public SDK is the precondition for a later product selection. */
 export async function seedSelectionOffer() {
-  const db = postgres<Contract>({ contractJson, url: dsn });
+  const db = nativeClient(dsn);
   const repo = new NeonSessionRepo(db);
   const session = await repo.create({ id: SESSION }, context);
   const branch = await session.createBranch("main", null, context);

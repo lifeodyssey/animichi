@@ -128,9 +128,10 @@ jobs:
               - 'packages/agent/**'
               - 'packages/pi-session-neon/**'
               - 'packages/test-postgres/**'
-              - 'migrations/neon/**'
             migrations:
-              - 'migrations/neon/**'
+              - 'packages/pi-session-neon/migrations/**'
+              - 'packages/pi-session-neon/src/contract.prisma'
+              - 'infra/database-access/reset-staging-baseline*'
             workflows:
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -164,10 +165,10 @@ jobs:
           packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "animichi-e2e"]' <<< "$projects")"
           # `.github/**` lands in the root project, which is subtracted — so a
           # workflow-only change selects nothing. `edge-worker`'s suite is where
-          # the tests that read deployment workflow text live, and several of them
-          # extract shipped shell blocks and RUN them (the production
-          # STAGING_ONLY_BASELINE guard, the migrator DSN redaction). Add it back
-          # explicitly, or a cd.yml rewrite ships with those guards never run.
+          # the tests that read deployment workflow text live, and some of them
+          # extract shipped shell blocks and RUN them (the migrator DSN
+          # redaction). Add it back explicitly, or a cd.yml rewrite ships with
+          # those guards never run.
           if [ "$WORKFLOWS_CHANGED" = true ]; then
             packages="$(jq -c '. + ["edge-worker"] | unique' <<< "$packages")"
           fi
@@ -201,18 +202,8 @@ jobs:
       # Every binary below is provisioned because one package's own gates shell
       # out to it. `pr-verification-affected.test.rb` pins the pairing, so a
       # dropped step fails a test instead of that package's lane.
-      #   catalog        -> atlas  (its own test:integration boots test-postgres,
-      #                             which applies the migrations/neon chain,
-      #                             atlas-chain.ts:18)
-      #   test-postgres  -> atlas  (its own test:integration boots the same
-      #                             recipe and applies the same chain)
       #   infra          -> pulumi (test:program-load loads the program through
       #                             the real language host, infra-check.sh:83-88)
-      - name: Install the pinned Atlas CLI for the migration chain
-        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
-        uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
-        with:
-          version: v0.30.0
       - name: Install the pinned Pulumi CLI for the infra program load
         if: ${{ matrix.package == 'infra' }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
@@ -364,8 +355,8 @@ jobs:
           ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           ruby test/repo-config/pnpm-workspace-settings.test.rb
           ruby test/repo-config/refresh-hold-backs.test.rb
+          ruby test/repo-config/retired-migration-authority-refs.test.rb
           ruby test/repo-config/retired-python-agent-refs.test.rb
-          ruby test/repo-config/sqlfluff.test.rb
           ruby test/repo-config/wrangler-path-claims.test.rb
       # The behavioral self-tests of the repository's own shell gates. Their
       # only runner was quality.sh, which #1371 deleted with the pre-push
@@ -447,10 +438,6 @@ jobs:
           set -euo pipefail
           test -x node_modules/.bin/playwright
           node_modules/.bin/playwright install --with-deps chromium
-      - name: Install the pinned Atlas CLI for native browser recovery
-        uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
-        with:
-          version: v0.30.0
       - name: Build the native browser's hermetic database image
         run: |
           set -euo pipefail
@@ -497,21 +484,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::warning title=Live login proof not run::e2e/web-neon-login.spec.ts does not run in PR CI (this workflow holds no credentials). Locally: pnpm --filter animichi-e2e run test:login"
 
-  # The schema gate (card B5 / #1363). `migrations/neon/` sits outside every
-  # pnpm project, so the affected matrix cannot see it: without this job a
-  # migration-only PR would be guarded by sqlfluff alone. The three segments
-  # below are three separate steps on purpose — each answers a different
-  # question, and a collapsed `run:` block would hide which one failed.
+  # The schema gate (card B5 / #1363). The chain now lives inside a pnpm project, so the
+  # affected matrix does see it — but that lane runs the package's own scripts, and neither of
+  # the two questions below is one of them. They are separate steps on purpose: each answers a
+  # different question, and a collapsed `run:` block would hide which one failed.
   #
-  #   validate       the chain is internally consistent and atlas.sum matches
-  #   fresh-schema   it still applies, in order, to a pristine database
-  #   migrator test  the Worker that ships the chain still agrees with it
-  #                  (workers/migrator/src/bundled-chain.ts imports each .sql
-  #                  by literal path, and pnpm's graph does not see that edge)
-  #
-  # sqlfluff is NOT here: it is its own security job, and the `Security`
-  # aggregate consumes it. Applying happens inside db-fresh-schema.sh, against
-  # a throwaway container — this workflow never runs `atlas migrate apply`.
+  #   check          every emitted artifact still matches its authored migration, and the
+  #                  graph is connected (static; no database)
+  #   fresh-schema   the chain still applies, in order, to a pristine database
   db:
     name: CI / schema
     needs: plan
@@ -523,16 +503,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup-workspace
-      # 0.30.0 is the repository's Atlas pin. C1 (#1364) retired the
-      # `install-atlas` composite B5 named here: the matrix step above, the
-      # production migration step in cd.yml, and this one all reach it through
-      # `ariga/setup-atlas`. atlasgo.sh interpolates ATLAS_VERSION straight
-      # into the release file name, so it takes the tag form and the `v` stays.
-      - uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
-        with:
-          version: "v0.30.0"
-      - name: Validate the migration directory
-        run: atlas migrate validate --dir file://migrations/neon
+      - name: Check the migration graph's integrity
+        run: pnpm --filter @animichi/pi-session-neon exec prisma migration check
       # db-fresh-schema.sh fails closed without the offline image, and it reads
       # the tag from the same declaration this builder sources.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
@@ -542,8 +514,10 @@ jobs:
           docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       - name: Apply the whole chain to a disposable database
         run: bash scripts/local-gates/db-fresh-schema.sh
-      - name: Prove the migrator still agrees with the chain it bundles
-        run: pnpm --filter migrator test
+      # CD's staging job runs the rebuild on every deploy; its gate is SQL, so it is proven
+      # against a disposable database on the same image, with only the Neon CLI stubbed.
+      - name: Rehearse the staging rebuild's gate on disposable databases
+        run: bash infra/database-access/reset-staging-baseline.test.sh
 
   gitleaks:
     name: CI / security (gitleaks)
@@ -661,25 +635,6 @@ jobs:
           advanced-security: false
           annotations: true
 
-  sqlfluff:
-    name: CI / security (sqlfluff)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: "0.11.14"
-          enable-cache: false
-          prune-cache: "true"
-      # The target owns the `--config db/.sqlfluff` link and the uv pin, and this
-      # step adds nothing to it: the contract test pins both sides, including the
-      # absence of an `env` override here (test/repo-config/sqlfluff.test.rb).
-      - name: Lint the migrations
-        run: make db-lint
-
   # No subject on a merged commit: the PR title expression is empty, and
   # `merge-base origin/main HEAD` is `HEAD`, so the range commitlint would lint is
   # the zero commits the squash already resolved into one.
@@ -708,7 +663,7 @@ jobs:
 
   security:
     name: Security
-    needs: [gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff]
+    needs: [gitleaks, trufflehog, osv, semgrep, zizmor]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -736,7 +691,7 @@ jobs:
   # other job is in `needs` so a failure in any of them reaches it.
   alert-failure:
     name: Ops / failure alert
-    needs: [plan, affected, contracts, docs, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff, commits, security, aggregate]
+    needs: [plan, affected, contracts, docs, e2e, db, gitleaks, trufflehog, osv, semgrep, zizmor, commits, security, aggregate]
     if: ${{ always() && github.event_name == 'push' && contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

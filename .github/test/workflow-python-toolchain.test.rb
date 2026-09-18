@@ -10,7 +10,8 @@ class WorkflowPythonToolchainTest < Minitest::Test
   WORKFLOWS = Dir.glob(File.join(ROOT, ".github/workflows/*.yml")).sort
   RETIRED = [/\buv\s+sync\b/, /\buv\s+run\b/, /\buv\s+pip\b/, /\buv\s+python\b/, %r{apps/agent}].freeze
   # The two lint tools uv still installs. Each is named, and each is pinned to one version.
-  PERMITTED_TOOLS = %w[semgrep sqlfluff].freeze
+  # sqlfluff left with the SQL chain it was the only linter of (#1636).
+  PERMITTED_TOOLS = %w[semgrep].freeze
   TOOL_INSTALL = /\b(?:uv\s+tool\s+(?:install|run)|uvx)\b(?<args>[^\n]*)/
   PINNED_TOOL = /"(?<name>[\w-]+)==[^"\s]+"/
   DRY_RUN_ENV = { "PATH" => "/usr/bin:/bin:/usr/sbin:/sbin" }.freeze

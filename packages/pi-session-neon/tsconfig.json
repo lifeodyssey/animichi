@@ -21,6 +21,7 @@
   "include": [
     "src/**/*.ts",
     "test/**/*.ts",
+    "scripts/**/*.ts",
     "migrations/app/**/*.ts",
     "prisma.config.ts"
   ]

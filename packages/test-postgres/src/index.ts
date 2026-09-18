@@ -6,8 +6,11 @@
  */
 
 export { OFFLINE_POSTGRES_IMAGE } from "./postgres-image.ts";
-export { applyAtlasChain } from "./atlas-chain.ts";
+export { ChainApplyTurn } from "./chain-apply-turn.ts";
+export { applyPrismaChain } from "./prisma-chain.ts";
+export { assertServiceRoles, createServiceRoles, SERVICE_ROLES } from "./service-roles.ts";
 export { createCleanDatabase, dropCleanDatabase } from "./clean-database.ts";
+export { applyDrizzleEraCatalog } from "./drizzle-era-catalog.ts";
 export { uniqueDatabaseName } from "./database-name.ts";
 export {
   isStartingUp,
@@ -23,6 +26,7 @@ export {
 } from "./setup-budget.ts";
 export { SetupDeadline } from "./setup-deadline.ts";
 export {
+  clusterAdminDsn,
   POSTGRES_PASSWORD,
   POSTGRES_USER,
   startTestPostgres,

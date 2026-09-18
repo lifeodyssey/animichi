@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { dropCleanDatabase, hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres, uniqueDatabaseName } from "@animichi/test-postgres";
+import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgres } from "@animichi/test-postgres";
 import pg from "pg";
 import { FIXED_NOW } from "../migrate.worker.helpers";
-import { nativeApp, TARGET, APP_MIGRATION_COUNT } from "./prisma-fixture";
-import { clonePrismaDatabase, servePrismaPostgres } from "./prisma-postgres";
+import { nativeApp, TARGET, APP_MIGRATION_COUNT, BASELINE_OPERATION_COUNT } from "./prisma-fixture";
+import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTarget } from "./prisma-postgres";
 import { grantDatabaseCreate, migratorRole } from "./prisma-role";
-import { saveEvidence } from "./preflight.postgres";
+import { saveEvidence } from "./neon-http-postgres";
 
 let server: Awaited<ReturnType<typeof startTestPostgres>>;
 let client: pg.Client;
@@ -13,16 +13,18 @@ let app: Awaited<ReturnType<typeof nativeApp>>;
 let databaseDsn: string;
 const resources: { server?: typeof server; client?: pg.Client } = {};
 let caseNumber = 0;
-/** Each case's clone, dropped by the case that created it: the server is shared
+/** Each case's target database, dropped by the case that created it: the server is shared
  * (#1663), so a leftover would collide with the next run of this lane. */
-let caseDatabase = "";
+let caseTarget: PrismaMigrationTarget | undefined;
 
-beforeAll(async () => { server = resources.server = await startTestPostgres({ database: "native_delivery", budget: SPIKE_SETUP_BUDGET }); }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
+beforeAll(async () => {
+  server = resources.server = await startTestPostgres({ database: "native_delivery", budget: SPIKE_SETUP_BUDGET });
+}, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterAll(async () => { await resources.server?.stop(); });
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
-  caseDatabase = uniqueDatabaseName(`native_delivery_case_${String(caseNumber++)}`);
-  const dsn = databaseDsn = await clonePrismaDatabase(server.dsn, caseDatabase);
+  caseTarget = await openPrismaMigrationTarget(server.dsn, `native_delivery_case_${String(caseNumber++)}`);
+  const dsn = databaseDsn = caseTarget.dsn;
   client = resources.client = new pg.Client(dsn);
   await client.connect();
   servePrismaPostgres(dsn);
@@ -30,7 +32,7 @@ beforeEach(async () => {
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterEach(async () => {
   await resources.client?.end();
-  await dropCleanDatabase(server.dsn, caseDatabase);
+  await caseTarget?.stop();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -58,7 +60,7 @@ it("applies the sealed native graph and replays with zero migrations while prese
   expect(appliedBody).toMatchObject({ success: true, prisma: { markerHash: TARGET, migrationsApplied: sealedCount } });
   const applied = (appliedBody as { prisma: { applied: { operationsExecuted: number }[] } }).prisma.applied;
   expect(applied).toHaveLength(sealedCount);
-  expect(applied[0]).toMatchObject({ operationsExecuted: 20 });
+  expect(applied[0]).toMatchObject({ operationsExecuted: BASELINE_OPERATION_COUNT });
   await client.query("INSERT INTO pi_sessions (id, metadata) VALUES ('preserved', '{\"id\":\"preserved\",\"value\":\"null\"}')");
   const preview = await app.preview();
   expect(await preview.json()).toMatchObject({ prisma: { markerHash: TARGET, migrations: [], usedLiveMarker: true } });
@@ -68,13 +70,16 @@ it("applies the sealed native graph and replays with zero migrations while prese
   expect((await client.query("SELECT id, metadata FROM pi_sessions")).rows).toEqual([{ id: "preserved", metadata: { id: "preserved", value: "null" } }]);
 });
 
-it("rechecks Atlas history inside apply after a previously successful preview", async () => {
+// `selected-migration.ts` says a prior preview is no authority. A database that leaves the
+// preview's reach between the two calls has to be refused INSIDE the lock, without writing.
+it("rechecks the migration path inside apply after a previously successful preview", async () => {
   expect((await app.preview()).status).toBe(200);
-  await client.query("UPDATE public.atlas_schema_revisions SET hash = repeat('x', 43) || '=' WHERE version = '20260904000000'");
+  await client.query("CREATE SCHEMA prisma_contract; CREATE TABLE prisma_contract.marker (space text PRIMARY KEY, core_hash text NOT NULL)");
+  await client.query("INSERT INTO prisma_contract.marker (space, core_hash) VALUES ('app', repeat('a', 64))");
   const refused = await app.migrate();
   expect(refused.status).toBe(422);
-  expect(await refused.json()).toMatchObject({ success: false, error: "divergent_history" });
-  expect((await client.query("SELECT to_regnamespace('prisma_contract') AS marker")).rows).toEqual([{ marker: null }]);
+  expect(await refused.json()).toMatchObject({ success: false });
+  expect((await client.query("SELECT to_regclass('public.pi_sessions') AS sessions")).rows).toEqual([{ sessions: null }]);
 });
 
 it("lets Prisma roll back conflicting DDL and the native marker together", async () => {
@@ -106,4 +111,19 @@ it("requires database CREATE for the non-superuser migrator and succeeds with th
   expect((await client.query("SELECT rolsuper FROM pg_roles WHERE rolname = 'migrator'")).rows).toEqual([{ rolsuper: false }]);
   expect((await client.query("SELECT pg_get_userbyid(nspowner) AS owner FROM pg_namespace WHERE nspname='prisma_contract'")).rows).toEqual([{ owner: "migrator" }]);
   await saveEvidence("native-migrator-role", { superuser: false, withoutDatabaseCreate: { preview: 200, apply: 500 }, withDatabaseCreate: { status: result.status, body }, markerSchemaOwner: "migrator" });
+});
+
+// #1625: the flip meets a staging database still on the retired Atlas chain, whose objects the
+// baseline would CREATE onto (42710). CD rebuilds that state first; if it did not, both routes
+// refuse it by name before any DDL rather than fail inside the apply.
+it("refuses a database still carrying the Atlas ledger by name before any DDL", async () => {
+  await client.query("CREATE TABLE public.atlas_schema_revisions (version text PRIMARY KEY); INSERT INTO atlas_schema_revisions VALUES ('20260826000003')");
+  const preview = await app.preview();
+  expect({ status: preview.status, body: await preview.json() }).toMatchObject({
+    status: 422, body: { compatible: false, error: "atlas_leftovers_present" } });
+  const refused = await app.migrate();
+  expect({ status: refused.status, body: await refused.json() }).toMatchObject({
+    status: 422, body: { success: false, error: "atlas_leftovers_present" } });
+  expect((await client.query("SELECT to_regnamespace('prisma_contract') AS marker")).rows).toEqual([{ marker: null }]);
+  expect((await client.query("SELECT to_regclass('public.pi_sessions') AS sessions")).rows).toEqual([{ sessions: null }]);
 });

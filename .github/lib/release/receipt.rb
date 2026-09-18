@@ -16,9 +16,10 @@ module ReleaseReceipt
     true
   end
 
+  # One authority, one identity (#1634): the applied schema IS the contract hash the release
+  # packaged, and there is no second head to agree with it.
   def validate_schema(schema, prisma_ref)
-    complete = schema['compatible'] == true && schema['pendingCount'] == 0 && schema['appliedHead'].is_a?(String)
-    ReleaseSelection.require_value(complete && schema['appliedHead'] == schema['expectedHead'], 'staging schema was not fully applied')
+    ReleaseSelection.require_value(schema['compatible'] == true, 'staging schema was not fully applied')
     native = schema.fetch('prisma')
     applied = native.values_at('targetHash', 'markerHash', 'migrations', 'usedLiveMarker') == [prisma_ref, prisma_ref, [], true]
     ReleaseSelection.require_value(prisma_ref.match?(/\A[a-f0-9]{64}\z/) && applied, 'staging native schema was not fully applied')

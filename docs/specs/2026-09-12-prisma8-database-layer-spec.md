@@ -1,8 +1,9 @@
 # Spec — Prisma 8 接管整个数据库层（Atlas 与 Drizzle 同时退役）
 
-- Status: **Ready for sign-off** — 全部 14 个分叉与原 U10 已裁定（owner，2026-09-12 / 2026-09-13）；
-  本稿供阅读与签核。**owner 明确说还不开工**：本稿不含启动章节，也没有为了让某一波看起来可开工而
-  放宽任何验收条件。owner 已豁免本 spec 的双席评审。
+- Status: **Signed and in delivery** — 全部 14 个分叉与原 U10 已裁定（owner，2026-09-12 / 2026-09-13）；
+  owner 已豁免本 spec 的双席评审。
+- **修订（2026-09-15，owner）：W2/W4 合并为一次原子切换，现在就切。** 见 §七 开头的「2026-09-15
+  修订」。原稿的波次排序（W1–W3 → #1607 → W4 → W5）在这一条之后只作为历史记录读。
 - owner 定案（2026-09-12，四轮调研后）：**Prisma 8 拥有整个数据库层——schema 和查询层都归它。Atlas
   退役。Drizzle 退役。PostGIS 留着**（它是 Postgres 扩展，不是工具选择）。owner 原话的驱动价值：
   **不想同时拥有 Drizzle、Prisma、Atlas 三个东西**——一个工具，不是三个；PostGIS 是**没办法的办法**。
@@ -283,13 +284,18 @@ JGD2011 / EPSG:6691 的 `utm_knn` 在 100k 行 / 东京 / 50 km 上是 **39.07 m
 - **staging（`br-gentle-king-aowjem8v`，`Pulumi.staging.yaml:3`）零业务行**。owner 记录：只有 PostGIS 自己的
   `spatial_ref_sys` 与 9 行 `atlas_schema_revisions`（9 = 链里 9 个 `.sql`）。它被
   `infra/database-access/reset-staging-baseline.sql:1-3`（`DROP SCHEMA IF EXISTS public CASCADE`）
-  重置过，所以现存对象是重置后由 `migrator` 角色重建的。
+  重置过，所以现存对象是重置后由 `migrator` 角色重建的。这次切换的重建由 CD 的 staging job 执行，
+  条件与顺序见 §七 第 4 条。
 - owner 已于 2026-09-10 裁定生产**没有用户**、允许直接删除重写
   （`docs/specs/2026-09-09-agent-on-pi-harness-spec.md` 第 7 行）。
 
 所以本 spec **不设计任何数据迁移路径**。它设计的是一次重建。需要一条查询定的余项见 **U7**。
 
-### 2.7 发布握手今天由两半组成
+### 2.7 发布握手曾由两半组成（已减半，2026-09-15）
+
+> **完成态（#1634）**：握手只剩 Prisma 那一半。`/healthz` 只报 `prismaTarget`，请求体只带
+> `expectedPrismaRef`，`schema-preflight.sh` 只剩一个模式，`cd.yml` 的两处 `--atlas-only` 整步删除，
+> `record-receipt.mjs` / `receipt.rb` 的 Atlas 断言删除。下面记录的是被减掉的那一半长什么样。
 
 `scripts/delivery/migrate-through-worker.sh` 的两半：
 - **Atlas 半**：`:40-43` `sealed_head()` 从 `release/migrations/*.sql` 的**文件名**取 head；
@@ -649,6 +655,9 @@ Prisma 8 之后这三个模式在 `workers/*/src` 里**零命中**，规则变�
 
 ### 4.6 发布握手去掉 Atlas 一半之后是什么
 
+> **已完成（#1634 / #1635，2026-09-15）。** 下表的每一行都已经落地；`stagingOnlyBaseline` 也随
+> #1635 从请求体里消失，所以请求体最终就是 `{expectedPrismaRef}` 一个字段。
+
 **它变成 Prisma 那一半，而那一半今天就已经是强制的、fail-closed 的。**
 
 | 今天 | Atlas 退役后 |
@@ -865,7 +874,15 @@ specifier。`src/domain/` 与 `src/application/` 都不得 import 它们——
 
 ### 4.12 数据平面 contract 不声明 agent 域的表
 
-**定案：catalog 域 16 张 + users 域 3 张 = 19 张进 contract；agent 域那 12 张不进，它们归 #1607。**
+**定案：catalog 域 16 张 + users 域 3 张 = 19 张进 contract；agent 域那 12 张不进 contract，它们归 #1607。**
+
+> **2026-09-15 修正（本裁定的适用范围，不是推翻它）。** 下面的理由是「唯一的消费者是 Python」。
+> 对其中**四张不成立**：`sessions`、`turn_reservations`、`daily_usage`、`anon_daily_message_count`
+> 的消费者是 `workers/edge/src` 的 agent 层，它用 `db.raw.sql` 读写它们（外加
+> `trg_sessions_updated_at`）。裁定按字面保留——它们**不进 contract**——但链必须**建**它们，
+> 否则第一次真实迁移产出的数据库跑不动自己的运行时。它们以 `rawSql` 进链，理由见 §七 的
+> 2026-09-15 修订。`messages`、`runs`、`run_steps`、`request_log`、`feedback`、`turn_outbox_events`、
+> 三张 `agent_memory*` 与后加的 `photo_offers`（#1604 删掉了它的 API）确实没有活消费者，不建。
 
 链今天建 32 张表（`git grep -oE 'CREATE TABLE public\.[a-z_]+' -- 'migrations/neon/*.sql'`）。
 agent 域的 12 张（`20260826000004_agent.sql` 的 10 张 + `20260902000000_agent_runs.sql` 的
@@ -1055,8 +1072,49 @@ review 时 `ac_total == ac_with_test`。**下面按面组织；具体挂到哪�
 
 ## 七、工作范围与替换清单（波次；分卡是 stage 3）
 
-波次描述的是**范围与顺序**，不是开工许可。owner 明确说还不开工，所以这里没有入口条件、
-没有第一张卡、没有 owner 之外的任何触发条款。
+### 2026-09-15 修订：W2 与 W4 合并为一次原子切换（owner）
+
+**本节下面的波次排序被这一条取代**，原文保留为历史记录。
+
+owner 于 2026-09-15 裁定：生产的迁移权威**现在**切到 Prisma 链，作为**一个 PR 的一次原子改动**，
+不再等 W3（查询层）。
+
+**为什么不能拆。** 生产的 `selected-migration.ts` 在同一条 DSN 上先 `applyAtlas` 再 `migratePrisma`
+（§2.7），而 #1626 的 baseline 从零建出的正是 Atlas 链已经建过的那些对象——所以**第一次真实的生产迁移
+会撞 `42710`（对象已存在）**。两半必须同时在或同时不在，中间没有绿的状态；发布回执也要两面同时成立
+（§4.6 的握手减半）。#1607（删 Python agent）是前置条件，已于 `cecfc816a` 落地。
+
+**这次 PR 的范围**（每条一个 commit，顺序即依赖）：
+
+1. **链漏掉的存活对象。** #1626 按 §4.12 不声明 agent 域的表，但其中四张**不是死的**：
+   `workers/edge/src` 仍以 `db.raw.sql` 读写 `sessions`、`turn_reservations`、`daily_usage`、
+   `anon_daily_message_count`（外加 `trg_sessions_updated_at`）。§4.12 的**理由**是「唯一的消费者是
+   Python，#1607 之后就没有消费者」——这条理由对这四张不成立，所以链必须建它们。
+   它们以 `rawSql` 而非 contract 表进入：§4.12 的裁定按字面保留，而且 `daily_usage.cost_usd` 是
+   `NUMERIC(14,6)`，Prisma 8 的 PSL 没有精度/标度（`@db.X(...)` 在 8 里被移除，见 #1620），
+   声明成 `Decimal` 会让结算悄悄不再一次性舍入到六位。每个对象配一条**点名它**的 postcheck，因为
+   实测 `prisma db verify` 对 contract 没声明的表是宽容的（`ok:true`、`unclaimed:[]`）。
+   只建活着的列：`state` / `metadata` / `lifecycle` / `expires_at` 与 `turn_reservations` 的六个
+   lease/outcome 列没有任何活读者，按 §4.8.3 的同一条原则不重建。
+2. **#1634**（migrator 删 Atlas 应用引擎，握手减半）。
+3. **#1635**（`stagingOnlyBaseline` 收发两端 + 闸门）。
+4. **#1636 减去 staging 证据那条 AC**（删链与所有读它的门禁）。staging 重建（§2.6）已获批准，
+   由 CD 在合并后执行；#1637（第一次生产迁移）仍由人工把关。
+   **第一轮评审补上（2026-09-18）**：原稿只写了「CD 会重建」，代码里 CD 并不跑重置脚本，第一次
+   staging 迁移会撞 `42710`。现在 `cd.yml` 的 staging job 在 migrator 预览之前跑
+   `infra/database-access/reset-staging-baseline.sh`：只在「无 `app` marker、`public` 里有 Atlas
+   遗留表、除扩展表和 Atlas 账本外没有业务行」时动手，先打印每张表的行数、建
+   `staging-before-prisma-baseline` 分支再删；其他状态一律点名跳过或点名拒绝。migrator 对仍带
+   `public.atlas_schema_revisions` 的库在 `/preflight` 与 `/migrate` 都回 `atlas_leftovers_present`，
+   不跑任何 DDL。生产 job 没有这一步。
+5. 本节这条修订本身。
+
+**两处 §四/§二 的文字在这一条之后描述的是过去**，已就地更新：§2.7 的「握手由两半组成」和
+§4.6 的替换表都改成「一个权威、一个身份」的完成态。
+
+### 原稿的波次（历史记录）
+
+波次描述的是**范围与顺序**，不是开工许可。
 
 **W0 · 前置**：#1589 落地（§八）。不与本 spec 并发。
 
@@ -1132,8 +1190,14 @@ contract 声明 catalog 16 + users 3 张表（§4.12），内容按 §4.8.1–4.
    `conftest_db.py` / `db_config.py`）随 Card N（#1607）死。如果本 spec 的 W4 先落，
    这些 Python 测试会在一个没有 `migrations/neon/` 的仓库里红。
 
-**排序建议**：#1589 → 本 spec 的 W1–W3（不碰发布管线）→ #1607（删 Python）→
+**排序建议（原稿）**：#1589 → 本 spec 的 W1–W3（不碰发布管线）→ #1607（删 Python）→
 本 spec 的 W4（发布管线）→ #1606 / Card J → 本 spec 的 W5。
+
+> **2026-09-15 实际发生的**：#1589、W1、W2 与 #1607 依序落地，然后 owner 把 W4 提到 W3 之前
+> 并与 W2 的收尾合并成一次原子切换（§七 的修订）。查询层（W3 / #1629–#1631 / #1633）仍在 Drizzle 上，
+> 所以 `workers/catalog` 与 agent 的 catalog 工具两条集成 lane 保留了一份**冻结的前 Prisma SQL
+> fixture**（`packages/test-postgres/sql/drizzle-era-catalog.sql`）：它不是权威——没有 checksum、
+> 没有账本、没有 CLI、碰不到任何真实数据库——随 W3 一起删。#1606 / Card J 与 W5（#1637）不变。
 理由：W1–W3 与 #1317 战役**零文件重叠**（它们改 `workers/catalog`、`workers/users`、
 `packages/`，战役改 `workers/edge` 的 gateway 与 `apps/agent`），可以并行；
 W4 与 #1606 都改 `.github/lib/release/` 与 `.github/test/`，必须串行，且每一次都要
@@ -1197,6 +1261,14 @@ W4 与 #1606 都改 `.github/lib/release/` 与 `.github/test/`，必须串行，
 
 按 `docs/DOCS_POLICY.md` 的 Review Check（「这份文档在这次改动之后还成立吗」）。**本 spec 只写这一个文件；
 下面是随实现卡一起必须改的清单，不是本次的产出。**
+
+> **2026-09-15：这张表里 Atlas / baseline 闸门相关的每一行都已随 #1634–#1636 改完**，包括
+> `.claude/rules/migrations.md` 的整文件删除与 `migrations/AGENTS.md` 的删除（表所有权与角色矩阵
+> 迁到 `docs/ops/migrations.md`，那份文档本来就是迁移边界的单一来源）。三个 README、
+> `docs/ARCHITECTURE.md`、`CONTEXT-MAP.md`、`docs/DOCS_POLICY.md`、四份 Neon runbook 与
+> `.semgrep/README.md` 一并更新。**仍未做**的是 Drizzle 那一半（`.claude/rules/infra.md:8-9` 的
+> neon-http 理由、`workers/catalog/src/application/README.md`、两份 worker AGENTS.md 的 Drizzle seam）
+> 与新 ADR——它们归 W3 与 §八。
 
 | 文档 | 要改什么 |
 |---|---|
