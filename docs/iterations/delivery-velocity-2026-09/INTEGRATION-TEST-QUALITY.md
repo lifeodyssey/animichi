@@ -58,9 +58,12 @@ Per suite (stacked = extra statements past the first on one line, type literals 
 Assertion distribution (555 cases): ≤2 → 323 (58 %) · 3–5 → 151 (27 %) · 6–10 → 63 (11 %) ·
 11–20 → 15 (3 %) · >20 → 3 (1 %).
 
-Statement stacking repo-wide: **74 extra statements on 68 lines**, of which **68 are in 5 files**
-(`reattach-contention.test.ts` 20, `agent/integration-test/web.test.ts` 16,
-`translation-interruption.test.ts` 7, `agent/integration-test/catalog.test.ts` 5, rest ≤3).
+Statement stacking repo-wide, `stack2.py` over these 139 files: **74 extra statements on 65 lines**,
+of which **51 are in 5 files** (`reattach-contention.test.ts` 20, `agent/integration-test/web.test.ts`
+16, `agent/integration-test/translation-interruption.test.ts` 7,
+`agent/integration-test/catalog.test.ts` 5, `packages/pi-session-neon/test/migration-target.db.test.ts`
+3, rest ≤2). The per-file counts are the `stacked` column of the suite table above, which sums to the
+same 74.
 
 Notable files:
 
@@ -275,10 +278,14 @@ drives, reused by two tests, assertions carrying messages. Use it as the in-repo
    `selection-test/fixture` take the `TestContext` and call `context.after(...)`. *AC: zero
    `finally {` outside `postgres.ts`-style setup files in `workers/edge/*-test/**`.*
 3. **Split the four >15-assertion scenario scripts** (offenders 1–4) into the named tests listed
-   above. *AC: no test case in the repo exceeds 10 assertions, and every resulting test name states
-   one obligation.*
-4. **De-stack the 5 dense files.** Owner rule: line limits are met by design. *AC: `reattach-contention.test.ts`,
-   `agent/integration-test/{web,catalog,translation-interruption}.test.ts` contain no line with two
+   above. *AC: no test case in any of those four files exceeds 10 assertions, and every resulting test
+   name states one obligation.* Eighteen cases repo-wide exceed 10 — the report's own table names
+   `interleaving.test.ts` at 27 and `packages/agent/integration-test/web.test.ts` at 21, and three
+   cases exceed 20 — so a *repo-wide* ceiling costs the other fourteen cases as their own card. The
+   criterion this item shipped with claimed the whole repo from a four-file change.
+4. **De-stack the 5 dense files.** Owner rule: line limits are met by design. *AC:
+   `reattach-contention.test.ts`, `agent/integration-test/{web,catalog,translation-interruption}.test.ts`
+   and `packages/pi-session-neon/test/migration-target.db.test.ts` contain no line with two
    statements, and no file grew past 200 lines to achieve it.*
 5. **Replace test-owned classification with product types.** Move the wake taxonomy
    (`worker.ts:39-68`) into a typed wake payload owned by `workers/edge/src/agent/`, so

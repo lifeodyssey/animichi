@@ -166,16 +166,30 @@ the whole job that satisfies the owner's rule that mutation testing is the only 
 
 Two mechanical details worth knowing before treating "re-run the sibling" as one thing:
 
-- **Copy vs. live.** Four twins copy the sibling contract into a throwaway tree and run the copy
-  (`dependency-hold-backs-mutation`, `e2e-spec-coverage-mutation`, `gitleaks-pin-mutation`,
-  `pnpm-workspace-settings-mutation`); two run the literal committed sibling and redirect only the
-  env var it locates its inputs with (`e2e-no-skip-mutation:74-75` via `TEST_REPOSITORY_ROOT`,
-  `gitleaks-mutation:40-44` via `GITLEAKS_CONFIG`). The second form is the stronger proof — it runs the
-  file that will actually gate the next PR. `gitleaks-mutation` redirects `GITLEAKS_CONFIG` only, so
-  that run reads a mutated TOML *and* the real `.pre-commit-config.yaml` from the live repo.
-- **One twin has no control.** `gitleaks-pin-mutation.test.rb` is the only one of the six without an
-  "accepts the unmutated tree" case — so a twin that went permanently red for an unrelated reason
-  would still look like it was doing its job. Add the control; it is four lines.
+- **Copy vs. live — four each.** Four copy the sibling contract into a throwaway tree and run the
+  copy, handing the subprocess a path under the temp root (`dependency-hold-backs-mutation:68,74`,
+  `e2e-spec-coverage-mutation:112` — `contract_path(root)` is `File.join(root, CONTRACT)` at
+  `e2e_spec_coverage_tree.rb:27-29` — `gitleaks-pin-mutation:29-30`,
+  `pnpm-workspace-settings-mutation:72,78`). Four run the literal committed sibling and redirect only
+  the env var it locates its inputs with: `e2e-no-skip-mutation:74-75` and `gitleaks-mutation:40-44`
+  (`TEST_REPOSITORY_ROOT` / `GITLEAKS_CONFIG`), and the two failure-alert twins —
+  `failure-alert-mutation:48,59-61` and `failure-alert-recipient-mutation:27-40` — which copy only the
+  *data* the contract reads (`.github/workflows`, `scripts`, `lib`, fixtures) into the temp root and
+  pass `File.join(ROOT, ".github/test", …)`, a path in the live tree. Both say so in their own
+  comments ("The contract files come from the committed tree; only TEST_REPOSITORY_ROOT moves"). The
+  second form is the stronger proof — it runs the file that will actually gate the next PR.
+  `gitleaks-mutation` redirects `GITLEAKS_CONFIG` only, so that run reads a mutated TOML *and* the
+  real `.pre-commit-config.yaml` from the live repo.
+- **Five twins carry a control; three do not.** `dependency-hold-backs-mutation:78`,
+  `pnpm-workspace-settings-mutation:82` and `gitleaks-mutation:92` each assert the unmutated tree is
+  accepted, and `e2e-no-skip-mutation:37` accepts a clean spec. `e2e-spec-coverage-mutation` is the
+  strongest of the five: every mutation case runs through `with_mutated_root:92-97`, which asserts
+  `assert_accepted(root, "the unmutated tree")` at `:94` *before* the mutation is applied, on the
+  stated principle that "a probe is only evidence when the same tree is green before the mutation".
+  `gitleaks-pin-mutation` (`reject_tree:28-33`), `failure-alert-mutation` (`probe:73-80`) and
+  `failure-alert-recipient-mutation` (`probe:43-50`) only ever assert a non-zero exit — so a twin that
+  went permanently red for an unrelated reason would still look like it was doing its job. Add the
+  control to those three; it is four lines each.
 
 Run counts: `gitleaks-mutation` 33 subprocess runs / 19 cases (largest), `failure-alert-mutation` 19
 runs / 15 cases, `e2e-spec-coverage-mutation` 14 / 6, `pnpm-workspace-settings-mutation` 12 / 12,
@@ -199,8 +213,15 @@ wrong `CONTAINER_ATTEMPTS`. By the repo's own standard those 29 files are unprov
 ## Cost
 
 `CI / repository contracts` = **382 s, the longest job in run 35307298262** (`affected (edge-worker)`
-356 s, `browser` 290 s, `docs` 39 s). Step breakdown: workflow/action responsibilities **279 s**;
-delivery scripts 23 s; repo configuration 14 s; local gate scripts 14 s; orca 2 s; setup 33 s.
+356 s, `browser` 290 s, `docs` 39 s). Step breakdown, read back from that run's own job timestamps
+(`gh api repos/lifeodyssey/animichi/actions/runs/35307298262/jobs`): workflow/action responsibilities
+**279 s**; delivery scripts 23 s; repo configuration 14 s; local gate scripts 14 s; orca 2 s;
+setup-workspace 33 s; **plus the runner's own lifecycle — `Set up job` 9 s, `checkout` 4 s, the
+`setup-workspace` post-step 1 s**. Those are 379 s of steps, and 1 s before the first step plus 2 s
+after the last bring the job to its 382 s. The first draft's components summed to 365 s and it left
+the 17 s unexplained; the gap is **not** the eight mutation twins. They are not a step: six run inside
+`Verify repository configuration` and two inside `Verify workflow and action responsibilities`
+(`pr-verification.yml:272,339` at the cited SHA), so their 17.0 s sits inside those steps' totals.
 
 Local per-file totals: `.github/test` **≈304 s**, `test/repo-config` **9.1 s**. Top 10:
 

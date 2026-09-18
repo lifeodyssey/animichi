@@ -20,7 +20,7 @@ one quoted.
 |---|---|---|---|---|---|---|
 | **vercel/turborepo** (Rust CI) | 31,102 | Turborepo (own tool) | Yes — by OS × shard, one job per task/target type, **not** by package | Hand-written list (`os: [macos/ubuntu/windows]`, `shard: [1,2]`), sharded by cargo-nextest's own `--partition hash:N/M` | Yes — official `vercel/setup-turborepo-remote-cache-action` | ~6–17 min typical (n=25 sample; median ~9 min) |
 | **vercel/turborepo** (JS CI) | 31,102 | Turborepo (own tool) | Only across an OS×Node-version grid (8 cells); **no per-package matrix** | Hand-written OS/Node grid; inside each cell, turbo's own `--affected` flag prunes packages within one invocation — never parsed into a GH matrix | Yes, same action | 3.9–5.2 min |
-| **PostHog/posthog** | 39,843 | Turborepo (orchestrating a Django/pytest suite) | **Yes — the one confirmed genuine matrix generated from turbo's own affected/dry-run output** | `turbo run backend:test --dry-run=json` (task inventory) **+** `turbo query affected --tasks ... --base ... --head ...` (change detection) → ~1,478-line custom bin-packing script → `matrix` job output → `fromJson(...)` matrix | Not found in this workflow file | Bimodal: 0.5–1.1 min when nothing backend-relevant changed; 0.5–22.6 min on ordinary PRs; **19.7–45.3 min** (n=12, `updated_at − run_started_at`) for the full, un-narrowed matrix on scheduled runs |
+| **PostHog/posthog** | 39,843 | Turborepo (orchestrating a Django/pytest suite) | **Yes — the one confirmed genuine matrix generated from turbo's own affected/dry-run output** | `turbo run backend:test --dry-run=json` (task inventory) **+** `turbo query affected --tasks ... --base ... --head ...` (change detection) → ~1,478-line custom bin-packing script → `matrix` job output → `fromJson(...)` matrix | Not found in this workflow file | Bimodal: 0.5–1.1 min when nothing backend-relevant changed; 0.5–22.6 min on ordinary PRs; **19.7–45.3 min** for the full, un-narrowed matrix on `event=schedule` runs of `ci-backend.yml` (workflow `2111769`), measured `updated_at − run_started_at` — the draft's `n=12` does not reproduce, see §1 |
 | **nrwl/nx** (own repo) | 29,352 | Nx (own tool) | Yes — Nx Cloud Distributed Task Execution (DTE); GitHub Actions defines **no** agent-count matrix at all | `.nx/workflows/dynamic-changesets.yaml` maps *diff size* (a heuristic, not a package list) to an agent-count table, read by `--distribute-on`, a file **outside** `.github/workflows/` entirely | Yes — Nx Cloud (`nxCloudId` in `nx.json`) | single `main-linux` job: 9.2–58.8 min (n=8) |
 | **lerna/lerna** | 36,053 | Nx (Lerna is Nx-maintained, uses Nx on itself) | Yes — Nx Cloud DTE via a **hand-written fixed-size agent pool** in the GH matrix | `matrix.agent: [1..8]` is static; Nx Cloud's own hosted scheduler assigns real task-graph nodes to those 8 generic agents, invisible to the YAML | Yes — Nx Cloud (`NX_CLOUD_ACCESS_TOKEN`) | `main` job: 5.5–15.5 min (n=8) |
 | **TanStack/query** | 50,324 | Nx | Nx Cloud (confirmed `nxCloudId` in `nx.json`) | Not fully re-derived — cited here only as a 4th large confirmed Nx Cloud user | Yes — Nx Cloud | not measured |
@@ -192,8 +192,15 @@ shape (B). But it is heavily gated: skipped entirely on master push (`if: ... &&
 master coverage), skipped on draft PRs unless labeled `run-ci-backend`, narrowed to only affected
 products on an ordinary PR, and has kill-switches (`DISABLE_BACKEND_TEST_SELECTION`,
 `SKIP_PRODUCT_TESTS`) that fall back to the **full** matrix — never fail silently — on any selector
-error. Sampling `event=schedule` runs directly (10 successful runs, 2026-09-08/09): **19.7–42.4
-minutes**, i.e., what the full, un-narrowed product matrix costs when nothing is skipped. Ordinary
+error. Sampling `event=schedule` runs directly: **19.7–45.3 minutes**, i.e., what the full,
+un-narrowed product matrix costs when nothing is skipped. The table row above and this paragraph are
+one sample — every `event=schedule` run of `ci-backend.yml` (workflow `2111769`) created on
+2026-09-08/09, measured `updated_at − run_started_at`. Neither the table's `n=12` nor this
+paragraph's original "10 successful runs, 19.7–42.4" reproduces against that query: re-reading it on
+2026-09-18 returns **48 runs, 26 of them successful**, spanning the same **19.7–45.3** minutes — the
+45.3-minute run is a *success* (2026-09-08T04:32Z), so 42.4 cannot be the successful maximum. Both
+sample counts are therefore marked **unverifiable** (the run IDs were never recorded) while the two
+endpoints are checkable and are kept. Ordinary
 PR runs range far lower (0.5–22.6 min over 20 sampled non-merge-queue runs) because most PRs don't
 touch backend/product code at all, or touch only a few products.
 
@@ -1047,7 +1054,8 @@ On the container-backed suite specifically, the survey produces a clean spectrum
 practice, and the wall-clock numbers at each end are worth stating with their runner class attached,
 because the money is part of the design. At the "narrow aggressively" end, PostHog skips the suite on
 master pushes in favour of a merge queue plus an hourly `schedule:` run, and pays 19.7–45.3 minutes for
-the full un-narrowed matrix when it does run (n=12, measured from `run_started_at`) — on Depot's paid
+the full un-narrowed matrix when it does run (48 `event=schedule` runs over 2026-09-08/09 in a
+re-read, 26 of them successful; the draft's `n=12` does not reproduce — see §1) — on Depot's paid
 runners
 (`runs-on: depot-ubuntu-24.04`), not GitHub's free tier. cal.com gates its whole e2e/integration tier
 behind a `ready-for-e2e` PR label, which is why a full-fanout run costs 6.8–19.8 minutes while a

@@ -4,11 +4,11 @@ Worktree `/Users/lumimamini/orca/workspaces/Seichijunrei-agent/orca-testreview-m
 Read-only; nothing was run. Judgement is on the **code** of the unit tests.
 
 **Verdict up front.** The owner's framing — "cases crammed together, tests that don't really test
-anything" — is **mostly not supported** at the level of test shape. 92% of `apps/web` unit tests
-assert a value or drive an interaction; `it.each` is used in 105 files; `any` appears 0 times;
-suppressions 0; `.skip`/`.todo` 0; ≤5-mocks is respected almost everywhere; several suites reason
-explicitly about mutation sensitivity in their own comments. The real weaknesses are different and
-narrower, and they are where I would spend effort:
+anything" — is **mostly not supported** at the level of test shape. 91% of `apps/web` unit tests
+(1,560 + 425 of 2,176) assert a value or drive an interaction; `it.each` is used in 105 files; `any`
+appears 0 times; suppressions 0; `.skip`/`.todo` 0; ≤5-mocks is respected almost everywhere; several
+suites reason explicitly about mutation sensitivity in their own comments. The real weaknesses are
+different and narrower, and they are where I would spend effort:
 
 1. **678 of 4,549 tests (15%) assert on the text of checked-in files**, not on runtime behaviour.
 2. **Nothing in `apps/web` pins what any button actually says** — 120 test files assert the rendered
@@ -69,15 +69,27 @@ Distribution: median 2 assertions/test; 2,029 tests (45%) have exactly one; 122 
 (38 of those delegate to a named assertion function — see below). Only **one** test has >5 inline
 mocks. `it.each`/`test.each` appears at 187 call sites across 105 files.
 
-**`apps/web` test-shape classification** (2,166 tests; `classify.py`):
+**`apps/web` test-shape classification** (2,176 tests — the package table's own count; `classify.py`):
 
 | kind | count | share |
 |---|---|---|
-| asserts a value (`toBe`/`toEqual`/`toContain`/attribute/throw) | 1,551 | 72% |
+| asserts a value (`toBe`/`toEqual`/`toContain`/attribute/throw) | 1,560 | 72% |
 | drives an interaction then asserts (`fireEvent`/`act`/`rerender`) | 425 | 20% |
 | render-smoke (presence-only after a render) | 106 | 5% |
 | mock-wiring only | 71 | 3% |
-| no inline assertion | 13 | 1% |
+| no inline assertion | 14 | 1% |
+
+This table first shipped with a denominator of 2,166 — ten short of the 2,176 above — because
+`classify.py` reads `_pertest.json`, and that parser resumes *after* a test it has swallowed: when a
+multi-line `it.each(...)(…)` closes with `});` deeper than the line it opened on, the parser takes the
+next test to be part of its body. The ten are one test each in `anime/anime-contrast.test.ts` (which
+lost two), `auth/callback-route.test.tsx`, `auth/magic-link-return-target.test.tsx`,
+`auth/return-target.test.ts`, `chat/chat-page-history.test.tsx`, `chat/work-title.test.ts`,
+`route-detail/route-detail-contrast.test.ts`, `shiori/layout-selector.test.ts` and
+`showcase-mode.test.ts`. Classified by the same cascade they are nine value-assert and one `no inline
+assertion` — `magic-link-return-target.test.tsx:57`, which asserts through the named helper
+`expectSentCallbackUrl` — and the counts above sum to 2,176. The shares are unchanged at this
+precision.
 
 The 106 "render-smoke" are mostly `accessibility/accessible-names.test.tsx` and `live-regions.test.tsx`
 — accessible-name/ARIA-role contracts, which is a real user-visible contract, not a smoke test.
@@ -283,8 +295,22 @@ Ordered by signal recovered per hour. Each is one card.
    `chat/chat-bubble-css.test.ts`, `chat/chat-chip-css.test.ts`, `chat/composer-pill-css.test.ts`.
    *AC: no assertion in `apps/web/tests/unit` compares a CSS declaration to a literal length, colour
    or radius; the contrast and token-only tests remain.*
-4. **Fake the clock in the 7 real-sleep tests.** *AC: `grep -rn "setTimeout(resolve" apps/web/tests/unit
-   workers/*/test` returns nothing outside deliberate deadline doubles.*
+4. **Fake the clock in the 7 real-sleep tests.** The count is per test site, and five of the seven
+   really sleep: `apps/web/tests/unit/chat/use-chat-session-state.test.tsx:42` (25 ms),
+   `apps/web/tests/unit/auth/use-auth-callback.test.tsx:172` (10 ms),
+   `apps/web/tests/unit/chat/save-gate-failures.test.tsx:51` (20 ms),
+   `apps/web/tests/unit/chat/basemap-mount-failure.test.tsx:38` (0 ms) and
+   `workers/users/test/save-saved-route-idempotent.worker.test.ts:23` (0 ms). The other two are
+   `packages/agent/test/catalog-clock.test.ts:12,18` and
+   `packages/agent/test/native-translation-deadline.test.ts:34` — both already run their `setTimeout`
+   under a mocked clock (`catalogClock(context)` is `context.mock.timers.enable({ apis: ["setTimeout"] })`
+   at `catalog-clock.ts:6-7`; the other calls `t.mock.timers.enable` itself), so if those are what the
+   suite table's `packages/agent 2` counted, that column counts files carrying a timer token rather
+   than files sleeping for real. *AC: the five sleeping sites use `vi.useFakeTimers()` /
+   `t.mock.timers`, and the sweep covers `packages/agent/test` as well as `apps/web/tests/unit` and
+   `workers/*/test`. The grep this shipped with reached three of the seven — two sites pass a
+   different resolver name (`setTimeout(r, 10)`, `setTimeout(() => { resolve(SAVED); }, 20)`) and two
+   were outside its paths.*
 5. **Split `CronDependencies`** into ingest / publish / import groups so the four catalog cron files
    name ≤5 seams per test. *AC: no test file constructs more than 5 `vi.fn()` in one factory.*
 6. **Split the four crammed presentation tests** (`session-expired-presentation.test.tsx:38`,
