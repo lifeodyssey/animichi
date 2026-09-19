@@ -1,6 +1,6 @@
 # Local `wrangler dev` env for the catalog Worker. Copy to `.dev.vars` (git-ignored).
-# wrangler dev loads .dev.vars automatically; src/index.ts reads DATABASE_URL when
-# the HYPERDRIVE binding is absent (local dev / no Hyperdrive).
+# wrangler dev loads .dev.vars automatically; src/index.ts reads DATABASE_URL,
+# the only connection string the catalog Worker resolves (src/db/connections.ts).
 #
 # Create once: `neonctl branches create --name dev/<name> --parent test-base`.
 # Mint/find the cloud DSN: `neonctl connection-string dev/<name>`.

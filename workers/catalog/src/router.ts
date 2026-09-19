@@ -14,12 +14,15 @@ import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogDb } from "./db/client";
+import type { CatalogPrisma } from "./db/prisma";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
 import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
   db: CatalogDb;
+  /** This request's Prisma data-plane seam (builder + runtime); see `db/prisma.ts`. */
+  prisma: CatalogPrisma;
   fetchImpl?: typeof fetch;
   /** The anitabi egress signing key (#1792); anitabi fetches refuse without it. */
   egressSigningKey?: string;
@@ -58,7 +61,7 @@ const spots = os.spots.handler(async ({ input, context }) =>
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
-  nearbyHandler(context.db, input),
+  nearbyHandler(context.prisma, input),
 );
 
 const geocode = os.geocode.handler(async ({ input, context }) =>

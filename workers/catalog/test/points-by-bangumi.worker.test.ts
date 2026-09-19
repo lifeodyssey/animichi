@@ -14,6 +14,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import {
   pointsByBangumi,
   type PointsByBangumiPort,
@@ -139,7 +140,7 @@ describe("pointsByBangumiId route seam", () => {
   function context(rows: unknown[][]): CatalogContext {
     const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
     const db = { execute } as unknown as CatalogDb;
-    return { db };
+    return { db, prisma: unreachableCatalogPrisma() };
   }
 
   async function call(body: unknown, ctx: CatalogContext): Promise<Response> {

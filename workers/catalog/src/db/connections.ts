@@ -9,13 +9,11 @@ import type { CatalogDb } from "./client";
 
 /** The environment slice needed to resolve a connection string. */
 export interface ConnectionEnv {
-  HYPERDRIVE?: { connectionString: string };
   DATABASE_URL?: string | { get(): Promise<string> };
 }
 
-/** Prefer HYPERDRIVE, else the Neon URL / Secrets Store secret (#912 PR2). */
+/** The Neon URL / Secrets Store secret for this deployment (#912 PR2, #1628). */
 export async function connectionString(env?: ConnectionEnv): Promise<string | undefined> {
-  if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
   const url = env?.DATABASE_URL;
   if (url == null) return undefined;
   return typeof url === "string" ? url : await url.get();
