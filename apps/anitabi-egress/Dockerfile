@@ -2,7 +2,7 @@
 # (see fly.toml [build]); the image is a single self-contained bundle — the
 # service has no runtime dependencies beyond Node itself, no product data, no
 # data-plane credential, and no write path beyond the ceiling's own counter
-# (#1810), which is an external store the service reaches over HTTPS.
+# (#1810), which is an external store the service reaches over TCP (#1824).
 #
 #   docker build -f apps/anitabi-egress/Dockerfile .
 

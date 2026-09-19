@@ -4,10 +4,10 @@
  * global fetch; the integration test calls it with a loopback stub upstream
  * and port 0 — the same seams, no separate path for tests.
  *
- * This is also the ONE place the process names the global network function
- * (#1792): the value is resolved here and handed to both of the two things
- * that use it — the relay, and the external store the ceiling counts in
- * (#1810). Neither module names a network module or a global function itself,
+ * This is also the ONE place the process names the network (#1792, #1824): the
+ * global fetch is resolved here and handed to the relay, and the TCP dial the
+ * ceiling's store is reached through is built here too. Neither the store
+ * module nor the relay names a network module or a global function itself,
  * which is what keeps the whole outbound surface one reviewed injection point.
  *
  * The ceiling is null — every request refused with `configuration` — when the
@@ -15,6 +15,7 @@
  * be counted is not enforced, and this service does not run without it.
  */
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createConnection, type Socket } from "node:net";
 import {
   readCeilingStoreConfig,
   readEgressConfig,
@@ -22,7 +23,7 @@ import {
   type EgressConfig,
 } from "./egress-config.ts";
 import { handleEgressRequest, type Ceiling, type EgressDeps, type UpstreamFetch } from "./egress-service.ts";
-import { RedisRestCeilingStore, type StoreTransport } from "./redis-rest-ceiling-store.ts";
+import { RedisTcpCeilingStore, type StoreConnect, type StoreSocket } from "./redis-tcp-ceiling-store.ts";
 import { UpstreamRequestCeiling, type CeilingStore } from "./upstream-ceiling.ts";
 
 export interface EgressServerOptions {
@@ -41,7 +42,7 @@ export async function startEgressServer(options: EgressServerOptions): Promise<{
   const outbound: UpstreamFetch = options.upstreamFetch ?? fetch;
   const deps: EgressDeps = {
     config,
-    ceiling: ceilingFor(config, options, outbound, nowSeconds),
+    ceiling: ceilingFor(config, options, nowSeconds),
     upstreamFetch: outbound,
     nowSeconds,
   };
@@ -58,18 +59,50 @@ export async function startEgressServer(options: EgressServerOptions): Promise<{
 function ceilingFor(
   config: EgressConfig | null,
   options: EgressServerOptions,
-  outbound: UpstreamFetch,
   nowSeconds: () => number,
 ): Ceiling | null {
   if (config === null) return null;
-  const store = options.ceilingStore ?? storeFromEnv(options.env, outbound);
+  const store = options.ceilingStore ?? storeFromEnv(options.env, dialStore);
   return store === null ? null : new UpstreamRequestCeiling(config.ceilingPerHour, store, nowSeconds);
 }
 
 /** The store the environment names, or null — and null means a ceiling that cannot be counted. */
-function storeFromEnv(env: Record<string, string | undefined>, transport: StoreTransport): RedisRestCeilingStore | null {
+function storeFromEnv(env: Record<string, string | undefined>, connect: StoreConnect): RedisTcpCeilingStore | null {
   const storeConfig = readCeilingStoreConfig(env);
-  return storeConfig === null ? null : new RedisRestCeilingStore({ ...storeConfig, transport });
+  return storeConfig === null ? null : new RedisTcpCeilingStore({ ...storeConfig, connect });
+}
+
+/** The port a redis URL is dialed on when it names none. */
+const DEFAULT_REDIS_PORT = 6379;
+
+/**
+ * The one TCP dial this process makes (#1824). It is `family: 6` because the
+ * counter lives in the Redis `fly redis create` provisions, which Fly reaches
+ * over the org's private IPv6 network — the address the upstream allowlisted
+ * is IPv4, and this destination is deliberately not it.
+ *
+ * The address is the environment's, never a request's: whoever calls this
+ * hands it a value `readCeilingStoreConfig` already accepted.
+ */
+function dialStore(url: string): Promise<StoreSocket> {
+  const address = new URL(url);
+  const port = address.port === "" ? DEFAULT_REDIS_PORT : Number(address.port);
+  const socket = createConnection({ host: address.hostname, port, family: 6 });
+  return new Promise((resolve, reject) => {
+    socket.once("connect", () => { resolve(storeSocket(socket)); });
+    socket.once("error", reject);
+  });
+}
+
+/** A `net.Socket`, reduced to the four things the store's injected seam uses. */
+function storeSocket(socket: Socket): StoreSocket {
+  return {
+    write: (data) => socket.write(data),
+    destroy: () => socket.destroy(),
+    onData: (listener) => socket.on("data", listener),
+    onError: (listener) => socket.on("error", listener),
+    onClose: (listener) => socket.on("close", listener),
+  };
 }
 
 async function serve(request: IncomingMessage, response: ServerResponse, deps: EgressDeps): Promise<void> {

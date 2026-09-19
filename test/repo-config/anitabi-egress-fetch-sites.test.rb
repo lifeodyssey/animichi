@@ -1,4 +1,4 @@
-# SUT: how apps/anitabi-egress/src may reach the network (#1792).
+# SUT: how apps/anitabi-egress/src may reach the network (#1792, #1824).
 # The service's security argument rests on being small enough to read in one
 # sitting, and its whole upstream surface is ONE call. A second call added next
 # year — a helper that fetches "just this one thing" — would be a capability
@@ -17,6 +17,14 @@
 #     pattern sees neither the bare reference nor the alias — which is how the
 #     first version of this rule could be walked around (#1806).
 #
+# THE STORE'S SOCKET (#1824) is the second destination these nets had to take a
+# position on. The ceiling's counter is the Redis `fly redis create`
+# provisions, reached over TCP, so `node:net` is a module this source holds
+# legitimately — and it is held the way `node:http` is: by the composition root
+# ALONE. The store module takes its connection as an injected seam, exactly as
+# the relay takes its fetch, so the allowance below is a fact about one file
+# and one reviewed dial rather than about the package.
+#
 # The residual is stated rather than implied away: a member reached through a
 # name computed at run time (`http[verb](…)`) is not text this scan can read.
 # The import net is what keeps that small — the module it comes from is still
@@ -26,6 +34,15 @@ require "minitest/autorun"
 class AnitabiEgressFetchSitesTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   SOURCE = "apps/anitabi-egress/src"
+
+  # The one file permitted to hold a socket module: the composition root, whose
+  # whole subject is the outbound surface. Named once so the import net, the
+  # client-half net and the probes below cannot drift apart.
+  DIAL_COMPOSITION_ROOT = "start-egress-server.ts"
+
+  # A socket module named by its specifier — the shape an import writes, and the
+  # only shape the composition root's own dial is permitted in.
+  DIAL_MODULE_SPECIFIER = %r{["'](?:node:)?(?:net|tls)["']}
 
   # Every module specifier this source may contain, and which module may hold
   # it. `:everywhere` is the deployed service — bundled from server.ts, plus
@@ -40,7 +57,13 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
     # that serves an outbound client too, so it is held by the one file whose
     # whole subject is binding that server; every other module would be
     # acquiring a client (`http.request`, `https.get`) it has no reason to hold.
-    "node:http" => ["start-egress-server.ts"],
+    "node:http" => [DIAL_COMPOSITION_ROOT],
+    # The ceiling store's TCP dial (#1824). Fly Redis answers RESP over a
+    # socket and nothing else, so this module is unavoidable for the counter —
+    # and it is held exactly as `node:http` is, by the composition root alone.
+    # `redis-tcp-ceiling-store.ts` takes its connection as an injected seam, so
+    # an import there would be the store opening a destination of its own.
+    "node:net" => [DIAL_COMPOSITION_ROOT],
     # The operator's address guard, which is not part of the deployed bundle:
     # it shells out to the read-only `fly ips list` to read the live address.
     "node:child_process" => ["check-egress-address.ts"],
@@ -93,7 +116,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
 
   def test_the_client_half_of_a_network_module_is_named_nowhere
     offenders = code_files.flat_map do |path|
-      matches_in(path) { |line| outbound_client_line?(line) }.map { |number, line| "#{path}:#{number}: #{line}" }
+      matches_in(path) { |line| outbound_client_line?(line, path) }.map { |number, line| "#{path}:#{number}: #{line}" }
     end
     assert_empty(offenders,
                  "the upstream is reached through the injected deps.upstreamFetch, never through a client this " \
@@ -105,6 +128,8 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   # to be refused in every form it can arrive in, and the composition root's one
   # inbound import has to survive. The tree scanned above contains no bypass in
   # either version of this rule, so only these lines can tell the two apart.
+  # The path is a module with no dial allowance, which is the rule everything
+  # but the composition root is held to.
   def test_the_client_half_is_refused_in_every_form_a_bypass_takes
     {
       "a member call" => %(await https.request({ host: "evil.test" });),
@@ -113,13 +138,27 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
       "a renamed destructured import" => %(import { request as dial } from "node:http";),
       "a destructured require" => %(const { request: dial } = require("node:http");),
       "the runtime builtin lookup" => %(const dial = getBuiltinModule("node:http").request;),
+      "the store's socket module, somewhere it may not be" => %(import { createConnection } from "node:net";),
+      "a TLS socket, which this service has no destination for" => %(import { connect } from "node:tls";),
     }.each do |shape, line|
-      assert outbound_client_line?(line), "#{shape} must be refused: #{line}"
+      assert outbound_client_line?(line, "#{SOURCE}/redis-tcp-ceiling-store.ts"), "#{shape} must be refused: #{line}"
     end
   end
 
+  # The one dial the composition root is permitted (#1824), and the reason the
+  # allowance is a fact about that file: the same import one module over is a
+  # bypass, and the probe above says so. This is the pair that keeps the
+  # exception from widening into "the package may hold a socket".
+  def test_the_store_s_socket_module_is_permitted_at_the_composition_root_and_nowhere_else
+    line = %(import { createConnection, type Socket } from "node:net";)
+    refute outbound_client_line?(line, "#{SOURCE}/#{DIAL_COMPOSITION_ROOT}"),
+           "the composition root dials the ceiling store's TCP connection, exactly as it binds the inbound server"
+    assert outbound_client_line?(line, "#{SOURCE}/egress-service.ts"),
+           "the same import anywhere else is a second outbound capability"
+  end
+
   def test_the_inbound_server_module_reaches_the_composition_root_and_nothing_else
-    assert allowed_import?("#{SOURCE}/start-egress-server.ts", "node:http"),
+    assert allowed_import?("#{SOURCE}/#{DIAL_COMPOSITION_ROOT}", "node:http"),
            "the composition root binds the one inbound server this service listens on"
     ["egress-service.ts", "request-signature.ts", "upstream-operations.ts"].each do |file|
       refute allowed_import?("#{SOURCE}/#{file}", "node:http"),
@@ -127,8 +166,18 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
     end
   end
 
+  def test_the_store_s_socket_module_reaches_the_composition_root_and_nothing_else
+    assert allowed_import?("#{SOURCE}/#{DIAL_COMPOSITION_ROOT}", "node:net"),
+           "the composition root dials the ceiling store's TCP connection (#1824)"
+    ["redis-tcp-ceiling-store.ts", "egress-service.ts", "upstream-ceiling.ts"].each do |file|
+      refute allowed_import?("#{SOURCE}/#{file}", "node:net"),
+             "#{file} may not hold node:net: the store takes its connection as an injected seam, the way the " \
+             "relay takes its fetch"
+    end
+  end
+
   def test_the_inbound_import_this_service_legitimately_holds_is_not_a_bypass
-    refute outbound_client_line?(inbound_import),
+    refute outbound_client_line?(inbound_import, "#{SOURCE}/#{DIAL_COMPOSITION_ROOT}"),
            "binding the server to listen on is the one thing node:http is permitted for here"
   end
 
@@ -163,10 +212,23 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   end
 
   # Whether a line names the client half of a network module, in either of the
-  # two forms it can arrive in. The scan and the probe test share this method on
-  # purpose: a probe against a rule the scan does not use proves nothing.
-  def outbound_client_line?(line)
+  # two forms it can arrive in. `path` is what makes the rule per-file rather
+  # than per-package: the composition root's own socket import is the one
+  # reviewed dial (#1824), and every other file is held to the rule as written.
+  # The scan and the probe test share this method on purpose: a probe against a
+  # rule the scan does not use proves nothing.
+  def outbound_client_line?(line, path)
+    return false if permitted_dial?(line, path)
+
     line.match?(OUTBOUND_CLIENT_MEMBER) || (line.match?(NETWORK_MODULE_SPECIFIER) && line.match?(CLIENT_VERB))
+  end
+
+  # The one line that names a socket module where the socket is actually
+  # dialed. It is deliberately narrow — a specifier, in one named file — so the
+  # allowance cannot spread to a member call (`net.connect(…)`) or to a second
+  # import somewhere else, both of which the rule above still refuses.
+  def permitted_dial?(line, path)
+    File.basename(path) == DIAL_COMPOSITION_ROOT && line.match?(DIAL_MODULE_SPECIFIER)
   end
 
   def allowed_import?(path, specifier)
