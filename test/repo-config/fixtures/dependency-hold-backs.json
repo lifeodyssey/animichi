@@ -4,6 +4,13 @@
   "note": "Derived by `ruby test/repo-config/refresh-hold-backs.rb --write`; read by dependency-hold-backs.test.rb. `issue` is the follow-up card the register line beside the pin cites; `--write` carries it over from the entry it replaces.",
   "holdbacks": [
     {
+      "package": "@prisma/orm-family-sql",
+      "declared": "8.0.0-rc.9",
+      "latest": "8.0.0-rc.11",
+      "declaredIn": "workers/users/package.json",
+      "issue": 1741
+    },
+    {
       "package": "@prisma/orm-postgres",
       "declared": "8.0.0-rc.9",
       "latest": "8.0.0-rc.11",

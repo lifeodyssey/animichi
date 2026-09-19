@@ -1,13 +1,11 @@
-import type { SavedRoute } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
-import { savedRoutes } from "../src/db/schema";
-import { fakeDb, fakeDbFrom, type FakeSavedRouteRow } from "./in-memory-routes-db";
-import type { UsersDb } from "../src/db/client";
+import { fakeUsersPrisma, type FakeSavedRouteRow } from "./fake-users-prisma";
 
 const ID = "00000000-0000-4000-8000-000000000009";
+const OTHER_ID = "00000000-0000-4000-8000-00000000000b";
 const NOW = "2026-07-13T04:00:00.000Z";
 const FIXED_NOW = { now: () => NOW };
 
@@ -18,91 +16,72 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   };
 }
 
-describe("NeonSavedRouteRepo over the raw executor", () => {
+describe("NeonSavedRouteRepo over the request's Prisma access", () => {
   it("reads owned saved routes through listOwned", async () => {
-    const repo = new NeonSavedRouteRepo(fakeDb([row()]).db);
+    const repo = new NeonSavedRouteRepo(fakeUsersPrisma([row()]).prisma);
+    expect((await repo.listOwned("user-a")).map((route) => route.id)).toEqual([ID]);
+  });
+
+  it("never returns another user's rows", async () => {
+    const store = fakeUsersPrisma([row(), row({ id: OTHER_ID, user_id: "user-b" })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
     expect((await repo.listOwned("user-a")).map((route) => route.id)).toEqual([ID]);
   });
 
   it("creates a saved route through the action and returns the normalized row", async () => {
-    const repo: SavedRouteStore = new NeonSavedRouteStore(fakeDb().db);
+    const repo: SavedRouteStore = new NeonSavedRouteStore(fakeUsersPrisma().prisma);
     const route = await saveSavedRoute(repo, "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW);
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
     expect(route.saved_at).toBe(NOW);
   });
-});
 
-describe("NeonSavedRouteRepo defensive normalization", () => {
-  const rawDb = (row: Record<string, unknown>): UsersDb =>
-    fakeDbFrom(() => [row]);
-
-  it("normalizes malformed row fields instead of crashing", async () => {
-    const repo = new NeonSavedRouteRepo(
-      rawDb({
-        id: "r1",
-        title: 42,
-        status: "saved",
-        point_ids: [1, "p2"],
-        saved_at: new Date("2026-07-13T04:00:00.000Z"),
-        updated_at: "2026-07-13T04:00:00.000Z",
-      }),
-    );
-    const [first] = (await repo.listOwned("user-a")) as [
-      SavedRoute, ...SavedRoute[],
-    ];
-    expect(first).toMatchObject({ id: "r1", title: "", point_ids: [] });
-    expect(first.saved_at).toBe("2026-07-13T04:00:00.000Z");
-  });
-
-  it("rejects rows with an unparseable timestamp", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb({ id: "r2", title: "x", status: "saved", updated_at: 12345 }));
-    await expect(repo.listOwned("user-a")).rejects.toThrow("invalid timestamp row");
-  });
-
-});
-
-describe("A4: saved_routes.id PRIMARY KEY (routes_pkey) fidelity", () => {
-  it("rejects a duplicate id insert the way Postgres would (SQLSTATE 23505)", async () => {
-    const { db } = fakeDb();
-    await db.insert(savedRoutes).values({
-      id: ID, userId: "user-a", title: "Tokyo", pointIds: ["p1"], status: "saved",
-      savedAt: null, updatedAt: new Date(NOW),
-    });
-    // drizzle-orm/neon-http wraps the driver's rejection in a DrizzleQueryError
-    // whose `.cause` is the original NeonDbError — this is exactly how the
-    // real neon-http driver surfaces a unique_violation too.
-    await expect(
-      db.insert(savedRoutes).values({
-        id: ID, userId: "user-b", title: "Osaka", pointIds: ["p2"], status: "saved",
-        savedAt: null, updatedAt: new Date(NOW),
-      }),
-    ).rejects.toMatchObject({
-      cause: { name: "NeonDbError", code: "23505", constraint: "routes_pkey", table: "saved_routes" },
-    });
+  it("leaves the identifier to the database's uuidv7() default", async () => {
+    // The fake refuses an INSERT that supplies saved_routes.id, so a regression
+    // that mints one in application code fails here as well as on the real
+    // database (test/saved-route-id.integration.test.ts).
+    const store = fakeUsersPrisma();
+    const route = await saveSavedRoute(new NeonSavedRouteStore(store.prisma), "user-a", {
+      title: "Tokyo", point_ids: ["p1"], status: "saved",
+    }, FIXED_NOW);
+    expect(route.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
 
-describe("findOwner defensive cases (USERS-1 coverage)", () => {
-  const rawDb = (rows: Record<string, unknown>[]): UsersDb =>
-    fakeDbFrom(() => rows);
+describe("saved-route row policy at the boundary", () => {
+  it("reads a null title as an empty string", async () => {
+    const store = fakeUsersPrisma([row({ title: null, point_ids: ["p1"] })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
+    expect((await repo.listOwned("user-a"))[0]?.title).toBe("");
+  });
 
+  it("normalizes a raw Postgres timestamptz to ISO", async () => {
+    const store = fakeUsersPrisma([row({ saved_at: "2026-07-13 12:34:56+00", updated_at: "2026-07-13 12:34:56+00" })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
+    const [listed] = await repo.listOwned("user-a");
+    expect(listed?.saved_at).toBe("2026-07-13T12:34:56.000Z");
+    expect(listed?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+  });
+
+  it("rejects a status outside the domain's union", async () => {
+    const store = fakeUsersPrisma([row({ status: "bogus" })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
+    await expect(repo.listOwned("user-a")).rejects.toThrow("invalid saved route row");
+  });
+});
+
+describe("findOwner", () => {
   it("returns undefined when no row matches", async () => {
-    const repo = new NeonSavedRouteStore(rawDb([]));
-    await expect(repo.findOwner("r-none")).resolves.toBeUndefined();
+    const store = new NeonSavedRouteStore(fakeUsersPrisma().prisma);
+    await expect(store.findOwner("r-none")).resolves.toBeUndefined();
   });
 
-  it("rejects a non-record row", async () => {
-    const repo = new NeonSavedRouteStore(rawDb([42 as unknown as Record<string, unknown>]));
-    await expect(repo.findOwner("r-x")).rejects.toThrow("invalid saved route row");
+  it("carries the owner and the saved_at the update policy needs", async () => {
+    const store = new NeonSavedRouteStore(fakeUsersPrisma([row({ saved_at: NOW })]).prisma);
+    await expect(store.findOwner(ID)).resolves.toEqual({ userId: "user-a", savedAt: NOW });
   });
 
-  it("coerces a non-string user_id to null (unclaimed)", async () => {
-    const repo = new NeonSavedRouteStore(rawDb([{ id: "r4", user_id: 12345, saved_at: null }]));
-    await expect(repo.findOwner("r4")).resolves.toEqual({ userId: null, savedAt: null });
-  });
-
-  it("throws on an unparseable saved_at", async () => {
-    const repo = new NeonSavedRouteStore(rawDb([{ id: "r5", user_id: "user-a", saved_at: 12345 }]));
-    await expect(repo.findOwner("r5")).rejects.toThrow("invalid timestamp row");
+  it("reports an unclaimed row as ownerless rather than absent", async () => {
+    const store = new NeonSavedRouteStore(fakeUsersPrisma([row({ user_id: null })]).prisma);
+    await expect(store.findOwner(ID)).resolves.toEqual({ userId: null, savedAt: null });
   });
 });
