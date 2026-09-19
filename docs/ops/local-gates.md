@@ -335,12 +335,13 @@ plus the pre-commit tools: `shellcheck`,
   `pnpm-workspace.yaml` package has a row, every row names a workspace package and a known bucket
 - `scripts/local-gates/pre-push-fixture.sh` — the throwaway repository, the fake `pnpm` / `make`
   and the assertions `pre-push-affected.test.sh` (which packages a diff selects) and
-  `pre-push-commitlint.test.sh` (which messages a push carries) share
+  `pre-push-affected-commitlint.test.sh` (which messages a push carries) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
   job runs the four `check-*.test.sh` suites
 - `commitlint.config.js` — the commit-message and PR-title rules; their exemption and its boundary
-  are driven through this workspace's own CLI by `scripts/local-gates/commitlint-config.test.sh`
+  are driven through this workspace's own CLI by
+  `scripts/local-gates/pre-push-affected-commitlint-config.test.sh`
 - `.pre-commit-config.yaml` — hook wiring for all three stages
 - This document — the contract
 

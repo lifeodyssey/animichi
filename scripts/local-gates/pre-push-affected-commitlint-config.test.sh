@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# SUT: commitlint.config.js — the one message validator's rules
-# Behavioral tests for the issue-reference rule's single exemption (#1804):
-# GitHub's squash merge appends ` (#N)` to the pull request title it uses as the
-# subject, so every commit the merge button lands on `main` carries that suffix
-# and no author can remove it — a rule that refuses it refuses the repository's
-# own history. The exemption is exactly that suffix, and nothing else: a subject
-# reference anywhere but there is still rejected, and so is every other rule's
-# verdict on such a subject. Driven through the workspace's real CLI and config,
-# the pair CI's `commits` job reads.
+# SUT: scripts/local-gates/pre-push-affected.sh — the toolchain program that runs these
+# rules, in the root commitlint.config.js this file drives through the workspace's own CLI
+# Behavioral tests for the issue-reference rule's single exemption (#1804): GitHub's
+# squash merge appends ` (#N)` to the pull request title it uses as the subject, so
+# every commit the merge button lands on `main` carries that suffix and no author can
+# remove it — a rule that refuses it refuses the repository's own history. The exemption
+# is exactly that suffix, and nothing else: a subject reference anywhere but there is
+# still rejected, and so is every other rule's verdict on such a subject. The rules
+# themselves are the root config CI's `commits` job reads too; the gate is the committed
+# program under the toolchain roots they reach this suite through, which is the name the
+# filename has to carry (#1776).
 set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
