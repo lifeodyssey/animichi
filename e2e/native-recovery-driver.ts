@@ -1,6 +1,6 @@
 import { chromium, expect, type Page } from "@playwright/test";
 import type { TestContext } from "node:test";
-import { stubTurnstileSdk } from "./helpers/turnstile-sdk";
+import { solveTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
 /** Browser controls only: all chat submissions and snapshots reach the actual native Worker. */
 export async function nativeRecoveryPage(context: TestContext, baseURL: string) {
@@ -48,9 +48,4 @@ export async function expectNativeAnswer(page: Page) {
   await details.click();
   await expect(details).toHaveAttribute("aria-expanded", "true");
   await expect(step).toBeVisible();
-}
-
-async function solveTurnstileEntry(page: Page) {
-  await page.waitForFunction("typeof window.onAnimichiTurnstile === 'function'");
-  await page.evaluate("window.onAnimichiTurnstile('e2e-entry-token')");
 }
