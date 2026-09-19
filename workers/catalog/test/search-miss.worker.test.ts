@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { search, searchDb } from "../src/api/search";
 import { upstreamUnavailable } from "../src/lib/errors";
 import type { FetchLike } from "../src/ingest/sources";
-import { fakeDb, type AliasIndex, ROW, catalogDb } from "./in-memory-search-db";
+import { fakeDb, type AliasIndex, ROW } from "./in-memory-search-db";
 import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import { PREVIEW_POINT } from "./fixtures/l1-preview-point";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
@@ -21,7 +21,7 @@ describe("search (alias miss — upstream errors)", () => {
   it("turns production Bangumi fetch failures into defined retryable errors", async () => {
     const fetchImpl: FetchLike = () => Promise.reject(new Error("bangumi down"));
     const err = await searchError(() =>
-      search(searchDb(fakeCatalogPrisma([]), catalogDb([])), { query: "uncovered title" }, { fetchImpl }),
+      search(searchDb(fakeCatalogPrisma([])), { query: "uncovered title" }, { fetchImpl }),
     );
     expect(err.code).toBe("UPSTREAM_UNAVAILABLE");
     expect(err.status).toBe(502);
@@ -76,7 +76,7 @@ describe("search (alias miss — production SearchDb wrapper)", () => {
           });
 
     const result = await search(
-      searchDb(fakeCatalogPrisma([], []), catalogDb([]), stubEgressSigningKey()),
+      searchDb(fakeCatalogPrisma([], []), stubEgressSigningKey()),
       { query: "けいおん！" },
       { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
     );
@@ -96,7 +96,7 @@ describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", ()
         : Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
 
     const result = await search(
-      searchDb(fakeCatalogPrisma([]), catalogDb([]), stubEgressSigningKey()),
+      searchDb(fakeCatalogPrisma([]), stubEgressSigningKey()),
       { query: "work with no anitabi data" },
       { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
     );
@@ -114,7 +114,7 @@ describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", ()
 
     const err = await searchError(() =>
       search(
-        searchDb(fakeCatalogPrisma([]), catalogDb([]), stubEgressSigningKey()),
+        searchDb(fakeCatalogPrisma([]), stubEgressSigningKey()),
         { query: "anitabi outage" },
         { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
       ),

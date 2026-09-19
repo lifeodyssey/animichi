@@ -1,32 +1,45 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
-  bangumiSeasonResolver,
   createScheduledHandler,
-  runSeedJob,
-  runTtlJob,
   type CronDependencies,
   type CronJobResult,
 } from "../src/scheduled/ingest-schedule";
 import { mockFetch } from "./mock-fetch-sequence";
 import type { IngestResult } from "../src/ingest/ingest-bangumi";
-import type { CatalogDb } from "../src/db/client";
 import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { bangumiSeasonResolver } from "../src/scheduled/cron-jobs";
+import { runSeedJob, runTtlJob } from "../src/scheduled/cron-jobs";
 
 // Production lineage: the per-env AC1 guard allows ingest crons only in
 // production, so the routing tests below run as the production environment.
 const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "production" };
 const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
 const IN_PROGRESS: IngestResult = { status: "in_progress" };
-const db = {} as unknown as CatalogDb;
+/**
+ * The cron's Prisma seam. Every dependency below is injected, so this seam is
+ * never reached — a real build of it would assert that by failing loudly if the
+ * wiring ever did touch it.
+ */
+const query = unreachableCatalogPrisma();
 
 function result(attempted: number, ingested: number): CronJobResult {
   return { attempted, ingested, skipped: attempted - ingested };
 }
 
+/** The two database seams, as the cron's injected dependencies hand them over. */
+function seams(): Pick<CronDependencies, "connectPrisma" | "connect"> {
+  return {
+    connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
+      .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
+    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue({} as never),
+  };
+}
+
 function dependencies(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
+    ...seams(),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
@@ -61,7 +74,9 @@ describe("scheduled handler", () => {
     await createScheduledHandler(deps)({ cron: SEED_CRON }, ENV);
 
     expect(SEED_CRON).toBe("0 4 * * *");
-    expect(done).toHaveBeenCalledWith(db, SEED_BANGUMI_IDS);
+    const [doneSeam, ids] = done.mock.calls[0] ?? [];
+    expect(doneSeam).toBe(query);
+    expect(ids).toEqual(SEED_BANGUMI_IDS);
     expect(deps.listStaleBangumiIds).not.toHaveBeenCalled();
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length - 3);
   });
@@ -73,7 +88,9 @@ describe("scheduled handler", () => {
     await createScheduledHandler(deps)({ cron: TTL_REFRESH_CRON }, ENV);
 
     expect(TTL_REFRESH_CRON).toBe("17 * * * *");
-    expect(stale).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
+    const [staleSeam, cap] = stale.mock.calls[0] ?? [];
+    expect(staleSeam).toBe(query);
+    expect(cap).toBe(TTL_BATCH_CAP);
     expect(deps.listDoneBangumiIds).not.toHaveBeenCalled();
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(2);
   });
@@ -89,6 +106,9 @@ describe("scheduled handler", () => {
     expect(deps.ingestBangumi).not.toHaveBeenCalled();
   });
 
+});
+
+describe("scheduled handler refusals", () => {
   it("fails closed when the catalog DSN is absent", async () => {
     const deps = dependencies();
 
@@ -135,7 +155,7 @@ describe("seed job", () => {
       listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(doneIds),
     });
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length - 3, 7));
+    await expect(runSeedJob(query, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length - 3, 7));
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length - 3);
     const skipped = vi.mocked(deps.ingestBangumi).mock.calls.map(([, id]) => id);
     expect(skipped.some((id) => doneIds.has(id))).toBe(false);
@@ -145,7 +165,7 @@ describe("seed job", () => {
     const deps = dependencies();
     vi.mocked(deps.ingestBangumi).mockResolvedValueOnce(IN_PROGRESS).mockResolvedValue(INGESTED);
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
+    await expect(runSeedJob(query, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
   });
 
   it("keeps ingesting the rest when one work's ingest throws", async () => {
@@ -154,7 +174,7 @@ describe("seed job", () => {
       .mockRejectedValueOnce(new Error("upstream exploded"))
       .mockResolvedValue(INGESTED);
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
+    await expect(runSeedJob(query, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length);
   });
 });
@@ -166,8 +186,10 @@ describe("TTL job", () => {
       listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(twelveStale),
     });
 
-    await expect(runTtlJob(db, deps)).resolves.toEqual(result(TTL_BATCH_CAP, TTL_BATCH_CAP));
-    expect(deps.listStaleBangumiIds).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
+    await expect(runTtlJob(query, deps)).resolves.toEqual(result(TTL_BATCH_CAP, TTL_BATCH_CAP));
+    const [staleSeam, cap] = vi.mocked(deps.listStaleBangumiIds).mock.calls[0] ?? [];
+    expect(staleSeam).toBe(query);
+    expect(cap).toBe(TTL_BATCH_CAP);
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(TTL_BATCH_CAP);
     const ingested = vi.mocked(deps.ingestBangumi).mock.calls.map(([, id]) => id);
     expect(ingested).toEqual(twelveStale.slice(0, TTL_BATCH_CAP));
@@ -182,7 +204,7 @@ describe("TTL job", () => {
       ]),
     });
 
-    await expect(runTtlJob(db, deps)).resolves.toEqual(result(3, 3));
+    await expect(runTtlJob(query, deps)).resolves.toEqual(result(3, 3));
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(3);
   });
 });

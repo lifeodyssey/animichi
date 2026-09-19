@@ -11,10 +11,10 @@
  * CATALOG_ADMIN_TOKEN and reject public/unauthorized callers.
  */
 import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { catalogDailyRun } from "../ingest/catalog-daily-run";
 import { buildDailyInventory, type SeasonalResolver } from "../ingest/daily-discovery";
 import { dailyPolicy } from "../operational-config";
-import { bangumiSeasonResolver, SNAPSHOT_KEEP } from "../scheduled/ingest-schedule";
 import type { DailyRunInputs } from "../ingest/catalog-daily-run";
 import { publishAfterRun, type DailyPublishPorts } from "../publish/daily-snapshot";
 import { publishSnapshot } from "../publish/snapshot";
@@ -22,6 +22,7 @@ import { gcSnapshots } from "../publish/snapshot-gc";
 import type { ObjectStore } from "../publish/object-store";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { TierName, TieredWork } from "../ingest/tiers";
+import { bangumiSeasonResolver, SNAPSHOT_KEEP } from "../scheduled/cron-jobs";
 
 /** A clock seam so the rotating canary selection is deterministic in tests. */
 export type Clock = () => number;
@@ -60,32 +61,36 @@ export function canaryPolicy() {
  * publishes the immutable snapshot and GCs the N/N-1 pool — the same
  * publish-after-run gate the dailyDiscover cron performs. The controlled epoch
  * keeps scheduling deterministic in tests; the store is threaded from the route.
+ *
+ * The run is a Prisma plan over this request's runtime (#1630) while the
+ * snapshot publish is still Drizzle's, so both seams arrive named.
  */
 export async function fullIngest(
+  query: CatalogPrisma,
   db: CatalogDb,
   epochMs: number,
   store: ObjectStore | null,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
 ): Promise<DailyRunOutcome> {
-  const outcome = controlledDailyRun(db, epochMs, seasonalResolver);
+  const outcome = controlledDailyRun(query, epochMs, seasonalResolver);
   const ports: DailyPublishPorts = {
     runDailyIngest: () => outcome,
-    publishRun: (d, s, sourceRunId, createdAt) =>
-      publishSnapshot({ db: d, store: s }, { sourceRunId, createdAt }),
+    publishRun: (s, sourceRunId, createdAt) =>
+      publishSnapshot({ db, store: s }, { sourceRunId, createdAt }),
     gcSnapshots: (s) => gcSnapshots(s, SNAPSHOT_KEEP),
   };
-  await publishAfterRun(db, store, ports);
+  await publishAfterRun(store, ports);
   return outcome;
 }
 
 /** The production daily pipeline over a controlled epoch (discovery + run). */
 function controlledDailyRun(
-  db: CatalogDb,
+  query: CatalogPrisma,
   epochMs: number,
   seasonalResolver: SeasonalResolver,
 ): Promise<DailyRunOutcome> {
-  return buildDailyInventory(db, seasonalResolver).then((inventory) =>
-    catalogDailyRun(db, epochMs, inventory, dailyPolicy()),
+  return buildDailyInventory(query, seasonalResolver).then((inventory) =>
+    catalogDailyRun(query, epochMs, inventory, dailyPolicy()),
   );
 }
 
@@ -99,7 +104,7 @@ function controlledDailyRun(
  * N/N-1 snapshot pool — so no ObjectStore is threaded to this command.
  */
 export async function runCanaryCommand(
-  db: CatalogDb,
+  query: CatalogPrisma,
   epochMs: number,
 ): Promise<DailyRunOutcome> {
   const tiered = canarySelection(epochMs);
@@ -108,5 +113,5 @@ export async function runCanaryCommand(
     knownIds: new Set(tiered.map((work) => work.bangumiId)),
     tiered,
   };
-  return catalogDailyRun(db, epochMs, inputs, canaryPolicy());
+  return catalogDailyRun(query, epochMs, inputs, canaryPolicy());
 }

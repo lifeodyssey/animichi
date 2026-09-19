@@ -3,17 +3,23 @@ import { Budget } from "../src/ingest/budgets";
 import { PENDING_DRAIN_CRON, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
   createScheduledHandler,
-  runPendingDrainJob,
   type CronDependencies,
 } from "../src/scheduled/ingest-schedule";
-import type { CatalogDb } from "../src/db/client";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { runPendingDrainJob } from "../src/scheduled/cron-jobs";
 
-const db = {} as unknown as CatalogDb;
+/**
+ * The cron's Prisma seam. Every dependency below is injected, so this seam is
+ * never reached — a build of it that is asserted unreachable is what proves the
+ * wiring used the injected one.
+ */
+const query = unreachableCatalogPrisma();
 const DATABASE_URL = "postgresql://user:password@catalog.example/animichi";
 
 const INGESTED = { status: "ingested", version: 1, pointCount: 2 } as const;
 const BASE_DEPENDENCIES: CronDependencies = {
-  connect: () => Promise.resolve(db),
+  connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
+  connect: () => Promise.resolve({} as never),
   ingestBangumi: () => Promise.resolve(INGESTED),
   listDoneBangumiIds: () => Promise.resolve(new Set()),
   listDrainableBangumiIds: () => Promise.resolve([]),
@@ -47,7 +53,9 @@ describe("scheduled pending drain", () => {
       ENVIRONMENT: "staging",
     });
 
-    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1", undefined);
+    const [seamArg, id] = ingestBangumi.mock.calls[0] ?? [];
+    expect(seamArg).toBe(query);
+    expect(id).toBe("pending-1");
   });
 
   it("folds pending work into production's existing TTL cron", async () => {
@@ -62,7 +70,9 @@ describe("scheduled pending drain", () => {
       ENVIRONMENT: "production",
     });
 
-    expect(ingestBangumi).toHaveBeenCalledWith(db, "pending-1", undefined);
+    const [seamArg, id] = ingestBangumi.mock.calls[0] ?? [];
+    expect(seamArg).toBe(query);
+    expect(id).toBe("pending-1");
   });
 
   it("stops before a work that does not fit the shared budget", async () => {
@@ -73,7 +83,7 @@ describe("scheduled pending drain", () => {
     });
     const budget = new Budget({ workLimit: 1, requestLimit: 2, runtimeLimitMs: 60_000 });
 
-    const result = await runPendingDrainJob(db, deps, budget);
+    const result = await runPendingDrainJob(query, deps, budget);
 
     expect(result).toEqual({ attempted: 1, ingested: 1, skipped: 0 });
     expect(ingestBangumi).toHaveBeenCalledTimes(1);
