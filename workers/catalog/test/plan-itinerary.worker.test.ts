@@ -5,6 +5,7 @@ import { planItinerary, type ItineraryObservation, type ItineraryPoint, type Poi
 import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
  * Use-case seam tests: `planItinerary` receives points through a fake
@@ -146,7 +147,7 @@ const seamHandler = new OpenAPIHandler(catalogRouter);
 function seamContext(rows: unknown[][]): CatalogContext {
   const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  return { db };
+  return { db, prisma: unreachableCatalogPrisma() };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

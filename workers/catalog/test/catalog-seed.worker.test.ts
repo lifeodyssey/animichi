@@ -64,13 +64,29 @@ describe("seed statements are emitted from the seed records", () => {
     });
   });
 
-  it("emits point columns without the trigger-derived location", () => {
+  it("writes the source geometry, never the derived scalars", () => {
     const seed = pointSeed("b-1", beta, "Beta Point 1", 36, 136);
     expect(pointInsert([seed]).text).toBe(
-      "INSERT INTO points (id, bangumi_id, name, latitude, longitude)"
-      + " VALUES ($1, $2, $3, $4, $5)",
+      "INSERT INTO points (id, bangumi_id, name, location)"
+      + " VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography)",
     );
-    expect(pointInsert([seed]).values).toEqual(["b-1", "1002", "Beta Point 1", 36, 136]);
+    expect(pointInsert([seed]).values).toEqual(["b-1", "1002", "Beta Point 1", 136, 36]);
+  });
+
+  it("numbers point placeholders across every row", () => {
+    const first = pointSeed("b-1", beta, "Beta Point 1", 36, 136);
+    const second = pointSeed("b-2", beta, "Beta Point 2", 35, 135);
+    expect(pointInsert([first, second]).values).toEqual([
+      "b-1", "1002", "Beta Point 1", 136, 36,
+      "b-2", "1002", "Beta Point 2", 135, 35,
+    ]);
+    expect(pointInsert([first, second]).text).toContain("$10");
+  });
+
+  it("never names the generated coordinate columns (#1628)", () => {
+    const { text } = pointInsert([pointSeed("b-1", beta, "Beta Point 1", 36, 136)]);
+    expect(text).not.toContain("latitude");
+    expect(text).not.toContain("longitude");
   });
 
   it("carries the parent work id into alias rows", () => {

@@ -33,12 +33,12 @@ const LAYER_RULES: readonly LayerRule[] = [
   {
     layer: "src/domain/",
     directories: ["adapters", "api", "enrich", "ingest", "publish", "db", "lib"],
-    packages: ["hono", "@orpc", "drizzle-orm", "@neondatabase", "cloudflare:"],
+    packages: ["hono", "@orpc", "drizzle-orm", "@neondatabase", "@prisma", "@animichi/prisma-geography", "cloudflare:"],
   },
   {
     layer: "src/application/",
     directories: ["adapters", "api", "enrich", "ingest", "publish", "db"],
-    packages: ["hono", "drizzle-orm"],
+    packages: ["hono", "drizzle-orm", "@prisma", "@animichi/prisma-geography"],
   },
 ];
 
@@ -119,9 +119,13 @@ describe("dependency rule detection", () => {
     expect(dependencyRuleViolations({
       "src/domain/geo.ts": 'import type {\n  SQL,\n} from "drizzle-orm";\n',
       "src/domain/neon.ts": 'import { neon } from "@neondatabase/serverless";\n',
+      "src/domain/prisma.ts": 'import postgresServerless from "@prisma/orm-postgres/serverless";\n',
+      "src/domain/point.ts": 'import { geographyPoint } from "@animichi/prisma-geography";\n',
     })).toEqual([
       "src/domain/geo.ts: drizzle-orm",
       "src/domain/neon.ts: @neondatabase/serverless",
+      "src/domain/prisma.ts: @prisma/orm-postgres/serverless",
+      "src/domain/point.ts: @animichi/prisma-geography",
     ]);
   });
 

@@ -20,8 +20,20 @@ Root guide: `../../AGENTS.md`.
 ## Stack (per the ADR)
 
 - **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
-- **oRPC** contract; **Drizzle for queries only** — Neon via @neondatabase/serverless (neon-http); no Hyperdrive.
-- PostGIS via `sql` tagged template — do not vectorize structured geo (SD-29).
+- **Two query paths, mid-migration.** The Prisma data plane (spec §4.2) serves the **nearby**
+  read: `src/db/prisma.ts` builds the contract-bound client from `@animichi/pi-session-neon` +
+  `@animichi/prisma-geography`, and the Hono `/catalog/*` boundary acquires ONE `Runtime`
+  per request and disposes it with `await using` — never a connection cached across requests.
+  Everything else still queries through **Drizzle** (Neon via @neondatabase/serverless,
+  neon-http); #1629–#1631 move the rest. **No Hyperdrive**: no binding, no preference
+  branch, no comment — `test/no-hyperdrive.worker.test.ts` is the tripwire.
+- PostGIS via the geography pack's typed operations on the Prisma path, `sql` tagged template on the
+  Drizzle one — do not vectorize structured geo (SD-29). Distances are reported AND ordered by the
+  spheroid (`ST_Distance`), one metric, never `<->` (§4.11).
+- **`pg` is aliased to `test/fakes/pg-pool-stub.ts` in the worker pool.** workerd runs with the
+  CJS→ESM shim disabled and `pg` ships CommonJS, so `src/db/prisma.ts` (which imports the Prisma
+  serverless entry) could not load at all without it. The stub LOADS without a socket and fails
+  loudly if a test reaches a real driver; the Node integration arm resolves the real `pg`.
 
 ## Contract discipline (`packages/contract` is the source of truth)
 
@@ -72,10 +84,13 @@ Root guide: `../../AGENTS.md`.
   TCP, Docker, or child-process work. Filesystem parity checks belong here, not in Worker tests —
   **unless the check must never be skippable**. The suite is **hermetic and fail-loudly** (card
   1049): its `globalSetup` (`test/integration-db-global.ts`) boots a **Docker Postgres+PostGIS**
-  container and installs the frozen Drizzle-era shape
-  (`packages/test-postgres/sql/drizzle-era-catalog.sql`) on a database of its own — the plane's own
-  database is migrated by the Prisma chain now (#1625), and this query layer still reads the
-  pre-Prisma shape, so the suite keeps a database of its own until #1628–#1631 land
+  container and builds **two databases of its own** on it — `<suite>_legacy` with the frozen
+  Drizzle-era shape (`packages/test-postgres/sql/drizzle-era-catalog.sql`), and `<suite>_plane` as a
+  clone of the container's migrated template, i.e. the committed Prisma chain (#1626), the shape every
+  real environment now has. `nearby-*.integration.test.ts` runs on the Prisma one (#1628); every other
+  file still reads the pre-Prisma shape (`points.latitude`/`longitude` as writable scalars, the
+  `embedding` column) and keeps the Drizzle-era database until #1629–#1631 move those reads. Neither
+  is the plane's own database — one chain per database, and `startTestPostgres` migrates the plane's
   (`integration-db-global.ts` carries the same note). Any setup failure throws — there is no
   silent-skip path and **zero Neon environment variables**.
   The suite is `test:integration`, one of the four scripts every lane already runs for an affected

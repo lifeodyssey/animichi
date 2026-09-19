@@ -2,6 +2,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import type { UpstreamUnavailableData } from "../src/lib/errors";
 
 const handler = new OpenAPIHandler(catalogRouter);
@@ -25,13 +26,13 @@ async function handleRequest(body: unknown, context: CatalogContext) {
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
   const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  return { db, fetchImpl };
+  return { db, prisma: unreachableCatalogPrisma(), fetchImpl };
 }
 
 function unreachableContext(): CatalogContext {
   const execute = () => { throw new Error("db should not be reached"); };
   const db = { execute } as unknown as CatalogDb;
-  return { db };
+  return { db, prisma: unreachableCatalogPrisma() };
 }
 
 describe("work-id contract on the OpenAPI wire", () => {

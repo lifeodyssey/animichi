@@ -6,6 +6,7 @@ import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import {
   aliasInsert,
   aliasSeed,
@@ -70,7 +71,7 @@ async function seed(): Promise<void> {
 }
 
 function context(): CatalogContext {
-  return { db };
+  return { db, prisma: unreachableCatalogPrisma() };
 }
 
 async function call(method: string, payload: unknown): Promise<unknown> {

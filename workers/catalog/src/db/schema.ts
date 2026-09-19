@@ -10,8 +10,10 @@
  * complete statements).
  *
  * Runtime-only: this schema never generates or applies migrations. It is
- * query-only runtime metadata for the Drizzle query builder; Atlas migrations
- * (the Prisma chain) remains the sole DDL authority.
+ * query-only runtime metadata for the Drizzle query builder, whose DDL the
+ * Prisma chain owns (`packages/pi-session-neon/migrations`). The nearby read
+ * left the Drizzle seam for that plane in #1628; #1629–#1631 move the rest, and
+ * this mapping goes with them.
  *
  * - Geography (`points.location`, `locations.location`) is PostGIS
  *   GEOGRAPHY(Point,4326). Drizzle has no native geography column, so it is
