@@ -1,7 +1,10 @@
 # Orca coordinator handoff — 2026-09-19
 
-State at `371819375`. Written for a fresh coordinator picking up mid-flight. Everything here is
-either live state or a pointer; the reasoning lives in the issues and PRs it references.
+Written for a fresh coordinator picking up mid-flight. Everything here is either live state or a
+pointer; the reasoning lives in the issues and PRs it references.
+
+**26 PRs merged since 2026-09-18**, 197 cards open after 51 were closed with evidence. Companion:
+`LESSONS.md` beside this file — read §1 before trusting any guard, and §6 before writing a brief.
 
 ## Role
 
@@ -10,46 +13,78 @@ Orca coordinator for `lifeodyssey/animichi`. Dispatch writer lanes through the h
 concurrency — the owner has said repeatedly to dispatch anything without a genuine file conflict and
 not to impose a cap. Ask the owner only about money, production, secrets, scope, or rule exemptions.
 
-## Live right now — five lanes
+## Live right now — one lane, and a stack that cannot land yet
 
-All on `command-code` / `deepseek/deepseek-v4-flash` / `max`. Briefs are at
-`/private/tmp/animichi-lane-<id>/brief.md`, reports land beside them.
+One lane runs: **#1628 fix round 2**, in `orca-1628-lane`. Everything else in the Prisma chain is
+committed and waiting on it.
 
-| card | worktree | what it is |
-|---|---|---|
-| #1628 | `orca-1628-lane` | the catalog Prisma connection shape; **unblocks #1629/#1630/#1631** |
-| #452 | `orca-452-lane` | split "could not verify" from "credential rejected" at the edge |
-| #469 | `orca-469-lane` | ship a CSP for `apps/web` — the BYOK spec's OQ-6 precondition, never met |
-| #1814 fix | `orca-1690-lane` | `web-chat-save-login-wall.spec.ts:169` red in CI |
-| #1815 fix | `orca-1650-lane` | docs hygiene reads test fixtures as broken `docs/` links |
-
-**Settle each with `orca orchestration task-update --id <task_id> --status completed|failed`** —
-note it is `orchestration task-update`, not `task-update`, and the status vocabulary is
-`pending|ready|dispatched|completed|failed|blocked`.
-
-## The stack that is waiting on #1628
-
-#1629 (outbound adapters), #1630 (ingest pipeline), #1631 (api surfaces) all need #1628's connection
-shape and all touch **different subdirectories** of `workers/catalog/src`. So they are three
-siblings on one parent, not a chain:
+### The stack, and why it is stuck
 
 ```
 main
- └── 1628
-      ├── 1629   ├── 1630   └── 1631
+ └── 1628  connection shape — two pre-push failures, second fix in flight
+      ├── 1629  ✅ committed `a12a8f3c2` — outbound adapters converted
+      ├── 1630  ⛔ stopped with no commit — a missing primitive, see below
+      └── 1631  ✅ committed `ca3147aa2` — search + spots converted
 ```
 
-Dispatch them as stacked PRs (base pointing at #1628's branch) as soon as #1628 has a commit — do
-not wait for it to merge. An audit confirmed the Prisma flip (#1767) did **not** deliver them:
-`git grep -l drizzle-orm -- workers/catalog/src` still finds 26 files, zero Prisma imports.
+**#1629 and #1631 cannot be pushed until #1628's gate passes**, because they inherit its commits and
+therefore its failures. When #1628 lands a green tip, restack both onto it before pushing.
 
-## Two PRs are red, both for real reasons
+They do not conflict with each other: #1629 touched no shared file, #1631 needed two call sites in
+`workers/catalog/src/router.ts` and said so. **`router.ts` is the seam the subdirectory split
+missed** — three lanes own three subdirectories, and that file is where all three wire in. A
+tree-shaped ownership split cannot partition a point-shaped convergence; the same failure mode as
+`pnpm-lock.yaml`.
 
-#1814 and #1815 have auto-merge armed, so they will land the moment CI goes green — the lanes above
-are fixing them. Neither is waiting on anything else.
+### #1628 has failed the gate twice, for two unrelated reasons
 
-Separately, `github-advanced-security` fails on every PR with *"The requested model is not
-supported"*. It is **not** a required check, so it blocks nothing — that is #1639, already filed.
+Both were caught by the pre-push gate, and **neither was visible to `workers/catalog`'s own 94-file
+pool**, which was green each time.
+
+1. **Two of its own memoization tests failed under the full suite.** Diagnosed (not guessed): the
+   test dynamically imports `src/db/prisma` *inside* each case after `vi.resetModules()`, so it pays
+   a cold graph transform against the pool's 20 s `testTimeout` — a cost the other 93 files pay in
+   their import phase, which no per-test budget governs. **A vitest timeout does not stop the test
+   body**, so the timed-out case ran on and called the constructor twice, failing the next test too.
+   Cause and consequence, not one defect twice. Fixed in `b9e2e6d2f` without touching
+   `src/db/prisma.ts`.
+2. **`packages/agent/integration-test/catalog.test.ts:78` — `/catalog/nearby` returns 500** to a
+   real cross-package caller. A second lane independently observed this from #1631's side. This is
+   the expensive shape: catalog's own suites test the handler; the agent's test calls it over the
+   wire against a real database, and only that sees a runtime that is assembled differently. Fix
+   round 2 is running.
+
+   A lead worth checking, from #1629's lane: the driver **decodes `count`'s `int8` as a string**. A
+   value crossing the boundary in the wrong shape fails at the far end, not at the query.
+
+### #1630 is blocked on a missing primitive, and the decision is already taken
+
+The contract-bound Prisma SQL builder has **no `INSERT … ON CONFLICT`**. Nine operations in the
+ingest slice are upserts and three are *guarded* upserts whose `WHERE` clause **is** the concurrency
+control (the `ingest_jobs` singleflight). So `git grep -l drizzle-orm` over that scope cannot reach
+zero — which is the card's own completion test. The lane refused to half-convert and said why.
+
+**Chosen unblock (recorded on #1630): give the seam a conflict primitive** — one helper beside
+`CatalogPrisma`: guarded `UPDATE … RETURNING`, else `INSERT`, with `sqlState === '23505'` meaning
+"a concurrent writer won" for the guarded case and "retry the UPDATE once" otherwise. It needs
+`src/db/prisma.ts`, so it belongs to #1628 or a successor. The two rejected options and why are in
+that comment.
+
+**`428C9` — `enrich.ts` writing the generated `points.latitude`/`longitude` — lives inside the point
+upsert**, so splitting the card would leave the bug it exists for unfixed.
+
+## Open PRs
+
+| PR | what | state |
+|---|---|---|
+| #1815 | docs-hygiene stops reading test fixtures as broken links | behind/blocked, auto-merge armed |
+| #1817 | this document and `LESSONS.md` | behind/blocked |
+| #1818 | nonce-based CSP for `apps/web` (#469) | behind/blocked |
+| #1819 | **the owner's own branch**, not a lane's — do not touch | — |
+
+`github-advanced-security` fails on every PR with *"The requested model is not supported"*. Not a
+required check, blocks nothing — that is #1639.
 
 ## What the owner is paying for, and the deadline
 
