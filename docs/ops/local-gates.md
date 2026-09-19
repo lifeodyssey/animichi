@@ -49,11 +49,13 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre
 file over the pull request's commits and over its title (GitHub uses the PR title as the squashed
 subject on `main`), so a subject that passes locally passes there. It rejects unknown types and
 scopes, subjects over 72 characters, generic outcomes (`wip`, `checkpoint`, `update`, …), a subject
-that starts with anything but a lowercase verb, an issue reference in the subject, and
-Claude/Anthropic/Codex/OpenAI `Co-Authored-By` or `Generated with` trailers. Legitimate human and
-Dependabot co-authors survive, and `Merge …` / `Revert "…"` subjects are exempt. Body and footer
-lines over 100 characters are rejected too — that pair comes from `@commitlint/config-conventional`,
-which the config extends, not from a rule written here.
+that starts with anything but a lowercase verb, an issue reference in the subject — the single
+exemption is the ` (#N)` GitHub's squash merge appends to the title it uses as that subject, which no
+author writes and no author can remove (#1804) — and Claude/Anthropic/Codex/OpenAI `Co-Authored-By`
+or `Generated with` trailers. Legitimate human and Dependabot co-authors survive, and `Merge …` /
+`Revert "…"` subjects are exempt. Body and footer lines over 100 characters are rejected too — that
+pair comes from `@commitlint/config-conventional`, which the config extends, not from a rule written
+here.
 
 Two ways to check a message without committing:
 
@@ -94,22 +96,25 @@ Push `other` by checking `other` out.
 `HEAD`'s diff is taken against its merge base with `origin/main`, or against the remote sha when
 that is already an ancestor of `HEAD`, which narrows it to what the remote has not seen.
 
-**That same narrowed base is the commit-message check's range**, and the check runs before any
-package does, so a message CI's `commits` job would reject stops the push in about a second rather
-than after the suites:
+**The commit-message check runs over the commits this push adds** — `HEAD ^base ^origin/main`, not
+the diff's `$base..HEAD` — and it runs before any package does, so a message CI's `commits` job would
+reject stops the push in about a second rather than after the suites. Excluding `origin/main` is what
+keeps a branch that merged `main` from being judged on main's own squash commits: the merge button
+wrote those, and every one of them carries the ` (#N)` the commit-msg rules above exempt (#1804).
 
 ```text
-pnpm exec commitlint --from <base> --to HEAD
+pnpm exec commitlint --to <sha>^!
 ```
 
-On a first push the remote sha is zero, the narrowing does not fire and the merge base is the range
-— every commit the new branch adds is linted. commitlint's history mode does not name the commit it
-rejected, so a failing range is replayed one commit at a time and each rejection is reported as
-`pre-push: commitlint rejected <sha> <subject>`. An empty range (the remote already has `HEAD`) skips
-the check: `--from X --to X` is a commitlint usage error, not a pass. A commitlint that cannot run at
-all — an uninstalled workspace — fails the push with its own error and no attribution, never by
-absence. The `commits` job's other half — the pull request title — still has no local reader; a push
-hook never sees it.
+Each commit in that walk is read on its own, oldest first, because commitlint's history mode names
+no sha — and `^!` is the commit and not its parents, where `<sha>^..<sha>` would read the line a
+merge brought in. A rejection is reported as `pre-push: commitlint rejected <sha> <subject>`, and the
+walk continues, so one push gets the whole list. A first push has no remote sha to exclude — it
+arrives as zero, which is no object — so the merge base is the floor there. An empty walk (the remote
+and `origin/main` already have `HEAD`) skips the check. A commitlint that cannot run at all — an
+uninstalled workspace — fails the push with its own error and no attribution, never by absence. The
+`commits` job's other half — the pull request title — still has no local reader; a push hook never
+sees it.
 
 pre-commit's pre-push wrapper consumes that stdin itself and re-exports the first pushable record
 as `PRE_COMMIT_TO_REF` / `PRE_COMMIT_FROM_REF` (`pre_commit/commands/hook_impl.py`,
@@ -334,7 +339,8 @@ plus the pre-commit tools: `shellcheck`,
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
   job runs the four `check-*.test.sh` suites
-- `commitlint.config.js` — the commit-message and PR-title rules
+- `commitlint.config.js` — the commit-message and PR-title rules; their exemption and its boundary
+  are driven through this workspace's own CLI by `scripts/local-gates/commitlint-config.test.sh`
 - `.pre-commit-config.yaml` — hook wiring for all three stages
 - This document — the contract
 
