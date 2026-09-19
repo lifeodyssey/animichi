@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { readEgressConfig, readListenPort } from "../src/egress-config.ts";
+import { readCeilingStoreConfig, readEgressConfig, readListenPort } from "../src/egress-config.ts";
 
 /**
  * Fail closed (#1792): a service without its key or its ceiling refuses
@@ -141,6 +141,76 @@ void describe("readEgressConfig — the ceiling the service can actually enforce
       readEgressConfig({ INGEST_SIGNING_KEY: KEY, UPSTREAM_REQUEST_CEILING_PER_HOUR: String(60 * 60 + 1) }),
       null,
       "a ceiling above one request per second is an absence of a limit, not a large one",
+    );
+  });
+});
+
+/**
+ * The ceiling's counter lives outside this process (#1810), so the service has
+ * to be told where it is and how to open it — and both halves are required.
+ * The checks are the failures a paste actually produces: a missing value, a
+ * URL that would carry the token in clear, a token that arrived blank or still
+ * carrying the line break it was copied with. A store the service cannot name
+ * is a ceiling it cannot count, and this service does not run uncounted.
+ *
+ * It is a SEPARATE read from the key and the ceiling on purpose: the
+ * composition root is what pairs them, and a service holding a key and a limit
+ * but no store still refuses everything.
+ */
+void describe("readCeilingStoreConfig", () => {
+  const STORE_URL = "https://store.test";
+  const STORE_TOKEN = "a-store-token-the-test-owns";
+
+  void it("reads the store's address and its token", () => {
+    assert.deepEqual(
+      readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: STORE_TOKEN }),
+      { url: STORE_URL, token: STORE_TOKEN },
+    );
+  });
+
+  void it("normalizes a trailing slash away, so the one endpoint is appended to a base", () => {
+    const config = readCeilingStoreConfig({ CEILING_STORE_URL: `${STORE_URL}/`, CEILING_STORE_TOKEN: STORE_TOKEN });
+    assert.equal(config?.url, STORE_URL);
+  });
+
+  void it("refuses an address the token would cross in clear", () => {
+    assert.equal(
+      readCeilingStoreConfig({ CEILING_STORE_URL: "http://store.test", CEILING_STORE_TOKEN: STORE_TOKEN }),
+      null,
+      "an http store would put the bearer token on the wire in clear",
+    );
+  });
+
+  void it("refuses an address that is not a URL at all", () => {
+    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: "store.test", CEILING_STORE_TOKEN: STORE_TOKEN }), null);
+  });
+
+  void it("refuses when the store's address is missing", () => {
+    assert.equal(readCeilingStoreConfig({ CEILING_STORE_TOKEN: STORE_TOKEN }), null);
+  });
+
+  void it("refuses when the store's token is missing", () => {
+    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL }), null);
+  });
+
+  void it("refuses a blank token", () => {
+    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: "" }), null);
+  });
+
+  void it("refuses a token carrying the line break it was copied with", () => {
+    assert.equal(
+      readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: `${STORE_TOKEN}\n` }),
+      null,
+      "a token with whitespace in it is a paste that lost or gained a line, not a value to send",
+    );
+  });
+
+  void it("is a separate read from the signing key and the ceiling", () => {
+    assert.equal(readEgressConfig(FULL_ENV)?.currentKey, KEY, "the service's own configuration is unchanged");
+    assert.equal(
+      readCeilingStoreConfig(FULL_ENV),
+      null,
+      "a service with a key and a limit but no store has no ceiling, and the composition root refuses everything",
     );
   });
 });

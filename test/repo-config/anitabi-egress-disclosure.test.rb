@@ -3,13 +3,18 @@
 # different spans — each says which, and why, so neither claims more than it
 # checks:
 #
-#   the signing key  — a value, in any form: quoted, unquoted, a YAML mapping,
-#                      a `?? "…"` fallback, a test fixture. Every key this
-#                      repository's tests use is generated at run time. The scan
-#                      covers EVERY tracked text file: keyed off the variable's
-#                      name, nothing benign in this tree is caught (measured;
-#                      the whole tree carries zero key-shaped literals beside a
-#                      mention of the variable).
+#   a credential value — in any form: quoted, unquoted, a YAML mapping, a
+#                      `?? "…"` fallback, a test fixture. Every value this
+#                      repository's tests use is generated at run time. The
+#                      scan covers EVERY tracked text file, and it is keyed off
+#                      the SECRET NAMES the service holds rather than one of
+#                      them: the signing key (#1792), and the ceiling store's
+#                      token (#1810) — a second credential added to a scan that
+#                      named only the first would be invisible to it, which is
+#                      the failure this list exists to prevent. Nothing benign
+#                      in this tree is caught (measured; the whole tree carries
+#                      zero credential-shaped literals beside a mention of one
+#                      of these names).
 #   the egress address — the asset. The upstream allowlists one address; the
 #                      repository is public, so publishing it would announce
 #                      which address holds that privilege. The scan covers the
@@ -53,12 +58,19 @@ class AnitabiEgressDisclosureTest < Minitest::Test
   DOCUMENTATION_RANGES = [/\A192\.0\.2\./, /\A198\.51\.100\./, /\A203\.0\.113\./, /\A127\./, /\A0\.0\.0\.0\z/].freeze
   IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/
 
-  # The key variable, and a credential-shaped literal: no hyphens, no spaces, no
-  # words — a base64 or hex key. The check is the line carrying BOTH, so it
-  # catches every shape the value arrives in — `KEY="…"`, `KEY=…`, `KEY: …`,
-  # `process.env.KEY ?? "…"` — and still ignores a descriptive placeholder
-  # (`current-key-value-from-fly-secrets`), which is not a key.
-  KEY_MENTION = /INGEST_SIGNING_KEY/
+  # The secret variables this service holds, and a credential-shaped literal:
+  # no hyphens, no spaces, no words — a base64 or hex key. The check is the
+  # line carrying BOTH, so it catches every shape the value arrives in —
+  # `NAME="…"`, `NAME=…`, `NAME: …`, `process.env.NAME ?? "…"` — and still
+  # ignores a descriptive placeholder (`current-key-value-from-fly-secrets`),
+  # which is not a credential.
+  #
+  # The list is the service's secrets, not one of them (#1810): `INGEST_SIGNING_KEY`
+  # is what the caller signs with, `CEILING_STORE_TOKEN` opens the counter the
+  # ceiling spends from, and both are set the same way (fly secrets) and must be
+  # absent from this tree in the same forms. A scan naming only the first would
+  # have passed a committed store token without a word.
+  SECRET_VAR_MENTION = /INGEST_SIGNING_KEY|CEILING_STORE_TOKEN/
   # `/` is in base64's alphabet and in every file path, so the run alone cannot
   # tell a key from a path: `workers/catalog/wrangler` is 24 characters of that
   # alphabet, and `docs/ops/secrets.md` names it on the line carrying the
@@ -134,6 +146,10 @@ class AnitabiEgressDisclosureTest < Minitest::Test
       "an unquoted assignment" => "INGEST_SIGNING_KEY=" + planted,
       "a YAML mapping" => "INGEST_SIGNING_KEY: " + planted,
       "a fallback default" => %(process.env.INGEST_SIGNING_KEY ?? "#{planted}"),
+      # The service's SECOND secret, in the shape a committed value would arrive
+      # in (#1810): the same scanner, the same finding.
+      "the store's credential, quoted" => %(CEILING_STORE_TOKEN="#{planted}"),
+      "the store's credential, in a dotenv line" => "CEILING_STORE_TOKEN=" + planted,
     }.each do |shape, line|
       refute_empty key_values_in_text(line), "#{shape} must be flagged"
     end
@@ -149,6 +165,27 @@ class AnitabiEgressDisclosureTest < Minitest::Test
     assert_empty key_values_in_text("`INGEST_SIGNING_KEY` (owner-set, `fn::secret`) -> " \
                                     "`workers/catalog/wrangler.toml` binding"),
                  "a file path is not a key: it is lowercase words joined by slashes, and a key is not"
+    assert_empty key_values_in_text("`CEILING_STORE_TOKEN` (`fly secrets`, never in this tree)"),
+                 "a variable NAME is not a value: the store's token has to be set without being written down"
+  end
+
+  # The key scan reads TRACKED files — `git ls-files` — and a tracked dotfile is
+  # in that list, so an `.env` committed to a scanned surface is scanned. That is
+  # a property of the enumeration and not of the scanner, which is what #1806
+  # found on the address side (`*` skipped dotfiles); the probe plants one in a
+  # throwaway repository and runs the real scan over it, so a later rewrite of
+  # this scan to a `Dir.glob` fails here instead of quietly covering less.
+  def test_the_key_scan_reaches_a_dotfile_that_holds_a_credential
+    Dir.mktmpdir("egress-key-dotfile-") do |root|
+      planted = File.join(root, "apps/anitabi-egress/.env")
+      FileUtils.mkdir_p(File.dirname(planted))
+      File.write(planted, %(CEILING_STORE_TOKEN="#{absent_store_token}"))
+      track_everything(root)
+      status, output = run_key_scan(root)
+      refute status.success?, "a credential in a dotfile must fail the key scan"
+      assert_includes output, "apps/anitabi-egress/.env",
+                      "the refusal must name the dotfile it found, not merely fail"
+    end
   end
 
   private
@@ -160,6 +197,29 @@ class AnitabiEgressDisclosureTest < Minitest::Test
     out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => root }, RbConfig.ruby, __FILE__,
                                       "--name", "/test_no_egress_address_on_a_surface/")
     [status, out + err]
+  end
+
+  # The key scan alone, over another root — the same probe shape, for the other
+  # half of this contract.
+  def run_key_scan(root)
+    out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => root }, RbConfig.ruby, __FILE__,
+                                      "--name", "/test_no_signing_key_value_anywhere/")
+    [status, out + err]
+  end
+
+  # A credential-shaped value the scanner must flag, ASSEMBLED rather than
+  # written out: a literal that is deliberately credential-shaped cannot sit in
+  # the tree this contract scans — the scan would flag it, and so would
+  # gitleaks, correctly.
+  def absent_store_token
+    "Y2VpbGluZy1zdG9y" + "ZS10b2tlbi10ZXN0"
+  end
+
+  # `git ls-files` is the key scan's subject, so the throwaway root has to be a
+  # repository with the planted file tracked, not merely a directory.
+  def track_everything(root)
+    Open3.capture3("git", "init", "--quiet", chdir: root)
+    Open3.capture3("git", "add", "-A", chdir: root)
   end
 
   def tracked_text_files
@@ -213,7 +273,7 @@ class AnitabiEgressDisclosureTest < Minitest::Test
     text.each_line.filter_map do |line|
       next if line.match?(KEY_GENERATOR)
 
-      line.match?(KEY_MENTION) && key_shaped?(line) ? line.strip : nil
+      line.match?(SECRET_VAR_MENTION) && key_shaped?(line) ? line.strip : nil
     end
   end
 

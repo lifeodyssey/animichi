@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { createServer as createHttpServer, type Server } from "node:http";
 import { startEgressServer } from "../src/start-egress-server.ts";
 import { ANITABI_UPSTREAM_ORIGIN } from "../src/upstream-operations.ts";
+import type { CeilingStore } from "../src/upstream-ceiling.ts";
 
 /**
  * The service end to end over real loopback HTTP (#1792): the two operations
@@ -13,6 +14,11 @@ import { ANITABI_UPSTREAM_ORIGIN } from "../src/upstream-operations.ts";
  * transport shim — the same injectable-fetch seam the unit tests and the
  * catalog caller use — moves the bytes to the stub. No test reaches the real
  * anitabi API.
+ *
+ * The ceiling is injected here as a counter that grants, because this suite's
+ * subject is the route/sign/relay surface. What the service sends a real store
+ * over real HTTP — and what it does when that store stops answering — is
+ * `ceiling-store.integration.test.ts` (#1810).
  */
 
 const KEY = crypto.randomBytes(48).toString("base64");
@@ -43,6 +49,11 @@ function ask(port: number, path: string, headers: Record<string, string>): Promi
 
 function sign(path: string, at: number): string {
   return crypto.createHmac("sha256", KEY).update(`${String(at)}\n${path}`).digest("hex");
+}
+
+/** A ceiling that grants: the store is not this suite's subject, and the limit here is 100. */
+function grantingStore(): CeilingStore {
+  return { increment: () => Promise.resolve(1) };
 }
 
 /** The stub upstream, plus the fetch shim that serves anitabi URLs from it. */
@@ -113,6 +124,7 @@ void describe("the egress service over real HTTP", () => {
       port: 0,
       nowSeconds,
       upstreamFetch: stub.shim,
+      ceilingStore: grantingStore(),
     });
   });
 
@@ -175,6 +187,7 @@ void describe("the redirect the upstream may not send us through", () => {
       port: 0,
       nowSeconds,
       upstreamFetch: stub.shim,
+      ceilingStore: grantingStore(),
     });
   });
 

@@ -2,12 +2,14 @@
 
 The fixed-address egress service the catalog fetches anitabi through (#1792).
 One Fly app, `animichi-anitabi-egress`, in Tokyo; TypeScript on Node, no
-runtime dependencies, no database, no user data, no write path.
+runtime dependencies, no product data, no data-plane credential, and no write
+path beyond the ceiling's own counter (#1810).
 
 The operations, the checks and the hostname are all public — the repository is
 public and the design never depended on hiding them. The only things that stay
-out of this tree are the signing key (Fly secrets) and the egress address (the
-upstream allowlists it; see the guard below).
+out of this tree are the signing key, the ceiling store's address and token
+(all Fly secrets), and the egress address (the upstream allowlists it; see the
+guard below).
 
 ## What it serves — and all it can serve
 
@@ -55,10 +57,21 @@ when there is a reason.
 repository that states the number) caps upstream requests per hour. It is a
 promise to the upstream, not a tuning knob: changing it means changing the
 agreement. The service refuses past it with a response marked as its own, so
-the caller never mistakes our ceiling for an upstream refusal. The window is
-counted **per process** — the service has no storage — so a restart (deploy,
-rotation, crash) starts a fresh hour, and a restart mid-window can admit a
-second hour's worth across the two.
+the caller never mistakes our ceiling for an upstream refusal.
+
+The window is the **fixed UTC clock hour**, and the count lives in an external
+counter — a Redis-compatible REST endpoint (Upstash-style) holding one integer
+per hour, reached at `CEILING_STORE_URL` with `CEILING_STORE_TOKEN` (#1810).
+Counting outside the process is what makes the promise survive a deploy, a
+rotation or a crash, and what makes two instances share one budget; counting in
+a fixed clock hour is what lets both derive its key from the clock alone. As
+with any fixed window, a request burst can straddle a boundary.
+
+**Fail closed.** A store the service cannot reach means the service cannot
+count, and it refuses every request (`ceiling`, with
+`detail: ceiling-store-unavailable` in the body) rather than falling back to a
+count in memory. Missing store configuration is refused at boot the same way,
+as `configuration`. A ceiling that is not enforced is not a ceiling.
 
 ## Reading the answers
 
@@ -68,7 +81,10 @@ Every response carries `x-egress-response`:
   (`content-type` and `retry-after` forwarded).
 - `refused-here` — this service refused; `x-egress-refusal` says why:
   `auth`, `ceiling`, `no-such-operation`, `method-not-allowed`,
-  `configuration`, or `upstream-timeout`.
+  `configuration`, or `upstream-timeout`. That vocabulary is the caller's
+  (`workers/catalog` classifies by it and knows no other), so a `ceiling`
+  refusal caused by an unreachable store says so in the body's `detail`
+  rather than in a seventh reason.
 
 ## The address guard
 
@@ -92,10 +108,16 @@ fly deploy . --config apps/anitabi-egress/fly.toml \
   --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
 ```
 
-Rotate both values in one release —
+The app needs four secrets, all set with `fly secrets` and none of them in this
+tree: `INGEST_SIGNING_KEY` and its rotation mate `INGEST_SIGNING_KEY_PREVIOUS`,
+and the ceiling's counter, `CEILING_STORE_URL` and `CEILING_STORE_TOKEN`. Set
+the two signing keys in ONE release —
 `fly secrets set INGEST_SIGNING_KEY=<new> INGEST_SIGNING_KEY_PREVIOUS=<old>`,
 where `<old>` is the value now current (Fly never shows a secret it already
 holds, so it is the one you generated and kept). One release means one restart,
 with the old key accepted from the first request after it; set them in two
 releases and the restart between them drops the old key first. Update the
-caller, then remove the previous key after the overlap window.
+caller, then remove the previous key after the overlap window. The store's two
+values have no ordering to keep: rotate them alone, and the service refuses
+requests until the store answers again. No live store is provisioned from this
+repository — it is entirely the operator's, like the signing key's Fly copy.
