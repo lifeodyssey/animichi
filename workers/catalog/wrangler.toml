@@ -119,6 +119,21 @@ binding = "CATALOG_ADMIN_TOKEN"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "CATALOG_ADMIN_TOKEN"
 
+# #1792: the catalog signs its anitabi fetches for the egress service in
+# apps/anitabi-egress (src/ingest/anitabi-egress.ts), which verifies what the
+# caller signs. The SAME key is therefore set in Fly, which Pulumi does not
+# manage, so this value is owner-set ESC config (`pulumiConfig`, `fn::secret`)
+# that the infra/database-access stack writes here — never a generated one:
+# Pulumi must not become a second authority for a value the service already
+# holds, or the two drift apart and every fetch comes back 401. A missing or
+# empty value resolves to undefined and the fetchers refuse
+# (EgressNotConfiguredError); nothing shape-checks the key, and the egress
+# service is the only path to api.anitabi.cn.
+[[env.staging.secrets_store_secrets]]
+binding = "INGEST_SIGNING_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "INGEST_SIGNING_KEY"
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 
@@ -168,6 +183,17 @@ secret_name = "CATALOG_DATABASE_URL_PROD"
 binding = "CATALOG_ADMIN_TOKEN"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "CATALOG_ADMIN_TOKEN_PROD"
+
+# #1792: the same owner-set egress signing key as staging above, "_PROD"-suffixed
+# per the shared-store naming split (infra/database-access/index.ts
+# secretNameSuffix). Only the NAME is forced apart — staging and production
+# share one Secrets Store. One Fly app serves both environments, so it has to
+# accept whatever values are set for them: the owner sets this one, and a
+# rotation moves Fly's current/previous pair and both ESC values together.
+[[env.production.secrets_store_secrets]]
+binding = "INGEST_SIGNING_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "INGEST_SIGNING_KEY_PROD"
 
 [env.production.vars]
 ENVIRONMENT = "production"

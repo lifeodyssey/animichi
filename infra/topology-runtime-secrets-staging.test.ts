@@ -1,16 +1,17 @@
 /** The staging runtime-secret graph (#1676 AC4).
  *
- * `runtimeConfig()` carries the four VENDOR_KEYS only: neither TURNSTILE_SECRET
+ * `runtimeConfig()` carries the VENDOR_KEYS only: neither TURNSTILE_SECRET
  * nor ANON_ID_SECRET exists in stack config any more, so a `requireSecret` for
  * either would fail this whole process with `ConfigMissingError`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { only, unseal } from "./testing/harness.ts";
+import { ofType, only, unseal } from "./testing/harness.ts";
 import {
   buildRuntimeSecrets,
   GENERATED_IDENTITY_SEED,
   RUNTIME_KEYS,
+  storeSecret,
   storeSecrets,
   TURNSTILE_WIDGET_SECRET,
   TURNSTILE_WIDGET_SITEKEY,
@@ -19,7 +20,7 @@ import {
 
 const resources = await buildRuntimeSecrets("staging");
 
-test("staging provisions all six runtime secrets with exact names", () => {
+test("staging provisions every runtime secret with exact names", () => {
   assert.deepEqual(storeSecrets(resources).map((resource) => resource.name).sort(), [...RUNTIME_KEYS].sort());
 });
 
@@ -34,6 +35,29 @@ for (const name of VENDOR_KEYS) {
     assert.deepEqual(unseal(resource.inputs.value), { isSecret: true, value: `fixture-${resource.name}` });
   });
 }
+
+test("INGEST_SIGNING_KEY is owner-set config, never a value Pulumi mints", () => {
+  // The same key is set in Fly (#1792) and Pulumi does not manage Fly: the
+  // egress service verifies what catalog signs. The service holds the authority
+  // for the value, so a copy generated here would make Pulumi a second
+  // authority for it, and the two would drift a rotation apart — a mismatch
+  // that surfaces at the consumer as a 401, never as a failed deploy. The store
+  // secret therefore carries the configured value, and the graph mints exactly
+  // one secret: the anonymous identity seed.
+  assert.deepEqual(
+    unseal(storeSecret(resources, "INGEST_SIGNING_KEY").inputs.value),
+    { isSecret: true, value: "fixture-INGEST_SIGNING_KEY" },
+    "INGEST_SIGNING_KEY must carry the owner's configured value: the egress service in Fly "
+      + "holds the authority for it and verifies what catalog signs, so a value minted here "
+      + "would make Pulumi a second authority and every fetch a 401",
+  );
+  assert.deepEqual(
+    ofType(resources, "random:index/randomPassword:RandomPassword").map((resource) => resource.name),
+    ["anon-id-secret"],
+    "the graph mints exactly one secret (the anonymous identity seed) — generating the "
+      + "signing key here is the drift this test exists to refuse",
+  );
+});
 
 test("staging adopts the account's one Turnstile widget instead of creating it", () => {
   const widget = only(resources, "cloudflare:index/turnstileWidget:TurnstileWidget");
