@@ -94,3 +94,49 @@ describe("the catalog Prisma client is stateless and memoized (#1628)", () => {
     expect(built[0]?.urls).toEqual(["postgresql://only"]);
   });
 });
+
+/**
+ * The ONE construction site (#1629).
+ *
+ * The shape above is memoized, so a second place that builds a client defeats it
+ * silently — each site gets its own memo, and nothing in a runtime test notices
+ * the duplicate. The tree is therefore read as text (the `?raw` glob technique
+ * `dependency-rule.worker.test.ts` uses), and the serverless entry is allowed in
+ * exactly one module.
+ *
+ * `test/` is out of scope by construction: the glob is rooted at `../src`.
+ */
+const CLIENT_FACTORY = "@prisma/orm-postgres/serverless";
+const ONLY_CONSTRUCTION_SITE = "src/db/prisma.ts";
+
+type TextTree = Readonly<Record<string, string>>;
+
+const catalogSrc: TextTree = import.meta.glob<string>("../src/**/*.ts", {
+  query: "?raw",
+  eager: true,
+  import: "default",
+});
+
+/** The `src/` modules in `tree` that name the client factory, as `src/…` paths. */
+function constructionSites(tree: TextTree): string[] {
+  return Object.entries(tree)
+    .filter(([, source]) => source.includes(CLIENT_FACTORY))
+    .map(([path]) => path.replace(/^\.\.\//, ""))
+    .sort();
+}
+
+describe("the catalog client has ONE construction site (#1629)", () => {
+  it("builds the client only in src/db/prisma.ts", () => {
+    expect(constructionSites(catalogSrc)).toEqual([ONLY_CONSTRUCTION_SITE]);
+  });
+
+  it("goes red when a second module builds one", () => {
+    const withSecondSite = {
+      ...catalogSrc,
+      "../src/adapters/outbound/second-site.ts": `import build from "${CLIENT_FACTORY}";\n`,
+    };
+    expect(constructionSites(withSecondSite)).toEqual([
+      "src/adapters/outbound/second-site.ts", ONLY_CONSTRUCTION_SITE,
+    ]);
+  });
+});

@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "../src/application/get-bangumi-overview";
-import { overviewPointsDb, type OverviewPointsDb } from "../src/adapters/outbound/overview-points";
+import { overviewPointsDb } from "../src/adapters/outbound/overview-points";
+import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
  * Unit tests for the public `animeOverview` read handler
@@ -26,16 +27,9 @@ function row(id: string, lat: number, lng: number, city: string | null, image: s
   return { id, name: id.toUpperCase(), image, latitude: lat, longitude: lng, city };
 }
 
-/** Fake db whose execute() returns the fixture rows once. */
-function fakeDb(rows: FixtureRow[]): OverviewPointsDb {
-  return { execute: () => Promise.resolve({ rows }) };
-}
-
-function knownEmptyDb(): OverviewPointsDb {
-  const execute = vi.fn()
-    .mockResolvedValueOnce({ rows: [] })
-    .mockResolvedValueOnce({ rows: [{ id: "999" }] });
-  return { execute };
+/** A known work with no points: the points read answers empty, the probe finds it. */
+function knownEmptyReader(): ReturnType<typeof fakeCatalogPrisma> {
+  return fakeCatalogPrisma([], [{ id: "999" }]);
 }
 
 // Two Kamakura points co-located (< 50m → one cluster of 2 shots) + one lone Hakone point.
@@ -46,7 +40,7 @@ const SPREAD: FixtureRow[] = [KAMAKURA_A, KAMAKURA_B, HAKONE];
 
 describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
   it("aggregates region bubbles with counts and centroids", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(SPREAD)), { bangumi_id: "100" });
     expect(result.bangumi_id).toBe("100");
     expect(result.points_length).toBe(3);
     expect(result.circles.map((c) => [c.region, c.count])).toEqual([
@@ -59,7 +53,7 @@ describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
   });
 
   it("ranks 名場面 by shot count (co-located points merge into one scene)", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(SPREAD)), { bangumi_id: "100" });
     expect(result.scenes.map((s) => [s.id, s.shot_count])).toEqual([
       ["k1", 2],
       ["h1", 1],
@@ -73,7 +67,7 @@ describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
       { ...KAMAKURA_A, origin: "バンダイチャンネル", origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1" },
       KAMAKURA_B,
     ];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(rows)), { bangumi_id: "100" });
     expect(result.scenes[0]).toMatchObject({
       origin: "バンダイチャンネル",
       origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
@@ -81,7 +75,7 @@ describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
   });
 
   it("suggests per-region sample routes ordered by spot count", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(SPREAD)), { bangumi_id: "100" });
     expect(result.sample_itineraries).toEqual([
       { region: "Kamakura", point_ids: ["k1", "k2"] },
       { region: "Hakone", point_ids: ["h1"] },
@@ -92,7 +86,7 @@ describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
 
 describe("getBangumiOverview empty and missing work behavior", () => {
   it("returns an empty-but-valid overview when a known work has no points", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(knownEmptyDb()), { bangumi_id: "999" });
+    const result = await getBangumiOverview(overviewPointsDb(knownEmptyReader()), { bangumi_id: "999" });
     expect(result).toEqual({
       bangumi_id: "999",
       points_length: 0,
@@ -103,7 +97,7 @@ describe("getBangumiOverview empty and missing work behavior", () => {
   });
 
   it("throws a typed domain miss when the anime does not exist", async () => {
-    await expect(getBangumiOverview(overviewPointsDb(fakeDb([])), { bangumi_id: "404" }))
+    await expect(getBangumiOverview(overviewPointsDb(fakeCatalogPrisma([])), { bangumi_id: "404" }))
       .rejects.toBeInstanceOf(AnimeOverviewNotFoundError);
   });
 
@@ -112,7 +106,7 @@ describe("getBangumiOverview empty and missing work behavior", () => {
 describe("getBangumiOverview scene edge cases", () => {
   it("returns empty circles (no region clustering) for spots lacking a city, without erroring", async () => {
     const noCity: FixtureRow[] = [row("n1", 35.0, 139.0, null), row("n2", 36.0, 140.0, "")];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(noCity)), { bangumi_id: "200" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(noCity)), { bangumi_id: "200" });
     expect(result.circles).toEqual([]);
     expect(result.sample_itineraries).toEqual([]);
     expect(result.scenes).toHaveLength(2);
@@ -120,7 +114,7 @@ describe("getBangumiOverview scene edge cases", () => {
   });
 
   it("omits city on a scene whose representative point has no city", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb([row("x1", 34.0, 138.0, null)])), { bangumi_id: "300" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma([row("x1", 34.0, 138.0, null)])), { bangumi_id: "300" });
     expect(result.scenes[0]?.city).toBeUndefined();
     expect(result.scenes[0]?.screenshot_url).toBeNull();
   });
@@ -130,7 +124,7 @@ describe("getBangumiOverview scene edge cases", () => {
       row("a-no-image", 35.0, 139.0, "Tokyo"),
       row("b-image", 35.00001, 139.00001, "Tokyo", "https://img/scene.jpg"),
     ];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "301" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(rows)), { bangumi_id: "301" });
     expect(result.scenes[0]).toMatchObject({
       id: "b-image", screenshot_url: "https://img/scene.jpg", shot_count: 2,
     });
@@ -142,7 +136,7 @@ describe("getBangumiOverview scene edge cases", () => {
     const tail = Array.from({ length: 100 }, (_, index) =>
       row(`z-${String(index).padStart(3, "0")}`, 35.0, 139.0, "Tokyo"));
     const rows = [...prefix, ...tail];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "302" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(rows)), { bangumi_id: "302" });
     expect(result.points_length).toBe(620);
     expect(result.scenes[0]).toMatchObject({ id: "z-000", shot_count: 100 });
   });
@@ -150,7 +144,7 @@ describe("getBangumiOverview scene edge cases", () => {
 
 describe("getBangumiOverview output caps", () => {
   it("caps scenes at 20, sample routes at 3 regions, and point ids at 12 per route", async () => {
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(cappedFixture())), { bangumi_id: "400" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(cappedFixture())), { bangumi_id: "400" });
     expect(result.scenes).toHaveLength(20);
     expect(result.sample_itineraries.map((r) => r.region)).toEqual(["A", "B", "C"]);
     expect(result.sample_itineraries[0]?.point_ids).toHaveLength(12);
@@ -176,7 +170,7 @@ describe("getBangumiOverview tie-breaks and representatives", () => {
       row("c1", 35.0, 139.0, "Zed"),
       row("c2", 36.0, 140.0, "Alpha"),
     ];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "400" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(rows)), { bangumi_id: "400" });
     expect(result.circles.map((circle) => circle.region)).toEqual(["Alpha", "Zed"]);
   });
 
@@ -185,7 +179,7 @@ describe("getBangumiOverview tie-breaks and representatives", () => {
       row("b-first", 35.0, 139.0, "Tokyo", null),
       row("a-second", 35.00001, 139.00001, "Tokyo", null),
     ];
-    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "401" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeCatalogPrisma(rows)), { bangumi_id: "401" });
     expect(result.scenes[0]).toMatchObject({ screenshot_url: null, shot_count: 2 });
   });
 });

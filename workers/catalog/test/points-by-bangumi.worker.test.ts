@@ -14,13 +14,13 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { countingCatalogPrisma, fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import {
   pointsByBangumi,
   type PointsByBangumiPort,
   type PublishedPointRow,
 } from "../src/application/list-points-for-bangumi";
-import { bangumiPoints, type BangumiPointsDb } from "../src/adapters/outbound/bangumi-points";
+import { bangumiPoints } from "../src/adapters/outbound/bangumi-points";
 
 const ROW: PublishedPointRow = {
   id: "spot-1",
@@ -43,15 +43,6 @@ const ROW: PublishedPointRow = {
 
 function fakePort(rows: PublishedPointRow[]): PointsByBangumiPort {
   return { pointsForBangumi: () => Promise.resolve(rows) };
-}
-
-function pointsDb(rows: unknown[]): { db: BangumiPointsDb; reads: () => number } {
-  let reads = 0;
-  const execute = () => {
-    reads += 1;
-    return Promise.resolve({ rows });
-  };
-  return { db: { execute }, reads: () => reads };
 }
 
 describe("pointsByBangumi use case", () => {
@@ -100,39 +91,26 @@ describe("pointsByBangumi use case", () => {
   });
 });
 
-describe("bangumiPoints outbound adapter (ONE Neon read port)", () => {
+describe("bangumiPoints outbound adapter (ONE Prisma read)", () => {
   it("issues exactly one SELECT and preserves the returned scene order", async () => {
-    const { db, reads } = pointsDb([ROW]);
-    await expect(bangumiPoints(db).pointsForBangumi("1")).resolves.toEqual([ROW]);
-    expect(reads()).toBe(1);
+    const counter = countingCatalogPrisma([ROW]);
+    await expect(bangumiPoints(counter.query).pointsForBangumi("1")).resolves.toEqual([ROW]);
+    expect(counter.statements()).toBe(1);
   });
 
-  it("maps a valid joined row to a validated PublishedPointRow", async () => {
-    const { db } = pointsDb([ROW]);
-    await expect(bangumiPoints(db).pointsForBangumi("1")).resolves.toEqual([ROW]);
+  it("hands back the plan's rows unchanged — the projection IS the row shape", async () => {
+    await expect(bangumiPoints(fakeCatalogPrisma([ROW])).pointsForBangumi("1")).resolves.toEqual([ROW]);
   });
 
   it("returns an empty list for a bangumi with no rows (unknown or empty)", async () => {
-    const { db } = pointsDb([]);
-    await expect(bangumiPoints(db).pointsForBangumi("999999")).resolves.toEqual([]);
+    await expect(bangumiPoints(fakeCatalogPrisma([])).pointsForBangumi("999999")).resolves.toEqual([]);
   });
 
-  it("rejects an invalid numeric Neon row", async () => {
-    const { db } = pointsDb([{ ...ROW, latitude: "not-a-number" }]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
-
-  it("rejects a null required numeric field instead of coercing", async () => {
-    const { db } = pointsDb([{ ...ROW, latitude: null }]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
-
-  it("rejects a non-object row", async () => {
-    const { db } = pointsDb([null]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row is not an object");
+  it("returns a fresh array rather than the runtime's own list", async () => {
+    const answered = [ROW];
+    const rows = await bangumiPoints(fakeCatalogPrisma(answered)).pointsForBangumi("1");
+    expect(rows).toEqual(answered);
+    expect(rows).not.toBe(answered);
   });
 });
 

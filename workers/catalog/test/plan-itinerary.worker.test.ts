@@ -2,10 +2,10 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
-import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
+import { pointsForRoute } from "../src/adapters/outbound/route-points";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { countingCatalogPrisma, fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
  * Use-case seam tests: `planItinerary` receives points through a fake
@@ -119,27 +119,18 @@ describe("planItinerary redacted observability", () => {
   });
 });
 
-describe("pointsForRoute outbound adapter — SQL fetch wired to the port", () => {
+describe("pointsForRoute outbound adapter — Prisma fetch wired to the port", () => {
   it("loads requested ids in ids order and drops unknown ids", async () => {
     // The fake returns every point row; the adapter keeps only the requested ids
     // and reassembles them in the requested order, dropping unknown ids.
-    const fakeDb: RouteDb = {
-      execute: () => Promise.resolve({ rows: POINTS }),
-    };
-    const port = pointsForRoute(fakeDb);
+    const port = pointsForRoute(fakeCatalogPrisma(POINTS));
     expect(ids(await port.loadPoints(["c", "nope", "a"]))).toEqual(["c", "a"]);
   });
   it("empty ids -> no query, no rows", async () => {
-    let executed = false;
-    const fakeDb: RouteDb = {
-      execute: () => {
-        executed = true;
-        return Promise.resolve({ rows: [] });
-      },
-    };
-    const port = pointsForRoute(fakeDb);
+    const counter = countingCatalogPrisma();
+    const port = pointsForRoute(counter.query);
     expect(await port.loadPoints([])).toEqual([]);
-    expect(executed).toBe(false);
+    expect(counter.statements()).toBe(0);
   });
 });
 
