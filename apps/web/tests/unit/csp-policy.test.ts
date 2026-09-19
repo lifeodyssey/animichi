@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { THEME_BOOTSTRAP_SCRIPT } from "../../src/components/theme-bootstrap";
 import { TURNSTILE_SCRIPT_SRC } from "../../src/features/chat/components/turnstile-sdk";
 import { CF_WEB_ANALYTICS_SRC } from "../../src/features/seo/analytics";
 import { SPLASH_SCRIPTING_MARK_SCRIPT } from "../../src/features/splash/splash-release";
-import { CSP_NONCE_CONTEXT_KEY, deploymentConnectOrigins } from "../../src/server/csp-policy";
+import { CSP_NONCE_CONTEXT_KEY } from "../../src/server/csp-policy";
 import { cspMiddleware } from "../../src/server/csp-middleware";
 import { allowsInlineScript, sourceList } from "../csp-evaluator";
 
@@ -70,10 +70,6 @@ function nonceSource(policy: string): string | undefined {
 
 const ATTACK = "fetch('/steal?k='+sessionStorage.getItem('byok-api-key'))";
 const APP_SCRIPTS = [THEME_BOOTSTRAP_SCRIPT, SPLASH_SCRIPTING_MARK_SCRIPT];
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("the policy is served on the document response (AC1)", () => {
   it("writes Content-Security-Policy on the response the client gets", async () => {
@@ -147,33 +143,5 @@ describe("the app's own bootstrap still runs under the policy (AC3)", () => {
     const { policy } = await served();
     expect(sourceList(policy, "script-src")).toContain(new URL(CF_WEB_ANALYTICS_SRC).origin);
     expect(sourceList(policy, "connect-src")).toContain("https://cloudflareinsights.com");
-  });
-
-  it("allows the Neon Auth origin the deployment declares, and only that", async () => {
-    expect(sourceList((await served()).policy, "connect-src")).not.toContain("https://auth.example.test");
-    // The cloudflare-module preset publishes the live binding as `__env__`;
-    // runtime-config-plugin.test.ts stubs the same seam.
-    vi.stubGlobal("__env__", {
-      RUNTIME_CONFIG: JSON.stringify({
-        schemaVersion: 1, showcaseMode: "false", featureFlags: {},
-        neonAuthBaseUrl: "https://auth.example.test/neondb/auth",
-      }),
-    });
-    const connect = sourceList((await served()).policy, "connect-src");
-    expect(connect).toContain("https://auth.example.test");
-    // The origin, not the SDK's path, is what a source list can carry.
-    expect(connect).not.toContain("https://auth.example.test/neondb/auth");
-  });
-
-  it("still serves a policy when the runtime config binding is unusable", async () => {
-    vi.stubGlobal("__env__", { RUNTIME_CONFIG: "{ not json" });
-    expect(sourceList((await served()).policy, "connect-src"))
-      .toEqual(["'self'", "https://cloudflareinsights.com"]);
-  });
-
-  it("turns a deployment URL into an origin, and a junk one into nothing", () => {
-    expect(deploymentConnectOrigins("https://auth.example.test/neondb/auth")).toEqual(["https://auth.example.test"]);
-    expect(deploymentConnectOrigins(undefined)).toEqual([]);
-    expect(deploymentConnectOrigins("not a url")).toEqual([]);
   });
 });

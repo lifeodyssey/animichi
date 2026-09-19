@@ -14,6 +14,18 @@ import { createHash } from "node:crypto";
  * receives, rather than the builder's own data structures: it models the spec's
  * "does element match source list" step for inline scripts, and the digest is
  * computed by this file, not by the code under test.
+ *
+ * Every tag pattern below is case-insensitive, because HTML tag and attribute
+ * names are: a browser runs `<SCRIPT>` exactly as it runs `<script>`. Matching
+ * only the lower-case spelling would let that tag past the assertion that every
+ * inline script carries the served nonce — a false green in the one check this
+ * file exists to make (CodeQL `js/bad-tag-filter`, alerts 30/31).
+ *
+ * An end tag's separator is whitespace the browser discards, so `</script >`
+ * closes a script exactly as `</script>` does, and the same false green is what
+ * a closer blind to it produces — the alert CodeQL raises a second time on this
+ * file (32/33). Both spellings are refused the nonce for the same reason, so
+ * both have to be recognised first.
  */
 
 export interface InlineScript {
@@ -52,14 +64,14 @@ export function allowsInlineScript(policy: string, script: InlineScript): boolea
 
 /** Every inline script's opening tag, so a caller can read its `nonce`. */
 export function inlineScriptTagsOf(html: string): readonly string[] {
-  const tags = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script>/gu)].map((match) => match[0]);
-  return tags.filter((tag) => !/\bsrc=/u.test(tag.slice(0, tag.indexOf(">") + 1)));
+  const tags = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script\s*>/giu)].map((match) => match[0]);
+  return tags.filter((tag) => !/\bsrc=/iu.test(tag.slice(0, tag.indexOf(">") + 1)));
 }
 
 export function nonceOf(scriptTag: string): string | undefined {
-  return /<script\b[^>]*\bnonce="([^"]*)"/u.exec(scriptTag)?.[1];
+  return /<script\b[^>]*\bnonce="([^"]*)"/iu.exec(scriptTag)?.[1];
 }
 
 export function contentOf(scriptTag: string): string {
-  return /<script\b[^>]*>([\s\S]*?)<\/script>/u.exec(scriptTag)?.[1] ?? "";
+  return /<script\b[^>]*>([\s\S]*?)<\/script\s*>/iu.exec(scriptTag)?.[1] ?? "";
 }

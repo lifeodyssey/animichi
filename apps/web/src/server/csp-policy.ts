@@ -12,15 +12,14 @@
  * un-nonced inline script is refused rather than that a header is present.
  *
  * Nothing in this module touches Nitro, h3 or the framework: it is the policy
- * text and the nonce, so both the runtime plugin and the unit suite can drive
- * it with plain values.
+ * text, the nonce, and the origins a deployment names, so both the request
+ * middleware and the unit suite can drive it with plain values.
  */
+
+import type { RuntimeConfig } from "../lib/runtime-config/runtime-config";
 
 /** Where the render reads the nonce the request hook minted for this response. */
 export const CSP_NONCE_CONTEXT_KEY = "cspNonce";
-
-/** Connect origins the same hook resolved for this response. */
-export const CSP_CONNECT_CONTEXT_KEY = "cspConnect";
 
 /** 128 bits. The nonce is a capability: it must be unguessable per response. */
 const NONCE_BYTES = 16;
@@ -103,16 +102,42 @@ export function contentSecurityPolicy(nonce: string, connect: readonly string[])
 }
 
 /**
- * Connect origins only the deployment knows: the Neon Auth origin the browser
- * SDK dials (#1013 carries it in the runtime config), as an origin — the SDK's
- * paths are its own business. A missing or unparseable value yields no extra
- * origin rather than a broken policy; an invalid `RUNTIME_CONFIG` is the
- * runtime-config plugin's failure to raise, and it already does.
+ * The origins only the deployment knows, read off the runtime config (#1013).
+ *
+ * Every URL that config may name is one the app hands the browser as a request
+ * base: `agentUrl` for chat and the Turnstile verdict, `catalogUrl`/`usersUrl`
+ * for the oRPC clients, `neonAuthBaseUrl` for the auth SDK. `connect-src` is
+ * the whole distance between such a base and the request it describes — the
+ * browser refuses the fetch before any of our code is called, so a base the
+ * policy omits is not a degraded feature, it is an unreachable one.
+ *
+ * The parameter is a projection of the runtime config's own type, not a copy of
+ * its fields: a copy would keep compiling after a rename and would then quietly
+ * stop listing an origin, which is the failure this function exists to prevent.
+ * There is no second list; these are the fields `api/config.ts` resolves the
+ * bases from.
+ *
+ * `api.siteOrigin` is deliberately absent. It is the SSR fallback for a request
+ * that has no origin of its own, and the browser is never such a request —
+ * `location.origin` answers for it, which is what `'self'` already covers.
  */
-export function deploymentConnectOrigins(neonAuthBaseUrl: string | undefined): readonly string[] {
-  if (neonAuthBaseUrl === undefined) return [];
+export type DeploymentConnectConfig = Pick<RuntimeConfig, "neonAuthBaseUrl" | "api">;
+
+/**
+ * As sources `connect-src` can carry: origins, and nothing for an unparseable
+ * one. The SDK's and the services' paths are their own business, and a junk
+ * value leaves the rest of the policy standing rather than voiding it; an
+ * invalid `RUNTIME_CONFIG` is the runtime-config plugin's failure to raise,
+ * and it already does.
+ */
+export function deploymentConnectOrigins(config: DeploymentConnectConfig): readonly string[] {
+  return [config.neonAuthBaseUrl, config.api.agentUrl, config.api.catalogUrl, config.api.usersUrl].flatMap(originSource);
+}
+
+function originSource(url: string | undefined): readonly string[] {
+  if (url === undefined) return [];
   try {
-    return [new URL(neonAuthBaseUrl).origin];
+    return [new URL(url).origin];
   } catch {
     return [];
   }

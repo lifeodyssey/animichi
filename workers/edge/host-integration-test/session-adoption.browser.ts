@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import { chromium, expect, type Page } from "@playwright/test";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../apps/web/src/lib/runtime-config/provider.ts";
 import { nativeWebServer } from "../../../apps/web/tests/native-server.ts";
-import { stubTurnstileSdk } from "../../../e2e/helpers/turnstile-sdk.ts";
+import { solveTurnstileEntry, stubTurnstileSdk } from "../../../e2e/helpers/turnstile.ts";
 import { ADOPT_TURN_KEY_PREFIX } from "../src/identity/session-adopt.ts";
 import type { SessionAdoptionResult } from "../src/identity/session-adoption-store.ts";
 import { gatewayWorker } from "./gateway-harness.ts";
@@ -38,11 +38,6 @@ function isPath(pathname: string) {
   return (response: { url(): string }) => new URL(response.url()).pathname === pathname;
 }
 
-async function solveEntry(page: Page): Promise<void> {
-  await page.waitForFunction("typeof window.onAnimichiTurnstile === 'function'");
-  await page.evaluate("window.onAnimichiTurnstile('host-integration-entry')");
-}
-
 /** Anonymous first: the app's own entry gate drives the real
  *  `/v1/turnstile/verify`, and the edge mints this browser its `aid` cookie. */
 async function anonymousPage(context: TestContext, baseURL: string): Promise<Page> {
@@ -52,7 +47,7 @@ async function anonymousPage(context: TestContext, baseURL: string): Promise<Pag
   await stubTurnstileSdk(page);
   await page.route("**/healthz", (route) => route.fulfill({ status: 200, body: "healthy" }));
   await page.goto("/chat");
-  await solveEntry(page);
+  await solveTurnstileEntry(page, "host-integration-entry");
   await expect(page.getByRole("textbox")).toBeEnabled();
   return page;
 }
