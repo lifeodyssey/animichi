@@ -10,20 +10,25 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:worker",
     "dev": "wrangler dev",
-    "test:worker": "vitest run --config vitest.config.ts --coverage"
+    "test:worker": "vitest run --config vitest.config.ts --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@animichi/contract": "workspace:*",
-    "@neondatabase/serverless": "catalog:",
+    "@animichi/pi-session-neon": "workspace:*",
+    "@animichi/prisma-geography": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "drizzle-orm": "catalog:",
+    "@prisma/orm-family-sql": "8.0.0-rc.9",
+    "@prisma/orm-postgres": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@animichi/test-postgres": "workspace:*",
     "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
     "@vitest/coverage-istanbul": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

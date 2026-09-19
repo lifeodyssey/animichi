@@ -42,13 +42,15 @@ class PackageTestSegmentsTest < Minitest::Test
   # affected matrix and `make check-full` all run for an affected package, so nothing has to name it
   # again. The pair is pinned in both directions: the script exists, and `test` does not chain it.
   DOCKER_FREE_TEST_SCRIPTS = {
-    "workers/catalog" => "test:integration"
+    "workers/catalog" => "test:integration",
+    "workers/users" => "test:integration"
   }.freeze
 
   DELEGATED_COMMANDS = {
     ["workers/edge", "test:bundle-smoke"] => "bundle-smoke/",
     ["workers/edge", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
     ["workers/catalog", "test:integration"] => "vitest.integration.config.ts",
+    ["workers/users", "test:integration"] => "vitest.integration.config.ts",
     ["packages/contract", "test:openapi-drift"] => "contract-drift.sh",
     ["infra", "test:program-load"] => "infra-check.sh"
   }.freeze
