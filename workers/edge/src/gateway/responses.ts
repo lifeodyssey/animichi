@@ -1,3 +1,5 @@
+import type { AuthFailure } from "../identity/auth.ts";
+
 /**
  * The ONE envelope every edge rejection answers in (EG-05, issue #1343):
  * `{ error: { code, message? } }`.
@@ -40,6 +42,51 @@ function logInvalidCredential(pathname: string): void {
 export function unauthorized(pathname: string): Response {
   logInvalidCredential(pathname);
   return credentialsRequired();
+}
+
+const VERIFICATION_UNAVAILABLE_MESSAGE =
+  "Credentials could not be verified right now. Please retry; do not discard them.";
+
+/** How long a client should wait before presenting the same credential again.
+ * Advisory and deliberately short: the resolver re-attempts the JWKS on the very
+ * next request, so this only has to stop a client retry loop, not pace the
+ * server's own recovery. */
+const VERIFICATION_RETRY_AFTER_SECONDS = 30;
+
+/** Structured, credential-free record of a credential we could not check
+ * (issue #452). Its 401 sibling counts a 401 storm; this one exists so that the
+ * other thing which produces one — the JWKS being unreachable — is not read as
+ * the same event. `detail` says which acquisition failure it was, and no token,
+ * header or identity is anywhere near it. */
+function logVerificationUnavailable(pathname: string, detail: string): void {
+  console.warn(JSON.stringify({ event: "edge_auth_verification_unavailable", path: pathname, detail }));
+}
+
+/** The credential could not be CHECKED (issue #452): the key set the verdict
+ * needs never arrived. 503 rather than 401 because 401 is the client's D8 signal
+ * to clear its token and mint another, which — against the same outage — is a
+ * refresh loop; `Retry-After` and the typed code say "come back" instead. No
+ * `WWW-Authenticate` challenge goes out: the credential was never shown to be
+ * bad. Built beside `rateLimitedResponse` rather than through `gatewayRejection`
+ * for the same reason — it extends the envelope with a header, not a field. */
+export function verificationUnavailable(pathname: string, detail: string): Response {
+  logVerificationUnavailable(pathname, detail);
+  const error = { code: "verification_unavailable", message: VERIFICATION_UNAVAILABLE_MESSAGE };
+  return new Response(JSON.stringify({ error }), {
+    status: 503,
+    headers: { "Content-Type": "application/json", "Retry-After": String(VERIFICATION_RETRY_AFTER_SECONDS) },
+  });
+}
+
+/** The one branch every presented credential fails through (issues #441, #452):
+ * a rejected credential logs the storm record, an absent one is a flat 401, and
+ * one we could not check is the 503 the client retries rather than
+ * re-authenticates. Shared by the gateway's three credential sites and the agent
+ * tier's ladder so the three reasons cannot drift apart between them. */
+export function authenticationRejection(request: Request, auth: AuthFailure): Response {
+  const { pathname } = new URL(request.url);
+  if (auth.reason === "unverifiable") return verificationUnavailable(pathname, auth.detail);
+  return auth.reason === "invalid" ? unauthorized(pathname) : credentialsRequired();
 }
 
 /** Showcase-mode denial (S0-v2 GOAL C / C9): in showcase mode the edge
