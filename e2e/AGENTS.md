@@ -16,7 +16,8 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 
 `pnpm test` is the CI browser lane, not the whole suite: it runs its hermetic Node-runner
 specifications first (`lane-port.test.ts` — the port derivation is a specification, not a comment —
-and `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two),
+`helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two — and
+`reporters/no-skipped-tests.test.ts` — the no-skip rule's verdict, driven with the facts it reads),
 then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
 `webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the sixteen specs the lane
@@ -106,6 +107,12 @@ the run and names every skipped case (Playwright's own exit code counts a skip a
 `test/repo-config/e2e-no-skip.test.rb` refuses one at review time. A lane that cannot run must fail
 and name what it needs, or be reported as not-run — never pass quietly. The opt-in `visual` project
 and the MCP `seed` scaffold are the only exemptions, both by name and for a stated reason.
+The runtime half is the one that actually reddens a lane, so it is specified rather than described:
+`reporters/no-skipped-tests.test.ts` drives it to its own `onEnd` and asserts the verdict, because
+the contract above could only assert the reporter's *text* — `new Set(["visual", "seed"])` and the
+config's mention of it — and both stay green on a reporter that has stopped failing anything.
+Measured: with the guard logging instead of throwing, that contract passes while the unit spec
+fails, and with the exemption inverted seven of its cases fail.
 
 ## Conventions
 
@@ -168,6 +175,13 @@ and the MCP `seed` scaffold are the only exemptions, both by name and for a stat
   exchange. **Fails by name** without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` +
   `QA_NEON_USER_PASSWORD` (Path A, `docs/ops/auth-migration-neon.md` §4) — it no longer skips
   itself, and `pnpm run test:login` is the recipe that supplies them.
+- `reporters/no-skipped-tests.ts` — the run's verdict on a skipped case: it throws from `onEnd`, so
+  the lane exits non-zero and names every skip (Playwright counts one as success). Its two exempt
+  projects are `visual` and `seed`; its `ReportedCase`/`ReportedResult` declare the four facts it
+  reads, which is what lets the specification drive it with those and nothing else.
+- `reporters/no-skipped-tests.test.ts` — that verdict, as a unit specification (#1690): a skip in an
+  always-run project refuses the run and is named, both exempt projects stay exempt, and a run with
+  no skips reaches no refusal.
 - `web-cwv.spec.ts` — CWV observer spec for `apps/web` (CLS gate + LCP warn), sharing thresholds
   from `apps/web/web-cwv.config.ts`.
 - `fixtures/map-spike.ts` — canvas pixel reads for the map spike; its ground colours come from

@@ -172,6 +172,15 @@ test("no happy-path step opens the login dialog before the 保存する tap", as
   );
   await openChat(page);
   await send(page, "ユーフォ");
+  // The click returns before this turn's POST leaves the browser, so the
+  // no-dialog assertion alone is no barrier: `unroute`/`route` land while the
+  // request is still being built, the swapped-in handler answers THIS turn with
+  // the route fixture, both turns render a route card, the E1 living-document
+  // pass dims the first to 以前の版 — and the timeline locator below resolves to
+  // two. The fixture would be wrong there, not the product, so wait for this
+  // turn's own clarify answer (the escape hatch renders only once its final
+  // envelope has landed) before the stub is exchanged underneath it.
+  await expect(page.getByRole("button", { name: ja.clarify.escapeHatch })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.unroute("**/v1/chat");
@@ -198,7 +207,13 @@ async function sendLinkAndDismiss(page: Page): Promise<void> {
   await page.route("**/api/auth/sign-in/magic-link", (route) => route.fulfill({ json: { status: true } }));
   await page.getByRole("textbox", { name: /メール|email/i }).fill("fan@example.com");
   await page.getByRole("button", { name: /ログインリンク|Send/i }).click();
-  await expect(page.getByRole("status")).toBeVisible();
+  // Scoped to the form, not to the role: the page behind the modal reports its
+  // own live region too — the chat's D7 map-load failure is a `role="status"`
+  // (`error-states-i18n.ts`), and in this lane the tiles come from an
+  // unroutable origin, so whether it has appeared by this point is a matter of
+  // how fast the tile fetch fails. Unscoped, this assertion resolves to two
+  // elements whenever it has.
+  await expect(page.getByRole("form", { name: authJa.title }).getByRole("status")).toBeVisible();
   await page.getByRole("button", { name: /閉じる|Close/i }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
