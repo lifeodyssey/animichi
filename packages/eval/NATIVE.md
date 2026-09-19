@@ -62,8 +62,9 @@ cases still carry journey expectations and translation fields instead of a
 prompt and locale; asking for one says exactly that rather than reporting it as
 a typo.
 
-The official `@pydantic/logfire-node@0.18.21` preload is installed by the
-package script. With no `LOGFIRE_TOKEN` it prints `Logfire uploader
+The official `@pydantic/logfire-node` preload is installed by the
+package script; the pinned release is declared in this package's `package.json`
+and `PINS.json`. With no `LOGFIRE_TOKEN` it prints `Logfire uploader
 unconfigured; native report artifacts remain available.` and still writes the
 native `EvaluationReport` artifact. Set `EVAL_REPORT_PATH` to choose the JSON
 path; otherwise the artifact is written to `native-<dataset>.json` in the

@@ -10,12 +10,16 @@ Byte-for-byte copies of the canonical sets that used to live in the retired Pyth
   `translation_v1`) for their one-stratum warning.
 - `scripts/generate-agent-eval-v3-source.ts` re-derives `../source/agent_eval_v3.json` and its
   task-gap sidecar from `agent_eval_v3.json`.
+- `src/dataset-export.ts` re-derives `../../fixtures/<set>.json` for the six exported sets, from
+  the canonical copy here plus `EVALUATOR_NAMES` (#1746). `eval:regenerate-fixtures` runs it
+  (`--write` re-emits) and `test/dataset-export.test.ts` holds the committed exports to it.
 - `test/native-source-agent-eval-v3.test.ts` compares the two, and reads `agent_eval_v3.json` as
   the original corpus plus all seven siblings — `runtime_journey_v1.json` and `translation_v1.json`
   included — so the whole corpus still counts and no sibling case has leaked into `agent_eval_v3`.
 
 These files are committed inputs, not generated output, and nothing in this package regenerates
-them. `runtime_journey_v1.json` and `translation_v1.json` have exactly two readers, both named
-above: the pooled-strata test and the source-migration test. Changing a canonical set is an Eval
-Story (#1557–#1560) decision, not a routine edit: it requires updating the copy here and whatever
-consumes it in the same change.
+them — everything here regenerates *from* them. `runtime_journey_v1.json` and
+`translation_v1.json` have exactly two readers, both named above: the pooled-strata test and the
+source-migration test. Changing a canonical set is an Eval Story (#1557–#1560) decision, not a
+routine edit: it requires updating the copy here and whatever consumes it in the same change —
+which for the six exported sets includes the fixture, re-emitted with `eval:regenerate-fixtures`.

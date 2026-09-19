@@ -12,6 +12,7 @@
     "test:native": "node --import tsx --test \"test/native-*.test.ts\"",
     "eval:native": "node --import tsx --import ./scripts/instrument-evals.ts ./scripts/command-task.ts",
     "eval:record-captures": "node --import tsx ./scripts/record-captures.ts",
+    "eval:regenerate-fixtures": "node --import tsx ./scripts/regenerate-dataset-fixtures.ts",
     "eval:prefix-selection": "node --import tsx ./scripts/replay-prefix-selection.ts"
   },
   "dependencies": {
@@ -20,8 +21,8 @@
     "@earendil-works/chord": "catalog:",
     "@earendil-works/pi-agent-core": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
-    "@pydantic/logfire-node": "0.18.21",
-    "logfire": "0.22.5",
+    "@pydantic/logfire-node": "0.18.25",
+    "logfire": "0.22.9",
     "yaml": "catalog:",
     "zod": "catalog:"
   },

@@ -218,7 +218,7 @@ Storage，不能通过私有字段接入写序观察器。业务提交和 DO 持
 
 **被测系统是同一个生产 Model + AgentHarness + tools/hooks/领域函数，在进程内调用。** 普通用例创建公开 `MemorySessionRepo` session，再 `AgentHarness.create` 与 `lane.prompt`；同步 eval 的 prompt 已包含 SDK accept/drive，无需自建轮询器。明确处理拒绝、终态失败和 suspended，后两者不能伪报成功。
 
-- **运行和报告**：锁定的 `logfire/evals@0.22.5` 提供 `Dataset.evaluate`、`repeat`、`maxConcurrency`、`Evaluator`、`ReportEvaluator`、`caseGroups`、`renderReport`。任务在 `try/finally` 内管理自己的 SDK 资源，不建按 input id 共享的生命周期 registry；重复用例会复用 input id。直接写原生 EvaluationReport JSON 和 provenance，不保留旧 runner/report 协议。`MaxDuration` 是事后断言，不是中断任务的 timeout。
+- **运行和报告**：锁定的 `logfire/evals`（版本见 `packages/eval/PINS.json`）提供 `Dataset.evaluate`、`repeat`、`maxConcurrency`、`Evaluator`、`ReportEvaluator`、`caseGroups`、`renderReport`。任务在 `try/finally` 内管理自己的 SDK 资源，不建按 input id 共享的生命周期 registry；重复用例会复用 input id。直接写原生 EvaluationReport JSON 和 provenance，不保留旧 runner/report 协议。`MaxDuration` 是事后断言，不是中断任务的 timeout。
 - **真实工具**：使用生产的真实 catalog 与 `web_search` 实现。eval 不依赖 agent 会话数据库、网关、staging 登录或 DO；既有真实 catalog 的测试数据面继续存在，不以工具 mock 代替。
 - **证据**：直接读 SDK `LaneSnapshot`、`Entry`、结果与 usage。需要真实执行参数时，收集未经转换的原生 `after_tool` observation，使用 `after_tool.args`；tool-result entry 没有旧 spec 假定的 settled 参数字段。删除 `TranscriptResult`、旧步骤转换、synthetic OTel tree 与 W1-6 浏览器投影依赖。
 - **前缀**：每个目标边界单独录制并冻结一个新 TS agent 的 source，在同一 SDK `JsonlSessionRepo` 内 open 与 `fork({scope:"tree"})`。不导入另一个 Memory repository，不写 JSONL-to-memory copier，不复用 Python 轨迹。tree fork 没有历史 entryId 参数；fork 后来的 session 不能还原早先状态。
