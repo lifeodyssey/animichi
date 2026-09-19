@@ -66,6 +66,14 @@ const GENERIC_OUTCOMES = new Set([
 
 const AI_IDENTITY = /\b(?:claude|anthropic|codex|openai)\b/i;
 
+// GitHub's squash merge appends ` (#N)` to the pull request title it was told to
+// use as the subject (`squash_merge_commit_title=PR_TITLE`), so every commit the
+// merge button lands on `main` carries that one suffix and no author can remove
+// it: the rule below cannot refuse a history the repository itself generates
+// (#1804). The exemption is exactly that suffix — a reference anywhere else in
+// the subject is still rejected.
+const SQUASH_MERGE_SUFFIX = / \(#\d+\)$/;
+
 module.exports = {
   extends: ['@commitlint/config-conventional'],
   ignores: [
@@ -106,7 +114,7 @@ module.exports = {
           'outcome must start with a lowercase verb',
         ],
         'subject-no-issue-reference': ({ subject }) => [
-          !/#\d+/.test(String(subject ?? '')),
+          !/#\d+/.test(String(subject ?? '').replace(SQUASH_MERGE_SUFFIX, '')),
           'subject must not carry an issue reference (Refs: belongs in the body)',
         ],
         'ai-attribution-forbidden': ({ body, footer }) => {
