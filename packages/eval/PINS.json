@@ -1,5 +1,5 @@
 {
-  "comment": "The two eval frameworks are pinned as a pair: pydantic-evals wrote the frozen oracle fixtures and logfire/evals reads them. The fixtures have no regeneration path since #1603 (the exporter and its drift gate are gone), so moving either version is a new Eval Story: it has to re-export the fixtures and re-prove the round trip in the same change, and this file moves with it.",
-  "logfire": "0.22.5",
+  "comment": "The two eval frameworks move as a pair: pydantic-evals wrote the frozen oracle fixtures and logfire/evals reads them, so both names are declared here and neither moves alone. What holds each side is different, and #1746 is why. The six exported dataset fixtures have a regeneration path (`pnpm --filter @animichi/eval eval:regenerate-fixtures`, gated by `test/dataset-export.test.ts`), so a logfire bump re-runs that derivation and re-proves the round trip in the same change; it no longer needs an Eval Story. `fixtures/stats-oracle.json` and `fixtures/evaluator-oracle.json` are Python-written witnesses whose producer retired with the Python agent (#1603), so moving `pydantic-evals` — the version they were exported with — still is one: it has to re-export them and re-prove the round trip in the same change, and this file moves with it.",
+  "logfire": "0.22.9",
   "pydantic-evals": "2.21.0"
 }

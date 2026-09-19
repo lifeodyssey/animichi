@@ -18,7 +18,7 @@ of becoming fabricated zero spend, and a provider outage's zeroed usage row does
 a priced call. The task closes its harness and repository after success,
 failure or cancellation; cleanup uses the native Context without the cancelled AbortSignal.
 
-The task and tests use public Pi/Chord 0.85.1 and Logfire 0.22.5 APIs. Production composition
+The task and tests use public Pi/Chord 0.85.1 and Logfire 0.22.9 APIs. Production composition
 tests execute the real seven-tool harness with deterministic HTTP/provider fixtures. Tests
 cover fresh attempts, model and paid-tool usage, rejected/failed/aborted/suspended outcomes,
 native cancellation and resource closure. `src/native/native-run.ts` is the documented
@@ -65,16 +65,30 @@ a real evaluation run of these cases are separate, authorization-gated work.
 - `pnpm run typecheck`: strict TypeScript 7, including dependency declarations.
 - `pnpm run lint`: type-aware oxlint with warnings denied.
 - `pnpm run eval:record-captures`: record a prefix corpus with the production harness; `EVAL_RECORD_MODE=deterministic` records the committed fixture without provider or catalog egress, and the default path needs the selected binding's credential and `CATALOG_API_URL`.
+- `pnpm run eval:regenerate-fixtures`: re-derive the six exported dataset fixtures from
+  `datasets/canonical/`. The default mode reports drift and exits 1; `--write` re-emits all six
+  and says which bytes moved. `test/dataset-export.test.ts` runs the same derivation on every
+  `pnpm test`, so a fixture edited without its canonical copy (or the reverse) is a red test.
+  Regenerating a fixture means editing `datasets/canonical/` and running this — never editing
+  `fixtures/` by hand.
 - `pnpm run eval:prefix-selection`: replay `phase1c_selection_v1`'s deterministic selection from its recorded forks against the real catalog (no model call).
 - `pnpm run eval:native`: the documented real in-process run (`NATIVE.md`). `EVAL_PROVIDER`
   selects the published provider binding explicitly (`xiaomi` by default, else `opencode-go`) and
   never falls back; it refuses to start without that binding's credential and `CATALOG_API_URL`,
   and is never run without explicit authorization.
 
-The Python fixture export and its drift gate are gone (#1603). `fixtures/` are frozen bytes
-with no regeneration path; the canonical sets they were exported from now live in
-`datasets/canonical/`, and nothing in this package shells out to `uv` or Python —
-`pnpm test` runs on Node alone.
+The Python fixture export and its drift gate are gone (#1603); the canonical sets the exported
+fixtures came from live in `datasets/canonical/`, and nothing in this package shells out to `uv`
+or Python — `pnpm test` runs on Node alone. What is regenerable is scoped exactly, and #1746 is
+why the `logfire`/`pydantic-evals` pair in `PINS.json` is no longer held by it. The six
+`fixtures/<set>.json` exports are a pure function of their canonical copy plus `EVALUATOR_NAMES`
+(`src/dataset-export.ts`), which is what `eval:regenerate-fixtures` runs and what the drift gate
+holds. The two statistical oracles — `fixtures/stats-oracle.json` and
+`fixtures/evaluator-oracle.json` — are Python's own answers (`stats_oracle.py`,
+`evaluator_oracle.py` running `stats.py`/`gate.py`), whose producer retired with the Python agent:
+re-deriving them from the TS ports the parity tests measure against them would make every one of
+those tests a tautology, so they stay frozen witnesses under the deliberate-edit rule (#1463) and
+have no regeneration path by design. Nothing here reads or writes them.
 
 The old `eval:staging`, `eval:gate` and HTTP prefix-capture commands are retired with their
 obsolete consumers. The correctness-assertion schema (`src/native/required-assertions.ts`), the
@@ -89,8 +103,10 @@ closure. Never run paid evaluations without explicit authorization.
 
 `src/gate/` retains independent statistical utilities. The remaining pure `src/gate-run/`
 modules retain their source behavior until an Eval Story replaces or retires them.
-`fixtures/` retains Python-exported datasets and statistical oracle material. These files
-are source inputs and expected values, not completed native suite rosters or successful runs.
+`fixtures/` retains Python-exported datasets and statistical oracle material. The six dataset
+exports are re-derivable and drift-gated (`eval:regenerate-fixtures`); the two statistical
+oracles are not, for the reason above. These files are source inputs and expected values, not
+completed native suite rosters or successful runs.
 `datasets/canonical/` holds the frozen canonical datasets the strata and the
 `agent_eval_v3` source migration read; `PINS.json` declares the pydantic-evals version they were
 exported with, so the package reads no Python source at runtime or in tests.
