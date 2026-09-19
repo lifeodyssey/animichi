@@ -31,10 +31,23 @@ The caller sends `x-egress-timestamp` (unix seconds) and `x-egress-signature`
 crosses the wire; signatures outside a five-minute window are refused;
 comparison is constant-time. The service accepts a current and a previous key
 (`INGEST_SIGNING_KEY`, `INGEST_SIGNING_KEY_PREVIOUS`) so rotation needs no
-coordinated cut-over. Both must be keys `openssl rand -base64 48` produced —
-the service refuses to start on any other value, and the catalog resolves the
-same shape or resolves nothing. Do not schedule rotation — the two-key window
-exists so rotation is painless when there is a reason.
+coordinated cut-over.
+
+Every configured key — the service's current and previous, and the catalog's
+one — must match `/^[A-Za-z0-9+/]{64}$/`, the shape `openssl rand -base64 48`
+writes: 64 unpadded standard-Base64 characters. Generate keys with that
+command; it is a requirement on the operator, not a check the service makes.
+That shape is the whole check, and it is all a check on a string can be —
+nothing readable from one measures a key's randomness or says which generator
+produced it, so 64 characters of `a` passes it and must never be used as a
+key. A value outside the shape fails both sides closed: the service boots
+without a usable configuration and refuses both operations with
+`configuration`, and the catalog resolves no key, so an anitabi fetch refuses
+rather than sign with a value the service will not accept. A previous key
+outside the shape reads as absent, not as an accepted one.
+
+Do not schedule rotation — the two-key window exists so rotation is painless
+when there is a reason.
 
 ## The ceiling
 
