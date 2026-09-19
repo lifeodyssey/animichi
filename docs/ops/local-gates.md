@@ -220,7 +220,7 @@ Paths that need no package gate, because another hook or a CI job already owns t
 docs/**  .claude/**  .github/**  .semgrep*  scripts/**  test/repo-config/**
 root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
-Gemfile  Gemfile.lock  .ruby-version
+Gemfile  Gemfile.lock  .ruby-version  .env.example  .env.test.example
 ```
 
 `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby and minitest the `contracts` job runs
@@ -231,6 +231,14 @@ path needs no package gate. A sibling such as `.gitignore-extra` remains unowned
 `.codacy.yml` and `.sonarcloud.properties` configure CI-side analyzers with no local gate;
 `supabase/**` is the archived historical migration directory (#1000), not a live surface, so
 nothing in it is gated locally.
+
+`.env.example` and `.env.test.example` are the root env SHEETS — operator documentation rather
+than code, and the file an operator copies to a `.env.test` that is gitignored and never tracked.
+`check-root-allowlist.sh` owns their top-level ENTRY, not their contents, so no local check has an
+opinion about an edit to one; a credential pasted into either is caught by the pre-commit secret
+scan, which reads the staged diff and does not route. They are whitelisted by name rather than left
+ungated because the change that needed one was refused by this check — the fix that made four
+documents true had to edit `.env.test.example` (#1813).
 
 **Every** changed path has to be owned by something: a package whose routing row fired, a bucket
 that actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The

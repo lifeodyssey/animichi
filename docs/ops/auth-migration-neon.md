@@ -71,7 +71,7 @@ Post-migration facts:
 
 ## 4. QA / agent login paths (Neon Auth world)
 
-`Origin: http://localhost:3000` (or any localhost origin; `allow_localhost` is on) is **required** on POSTs — Better Auth rejects origin-less requests. Env vars: `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD` in `.env.test` (local) and CI secrets (owner action).
+`Origin: http://localhost:3000` (or any localhost origin; `allow_localhost` is on) is **required** on POSTs — Better Auth rejects origin-less requests. Env vars: `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD` in `.env.test` (local) and CI secrets (owner action). The live lane loads that file itself (`test:login` runs `node --env-file-if-exists=../.env.test`, #1813), so an operator who fills in the example and runs the one documented command needs no exports by hand; the flag is `if-exists`, so a machine without the file is not an error.
 
 **Path A — password sign-in (CI default; zero email dependency):**
 ```bash
@@ -152,7 +152,8 @@ Related API surface (in `@neon/sdk`, mostly unwrapped by CLI): `updateNeonAuthEm
    DNS needed at the sending domain: provider-issued **SPF TXT** + **DKIM CNAME/TXT** records (values from the provider dashboard; none are committed here). Until then emails arrive as "Neon Auth <auth@mail.myneon.app>" with subject "Sign In to animichi".
 2. **Live login lane (owner decision, #1690):** the proof is local by default — `pnpm --filter
    animichi-e2e run test:login` with `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD` from local
-   `.env.test`. PR CI cannot hold them (`.github/test/workflow-credentials.test.rb`), so CI reports
+   `.env.test`, which that script loads itself (`node --env-file-if-exists`, #1813). PR CI cannot
+   hold them (`.github/test/workflow-credentials.test.rb`), so CI reports
    the proof as `NOT RUN`. To run it in CI, add a CD/staging lane that opens both from Pulumi ESC
    (`lifeodyssey/animichi/staging`) under an environment-bound OIDC identity, the way `cd.yml`
    already opens the Access service token — not a GitHub secret.
@@ -185,7 +186,8 @@ magic link from the Neon Auth origin and opens the verify URL (token read from t
 `neon_auth.verification` — Path C, §4). The Playwright suite stubs every transport and runs
 without `supabase start`; the one live spec (`e2e/web-neon-login.spec.ts`) drives the real Neon
 origin via Path A and **fails when `QA_NEON_USER_*` are absent** — it never skips (#1690). Its lane
-is `pnpm --filter animichi-e2e run test:login` (credentials from local `.env.test`; PR CI reports
+is `pnpm --filter animichi-e2e run test:login` (credentials from the repo-root `.env.test`, loaded
+by that script's own `node --env-file-if-exists` and optional, #1813; PR CI reports
 it as `NOT RUN`, see above), and it is the strongest local evidence available without a deploy.
 
 **IaC declarations (no pulumi run yet):** the staging issuer/JWKS derivation and QA login creds are
