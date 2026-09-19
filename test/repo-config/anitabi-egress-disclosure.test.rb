@@ -20,6 +20,16 @@
 #                      Nothing benign in this tree is caught (measured; the
 #                      whole tree carries zero credential-shaped literals
 #                      beside a mention of one of these names).
+#                      THE PAIR IS THE SUBJECT (#1809): a line is a finding
+#                      when it names one of these variables AND carries a
+#                      credential-shaped value, which is how a committed value
+#                      arrives here (the shapes above). A key-shaped value that
+#                      reaches the tree WITHOUT naming the variable it belongs
+#                      to is not what this scan reads, and the test's name says
+#                      so rather than the claim doing it alone — `.gitleaks.toml`
+#                      (which extends gitleaks' default rules) and the
+#                      `security (gitleaks)` lane are the tree-wide net for that
+#                      shape.
 #   the egress address — the asset. The upstream allowlists one address; the
 #                      repository is public, so publishing it would announce
 #                      which address holds that privilege. The scan covers the
@@ -33,10 +43,11 @@
 #                      leading dot, and `.oxlintrc.json` — or an `.env` that
 #                      lands there later — is not scanned at all (#1806), which
 #                      is the one place a key or an address most plausibly
-#                      arrives. The residual (an address anywhere else, and one
-#                      inside a file this scan reads as binary) is #1809's
-#                      disclosure-scope item, stated there rather than implied
-#                      away here.
+#                      arrives. Its residual — an address anywhere else, and one
+#                      inside a file this scan reads as binary — is stated here
+#                      rather than implied away: #1809's resolution was to make
+#                      the claim what the check reads, not to widen the check's
+#                      name over a span it does not scan.
 #
 # The address is pinned WITHOUT disclosing it: `check-egress-address.ts` reads
 # the expected value from the operator's environment (`ANITABI_EGRESS_EXPECTED_IPV4`)
@@ -108,12 +119,18 @@ class AnitabiEgressDisclosureTest < Minitest::Test
                  "#{offenders.join("\n  ")}")
   end
 
-  def test_no_signing_key_value_anywhere_in_the_tree
+  # The name says what the check reads (#1809): a CREDENTIAL VALUE BESIDE A
+  # SECRET NAME, in any tracked text file. A key-shaped value the tree carries
+  # without naming the variable it belongs to is a different question, answered
+  # by `.gitleaks.toml`'s rules and the `security (gitleaks)` lane — a name
+  # claiming the tree-wide shape here would claim a span this scan does not read.
+  def test_no_credential_value_beside_a_secret_name_anywhere_in_the_tree
     offenders = tracked_text_files.flat_map { |path| key_values_in(path) }
     assert_empty(offenders,
-                 "a signing key value must never be in the tree, in any form — not as a default, not as a " \
-                 "fixture, not unquoted. Generate one in the test (`crypto.getRandomValues` / `randomBytes`) or " \
-                 "read it from the environment:\n  #{offenders.join("\n  ")}")
+                 "a credential value must never be in the tree beside the name of the secret it belongs to — not " \
+                 "as a default, not as a fixture, not unquoted. Generate one in the test " \
+                 "(`crypto.getRandomValues` / `randomBytes`) or read it from the environment:\n  " \
+                 "#{offenders.join("\n  ")}")
   end
 
   def test_the_expected_address_comes_from_outside_the_tree
@@ -228,10 +245,12 @@ class AnitabiEgressDisclosureTest < Minitest::Test
   end
 
   # The key scan alone, over another root — the same probe shape, for the other
-  # half of this contract.
+  # half of this contract. The filter tracks that half's name: a rename that
+  # leaves it matching nothing makes the spawned run exit 0, which is what these
+  # probes refute, so the drift fails them instead of passing them vacuously.
   def run_key_scan(root)
     out, err, status = Open3.capture3({ "TEST_REPOSITORY_ROOT" => root }, RbConfig.ruby, __FILE__,
-                                      "--name", "/test_no_signing_key_value_anywhere/")
+                                      "--name", "/test_no_credential_value_beside_a_secret_name/")
     [status, out + err]
   end
 
