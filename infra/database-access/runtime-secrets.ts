@@ -9,12 +9,23 @@ const suffix = pulumi.getStack() === "prod" ? "_PROD" : "";
 const anonymousAccessEnabled = config.requireBoolean("anonymousAccessEnabled");
 
 // MiMo-only runtime (owner decision 2026-09-15): DeepSeek is not a deploy
-// requirement, so no DEEPSEEK_API_KEY is provisioned or required here. The four
-// vendor keys are the ones no provider can mint, so they stay secret stack
-// config (ESC `fn::secret`). The two anonymous-access secrets are not config
-// (#1676): TURNSTILE_SECRET is the adopted widget's own secret and
-// ANON_ID_SECRET is generated.
-const vendorNames = ["MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN"];
+// requirement, so no DEEPSEEK_API_KEY is provisioned or required here.
+//
+// The vendor keys are the ones whose authority lives OUTSIDE this program, so
+// the operator sets them as secret stack config (ESC `fn::secret`) and they are
+// never generated. "No provider can mint them" was true of the first four and
+// is not the category: INGEST_SIGNING_KEY (#1792) is a value this program could
+// mint and must not, because the egress service in Fly — which Pulumi does not
+// manage — holds the copy that counts and verifies what catalog signs.
+// Generating one would make Pulumi a second authority for a value another
+// system already holds, and the two copies would drift a rotation apart; that
+// disagreement surfaces at the consumer as a 401, never as a failed deploy.
+// The two anonymous-access secrets are not config (#1676): TURNSTILE_SECRET is
+// the adopted widget's own secret and ANON_ID_SECRET is generated.
+const vendorNames = [
+  "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
+  "INGEST_SIGNING_KEY",
+];
 
 // ── The account's single Turnstile widget (#1676) ──────────────────────────
 // One widget — `animichi.com (Spin)`, site key `0x4AAAAAAD-SYZJEDljOH-SB`,
@@ -74,9 +85,9 @@ function requiredVendorSecret(name: string): pulumi.Output<string> {
   });
 }
 
-/** Every runtime secret the store receives: the four vendor keys, then (with
- * anonymous access on) the widget's secret and the generated identity seed. One
- * source per name — there is no second list that could omit one. */
+/** Every runtime secret the store receives: the owner-set vendor keys, then
+ * (with anonymous access on) the widget's secret and the generated identity
+ * seed. One source per name — there is no second list that could omit one. */
 function runtimeSecretSources(): Record<string, pulumi.Input<string>> {
   const vendor = vendorNames.map((name) => [name, requiredVendorSecret(name)] as const);
   const generated: (readonly [string, pulumi.Input<string>])[] = anonymous === undefined

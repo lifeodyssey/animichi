@@ -104,12 +104,21 @@ fly deploy --app animichi-anitabi-egress
 
 # Rotate the signing key. Generate locally; never paste a value into a PR,
 # an issue, or a chat. `--stage` defers the machine restart until deploy.
+# The same value goes to the caller's side of the HMAC: `workers/catalog`
+# binds INGEST_SIGNING_KEY from the Cloudflare Secrets Store, written by the
+# infra/database-access stack from owner-set ESC config. Fly first — the
+# service accepts a current and a previous key, so the caller keeps working
+# while the ESC value and the apply catch up. See secrets.md.
 fly secrets set INGEST_SIGNING_KEY="$(openssl rand -base64 48)" \
   --app animichi-anitabi-egress --stage
 fly secrets deploy --app animichi-anitabi-egress
 ```
 
-The same key must be set in Cloudflare Secrets Store for `workers/catalog`.
+That store entry is never set by hand. A Secrets Store secret name is unique within its store and
+create does not adopt one, so a hand-made `INGEST_SIGNING_KEY` there would be a second authority
+for a value the service already holds — and the stack's create would fail rather than adopt it.
+The caller's copy is `pulumiConfig.animichi-neon-secrets:INGEST_SIGNING_KEY` in
+`lifeodyssey/animichi/staging` or `…/prod` (`fn::secret`), applied by Pulumi, never by CI.
 
 ## If ingest starts failing
 

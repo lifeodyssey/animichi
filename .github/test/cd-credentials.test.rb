@@ -7,7 +7,8 @@ class CdCredentialsTest < Minitest::Test
   RETIRED = %w[PULUMI_BACKEND_URL PULUMI_CONFIG_PASSPHRASE R2_ACCESS_KEY_ID
                R2_SECRET_ACCESS_KEY CLOUDFLARE_PULUMI_API_TOKEN].freeze
   RUNTIME = %w[MIMO_API_KEY ZEN_GO_API_KEY SUPABASE_DB_URL
-               GOOGLE_MAPS_API_KEY LOGFIRE_TOKEN TURNSTILE_SECRET ANON_ID_SECRET].freeze
+               GOOGLE_MAPS_API_KEY LOGFIRE_TOKEN TURNSTILE_SECRET ANON_ID_SECRET
+               INGEST_SIGNING_KEY].freeze
 
   def setup
     @source = File.read(File.join(ROOT, ".github/workflows/cd.yml"))
