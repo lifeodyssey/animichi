@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useMatches,
+  useRouter,
 } from "@tanstack/react-router";
 import { NotFound } from "../components/NotFound";
 import { RootError } from "../components/RootError";
@@ -161,11 +162,17 @@ export function SkipLink({ lang }: { readonly lang: Locale }) {
   );
 }
 
-/** Body-level runtime-config seed (#1013), independent of head serialization. */
+/** Body-level runtime-config seed (#1013), independent of head serialization.
+ * It is a raw `<script>`, so unlike the head scripts it does not go through
+ * the framework's nonce plumbing: it takes the response's nonce — the one the
+ * CSP header advertises (#469) — straight off the router, which on the browser
+ * has recovered the same value from `<meta property="csp-nonce">`. */
 function RuntimeConfigSeed() {
+  const nonce = useRouter().options.ssr?.nonce;
   return (
     <script
       suppressHydrationWarning
+      nonce={nonce}
       dangerouslySetInnerHTML={{ __html: runtimeConfigInlineScript(currentRuntimeConfig()) }}
     />
   );
