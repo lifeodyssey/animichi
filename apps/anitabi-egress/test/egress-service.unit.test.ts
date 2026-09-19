@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { handleEgressRequest, type EgressDeps, type UpstreamResponseLike } from "../src/egress-service.ts";
 import type { EgressConfig } from "../src/egress-config.ts";
+import type { CeilingDecision } from "../src/upstream-ceiling.ts";
 
 /**
  * The request handler contract (#1792): exactly two operations; a verified
@@ -59,7 +60,7 @@ function recordingUpstream(status = 200, body = '{"ok":true}'): {
 function deps(upstream: (url: string, init?: { headers?: Record<string, string> }) => Promise<UpstreamResponseLike>, overrides: Partial<EgressDeps> = {}): EgressDeps {
   return {
     config: CONFIG,
-    ceiling: { tryAcquire: () => true },
+    ceiling: { tryAcquire: () => Promise.resolve("granted") },
     upstreamFetch: upstream,
     nowSeconds,
     ...overrides,
@@ -198,16 +199,26 @@ async function refusalFacts(request: Request, overrides: Partial<EgressDeps> = {
   status: number;
   marker: string | null;
   reason: string | null;
+  detail: string | null;
   upstreamCalls: number;
 }> {
   const upstream = recordingUpstream();
   const res = await handleEgressRequest(request, deps(upstream.fetch, overrides));
+  const body: unknown = await res.json();
   return {
     status: res.status,
     marker: res.headers.get("x-egress-response"),
     reason: res.headers.get("x-egress-refusal"),
+    detail: detailOf(body),
     upstreamCalls: upstream.urls.length,
   };
+}
+
+/** The refusal body's optional `detail`, or null when the reason alone said it all. */
+function detailOf(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || !("detail" in body)) return null;
+  const { detail } = body as { detail?: unknown };
+  return typeof detail === "string" ? detail : null;
 }
 
 void describe("this service's own refusals are marked unmistakably", () => {
@@ -242,18 +253,25 @@ void describe("this service's own refusals are marked unmistakably", () => {
 void describe("our ceiling and fail-closed refusals", () => {
   void it("refuses the ceiling as OURS — distinguishable from any upstream answer", async () => {
     const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
-      ceiling: { tryAcquire: () => false },
+      ceiling: { tryAcquire: () => Promise.resolve("exhausted") },
     });
     assert.equal(facts.status, 429);
     assert.equal(facts.marker, "refused-here");
     assert.equal(facts.reason, "ceiling");
     assert.equal(facts.upstreamCalls, 0);
+    assert.equal(facts.detail, null, "an exhausted budget needs no detail: the reason is the whole answer");
   });
 
   void it("an unauthenticated request consumes no ceiling budget", async () => {
     const upstream = recordingUpstream();
     let budget = 1;
-    const ceiling = { tryAcquire: () => (budget > 0 ? (budget -= 1, true) : false) };
+    const ceiling = {
+      tryAcquire: () => {
+        if (budget === 0) return Promise.resolve<CeilingDecision>("exhausted");
+        budget -= 1;
+        return Promise.resolve<CeilingDecision>("granted");
+      },
+    };
     await handleEgressRequest(unsignedRequest("/anitabi/lite/2461"), deps(upstream.fetch, { ceiling }));
     const res = await handleEgressRequest(signedRequest("/anitabi/lite/2461"), deps(upstream.fetch, { ceiling }));
     assert.equal(res.status, 200, "the refused request must not have spent the ceiling slot");
@@ -273,6 +291,36 @@ void describe("our ceiling and fail-closed refusals", () => {
     assert.equal(facts.marker, "refused-here");
     assert.equal(facts.reason, "configuration");
     assert.equal(facts.upstreamCalls, 0);
+  });
+});
+
+/**
+ * The store the ceiling counts in is unreachable (#1810). The refusal is the
+ * same refusal — ours, marked, `ceiling`, never confusable with an upstream
+ * answer — and the body names the cause the reason cannot. What it must NOT be
+ * is a request that goes upstream anyway: a service that counts in memory when
+ * its store is down is a service whose promise holds only while nothing is
+ * wrong, which is exactly what this refusal replaced.
+ */
+void describe("a ceiling whose store cannot answer", () => {
+  void it("refuses, names the store in the body, and never falls back to counting here", async () => {
+    const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
+      ceiling: { tryAcquire: () => Promise.resolve("store-unavailable") },
+    });
+    assert.equal(facts.status, 429);
+    assert.equal(facts.marker, "refused-here");
+    assert.equal(facts.reason, "ceiling");
+    assert.equal(
+      facts.detail,
+      "ceiling-store-unavailable",
+      "the operator needs to tell a store outage from an exhausted hour",
+    );
+    assert.equal(
+      facts.upstreamCalls,
+      0,
+      "the request went upstream while the store was unreachable — an in-memory fallback is what this test exists " +
+        "to refuse, because it admits requests the store never counted",
+    );
   });
 });
 

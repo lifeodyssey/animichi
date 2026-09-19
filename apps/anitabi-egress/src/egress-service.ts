@@ -6,7 +6,9 @@
  *   config — a service without its key or ceiling refuses everything
  *   auth   — the signature is verified BEFORE the ceiling, so unauthenticated
  *            traffic cannot spend a single upstream slot
- *   ceiling— our promise to the upstream, enforced regardless of the caller
+ *   ceiling— our promise to the upstream, enforced regardless of the caller,
+ *            and counted in an external store since #1810 so a restart inside
+ *            the upstream's hour cannot start a second one
  *   relay  — the upstream's answer, verbatim, marked as the upstream's, asked
  *            from the one URL this service built and never redirected off it
  *
@@ -23,6 +25,7 @@ import {
   verifyRequestSignature,
   type SignatureHeaders,
 } from "./request-signature.ts";
+import type { CeilingDecision } from "./upstream-ceiling.ts";
 import {
   resolveOperation,
   upstreamUrlFor,
@@ -43,6 +46,20 @@ export type RefusalReason =
   | "ceiling"
   | "configuration"
   | "upstream-timeout";
+
+/**
+ * Why the ceiling refused, when the reason alone does not say: the store
+ * holding this hour's count could not be reached, so the service refused
+ * rather than count in memory (#1810).
+ *
+ * It travels in the refusal body's `detail`, NOT as a second
+ * `x-egress-refusal` reason. That header's vocabulary is a contract with the
+ * caller — `workers/catalog` classifies a refusal by it and does not know this
+ * string, so a new reason there would be read as `unmarked`, "the answer did
+ * not come from the egress service", which is false. The header keeps saying
+ * whose refusal it is; the body says which of the two ceiling refusals it was.
+ */
+export const CEILING_STORE_DETAIL = "ceiling-store-unavailable";
 
 /** The upstream fetch surface; the real service passes global `fetch`. */
 export type UpstreamFetch = (
@@ -69,9 +86,13 @@ export interface UpstreamResponseLike {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
-/** The hourly upstream-request budget; UpstreamRequestCeiling satisfies it. */
+/**
+ * The hourly upstream-request budget; UpstreamRequestCeiling satisfies it.
+ * Asynchronous because the count is not in this process any more (#1810): the
+ * decision is the store's answer, and `store-unavailable` is a refusal.
+ */
 export interface Ceiling {
-  tryAcquire(): boolean;
+  tryAcquire(): Promise<CeilingDecision>;
 }
 
 /** Injectable dependencies; the composition root (server.ts) wires the real ones. */
@@ -95,8 +116,20 @@ export async function handleEgressRequest(request: Request, deps: EgressDeps): P
   if (deps.config === null || deps.ceiling === null) return refusal("configuration", 503);
 
   if (!authenticated(deps.config, request, path, deps.nowSeconds())) return refusal("auth", 401);
-  if (!deps.ceiling.tryAcquire()) return refusal("ceiling", 429);
+  const decision = await deps.ceiling.tryAcquire();
+  if (decision !== "granted") return ceilingRefusal(decision);
   return relay(deps, operation);
+}
+
+/**
+ * Our ceiling's refusal — one reason, two causes. The caller is told the same
+ * thing either way: this service refused, do not read it as the upstream, do
+ * not retry it in-request. Whether this hour's budget ran out or the counter
+ * storing it was unreachable is an operator's question, and the body answers it.
+ */
+function ceilingRefusal(decision: CeilingDecision): Response {
+  const detail = decision === "store-unavailable" ? CEILING_STORE_DETAIL : undefined;
+  return refusal("ceiling", 429, detail);
 }
 
 /** Verify the request's signature headers against the configured keys. */
@@ -142,9 +175,19 @@ async function relay(deps: EgressDeps, operation: EgressOperation): Promise<Resp
   return new Response(body, { status: upstream.status, headers });
 }
 
+/** What a caller reads off our refusal without parsing prose: whose it is, why, and the detail when there is one. */
+interface RefusalBody {
+  readonly refusedBy: "anitabi-egress";
+  readonly reason: RefusalReason;
+  readonly detail?: string;
+}
+
 /** This service's own refusal: marked, reasoned, and never confusable with an upstream answer. */
-function refusal(reason: RefusalReason, status: number): Response {
-  return new Response(JSON.stringify({ refusedBy: "anitabi-egress", reason }), {
+function refusal(reason: RefusalReason, status: number, detail?: string): Response {
+  const body: RefusalBody = detail === undefined
+    ? { refusedBy: "anitabi-egress", reason }
+    : { refusedBy: "anitabi-egress", reason, detail };
+  return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
