@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { search, searchDb } from "../src/api/search";
-import type { CatalogDb } from "../src/db/client";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
+
+/**
+ * The `search` output shape over the joined points row.
+ *
+ * Since #1631 the joined read is a plan over the shared contract, so the row
+ * IS the plan's projection and the `Catalog row <key> is not …` narrowing the
+ * Drizzle seam needed (`src/lib/rows.ts`, deleted by #1629) is gone rather than
+ * ported (§4.2): a value the contract does not allow is refused by the
+ * driver's codecs, below this layer, and cannot be reached from here. What
+ * remains testable here is the projection's output shape — snapshotted below —
+ * and that the read really crosses the Prisma plane.
+ */
 
 const JOINED_ROW: Record<string, unknown> = {
   id: "spot-1",
@@ -23,14 +36,14 @@ function makeJoinedRow(overrides: Record<string, unknown> = {}): Record<string, 
   return { ...JOINED_ROW, ...overrides };
 }
 
-function catalogDb(responses: unknown[][]): CatalogDb {
-  const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
-  return { execute } as unknown as CatalogDb;
-}
-
+/** The production factory over both seams: the alias lookup and the joined
+ * points read answer on the Prisma plane (#1631); the ingest's Drizzle seam is
+ * never reached by a read. */
 function runSearch(row: Record<string, unknown>) {
-  const db = catalogDb([[{ bangumi_id: "1" }], [row]]);
-  return search(searchDb(db), { query: "Lucky Star" });
+  return search(
+    searchDb(fakeCatalogPrisma([{ bangumi_id: "1" }], [row]), unreachableCatalogDb()),
+    { query: "Lucky Star" },
+  );
 }
 
 describe("search joined-row output shape", () => {
@@ -59,18 +72,15 @@ describe("search joined-row output shape", () => {
     `);
   });
 
-  it("rejects an invalid numeric field at the joined-row boundary", async () => {
-    await expect(runSearch(makeJoinedRow({ latitude: "not-a-number" })))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
+  it("reads the joined row on the Prisma plane — the Drizzle seam is never reached", async () => {
+    const counter = countingCatalogPrisma([{ bangumi_id: "1" }], [makeJoinedRow()]);
 
-  it("rejects a null required numeric field instead of coercing to 0", async () => {
-    await expect(runSearch(makeJoinedRow({ latitude: null })))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
+    const result = await search(
+      searchDb(counter.query, unreachableCatalogDb()),
+      { query: "Lucky Star" },
+    );
 
-  it("rejects an empty-string required numeric field instead of coercing to 0", async () => {
-    await expect(runSearch(makeJoinedRow({ longitude: "" })))
-      .rejects.toThrow("Catalog row longitude is not numeric");
+    expect(counter.statements()).toBe(2);
+    expect(result.rows.map((row) => row.id)).toEqual(["spot-1"]);
   });
 });

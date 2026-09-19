@@ -8,6 +8,7 @@ import {
   type PublishedPointRow,
 } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { catalogIngestBangumi, type IngestGuard } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
 import { previewForWork, type MissPreview } from "./preview";
@@ -64,9 +65,20 @@ function syncingResult(): PointsByBangumiResult {
   return { ...emptyResult(), partial: true };
 }
 
-/** Bind the read port to the shared points reader and ingest infrastructure (#1792: egress required for anitabi). */
-export function workPointsDb(db: CatalogDb, egressSigningKey?: string): WorkPointsPort {
-  const points = bangumiPoints(db);
+/** Bind the read port to the shared points reader and ingest infrastructure (#1792: egress required for anitabi).
+ *
+ * Both seams are parameters because the migration is mid-flight: the published
+ * points read through `adapters/outbound/bangumi-points.ts` is Prisma's (#1631,
+ * spec §4.2) off this request's runtime, while the ingest (`ingest/`) is still
+ * Drizzle's until #1630 converts it. `db` is that not-yet-moved seam, not a
+ * second Prisma construction site.
+ */
+export function workPointsDb(
+  prisma: CatalogPrisma,
+  db: CatalogDb,
+  egressSigningKey?: string,
+): WorkPointsPort {
+  const points = bangumiPoints(prisma);
   return {
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
     previewForWork: (bangumiId, fetchImpl) => previewForWork(bangumiId, fetchImpl, egressSigningKey),

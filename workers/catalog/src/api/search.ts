@@ -28,14 +28,19 @@
  * in-Worker mirror of `packages/contract/src/models.ts`. `import type` erases at
  * compile time, keeping the contract's zod runtime out of the Worker bundle;
  * they are re-exported so existing consumers keep importing them from here.
+ *
+ * The two reads — the alias lookup and the published points — are plans over
+ * the shared contract (#1631, spec §4.2), run on this request's runtime; see
+ * `firstBangumiIdPlan` for why that removes the row narrowing the Drizzle seam
+ * needed. The L1 preview is an upstream fetch, and the ingest is still
+ * Drizzle's until #1630 converts it.
  */
 
-import { desc, eq } from "drizzle-orm";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import { bangumiPoints } from "../adapters/outbound/bangumi-points";
 import { pointsByBangumi, type PublishedPointRow } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { aliases } from "../db/schema";
+import type { CatalogPrisma } from "../db/prisma";
 import { normalizeAlias } from "../lib/alias";
 import { catalogIngestBangumi, type IngestBangumi } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
@@ -58,8 +63,9 @@ export interface SearchOptions {
 }
 
 /**
- * The minimal DB surface `search` depends on. `CatalogDb` (the production
- * Drizzle client) satisfies it via `searchDb(db)`; tests inject a fake.
+ * The minimal DB surface `search` depends on. Tests inject a fake; the
+ * production one comes from `searchDb(...)`, which spans both seams while the
+ * query layer is mid-migration (see that factory).
  *
  * The miss path is split into two so the handler can return the fast preview
  * before the slow ingest finishes:
@@ -127,12 +133,25 @@ function emptyResult(): SearchResult {
   return { rows: [], synced_at: new Date().toISOString() };
 }
 
-/** Build the production `SearchDb` over a Drizzle `CatalogDb` (#1792: egress required for anitabi). */
-export function searchDb(db: CatalogDb, egressSigningKey?: string): SearchDb {
+/** Build the production `SearchDb`.
+ *
+ * Both seams are parameters because the migration is mid-flight: the alias
+ * lookup and the published points read through
+ * `adapters/outbound/bangumi-points.ts` are Prisma's (#1631, spec §4.2) off this
+ * request's runtime, while the ingest (`ingest/`) is still Drizzle's until
+ * #1630 converts it. `db` is that not-yet-moved seam, not a second Prisma
+ * construction site.
+ */
+export function searchDb(
+  prisma: CatalogPrisma,
+  db: CatalogDb,
+  egressSigningKey?: string,
+): SearchDb {
   const ingest = catalogIngestBangumi(db, egressSigningKey);
+  const points = bangumiPoints(prisma);
   return {
-    bangumiIdForAlias: (normalized) => firstBangumiId(db, normalized),
-    pointsForBangumi: (bangumiId) => bangumiPoints(db).pointsForBangumi(bangumiId),
+    bangumiIdForAlias: (normalized) => firstBangumiId(prisma, normalized),
+    pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
     resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl, egressSigningKey),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };
@@ -149,15 +168,25 @@ async function runFullIngest(
 }
 
 /** Exact-match the normalized alias -> the highest-priority bangumi id.
- * Built with the Drizzle query builder (highest-priority alias wins). */
-async function firstBangumiId(db: CatalogDb, normalized: string): Promise<string | undefined> {
-  const statement = statementBuilder()
-    .select({ bangumiId: aliases.bangumiId })
-    .from(aliases)
-    .where(eq(aliases.aliasNormalized, normalized))
-    .orderBy(desc(aliases.priority))
+ *
+ * A plan over the shared contract (#1631): `select` fixes the row to the
+ * contract's own `bangumi_id`, so the lookup reads its result directly instead
+ * of narrowing an `unknown[]` the way the Drizzle seam required.
+ *
+ * `ORDER BY priority DESC LIMIT 1` is carried over verbatim, including its
+ * silence on ties: a tie-break would pick a different winner than the path this
+ * replaces, which is a behaviour change, not a cleanup. */
+function firstBangumiIdPlan(query: CatalogPrisma, normalized: string): SqlOrmPlan<{ bangumi_id: string }> {
+  return query.builder.public.aliases
+    .select("bangumi_id")
+    .where((fields, match) => match.eq(fields.alias_normalized, normalized))
+    .orderBy("priority", { direction: "desc" })
     .limit(1)
-    .getSQL();
-  const result = await db.execute(statement);
-  return (result.rows as { bangumi_id: string }[])[0]?.bangumi_id;
+    .build();
+}
+
+/** The highest-priority bangumi id for a normalized alias, if the alias exists. */
+async function firstBangumiId(query: CatalogPrisma, normalized: string): Promise<string | undefined> {
+  const [row] = await query.executor.query(firstBangumiIdPlan(query, normalized));
+  return row?.bangumi_id;
 }

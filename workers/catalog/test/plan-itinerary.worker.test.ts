@@ -2,10 +2,10 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
-import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
-import type { CatalogDb } from "../src/db/client";
+import { pointsForRoute } from "../src/adapters/outbound/route-points";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 
 /**
  * Use-case seam tests: `planItinerary` receives points through a fake
@@ -119,35 +119,28 @@ describe("planItinerary redacted observability", () => {
   });
 });
 
-describe("pointsForRoute outbound adapter — SQL fetch wired to the port", () => {
+describe("pointsForRoute outbound adapter — Prisma fetch wired to the port", () => {
   it("loads requested ids in ids order and drops unknown ids", async () => {
     // The fake returns every point row; the adapter keeps only the requested ids
     // and reassembles them in the requested order, dropping unknown ids.
-    const fakeDb: RouteDb = {
-      execute: () => Promise.resolve({ rows: POINTS }),
-    };
-    const port = pointsForRoute(fakeDb);
+    const port = pointsForRoute(fakeCatalogPrisma(POINTS));
     expect(ids(await port.loadPoints(["c", "nope", "a"]))).toEqual(["c", "a"]);
   });
   it("empty ids -> no query, no rows", async () => {
-    let executed = false;
-    const fakeDb: RouteDb = {
-      execute: () => {
-        executed = true;
-        return Promise.resolve({ rows: [] });
-      },
-    };
-    const port = pointsForRoute(fakeDb);
+    const counter = countingCatalogPrisma();
+    const port = pointsForRoute(counter.query);
     expect(await port.loadPoints([])).toEqual([]);
-    expect(executed).toBe(false);
+    expect(counter.statements()).toBe(0);
   });
 });
 
 const seamHandler = new OpenAPIHandler(catalogRouter);
+/** A context whose points answer on the Prisma plane (#1631), one row-list per
+ * `query()` in call order. The route reads no Drizzle seam — the plan is built
+ * from the requested ids and the upstream is not on this path — so that seam is
+ * left unreachable. */
 function seamContext(rows: unknown[][]): CatalogContext {
-  const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
-  const db = { execute } as unknown as CatalogDb;
-  return { db, prisma: unreachableCatalogPrisma() };
+  return { db: unreachableCatalogDb(), prisma: fakeCatalogPrisma(...rows) };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

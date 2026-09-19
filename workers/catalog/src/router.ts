@@ -20,6 +20,9 @@ import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
+  /** The not-yet-moved Drizzle seam: what is left of it after #1631 is the
+   * ingest (`ingest/`), reached through `searchDb` / `workPointsDb` until #1630
+   * converts it. Every READ crosses `prisma`. */
   db: CatalogDb;
   /** This request's Prisma data-plane seam (builder + runtime); see `db/prisma.ts`. */
   prisma: CatalogPrisma;
@@ -36,7 +39,7 @@ export interface CatalogContext {
 const os = implement(catalogContract).$context<CatalogContext>();
 
 const search = os.search.handler(async ({ input, context }) =>
-  searchHandler(searchDb(context.db, context.egressSigningKey), input, {
+  searchHandler(searchDb(context.prisma, context.db, context.egressSigningKey), input, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
     waitUntil: context.waitUntil,
@@ -44,20 +47,20 @@ const search = os.search.handler(async ({ input, context }) =>
 );
 
 const resolve = os.resolve.handler(async ({ input, context }) =>
-  resolveBangumi(titleAlias(context.db), bangumiTitleSearch({ fetchImpl: context.fetchImpl }), input, {
+  resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl }), input, {
     observer: resolveObserver(),
   }),
 );
 
 const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
-  pointsByBangumiId(workPointsDb(context.db, context.egressSigningKey), input.bangumi_id, {
+  pointsByBangumiId(workPointsDb(context.prisma, context.db, context.egressSigningKey), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
   }),
 );
 
 const spots = os.spots.handler(async ({ input, context }) =>
-  callSpots(context.db, input),
+  callSpots(context.prisma, input),
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
@@ -65,7 +68,7 @@ const nearby = os.nearby.handler(async ({ input, context }) =>
 );
 
 const geocode = os.geocode.handler(async ({ input, context }) =>
-  geocodeHandler(context.db, input),
+  geocodeHandler(context.prisma, input),
 );
 
 const MAX_ITINERARY_POINT_IDS = 500;
@@ -80,17 +83,17 @@ function assertItineraryPointIdCap(count: number): Promise<void> {
 
 const planItinerary = os.planItinerary.handler(async ({ input, context }) => {
   await assertItineraryPointIdCap(input.point_ids.length);
-  return planItineraryUseCase(pointsForRoute(context.db), input, {
+  return planItineraryUseCase(pointsForRoute(context.prisma), input, {
     observer: itineraryObserver(),
   });
 });
 
 const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
-  callAnimeOverview(context.db, input),
+  callAnimeOverview(context.prisma, input),
 );
 
 const popular = os.popular.handler(async ({ input, context }) => {
-  const rows = await popularBangumiDb(context.db).listPopular(input.limit);
+  const rows = await popularBangumiDb(context.prisma).listPopular(input.limit);
   return {
     bangumi: rows.map((row) => ({
       bangumi_id: row.id,
@@ -105,9 +108,9 @@ const popular = os.popular.handler(async ({ input, context }) => {
 });
 
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
-async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
+async function callSpots(prisma: CatalogPrisma, input: { bangumi_id: string; origin?: Origin }) {
   try {
-    return await spotsHandler(db, input);
+    return await spotsHandler(prisma, input);
   } catch (err) {
     if (err instanceof SpotNotFoundError) throw workNotFound(err.bangumiId);
     throw err;
@@ -115,9 +118,9 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
 }
 
 /** Run anime overview, translating only an absent anime into the typed 404. */
-async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
+async function callAnimeOverview(prisma: CatalogPrisma, input: { bangumi_id: string }) {
   try {
-    return await getBangumiOverview(overviewPointsDb(db), input);
+    return await getBangumiOverview(overviewPointsDb(prisma), input);
   } catch (err) {
     if (err instanceof AnimeOverviewNotFoundError) throw workNotFound(err.bangumiId);
     throw err;

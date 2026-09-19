@@ -1,13 +1,13 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import type { CatalogDb } from "../src/db/client";
 import type {
   RouteTooManyPointsData,
   UpstreamUnavailableData,
   WorkNotFoundData,
 } from "../src/lib/errors";
 import type { Itinerary } from "../src/types";
+import { fakeCatalogDb, unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 interface ErrorEnvelope<TData> {
@@ -62,16 +62,17 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
   return response;
 }
 
-/** Build a minimal CatalogContext; casts stay at the test fake boundary. */
+/** Build a minimal CatalogContext; casts stay at the test fake boundary. Every
+ * READ answers on the Prisma plane (#1631), one row-list per `query()` in call
+ * order; the Drizzle seam is the ingest's (#1630), and it finds no parked job
+ * here. */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
-  const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
-  return { db, prisma: fakeCatalogPrisma(rows), fetchImpl };
+  return { db: fakeCatalogDb({}), prisma: fakeCatalogPrisma(rows), fetchImpl };
 }
 
-/** Context whose DB and Prisma seam must not be touched. */
+/** Context whose Prisma and Drizzle seams must not be touched. */
 function unreachableContext(): CatalogContext {
-  const db = { execute: () => { throw new Error("db should not be reached"); } } as unknown as CatalogDb;
-  return { db, prisma: unreachableCatalogPrisma() };
+  return { db: unreachableCatalogDb(), prisma: unreachableCatalogPrisma() };
 }
 
 /** Joined point+bangumi rows spaced far enough apart to produce distinct clusters. */

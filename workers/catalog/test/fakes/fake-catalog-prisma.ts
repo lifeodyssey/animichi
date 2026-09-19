@@ -29,6 +29,40 @@ export function fakeCatalogPrisma(...answers: readonly (readonly unknown[])[]): 
   return { builder: catalogClient().sql, executor: executorAnswering(answers) };
 }
 
+/**
+ * {@link fakeCatalogPrisma} with the executor's call count exposed.
+ *
+ * A converted adapter's operation count is a shape fact — "this read is ONE
+ * statement" — so the tests that assert it need to read the count back rather
+ * than infer it from the answers list running dry.
+ */
+export interface CountingCatalogPrisma {
+  /** The seam to hand the adapter under test. */
+  readonly query: CatalogPrisma;
+  /** Statements the adapter has executed so far. */
+  statements(): number;
+}
+
+/** The real builder paired with a counting executor over `answers`. */
+export function countingCatalogPrisma(
+  ...answers: readonly (readonly unknown[])[]
+): CountingCatalogPrisma {
+  let calls = 0;
+  const answering = executorAnswering(answers);
+  return {
+    query: {
+      builder: catalogClient().sql,
+      executor: {
+        query: (plan) => {
+          calls += 1;
+          return answering.query(plan);
+        },
+      },
+    },
+    statements: () => calls,
+  };
+}
+
 /** A seam whose builder AND executor both fail: for tests that must not reach Prisma. */
 export function unreachableCatalogPrisma(): CatalogPrisma {
   const refuse = (): never => {

@@ -1,29 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { AliasDb } from "../src/adapters/outbound/title-alias";
 import { titleAlias } from "../src/adapters/outbound/title-alias";
 import { bangumiTitleSearch } from "../src/adapters/outbound/bangumi-search";
 import type { FetchLike } from "../src/ingest/sources";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
-function aliasDb(responses: Record<string, unknown>[][]):
-  { db: AliasDb; calls: () => number } {
-  let calls = 0;
-  const execute = () => {
-    calls += 1;
-    return Promise.resolve({ rows: responses.shift() ?? [] });
-  };
-  return { db: { execute }, calls: () => calls };
-}
-
-describe("titleAlias Neon adapter", () => {
+describe("titleAlias adapter on the Prisma data plane", () => {
   it("groups aliases by work and derives stored candidate enrichment", async () => {
-    const { db, calls } = aliasDb([
+    const counter = countingCatalogPrisma(
       [{ bangumi_id: "3302", priority: 40 }],
       [{
         id: "3302", title: "らき☆すた", title_cn: "幸运星",
-        cover_url: "cover.jpg", air_date: "2007-04-08", points_count: "2",
+        cover_url: "cover.jpg", air_date: "2007-04-08", points_count: 2,
       }],
-    ]);
-    const port = titleAlias(db);
+    );
+    const port = titleAlias(counter.query);
 
     await expect(port.worksForAlias("lucky star")).resolves.toEqual([
       { bangumi_id: "3302", priority: 40 },
@@ -32,13 +22,21 @@ describe("titleAlias Neon adapter", () => {
       bangumi_id: "3302", title: "らき☆すた", title_cn: "幸运星",
       cover_url: "cover.jpg", year: 2007, points_count: 2,
     }]);
-    expect(calls()).toBe(2);
+    expect(counter.statements()).toBe(2);
   });
 
   it("maps an empty alias read to no works", async () => {
-    const { db } = aliasDb([[]]);
+    await expect(titleAlias(fakeCatalogPrisma([])).worksForAlias("no-such-alias")).resolves.toEqual([]);
+  });
 
-    await expect(titleAlias(db).worksForAlias("no-such-alias")).resolves.toEqual([]);
+  it("carries the point count the plan projected without re-typing it", async () => {
+    // `count(points.id)::int4` is decoded by the contract's int4 codec, so the
+    // projected count arrives as a number — the Drizzle path had to coerce a raw
+    // "2" string here instead.
+    const rows = await titleAlias(fakeCatalogPrisma(
+      [{ id: "1", title: "T", title_cn: null, cover_url: null, air_date: null, points_count: 0 }],
+    )).candidatesForWorks(["1"]);
+    expect(rows[0]?.points_count).toBe(0);
   });
 });
 
