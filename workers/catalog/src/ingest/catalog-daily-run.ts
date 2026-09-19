@@ -30,20 +30,21 @@ export async function catalogDailyRun(
   epochMs: number,
   inputs: DailyRunInputs,
   policy: RunPolicy,
+  egressSigningKey?: string,
 ): Promise<DailyRunOutcome> {
   const runId = dailyRunKey(epochMs);
   const plan: RunPlan = { runId, epochMs, discovery: inputs.discovery, knownIds: inputs.knownIds, tiered: inputs.tiered, policy };
-  const run = await runDailyIngestWith(catalogPorts(db, runId, policy.keepHistory), plan);
+  const run = await runDailyIngestWith(catalogPorts(db, runId, policy.keepHistory, egressSigningKey), plan);
   return { status: run.status, runId, createdAt: new Date(epochMs).toISOString() };
 }
 
-/** The RunPorts bound to a CatalogDb for one run id. */
-export function catalogPorts(db: CatalogDb, runId: string, keepHistory: number): RunPorts {
+/** The RunPorts bound to a CatalogDb for one run id (#1792: egress required for anitabi). */
+export function catalogPorts(db: CatalogDb, runId: string, keepHistory: number, egressSigningKey?: string): RunPorts {
   return {
     readRun: (id) => readRunRow(db, id),
     beginRun: (id) => beginRunRow(db, id),
     recordRun: (id, snapshot) => recordRunRow(db, id, snapshot),
-    ingestWork: (bangumiId, tier, budget) => ingestRunWork(db, bangumiId, runId, budget),
+    ingestWork: (bangumiId, tier, budget) => ingestRunWork(db, bangumiId, runId, budget, egressSigningKey),
     cleanup: (id) => cleanupRawHistory(db, id, keepHistory),
     markRunFailed: (id, reason) => markRunFailedRow(db, id, reason),
   };

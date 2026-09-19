@@ -45,11 +45,14 @@ import {
  * A refusal is not a failure that clears with time, so its TTL is a recheck
  * cadence rather than a backoff: one request per refused work per day, so
  * restored access is picked up within a day without being asked for hourly.
+ * An egress refusal is OURS, not the upstream's: the ceiling clears within
+ * the hour, so it parks for an hour — never for the upstream's 24h (#1792).
  */
 export const DEFAULT_INGEST_TTL = {
   failureSeconds: 60 * 60,
   refusalSeconds: 24 * 60 * 60,
   emptySeconds: 7 * 24 * 60 * 60,
+  egressSeconds: 60 * 60,
 } as const;
 
 /** Knobs for {@link IngestBangumi.ingest} (defaulted for prod; tests inject `fetchImpl`). */
@@ -108,6 +111,7 @@ export interface IngestTtl {
   failureSeconds: number;
   refusalSeconds: number;
   emptySeconds: number;
+  egressSeconds: number;
 }
 
 /** The ports + TTL an ingest phase needs, bundled so module helpers stay small. */
@@ -179,6 +183,9 @@ async function runSafely(runtime: IngestRuntime, bangumiId: string, fetchImpl?: 
 /** Park the classified failure; rethrow upstream failures as defined 502s. */
 async function handleError(runtime: IngestRuntime, bangumiId: string, err: unknown): Promise<IngestResult> {
   const result = await fail(runtime, bangumiId, classifyIngestFailure(err));
+  // An egress refusal is deliberately NOT rethrown as UPSTREAM_UNAVAILABLE: the
+  // upstream never answered, our ceiling clears within the hour, and the
+  // parked row's `egress_refused` code is the signal a human reads (#1792).
   if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
   return result;
 }
@@ -235,16 +242,21 @@ function parkedFailure(ttl: IngestTtl, failure: IngestFailure): FailureOptions {
 function parkedSeconds(ttl: IngestTtl, code: IngestErrorCode): number {
   if (code === IngestErrorCode.NotFound) return ttl.emptySeconds;
   if (code === IngestErrorCode.UpstreamRefused) return ttl.refusalSeconds;
+  if (code === IngestErrorCode.EgressRefused) return ttl.egressSeconds;
   return ttl.failureSeconds;
 }
 
-/** The production `IngestBangumi` over a Drizzle `CatalogDb`. */
-export function catalogIngestBangumi(db: CatalogDb, alarm: RefusalAlarm = consoleRefusalAlarm()): IngestBangumi {
+/** The production `IngestBangumi` over a Drizzle `CatalogDb` (#1792: egress required for anitabi). */
+export function catalogIngestBangumi(
+  db: CatalogDb,
+  egressSigningKey?: string,
+  alarm: RefusalAlarm = consoleRefusalAlarm(),
+): IngestBangumi {
   const jobs = new JobStore(db);
   return new IngestBangumi(
     {
       fetchBangumi: (bangumiId, fetchImpl) => fetchBangumiSubject(bangumiId, { fetchImpl }),
-      fetchPoints: (bangumiId, fetchImpl) => fetchAnitabiPoints(bangumiId, { fetchImpl }),
+      fetchPoints: (bangumiId, fetchImpl) => fetchAnitabiPoints(bangumiId, { fetchImpl, egressSigningKey }),
     },
     {
       acquire: (bangumiId) => jobs.acquire(bangumiId),

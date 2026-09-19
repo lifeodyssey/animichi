@@ -37,10 +37,11 @@ export async function ingestRunWork(
   bangumiId: string,
   runId: string,
   budget: Budget,
+  egressSigningKey?: string,
 ): Promise<RunWorkOutcome> {
   if (!canSpendWork(budget)) return { outcome: "exhausted" };
   spendWork(budget, 2, 0);
-  const fetched = await fetchSources(bangumiId);
+  const fetched = await fetchSources(bangumiId, egressSigningKey);
   if (!fetched.ok) {
     return { outcome: "fetchFailed", source: fetched.source, attempted: fetched.attempted, reason: fetched.reason };
   }
@@ -51,13 +52,13 @@ export async function ingestRunWork(
 }
 
 /** Fetch both sources; a failure names the source that threw. */
-async function fetchSources(bangumiId: string): Promise<FetchResult> {
+async function fetchSources(bangumiId: string, egressSigningKey?: string): Promise<FetchResult> {
   const subject = await fetchBangumiSubject(bangumiId).then(
     (value) => ({ ok: true as const, subject: value }),
     (reason: unknown) => failedResult("bangumi", reason, ["bangumi"]),
   );
   if (!subject.ok) return subject;
-  const points = await fetchAnitabiPoints(bangumiId).then(
+  const points = await fetchAnitabiPoints(bangumiId, { egressSigningKey }).then(
     (value) => ({ ok: true as const, points: value }),
     (reason: unknown) => failedResult("anitabi", reason, ["bangumi", "anitabi"]),
   );

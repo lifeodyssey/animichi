@@ -24,10 +24,11 @@ export interface MissPreview {
 export async function previewForQuery(
   query: string,
   fetchImpl?: FetchLike,
+  egressSigningKey?: string,
 ): Promise<MissPreview | null> {
   const bangumiId = await bangumiIdResolve(query, fetchImpl);
   if (!bangumiId) return null;
-  const preview = await previewForWork(bangumiId, fetchImpl);
+  const preview = await previewForWork(bangumiId, fetchImpl, egressSigningKey);
   return preview.points.length > 0 ? preview : null;
 }
 
@@ -35,8 +36,9 @@ export async function previewForQuery(
 export async function previewForWork(
   bangumiId: string,
   fetchImpl?: FetchLike,
+  egressSigningKey?: string,
 ): Promise<MissPreview> {
-  const lite = await fetchLitePreview(bangumiId, fetchImpl);
+  const lite = await fetchLitePreview(bangumiId, fetchImpl, egressSigningKey);
   return { bangumiId, points: lite.points.map((point) => litePoint(point, bangumiId)) };
 }
 
@@ -46,9 +48,9 @@ async function bangumiIdResolve(query: string, fetchImpl?: FetchLike): Promise<s
 }
 
 /** Treat Anitabi 404 as a real empty preview and other failures as outages. */
-async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
+async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike, egressSigningKey?: string): Promise<AnitabiLite> {
   try {
-    return await fetchAnitabiLite(bangumiId, { fetchImpl });
+    return await fetchAnitabiLite(bangumiId, { fetchImpl, egressSigningKey });
   } catch (error) {
     if (error instanceof UpstreamNotFoundError) return { points: [], total: 0 };
     throw upstreamUnavailable("anitabi", error);

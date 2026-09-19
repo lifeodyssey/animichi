@@ -13,6 +13,7 @@ import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes } from "./import/admin-routes";
 import { connectionString, dbFor } from "./db/connections";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
+import { egressSigningKeyFromEnv } from "./ingest/anitabi-egress";
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -41,6 +42,16 @@ export interface Env {
    * plain-string form remains for tests/local dev, same as DATABASE_URL above.
    */
   CATALOG_ADMIN_TOKEN?: string | SecretsStoreSecret;
+  /**
+   * Shared signing key for the anitabi egress service (#1792). Signs requests;
+   * the key never crosses the wire. Fail closed: anitabi fetches refuse when absent.
+   *
+   * There is deliberately no egress-address binding to go with it: the
+   * service's address is the committed constant in `./ingest/anitabi-egress`,
+   * and a configurable base would be a destination parameter — the one thing
+   * #1792 forbids anywhere on this path.
+   */
+  INGEST_SIGNING_KEY?: string | SecretsStoreSecret;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -116,7 +127,12 @@ app.use("/catalog/*", async (c, next) => {
   }
   const { db } = await dbFor(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
-    context: { db, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
+    context: {
+      db,
+      fetchImpl: fetch,
+      egressSigningKey: await egressSigningKeyFromEnv(c.env),
+      waitUntil: waitUntilFor(c),
+    },
   });
   if (matched) {
     return c.newResponse(response.body, response);
@@ -130,7 +146,7 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
     const connStr = await connectionString(this.env);
     if (!connStr) throw new Error("catalog database not configured");
     const { db } = await dbFor(connStr);
-    return catalogIngestBangumi(db).ingest(bangumiId);
+    return catalogIngestBangumi(db, await egressSigningKeyFromEnv(this.env)).ingest(bangumiId);
   }
 }
 

@@ -2,7 +2,9 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { catalogIngestBangumi, type IngestBangumi } from "../src/ingest/ingest-bangumi";
+import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import type { FetchLike } from "../src/ingest/sources";
+import { stubEgressSigningKey } from "./egress-stub";
 import {
   databaseDescribe,
   openServerlessDb,
@@ -33,17 +35,34 @@ const ANITABI_POINTS = [
   { id: "o-tokyo", name: "東京駅", lat: 35.6812, lng: 139.7671, screenshot: "/2024/tokyo.jpg", episode: 3 },
 ];
 
+/**
+ * The anitabi arm of every double below is the EGRESS SERVICE's points route,
+ * not the upstream's (#1792) — the catalog reaches api.anitabi.cn only through
+ * it — and its answer carries the service's relayed marker, without which the
+ * caller treats the answer as not ours.
+ */
+function isEgressPoints(url: string): boolean {
+  return url.startsWith(`${ANITABI_EGRESS_BASE_URL}/anitabi/points/`);
+}
+
+/** The relayed marker the egress service stamps on an upstream's own answer. */
+const RELAYED = { get: (name: string) => (name === "x-egress-response" ? "relayed-upstream" : null) };
+
 /** Build a mock fetchImpl that routes by URL substring to the canned payloads. */
 function makeFetch(points: unknown): FetchLike {
-  return (url) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(url.includes("/points/detail") ? points : BANGUMI_SUBJECT) });
+  return (url) => Promise.resolve(
+    isEgressPoints(url)
+      ? { ok: true, status: 200, headers: RELAYED, json: () => Promise.resolve(points) }
+      : { ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) },
+  );
 }
 
 /** A fetchImpl that throws — simulates an upstream/network failure. */
 const throwingFetch: FetchLike = () => { throw new Error("upstream exploded"); };
 
 const notFoundFetch: FetchLike = (url) => {
-  if (url.includes("/points/detail")) {
-    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+  if (isEgressPoints(url)) {
+    return Promise.resolve({ ok: false, status: 404, headers: RELAYED, json: () => Promise.resolve(null) });
   }
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) });
 };
@@ -56,8 +75,9 @@ const notFoundFetch: FetchLike = (url) => {
 function makeGatedFetch(gate: Promise<void>): FetchLike {
   return async (url) => {
     await gate;
-    const body = url.includes("/points/detail") ? ANITABI_POINTS : BANGUMI_SUBJECT;
-    return { ok: true, status: 200, json: () => Promise.resolve(body) };
+    return isEgressPoints(url)
+      ? { ok: true, status: 200, headers: RELAYED, json: () => Promise.resolve(ANITABI_POINTS) }
+      : { ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) };
   };
 }
 
@@ -104,7 +124,7 @@ async function awaitRunning(bangumiId: string): Promise<void> {
 beforeAll(async () => {
   db = await openServerlessDb();
   await truncateCatalog(db);
-  ingest = catalogIngestBangumi(db);
+  ingest = catalogIngestBangumi(db, stubEgressSigningKey());
 }, 120_000);
 
 afterAll(() => { restoreNeonConfig(); });

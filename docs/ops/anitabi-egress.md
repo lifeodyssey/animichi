@@ -42,7 +42,9 @@ GET /anitabi/lite/{bangumiId}
 
 The service builds the upstream URL itself. There is no "target" parameter anywhere in it. This
 is the control that survives a leaked credential: with the key in hand, the worst an attacker can
-do is ask for public landmark data. No code path can express another host.
+do is ask for public landmark data. No code path can express another host — and the connection set
+is that one URL, since a `Location` header on the upstream's answer is refused rather than followed
+(`redirect: "error"`, #1806).
 
 A forwarder taking a URL plus an allowlist would **not** be equivalent. An allowlist is
 configuration and drifts; an API surface is code and goes through review.
@@ -66,6 +68,10 @@ more than it protects. The two-key window exists so rotation is painless when th
 **100 upstream requests per hour**, enforced by the service regardless of what the caller asks.
 
 This is a promise to the upstream, not a tuning knob. Changing it means changing an agreement.
+
+The window lives in the running process: a restart (deploy, secret rotation, crash) starts a fresh
+hour, so a restart mid-window can admit a second hour's worth across the two. Restarts here are
+manual and rotation is unscheduled, which is what keeps that bounded.
 
 It also defends against us: #1784 found a refused job being re-queued hourly for six hours. The
 ceiling is what stops a caller-side bug from spending the relationship.
@@ -103,16 +109,36 @@ fly logs   --app animichi-anitabi-egress
 fly deploy --app animichi-anitabi-egress
 
 # Rotate the signing key. Generate locally; never paste a value into a PR,
-# an issue, or a chat. `--stage` defers the machine restart until deploy.
-# The same value goes to the caller's side of the HMAC: `workers/catalog`
-# binds INGEST_SIGNING_KEY from the Cloudflare Secrets Store, written by the
-# infra/database-access stack from owner-set ESC config. Fly first — the
-# service accepts a current and a previous key, so the caller keeps working
-# while the ESC value and the apply catch up. See secrets.md.
+# an issue, or a chat. Fly never shows a secret's value, so `<the current key>`
+# is the one you generated and kept. `--stage` holds the change and the one
+# `fly secrets deploy` below is the only restart: BOTH values go in ONE
+# release, so the release that installs the new key still accepts the old.
+# This is ordering (1); ordering (2) is the caller, and it comes after.
+# See "Rotation has two orderings" below.
 fly secrets set INGEST_SIGNING_KEY="$(openssl rand -base64 48)" \
+  INGEST_SIGNING_KEY_PREVIOUS="<the current key>" \
   --app animichi-anitabi-egress --stage
 fly secrets deploy --app animichi-anitabi-egress
 ```
+
+### Rotation has two orderings
+
+They are not two wordings of one rule. They order two different things — the two keys inside the Fly
+app, and the Fly app against the caller's copy — so both apply, and a reader who collapses them
+keeps only one and ends up with callers refused. Follow them in this sequence.
+
+1. **Within Fly: both keys go in ONE release.** The command above sets the new
+   `INGEST_SIGNING_KEY` and the old value as `INGEST_SIGNING_KEY_PREVIOUS` together, and its single
+   `fly secrets deploy` is the only restart, so the release that installs the new key still accepts
+   the old one. Set them in two releases and the restart between them drops the old key while
+   callers are still signing with it.
+2. **Across systems: Fly goes first.** `workers/catalog` binds `INGEST_SIGNING_KEY` from the
+   Cloudflare Secrets Store, written by the `infra/database-access` stack from owner-set ESC
+   config. Put **the same value** you generated above there only once the release is live: until
+   the ESC edit and the apply catch up, the caller is still signing with the old key, which this
+   release accepts as its previous key. Reverse it and the caller signs with a key the service has
+   not been told about, which is refused. See [`secrets.md`](./secrets.md).
+3. **Then drop the previous key**, in a later release, once the caller is confirmed on the new one.
 
 That store entry is never set by hand. A Secrets Store secret name is unique within its store and
 create does not adopt one, so a hand-made `INGEST_SIGNING_KEY` there would be a second authority

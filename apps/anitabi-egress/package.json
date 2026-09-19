@@ -1,0 +1,22 @@
+{
+  "name": "anitabi-egress",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Fixed-address egress service for the anitabi API (#1792): two named operations, signed requests, an hourly upstream request ceiling. Deployed by hand on Fly (owner-granted exemption).",
+  "scripts": {
+    "lint": "pnpm run lint:oxlint",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.unit.test.ts",
+    "test:integration": "node --import tsx --test test/*.integration.test.ts",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist/server.mjs",
+    "guard:egress-address": "tsx src/check-egress-address.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

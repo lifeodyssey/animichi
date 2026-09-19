@@ -4,6 +4,7 @@ import { IngestEntrypoint } from "../src/index";
 import { databaseDescribe, localDatabaseUrl } from "./integration-db";
 import { call, type ApiPoint } from "./catalog-integration-client";
 import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
+import { stubEgressSigningKey } from "./egress-stub";
 import { stubSearchMiss, stubUpstream } from "./integration-upstream-stubs";
 
 // The Node integration pool has no workerd runtime; stub the runtime module so
@@ -38,7 +39,11 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
 
     const entrypoint = new IngestEntrypoint(
       {} as unknown as ExecutionContext,
-      { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
+      {
+        ENVIRONMENT: "test",
+        DATABASE_URL: localDatabaseUrl(),
+        INGEST_SIGNING_KEY: stubEgressSigningKey(),
+      },
     );
     const ingested = await entrypoint.ingestBangumi(NEW_WORK_ID);
     expect(ingested).toEqual({

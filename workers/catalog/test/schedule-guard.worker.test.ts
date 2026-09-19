@@ -130,8 +130,8 @@ describe("scheduled handler per-environment dispatch (AC1)", () => {
     // that listDoneBangumiIds (mocked empty) doesn't already report done —
     // one call per bangumi id, over the connected db.
     expect(handle.ingestBangumi).toHaveBeenCalledTimes(10);
-    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(1, db, "160209");
-    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(10, db, "328609");
+    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(1, db, "160209", undefined);
+    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(10, db, "328609", undefined);
   });
 
   it("runs the import cron in staging through the injected import runner", async () => {
