@@ -1,4 +1,24 @@
-import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
+import type { Reporter, TestStatus } from "@playwright/test/reporter";
+
+/**
+ * The facts this rule reads off a case, declared as what it consults rather
+ * than borrowed whole from `TestCase`. Four facts decide the verdict — which
+ * project the case belongs to, what its declaration expected, what the run
+ * reported, and what to call it — and naming them is what lets
+ * `no-skipped-tests.test.ts` drive the guard with exactly those and nothing
+ * else. A real `TestCase` satisfies this shape, so the class is still a
+ * `Reporter`; the narrowing is interface segregation, not a substitute.
+ */
+export interface ReportedCase {
+  readonly expectedStatus: TestStatus;
+  readonly parent: { project(): { readonly name: string } | undefined };
+  titlePath(): readonly string[];
+}
+
+/** The one fact it reads off a result. */
+export interface ReportedResult {
+  readonly status: TestStatus;
+}
 
 /**
  * A skipped test is not a pass (#1690).
@@ -26,7 +46,7 @@ const EXEMPT_PROJECTS = new Set(["visual", "seed"]);
 export default class NoSkippedTestsReporter implements Reporter {
   private readonly skipped: string[] = [];
 
-  onTestEnd(test: TestCase, result: TestResult): void {
+  onTestEnd(test: ReportedCase, result: ReportedResult): void {
     if (result.status !== "skipped" && test.expectedStatus !== "skipped") return;
     if (EXEMPT_PROJECTS.has(test.parent.project()?.name ?? "")) return;
     this.skipped.push(test.titlePath().join(" › "));
