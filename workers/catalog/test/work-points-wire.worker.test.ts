@@ -1,7 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { fakeCatalogDb, unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import type { UpstreamUnavailableData } from "../src/lib/errors";
 
@@ -27,11 +26,11 @@ async function handleRequest(body: unknown, context: CatalogContext) {
  * is the ingest's (#1630), and here it finds no parked job, so the route's
  * uncovered-work path runs end to end. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
-  return { db: fakeCatalogDb({}), prisma: fakeCatalogPrisma(...responses), fetchImpl };
+  return { prisma: fakeCatalogPrisma(...responses), fetchImpl };
 }
 
 function unreachableContext(): CatalogContext {
-  return { db: unreachableCatalogDb(), prisma: unreachableCatalogPrisma() };
+  return { prisma: unreachableCatalogPrisma() };
 }
 
 describe("work-id contract on the OpenAPI wire", () => {

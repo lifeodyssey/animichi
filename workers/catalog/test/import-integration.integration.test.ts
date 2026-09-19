@@ -8,17 +8,33 @@
  *   import atomically replaces the staging Catalog in one transaction.  AC6:
  *   after import, staging holds the public Catalog and NO auth/user-domain
  *   records (sessions/request_log stay empty). Skipped offline (no Neon).
+ *
+ * The export reads through a plan seam (#1630) and the import still writes the
+ * pre-Prisma column set, so BOTH run on this suite's own database: the switch
+ * is the shippable cut, and a candidate read from one shape into another would
+ * not be the import this file is about.
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { exportCandidate } from "../src/publish/candidate-export";
 import { buildManifest } from "../src/publish/manifest";
 import { importSnapshot } from "../src/import/import-snapshot";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import {
+  databaseDescribe,
+  localDatabaseUrl,
+  openPrismaSeam,
+  openServerlessDb,
+  restoreNeonConfig,
+  truncateCatalog,
+  type PlanePrisma,
+} from "./integration-db";
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seam: PlanePrisma;
 
 async function seedProductionSet(): Promise<void> {
   await db.execute(sql`INSERT INTO bangumi (id, title) VALUES ('prod1', 'Lucky Star'), ('prod2', 'Slow Loop')`);
@@ -34,7 +50,7 @@ async function seedStagingBaseline(): Promise<void> {
 }
 
 async function buildSnapshotSource(): Promise<ReturnType<typeof fakeSnapshotSource>> {
-  const exported = await exportCandidate(db, "snapshots/import/data");
+  const exported = await exportCandidate(query, "snapshots/import/data");
   const snapshotId = "snap-daily-2026-08-14";
   const manifest = buildManifest(exported, snapshotId, "daily-2026-08-14", "2026-08-14T00:00:00Z");
   const f = fakeSnapshotSource();
@@ -48,14 +64,19 @@ async function buildSnapshotSource(): Promise<ReturnType<typeof fakeSnapshotSour
 
 beforeAll(async () => {
   db = await openServerlessDb();
+  seam = await openPrismaSeam(localDatabaseUrl());
+  query = seam.query;
   await truncateCatalog(db);
 }, 120_000);
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seam.dispose();
+  restoreNeonConfig();
+});
 
 /** Read a scalar count() result defensively (rows are typed unknown). */
-async function countOf(query: SQL): Promise<number> {
-  const result = await db.execute(query);
+async function countOf(statement: SQL): Promise<number> {
+  const result = await db.execute(statement);
   const row = result.rows[0];
   if (row === undefined || typeof row !== "object" || !("c" in row)) throw new Error("count query returned no count");
   const value = (row as { c: unknown }).c;

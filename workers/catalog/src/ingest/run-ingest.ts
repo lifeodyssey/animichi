@@ -5,13 +5,13 @@
  * publish pipeline for one work within a run, consuming the run's budget and
  * reporting a source-aware outcome. A failed work never reaches publish, so its
  * published pointer is not advanced. Provenance and raw-history capture happen
- * across the CatalogDb seam so the run is diagnosable after the fact.
+ * across this request's Prisma runtime so the run is diagnosable after the fact.
  */
 import { canSpendWork, spendWork, type Budget } from "./budgets";
 import type { RunSource, RunWorkOutcome } from "./daily-run";
 import { appendRawHistory } from "./raw_history";
 import { captureProvenance, pointFieldMap, type ProvenanceRecord } from "./provenance";
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { saveRawAnitabi, saveRawBangumi } from "./raw-store";
 import { enrichWork } from "../enrich/enrich";
 import {
@@ -33,7 +33,7 @@ type OkFetch = Extract<FetchResult, { ok: true }>;
 
 /** Ingest a work within a run; consumes budget and returns a source outcome. */
 export async function ingestRunWork(
-  db: CatalogDb,
+  query: CatalogPrisma,
   bangumiId: string,
   runId: string,
   budget: Budget,
@@ -46,9 +46,9 @@ export async function ingestRunWork(
     return { outcome: "fetchFailed", source: fetched.source, attempted: fetched.attempted, reason: fetched.reason };
   }
   if (fetched.points.length === 0) return { outcome: "empty", source: "anitabi", reason: "no points" };
-  await writeRaw(db, runId, bangumiId, fetched);
-  await captureAll(db, runId, bangumiId, fetched);
-  return publish(db, bangumiId);
+  await writeRaw(query, runId, bangumiId, fetched);
+  await captureAll(query, runId, bangumiId, fetched);
+  return publish(query, bangumiId);
 }
 
 /** Fetch both sources; a failure names the source that threw. */
@@ -77,29 +77,29 @@ function failedResult(
 
 /** Persist the raw payloads and their history rows. */
 async function writeRaw(
-  db: CatalogDb,
+  query: CatalogPrisma,
   runId: string,
   bangumiId: string,
   fetched: OkFetch,
 ): Promise<void> {
-  await saveRawBangumi(db, bangumiId, fetched.subject);
-  await saveRawAnitabi(db, bangumiId, fetched.points);
-  await appendRawHistory(db, { workId: bangumiId, source: "bangumi", payload: fetched.subject, runId });
-  await appendRawHistory(db, { workId: bangumiId, source: "anitabi", payload: fetched.points, runId });
+  await saveRawBangumi(query, bangumiId, fetched.subject);
+  await saveRawAnitabi(query, bangumiId, fetched.points);
+  await appendRawHistory(query, { workId: bangumiId, source: "bangumi", payload: fetched.subject, runId });
+  await appendRawHistory(query, { workId: bangumiId, source: "anitabi", payload: fetched.points, runId });
 }
 
 /** Capture work + per-point provenance for the run. */
 async function captureAll(
-  db: CatalogDb,
+  query: CatalogPrisma,
   runId: string,
   bangumiId: string,
   fetched: OkFetch,
 ): Promise<void> {
   const map = pointFieldMap();
-  await captureProvenance(db, workProvenance(bangumiId));
+  await captureProvenance(query, workProvenance(bangumiId));
   for (const point of fetched.points) {
     const pointId = pointIdOf(point);
-    if (pointId) await captureProvenance(db, pointProvenance(bangumiId, pointId, map));
+    if (pointId) await captureProvenance(query, pointProvenance(bangumiId, pointId, map));
   }
 }
 
@@ -138,9 +138,9 @@ function pointIdOf(point: AnitabiPoint): string | null {
 }
 
 /** Enrich + publish the work; a failure becomes a pipeline failure. */
-async function publish(db: CatalogDb, bangumiId: string): Promise<RunWorkOutcome> {
+async function publish(query: CatalogPrisma, bangumiId: string): Promise<RunWorkOutcome> {
   try {
-    const result = await enrichWork(db, bangumiId);
+    const result = await enrichWork(query, bangumiId);
     return { outcome: "ingested", version: result.version };
   } catch (err) {
     return { outcome: "pipelineFailed", stage: "enrich", reason: message(err) };

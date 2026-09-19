@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { runDailyIngestWith, type RunPlan, type RunPolicy } from "../src/ingest/daily-run";
 import { catalogPorts } from "../src/ingest/catalog-daily-run";
 import { appendRawHistory, cleanupRawHistory, historyCount } from "../src/ingest/raw_history";
 import { captureProvenance } from "../src/ingest/provenance";
 import {
   databaseDescribe,
-  openServerlessDb,
+  openPlaneSeams,
   restoreNeonConfig,
   truncateCatalog,
+  type PlaneSeams,
 } from "./integration-db";
 
 /**
@@ -30,6 +32,8 @@ const POLICY: RunPolicy = {
 };
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 
 async function runStatus(runId: string): Promise<string | null> {
   const rows = (await db.execute(sql`SELECT status FROM catalog_runs WHERE run_id = ${runId}`)).rows;
@@ -45,11 +49,16 @@ async function currentPointer(workId: string): Promise<number | undefined> {
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
+  seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query;
   await truncateCatalog(db);
 }, 120_000);
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 function plan(runId: string): RunPlan {
   return {
@@ -68,15 +77,15 @@ function plan(runId: string): RunPlan {
 /** A run that needs upstream data returns a failed-run record, never completing. */
 databaseDescribe("Daily run durability (AC1)", () => {
   it("records the stable run id and a terminal status", async () => {
-    await runDailyIngestWith(catalogPorts(db, "daily-ac1", POLICY.keepHistory), plan("daily-ac1"));
+    await runDailyIngestWith(catalogPorts(query, "daily-ac1", POLICY.keepHistory), plan("daily-ac1"));
     const status = await runStatus("daily-ac1");
     expect([ "failed", "partial" ]).toContain(status);
   });
 
   it("is idempotent: re-running a recorded run id does not duplicate the row", async () => {
     const id = "daily-idem";
-    await runDailyIngestWith(catalogPorts(db, id, POLICY.keepHistory), plan(id));
-    await runDailyIngestWith(catalogPorts(db, id, POLICY.keepHistory), plan(id));
+    await runDailyIngestWith(catalogPorts(query, id, POLICY.keepHistory), plan(id));
+    await runDailyIngestWith(catalogPorts(query, id, POLICY.keepHistory), plan(id));
     const rows = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM catalog_runs WHERE run_id = ${id}`)).rows as { n: number }[];
     expect(rows[0]?.n).toBe(1);
   });
@@ -85,24 +94,24 @@ databaseDescribe("Daily run durability (AC1)", () => {
 databaseDescribe("Raw payload retention (AC5)", () => {
   it("keeps exactly the latest and previous raw payload per work/source", async () => {
     for (let i = 1; i <= 4; i += 1) {
-      await appendRawHistory(db, { workId: "retain-w", source: "anitabi", payload: [{ n: i }] });
+      await appendRawHistory(query, { workId: "retain-w", source: "anitabi", payload: [{ n: i }] });
     }
-    await cleanupRawHistory(db, "not-the-run");
-    expect(await historyCount(db, "retain-w", "anitabi")).toBe(2);
+    await cleanupRawHistory(query, "not-the-run");
+    expect(await historyCount(query, "retain-w", "anitabi")).toBe(2);
   });
 
   it("never prunes the active run's evidence", async () => {
     for (let i = 1; i <= 3; i += 1) {
-      await appendRawHistory(db, { workId: "active-w", source: "anitabi", payload: [{ n: i }], runId: "daily-active" });
+      await appendRawHistory(query, { workId: "active-w", source: "anitabi", payload: [{ n: i }], runId: "daily-active" });
     }
-    await cleanupRawHistory(db, "daily-active");
-    expect(await historyCount(db, "active-w", "anitabi")).toBe(3);
+    await cleanupRawHistory(query, "daily-active");
+    expect(await historyCount(query, "active-w", "anitabi")).toBe(3);
   });
 });
 
 databaseDescribe("Provenance capture (AC4)", () => {
   it("UPSERTs a point provenance record with upstream identity and a field map", async () => {
-    await captureProvenance(db, {
+    await captureProvenance(query, {
       scope: "point",
       entityId: "p-1",
       workId: "prov-w",
@@ -124,7 +133,7 @@ databaseDescribe("Provenance capture (AC4)", () => {
 databaseDescribe("Published pointer safety (AC6)", () => {
   it("does not advance the published pointer for a work that never publishes", async () => {
     expect(await currentPointer("spike-1")).toBeUndefined();
-    await runDailyIngestWith(catalogPorts(db, "daily-ac6", POLICY.keepHistory), plan("daily-ac6"));
+    await runDailyIngestWith(catalogPorts(query, "daily-ac6", POLICY.keepHistory), plan("daily-ac6"));
     expect(await currentPointer("spike-1")).toBeUndefined();
   });
 });

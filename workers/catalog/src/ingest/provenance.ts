@@ -8,11 +8,15 @@
  * source, and a per-field map recording which source produced each published
  * field. A work row carries the Bangumi subject provenance. Re-ingest of the
  * same entity overwrites the latest capture, so provenance never goes stale.
+ *
+ * The write is the builder's INSERT plus the conflict clause it does not model
+ * ({@link ../db/plans}), on the (scope, entity_id) unique key. `captured_at` is
+ * the column's own `now()` on both branches — the conflict side copies
+ * `EXCLUDED.captured_at` — so the capture timestamp is the database's clock.
  */
-import { sql, type SQL } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { catalogProvenance } from "../db/schema";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
+import { upsert } from "../db/plans";
 
 /** The entity scope of a provenance record. */
 export type ProvenanceScope = "point" | "work";
@@ -33,45 +37,38 @@ export interface ProvenanceRecord {
   fieldMap: FieldSourceMap;
 }
 
+/** The columns a re-capture overwrites on an existing provenance row. */
+const PROVENANCE_UPDATE_COLUMNS = [
+  "work_id", "source", "upstream_id", "attribution", "license", "field_map", "captured_at",
+] as const;
+
 /** UPSERT a provenance record for an entity; latest capture wins. */
 export async function captureProvenance(
-  db: CatalogDb,
+  query: CatalogPrisma,
   record: ProvenanceRecord,
 ): Promise<void> {
-  await db.execute(captureStatement(record));
+  await query.executor.query(capturePlan(query, record));
 }
 
-/** The UPSERT ... ON CONFLICT (scope, entity_id) DO UPDATE statement. */
-function captureStatement(record: ProvenanceRecord): SQL {
-  return statementBuilder()
-    .insert(catalogProvenance)
-    .values(provenanceValues(record))
-    .onConflictDoUpdate({
-      target: [catalogProvenance.scope, catalogProvenance.entityId],
-      set: {
-        workId: sql`EXCLUDED.work_id`,
-        source: sql`EXCLUDED.source`,
-        upstreamId: sql`EXCLUDED.upstream_id`,
-        attribution: sql`EXCLUDED.attribution`,
-        license: sql`EXCLUDED.license`,
-        fieldMap: sql`EXCLUDED.field_map`,
-        capturedAt: sql`EXCLUDED.captured_at`,
-      },
-    })
-    .getSQL();
+/** The UPSERT ... ON CONFLICT (scope, entity_id) DO UPDATE plan. */
+function capturePlan(query: CatalogPrisma, record: ProvenanceRecord): SqlOrmPlan {
+  const insert = query.builder.public.catalog_provenance
+    .insert([provenanceValues(record)])
+    .build();
+  return upsert(insert, { target: ["scope", "entity_id"], update: PROVENANCE_UPDATE_COLUMNS });
 }
 
-/** The column values for one provenance row. */
+/** The column values for one provenance row (`captured_at` stays the column default). */
 function provenanceValues(record: ProvenanceRecord) {
   return {
     scope: record.scope,
-    entityId: record.entityId,
-    workId: record.workId,
+    entity_id: record.entityId,
+    work_id: record.workId,
     source: record.source,
-    upstreamId: record.upstreamId,
+    upstream_id: record.upstreamId,
     attribution: record.attribution,
     license: record.license,
-    fieldMap: record.fieldMap,
+    field_map: record.fieldMap,
   };
 }
 

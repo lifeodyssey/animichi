@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { search, searchDb } from "../src/api/search";
 import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 
 /**
  * The `search` output shape over the joined points row.
@@ -41,7 +40,7 @@ function makeJoinedRow(overrides: Record<string, unknown> = {}): Record<string, 
  * never reached by a read. */
 function runSearch(row: Record<string, unknown>) {
   return search(
-    searchDb(fakeCatalogPrisma([{ bangumi_id: "1" }], [row]), unreachableCatalogDb()),
+    searchDb(fakeCatalogPrisma([{ bangumi_id: "1" }], [row])),
     { query: "Lucky Star" },
   );
 }
@@ -76,7 +75,7 @@ describe("search joined-row output shape", () => {
     const counter = countingCatalogPrisma([{ bangumi_id: "1" }], [makeJoinedRow()]);
 
     const result = await search(
-      searchDb(counter.query, unreachableCatalogDb()),
+      searchDb(counter.query),
       { query: "Lucky Star" },
     );
 

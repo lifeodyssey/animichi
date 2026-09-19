@@ -18,10 +18,10 @@
  *
  * The pipeline phases live as module-level functions over a bundled
  * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
- * Writes go through the `store` port's Drizzle query-builder statements over
- * the single adapter seam, consistent with the ingest layer owning all mutations.
+ * Writes go through the `store` port's builder plans over this request's Prisma
+ * runtime, consistent with the ingest layer owning all mutations.
  */
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";
 import { upstreamUnavailable } from "../lib/errors";
 import {
@@ -246,13 +246,13 @@ function parkedSeconds(ttl: IngestTtl, code: IngestErrorCode): number {
   return ttl.failureSeconds;
 }
 
-/** The production `IngestBangumi` over a Drizzle `CatalogDb` (#1792: egress required for anitabi). */
+/** The production `IngestBangumi` over this request's Prisma seam (#1792: egress required for anitabi). */
 export function catalogIngestBangumi(
-  db: CatalogDb,
+  query: CatalogPrisma,
   egressSigningKey?: string,
   alarm: RefusalAlarm = consoleRefusalAlarm(),
 ): IngestBangumi {
-  const jobs = new JobStore(db);
+  const jobs = new JobStore(query);
   return new IngestBangumi(
     {
       fetchBangumi: (bangumiId, fetchImpl) => fetchBangumiSubject(bangumiId, { fetchImpl }),
@@ -265,10 +265,10 @@ export function catalogIngestBangumi(
       markDone: (bangumiId) => jobs.markDone(bangumiId),
       markFailed: (bangumiId, opts) => jobs.markFailed(bangumiId, opts),
       hasLiveRefusal: (upstream) => jobs.hasLiveRefusal(upstream),
-      saveRawBangumi: (bangumiId, payload) => writeRawBangumi(db, bangumiId, payload),
-      saveRawAnitabi: (bangumiId, payload) => writeRawAnitabi(db, bangumiId, payload),
+      saveRawBangumi: (bangumiId, payload) => writeRawBangumi(query, bangumiId, payload),
+      saveRawAnitabi: (bangumiId, payload) => writeRawAnitabi(query, bangumiId, payload),
     },
-    { publish: (bangumiId) => enrichWork(db, bangumiId) },
+    { publish: (bangumiId) => enrichWork(query, bangumiId) },
     DEFAULT_INGEST_TTL,
     alarm,
   );
