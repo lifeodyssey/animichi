@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { search, searchDb } from "../src/api/search";
-import type { CatalogDb } from "../src/db/client";
+import { catalogDb } from "./in-memory-search-db";
+import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 const JOINED_ROW: Record<string, unknown> = {
   id: "spot-1",
@@ -23,14 +24,10 @@ function makeJoinedRow(overrides: Record<string, unknown> = {}): Record<string, 
   return { ...JOINED_ROW, ...overrides };
 }
 
-function catalogDb(responses: unknown[][]): CatalogDb {
-  const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
-  return { execute } as unknown as CatalogDb;
-}
-
+/** The production factory over both seams: the alias lookup answers one hit on
+ * the Prisma plane (#1631), the joined points read on the Drizzle seam. */
 function runSearch(row: Record<string, unknown>) {
-  const db = catalogDb([[{ bangumi_id: "1" }], [row]]);
-  return search(searchDb(db), { query: "Lucky Star" });
+  return search(searchDb(fakeCatalogPrisma([{ bangumi_id: "1" }]), catalogDb([row])), { query: "Lucky Star" });
 }
 
 describe("search joined-row output shape", () => {

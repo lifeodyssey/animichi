@@ -36,7 +36,7 @@ export interface CatalogContext {
 const os = implement(catalogContract).$context<CatalogContext>();
 
 const search = os.search.handler(async ({ input, context }) =>
-  searchHandler(searchDb(context.db, context.egressSigningKey), input, {
+  searchHandler(searchDb(context.prisma, context.db, context.egressSigningKey), input, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
     waitUntil: context.waitUntil,
@@ -57,7 +57,7 @@ const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
 );
 
 const spots = os.spots.handler(async ({ input, context }) =>
-  callSpots(context.db, input),
+  callSpots(context.prisma, input),
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
@@ -105,9 +105,9 @@ const popular = os.popular.handler(async ({ input, context }) => {
 });
 
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
-async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
+async function callSpots(prisma: CatalogPrisma, input: { bangumi_id: string; origin?: Origin }) {
   try {
-    return await spotsHandler(db, input);
+    return await spotsHandler(prisma, input);
   } catch (err) {
     if (err instanceof SpotNotFoundError) throw workNotFound(err.bangumiId);
     throw err;

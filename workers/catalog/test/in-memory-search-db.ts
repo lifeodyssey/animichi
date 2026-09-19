@@ -82,7 +82,8 @@ export function waitUntilSpy(): { waitUntil: (p: Promise<unknown>) => void; sche
   return { waitUntil: (p) => void scheduled.push(p), scheduled };
 }
 
-/** Fake production DB for searchDb() alias misses; casts stay at the boundary. */
+/** The Drizzle seam `searchDb()` still needs for the not-yet-moved points read;
+ * casts stay at the boundary. */
 export function catalogDb(rows: unknown[]): CatalogDb {
   return { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
 }

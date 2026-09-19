@@ -8,36 +8,43 @@
  * The contract returns a SINGLE point (not a list), so we pick the work's
  * representative point (lowest id, deterministic) and 404 if the work has none.
  *
- * Read-only: a single statement built with the Drizzle query builder through the
- * `statementBuilder()` seam and executed via `db.execute(statement.getSQL())` —
- * see the adopter seam in `../db/client.ts`. The wire shapes (`Point` /
+ * Read-only. Since #1631 the read is a plan over the shared contract, built with
+ * `query.builder.public.points` and executed on the caller's request runtime
+ * ({@link CatalogPrisma}, spec §4.2) — see the plan builder below for why that
+ * removes the row narrowing the Drizzle seam needed. The wire shapes (`Point` /
  * `Origin`) come from `../types` — the single in-Worker mirror of
  * packages/contract/src/models.ts (import type erases at compile time, keeping
  * the contract's zod runtime out of the bundle).
  */
 
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { points as pointsTable } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
 import { haversine } from "../domain/geo";
 import { optional } from "../lib/optional";
 import type { Origin, Point } from "../types";
 
 export type { Origin, Point };
 
-/** Raw column shape returned by the points read query. */
-interface PointRow {
+/** The representative read's columns, in the contract's own output types.
+ *
+ * The plan builder below is annotated with this, so the shape is CHECKED against
+ * the contract-bound builder rather than asserted: dropping a column from the
+ * plan, or giving one the wrong type here, is a compile error. The Drizzle path
+ * could not do this — its rows arrived as `unknown[]`, so a hand-written
+ * interface plus an `as unknown as` cast was the only way to name the columns,
+ * and a drift between that interface and the SELECT was invisible to the
+ * compiler. */
+interface RepresentativeRow {
   id: string;
   name: string;
   name_cn: string | null;
-  bangumi_id: string;
+  bangumi_id: string | null;
   episode: number | null;
   time_seconds: number | null;
   image: string | null;
   latitude: number;
   longitude: number;
-  city?: string | null;
+  city: string | null;
   origin: string | null;
   origin_url: string | null;
 }
@@ -51,24 +58,20 @@ export class SpotNotFoundError extends Error {
 }
 
 /** Representative point for a work (lowest id first for a stable pick). */
-function representativeQuery(bangumiId: string) {
-  return statementBuilder()
-    .select({
-      id: pointsTable.id, name: pointsTable.name, nameCn: pointsTable.nameCn,
-      bangumiId: pointsTable.bangumiId, episode: pointsTable.episode,
-      timeSeconds: pointsTable.timeSeconds, image: pointsTable.image,
-      latitude: pointsTable.latitude, longitude: pointsTable.longitude, city: pointsTable.city,
-      origin: pointsTable.origin, originUrl: pointsTable.originUrl,
-    })
-    .from(pointsTable)
-    .where(eq(pointsTable.bangumiId, bangumiId))
-    .orderBy(sql`id ASC`)
+function representativePlan(query: CatalogPrisma, bangumiId: string): SqlOrmPlan<RepresentativeRow> {
+  return query.builder.public.points
+    .select(
+      "id", "name", "name_cn", "bangumi_id", "episode", "time_seconds",
+      "image", "latitude", "longitude", "city", "origin", "origin_url",
+    )
+    .where((fields, match) => match.eq(fields.bangumi_id, bangumiId))
+    .orderBy("id")
     .limit(1)
-    .getSQL();
+    .build();
 }
 
-/** Map a DB row to the contract Point shape (omitting null columns). */
-function toPoint(r: PointRow): Point {
+/** Map a representative row to the contract Point shape (omitting null columns). */
+function toPoint(r: RepresentativeRow): Point {
   return {
     ...pointBase(r),
     ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
@@ -78,11 +81,11 @@ function toPoint(r: PointRow): Point {
   };
 }
 
-function pointBase(r: PointRow): Point {
+function pointBase(r: RepresentativeRow): Point {
   return {
     id: r.id,
     name: r.name,
-    bangumi_id: r.bangumi_id,
+    bangumi_id: r.bangumi_id ?? "",
     screenshot_url: r.image ?? "",
     latitude: r.latitude,
     longitude: r.longitude,
@@ -99,10 +102,10 @@ function distanceFrom(point: Point, origin?: Origin): number | undefined {
 
 /** Fetch the representative point for a work, with optional distance from origin. */
 export async function spots(
-  db: CatalogDb,
+  query: CatalogPrisma,
   input: { bangumi_id: string; origin?: Origin },
 ): Promise<{ point: Point; distance_m?: number }> {
-  const row = ((await db.execute(representativeQuery(input.bangumi_id))).rows as unknown as PointRow[])[0];
+  const [row] = await query.executor.query(representativePlan(query, input.bangumi_id));
   if (!row) throw new SpotNotFoundError(input.bangumi_id);
   const point = toPoint(row);
   const distance_m = distanceFrom(point, input.origin);
