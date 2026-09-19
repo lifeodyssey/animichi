@@ -13,23 +13,26 @@ Orca coordinator for `lifeodyssey/animichi`. Dispatch writer lanes through the h
 concurrency — the owner has said repeatedly to dispatch anything without a genuine file conflict and
 not to impose a cap. Ask the owner only about money, production, secrets, scope, or rule exemptions.
 
-## Live right now — one lane, and a stack that cannot land yet
+## Live right now — #1628 is green and in review
 
-One lane runs: **#1628 fix round 2**, in `orca-1628-lane`. Everything else in the Prisma chain is
-committed and waiting on it.
+**#1628** tip `45ca61268` on `lifeodyssey/orca-1628-lane` (rebased onto `origin/main` `40aa02338`).
+Tree clean, not pushed. Fix-round-2 Dispatch `ctx_f40f96141729` settled succeeded; headless
+cleanup accepted `msg_3e868c065fe9`. Pre-push affected gate exit 0 under `env -u NODE_ENV`.
+Independent Grok 4.6 xhigh Matt `/code-review` is the next owner — do not push before it
+returns. Round 1 of 3.
 
-### The stack, and why it is stuck
+### The stack
 
 ```
 main
- └── 1628  connection shape — two pre-push failures, second fix in flight
-      ├── 1629  ✅ committed `a12a8f3c2` — outbound adapters converted
-      ├── 1630  ⛔ stopped with no commit — a missing primitive, see below
-      └── 1631  ✅ committed `ca3147aa2` — search + spots converted
+ └── 1628  45ca61268  gates green, awaiting independent review
+      ├── 1629  restacked `36771f7ed` — adapters converted; does not typecheck until router/api wire
+      ├── 1630  ⛔ no commit — missing INSERT … ON CONFLICT, see below
+      └── 1631  restacked `7e2e5c053` — search + spots converted
 ```
 
-**#1629 and #1631 cannot be pushed until #1628's gate passes**, because they inherit its commits and
-therefore its failures. When #1628 lands a green tip, restack both onto it before pushing.
+**#1629 and #1631 are restacked onto the green tip and still must not be pushed** until #1628
+merges. 1629 still cannot typecheck: its call sites live in `src/router.ts` and `src/api/*`.
 
 They do not conflict with each other: #1629 touched no shared file, #1631 needed two call sites in
 `workers/catalog/src/router.ts` and said so. **`router.ts` is the seam the subdirectory split
@@ -78,10 +81,10 @@ upsert**, so splitting the card would leave the bug it exists for unfixed.
 
 | PR | what | state |
 |---|---|---|
-| #1815 | docs-hygiene stops reading test fixtures as broken links | behind/blocked, auto-merge armed |
-| #1817 | this document and `LESSONS.md` | behind/blocked |
-| #1818 | nonce-based CSP for `apps/web` (#469) | behind/blocked |
-| #1819 | **the owner's own branch**, not a lane's — do not touch | — |
+| #1815 | docs-hygiene stops reading test fixtures as broken links | hygiene-fix pushed `fbe18baf3`; auto-merge armed |
+| #1817 | this document and `LESSONS.md` | open; CodeRabbit asked for companion links |
+| #1818 | nonce-based CSP for `apps/web` (#469) | blocked: browser + CodeQL + codecov/patch |
+| #1819 | **the owner's own branch**, not a lane's — do not touch | CLEAN, do not merge from this seat |
 
 `github-advanced-security` fails on every PR with *"The requested model is not supported"*. Not a
 required check, blocks nothing — that is #1639.
