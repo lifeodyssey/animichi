@@ -9,8 +9,9 @@ import { makePgCatalog } from "./integration-db-global/pg-catalog";
 /** The suite-owned Postgres context, always provided by the Docker arm setup. */
 export interface IntegrationDatabaseContext {
   enabled: boolean;
-  /** The pre-Prisma shape (`drizzle-era-catalog.sql`): every integration file
-   * except the nearby path, until #1629–#1631 move the rest of the query layer. */
+  /** The pre-Prisma shape (`drizzle-era-catalog.sql`) — what the files that
+   * still write it need, the staging import above all, until #1629–#1631 move
+   * the rest of the query layer. */
   dsn: string;
   /** The Prisma data plane (#1626): the shape every real environment has, and
    * the one the nearby path reads since #1628. */
@@ -125,7 +126,20 @@ export interface PlanePrisma {
 }
 
 export async function openPlanePrisma(): Promise<PlanePrisma> {
-  const runtime = await acquireCatalogRuntime(planeDatabaseUrl());
+  return openPrismaSeam(planeDatabaseUrl());
+}
+
+/**
+ * The plan seam over ANY suite database — the same builder and runtime the
+ * Worker builds, pointed at a DSN the caller names.
+ *
+ * This exists for the suites whose own shape is not the plane's: the staging
+ * import still writes the pre-Prisma column set, so its database stays
+ * `_legacy`, while the reads it drives (the candidate export) are plans now and
+ * must reach that same database to see the rows it seeded.
+ */
+export async function openPrismaSeam(url: string): Promise<PlanePrisma> {
+  const runtime = await acquireCatalogRuntime(url);
   return {
     query: catalogPrisma(runtime),
     dispose: async () => { await runtime[Symbol.asyncDispose](); },

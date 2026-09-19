@@ -10,12 +10,12 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";
-import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { r2ObjectStore, type ObjectStore } from "../src/publish/object-store";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { readPointer, POINTER_KEY } from "../src/publish/pointer";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { textToArrayBuffer } from "../src/publish/bytes";
 
 let mf: Miniflare | undefined;
@@ -43,9 +43,9 @@ async function storeKeys(store: ObjectStore): Promise<string[]> {
 describe("r2ObjectStore retention end-to-end (AC6/AC4)", () => {
   it("publishes N/N-1 and gcSnapshots retains the live pointer and both snapshots", async () => {
     const store = await openStore();
-    const db: CatalogDb = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
-    await publishSnapshot({ db, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
-    await publishSnapshot({ db, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
+    const query: CatalogPrisma = fakeTableRows({ bangumi: [{ id: "w1" }] });
+    await publishSnapshot({ query, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+    await publishSnapshot({ query, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
     // An abandoned snapshot that no pointer references must be swept.
     await store.put("snapshots/snap-orphan/data/works.json", { body: textToArrayBuffer("[]"), contentType: "application/json" });
 
@@ -63,8 +63,8 @@ describe("r2ObjectStore retention end-to-end (AC6/AC4)", () => {
 
   it("publishes durable snapshot objects through the R2 adapter (read them back)", async () => {
     const store = await openStore();
-    const db: CatalogDb = fakeCatalogDb({ aliases: [{ bangumiId: "w1", alias: "x" }] });
-    const result = await publishSnapshot({ db, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+    const query: CatalogPrisma = fakeTableRows({ aliases: [{ bangumiId: "w1", alias: "x" }] });
+    const result = await publishSnapshot({ query, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
     expect(result.status).toBe("published");
     const entry = await store.get("snapshots/snap-daily-1/data/works.json");
     expect(entry).not.toBeNull();

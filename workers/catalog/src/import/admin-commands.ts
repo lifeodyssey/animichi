@@ -10,7 +10,6 @@
  * bounded policy, ingest-only. Both are exposed as admin routes guarded by
  * CATALOG_ADMIN_TOKEN and reject public/unauthorized callers.
  */
-import type { CatalogDb } from "../db/client";
 import type { CatalogPrisma } from "../db/prisma";
 import { catalogDailyRun } from "../ingest/catalog-daily-run";
 import { buildDailyInventory, type SeasonalResolver } from "../ingest/daily-discovery";
@@ -62,12 +61,11 @@ export function canaryPolicy() {
  * publish-after-run gate the dailyDiscover cron performs. The controlled epoch
  * keeps scheduling deterministic in tests; the store is threaded from the route.
  *
- * The run is a Prisma plan over this request's runtime (#1630) while the
- * snapshot publish is still Drizzle's, so both seams arrive named.
+ * The run and the snapshot publish it can trigger are one seam: this request's
+ * {@link CatalogPrisma} runtime (#1630).
  */
 export async function fullIngest(
   query: CatalogPrisma,
-  db: CatalogDb,
   epochMs: number,
   store: ObjectStore | null,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
@@ -76,7 +74,7 @@ export async function fullIngest(
   const ports: DailyPublishPorts = {
     runDailyIngest: () => outcome,
     publishRun: (s, sourceRunId, createdAt) =>
-      publishSnapshot({ db, store: s }, { sourceRunId, createdAt }),
+      publishSnapshot({ query, store: s }, { sourceRunId, createdAt }),
     gcSnapshots: (s) => gcSnapshots(s, SNAPSHOT_KEEP),
   };
   await publishAfterRun(store, ports);

@@ -11,13 +11,15 @@ import { recordingCatalogPrisma } from "./fakes/plan-inspection";
  * statements, submitted together, all-or-nothing. The Prisma plane has no
  * `batch` — it has a real client TRANSACTION — so what replaced that contract is
  * what has to be pinned here: every write of one enrich runs inside ONE
- * `transaction()`, and the version flip precedes the insert so a reader never
- * sees the new rows against the old pointer.
+ * `transaction()`, the version flip precedes the insert so a reader never sees
+ * the new rows against the old pointer, and a publish reached from inside a
+ * caller's transaction JOINS it instead of opening a second connection.
  *
- * The fake's `transaction` runs `fn` on the same bound seam (a real
- * transaction-bound seam joins rather than nests, see `db/prisma.ts`) and counts
- * how many times it was opened. Atomicity itself — that a mid-pass throw really
- * discards — is proved against real Postgres in publish.integration.test.ts.
+ * The fake's `transaction` runs `fn` on a bound seam whose own `transaction`
+ * joins — the shape `bindTransaction` gives a request in `db/prisma.ts` — and
+ * counts only the openings that are NOT a join. Atomicity itself — that a
+ * mid-pass throw really discards, and that a failed publish discards its flip —
+ * is proved against real Postgres in publish.integration.test.ts.
  */
 
 /** The seam under test, with its transaction openings counted. */
@@ -30,11 +32,12 @@ interface TransactionRecording {
 function atomicSeam(...answers: readonly (readonly unknown[])[]): TransactionRecording {
   const recording = recordingCatalogPrisma(...answers);
   let opened = 0;
+  const bound: CatalogPrisma = { ...recording.query, transaction: (fn) => Promise.resolve(fn(bound)) };
   const seam: CatalogPrisma = {
     ...recording.query,
     transaction: (fn) => {
       opened += 1;
-      return Promise.resolve(fn(seam));
+      return Promise.resolve(fn(bound));
     },
   };
   return {
@@ -50,17 +53,17 @@ const RAW_ANITABI = [
   { id: "point-2", name: "Second Place", geo: [36, 140] },
 ];
 
-it("publishes a version inside the caller's transaction, flip then read then insert", async () => {
+it("publishes a version in ONE transaction of its own, flip then read then insert", async () => {
   // The flip answers nothing, the version read answers the next version the SQL
   // computed, and the insert returns it.
   const seam = atomicSeam([], [{ version: 7 }], [{ version: 7 }]);
 
   await expect(publishVersion(seam.query, "batch-work")).resolves.toBe(7);
 
-  // publishVersion opens NO transaction of its own: Postgres has no nested
-  // transactions, and a helper that opened a second connection would make the
-  // atomicity the caller asked for a lie.
-  expect(seam.transactions()).toBe(0);
+  // A standalone publish is one unit of its own: a crash between the flip and
+  // the insert must discard the flip rather than leave the work with no current
+  // version at all.
+  expect(seam.transactions()).toBe(1);
   expect(seam.planKinds()).toEqual(["update", "select", "insert"]);
 });
 
@@ -81,6 +84,8 @@ it("runs every enrich write inside ONE transaction, flip before insert", async (
 
   await expect(enrichWork(seam.query, "batch-work")).resolves.toEqual({ version: 11, pointCount: 2 });
 
+  // The publish inside the pass JOINS the pass's transaction — still one unit,
+  // not two connections.
   expect(seam.transactions()).toBe(1);
   // The two raw reads happen BEFORE the transaction opens; inside it:
   // upsert bangumi, upsert points, upsert aliases, flip, next-version, insert.
