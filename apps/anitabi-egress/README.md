@@ -7,9 +7,9 @@ path beyond the ceiling's own counter (#1810).
 
 The operations, the checks and the hostname are all public — the repository is
 public and the design never depended on hiding them. The only things that stay
-out of this tree are the signing key, the ceiling store's address and token
-(all Fly secrets), and the egress address (the upstream allowlists it; see the
-guard below).
+out of this tree are the signing key, the ceiling store's Private URL (which
+carries its own password), all Fly secrets, and the egress address (the upstream
+allowlists it; see the guard below).
 
 ## What it serves — and all it can serve
 
@@ -60,18 +60,22 @@ agreement. The service refuses past it with a response marked as its own, so
 the caller never mistakes our ceiling for an upstream refusal.
 
 The window is the **fixed UTC clock hour**, and the count lives in an external
-counter — a Redis-compatible REST endpoint (Upstash-style) holding one integer
-per hour, reached at `CEILING_STORE_URL` with `CEILING_STORE_TOKEN` (#1810).
-Counting outside the process is what makes the promise survive a deploy, a
-rotation or a crash, and what makes two instances share one budget; counting in
-a fixed clock hour is what lets both derive its key from the clock alone. As
-with any fixed window, a request burst can straddle a boundary.
+counter — the Redis `fly redis create` provisions, holding one integer per hour
+and reached over TCP with RESP at `CEILING_STORE_URL` (#1810, #1824). That value
+is the store's **Private URL**: a `redis` address with the store's own password
+inside it, set with `fly secrets` and required at boot. Counting outside the
+process is what makes the promise survive a deploy, a rotation or a crash, and
+what makes two instances share one budget; counting in a fixed clock hour is
+what lets both derive its key from the clock alone. As with any fixed window, a
+request burst can straddle a boundary.
 
 **Fail closed.** A store the service cannot reach means the service cannot
 count, and it refuses every request (`ceiling`, with
 `detail: ceiling-store-unavailable` in the body) rather than falling back to a
-count in memory. Missing store configuration is refused at boot the same way,
-as `configuration`. A ceiling that is not enforced is not a ceiling.
+count in memory. A `CEILING_STORE_URL` that is missing, that still carries the
+`https://` REST endpoint #1810 used, or that is not a `redis` address at all, is
+refused at boot the same way, as `configuration`. A ceiling that is not enforced
+is not a ceiling.
 
 ## Reading the answers
 
@@ -108,16 +112,21 @@ fly deploy . --config apps/anitabi-egress/fly.toml \
   --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
 ```
 
-The app needs four secrets, all set with `fly secrets` and none of them in this
+The app needs three secrets, all set with `fly secrets` and none of them in this
 tree: `INGEST_SIGNING_KEY` and its rotation mate `INGEST_SIGNING_KEY_PREVIOUS`,
-and the ceiling's counter, `CEILING_STORE_URL` and `CEILING_STORE_TOKEN`. Set
+and `CEILING_STORE_URL`, the Private URL of the store the ceiling counts in. Set
 the two signing keys in ONE release —
 `fly secrets set INGEST_SIGNING_KEY=<new> INGEST_SIGNING_KEY_PREVIOUS=<old>`,
 where `<old>` is the value now current (Fly never shows a secret it already
 holds, so it is the one you generated and kept). One release means one restart,
 with the old key accepted from the first request after it; set them in two
 releases and the restart between them drops the old key first. Update the
-caller, then remove the previous key after the overlap window. The store's two
-values have no ordering to keep: rotate them alone, and the service refuses
-requests until the store answers again. No live store is provisioned from this
-repository — it is entirely the operator's, like the signing key's Fly copy.
+caller, then remove the previous key after the overlap window.
+
+`CEILING_STORE_URL` has no ordering to keep: it is the only value holding the
+counter, so rotating it is setting it. A store the service cannot open refuses
+every request until it can. No store is provisioned from this repository — it is
+entirely the operator's, like the signing key's Fly copy: `fly redis create`
+(primary region `nrt`), then `fly redis status` for the Private URL, then
+`fly secrets set CEILING_STORE_URL=<that URL> --app animichi-anitabi-egress`.
+Never paste that URL anywhere but `fly secrets`: the password is inside it.
