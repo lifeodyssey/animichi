@@ -49,6 +49,24 @@ class AnitabiEgressSurfaceTest < Minitest::Test
   # lookahead also excluded `/` and so read stricter than it was (#1809).
   FORBIDDEN_MAIN_ORIGIN = "https://anitabi.cn"
   FORBIDDEN_URL = %r{https?://(?:www\.)?anitabi\.cn(?![\w.-])}
+
+  # The shapes a request to that domain can take: the rule's own subject, over a
+  # line rather than over the tree, because the tree asks for the main domain in
+  # NEITHER version of the pattern and only a probe can tell the two apart
+  # (#1809). A path on the domain is the same destination as the bare origin —
+  # the shape `apiOrigin` being pinned happens to prevent at the one fetch site,
+  # which is why this guard read stricter than it was.
+  FORBIDDEN_URL_SHAPES = [
+    "https://anitabi.cn",
+    "https://anitabi.cn/",
+    "https://anitabi.cn/anything",
+    "https://anitabi.cn/bangumi/2461/points/detail?haveImage=true",
+    "http://anitabi.cn/x",
+    "https://anitabi.cn:8443/x",
+    "https://www.anitabi.cn/x",
+    %(const url = "https://anitabi.cn" + "/bangumi/1/lite";),
+  ].freeze
+
   # The modules that build a request URL: the service's own source, and the
   # catalog's ingest and media paths. Scanned rather than the whole tree,
   # because the domain also appears as RECORDED ATTRIBUTION — the licence a
@@ -105,22 +123,10 @@ class AnitabiEgressSurfaceTest < Minitest::Test
                  "#{offenders.join("\n  ")}")
   end
 
-  # The rule's own subject, over a line rather than over the tree: the tree asks
-  # for the main domain in NEITHER version of the pattern, so only a probe can
-  # tell the two apart (#1809). A path on the domain is the same destination as
-  # the bare origin — the shape `apiOrigin` being pinned happens to prevent at
-  # the one fetch site, which is why this guard read stricter than it was.
+  # Every shape in that table is one destination, and the one rule refuses all
+  # of them.
   def test_the_forbidden_url_check_refuses_the_main_domain_in_every_shape
-    [
-      "https://anitabi.cn",
-      "https://anitabi.cn/",
-      "https://anitabi.cn/anything",
-      "https://anitabi.cn/bangumi/2461/points/detail?haveImage=true",
-      "http://anitabi.cn/x",
-      "https://anitabi.cn:8443/x",
-      "https://www.anitabi.cn/x",
-      %(const url = "https://anitabi.cn" + "/bangumi/1/lite";),
-    ].each do |line|
+    FORBIDDEN_URL_SHAPES.each do |line|
       assert_match FORBIDDEN_URL, line, "#{line} requests the main domain the API document forbids"
     end
   end
