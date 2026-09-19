@@ -81,10 +81,17 @@ a crash used to start a fresh hour, so the service could relay a second hour's w
 upstream's original one while this file stated the ceiling as enforced. The count now survives all
 three, and a second instance spends from the same budget as the first.
 
-The store is a Redis-compatible REST endpoint (Upstash-style) holding **one integer per clock hour**,
-addressed by `CEILING_STORE_URL` and opened with `CEILING_STORE_TOKEN`. Both are `fly secrets` on this
-app, and both are required at boot: with neither, the service has no ceiling to enforce and refuses
-every request with `configuration` rather than running uncounted.
+The store is the Redis that `fly redis create` provisions — one small instance in the app's own
+primary region, holding **one integer per clock hour**. It is reached over TCP with RESP at
+`CEILING_STORE_URL`, which is the store's **Private URL** and nothing else: a `redis` address with
+the store's own password inside it, set as one `fly secrets` value on this app. It is required at
+boot — without a store it can dial, the service has no ceiling to enforce and refuses every request
+with `configuration` rather than running uncounted.
+
+**Why not Upstash REST.** #1810 first chose an HTTPS `/pipeline` endpoint addressed by a second
+secret. Fly's Redis extension is not that product: it hands out one TCP Private URL, `fly redis
+status` prints nothing an HTTPS adapter could be filled from, and a `CEILING_STORE_URL` left over
+from that shape fails closed at boot rather than being dialed as if it were Redis (#1824).
 
 **When the store is down, the service refuses.** It does not fall back to counting in memory — an
 unreachable store must not silently restore the behaviour this replaced. The refusal is the ceiling's
@@ -143,12 +150,15 @@ fly logs   --app animichi-anitabi-egress
 # Deploy (manual, per the exemption above)
 fly deploy --app animichi-anitabi-egress
 
-# The ceiling's counter. ONE INTEGER PER HOUR lives behind these two, and the
-# service refuses every request without them. Create the store in the provider's
-# console; the address is the endpoint it gives you and the token is the value
-# it shows once. Never paste either into this repository, an issue, or a chat.
-fly secrets set CEILING_STORE_URL="https://<the store's endpoint>" \
-  CEILING_STORE_TOKEN="<the store's token>" \
+# The ceiling's counter. ONE INTEGER PER CLOCK HOUR lives behind this one
+# value, and the service refuses every request without a store it can dial.
+# `fly redis create` provisions the store; its `status` prints the Private URL,
+# which is the whole configuration. Never paste that URL into this repository,
+# an issue, or a chat — the password is inside it.
+fly redis create --primary-region nrt --name animichi-anitabi-egress-ceiling
+fly redis status animichi-anitabi-egress-ceiling   # prints the Private URL
+
+fly secrets set CEILING_STORE_URL="redis://<user>:<password>@<host>:<port>" \
   --app animichi-anitabi-egress --stage
 fly secrets deploy --app animichi-anitabi-egress
 
@@ -165,15 +175,22 @@ fly secrets set INGEST_SIGNING_KEY="$(openssl rand -base64 48)" \
 fly secrets deploy --app animichi-anitabi-egress
 ```
 
-The store's token is the provider's value, not one this repository generates, so it is not held to
-the signing key's 64-character shape: a wrong one is refused by the store (401), which the ceiling
-turns into the same refusal an unreachable store produces. Rotate it the way you set it, alone in one
-release — nothing else holds it, so there is no ordering to keep.
+The store's password is the provider's value, not one this repository generates, so it is not held to
+the signing key's 64-character shape: a value the store will not open is refused by the store
+(`NOAUTH`/`WRONGPASS`), which the ceiling turns into the same refusal an unreachable store produces.
+Rotate it the way you set it, alone in one release — nothing else holds it, so there is no ordering to
+keep, and a fresh store simply starts a fresh hour's count.
 
 **The live store is operator-provisioned, and this change provisions none.** No store is created by
 the repository: the values are the operator's, set on the Fly app as above, in the same category as
 the signing key's Fly copy — the one input here that Pulumi does not manage (the ESC/Secrets Store
 chain in #1812 provisions the *caller's* copy of the signing key, and stops at the Worker).
+
+**Provisioning it, after this card merges** (#1824): `fly redis create` with primary region `nrt`,
+then `fly secrets set CEILING_STORE_URL="<the Private URL from `fly redis status`>" --app
+animichi-anitabi-egress`. Two steps, and the second is the only one that touches the app. Until it
+runs, the service has no store and refuses every request with `configuration` — loudly, which is what
+that refusal is for.
 
 ### Rotation has two orderings
 
@@ -210,8 +227,9 @@ Work in this order; the first two are free and rule out most of it.
    `detail: ceiling-store-unavailable` means the hour's count could not be read: a store problem, not
    traffic. If the budget itself ran out, the caller is spending more than the agreement allows. If it
    did not, `fly secrets list --app animichi-anitabi-egress` first — the service refuses everything
-   with `configuration` when the store's address or token is missing, so a secret that was never set
-   and a store that is down look different from outside.
+   with `configuration` when the store's address is missing, unreadable, or not a `redis` address, so
+   a secret that was never set (or a leftover `https://` one from #1810) and a store that is down look
+   different from outside.
 3. **Has the address changed?** `fly ips list` against the value the guard pins. An egress address
    is allocated once and persists across deploys, so a change here is unexpected and would mean
    the allowlist silently stopped matching. **This is the failure that is quiet**: nothing breaks
