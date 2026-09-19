@@ -8,7 +8,12 @@ import { makePgCatalog } from "./integration-db-global/pg-catalog";
 /** The suite-owned Postgres context, always provided by the Docker arm setup. */
 export interface IntegrationDatabaseContext {
   enabled: boolean;
+  /** The pre-Prisma shape (`drizzle-era-catalog.sql`): every integration file
+   * except the nearby path, until #1629–#1631 move the rest of the query layer. */
   dsn: string;
+  /** The Prisma data plane (#1626): the shape every real environment has, and
+   * the one the nearby path reads since #1628. */
+  planeDsn: string;
 }
 
 declare module "vitest" {
@@ -74,6 +79,14 @@ function requireEnabled(): IntegrationDatabaseContext {
 /** The suite DSN — absolute to the clean database the Docker arm prepared. */
 export function localDatabaseUrl(): string {
   return requireEnabled().dsn;
+}
+
+/** The Prisma-plane DSN — the suite's own database, cloned from the container's
+ * migrated template (#1769). Never the plane's own database: one chain per
+ * database, and a suite that migrated the plane's would collide with every other
+ * arm sharing the container (see `integration-db-global.ts`). */
+export function planeDatabaseUrl(): string {
+  return requireEnabled().planeDsn;
 }
 
 /** A single shared pg.Pool rooted at the suite database. */

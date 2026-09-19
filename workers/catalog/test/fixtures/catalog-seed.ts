@@ -129,16 +129,35 @@ export function workInsert(seeds: readonly WorkSeed[]): SeedStatement {
   );
 }
 
-/** Coordinates only — the DB trigger derives the GEOGRAPHY `location` column. */
+/**
+ * Points, written through their source geometry.
+ *
+ * `latitude` / `longitude` are NOT written directly: the Prisma data plane makes
+ * them generated columns over `location` (#1626, spec §4.8.1), so a scalar write
+ * is `cannot insert a non-DEFAULT value into column "latitude"` (`428C9`). The
+ * pre-Prisma plane derives the same two scalars from `location` with the
+ * `sync_points_coordinates` trigger — and `location` is the column spatial search
+ * reads — so the geometry is the one write correct on both planes.
+ */
 export function pointInsert(seeds: readonly PointSeed[]): SeedStatement {
-  return statement(
-    getTableName(points),
-    [
-      pointColumns.id.name, pointColumns.bangumiId.name, pointColumns.name.name,
-      pointColumns.latitude.name, pointColumns.longitude.name,
-    ],
-    seeds.map((s) => [s.id, s.workId, s.name, s.latitude, s.longitude]),
-  );
+  const columns = [pointColumns.id.name, pointColumns.bangumiId.name, pointColumns.name.name];
+  const values = seeds.map((s): (string | number)[] => [s.id, s.workId, s.name, s.longitude, s.latitude]);
+  return {
+    text: `INSERT INTO ${getTableName(points)} (${columns.join(", ")}, ${pointColumns.location.name})`
+      + ` VALUES ${values.map((_, index) => pointGroup(index)).join(", ")}`,
+    values: values.flatMap((row) => [...row]),
+  };
+}
+
+/** Placeholders one point row binds: id, work, name, longitude, latitude. */
+const POINT_SLOTS = 5;
+
+/** One point row's placeholder group: three scalars, then the geometry over the
+ * longitude/latitude pair that follows them. */
+function pointGroup(index: number): string {
+  const slot = (offset: number): string => `$${String(index * POINT_SLOTS + offset)}`;
+  const scalars = [1, 2, 3].map((offset) => slot(offset)).join(", ");
+  return `(${scalars}, ST_SetSRID(ST_MakePoint(${slot(4)}, ${slot(5)}), 4326)::geography)`;
 }
 
 export function aliasInsert(seeds: readonly AliasSeed[]): SeedStatement {

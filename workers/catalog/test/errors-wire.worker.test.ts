@@ -8,6 +8,7 @@ import type {
   WorkNotFoundData,
 } from "../src/lib/errors";
 import type { Itinerary } from "../src/types";
+import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 interface ErrorEnvelope<TData> {
   defined: true;
@@ -64,13 +65,13 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
 /** Build a minimal CatalogContext; casts stay at the test fake boundary. */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
   const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
-  return { db, fetchImpl };
+  return { db, prisma: fakeCatalogPrisma(rows), fetchImpl };
 }
 
-/** Context whose DB must not be touched. */
+/** Context whose DB and Prisma seam must not be touched. */
 function unreachableContext(): CatalogContext {
   const db = { execute: () => { throw new Error("db should not be reached"); } } as unknown as CatalogDb;
-  return { db };
+  return { db, prisma: unreachableCatalogPrisma() };
 }
 
 /** Joined point+bangumi rows spaced far enough apart to produce distinct clusters. */

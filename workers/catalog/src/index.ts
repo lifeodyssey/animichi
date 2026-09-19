@@ -12,13 +12,12 @@ import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from 
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes } from "./import/admin-routes";
 import { connectionString, dbFor } from "./db/connections";
+import { acquireCatalogRuntime, catalogPrisma } from "./db/prisma";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
 import { egressSigningKeyFromEnv } from "./ingest/anitabi-egress";
 
 export interface Env {
   ENVIRONMENT?: string;
-  /** Optional pooled connection binding when a deployment provides one. */
-  HYPERDRIVE?: { connectionString: string };
   /** Neon Postgres connection string used by the current catalog deployment. */
   DATABASE_URL?: string | SecretsStoreSecret;
   /** R2 bucket for lazy-cached pilgrimage point photos (see media/img.ts). */
@@ -126,9 +125,13 @@ app.use("/catalog/*", async (c, next) => {
     return c.json({ error: "catalog database not configured" }, 503);
   }
   const { db } = await dbFor(connStr);
+  // Each catalog request acquires its own Prisma runtime and gives it back when
+  // this scope exits — never a connection cached across requests (spec §4.2).
+  await using runtime = await acquireCatalogRuntime(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     context: {
       db,
+      prisma: catalogPrisma(runtime),
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
       waitUntil: waitUntilFor(c),

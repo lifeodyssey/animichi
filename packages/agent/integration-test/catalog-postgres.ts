@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { once } from "node:events";
+import { connect } from "node:net";
 import { promisify } from "node:util";
 import type { TestContext } from "node:test";
 import { neon, neonConfig } from "@neondatabase/serverless";
@@ -30,6 +32,15 @@ const execute = promisify(execFile);
 //
 // This is the same isolation answer as the catalog suite's (`workers/catalog/test/integration-db-global.ts`)
 // and the same debt: #1628–#1631 move that query layer onto Prisma and delete this branch with it.
+//
+// The DSN handed to the Worker is therefore the container's OWN — its host and its published port —
+// and not a placeholder. Two readers take that string and only one of them dials it:
+// `@neondatabase/serverless` posts the database NAME to `neonConfig.fetchEndpoint` and the proxy
+// upstream carries the socket, so for that reader host and port are decoration;
+// `@prisma/orm-postgres/serverless` — what `/catalog/nearby` reads through since #1628 — hands the
+// string to `pg` and opens a real TCP connection from inside the Worker. `db.localtest.me:5432` was
+// that decoration, and it held only while every read was an HTTP one (#1625's row). `assertDialable`
+// is where that assumption now fails, at the string, rather than in a 500 from a canceled request.
 const LEGACY_DATABASE = "native_catalog_tools_legacy";
 
 export async function catalogPostgres(context: TestContext) {
@@ -38,13 +49,13 @@ export async function catalogPostgres(context: TestContext) {
   try {
     const dsn = await openLegacyDatabase(cluster, name);
     context.after(() => dropCleanDatabase(cluster.adminDsn, name));
+    await assertDialable(dsn);
     const proxy = await startProxy(dsn);
     context.after(() => proxy.stop().then(() => undefined));
     const endpoint = `http://${proxy.getHost()}:${String(proxy.getMappedPort(4444))}/sql`;
-    const connection = new URL(dsn); connection.hostname = "db.localtest.me"; connection.port = "5432";
     const previous = neonConfig.fetchEndpoint; neonConfig.fetchEndpoint = endpoint;
     context.after(() => { neonConfig.fetchEndpoint = previous; });
-    return { connectionString: connection.href, endpoint, sql: neon(connection.href) };
+    return { connectionString: dsn, endpoint, sql: neon(dsn) };
   } catch (failure) {
     await dropWithoutMaskingFailure(cluster, name);
     throw failure;
@@ -56,6 +67,26 @@ async function openLegacyDatabase(cluster: TestPostgresCluster, name: string): P
   const dsn = await createCleanDatabase(cluster.adminDsn, name);
   await applyDrizzleEraCatalog(dsn);
   return dsn;
+}
+
+/** Prove the DSN names a socket before handing it to a reader that dials it.
+ *
+ * The assertion is about the STRING, not about the driver: whether the Worker's own query
+ * succeeds is `catalog.test.ts`'s to establish over the wire, and re-testing the query here
+ * would only be a second opinion. What this owns is the property the string has to have first —
+ * an unreachable host and port used to be free, and a lane that goes back to one now fails here,
+ * naming the host and port, instead of four tool calls later behind a request the runtime
+ * cancels as hung (#1628). */
+async function assertDialable(dsn: string): Promise<void> {
+  const { hostname, port } = new URL(dsn);
+  const socket = connect({ host: hostname, port: Number(port) });
+  try {
+    await once(socket, "connect");
+  } catch (failure) {
+    throw new Error(`the DSN handed to the Worker has no socket to dial: ${hostname}:${port}`, { cause: failure });
+  } finally {
+    socket.destroy();
+  }
 }
 
 /** A drop that has nothing to drop — the failure above happened before the create — must not

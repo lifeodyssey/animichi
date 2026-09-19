@@ -21,7 +21,7 @@ describe("catalog Worker (vitest-pool-workers)", () => {
   });
 
   it("mounts /catalog/* and returns a clean 503 when no DB is configured", async () => {
-    // Pass a minimal env with no DATABASE_URL or HYPERDRIVE so the guard short-circuits.
+    // Pass a minimal env with no DATABASE_URL so the guard short-circuits.
     // Using `env` directly would include .dev.vars values (DATABASE_URL) in local dev,
     // which would bypass the guard and return 200 instead of 503.
     // Cast env to the app's Env type to access ENVIRONMENT (a [vars] binding not in
