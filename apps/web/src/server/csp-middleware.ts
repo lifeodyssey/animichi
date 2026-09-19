@@ -31,15 +31,16 @@ export const cspMiddleware = createMiddleware({ type: "request" }).server(async 
 });
 
 /**
- * Connect origins only the deployment knows: the Neon Auth origin the browser
- * SDK dials (#1013 carries it in the runtime config), as an origin — the SDK's
- * paths are its own business. An unreadable binding yields no extra origin
- * rather than no policy; an invalid `RUNTIME_CONFIG` fails the request in the
+ * Connect origins only the deployment knows, taken from the same runtime config
+ * the request bases come from: a URL this payload names is one the app tells
+ * the browser to dial, and a `connect-src` that omits it does not soften the
+ * call — it refuses it. An unreadable binding yields the base origins rather
+ * than no policy; an invalid `RUNTIME_CONFIG` fails the request in the
  * runtime-config plugin, which is where that error belongs.
  */
 function configuredOrigins(): readonly string[] {
   try {
-    return deploymentConnectOrigins(currentRuntimeConfig().neonAuthBaseUrl);
+    return deploymentConnectOrigins(currentRuntimeConfig());
   } catch {
     return [];
   }
