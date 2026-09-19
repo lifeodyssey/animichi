@@ -17,7 +17,9 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 `pnpm test` is the CI browser lane, not the whole suite: it runs its hermetic Node-runner
 specifications first (`lane-port.test.ts` — the port derivation is a specification, not a comment —
 `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two — and
-`reporters/no-skipped-tests.test.ts` — the no-skip rule's verdict, driven with the facts it reads),
+`reporters/no-skipped-tests.test.ts` — the no-skip rule's verdict, driven with the facts it reads —
+and `live-login-env.test.ts` — the live lane's own argv, executed so that `.env.test` loading is
+measured rather than grepped),
 then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
 `webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the sixteen specs the lane
@@ -93,8 +95,22 @@ OS assigns one per lane — the same recipe `packages/agent`'s integration harne
 `pnpm run test:login` is the **live login lane**, kept out of `test` because its inputs are
 different in kind: it serves the emitted Worker pointed at a real Neon Auth branch
 (`NEON_AUTH_BASE_URL`, the staging branch `workers/edge/wrangler.toml` verifies) and drives the
-real password sign-in and `/auth/callback` redeem. Credentials come from local `.env.test`
-(Path A, `docs/ops/auth-migration-neon.md` §4). **PR CI cannot run it and says so:** no
+real password sign-in and `/auth/callback` redeem. Credentials come from a repo-root `.env.test`
+(Path A, `docs/ops/auth-migration-neon.md` §4), which the lane's own interpreter loads:
+
+```
+E2E_SERVE_EMITTED_WORKER=1 node --env-file-if-exists=../.env.test \
+  node_modules/@playwright/test/cli.js test web-neon-login.spec.ts
+```
+
+Two shapes in that command are deliberate, and `live-login-env.test.ts` is what keeps them honest
+(#1813). The flag rides the **lane**, not `playwright.config.ts`: a config-level load would repoint
+the Neon Auth origin for every lane, hermetic ones included, and no CI run could observe that blast
+radius because no `.env.test` exists there by construction. And Playwright is named as a **file**
+(`@playwright/test`'s CLI) rather than as the `playwright` in `node_modules/.bin`, which is a shell
+shim that `node` cannot execute. `if-exists` and not `--env-file`: the file is an operator's
+convenience, never a prerequisite, so a machine without one runs exactly as every lane did before.
+**PR CI cannot run it and says so:** no
 pull-request job may hold a credential (`.github/test/workflow-credentials.test.rb` rejects
 `secrets.*` anywhere under `.github/`), so the browser job reports the proof as `NOT RUN` in its
 step summary and as a run annotation — never as a silent absence, and never as a green check.
@@ -174,7 +190,13 @@ fails, and with the exemption inverted seven of its cases fail.
   against the real Neon Auth origin via `context.request`, then the app's `/auth/callback`
   exchange. **Fails by name** without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` +
   `QA_NEON_USER_PASSWORD` (Path A, `docs/ops/auth-migration-neon.md` §4) — it no longer skips
-  itself, and `pnpm run test:login` is the recipe that supplies them.
+  itself, and `pnpm run test:login` is the recipe that supplies them, from the repo-root
+  `.env.test`.
+- `live-login-env.test.ts` — the live lane's environment, as a specification (#1813): the real
+  `test:login` argv is read from `package.json` and then executed against a throwaway tree, so
+  "loads the repo-root `.env.test` when there is one" and "runs unchanged when there is not" are
+  measurements rather than greps. It runs no browser and never touches the repository's own
+  `.env.test`, which holds credentials.
 - `reporters/no-skipped-tests.ts` — the run's verdict on a skipped case: it throws from `onEnd`, so
   the lane exits non-zero and names every skip (Playwright counts one as success). Its two exempt
   projects are `visual` and `seed`; its `ReportedCase`/`ReportedResult` declare the four facts it

@@ -31,7 +31,21 @@ class E2eNoSkipTest < Minitest::Test
   NO_SKIP_REPORTER = "e2e/reporters/no-skipped-tests.ts"
   PACKAGE_JSON = "e2e/package.json"
   LIVE_LOGIN_SPEC = "web-neon-login.spec.ts"
-  LIVE_LOGIN_SCRIPT = "E2E_SERVE_EMITTED_WORKER=1 playwright test #{LIVE_LOGIN_SPEC}"
+  # The lane's PROPERTIES, one assertion each, not its literal text (#1813).
+  # Pinning the whole command by equality made the script unchangeable rather
+  # than correct: it caught nothing when the script was already wrong — nothing
+  # loaded the `.env.test` four documents promised — and then it blocked the
+  # one-flag repair. A whole-string pin can only ever answer "is this the string
+  # I wrote down", which is not a question about the lane.
+  #
+  # What the lane must DO:
+  #   * select the live proof, by name, as an argument
+  #   * serve a real emitted Worker, so the callback exchange has a real Neon
+  #     Auth branch behind it
+  #   * take its credentials from the repo-root `.env.test` when the operator
+  #     has one, and run unchanged when they do not
+  LIVE_LOGIN_SERVES_EMITTED_WORKER = "E2E_SERVE_EMITTED_WORKER=1"
+  LIVE_LOGIN_ENV_FILE_FLAG = "--env-file-if-exists=../.env.test"
 
   def test_no_always_run_spec_self_skips
     offenders = always_run_specs.select { |path| code_lines_of(path).any? { |line| line.match?(SKIP_CONSTRUCT) } }
@@ -57,16 +71,47 @@ class E2eNoSkipTest < Minitest::Test
   # The live login proof keeps its own lane, and that lane is the one the CI job
   # runs (`.github/test/pr-verification-login.test.rb` pins the job side). It
   # serves the emitted Worker so the app under test points at a real branch.
+  #
+  # The properties, not the string (#1813): see LIVE_LOGIN_SERVES_EMITTED_WORKER
+  # above for why the whole-command pin could not stay.
   def test_the_live_login_proof_has_its_own_lane
     scripts = JSON.parse(read(PACKAGE_JSON)).fetch("scripts")
-    assert_equal(LIVE_LOGIN_SCRIPT, scripts["test:login"],
-                 "#{PACKAGE_JSON}: test:login must select #{LIVE_LOGIN_SPEC} against the emitted Worker")
+    args = live_login_args(scripts)
+    assert_includes(args, LIVE_LOGIN_SPEC, "#{PACKAGE_JSON}: test:login must select #{LIVE_LOGIN_SPEC}")
+    assert_includes(args, LIVE_LOGIN_SERVES_EMITTED_WORKER,
+                    "#{PACKAGE_JSON}: test:login must serve the emitted Worker")
     refute_includes(scripts.fetch("test"), LIVE_LOGIN_SPEC,
-                    "#{PACKAGE_JSON}: the hermetic CI lane must not carry the live proof — it is its " \
-                    "own job because its inputs (and its failure modes) are different")
+                    "#{PACKAGE_JSON}: the hermetic lane must not carry the live proof")
+  end
+
+  # #1813: four documents promise the live lane reads its credentials from the
+  # repo-root `.env.test`, and until #1813 nothing loaded it — so the documented
+  # one-command proof failed for an operator who followed the documentation
+  # exactly. The LANE's own interpreter has to do the loading: reading the file
+  # in `playwright.config.ts` would repoint the Neon Auth origin for every lane,
+  # hermetic ones included, and no CI run can observe that blast radius because
+  # no `.env.test` exists there by construction. `if-exists` rather than the
+  # required form, because the file is an operator's convenience and never a
+  # prerequisite. The half this cannot see — that the flag actually loads, and
+  # that its absence is not fatal — is executed against a real interpreter in
+  # `e2e/live-login-env.test.ts`.
+  def test_the_live_login_lane_loads_the_repo_root_env_file
+    args = live_login_args(JSON.parse(read(PACKAGE_JSON)).fetch("scripts"))
+    assert_includes(args, LIVE_LOGIN_ENV_FILE_FLAG,
+                    "#{PACKAGE_JSON}: test:login must load the repo-root `.env.test` " \
+                    "(#{LIVE_LOGIN_ENV_FILE_FLAG}). It is not loaded from playwright.config.ts: a " \
+                    "hand-created `.env.test` there would repoint Neon Auth for every lane (#1813)")
   end
 
   private
+
+  # The live lane's command as the tokens it is made of, so a fact about the
+  # lane can be asserted without also asserting every other token of it. Split
+  # on whitespace deliberately: the script is a command list with no quoting,
+  # and shell-parsing it here would test a shell rather than the lane.
+  def live_login_args(scripts)
+    scripts.fetch("test:login").split
+  end
 
   def always_run_specs
     Dir.glob(File.join(ROOT, "e2e", "**", "*.spec.ts"))

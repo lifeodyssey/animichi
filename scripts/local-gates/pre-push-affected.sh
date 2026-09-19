@@ -14,8 +14,12 @@ cd "$(git rev-parse --show-toplevel)"
 # live in `test/repo-config/` like every other CI-only config test;
 # `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby the `contracts` job
 # runs, and `.github/test/workflow-ruby-toolchain.test.rb` there is their gate;
+# the two root env SHEETS (`.env.example`, `.env.test.example`) are operator
+# documentation: the root-allowlist check owns their top-level ENTRY, not their
+# contents, and a credential pasted into one is caught by the pre-commit secret
+# scan, which reads the staged diff and does not route (#1813);
 # `supabase/` is the archived historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|[^/]+\.md$)'
+NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
