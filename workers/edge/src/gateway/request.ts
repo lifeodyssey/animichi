@@ -1,7 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import type { Env, WorkerExecutionContext } from "../env.ts";
-import type { AuthResult } from "../identity/auth.ts";
 import { verifyAnonymousEntry } from "../identity/turnstile-entry.ts";
 import { handleSessionAdopt } from "../identity/session-adopt.ts";
 import { handleImageProxy } from "../proxy/image-proxy.ts";
@@ -15,7 +14,7 @@ import { forwardPublicCatalog, forwardUsers } from "./forward.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
 import {
-  credentialsRequired, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized,
+  authenticationRejection, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied,
 } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
 import { turnRoutePolicy } from "./routing-policy.ts";
@@ -53,15 +52,6 @@ function observeEntry(route: RequestClass, request: Request): void {
     class: route.kind,
     method: request.method,
   }));
-}
-
-type AuthFailure = Extract<AuthResult, { ok: false }>;
-
-/** The shared credential-rejection branch: invalid logs the 401 storm
- * record; absent is a flat 401 with no record (issue #441). */
-function authenticationRejection(request: Request, auth: AuthFailure): Response {
-  const { pathname } = new URL(request.url);
-  return auth.reason === "invalid" ? unauthorized(pathname) : credentialsRequired();
 }
 
 export interface GatewayDeps extends AgentTierGates {
@@ -221,6 +211,8 @@ async function turnstileVerifyResponse(
   if (request.method !== "POST") return Promise.resolve(methodNotAllowed());
   const auth = await deps.authenticate(request, env, ctx);
   if (auth.ok) return new Response(null, { status: 204 });
-  if (auth.reason === "invalid") return authenticationRejection(request, auth);
+  // Only an ABSENT credential may reach the anonymous entry (#441/#452); a
+  // rejected one and one we could not check are both answered here.
+  if (auth.reason !== "absent") return authenticationRejection(request, auth);
   return verifyAnonymousEntry(env, request, deps.turnstileGate);
 }
