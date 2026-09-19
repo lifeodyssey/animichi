@@ -15,13 +15,19 @@ import type { NitroAppPlugin } from "nitropack/types";
 //     header. Search engines do not index 5xx, so this is recorded rather than
 //     fixed. Unhandled errors DO reach the hook.
 //
-// Two h3 generations, one plugin. The built Worker runs nitro 2.13, whose
-// runtime events are h3 1.15; this package's own h3 is 2.x and the unit
-// harness serves the plugin through an h3 2 app. The hook therefore reads
-// only the shared slice of the event — `context` is an open record in both
-// generations, and `cloudflare` is the one entry the decision needs — and the
-// header write goes through writeHeader's shape boundary instead of either
-// generation's spelled-out accessor.
+// Two h3 generations, one plugin, and one measured difference between them
+// (#1744). The built Worker runs nitro 2.13, whose hook forwards h3 1.15's
+// `onBeforeResponse(event, response)` — and h3 1.15's response argument is a
+// body-only wrapper, with headers written through `event.node.res`. Under h3 2
+// the hook fires from `onResponse(response, event)`, i.e. after h3 2 built the
+// response and emptied the event's own store (`prepareResponse` sets the event's
+// response slot to undefined first), so a write to `event.res.headers` there
+// reaches nothing: the plugin would keep running while its header silently
+// stopped shipping. The hook therefore reads only the shared slice of the event
+// — `context` is an open record in both generations, and `cloudflare` is the one
+// entry the decision needs — and writeHeader prefers the response the hook is
+// handed, then the event's own store (live only for a pre-response hook), then
+// the node adapter, failing loud when a runtime offers none of the three.
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -40,32 +46,49 @@ function readAppEnv(event: HookEvent): unknown {
   return isRecord(cloudflare.env) ? cloudflare.env.APP_ENV : undefined;
 }
 
-/** Write a response header on whichever response surface the event carries.
+/** The hook's second argument: h3 2's built response, or h3 1.15's `{ body }`.
  *
- * h3 2 events hold the outgoing response in `event.res.headers` (live web
- * Headers). nitro 2.13's h3 1.15 events have no response store — they reach
- * the wire through the node adapter (`event.node.res.setHeader`), which is
- * exactly the path h3 1.15's own `setResponseHeader` took. Discriminate on the
- * shape, never on a version sniff, and fail loud when neither surface exists:
- * a silently dropped header is this plugin's cardinal failure.
+ * Deliberately unconstrained: `{ headers?: unknown }` would be a weak type, and
+ * `{ body }` — what h3 1.15 hands the same hook — has no property in common with
+ * it, so a nitro hook store typed that way could not be registered against. The
+ * write path sniffs the surface it needs at runtime instead.
  */
-/** The h3 2 response store when the event carries one, else undefined. */
-function webStoreHeaders(event: HookEvent): Headers | undefined {
+type HookResponse = unknown;
+
+/** The Headers a write can reach, in the order a runtime makes one live: the
+ *  response the hook was handed (h3 2 builds the response before it calls
+ *  `onResponse`, so this is the one that still reaches the wire), then the
+ *  event's own store (live only for a hook that runs BEFORE the response is
+ *  built). h3 1.15 events carry neither.
+ */
+function writableHeaders(event: HookEvent, response: HookResponse): Headers | undefined {
+  const handed = isRecord(response) ? response.headers : undefined;
+  if (handed instanceof Headers) return handed;
   const res = (event as { res?: { headers?: unknown } }).res;
   return res?.headers instanceof Headers ? res.headers : undefined;
 }
 
-/** The node adapter both nitro's h3 1.15 events and the fail-loud floor. */
+/** The node adapter, which is both nitro's h3 1.15 surface and the floor. */
 function nodeAdapter(event: HookEvent, name: string): { setHeader(name: string, value: string): void } {
   const adapter = (event as { node?: { res?: { setHeader(name: string, value: string): void } } }).node?.res;
   if (adapter === undefined) {
-    throw new Error(`noindex-plugin: event carries neither an h3 2 response store nor a node adapter (${name})`);
+    throw new Error(
+      `noindex-plugin: event carries no writable response surface for ${name}` +
+        " (hook response, h3 2 event store, node adapter)",
+    );
   }
   return adapter;
 }
 
-function writeHeader(event: HookEvent, name: string, value: string): void {
-  const headers = webStoreHeaders(event);
+/** Write a header on whichever response surface the hook carries: h3 2's built
+ *  response, h3 2's pre-response event store, or h3 1.15's node adapter —
+ *  `event.node.res.setHeader`, the path h3 1.15's own `setResponseHeader` took
+ *  and the one the shipped Worker uses. Discriminate on the shape, never on a
+ *  version sniff, and fail loud when a runtime offers none of the three: a
+ *  silently dropped header is this plugin's cardinal failure.
+ */
+function writeHeader(event: HookEvent, response: HookResponse, name: string, value: string): void {
+  const headers = writableHeaders(event, response);
   if (headers !== undefined) {
     headers.set(name, value);
     return;
@@ -73,14 +96,17 @@ function writeHeader(event: HookEvent, name: string, value: string): void {
   nodeAdapter(event, name).setHeader(name, value);
 }
 
-function applyNoindexHeader(event: HookEvent): void {
+function applyNoindexHeader(event: HookEvent, response?: HookResponse): void {
   if (readAppEnv(event) === "production") return;
-  writeHeader(event, "X-Robots-Tag", "noindex, nofollow");
+  writeHeader(event, response, "X-Robots-Tag", "noindex, nofollow");
 }
 
 interface NoindexHookHost {
   hooks: {
-    hook: (name: "beforeResponse", callback: (event: HookEvent) => void | Promise<void>) => unknown;
+    hook: (
+      name: "beforeResponse",
+      callback: (event: HookEvent, response?: HookResponse) => void | Promise<void>,
+    ) => unknown;
   };
 }
 

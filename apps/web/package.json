@@ -51,6 +51,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-istanbul": "catalog:",
     "h3": "^1.15.11",
+    "h3-v2": "npm:h3@2.0.1-rc.32",
     "jsdom": "^30.0.1",
     "jsonc-parser": "^3.3.1",
     "msw": "2.15.0",
