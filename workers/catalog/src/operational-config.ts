@@ -12,6 +12,7 @@
 import {
   DAILY_DISCOVER_CRON,
   DAILY_IMPORT_CRON,
+  DAILY_WORK_CAP,
   PENDING_DRAIN_BATCH_CAP,
   SEED_CRON,
   TTL_BATCH_CAP,
@@ -81,6 +82,6 @@ export function dailyPolicy(): RunPolicy {
     tierIntervals: { high: 24 * 60 * 60 * 1000, medium: 7 * 24 * 60 * 60 * 1000, low: 30 * 24 * 60 * 60 * 1000 },
     newWorkCap: 20,
     keepHistory: 2,
-    budget: { workLimit: 50, requestLimit: 400, runtimeLimitMs: 10 * 60 * 1000 },
+    budget: { workLimit: DAILY_WORK_CAP, requestLimit: 400, runtimeLimitMs: 10 * 60 * 1000 },
   };
 }
