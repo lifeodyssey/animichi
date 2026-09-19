@@ -10,10 +10,10 @@
  * (AC6). The ingest, publish, and gc steps are injected so the gate is
  * worker-testable.
  *
- * Each port closes over its own seam rather than receiving one: the run is a
- * Prisma plan over the request's runtime (#1630) while the snapshot publish is
- * still Drizzle's, so a port that took a database handle would have to name
- * which of the two it meant at a type that cannot tell them apart.
+ * Each port closes over its own seam rather than receiving one: the run and the
+ * snapshot publish are both Prisma plans over the pass's runtime (#1630), so a
+ * port that took a database handle would have to name a seam the pass does not
+ * have.
  */
 import type { RunStatus } from "../ingest/daily-run";
 import type { ObjectStore } from "./object-store";

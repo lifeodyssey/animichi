@@ -27,7 +27,7 @@ const acquirePrisma: AcquirePrisma = () => Promise.resolve({ query, dispose: () 
 
 /** The admin route's seams, with the production defaults for everything unstated. */
 function options(overrides: Partial<AdminRouteOptions> = {}): AdminRouteOptions {
-  return { resolveDb: () => Promise.resolve({ db: {} as never, connStr: CONN_STR }), acquirePrisma, ...overrides };
+  return { resolveDb: () => Promise.resolve({ connStr: CONN_STR }), acquirePrisma, ...overrides };
 }
 const COMPLETE = { status: "complete", runId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" } as const;
 

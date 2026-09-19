@@ -13,16 +13,15 @@ import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snap
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 import { DAILY_DISCOVER_CRON } from "../src/cron-config";
-import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 // Daily-snapshot publish is a production-lineage behaviour (the daily ingest
 // discover cron runs only in production per the per-env AC1 guard).
 const ENV = { DATABASE_URL: "postgresql://u:p@host/db", ENVIRONMENT: "production" };
-const db = fakeCatalogDb({});
 /** The cron's Prisma seam: injected, so the gate never dials out. */
-const query = unreachableCatalogPrisma();
+const query = fakeTableRows({});
 
 /** A complete run outcome carrying the real run id + createdAt the gate must thread through. */
 const COMPLETE: DailyRunOutcome = { status: "complete", runId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" };
@@ -33,15 +32,15 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
+    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(fakeCatalogDb({})),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
     runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(COMPLETE),
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(store),
-    publishRun: vi.fn<CronDependencies["publishRun"]>().mockImplementation((d, s, runId, at) =>
-      publishSnapshot({ db: d, store: s }, { sourceRunId: runId, createdAt: at }),
+    publishRun: vi.fn<CronDependencies["publishRun"]>().mockImplementation((q, s, runId, at) =>
+      publishSnapshot({ query: q, store: s }, { sourceRunId: runId, createdAt: at }),
     ),
     gcSnapshots: vi.fn<CronDependencies["gcSnapshots"]>().mockImplementation((s) => gcSnapshots(s, 2)),
     importSource: vi.fn<CronDependencies["importSource"]>().mockReturnValue(null),

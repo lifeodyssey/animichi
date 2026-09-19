@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import { publishSnapshot, type PublishInput, type ValidatePort } from "../src/publish/snapshot";
 import { readPointer } from "../src/publish/pointer";
 import type { ObjectStore } from "../src/publish/object-store";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 
 const INPUT: PublishInput = { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" };
@@ -24,32 +24,32 @@ function reject(): ValidatePort {
 describe("publishSnapshot atomic activation (AC3 support)", () => {
   it("a validation failure leaves the store untouched and the pointer unchanged", async () => {
     const { store, keys } = inMemoryObjectStore();
-    const db = fakeCatalogDb({});
-    await publishSnapshot({ db, store }, INPUT, reject());
+    const query = fakeTableRows({});
+    await publishSnapshot({ query, store }, INPUT, reject());
     expect(await readPointer(store)).toEqual({ current: null, previous: null });
     expect(keys()).toEqual([]);
   });
 
   it("a same-run-id re-publish that fails validation never deletes the live snapshot", async () => {
     const { store, keys } = inMemoryObjectStore();
-    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
-    const first = await publishSnapshot({ db, store }, INPUT);
+    const query = fakeTableRows({ bangumi: [{ id: "w1" }] });
+    const first = await publishSnapshot({ query, store }, INPUT);
     expect(first.status).toBe("published");
     const liveDataKeys = keys().filter((key) => key.startsWith("snapshots/snap-daily-1/data/"));
     expect(liveDataKeys.length).toBeGreaterThan(0);
-    await publishSnapshot({ db, store }, INPUT, reject());
+    await publishSnapshot({ query, store }, INPUT, reject());
     expect(await readPointer(store)).toEqual({ current: "snap-daily-1", previous: null });
     for (const key of liveDataKeys) expect(keys()).toContain(key);
   });
 
   it("a valid candidate atomically moves previous to old current and activates the new run", async () => {
     const { store, keys } = inMemoryObjectStore();
-    const db = fakeCatalogDb({});
-    const first = await publishSnapshot({ db, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+    const query = fakeTableRows({});
+    const first = await publishSnapshot({ query, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
     expect(first.status).toBe("published");
     const beforePrevious = await readPointer(store);
     expect(beforePrevious.previous).toBeNull();
-    const second = await publishSnapshot({ db, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
+    const second = await publishSnapshot({ query, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
     expect(second.status).toBe("published");
     const after = await readPointer(store);
     expect(after).toEqual({ current: "snap-daily-2", previous: "snap-daily-1" });
@@ -65,11 +65,11 @@ describe("publishSnapshot staging failure signal (failure-signal audit C7/A5)", 
       ...base,
       put: () => Promise.reject(new Error("R2 quota exceeded")),
     };
-    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
+    const query = fakeTableRows({ bangumi: [{ id: "w1" }] });
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     errorSpy.mockClear();
 
-    const result = await publishSnapshot({ db, store: throwingStore }, INPUT);
+    const result = await publishSnapshot({ query, store: throwingStore }, INPUT);
 
     expect(result).toEqual({ status: "invalid", reason: "candidate validation failed" });
     expect(errorSpy).toHaveBeenCalledTimes(1);
@@ -83,8 +83,8 @@ describe("publishSnapshot staging failure signal (failure-signal audit C7/A5)", 
 describe("publishSnapshot candidate object hashing (AC2 support)", () => {
   it("stores manifest objects with non-empty hashes for the active snapshot", async () => {
     const { store } = inMemoryObjectStore();
-    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
-    const result = await publishSnapshot({ db, store }, INPUT);
+    const query = fakeTableRows({ bangumi: [{ id: "w1" }] });
+    const result = await publishSnapshot({ query, store }, INPUT);
     expect(result.status).toBe("published");
     if (result.status !== "published") return;
     expect(result.snapshot.counts.works).toBe(1);

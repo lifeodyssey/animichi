@@ -10,7 +10,7 @@
  * two current rows and violate the partial unique index. The transaction makes
  * the swap all-or-nothing, so a reader never sees zero or two current rows.
  *
- * Both statements are builder plans run on the request's runtime ({@link
+ * The statements are builder plans run on the request's runtime ({@link
  * CatalogPrisma}), so the dialect binds the work id and the projection fixes the
  * version's type. This is the call the deleted `db.batch` in `enrich` became: the
  * batch existed because neon-http had no client transaction, and a real
@@ -32,8 +32,21 @@ interface VersionRow extends Record<string, unknown> {
   version: number;
 }
 
-/** Publish a new version for a work; returns the new version number. */
+/**
+ * Publish a new version for a work; returns the new version number.
+ *
+ * The caller may already be inside a transaction (enrich's whole pass is one),
+ * in which case this JOINS it rather than opening a second one — see
+ * `bindTransaction` in `db/prisma.ts`. A standalone caller gets the pair as one
+ * unit of its own, so a failure after the flip discards the flip instead of
+ * leaving the work with zero current rows.
+ */
 export async function publishVersion(query: CatalogPrisma, bangumiId: string): Promise<number> {
+  return query.transaction((tx) => swapCurrent(tx, bangumiId));
+}
+
+/** The flip-then-read-then-insert swap, as one unit of work. */
+async function swapCurrent(query: CatalogPrisma, bangumiId: string): Promise<number> {
   await flipCurrentOff(query, bangumiId);
   return readPublishedVersion(await insertNext(query, bangumiId));
 }

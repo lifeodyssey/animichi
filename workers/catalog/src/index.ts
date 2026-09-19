@@ -55,11 +55,11 @@ export interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 
-/** Resolve the admin command's seams from the env, else null (503, fail-closed). */
-async function adminDbResolver(env: Env): Promise<AdminConnection | null> {
+/** Resolve the admin command's connection from the env, else null (503, fail-closed). */
+async function adminConnectionResolver(env: Env): Promise<AdminConnection | null> {
   const connStr = await connectionString(env);
   if (!connStr) return null;
-  return { db: (await dbFor(connStr)).db, connStr };
+  return { connStr };
 }
 
 /** Resolve the admin command snapshot store (full ingest mirrors the cron publish). */
@@ -69,7 +69,7 @@ function adminStoreResolver(env: Env): ObjectStore | null {
 }
 
 mountSnapshotRoutes(app);
-mountAdminRoutes(app, { resolveDb: adminDbResolver, resolveStore: adminStoreResolver });
+mountAdminRoutes(app, { resolveDb: adminConnectionResolver, resolveStore: adminStoreResolver });
 
 app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),

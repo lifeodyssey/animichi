@@ -53,15 +53,15 @@ export interface CronJobResult {
 /**
  * Injectable seams for the cron jobs; tests substitute every one.
  *
- * The ingest path takes the request's {@link CatalogPrisma} (#1630) and the
- * still-Drizzle snapshot/import path takes a {@link CatalogDb}: the migration is
- * mid-flight, and naming both here is what keeps a seam from silently becoming
- * the other one's type.
+ * The ingest path takes the request's {@link CatalogPrisma} (#1630), and so does
+ * the snapshot publish it can trigger; the still-Drizzle seam is what is left —
+ * the staging import — and naming both here is what keeps a seam from silently
+ * becoming the other one's type.
  */
 export interface CronDependencies {
   /** Acquire this cron pass's Prisma seam; the handler disposes it when done. */
   connectPrisma: (connectionString: string) => Promise<CronPrisma>;
-  /** The still-Drizzle seam, for the snapshot publish and the staging import. */
+  /** The still-Drizzle seam, for the staging import. */
   connect: (connectionString: string) => Promise<CatalogDb>;
   ingestBangumi: (query: CatalogPrisma, bangumiId: string, egressSigningKey?: string) => Promise<IngestResult>;
   listDoneBangumiIds: (query: CatalogPrisma, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
@@ -69,7 +69,7 @@ export interface CronDependencies {
   listStaleBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
   runDailyIngest: (query: CatalogPrisma, egressSigningKey?: string) => Promise<DailyRunOutcome>;
   snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
-  publishRun: (db: CatalogDb, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
+  publishRun: (query: CatalogPrisma, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
   /** Build the read-only snapshot source, or null when no import binding exists (AC2). */
   importSource: (env: ScheduledEnvironment) => SnapshotSource | null;
@@ -86,7 +86,7 @@ const DEFAULT_DEPENDENCIES: CronDependencies = {
   listStaleBangumiIds,
   runDailyIngest: (query, egressSigningKey) => runDailyJob(query, egressSigningKey),
   snapshotStore: (bucket) => (bucket ? r2ObjectStore(bucket) : null),
-  publishRun: (db, store, sourceRunId, createdAt) => publishSnapshot({ db, store }, { sourceRunId, createdAt }),
+  publishRun: (query, store, sourceRunId, createdAt) => publishSnapshot({ query, store }, { sourceRunId, createdAt }),
   gcSnapshots: (store) => gcSnapshots(store, SNAPSHOT_KEEP),
   importSource: (env) => snapshotSourceFor(env),
   runImport: (db, source) => runImportJob(db, source),
@@ -149,10 +149,11 @@ function logCronCompletion(kind: CronKind, result: CronJobResult): void {
  * Run one cron pass over the seams its kind actually uses.
  *
  * The ingest kinds acquire ONE Prisma runtime for the whole pass, disposed on
- * scope exit. Only `dailyDiscover` also takes the Drizzle handle, because it
- * runs the ingest and then publishes the immutable snapshot — two paths that are
- * on different seams while the migration is mid-flight. Acquiring both for every
- * kind would open a Postgres connection for a cron that never issues a plan.
+ * scope exit; `dailyDiscover` runs its ingest AND its snapshot publish on that
+ * one seam. Only `dailyImport` takes the Drizzle handle, and only because the
+ * staging import still writes the pre-Prisma column set. Acquiring both for
+ * every kind would open a Postgres connection for a cron that never issues a
+ * statement on it.
  */
 async function runCron(
   kind: ScheduledCronKind,
@@ -167,7 +168,7 @@ async function runCron(
   const seam = await dependencies.connectPrisma(connStr);
   try {
     if (kind === "dailyDiscover") {
-      await publishDailyDiscover(seam.query, await dependencies.connect(connStr), dependencies, context);
+      await publishDailyDiscover(seam.query, dependencies, context);
       return { attempted: 0, ingested: 0, skipped: 0 };
     }
     return await runIngestKind(kind, seam.query, dependencies, context.egressSigningKey);
@@ -188,16 +189,15 @@ function runIngestKind(
   return runPendingDrainJob(query, dependencies, undefined, egressSigningKey);
 }
 
-/** The daily run, then the snapshot publish — each on its own seam. */
+/** The daily run, then the snapshot publish, both on this pass's one seam. */
 async function publishDailyDiscover(
   query: CatalogPrisma,
-  db: CatalogDb,
   dependencies: CronDependencies,
   context: CronContext,
 ): Promise<void> {
   await publishAfterRun(context.store, {
     runDailyIngest: () => dependencies.runDailyIngest(query, context.egressSigningKey),
-    publishRun: (store, sourceRunId, createdAt) => dependencies.publishRun(db, store, sourceRunId, createdAt),
+    publishRun: (store, sourceRunId, createdAt) => dependencies.publishRun(query, store, sourceRunId, createdAt),
     gcSnapshots: (store) => dependencies.gcSnapshots(store),
   });
 }

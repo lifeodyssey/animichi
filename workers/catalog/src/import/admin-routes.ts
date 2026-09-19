@@ -10,12 +10,11 @@
  *
  * The routes own their Prisma runtime the same way `/catalog/*` does: one
  * acquired per request and disposed with `await using` when the handler
- * returns, never a connection cached across requests (spec §4.2). Both seams
- * reach the runner because the daily run reads on Prisma while the snapshot
- * publish it can trigger is still Drizzle's (#1630).
+ * returns, never a connection cached across requests (spec §4.2). One seam
+ * reaches the runner: the daily run and the snapshot publish it can trigger
+ * are both plans on it (#1630).
  */
 import type { Context, Hono } from "hono";
-import type { CatalogDb } from "../db/client";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma } from "../db/prisma";
 import type { Env } from "../index";
 import { fullIngest, runCanaryCommand } from "./admin-commands";
@@ -23,10 +22,9 @@ import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { ObjectStore } from "../publish/object-store";
 import { timingSafeEqual } from "../lib/timing";
 
-/** The seams one admin command runs on, resolved from the environment. */
+/** The seam one admin command runs on, resolved from the environment. */
 export interface AdminSeams {
   readonly query: CatalogPrisma;
-  readonly db: CatalogDb;
 }
 
 /** The injectable admin pipeline runner (defaults to the production path). */
@@ -40,10 +38,9 @@ export interface AdminDeps {
 /** A clock seam so tests control the run epoch (no timing asserts). */
 export type Clock = () => number;
 
-/** What the resolver hands one admin command: the Drizzle seam plus the
- *  connection string its Prisma runtime is acquired from. */
+/** What the resolver hands one admin command: the connection string its Prisma
+ *  runtime is acquired from. */
 export interface AdminConnection {
-  readonly db: CatalogDb;
   readonly connStr: string;
 }
 
@@ -84,7 +81,7 @@ export interface AdminRouteOptions {
 /** Build the production admin runner. */
 export function createAdminDeps(): AdminDeps {
   return {
-    runFull: (seams, epochMs, store) => fullIngest(seams.query, seams.db, epochMs, store),
+    runFull: (seams, epochMs, store) => fullIngest(seams.query, epochMs, store),
     runCanary: (seams, epochMs) => runCanaryCommand(seams.query, epochMs),
   };
 }
@@ -122,7 +119,7 @@ function adminHandler(
     // One runtime for this request, given back when the handler returns.
     const prisma = await acquire(connection.connStr);
     try {
-      const seams: AdminSeams = { query: prisma.query, db: connection.db };
+      const seams: AdminSeams = { query: prisma.query };
       return c.json(await runner(seams, nowClock(), store));
     } finally {
       await prisma.dispose();

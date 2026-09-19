@@ -105,3 +105,26 @@ export function unreachableCatalogPrisma(): CatalogPrisma {
   };
   return seam;
 }
+
+/**
+ * A seam whose rows are keyed by the table a SELECT plan reads — the Prisma
+ * double for the reads that name one table and take no predicate, such as the
+ * candidate export's six. Keyed rather than positional for the reason the
+ * Drizzle fake was: a test says which table it is about (`{ points: rows }`)
+ * instead of counting commas, and a reordered read cannot hand one table's rows
+ * to another table's SELECT.
+ */
+export function fakeTableRows(rows: Readonly<Record<string, readonly unknown[]>>): CatalogPrisma {
+  const seam: CatalogPrisma = {
+    builder: catalogClient().sql,
+    executor: { query: (plan) => Promise.resolve((rows[readTable(plan)] ?? []) as readonly never[]) },
+    transaction: (fn) => joined(seam, fn),
+  };
+  return seam;
+}
+
+/** The table a plan's own source names; a plan that carries none answers nothing. */
+function readTable(plan: { readonly ast: unknown }): string {
+  const source = (plan.ast as { readonly from?: { readonly name?: unknown } }).from;
+  return typeof source?.name === "string" ? source.name : "";
+}
