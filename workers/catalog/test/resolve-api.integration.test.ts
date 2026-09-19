@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "../src/db/schema";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import {
+  acquireCatalogRuntime,
+  catalogPrisma,
+  type CatalogPrisma,
+  type CatalogRuntime,
+} from "../src/db/prisma";
+import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import {
   aliasInsert,
   aliasSeed,
@@ -19,21 +22,23 @@ import {
   workSeed,
   type SeedStatement,
 } from "./fixtures/catalog-seed";
-import {
-  databaseDescribe,
-  openDirectPool,
-  openServerlessDb,
-  restoreNeonConfig,
-  truncateCatalogPool,
-} from "./integration-db";
+import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 
 /**
- * Resolver SQL proof against the ephemeral branch's direct cloud endpoint.
+ * Resolver SQL proof against a database the committed Prisma chain built.
  *
- * GUARD: the context must carry a REAL Drizzle `db` built from the integration DSN.
- * Resolve's alias-index path (the July geocoding wave) is part of its contract, so
- * stubbing the DB to something like an empty execute does not fail loudly — it
- * silently turns every resolve into a miss and an on-demand ingest. Do not stub it.
+ * #1631 moved the alias-index lookup and the stored-candidate read onto the
+ * Prisma data plane (spec §4.2), so both are plans over the shared contract run
+ * on this request's runtime — the plane's shape is the one every real
+ * environment has, and the columns the resolver reads are its own.
+ *
+ * GUARD: the context must carry a REAL Prisma runtime built from the integration
+ * DSN. Resolve's alias-index path (the July geocoding wave) is part of its
+ * contract, so stubbing the seam to something like an empty answer list does not
+ * fail loudly — it silently turns every resolve into a miss and an upstream
+ * search. Do not stub it. The Drizzle seam is left UNREACHABLE on purpose:
+ * resolve reads nothing through it since #1631, so touching it here means a read
+ * went back to `context.db`.
  *
  * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
  * that `pointsByBangumiId` would reject with a 400 cannot be written here (#363).
@@ -58,7 +63,8 @@ const ALIASES = [
 ];
 
 let pool: pg.Pool;
-let db: CatalogDb;
+let runtime: CatalogRuntime;
+let prisma: CatalogPrisma;
 
 async function run(statement: SeedStatement): Promise<void> {
   await pool.query(statement.text, statement.values);
@@ -70,8 +76,10 @@ async function seed(): Promise<void> {
   await run(aliasInsert(ALIASES));
 }
 
+/** The route's context: this request's REAL Prisma seam, and a Drizzle seam that
+ * throws if a read reaches for it. */
 function context(): CatalogContext {
-  return { db, prisma: unreachableCatalogPrisma() };
+  return { db: unreachableCatalogDb(), prisma };
 }
 
 async function call(method: string, payload: unknown): Promise<unknown> {
@@ -107,15 +115,15 @@ function pointKeys(value: unknown): string[] {
 }
 
 beforeAll(async () => {
-  await openServerlessDb();
-  pool = await openDirectPool();
-  db = drizzle(pool, { schema }) as unknown as CatalogDb;
+  pool = new pg.Pool({ connectionString: planeDatabaseUrl(), connectionTimeoutMillis: 10_000 });
   await truncateCatalogPool(pool);
   await seed();
+  runtime = await acquireCatalogRuntime(planeDatabaseUrl());
+  prisma = catalogPrisma(runtime);
 }, 120_000);
 
 afterAll(async () => {
-  restoreNeonConfig();
+  await runtime[Symbol.asyncDispose]();
   await pool.end();
 });
 

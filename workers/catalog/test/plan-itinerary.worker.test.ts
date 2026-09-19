@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
 import { pointsForRoute } from "../src/adapters/outbound/route-points";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { countingCatalogPrisma, fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 
 /**
  * Use-case seam tests: `planItinerary` receives points through a fake
@@ -135,10 +135,12 @@ describe("pointsForRoute outbound adapter — Prisma fetch wired to the port", (
 });
 
 const seamHandler = new OpenAPIHandler(catalogRouter);
+/** A context whose points answer on the Prisma plane (#1631), one row-list per
+ * `query()` in call order. The route reads no Drizzle seam — the plan is built
+ * from the requested ids and the upstream is not on this path — so that seam is
+ * left unreachable. */
 function seamContext(rows: unknown[][]): CatalogContext {
-  const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
-  const db = { execute } as unknown as CatalogDb;
-  return { db, prisma: unreachableCatalogPrisma() };
+  return { db: unreachableCatalogDb(), prisma: fakeCatalogPrisma(...rows) };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

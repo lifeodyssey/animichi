@@ -76,7 +76,7 @@ describe("search (alias miss — production SearchDb wrapper)", () => {
           });
 
     const result = await search(
-      searchDb(fakeCatalogPrisma([]), catalogDb([]), stubEgressSigningKey()),
+      searchDb(fakeCatalogPrisma([], []), catalogDb([]), stubEgressSigningKey()),
       { query: "けいおん！" },
       { fetchImpl: lenientEgressFetch(fetchImpl), egressSigningKey: stubEgressSigningKey() },
     );

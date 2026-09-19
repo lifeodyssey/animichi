@@ -82,8 +82,10 @@ export function waitUntilSpy(): { waitUntil: (p: Promise<unknown>) => void; sche
   return { waitUntil: (p) => void scheduled.push(p), scheduled };
 }
 
-/** The Drizzle seam `searchDb()` still needs for the not-yet-moved points read;
- * casts stay at the boundary. */
+/** The Drizzle seam `searchDb()` still needs — the ingest, until #1630 converts
+ * it; every read crosses the Prisma plane. Answers `rows` to any statement, so
+ * the ingest's claim reads find no parked job and the pipeline stops there.
+ * Casts stay at the boundary. */
 export function catalogDb(rows: unknown[]): CatalogDb {
   return { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
 }

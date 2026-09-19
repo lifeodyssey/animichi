@@ -29,10 +29,11 @@
  * compile time, keeping the contract's zod runtime out of the Worker bundle;
  * they are re-exported so existing consumers keep importing them from here.
  *
- * The alias lookup reads the Prisma data plane (#1631, spec §4.2) — see
+ * The two reads — the alias lookup and the published points — are plans over
+ * the shared contract (#1631, spec §4.2), run on this request's runtime; see
  * `firstBangumiIdPlan` for why that removes the row narrowing the Drizzle seam
- * needed. The L1 preview is an upstream fetch, and the ingest and the published
- * points read are still Drizzle's until #1629/#1630 convert them.
+ * needed. The L1 preview is an upstream fetch, and the ingest is still
+ * Drizzle's until #1630 converts it.
  */
 
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
@@ -135,10 +136,11 @@ function emptyResult(): SearchResult {
 /** Build the production `SearchDb`.
  *
  * Both seams are parameters because the migration is mid-flight: the alias
- * lookup reads the Prisma plane (#1631, spec §4.2) off this request's runtime,
- * while the points read (`adapters/outbound/bangumi-points.ts`) and the ingest
- * (`ingest/`) are still Drizzle's until #1629 and #1630 convert them. `db` is
- * that not-yet-moved seam, not a second Prisma construction site.
+ * lookup and the published points read through
+ * `adapters/outbound/bangumi-points.ts` are Prisma's (#1631, spec §4.2) off this
+ * request's runtime, while the ingest (`ingest/`) is still Drizzle's until
+ * #1630 converts it. `db` is that not-yet-moved seam, not a second Prisma
+ * construction site.
  */
 export function searchDb(
   prisma: CatalogPrisma,
@@ -146,9 +148,10 @@ export function searchDb(
   egressSigningKey?: string,
 ): SearchDb {
   const ingest = catalogIngestBangumi(db, egressSigningKey);
+  const points = bangumiPoints(prisma);
   return {
     bangumiIdForAlias: (normalized) => firstBangumiId(prisma, normalized),
-    pointsForBangumi: (bangumiId) => bangumiPoints(db).pointsForBangumi(bangumiId),
+    pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
     resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl, egressSigningKey),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };

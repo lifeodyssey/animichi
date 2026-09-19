@@ -12,9 +12,9 @@
 
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { countingCatalogPrisma, fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
+import { fakeCatalogDb, unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import {
   pointsByBangumi,
   type PointsByBangumiPort,
@@ -115,10 +115,12 @@ describe("bangumiPoints outbound adapter (ONE Prisma read)", () => {
 });
 
 describe("pointsByBangumiId route seam", () => {
+  /** A context whose READ answers on the Prisma plane (#1631), one row-list per
+   * `query()` in call order; the Drizzle seam is the ingest's (#1630) and here
+   * it finds no parked job, so a work with no published rows takes the
+   * uncovered-work path. */
   function context(rows: unknown[][]): CatalogContext {
-    const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
-    const db = { execute } as unknown as CatalogDb;
-    return { db, prisma: unreachableCatalogPrisma() };
+    return { db: fakeCatalogDb({}), prisma: fakeCatalogPrisma(...rows) };
   }
 
   async function call(body: unknown, ctx: CatalogContext): Promise<Response> {
@@ -147,11 +149,17 @@ describe("pointsByBangumiId route seam", () => {
       .toEqual(["ep1", "ep2", "ep3"]);
   });
 
-  it("rejects an invalid Neon row as a 500", async () => {
+  it("reads the published rows on the Prisma plane — the Drizzle seam is never reached", async () => {
+    const counter = countingCatalogPrisma([ROW]);
     const response = await call(
       { bangumi_id: "1" },
-      context([[{ ...ROW, latitude: "not-a-number" }]]),
+      { db: unreachableCatalogDb(), prisma: counter.query },
     );
-    expect(response.status).toBe(500);
+
+    expect(response.status).toBe(200);
+    expect(counter.statements()).toBe(1);
+    const body = await response.json();
+    expect((body as { rows: { id: string }[] }).rows.map((point) => point.id))
+      .toEqual([ROW.id]);
   });
 });
