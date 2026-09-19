@@ -13,7 +13,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * The memo is module state, so every test imports a FRESH copy of the module
  * (`vi.resetModules`) — otherwise the first test would consume the only client
  * the rest could observe, and a dropped memoization would still look green.
+ *
+ * The graph is warmed below, in the file's import phase. Loading it cold inside
+ * a test spends that transform against the pool's per-test budget, which is what
+ * timed the first test out in the 94-file suite — and the body a timeout leaves
+ * running then builds its client into the NEXT test's counter.
  */
+import "../src/db/prisma";
 
 /** One constructed client, with the URLs it was asked to connect to. */
 interface BuiltClient {
