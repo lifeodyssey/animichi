@@ -4,6 +4,7 @@ import { createScheduledHandler, type CronDependencies } from "../src/scheduled/
 import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import type { CatalogDb } from "../src/db/client";
 import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 // Failure-signal audit (docs/specs/2026-08-26-system-health-audit.md sec 2.4): cron
 // outcomes used to be computed and discarded. These pin the new log signals; the
@@ -12,9 +13,18 @@ const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi
 const STAGING_ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "staging" };
 const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
 const db = {} as unknown as CatalogDb;
+/**
+ * The cron's Prisma seam. Every dependency in these cases is injected, so this
+ * seam is never reached — building it unreachable is what proves the wiring used
+ * the injected one rather than dialing out.
+ */
+const query = unreachableCatalogPrisma();
+
 
 function dependencies(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
+    connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
+      .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
     connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),

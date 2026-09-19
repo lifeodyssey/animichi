@@ -40,7 +40,7 @@ let drizzle: CatalogDb;
 
 /** `search` over the two seams the router hands it. */
 function searchOnBothSeams(query: string) {
-  return search(searchDb(prisma, drizzle), { query });
+  return search(searchDb(prisma), { query });
 }
 
 /** The pre-#1631 alias statement, frozen. */

@@ -10,7 +10,7 @@ import { parseAnitabiImagePlan } from "@animichi/contract/anitabi-display";
 import { mountSnapshotRoutes } from "./api/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
-import { mountAdminRoutes } from "./import/admin-routes";
+import { mountAdminRoutes, type AdminConnection } from "./import/admin-routes";
 import { connectionString, dbFor } from "./db/connections";
 import { acquireCatalogRuntime, catalogPrisma } from "./db/prisma";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
@@ -55,11 +55,11 @@ export interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 
-/** Resolve the admin command DB from the env, else null (503, fail-closed). */
-async function adminDbResolver(env: Env): Promise<import("./db/client").CatalogDb | null> {
+/** Resolve the admin command's seams from the env, else null (503, fail-closed). */
+async function adminDbResolver(env: Env): Promise<AdminConnection | null> {
   const connStr = await connectionString(env);
   if (!connStr) return null;
-  return (await dbFor(connStr)).db;
+  return { db: (await dbFor(connStr)).db, connStr };
 }
 
 /** Resolve the admin command snapshot store (full ingest mirrors the cron publish). */
@@ -69,7 +69,7 @@ function adminStoreResolver(env: Env): ObjectStore | null {
 }
 
 mountSnapshotRoutes(app);
-mountAdminRoutes(app, undefined, undefined, adminDbResolver, adminStoreResolver);
+mountAdminRoutes(app, { resolveDb: adminDbResolver, resolveStore: adminStoreResolver });
 
 app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
@@ -124,13 +124,11 @@ app.use("/catalog/*", async (c, next) => {
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
   }
-  const { db } = await dbFor(connStr);
   // Each catalog request acquires its own Prisma runtime and gives it back when
   // this scope exits — never a connection cached across requests (spec §4.2).
   await using runtime = await acquireCatalogRuntime(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     context: {
-      db,
       prisma: catalogPrisma(runtime),
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
@@ -148,8 +146,10 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
   async ingestBangumi(bangumiId: string): Promise<IngestResult> {
     const connStr = await connectionString(this.env);
     if (!connStr) throw new Error("catalog database not configured");
-    const { db } = await dbFor(connStr);
-    return catalogIngestBangumi(db, await egressSigningKeyFromEnv(this.env)).ingest(bangumiId);
+    // One runtime for this invocation, given back when the entrypoint returns
+    // — the same per-request shape the `/catalog/*` boundary uses (spec §4.2).
+    await using runtime = await acquireCatalogRuntime(connStr);
+    return await catalogIngestBangumi(catalogPrisma(runtime), await egressSigningKeyFromEnv(this.env)).ingest(bangumiId);
   }
 }
 

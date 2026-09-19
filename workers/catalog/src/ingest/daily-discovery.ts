@@ -7,11 +7,13 @@
  * wired to the Bangumi calendar by the caller / integration suite). Known ids
  * are read from the bangumi table so the bounded-growth cap in the run applies
  * to genuinely new works.
+ *
+ * The known-id read is a plan over the shared contract (#1630), so the
+ * projection fixes the row to the column's own type and the narrowing the
+ * Drizzle seam needed has nowhere left to live.
  */
-import type { SQL } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { bangumi } from "../db/schema";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
 import { SEED_BANGUMI } from "./seed-works";
 import { dailyRunKey, type DiscoveryInput } from "./discovery";
 import type { TierName, TieredWork } from "./tiers";
@@ -22,10 +24,10 @@ export type SeasonalResolver = () => Promise<readonly string[]>;
 
 /** Build the daily run inventory: known ids, the three discovery inputs, tiers. */
 export async function buildDailyInventory(
-  db: CatalogDb,
+  query: CatalogPrisma,
   seasonalResolver: SeasonalResolver = () => Promise.resolve([]),
 ): Promise<DailyRunInputs> {
-  const knownIds = await loadKnownIds(db);
+  const knownIds = await loadKnownIds(query);
   const seasonal = new Set(await seasonalResolver());
   const tiered = tierWorks(knownIds, seasonal);
   const discovery: readonly DiscoveryInput[] = [
@@ -37,21 +39,14 @@ export async function buildDailyInventory(
 }
 
 /** All ids already present in the catalog. */
-async function loadKnownIds(db: CatalogDb): Promise<ReadonlySet<string>> {
-  const rows = (await db.execute(knownIdsStatement())).rows;
-  return new Set(rows.flatMap(idOf));
+async function loadKnownIds(query: CatalogPrisma): Promise<ReadonlySet<string>> {
+  const rows = await query.executor.query(knownIdsPlan(query));
+  return new Set(rows.map((row) => row.id));
 }
 
 /** The SELECT of all bangumi ids. */
-function knownIdsStatement(): SQL {
-  return statementBuilder().select({ id: bangumi.id }).from(bangumi).getSQL();
-}
-
-/** Coerce a result row to a string id, or none when malformed. */
-function idOf(row: unknown): string[] {
-  if (row === null || typeof row !== "object") return [];
-  const id = (row as Record<string, unknown>).id;
-  return typeof id === "string" ? [id] : [];
+function knownIdsPlan(query: CatalogPrisma): SqlOrmPlan<{ id: string }> {
+  return query.builder.public.bangumi.select("id").build();
 }
 
 /** Assign a refresh tier to every known/seasonal work. */

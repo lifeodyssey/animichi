@@ -1,11 +1,15 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
-import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
+import {
+  planItinerary,
+  type ItineraryObservation,
+  type ItineraryPoint,
+  type PointsForRoutePort,
+} from "../src/application/plan-itinerary";
 import { pointsForRoute } from "../src/adapters/outbound/route-points";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 
 /**
  * Use-case seam tests: `planItinerary` receives points through a fake
@@ -140,7 +144,7 @@ const seamHandler = new OpenAPIHandler(catalogRouter);
  * from the requested ids and the upstream is not on this path — so that seam is
  * left unreachable. */
 function seamContext(rows: unknown[][]): CatalogContext {
-  return { db: unreachableCatalogDb(), prisma: fakeCatalogPrisma(...rows) };
+  return { prisma: fakeCatalogPrisma(...rows) };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

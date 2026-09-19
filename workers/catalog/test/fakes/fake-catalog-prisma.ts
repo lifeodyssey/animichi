@@ -10,6 +10,11 @@
  * The EXECUTOR is what a test replaces. `fakeCatalogPrisma(...answers)` hands
  * back one answer list per `query()` call, in call order (the nearby path reads
  * geo first, details second).
+ *
+ * The TRANSACTION joins the open one rather than opening a second connection, as
+ * a transaction-bound seam does in `src/db/prisma.ts`: a fake that ran `fn` on a
+ * different path than the one the caller passed would not be a double of the
+ * capability it stands in for.
  */
 import type { CatalogPlanExecutor, CatalogPrisma } from "../../src/db/prisma";
 import { catalogClient } from "../../src/db/prisma";
@@ -24,9 +29,32 @@ function executorAnswering(answers: readonly (readonly unknown[])[]): CatalogPla
   };
 }
 
+/**
+ * A seam whose `transaction` runs `fn` on the same bound seam (no nesting) —
+ * the transaction-bound shape `src/db/prisma.ts` gives a request.
+ *
+ * Exported for the tests that build a seam over a REAL runtime
+ * (`nearby-plan.ts`, `outbound-adapters.integration.test.ts`): those already
+ * have their executor, and this is the one member left to state.
+ */
+export function withJoinedTransaction(seam: Omit<CatalogPrisma, "transaction">): CatalogPrisma {
+  const bound: CatalogPrisma = { ...seam, transaction: (fn) => Promise.resolve(fn(bound)) };
+  return bound;
+}
+
+/** A seam whose `transaction` runs `fn` on the same bound seam (no nesting). */
+function joined<T>(seam: CatalogPrisma, fn: (query: CatalogPrisma) => PromiseLike<T>): Promise<T> {
+  return Promise.resolve(fn(seam));
+}
+
 /** The real builder paired with an executor answering `answers` in order. */
 export function fakeCatalogPrisma(...answers: readonly (readonly unknown[])[]): CatalogPrisma {
-  return { builder: catalogClient().sql, executor: executorAnswering(answers) };
+  const seam: CatalogPrisma = {
+    builder: catalogClient().sql,
+    executor: executorAnswering(answers),
+    transaction: (fn) => joined(seam, fn),
+  };
+  return seam;
 }
 
 /**
@@ -49,16 +77,18 @@ export function countingCatalogPrisma(
 ): CountingCatalogPrisma {
   let calls = 0;
   const answering = executorAnswering(answers);
-  return {
-    query: {
-      builder: catalogClient().sql,
-      executor: {
-        query: (plan) => {
-          calls += 1;
-          return answering.query(plan);
-        },
+  const seam: CatalogPrisma = {
+    builder: catalogClient().sql,
+    executor: {
+      query: (plan) => {
+        calls += 1;
+        return answering.query(plan);
       },
     },
+    transaction: (fn) => joined(seam, fn),
+  };
+  return {
+    query: seam,
     statements: () => calls,
   };
 }
@@ -68,8 +98,10 @@ export function unreachableCatalogPrisma(): CatalogPrisma {
   const refuse = (): never => {
     throw new Error("the Prisma seam should not be reached");
   };
-  return {
+  const seam: CatalogPrisma = {
     builder: new Proxy(catalogClient().sql, { get: () => refuse() }),
     executor: { query: refuse },
+    transaction: refuse,
   };
+  return seam;
 }

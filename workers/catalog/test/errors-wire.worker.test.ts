@@ -7,7 +7,6 @@ import type {
   WorkNotFoundData,
 } from "../src/lib/errors";
 import type { Itinerary } from "../src/types";
-import { fakeCatalogDb, unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 interface ErrorEnvelope<TData> {
@@ -62,17 +61,18 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
   return response;
 }
 
-/** Build a minimal CatalogContext; casts stay at the test fake boundary. Every
- * READ answers on the Prisma plane (#1631), one row-list per `query()` in call
- * order; the Drizzle seam is the ingest's (#1630), and it finds no parked job
- * here. */
+/**
+ * Build a minimal CatalogContext; casts stay at the test fake boundary. Every
+ * read and every ingest write answers on the Prisma plane (#1630), one row-list
+ * per `query()` in call order.
+ */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
-  return { db: fakeCatalogDb({}), prisma: fakeCatalogPrisma(rows), fetchImpl };
+  return { prisma: fakeCatalogPrisma(rows), fetchImpl };
 }
 
-/** Context whose Prisma and Drizzle seams must not be touched. */
+/** Context whose Prisma seam must not be touched. */
 function unreachableContext(): CatalogContext {
-  return { db: unreachableCatalogDb(), prisma: unreachableCatalogPrisma() };
+  return { prisma: unreachableCatalogPrisma() };
 }
 
 /** Joined point+bangumi rows spaced far enough apart to produce distinct clusters. */

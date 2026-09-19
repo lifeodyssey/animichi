@@ -14,7 +14,6 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { fakeCatalogDb, unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import {
   pointsByBangumi,
   type PointsByBangumiPort,
@@ -120,7 +119,7 @@ describe("pointsByBangumiId route seam", () => {
    * it finds no parked job, so a work with no published rows takes the
    * uncovered-work path. */
   function context(rows: unknown[][]): CatalogContext {
-    return { db: fakeCatalogDb({}), prisma: fakeCatalogPrisma(...rows) };
+    return { prisma: fakeCatalogPrisma(...rows) };
   }
 
   async function call(body: unknown, ctx: CatalogContext): Promise<Response> {
@@ -153,7 +152,7 @@ describe("pointsByBangumiId route seam", () => {
     const counter = countingCatalogPrisma([ROW]);
     const response = await call(
       { bangumi_id: "1" },
-      { db: unreachableCatalogDb(), prisma: counter.query },
+      { prisma: counter.query },
     );
 
     expect(response.status).toBe(200);
