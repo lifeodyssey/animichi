@@ -113,7 +113,7 @@ function drainablePlan(query: CatalogPrisma, cap: number): SqlOrmPlan<{ work_id:
       ),
       match.and(
         match.eq(fields.status, "failed"),
-        match.raw`${fields.negative_cached_until} is null or ${fields.negative_cached_until} <= now()`.returns("pg/bool@1"),
+        match.raw`(${fields.negative_cached_until} is null or ${fields.negative_cached_until} <= now())`.returns("pg/bool@1"),
       ),
     ))
     .orderBy("created_at", { direction: "asc" })

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type pg from "pg";
 import type { CatalogPrisma } from "../src/db/prisma";
-import { listStaleBangumiIds, STALE_AFTER_SECONDS } from "../src/ingest/cron-queries";
+import { listDrainableBangumiIds, listStaleBangumiIds, STALE_AFTER_SECONDS } from "../src/ingest/cron-queries";
 import {
   catalogTruncateSql,
   databaseDescribe,
@@ -142,5 +142,22 @@ databaseDescribe("listStaleBangumiIds freshness floor", () => {
 
   it("returns nothing when every work is fresh — no perpetual treadmill", async () => {
     await expect(listStaleBangumiIds(query, 5, STALE_AFTER_SECONDS)).resolves.toEqual([]);
+  });
+});
+
+databaseDescribe("listDrainableBangumiIds running-claim scope", () => {
+  beforeAll(async () => {
+    await truncate();
+    await pool.query(`
+      INSERT INTO ingest_jobs (work_id, status, started_at, negative_cached_until)
+      VALUES ('drain-running-fresh', 'running', NOW(), NOW() - INTERVAL '1 second')
+    `);
+  }, 60_000);
+
+  it("excludes a running row whose heartbeat is fresh, even with a lapsed negative cache", async () => {
+    // The failed-status cache arm must stay scoped to status = 'failed': an
+    // ungrouped OR would let the lapsed cache drain an in-flight claim.
+    const drainable = await listDrainableBangumiIds(query, 10);
+    expect(drainable).not.toContain("drain-running-fresh");
   });
 });

@@ -115,7 +115,7 @@ function claimableUpdate(
       fns.or(
         fns.and(
           fns.ne(fields.status, "running"),
-          fns.raw`${fields.negative_cached_until} is null or ${fields.negative_cached_until} <= now()`.returns("pg/bool@1"),
+          fns.raw`(${fields.negative_cached_until} is null or ${fields.negative_cached_until} <= now())`.returns("pg/bool@1"),
         ),
         fns.and(
           fns.eq(fields.status, "running"),

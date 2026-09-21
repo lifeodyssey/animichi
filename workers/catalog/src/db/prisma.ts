@@ -100,23 +100,31 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  *
  * The connection is `destroy`ed rather than released when the rollback itself
  * fails: the driver says that leaves the socket indeterminate, and reusing it
- * would poison the next statement.
+ * would poison the next statement. A destroyed connection is NOT also released
+ * — the driver's connection contract calls a second teardown after destroy a
+ * caller error. Every other path — commit, rolled-back failure, and a
+ * transaction that could not even be opened — releases exactly once.
  */
 export async function inCatalogTransaction<T>(
   runtime: CatalogRuntime,
   fn: (query: CatalogPrisma) => PromiseLike<T>,
 ): Promise<T> {
   const connection = await runtime.connection();
-  const transaction = await connection.transaction();
+  let transaction: CatalogTransaction;
+  try {
+    transaction = await connection.transaction();
+  } catch (error) {
+    await connection.release();
+    throw error;
+  }
   try {
     const value = await fn(bindTransaction(transaction));
     await transaction.commit();
+    await connection.release();
     return value;
   } catch (error) {
-    await rollbackOrDestroy(connection, transaction, error);
+    await settleFailed(connection, transaction, error);
     throw error;
-  } finally {
-    await connection.release();
   }
 }
 
@@ -135,9 +143,9 @@ function bindTransaction(transaction: CatalogTransaction): CatalogPrisma {
   return bound;
 }
 
-/** Roll back, evicting the connection when even that fails. */
-async function rollbackOrDestroy(
-  connection: { destroy(reason?: unknown): Promise<void> },
+/** Settle a failed unit: roll back and release; evict the connection when even the rollback fails. */
+async function settleFailed(
+  connection: { destroy(reason?: unknown): Promise<void>; release(): Promise<void> },
   transaction: CatalogTransaction,
   reason: unknown,
 ): Promise<void> {
@@ -145,5 +153,7 @@ async function rollbackOrDestroy(
     await transaction.rollback();
   } catch {
     await connection.destroy(reason);
+    return;
   }
+  await connection.release();
 }

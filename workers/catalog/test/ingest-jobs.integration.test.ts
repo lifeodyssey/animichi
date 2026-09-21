@@ -92,6 +92,19 @@ databaseDescribe("JobStore singleflight over ingest_jobs", () => {
     expect(fresh).toEqual([false, false]);
     expect(stale.filter(Boolean)).toHaveLength(1);
   });
+
+  it("does not reclaim a running row whose expired negative cache alone would match", async () => {
+    // A re-claim after a lapsed TTL leaves negative_cached_until in the past,
+    // so the claim's cache arm must be scoped to the not-running branch: an
+    // ungrouped OR would let the expired cache match the running row itself.
+    await pool.query(`
+      INSERT INTO ingest_jobs (work_id, status, started_at, negative_cached_until)
+      VALUES ('running-expired-cache', 'running', NOW(), NOW() - INTERVAL '1 second')
+    `);
+
+    expect(await new JobStore(query).acquire("running-expired-cache")).toBe(false);
+    expect(await runningCount("running-expired-cache")).toBe(1);
+  });
 });
 
 databaseDescribe("JobStore negative cache", () => {
