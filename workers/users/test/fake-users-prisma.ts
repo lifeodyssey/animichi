@@ -35,7 +35,9 @@ export interface FakeSavedRouteRow {
   updated_at: string;
 }
 
-/** One saved_route_idempotency row (issue #1011). */
+/** One saved_route_idempotency row (issue #1011). `created_at` is nullable in
+ * the contract (`createdAt TimestamptzString?`), so a row that never got the
+ * column default is a state the adapter reads. */
 export interface FakeLedgerRow {
   owner_user_id: string;
   op: string;
@@ -44,7 +46,7 @@ export interface FakeLedgerRow {
   state: "in_progress" | "committed";
   result: unknown;
   result_id: string | null;
-  created_at: string;
+  created_at: string | null;
   expires_at: string;
 }
 
@@ -68,6 +70,22 @@ export interface FakeUsersPrismaOptions {
    * read and the guarded write it authorises.
    */
   readonly beforePlan?: (index: number, queries: readonly RecordedPlan[]) => void;
+  /**
+   * Answer the plan with no rows, after applying it — a statement whose
+   * `RETURNING` came back empty, the shape a `BEFORE INSERT` trigger suppressing
+   * a row leaves behind. That empty answer is what the adapters' `row ===
+   * undefined` guards exist for, and no plan the fake models produces it by
+   * itself.
+   */
+  readonly emptyReturning?: (plan: RecordedPlan) => boolean;
+  /**
+   * The failure a duplicate composite key raises, as this data plane's driver
+   * reports it. The default is the shape the runtime hands application code —
+   * `FakeUniqueViolation`, carrying `sqlState` and `table` — and the option is
+   * how a test stages the shapes a raw-SQL path or a wrapped runtime failure
+   * leaves behind instead.
+   */
+  readonly uniqueViolation?: (table: string) => Error;
 }
 
 /** The ledger's composite key, as one string — its `Map` key in this fake. */
@@ -214,7 +232,7 @@ function mintedRouteId(): string {
 }
 
 /** One INSERT against the in-memory tables. */
-function runInsert(ast: AnyQueryAst, state: FakeState): Row[] {
+function runInsert(ast: AnyQueryAst, state: FakeState, options: FakeUsersPrismaOptions): Row[] {
   const table = tableOf(ast);
   const values = insertValues(ast);
   if (table === SAVED_ROUTE_TABLE) {
@@ -228,7 +246,7 @@ function runInsert(ast: AnyQueryAst, state: FakeState): Row[] {
   }
   if (table === IDEMPOTENCY_TABLE) {
     const key = ledgerKey(String(values.owner_user_id), String(values.op), String(values.key));
-    if (state.ledger.has(key)) throw new FakeUniqueViolation(IDEMPOTENCY_TABLE);
+    if (state.ledger.has(key)) throw options.uniqueViolation?.(IDEMPOTENCY_TABLE) ?? new FakeUniqueViolation(IDEMPOTENCY_TABLE);
     const row = {
       owner_user_id: "", op: "", key: "", fingerprint: "", state: "in_progress",
       result: null, result_id: null, created_at: DEFAULT_NOW, expires_at: DEFAULT_NOW, ...values,
@@ -264,11 +282,11 @@ function runRead(ast: AnyQueryAst, state: FakeState): Row[] {
 interface FakeState { routes: FakeSavedRouteRow[]; ledger: Map<string, FakeLedgerRow> }
 
 /** Run one plan against the in-memory tables, recording what was asked. */
-function runPlan(plan: unknown, state: FakeState, queries: RecordedPlan[]): readonly Row[] {
+function runPlan(plan: unknown, state: FakeState, queries: RecordedPlan[], options: FakeUsersPrismaOptions): readonly Row[] {
   const ast = (plan as { ast: AnyQueryAst }).ast;
   queries.push({ kind: ast.kind, table: tableOf(ast) });
   switch (ast.kind) {
-    case "insert": return runInsert(ast, state);
+    case "insert": return runInsert(ast, state, options);
     case "update": return runUpdate(ast, state);
     case "delete":
     case "select": return runRead(ast, state);
@@ -290,10 +308,20 @@ export function fakeUsersPrisma(
 ): FakeUsersPrisma {
   const state: FakeState = { routes: [...seed], ledger: new Map() };
   const queries: RecordedPlan[] = [];
+  // The hook's index counts the statements the executor was ASKED for, so it
+  // advances whether or not the plan gets recorded: tied to `queries.length`, a
+  // hook that throws leaves the index unadvanced, and the next statement's hook
+  // fires at the same index and throws the same failure again.
+  let planIndex = 0;
   const executor: UsersPlanExecutor = {
     query: <Row>(plan: SqlOrmPlan<Row>) => {
-      options.beforePlan?.(queries.length, queries);
-      return Promise.resolve(runPlan(plan, state, queries) as readonly Row[]);
+      const index = planIndex;
+      planIndex += 1;
+      options.beforePlan?.(index, queries);
+      const rows = runPlan(plan, state, queries, options) as readonly Row[];
+      const executed = queries[queries.length - 1];
+      if (executed !== undefined && options.emptyReturning?.(executed)) return Promise.resolve<readonly Row[]>([]);
+      return Promise.resolve(rows);
     },
   };
   return {
