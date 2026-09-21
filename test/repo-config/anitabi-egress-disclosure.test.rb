@@ -5,9 +5,11 @@
 #
 #   a credential value — in any form: quoted, unquoted, a YAML mapping, a
 #                      `?? "…"` fallback, a test fixture. Every value this
-#                      repository's tests use is generated at run time. The
-#                      scan covers EVERY tracked text file, and it is keyed off
-#                      the SECRET NAMES the service holds rather than one of
+#                      repository's tests use is either generated at run time
+#                      (`crypto.randomBytes`, as the config probes do) or an
+#                      obviously-fake constant of words nobody could be holding.
+#                      The scan covers EVERY tracked text file, and it is keyed
+#                      off the SECRET NAMES the service holds rather than one of
 #                      them: the signing key (#1792), and the ceiling store's
 #                      address (#1810, #1824) — a second credential added to a
 #                      scan that named only the first would be invisible to it,
@@ -20,6 +22,14 @@
 #                      Nothing benign in this tree is caught (measured; the
 #                      whole tree carries zero credential-shaped literals
 #                      beside a mention of one of these names).
+#                      The net is a LINE, and the residual is stated rather
+#                      than implied away: a value written on a line of its own,
+#                      with the name that would have carried it on the line
+#                      before, is not read. Every form a committed value takes
+#                      — a module constant, `NAME=…`, `NAME: …`, a dotenv line,
+#                      a `?? "…"` fallback — puts the name and the value on
+#                      ONE line, and a net carrying the name forward would have
+#                      no line to stop on.
 #   the egress address — the asset. The upstream allowlists one address; the
 #                      repository is public, so publishing it would announce
 #                      which address holds that privilege. The scan covers the

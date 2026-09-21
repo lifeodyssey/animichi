@@ -23,7 +23,12 @@ import {
   type EgressConfig,
 } from "./egress-config.ts";
 import { handleEgressRequest, type Ceiling, type EgressDeps, type UpstreamFetch } from "./egress-service.ts";
-import { RedisTcpCeilingStore, type StoreConnect, type StoreSocket } from "./redis-tcp-ceiling-store.ts";
+import {
+  RedisTcpCeilingStore,
+  STORE_TIMEOUT_MS,
+  type StoreConnect,
+  type StoreSocket,
+} from "./redis-tcp-ceiling-store.ts";
 import { UpstreamRequestCeiling, type CeilingStore } from "./upstream-ceiling.ts";
 
 export interface EgressServerOptions {
@@ -82,16 +87,51 @@ const DEFAULT_REDIS_PORT = 6379;
  * is IPv4, and this destination is deliberately not it.
  *
  * The address is the environment's, never a request's: whoever calls this
- * hands it a value `readCeilingStoreConfig` already accepted.
+ * hands it a value `readCeilingStoreConfig` already accepted. The connection it
+ * opens is held to the store's own timeout, so a black-holed address is refused
+ * as a store this service cannot reach rather than held until the OS gives up
+ * on its SYN.
  */
 function dialStore(url: string): Promise<StoreSocket> {
   const address = new URL(url);
   const port = address.port === "" ? DEFAULT_REDIS_PORT : Number(address.port);
   const socket = createConnection({ host: address.hostname, port, family: 6 });
+  return connectedWithin(socket).then(storeSocket);
+}
+
+/**
+ * The socket's own side of a dial, as the deadline below needs it: close it, and
+ * hear whichever way it ends. Narrower than `net.Socket` on purpose — the socket
+ * this process dials and a test's double both fit it.
+ */
+export interface DialingSocket {
+  once(event: "connect", listener: () => void): unknown;
+  once(event: "error", listener: (cause: Error) => void): unknown;
+  destroy(): unknown;
+}
+
+/**
+ * The connection, or a refusal — whichever comes first, and never later than the
+ * store's own timeout. A store that answers no SYN at all is one this service
+ * cannot reach, and `upstream-ceiling` refuses `store-unavailable` only when the
+ * store fails: an unreachable store has to fail inside the deadline it is held
+ * to, or the request waits out the operating system's TCP timeout instead.
+ *
+ * The socket is a parameter, and this is exported, for one reason: a dial that
+ * never connects is a thing only a socket the caller owns can produce, and the
+ * alternative is the network this package's tests never touch.
+ */
+export function connectedWithin<T extends DialingSocket>(socket: T): Promise<T> {
   return new Promise((resolve, reject) => {
-    socket.once("connect", () => { resolve(storeSocket(socket)); });
-    socket.once("error", reject);
+    const deadline = setTimeout(() => { socket.destroy(); reject(connectTimedOut()); }, STORE_TIMEOUT_MS);
+    socket.once("connect", () => { clearTimeout(deadline); resolve(socket); });
+    socket.once("error", (cause) => { clearTimeout(deadline); reject(cause); });
   });
+}
+
+/** The refusal a dial that never opened produces: the store is unreachable, not slow. */
+function connectTimedOut(): Error {
+  return new Error("the ceiling store's connection was not established within its timeout");
 }
 
 /** A `net.Socket`, reduced to the four things the store's injected seam uses. */

@@ -23,8 +23,8 @@ import { startEgressServer } from "../src/start-egress-server.ts";
 
 const KEY = crypto.randomBytes(48).toString("base64");
 
-/** The store's password, assembled so no credential-shaped literal sits in this tree. */
-const STORE_PASSWORD = "the-" + "integration-tests-own-password";
+/** The store's password: an obviously-fake constant, the form this repository's test credentials take. */
+const STORE_PASSWORD = "the-integration-tests-own-password";
 
 /** A moment inside the hour that starts at 1699999200, which is the key the store must be asked for. */
 const NOW_SECONDS = 1_700_000_000;

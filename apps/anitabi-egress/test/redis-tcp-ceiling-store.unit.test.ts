@@ -20,11 +20,12 @@ import { RedisTcpCeilingStore, type StoreConnect, type StoreSocket } from "../sr
  */
 
 /**
- * The password the store's own address carries. Assembled rather than written
- * out — a credential-shaped literal cannot sit in the tree this repository
- * scans, even when it is only ever a test's.
+ * The password the store's own address carries: an obviously-fake constant, the
+ * form this repository's test credentials take. Neither scan reads it — the
+ * disclosure scan wants one of the service's secret names on the line, and
+ * gitleaks wants a key-shaped run — so it is written out as the words it is.
  */
-const PASSWORD = "the-" + "tests-own-password";
+const PASSWORD = "the-tests-own-password";
 
 /** The Private URL `fly redis status` prints: the store's credential is inside the address. */
 const PRIVATE_URL = `redis://default:${PASSWORD}@fly-anitabi-test.upstash.io:6379`;
@@ -255,5 +256,32 @@ void describe("an answer the store cannot give is a refusal", () => {
     const { store, socket } = storeOver([], PRIVATE_URL, "fail");
     await assert.rejects(store.increment(WINDOW));
     assert.equal(socket.closed(), true, "a refused count must not leave its connection open");
+  });
+});
+
+/**
+ * The bound on what this pipeline will read (#1824). The store's whole
+ * conversation is three small replies, so a header longer than any of them is
+ * bytes that cannot be an answer — and the buffer holding them must not be left
+ * to grow until the endpoint decides to end a line, which is what an endpoint
+ * that never does would make it do.
+ */
+void describe("a header longer than any reply the store owes", () => {
+  void it("is refused having run past the bound, before its terminator arrives", async () => {
+    const { store } = storeOver(["A".repeat(4_096)], PRIVATE_URL, "hang-up");
+    await assert.rejects(
+      store.increment(WINDOW),
+      /longer than any answer it owes/,
+      "an endpoint that never ends its header is refused as one, not buffered without end",
+    );
+  });
+
+  void it("is refused when it does end, having run past the bound", async () => {
+    const { store } = storeOver([`+${"A".repeat(4_096)}\r\n`]);
+    await assert.rejects(
+      store.increment(WINDOW),
+      /longer than any answer it owes/,
+      "the bound is on the header, not on how it arrives: a decode is bounded only if the bytes are",
+    );
   });
 });

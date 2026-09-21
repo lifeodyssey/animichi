@@ -19,6 +19,10 @@
  * because Redis runs a pipeline's commands in order and the increment must not
  * arrive unauthenticated.
  *
+ * What the commands MEAN is here; the bytes of their replies are framed in
+ * `resp-replies.ts`, and this module is what turns the reply into the count — or
+ * into a refusal, in every other way the exchange can end.
+ *
  * The counter is MONOTONE within its hour: it counts admissions the service
  * attempted, including the ones the ceiling then refused, so a refusal never
  * frees a slot. Over-counting is the safe direction for a promise, and it is
@@ -35,6 +39,7 @@
  * them may read as a count: a store whose failures were tolerated is a ceiling
  * that is not enforced.
  */
+import { ReplyBuffer, type Reply } from "./resp-replies.ts";
 import type { CeilingStore } from "./upstream-ceiling.ts";
 
 /**
@@ -45,20 +50,25 @@ import type { CeilingStore } from "./upstream-ceiling.ts";
 const WINDOW_TTL_SECONDS = 2 * 60 * 60;
 
 /**
- * How long the store has to answer. It is one atomic increment on a counter
- * this service owns: a store that cannot manage it inside this is not slow,
- * and the caller is better served by a refusal than by a held connection.
+ * How long the store has to answer, and how long its connection has to open. It
+ * is one atomic increment on a counter this service owns: a store that cannot
+ * manage it inside this is not slow, and the caller is better served by a
+ * refusal than by a held connection. The composition root holds the dial to the
+ * same number (#1824), so reaching the store is inside a deadline too — an
+ * address that answers no SYN refuses here rather than at the operating
+ * system's own TCP timeout.
  */
-const STORE_TIMEOUT_MS = 5_000;
+export const STORE_TIMEOUT_MS = 5_000;
 
 /** RESP2's terminator: every header and every bulk string ends with these two bytes. */
 const CRLF = "\r\n";
 
-/** A RESP reply, as far as this pipeline can read one — the types it is owed, and no other. */
-type Reply =
-  | { readonly kind: "status"; readonly value: string }
-  | { readonly kind: "integer"; readonly value: number }
-  | { readonly kind: "error"; readonly value: string };
+/**
+ * The refusal for a header longer than the longest one `resp-replies.ts` will
+ * read: bytes that are not an answer to anything, however the endpoint ends
+ * them.
+ */
+const OVERSIZED_REPLY_HEADER = "the ceiling store sent a reply header longer than any answer it owes";
 
 /** One command, as its argument vector. */
 type Command = readonly string[];
@@ -173,6 +183,10 @@ class ReplyReader {
   /** Bytes off the wire, in whatever pieces they arrive: whole replies are counted, the last one grants. */
   arrived(chunk: Uint8Array): void {
     this.buffered.push(chunk);
+    if (this.buffered.overlong()) {
+      this.fail(OVERSIZED_REPLY_HEADER);
+      return;
+    }
     for (let reply = this.buffered.next(); reply !== undefined; reply = this.buffered.next()) {
       this.replies.push(reply);
     }
@@ -240,55 +254,4 @@ function encodeCommand(command: Command): string {
 /** A bulk string's own framing: its length is the bytes that follow, not the characters. */
 function bulk(argument: string): string {
   return `$${String(Buffer.byteLength(argument, "utf8"))}${CRLF}${argument}${CRLF}`;
-}
-
-/** The store's bytes, held until a whole reply has arrived — RESP frames them, so a part is not one. */
-class ReplyBuffer {
-  private readonly bytes: number[] = [];
-
-  push(chunk: Uint8Array): void {
-    for (const byte of chunk) this.bytes.push(byte);
-  }
-
-  /** The next whole reply, or undefined while the rest is still in flight. */
-  next(): Reply | undefined {
-    const parsed = parseReply(this.bytes);
-    if (parsed === null) return undefined;
-    this.bytes.splice(0, parsed.consumed);
-    return parsed.reply;
-  }
-}
-
-/**
- * One reply and the bytes it took, or null while it is incomplete. A reply type
- * this pipeline never asked for — a bulk string, an array, the inline form —
- * is read as the error it is rather than guessed at: this conversation has
- * exactly two answers, and an answer that is neither is a store failure.
- */
-function parseReply(bytes: readonly number[]): { reply: Reply; consumed: number } | null {
-  const end = lineEnd(bytes);
-  if (end < 0) return null;
-  const header = String.fromCharCode(...bytes.slice(1, end));
-  const consumed = end + 2;
-  if (bytes[0] === 43) return { reply: { kind: "status", value: header }, consumed };
-  if (bytes[0] === 45) return { reply: { kind: "error", value: header }, consumed };
-  if (bytes[0] === 58) return { reply: integerReply(header), consumed };
-  return { reply: { kind: "error", value: `an unsupported reply type (${header})` }, consumed };
-}
-
-/** `:123` is a count only when it is digits and nothing else, and one Number can hold exactly. */
-function integerReply(header: string): Reply {
-  if (!/^-?\d+$/.test(header)) return { kind: "error", value: `an integer reply that is not one (${header})` };
-  const value = Number(header);
-  return Number.isSafeInteger(value)
-    ? { kind: "integer", value }
-    : { kind: "error", value: `a count too large to hold (${header})` };
-}
-
-/** Where the header's own CRLF starts, or -1 while it has not arrived. */
-function lineEnd(bytes: readonly number[]): number {
-  for (let index = 1; index < bytes.length; index += 1) {
-    if (bytes[index] === 13 && bytes[index + 1] === 10) return index;
-  }
-  return -1;
 }

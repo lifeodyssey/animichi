@@ -40,9 +40,12 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   # client-half net and the probes below cannot drift apart.
   DIAL_COMPOSITION_ROOT = "start-egress-server.ts"
 
-  # A socket module named by its specifier — the shape an import writes, and the
-  # only shape the composition root's own dial is permitted in.
-  DIAL_MODULE_SPECIFIER = %r{["'](?:node:)?(?:net|tls)["']}
+  # The ONE line the composition root's own dial is permitted: a complete import
+  # declaration naming a socket module, and nothing else on it. The anchoring is
+  # the whole allowance — a specifier merely present somewhere on a line is not
+  # this shape, so `import * as net from "node:net"; net.connect(…)` and a second
+  # client's call beside the import are still the rule's to refuse.
+  DIAL_IMPORT_LINE = %r{\A\s*import\b[^;]*?["'](?:node:)?(?:net|tls)["']\s*;?\s*\z}
 
   # Every module specifier this source may contain, and which module may hold
   # it. `:everywhere` is the deployed service — bundled from server.ts, plus
@@ -157,6 +160,23 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
            "the same import anywhere else is a second outbound capability"
   end
 
+  # That allowance is a fact about ONE line shape, and this is the pair that says
+  # so: the import the composition root writes is permitted, and the same import
+  # carrying a call — its own dial, or another client's — is not. The rule's
+  # subject is a line, so a specifier that merely appears on one cannot be
+  # allowed to carry whatever else that line holds.
+  def test_the_permitted_dial_is_the_import_and_not_a_line_that_also_dials
+    root = "#{SOURCE}/#{DIAL_COMPOSITION_ROOT}"
+    {
+      "the socket module imported and dialed on one line" =>
+        %(import * as net from "node:net"; net.connect(host, port);),
+      "the socket module beside another client's call" =>
+        %(import * as net from "node:net"; https.request(url);),
+    }.each do |shape, line|
+      assert outbound_client_line?(line, root), "#{shape} must be refused: #{line}"
+    end
+  end
+
   def test_the_inbound_server_module_reaches_the_composition_root_and_nothing_else
     assert allowed_import?("#{SOURCE}/#{DIAL_COMPOSITION_ROOT}", "node:http"),
            "the composition root binds the one inbound server this service listens on"
@@ -224,11 +244,12 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   end
 
   # The one line that names a socket module where the socket is actually
-  # dialed. It is deliberately narrow — a specifier, in one named file — so the
-  # allowance cannot spread to a member call (`net.connect(…)`) or to a second
-  # import somewhere else, both of which the rule above still refuses.
+  # dialed. It is deliberately narrow — a complete import declaration, in one
+  # named file — so the allowance cannot spread to a member call
+  # (`net.connect(…)`), to a second import somewhere else, or to anything else
+  # sharing the import's line, all of which the rule above still refuses.
   def permitted_dial?(line, path)
-    File.basename(path) == DIAL_COMPOSITION_ROOT && line.match?(DIAL_MODULE_SPECIFIER)
+    File.basename(path) == DIAL_COMPOSITION_ROOT && line.match?(DIAL_IMPORT_LINE)
   end
 
   def allowed_import?(path, specifier)

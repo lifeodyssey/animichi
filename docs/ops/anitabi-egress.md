@@ -187,7 +187,7 @@ the signing key's Fly copy — the one input here that Pulumi does not manage (t
 chain in #1812 provisions the *caller's* copy of the signing key, and stops at the Worker).
 
 **Provisioning it, after this card merges** (#1824): `fly redis create` with primary region `nrt`,
-then `fly secrets set CEILING_STORE_URL="<the Private URL from `fly redis status`>" --app
+then `fly secrets set CEILING_STORE_URL="<the Private URL from fly redis status>" --app
 animichi-anitabi-egress`. Two steps, and the second is the only one that touches the app. Until it
 runs, the service has no store and refuses every request with `configuration` — loudly, which is what
 that refusal is for.
