@@ -40,7 +40,7 @@ function asDocument(value: unknown): ApiDocument {
   if (typeof value !== "object" || value === null) {
     throw new Error("expected an OpenAPI document object");
   }
-  const paths = (value as Record<string, unknown>)["paths"];
+  const paths = (value as Record<string, unknown>).paths;
   if (typeof paths !== "object" || paths === null) {
     throw new Error("OpenAPI document must declare an object paths field");
   }

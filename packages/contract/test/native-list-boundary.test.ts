@@ -14,7 +14,7 @@ describe("native conversation-index ownership", () => {
 describe("the conversation index's declared body", () => {
   it("admits the statement's 30-row window and refuses a 31st row", () => {
     const rows = Array.from({ length: 31 }, (_, index) => ({
-      session_id: `s-${index}`, title: null, first_query: null, created_at: null, updated_at: null,
+      session_id: `s-${String(index)}`, title: null, first_query: null, created_at: null, updated_at: null,
     }));
     expect(ListConversationsResponse.parse(rows.slice(0, 30))).toHaveLength(30);
     expect(() => ListConversationsResponse.parse(rows)).toThrow();
