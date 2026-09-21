@@ -173,9 +173,15 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 ## Harness (4-role agent system)
 
 Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine-judgeable triggers).
+**Coordinator skill: `.claude/skills/animichi-orca-orchestration/SKILL.md`** (force-added; `.agents/` is a gitignored mirror) — the operating
+manual for one delivery tick: the writer/reviewer roster, the launcher's contract, the merge
+conditions, and the failure modes each of them was written to prevent. Read it before
+dispatching anything. The retired `use-opencode` and `fleet-orchestra` skills are superseded
+by it; the `opencode serve` channel they described is no longer how work is dispatched.
 Role definitions live in `.claude/agents/`:
 - planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
-- executor — Orca card delivery uses **Codex Sol max**; other work uses **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`). Brief-driven, never commits.
+- executor — dispatched through the Orca headless launcher; see the coordinator skill below
+  for the current roster. Brief-driven; publication stays with the coordinator.
 - reviewer — card-level final review: read the candidate diff vs brief before merge; **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
 **Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Codecov patch ≥95%. Merge requires resolved review threads + acknowledged bot findings. Two kinds of gate, not interchangeable. **Committed** (every contributor, every CI run): the `commitlint` commit-msg hook, the pre-push affected gate (`scripts/local-gates/pre-push-affected.sh`, running the same package scripts as CI's affected matrix), and the native workflow/action tests under `.github/test` plus repository configuration tests under

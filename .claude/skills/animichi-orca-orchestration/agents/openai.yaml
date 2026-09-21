@@ -1,0 +1,7 @@
+interface:
+  display_name: "Animichi Orca Orchestration"
+  short_description: "Coordinate bounded Animichi delivery ticks"
+  default_prompt: "Use $animichi-orca-orchestration for one bounded Animichi delivery tick."
+
+policy:
+  allow_implicit_invocation: true
