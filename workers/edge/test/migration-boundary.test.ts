@@ -36,10 +36,14 @@ void test("the Prisma chain is the only Neon migration authority", () => {
 void test("Drizzle schemas cannot become migration runners", () => {
   // Every worker that maps the data plane, discovered rather than listed: a new
   // service's schema must not slip past this boundary by not being enumerated.
+  // The expected set is the pin: it is what exists today, so a worker that ADDS
+  // a Drizzle schema is a finding rather than an automatic pass. #1632 moved the
+  // users worker onto Prisma and deleted its entry; catalog's is the last one and
+  // goes with #1631/#1633.
   const workers = readdirSync(`${ROOT}workers`);
   const schemas = workers.map((worker) => `workers/${worker}/src/db/schema.ts`);
   const present = schemas.filter((path) => existsSync(`${ROOT}${path}`));
-  assert.deepEqual(present.sort(), ["workers/catalog/src/db/schema.ts", "workers/users/src/db/schema.ts"]);
+  assert.deepEqual(present.sort(), ["workers/catalog/src/db/schema.ts"]);
   for (const path of present) {
     const source = read(path);
     assert.doesNotMatch(source, /drizzle-kit|drizzle\s+(?:migrate|generate|push|pull)/i);

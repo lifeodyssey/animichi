@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
-import { fakeDb } from "./in-memory-routes-db";
+import { fakeUsersPrisma } from "./fake-users-prisma";
 
 const unauthorized = {
   error: { code: "unauthorized", message: "Valid credentials required." },
 };
 
 async function request(headers: Record<string, string> = {}, env = TEST_ENV): Promise<Response> {
-  const { db } = fakeDb();
-  const app = createUsersApp({ makeDb: () => db });
+  const { prisma } = fakeUsersPrisma();
+  const app = createUsersApp({ makePrisma: () => prisma });
   return app.request("/v1/users/saved-routes", { headers }, env);
 }
 
