@@ -23,6 +23,11 @@
  * `resp-replies.ts`, and this module is what turns the reply into the count — or
  * into a refusal, in every other way the exchange can end.
  *
+ * THE REPLY SET IS READ WHOLE (#1825): one reply per command sent, each AUTH
+ * answered `+OK`, the increment a POSITIVE count, the expiry `1`. A set that is
+ * not that one is a refusal — each of the four is a reply that would otherwise
+ * read as a count, and each says below what it would have read as.
+ *
  * The counter is MONOTONE within its hour: it counts admissions the service
  * attempted, including the ones the ceiling then refused, so a refusal never
  * frees a slot. Over-counting is the safe direction for a promise, and it is
@@ -117,8 +122,7 @@ export class RedisTcpCeilingStore implements CeilingStore {
     const socket = await this.options.connect(this.options.url);
     try {
       const replies = await exchange(socket, commands);
-      refuseErrors(replies);
-      return countIn(replies, auth.length);
+      return countFrom(replies, auth.length, commands.length);
     } finally {
       socket.destroy();
     }
@@ -221,25 +225,64 @@ class ReplyReader {
   }
 }
 
-/** The replies owed after the AUTH ones: the increment's count, which is the whole answer. */
-function countIn(replies: readonly Reply[], authCount: number): number {
-  const increment = replies[authCount];
-  if (increment?.kind !== "integer") {
-    throw new CeilingStoreError("the ceiling store's increment answered with no integer count");
-  }
-  return increment.value;
+/**
+ * The count in a WHOLE conversation, or a refusal: `replies` answers the `owed`
+ * commands that went out, of which the first `authCount` were the address's
+ * AUTH. Every slot has one answer and one shape, so a set that is not the one
+ * asked for is refused here rather than read as a count.
+ */
+function countFrom(replies: readonly Reply[], authCount: number, owed: number): number {
+  requireEveryCommandAnswered(replies, owed);
+  requireCredentialAccepted(replies, authCount);
+  requireExpirySet(replies[authCount + 1]);
+  return countIn(replies, authCount);
 }
 
 /**
- * Any error reply is a refusal. Redis runs a pipeline's commands in order and
- * answers each one, so an error element means the window was not counted as
- * asked — an increment that landed without its expiry is a key that never
- * dies, which is not the counter this service asked for.
+ * One reply per command sent, and no more: `countIn` reads the increment's
+ * answer by the POSITION it was sent at, which is only that answer while the
+ * store answered the pipeline it was given. A reply beyond the last command is
+ * a peer answering something else, however readable its elements are.
  */
-function refuseErrors(replies: readonly Reply[]): void {
-  for (const reply of replies) {
-    if (reply.kind === "error") throw new CeilingStoreError(`the ceiling store refused a command (${reply.value})`);
+function requireEveryCommandAnswered(replies: readonly Reply[], owed: number): void {
+  if (replies.length === owed) return;
+  throw new CeilingStoreError(`the ceiling store answered ${String(replies.length)} of ${String(owed)} commands`);
+}
+
+/**
+ * The credential the address carries was ACCEPTED — which Redis says with
+ * `+OK` and with no other status: anything else in an AUTH slot is not this
+ * store's answer to the AUTH, however well the rest of the pipeline reads.
+ */
+function requireCredentialAccepted(replies: readonly Reply[], authCount: number): void {
+  const accepted = replies.slice(0, authCount).every((reply) => reply.kind === "status" && reply.value === "OK");
+  if (!accepted) throw new CeilingStoreError("the ceiling store did not accept the credential its address carries");
+}
+
+/**
+ * The expiry was SET, which Redis answers `1` for and `0` when it did not — and
+ * a window the increment created without one is a key that never dies, which is
+ * not the counter this service asked for. The increment has just made the key,
+ * so `1` is the only answer to this EXPIRE that leaves the store as promised.
+ */
+function requireExpirySet(reply: Reply | undefined): void {
+  if (reply?.kind !== "integer" || reply.value !== 1) {
+    throw new CeilingStoreError("the ceiling store did not give the window an expiry");
   }
+}
+
+/**
+ * The replies owed after the AUTH ones: the increment's count, which is the
+ * whole answer — and a COUNT, so positive. `upstream-ceiling.ts` promises the
+ * store "never answers a lower number and never answers zero"; this is where
+ * that promise is kept, because the ceiling reads any number here as a total.
+ */
+function countIn(replies: readonly Reply[], authCount: number): number {
+  const increment = replies[authCount];
+  if (increment?.kind !== "integer" || increment.value <= 0) {
+    throw new CeilingStoreError("the ceiling store's increment answered with no positive count");
+  }
+  return increment.value;
 }
 
 /** RESP2's array of bulk strings — the only request shape this adapter writes. */
