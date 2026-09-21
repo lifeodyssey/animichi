@@ -5,7 +5,8 @@ the earlier ones are kept as history and say so in their own first lines.
 
 | File | What it is | Read it when |
 |---|---|---|
-| [HANDOFF-2026-09-21.md](HANDOFF-2026-09-21.md) | **Live** coordination state as of 2026-09-21T13:45Z | Picking up coordination mid-flight |
+| [HANDOFF-2026-09-21-2330.md](HANDOFF-2026-09-21-2330.md) | **Live** coordination state as of 2026-09-21T15:45Z | Picking up coordination mid-flight |
+| [HANDOFF-2026-09-21.md](HANDOFF-2026-09-21.md) | 21 September 13:45Z snapshot | Tracing how the 13:45Z lanes settled |
 | [HANDOFF-2026-09-20.md](HANDOFF-2026-09-20.md) | 20 September snapshot. Stale, and instructively so: it called #1825/#1832 owner-blocked while the round-3 reports it links say both passed | Seeing how an inference becomes a fact by being written down |
 | [HANDOFF.md](HANDOFF.md) | 19 September snapshot (#1628 still in review) | Reading how the prisma stack looked before #1628 merged |
 | [LESSONS.md](LESSONS.md) | What the two days taught, with the incidents that paid for each | Writing a brief, adding a guard, or about to trust a measurement |
