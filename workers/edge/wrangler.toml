@@ -16,9 +16,21 @@
 # an earlier version of this file claimed `animichi.com/*` here, which is what
 # made a page request land on this Worker's JSON 404.
 #
-# Until Pulumi's `webRoutesEnabled` is turned on, this Worker has no hostname
-# at all: no routes here, and `workers_dev = false` since #539. That is the
-# intended pre-cutover state, not a misconfiguration.
+# Hostnames: none are declared at the top level — no routes here (routes
+# belong to Pulumi), and the subdomain posture is pinned explicitly per
+# deployable environment below, because wrangler resolves an unset
+# `workers_dev` to `routes.length === 0` (wrangler 4.132.0, cli.js
+# `getSubdomainValues`): with no routes, omission means ON.
+# `[env.production]` declares `workers_dev = false` / `preview_urls = false`
+# (#1524); `[env.staging]` declares `workers_dev = true` behind Access
+# (#1369). An earlier comment here claimed "`workers_dev = false` since
+# #539", but no top-level or production block ever declared the key — not
+# here, and not in the pre-move root wrangler.toml either, whose only
+# assignment was staging's. Measured 2026-09-21: both production workers.dev
+# hosts answered 404 with a body byte-identical both to a never-registered
+# host and to a deployed Worker whose subdomain is off (`error code: 1042` in
+# all three cases), so the measurement shows the host is closed and not why.
+# Nothing in this config guaranteed it.
 #
 # Deploy: always run `wrangler deploy -c workers/edge/wrangler.toml` from the
 # monorepo root, so `main = "src/entry.ts"` resolves against this config file
@@ -229,6 +241,20 @@ head_sampling_rate = 1
 
 [env.production]
 name = "animichi"
+# The workers.dev subdomain host is closed by declaration (#1524), not by
+# deployment history: wrangler resolves an unset `workers_dev` to
+# `routes.length === 0` (wrangler 4.132.0, cli.js `getSubdomainValues`) and
+# this block declares no routes — routing is Pulumi-side — so an omitted key
+# would OPEN `animichi.<subdomain>.workers.dev` on the next deploy. Measured
+# 2026-09-21 before the pin: the host answered 404 with a body byte-identical
+# both to a never-registered host and to a deployed Worker whose subdomain is
+# off (`error code: 1042` in all three cases), so the measurement shows the
+# host is closed and not why. Nothing in this config guaranteed it.
+# `preview_urls = false` closes the per-version preview URLs for the same
+# reason: hostnames nobody added to any Access application. Production has
+# no Access application; it has a real login.
+workers_dev = false
+preview_urls = false
 
 [env.production.vars]
 # APP_ENV (issue #498): the deployed environment's own name — see the default
@@ -402,8 +428,8 @@ routes = []
 # Cloudflare Access application (`infra/src/staging-access.ts`), and Access is
 # not a zone feature — the same application covers `staging.animichi.com` AND
 # this worker's `*.workers.dev` hostname, so both are behind one login and one
-# service token. Production keeps `workers_dev = false` and has no Access
-# application: it has a real login.
+# service token. Production declares `workers_dev = false` explicitly
+# (#1524) and has no Access application: it has a real login.
 # `preview_urls` stays `false` — per-version preview URLs remain unexposed.
 # Main-only CD promotes the sealed edge bundle;
 # local and Cloudflare Workers Builds deployment entrypoints are retired.
