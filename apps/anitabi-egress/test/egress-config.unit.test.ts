@@ -146,63 +146,27 @@ void describe("readEgressConfig — the ceiling the service can actually enforce
 });
 
 /**
- * The ceiling's counter lives outside this process (#1810), so the service has
- * to be told where it is and how to open it — and both halves are required.
- * The checks are the failures a paste actually produces: a missing value, a
- * URL that would carry the token in clear, a token that arrived blank or still
- * carrying the line break it was copied with. A store the service cannot name
- * is a ceiling it cannot count, and this service does not run uncounted.
+ * The ceiling's counter lives outside this process (#1810), and since #1824 it
+ * is the Redis `fly redis create` provisions: the Private URL that command's
+ * status prints, which is a `redis://` address carrying the store's own
+ * password. The service has to be told where it is, and a value that is not
+ * that address is refused at boot rather than dialed.
  *
  * It is a SEPARATE read from the key and the ceiling on purpose: the
  * composition root is what pairs them, and a service holding a key and a limit
  * but no store still refuses everything.
  */
 void describe("readCeilingStoreConfig", () => {
-  const STORE_URL = "https://store.test";
-  const STORE_TOKEN = "a-store-token-the-test-owns";
+  /** A Private URL in the shape `fly redis status` prints: the password is inside the address. */
+  const STORE_URL = `redis://default:${crypto.randomBytes(24).toString("hex")}@fly-animichi-test.upstash.io:6379`;
 
-  void it("reads the store's address and its token", () => {
-    assert.deepEqual(
-      readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: STORE_TOKEN }),
-      { url: STORE_URL, token: STORE_TOKEN },
-    );
+  void it("reads the store's address", () => {
+    assert.deepEqual(readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL }), { url: STORE_URL });
   });
 
-  void it("normalizes a trailing slash away, so the one endpoint is appended to a base", () => {
-    const config = readCeilingStoreConfig({ CEILING_STORE_URL: `${STORE_URL}/`, CEILING_STORE_TOKEN: STORE_TOKEN });
-    assert.equal(config?.url, STORE_URL);
-  });
-
-  void it("refuses an address the token would cross in clear", () => {
-    assert.equal(
-      readCeilingStoreConfig({ CEILING_STORE_URL: "http://store.test", CEILING_STORE_TOKEN: STORE_TOKEN }),
-      null,
-      "an http store would put the bearer token on the wire in clear",
-    );
-  });
-
-  void it("refuses an address that is not a URL at all", () => {
-    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: "store.test", CEILING_STORE_TOKEN: STORE_TOKEN }), null);
-  });
-
-  void it("refuses when the store's address is missing", () => {
-    assert.equal(readCeilingStoreConfig({ CEILING_STORE_TOKEN: STORE_TOKEN }), null);
-  });
-
-  void it("refuses when the store's token is missing", () => {
-    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL }), null);
-  });
-
-  void it("refuses a blank token", () => {
-    assert.equal(readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: "" }), null);
-  });
-
-  void it("refuses a token carrying the line break it was copied with", () => {
-    assert.equal(
-      readCeilingStoreConfig({ CEILING_STORE_URL: STORE_URL, CEILING_STORE_TOKEN: `${STORE_TOKEN}\n` }),
-      null,
-      "a token with whitespace in it is a paste that lost or gained a line, not a value to send",
-    );
+  void it("reads an address with no credential in it — the store is what refuses an unauthenticated client", () => {
+    const bare = "redis://fly-animichi-test.upstash.io:6379";
+    assert.deepEqual(readCeilingStoreConfig({ CEILING_STORE_URL: bare }), { url: bare });
   });
 
   void it("is a separate read from the signing key and the ceiling", () => {
@@ -211,6 +175,55 @@ void describe("readCeilingStoreConfig", () => {
       readCeilingStoreConfig(FULL_ENV),
       null,
       "a service with a key and a limit but no store has no ceiling, and the composition root refuses everything",
+    );
+  });
+});
+
+/**
+ * What fails closed at boot. The checks are the failures a paste actually
+ * produces: the `https://` REST endpoint #1810 used — reading it as a Redis
+ * host would point the service at a destination that is not its store — a URL
+ * the service has no business dialing, a value with no host in it, and a value
+ * still carrying the line break it was copied with. A store the service cannot
+ * name is a ceiling it cannot count, and this service does not run uncounted.
+ */
+void describe("readCeilingStoreConfig — the values that refuse everything at boot", () => {
+  void it("refuses the https REST endpoint this replaced, rather than reading it as a Redis host", () => {
+    assert.equal(
+      readCeilingStoreConfig({ CEILING_STORE_URL: "https://store.test" }),
+      null,
+      "a leftover CEILING_STORE_URL from #1810 must fail closed at boot, not be dialed as if it were Redis",
+    );
+  });
+
+  void it("refuses everywhere the service is not told to dial", () => {
+    const undialable = [
+      "http://store.test",
+      "rediss://store.test:6379",
+      "ws://store.test",
+      "redis://",
+      "fly-animichi-test.upstash.io:6379",
+      "",
+    ];
+    for (const url of undialable) {
+      assert.equal(
+        readCeilingStoreConfig({ CEILING_STORE_URL: url }),
+        null,
+        `${JSON.stringify(url)} is not the Private URL Fly prints, and the service dials nothing else`,
+      );
+    }
+  });
+
+  void it("refuses when the store's address is missing", () => {
+    assert.equal(readCeilingStoreConfig({}), null);
+  });
+
+  void it("refuses an address carrying the line break it was copied with", () => {
+    const pasted = `redis://default:${crypto.randomBytes(24).toString("hex")}@fly-animichi-test.upstash.io:6379\n`;
+    assert.equal(
+      readCeilingStoreConfig({ CEILING_STORE_URL: pasted }),
+      null,
+      "a value with whitespace in it is a paste that lost or gained a line, not an address to dial",
     );
   });
 });

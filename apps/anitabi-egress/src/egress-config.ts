@@ -25,12 +25,12 @@ export const PREVIOUS_KEY_VAR = "INGEST_SIGNING_KEY_PREVIOUS";
 export const CEILING_VAR = "UPSTREAM_REQUEST_CEILING_PER_HOUR";
 
 /**
- * Where the ceiling's counter lives (#1810). Both are `fly secrets` values of
- * the same kind as the signing key: the URL may carry the provider's tenant
- * identifier, the token opens the counter, and neither is in this tree.
+ * Where the ceiling's counter lives (#1810, #1824). One `fly secrets` value of
+ * the same kind as the signing key — the Fly Redis Private URL `fly redis
+ * status` prints, which carries the store's own password inside the address —
+ * and it is not in this tree.
  */
 export const CEILING_STORE_URL_VAR = "CEILING_STORE_URL";
-export const CEILING_STORE_TOKEN_VAR = "CEILING_STORE_TOKEN";
 
 /** The whole configuration, or null when anything required is missing — null refuses everything. */
 export function readEgressConfig(env: Record<string, string | undefined>): EgressConfig | null {
@@ -46,49 +46,48 @@ export function readEgressConfig(env: Record<string, string | undefined>): Egres
 }
 
 /**
- * The ceiling store's address and token, or null — and null means the service
- * has no counter, so its ceiling is null and every request is refused
+ * The ceiling store's address, or null — and null means the service has no
+ * counter, so its ceiling is null and every request is refused
  * (`configuration`). A ceiling the service cannot count is not a ceiling.
  */
 export interface CeilingStoreConfig {
   readonly url: string;
-  readonly token: string;
 }
 
 /**
- * Read the ceiling store's configuration (#1810). Both halves are required,
- * and both are checked for the failure a paste actually produces: a missing or
- * unreadable value, an http URL the token would cross in clear, a token that
- * arrived blank or still carrying the line break it was copied with.
+ * Read the ceiling store's address (#1810, #1824). The store is the Redis
+ * `fly redis create` provisions, reached over TCP, and the address is the
+ * Private URL that command's status prints — so `redis` is the only scheme
+ * this service will dial.
  *
- * The store's token is the PROVIDER's value, not one this repository
- * generates, so it is not held to the signing key's 64-character generator
- * shape: that shape is a claim about `openssl rand -base64 48`, and this value
- * does not come from it. A wrong-but-present token is refused by the store
- * itself (401, which the ceiling turns into a refusal), so the check here is
- * the one that can be made and the rest fails closed anyway.
+ * THE SCHEME IS THE CHECK. #1810's store was an HTTPS REST endpoint addressed
+ * by a separate token; that pair cannot be filled from `fly redis status`, and
+ * its `https://` address must fail closed at boot rather than be read as a
+ * Redis host — a service that dialed it would be reaching a destination that
+ * is not its store. Every other scheme, the public `rediss://` endpoint
+ * included, is a destination this service was not told to use: the counter is
+ * reached over Fly's private network, and a value naming anything else is a
+ * paste of the wrong URL.
+ *
+ * A missing value, a value with no host to dial, and a value still carrying
+ * the line break it was copied with are all null as well. The password inside
+ * the address is the store's own; a URL that carries none is accepted here and
+ * refused by the store, which is the one authority on whether it will open.
  */
 export function readCeilingStoreConfig(env: Record<string, string | undefined>): CeilingStoreConfig | null {
-  const url = httpsBase(env[CEILING_STORE_URL_VAR]);
-  const token = env[CEILING_STORE_TOKEN_VAR];
-  if (url === null || token === undefined || !isStoreToken(token)) return null;
-  return { url, token };
+  const url = redisUrl(env[CEILING_STORE_URL_VAR]);
+  return url === null ? null : { url };
 }
 
-/** The store's base URL with no trailing slash, https only: the token rides this connection. */
-function httpsBase(raw: string | undefined): string | null {
-  if (raw === undefined) return null;
+/** The Fly Private URL, or null: `redis://`, a host, and no whitespace from a bad paste. */
+function redisUrl(raw: string | undefined): string | null {
+  if (raw === undefined || raw === "" || /\s/.test(raw)) return null;
   try {
     const url = new URL(raw);
-    return url.protocol === "https:" ? `${url.origin}${url.pathname.replace(/\/+$/, "")}` : null;
+    return url.protocol === "redis:" && url.hostname !== "" ? raw : null;
   } catch {
     return null;
   }
-}
-
-/** A token is present and whole: not the blank placeholder, and not a paste that lost or gained a line. */
-function isStoreToken(value: string): boolean {
-  return value.length > 0 && !/\s/.test(value);
 }
 
 /**
