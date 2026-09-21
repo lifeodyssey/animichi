@@ -21,11 +21,13 @@ import { createHash } from "node:crypto";
  * inline script carries the served nonce — a false green in the one check this
  * file exists to make (CodeQL `js/bad-tag-filter`, alerts 30/31).
  *
- * An end tag's separator is whitespace the browser discards, so `</script >`
- * closes a script exactly as `</script>` does, and the same false green is what
- * a closer blind to it produces — the alert CodeQL raises a second time on this
- * file (32/33). Both spellings are refused the nonce for the same reason, so
- * both have to be recognised first.
+ * An end tag ends at its first `>`: the tokenizer discards whatever sits
+ * between the tag name and that bracket, so `</script >` and
+ * `</script foo="bar">` close a script exactly as `</script>` does, and the
+ * same false green is what a closer blind to any of them produces — the finding
+ * CodeQL has now raised twice on this file. Every spelling is refused the nonce
+ * for the same reason, so every spelling has to be recognised first: the closer
+ * runs to the first `>` rather than stopping after whitespace.
  */
 
 export interface InlineScript {
@@ -64,7 +66,7 @@ export function allowsInlineScript(policy: string, script: InlineScript): boolea
 
 /** Every inline script's opening tag, so a caller can read its `nonce`. */
 export function inlineScriptTagsOf(html: string): readonly string[] {
-  const tags = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script\s*>/giu)].map((match) => match[0]);
+  const tags = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/giu)].map((match) => match[0]);
   return tags.filter((tag) => !/\bsrc=/iu.test(tag.slice(0, tag.indexOf(">") + 1)));
 }
 
@@ -73,5 +75,5 @@ export function nonceOf(scriptTag: string): string | undefined {
 }
 
 export function contentOf(scriptTag: string): string {
-  return /<script\b[^>]*>([\s\S]*?)<\/script\s*>/iu.exec(scriptTag)?.[1] ?? "";
+  return /<script\b[^>]*>([\s\S]*?)<\/script[^>]*>/iu.exec(scriptTag)?.[1] ?? "";
 }

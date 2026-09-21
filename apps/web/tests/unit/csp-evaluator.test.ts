@@ -9,16 +9,19 @@ import { contentOf, inlineScriptTagsOf, nonceOf } from "../csp-evaluator";
  * nonce" for a document holding one it never looked at. That false green is the
  * one failure this helper exists to prevent, and it is what CodeQL found
  * (`js/bad-tag-filter`, alerts 30/31) — the fix is the behaviour below, not the
- * query going quiet. Its second finding on this file (32/33) is the same
- * mistake one character over: a browser discards the whitespace in `</script >`,
- * so a closer blind to it misses the script entirely, and the spaced spellings
- * are asserted beside the case-varied ones for that reason.
+ * query going quiet. Its second finding on this file is the same
+ * mistake at the other end of the element: a browser ends an end tag at its
+ * first `>`, discarding whatever precedes it (`</script >`, even
+ * `</script foo="bar">`), so a closer that stops after the tag name misses the
+ * script entirely, and the spaced and junked closers are asserted beside the
+ * case-varied spellings for that reason.
  */
 
 const UPPER = "<SCRIPT>steal()</SCRIPT>";
 const MIXED = '<ScRiPt nonce="abc">go()</ScRiPt>';
 const EXTERNAL = '<SCRIPT SRC="/assets/app.js"></SCRIPT>';
 const SPACED = '<script nonce="abc">go()</script >';
+const JUNKED = '<script nonce="abc">go()</script foo="bar">';
 
 describe("inlineScriptTagsOf", () => {
   it("finds an upper-case inline script", () => {
@@ -40,6 +43,10 @@ describe("inlineScriptTagsOf", () => {
   it("finds a script whose end tag spaces the bracket", () => {
     expect(inlineScriptTagsOf(SPACED)).toEqual([SPACED]);
   });
+
+  it("finds a script whose end tag carries junk before the bracket", () => {
+    expect(inlineScriptTagsOf(JUNKED)).toEqual([JUNKED]);
+  });
 });
 
 describe("reading a script tag the document did not spell in lower case", () => {
@@ -53,5 +60,9 @@ describe("reading a script tag the document did not spell in lower case", () => 
 
   it("takes the content out of a tag whose end tag spaces the bracket", () => {
     expect(contentOf(SPACED)).toBe("go()");
+  });
+
+  it("takes the content out of a tag whose end tag carries junk before the bracket", () => {
+    expect(contentOf(JUNKED)).toBe("go()");
   });
 });
