@@ -21,13 +21,32 @@ import { createHash } from "node:crypto";
  * inline script carries the served nonce — a false green in the one check this
  * file exists to make (CodeQL `js/bad-tag-filter`, alerts 30/31).
  *
- * An end tag ends at its first `>`: the tokenizer discards whatever sits
- * between the tag name and that bracket, so `</script >` and
- * `</script foo="bar">` close a script exactly as `</script>` does, and the
- * same false green is what a closer blind to any of them produces — the finding
- * CodeQL has now raised twice on this file. Every spelling is refused the nonce
- * for the same reason, so every spelling has to be recognised first: the closer
- * runs to the first `>` rather than stopping after whitespace.
+ * The closer's bracket is where a regex and a real tokenizer can disagree, so
+ * what the tokenizer does here is stated as measured, against parse5@8.0.1
+ * (the spec-compliant parser inside this package's jsdom), not as folklore.
+ * parse5 ends `</script f="a>b">` at its last `>`, not its first: `f="a>b"` is
+ * a quoted attribute value, so the `>` inside it is part of the value, the end
+ * tag carries `f` as an attribute, and the text node that follows is `B`, not
+ * `b">B`. `</scriptx>` is not an end tag carrying junk: the `x` joins the
+ * would-be tag name, so inside script data the whole spelling comes out as
+ * character text and the script stays open. `</script >` and
+ * `</script foo="bar">` do close the script exactly as `</script>` does — the
+ * junk is parsed as attributes, which tree construction then ignores. The
+ * closer `<\/script[^>]*>` agrees with parse5 on those two spellings, matching
+ * them in full: `[^>]*` runs to the first `>`, past anything that is not a
+ * `>`. Where parse5 and the pattern disagree, the pattern fails safe, and that
+ * is why the imprecision is tolerable. On `</script f="a>b">` the match
+ * truncates at the first `>`, mid-attribute — but the match still starts at
+ * the open tag, so the nonce `nonceOf` reads is intact; `matchAll` resumes
+ * from earlier than the tokenizer's true end of the tag, inside the junk, so
+ * what follows is re-scanned rather than skipped; and the three attack
+ * documents built on these spellings still evaluate `false`, the attacker's
+ * script refused the nonce in each. A match that ends early can only surface
+ * more of the document, never hide an open tag from the scan. The pattern does
+ * accept `</scriptx>` as a closer where parse5 has none, and errs the same
+ * way: the open tag is still what `nonceOf` reads. Every spelling is refused
+ * the nonce for the same reason, so every spelling has to be recognised first
+ * — the false green CodeQL has now raised twice on this file.
  */
 
 export interface InlineScript {
