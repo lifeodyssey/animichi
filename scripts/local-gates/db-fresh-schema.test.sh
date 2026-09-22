@@ -92,7 +92,7 @@ test_image_missing_fails_with_build_command() {
   [ "$rc" != "0" ] || { echo "FAIL: missing image must fail closed" >&2; exit 1; }
   assert_msg "missing offline test image"
   assert_msg "docker build -f packages/test-postgres/Dockerfile"
-  assert_msg "animichi-test-postgres:18-3.6-pgvector-0.8.5"
+  assert_msg "animichi-test-postgres:18-3.6-pgvector-0.8.6"
   echo "ok: missing offline image fails with the exact build command"
 }
 

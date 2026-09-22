@@ -353,8 +353,8 @@ Prisma 断言在 `:38-42`（`targetHash` / `markerHash` 等于契约、`usedLive
 `20260826000000_extensions.sql:4` 的 `CREATE EXTENSION IF NOT EXISTS postgis`）再
 `prisma db migrate`。Atlas 走了以后，扩展 DDL 必须有新主人——定案见 §4.8.2。
 
-镜像是 Postgres 18 + PostGIS 3.6 + pgvector 0.8.5（`packages/test-postgres/postgres-image.env`
-`TEST_POSTGRES_IMAGE=animichi-test-postgres:18-3.6-pgvector-0.8.5`），所以 `uuidv7()` 是 PG18 内建，
+镜像是 Postgres 18 + PostGIS 3.6 + pgvector 0.8.6（`packages/test-postgres/postgres-image.env`
+`TEST_POSTGRES_IMAGE=animichi-test-postgres:18-3.6-pgvector-0.8.6`），所以 `uuidv7()` 是 PG18 内建，
 不依赖扩展。
 
 ### 2.9 契约测试与工作流里的 Atlas 形状

@@ -26,7 +26,7 @@ import type { SetupBudget } from "./setup-budget.ts";
 import { SetupDeadline } from "./setup-deadline.ts";
 
 export const POSTGRES_USER = "postgres";
-export const POSTGRES_PASSWORD = "postgres";
+export const POSTGRES_PASSWORD = "test";
 const POSTGRES_PORT = 5432;
 /** The image's entrypoint logs this once for the initdb server it shuts down
  * again, and once for the server that finally binds TCP — so the second
