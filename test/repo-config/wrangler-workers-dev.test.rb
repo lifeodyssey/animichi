@@ -175,6 +175,16 @@ class WranglerWorkersDevTest < Minitest::Test
   }.freeze
 
   def test_contract_sut_header_names_exactly_the_production_units_covered
+    # Validate that every exclusion reason is a non-empty, meaningful string.
+    DEPLOY_SCRIPT_EXCLUSIONS.each do |unit, reason|
+      assert reason.is_a?(String) && reason.strip.length > 0,
+             "DEPLOY_SCRIPT_EXCLUSIONS['#{unit}'] must have a non-empty reason, got: #{reason.inspect}"
+    end
+    CONTRACT_ONLY_UNITS.each do |unit, reason|
+      assert reason.is_a?(String) && reason.strip.length > 0,
+             "CONTRACT_ONLY_UNITS['#{unit}'] must have a non-empty reason, got: #{reason.inspect}"
+    end
+
     deployed = publish_services_deployed_units
     covered  = %w[edge web users migrator]
 
@@ -219,9 +229,8 @@ class WranglerWorkersDevTest < Minitest::Test
     path = File.join(ROOT, ".github/scripts/release/publish-services.sh")
     content = File.read(path)
     units = []
-    # Pattern 1: for unit in X Y Z; do
-    for_match = content.match(/for\s+unit\s+in\s+([^;]+);/)
-    units.concat(for_match[1].split) if for_match
+    # Pattern 1: for unit in X Y Z; do (scan for ALL loops, not just the first)
+    content.scan(/for\s+unit\s+in\s+([^;]+);/) { units.concat($1.split) }
     # Pattern 2: deploy_service "name" ...
     content.scan(/deploy_service\s+"([^"]+)"/) { units << $1 }
     units.uniq

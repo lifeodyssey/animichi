@@ -174,7 +174,7 @@ class WranglerWorkersDevMutationTest < Minitest::Test
       # Anchor: "name = \"migrator-production\"\nworkers_dev = true" only appears
       # in [env.production] (staging has "name = \"migrator-staging\"\n").
       changed = source.sub(/(name = "migrator-production"\n)workers_dev = true\n/,
-                           '\1workers_dev = false\n')
+                           "\\1workers_dev = false\n")
       refute_equal source, changed, "mutation needle missing: migrator production workers_dev"
       File.write(path, changed)
       reject_tree(root, "migrator [env.production] workers_dev flipped to false",
