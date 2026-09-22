@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
@@ -15,12 +17,23 @@ import { defineConfig } from "vitest/config";
  * The suite runs as the `test:integration` script, not from `npm test`, which
  * is `test:worker` alone.
  */
+/** Resolved from `import.meta.url` as a string and `node:path`: this config is
+ * type-checked with Cloudflare's DOM-shaped globals, where a `URL` object is not
+ * `node:url`'s (the note in `@animichi/test-postgres`'s `prisma-chain.ts`). */
+const PG_POOL_STUB = join(dirname(fileURLToPath(import.meta.url)), "test/fakes/pg-pool-stub.ts");
+
 export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.toml" },
     }),
   ],
+  // `pg` is CommonJS and the pool runs workerd with the CJS→ESM shim disabled,
+  // so `@prisma/orm-postgres/serverless` (which imports `pg.Client`) cannot load
+  // here. The pool never opens a TCP connection; `test/fakes/pg-pool-stub.ts` is
+  // the module that LOADS without one, and it fails loudly if a test reaches
+  // for a real driver. The Node integration arm resolves the real `pg`.
+  resolve: { alias: { pg: PG_POOL_STUB, "pg-cursor": PG_POOL_STUB } },
   test: {
     include: ["test/**/*.worker.test.ts"],
     // The 41-file pool shares one machine; module imports are slow enough that

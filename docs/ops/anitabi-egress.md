@@ -69,9 +69,51 @@ more than it protects. The two-key window exists so rotation is painless when th
 
 This is a promise to the upstream, not a tuning knob. Changing it means changing an agreement.
 
-The window lives in the running process: a restart (deploy, secret rotation, crash) starts a fresh
-hour, so a restart mid-window can admit a second hour's worth across the two. Restarts here are
-manual and rotation is unscheduled, which is what keeps that bounded.
+The window is the **fixed UTC clock hour**: a request counts against the hour the clock puts it in,
+and the hour ends when the clock says so. That is the reading of "per hour" the agreement records,
+and it is what lets the count live outside the service — two machines derive the same hour with no
+coordination, where an hour measured from the first request, or from a process's start, is a window
+only one process can know. Like any fixed window it admits a burst across a boundary: up to the
+ceiling at the end of one hour, and up to it again at the start of the next.
+
+**The count lives in an external store, not in the process** (#1810). A deploy, a secret rotation or
+a crash used to start a fresh hour, so the service could relay a second hour's worth inside the
+upstream's original one while this file stated the ceiling as enforced. The count now survives all
+three, and a second instance spends from the same budget as the first.
+
+The store is the Redis that `fly redis create` provisions — one small instance in the app's own
+primary region, holding **one integer per clock hour**. It is reached over TCP with RESP at
+`CEILING_STORE_URL`, which is the store's **Private URL** and nothing else: a `redis` address with
+the store's own password inside it, set as one `fly secrets` value on this app. It is required at
+boot — without a store it can dial, the service has no ceiling to enforce and refuses every request
+with `configuration` rather than running uncounted.
+
+**Why not Upstash REST.** #1810 first chose an HTTPS `/pipeline` endpoint addressed by a second
+secret. Fly's Redis extension is not that product: it hands out one TCP Private URL, `fly redis
+status` prints nothing an HTTPS adapter could be filled from, and a `CEILING_STORE_URL` left over
+from that shape fails closed at boot rather than being dialed as if it were Redis (#1824).
+
+**When the store is down, the service refuses.** It does not fall back to counting in memory — an
+unreachable store must not silently restore the behaviour this replaced. The refusal is the ceiling's
+own, marked as ours so the caller never reads it as an upstream answer, and its body names the cause
+the reason header cannot:
+
+```json
+{"refusedBy":"anitabi-egress","reason":"ceiling","detail":"ceiling-store-unavailable"}
+```
+
+`x-egress-refusal` still says `ceiling` on purpose. That header is a vocabulary the caller classifies
+by — `workers/catalog` knows six reasons and reads an unknown one as `unmarked`, "this answer did not
+come from the egress service", which would be false. Whose refusal it is travels in the header; which
+of the two ceiling refusals it was is in the body.
+
+**Why not the data plane.** The constraint this service exists under is *"No Neon credential. No user
+data. No write path."* and it still holds. The store is not Neon and holds no product data: it is a
+counter, reachable with its own credential, holding one integer per hour under a key derived from the
+clock. Its token opens that counter and nothing else, so a compromised egress service can spend the
+ceiling — a denial of service it already has by construction — and cannot read or write a row of user
+data. A Neon credential here would change that sentence and the blast radius with it, which is why
+the counter is a store and the data plane is not.
 
 It also defends against us: #1784 found a refused job being re-queued hourly for six hours. The
 ceiling is what stops a caller-side bug from spending the relationship.
@@ -86,7 +128,7 @@ cap cannot silently exceed the ceiling.
 |---|---|---|
 | upstream | they said no (401/403) | talk to them |
 | upstream | they failed (5xx/408/429) | wait; it retries |
-| **this service** | rate ceiling, or auth | **raise the ceiling or fix the caller — do not contact the upstream** |
+| **this service** | rate ceiling — or the counter behind it — or auth | **raise the ceiling, fix the caller, or fix the store — do not contact the upstream** |
 
 The third is the one that misleads: if our own ceiling looked like an upstream refusal, we would
 believe we had been blocked again and spend the relationship asking about it. The service marks
@@ -108,6 +150,18 @@ fly logs   --app animichi-anitabi-egress
 # Deploy (manual, per the exemption above)
 fly deploy --app animichi-anitabi-egress
 
+# The ceiling's counter. ONE INTEGER PER CLOCK HOUR lives behind this one
+# value, and the service refuses every request without a store it can dial.
+# `fly redis create` provisions the store; its `status` prints the Private URL,
+# which is the whole configuration. Never paste that URL into this repository,
+# an issue, or a chat — the password is inside it.
+fly redis create --primary-region nrt --name animichi-anitabi-egress-ceiling
+fly redis status animichi-anitabi-egress-ceiling   # prints the Private URL
+
+fly secrets set CEILING_STORE_URL="redis://<user>:<password>@<host>:<port>" \
+  --app animichi-anitabi-egress --stage
+fly secrets deploy --app animichi-anitabi-egress
+
 # Rotate the signing key. Generate locally; never paste a value into a PR,
 # an issue, or a chat. Fly never shows a secret's value, so `<the current key>`
 # is the one you generated and kept. `--stage` holds the change and the one
@@ -120,6 +174,23 @@ fly secrets set INGEST_SIGNING_KEY="$(openssl rand -base64 48)" \
   --app animichi-anitabi-egress --stage
 fly secrets deploy --app animichi-anitabi-egress
 ```
+
+The store's password is the provider's value, not one this repository generates, so it is not held to
+the signing key's 64-character shape: a value the store will not open is refused by the store
+(`NOAUTH`/`WRONGPASS`), which the ceiling turns into the same refusal an unreachable store produces.
+Rotate it the way you set it, alone in one release — nothing else holds it, so there is no ordering to
+keep, and a fresh store simply starts a fresh hour's count.
+
+**The live store is operator-provisioned, and this change provisions none.** No store is created by
+the repository: the values are the operator's, set on the Fly app as above, in the same category as
+the signing key's Fly copy — the one input here that Pulumi does not manage (the ESC/Secrets Store
+chain in #1812 provisions the *caller's* copy of the signing key, and stops at the Worker).
+
+**Provisioning it, after this card merges** (#1824): `fly redis create` with primary region `nrt`,
+then `fly secrets set CEILING_STORE_URL="<the Private URL from fly redis status>" --app
+animichi-anitabi-egress`. Two steps, and the second is the only one that touches the app. Until it
+runs, the service has no store and refuses every request with `configuration` — loudly, which is what
+that refusal is for.
 
 ### Rotation has two orderings
 
@@ -152,12 +223,19 @@ Work in this order; the first two are free and rule out most of it.
 
 1. **Which refusal is it?** Read the failure code on the `ingest_jobs` row. Our own ceiling and an
    upstream 403 are different problems with different fixes — see the table above.
-2. **Has the address changed?** `fly ips list` against the value the guard pins. An egress address
+2. **Which ceiling refusal is it?** A `ceiling` refusal the service marked carries a body, and
+   `detail: ceiling-store-unavailable` means the hour's count could not be read: a store problem, not
+   traffic. If the budget itself ran out, the caller is spending more than the agreement allows. If it
+   did not, `fly secrets list --app animichi-anitabi-egress` first — the service refuses everything
+   with `configuration` when the store's address is missing, unreadable, or not a `redis` address, so
+   a secret that was never set (or a leftover `https://` one from #1810) and a store that is down look
+   different from outside.
+3. **Has the address changed?** `fly ips list` against the value the guard pins. An egress address
    is allocated once and persists across deploys, so a change here is unexpected and would mean
    the allowlist silently stopped matching. **This is the failure that is quiet**: nothing breaks
    loudly, ingest simply stops succeeding.
-3. **Is the service up?** `fly status`, then `fly logs`.
-4. **Did the upstream change its terms?** Their API document is the source of truth for which
+4. **Is the service up?** `fly status`, then `fly logs`.
+5. **Did the upstream change its terms?** Their API document is the source of truth for which
    endpoints and image sizes are allowed; it also forbids requesting the main domain in any
    scenario.
 
@@ -166,3 +244,9 @@ Work in this order; the first two are free and rule out most of it.
 No Neon credential. No user data. No write path. No parameter naming a destination. If a proposed
 change would let an attacker who had read the entire (public) repository do more than request
 public landmark data until the ceiling refuses them, that change is wrong.
+
+The ceiling's counter (#1810) is the one thing this service writes, and it is not an exception to
+that list so much as an instance of it: one integer per clock hour, under a key derived from the
+clock and from nothing else, in a store no product code reads and whose credential opens nothing
+but that key. It holds no user data, names no destination the service could be asked for, and is
+never the data plane — see "Why not the data plane" above.

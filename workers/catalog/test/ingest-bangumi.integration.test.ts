@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { catalogIngestBangumi, type IngestBangumi } from "../src/ingest/ingest-bangumi";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import type { FetchLike } from "../src/ingest/sources";
 import { stubEgressSigningKey } from "./egress-stub";
 import {
   databaseDescribe,
-  openServerlessDb,
+  openPlaneSeams,
   restoreNeonConfig,
   truncateCatalog,
+  type PlaneSeams,
 } from "./integration-db";
 
 /**
@@ -82,6 +84,8 @@ function makeGatedFetch(gate: Promise<void>): FetchLike {
 }
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 let ingest: IngestBangumi;
 
 async function pointCount(bangumiId: string): Promise<number> {
@@ -122,12 +126,17 @@ async function awaitRunning(bangumiId: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
+  seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query;
   await truncateCatalog(db);
-  ingest = catalogIngestBangumi(db, stubEgressSigningKey());
+  ingest = catalogIngestBangumi(query, stubEgressSigningKey());
 }, 120_000);
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 databaseDescribe("IngestBangumi end-to-end: claim -> fetch -> raw -> enrich -> publish -> done", () => {
   it("ingests a new title and lands it in the catalog with one current version", async () => {

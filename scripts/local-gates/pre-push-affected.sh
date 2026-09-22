@@ -14,8 +14,12 @@ cd "$(git rev-parse --show-toplevel)"
 # live in `test/repo-config/` like every other CI-only config test;
 # `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby the `contracts` job
 # runs, and `.github/test/workflow-ruby-toolchain.test.rb` there is their gate;
+# the two root env SHEETS (`.env.example`, `.env.test.example`) are operator
+# documentation: the root-allowlist check owns their top-level ENTRY, not their
+# contents, and a credential pasted into one is caught by the pre-commit secret
+# scan, which reads the staged diff and does not route (#1813);
 # `supabase/` is the archived historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|[^/]+\.md$)'
+NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The spec-reference gate reads these three files, so a change to them has to
 # run the docs bucket even though `scripts/**` needs no package.
@@ -77,24 +81,43 @@ done <<<"$records"
 
 # A message CI's `commits` job rejects must not leave the laptop, so the message
 # check runs here — before any package gate — over exactly the commits this push
-# adds (#1467). That is the same narrowed `base` the diff uses: the merge base on
-# a first push (a new branch's remote sha arrives as zero), the remote sha once
-# it is an ancestor of HEAD. commitlint's history mode names no sha, so a
-# rejected range is replayed one commit at a time to report which messages it
-# rejected. An empty range (the remote already has HEAD) is skipped rather than
-# failed: `--from X --to X` is a commitlint usage error (exit 9), not a pass.
-# Anything but 0 or 1 means commitlint never ran — an uninstalled workspace exits
-# 254 — and that fails closed with no attribution.
-lint_pushed_commits() {
-  [ "$base" != "$head_sha" ] || return 0
-  local status=0 sha
-  pnpm exec commitlint --from "$base" --to HEAD || status=$?
+# adds (#1467). That is not `$base..HEAD`: a branch that merged main reaches
+# main's own squash commits through that range, and the merge button wrote those,
+# not the branch — linting them refuses the repository's own history (#1804). So
+# the walk is `HEAD ^base ^origin/main`, with `$base` standing in for a first
+# push's zero remote sha (there is no such object to exclude).
+walk="$(git rev-list --reverse "$base"..HEAD --not origin/main)"
+
+# One commit against the repository's own rules, read on its own: `^!` is that
+# commit and not its parents, where `<sha>^..<sha>` would read the line a merge
+# brought in — the very commits the walk exists to keep out (#1804). 1 is a
+# rejection, reported here with the commit that carries it; anything else — an
+# uninstalled workspace exits 254 — means commitlint never ran, and is passed
+# straight up so the push fails closed with commitlint's own error and no
+# attribution.
+lint_commit() {
+  local status=0
+  pnpm exec commitlint --to "$1^!" || status=$?
   [ "$status" = 1 ] || return "$status"
-  while read -r sha; do
-    pnpm exec commitlint --from "$sha^" --to "$sha" >/dev/null 2>&1 ||
-      printf 'pre-push: commitlint rejected %s\n' "$(git log -1 --format='%h %s' "$sha")" >&2
-  done < <(git rev-list --reverse "$base"..HEAD)
+  printf 'pre-push: commitlint rejected %s\n' "$(git log -1 --format='%h %s' "$1")" >&2
   return 1
+}
+
+# Every commit the push adds, oldest first. commitlint's history mode names no
+# sha, so each commit is read on its own; a rejected message is reported and the
+# walk continues, because a push deserves the whole list. An empty walk (the
+# remote and origin/main already have HEAD) has nothing left to read and skips
+# the check.
+lint_pushed_commits() {
+  [ -n "$walk" ] || return 0
+  local sha status=0 rejected=0
+  while read -r sha; do
+    status=0
+    lint_commit "$sha" || status=$?
+    [ "$status" -le 1 ] || return "$status"
+    [ "$status" = 0 ] || rejected=1
+  done <<<"$walk"
+  return "$rejected"
 }
 lint_pushed_commits || exit 1
 

@@ -30,7 +30,7 @@ export type SnapshotSource = SnapshotReadService;
 export function r2SnapshotSource(bucket: R2Bucket): SnapshotSource {
   const store = r2ObjectStore(bucket);
   return {
-    currentManifest: () => readCurrentSnapshot({ db: NO_DB, store }),
+    currentManifest: () => readCurrentSnapshot({ query: NO_QUERY, store }),
     readObject: (key) => store.get(key),
   };
 }
@@ -57,7 +57,7 @@ export function snapshotSourceFor(env: {
   return null;
 }
 
-/** A db that must never be queried by the read-only snapshot source. */
-const NO_DB = {
-  execute: () => Promise.reject(new Error("snapshot reader never queries the db")),
-} as unknown as import("../db/client").CatalogDb;
+/** A plan seam that must never be queried by the read-only snapshot source. */
+const NO_QUERY = {
+  executor: { query: () => Promise.reject(new Error("snapshot reader never queries the db")) },
+} as unknown as import("../db/prisma").CatalogPrisma;

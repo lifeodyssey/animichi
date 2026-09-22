@@ -1,17 +1,22 @@
 /**
- * Popular-bangumi adapter + bounds tests (CATALOG-5 #946).
+ * Popular-bangumi adapter + bounds tests (CATALOG-5 #946; Prisma data plane #1629).
+ *
+ * The adapter is now handed a {@link CatalogPrisma}, so the seam under test is
+ * `test/fakes/fake-catalog-prisma.ts`: the REAL contract-bound builder plus an
+ * executor answering scripted rows. Building the plan against the real builder is
+ * what keeps the fixture honest — a column the contract does not declare fails
+ * here exactly as it would in the Worker.
+ *
+ * The row-mapping assertions the Drizzle version carried are gone with the
+ * mapping: the plan's projection IS the row type, so there is no untyped row to
+ * coerce and nothing left to narrow.
  */
 
 import { describe, expect, it } from "vitest";
-import { popularBangumiDb, type PopularBangumiDb } from "../src/adapters/outbound/popular-bangumi";
+import { popularBangumiDb, type PopularBangumiRow } from "../src/adapters/outbound/popular-bangumi";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
-type Row = Record<string, unknown>;
-
-function fakeDb(rows: Row[]): PopularBangumiDb {
-  return { execute: () => Promise.resolve({ rows }) };
-}
-
-function row(overrides: Partial<Row> = {}): Row {
+function row(overrides: Partial<PopularBangumiRow> = {}): PopularBangumiRow {
   return {
     id: "1",
     title: "Your Name",
@@ -26,7 +31,7 @@ function row(overrides: Partial<Row> = {}): Row {
 
 describe("popularBangumiDb", () => {
   it("maps rows to contract-shaped PopularBangumi", async () => {
-    const rows = await popularBangumiDb(fakeDb([row()])).listPopular(8);
+    const rows = await popularBangumiDb(fakeCatalogPrisma([row()])).listPopular(8);
     expect(rows[0]).toEqual({
       id: "1",
       title: "Your Name",
@@ -38,34 +43,31 @@ describe("popularBangumiDb", () => {
     });
   });
 
-  it("coerces null optional fields", async () => {
-    const rows = await popularBangumiDb(fakeDb([row({ title_cn: null, cover_url: null, city: null, rating: null })])).listPopular(8);
+  it("passes null optional fields through untouched", async () => {
+    const rows = await popularBangumiDb(
+      fakeCatalogPrisma([row({ title_cn: null, cover_url: null, city: null, rating: null })]),
+    ).listPopular(8);
     expect(rows[0]).toMatchObject({ title_cn: null, cover_url: null, city: null, rating: null });
   });
 
-  it("issues the capped ranking read as one query and maps the returned row", async () => {
-    let calls = 0;
-    const db: PopularBangumiDb = {
-      execute: () => {
-        calls += 1;
-        return Promise.resolve({ rows: [row()] });
-      },
-    };
-    await expect(popularBangumiDb(db).listPopular(5)).resolves.toEqual([row()]);
-    expect(calls).toBe(1);
+  it("issues the capped ranking read as one statement and maps the returned row", async () => {
+    const counter = countingCatalogPrisma([row()]);
+    await expect(popularBangumiDb(counter.query).listPopular(5)).resolves.toEqual([row()]);
+    expect(counter.statements()).toBe(1);
   });
 
   it("issues exactly one ranking read and preserves the returned work order", async () => {
-    let calls = 0;
     const ranked = [row({ id: "2", rating: 9.5 }), row({ id: "1", rating: 9.1 })];
-    const db: PopularBangumiDb = {
-      execute: () => {
-        calls += 1;
-        return Promise.resolve({ rows: ranked });
-      },
-    };
-    await expect(popularBangumiDb(db).listPopular(8)).resolves.toEqual(ranked);
-    expect(calls).toBe(1);
+    const counter = countingCatalogPrisma(ranked);
+    await expect(popularBangumiDb(counter.query).listPopular(8)).resolves.toEqual(ranked);
+    expect(counter.statements()).toBe(1);
+  });
+
+  it("returns the rows the runtime answered with a fresh array, not the runtime's list", async () => {
+    const answered = [row()];
+    const rows = await popularBangumiDb(fakeCatalogPrisma(answered)).listPopular(8);
+    expect(rows).toEqual(answered);
+    expect(rows).not.toBe(answered);
   });
 });
 
@@ -81,12 +83,5 @@ describe("popular procedure bounds", () => {
     expect(PopularInput.parse({}).limit).toBe(8);
     expect(PopularInput.parse({ limit: 1 }).limit).toBe(1);
     expect(PopularInput.parse({ limit: 50 }).limit).toBe(50);
-  });
-});
-
-describe("popularBangumiDb edge rows", () => {
-  it("coerces non-string optional fields to null/empty", async () => {
-    const rows = await popularBangumiDb(fakeDb([row({ title_cn: 123 as unknown as string, cover_url: null, city: null })])).listPopular(8);
-    expect(rows[0]).toMatchObject({ title_cn: null, cover_url: null, city: null });
   });
 });

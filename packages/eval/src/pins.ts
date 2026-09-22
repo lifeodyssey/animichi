@@ -12,8 +12,13 @@ import { parse } from 'yaml';
  * manifest and whose version is the one the frozen oracle fixtures were
  * exported with. Since #1603 that declaration is the only copy in the tree:
  * the Python agent's `uv.lock` read is gone and no code holds a second string.
- * Drift between the declared pair and the frozen bytes is an Eval Story, not a
- * silent upgrade — see the `comment` in `PINS.json`.
+ * What each side is held BY is not the same (#1746). The six exported dataset
+ * fixtures are re-derived and re-proved by `dataset-export.ts` and
+ * `eval:regenerate-fixtures`, so a `logfire` bump re-runs that path and the
+ * drift gate rather than needing an Eval Story. `stats-oracle.json` and
+ * `evaluator-oracle.json` are Python-written witnesses with no in-repo producer,
+ * so the `pydantic-evals` version they were exported with is the half that still
+ * cannot move without re-exporting them — see the `comment` in `PINS.json`.
  */
 export interface EvalFrameworkPins {
   logfire: string;
@@ -22,7 +27,7 @@ export interface EvalFrameworkPins {
 
 /**
  * The directories of the two `logfire` installs that matter to this package: the one its
- * own manifest resolves (the pinned 0.22.5), and the one `@pydantic/logfire-node` resolves
+ * own manifest resolves (the pinned release), and the one `@pydantic/logfire-node` resolves
  * through its own `node_modules`. The node SDK names its `logfire` exactly, so a node SDK
  * that names a different release installs a second runtime beside the pinned pair; the
  * pin's invariant is that these two are one copy (#1746).

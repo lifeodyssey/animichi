@@ -5,10 +5,14 @@ Worker keeps a deliberate hand-mirror where bundling requires it. Root guide: `.
 
 ## Commands (from `packages/contract/`)
 
-- `pnpm run lint` / `pnpm run lint:oxlint` — type-aware oxlint over `src/` and `scripts/`, warnings
-  denied. That is the package's TypeScript program: `tsconfig.json` does not include `test/`, so a
-  type-aware pass there would report on `any` (bringing the tests into the program is a separate
-  outcome — `tsc` has ~60 findings under them today).
+- `pnpm run lint` / `pnpm run lint:oxlint` — type-aware oxlint over the whole package (`.`, warnings
+  denied), the same whole-tree shape as every other workspace package. Until #1452 the CLI path list
+  `src scripts` left `test/` unlinted — 34 of the package's 68 `.ts` files — and nothing pinned it.
+  `test/tsconfig.json` extends the package program's compiler options for that pass, because the
+  package `tsconfig.json` excludes `test/`: without it a type-aware pass there resolves against
+  default options and reports 10 false `no-unnecessary-condition` findings (indexed reads and `?.`
+  that `noUncheckedIndexedAccess` makes necessary). Bringing the tests into the **typecheck** program
+  stays a separate outcome — `tsc` reports 67 findings under them today.
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
 - `pnpm test` — vitest, then the compat gate (`vet:baseline`) and the OpenAPI drift check
   (`test:openapi-drift`). One command, the same one CI runs (#1358).

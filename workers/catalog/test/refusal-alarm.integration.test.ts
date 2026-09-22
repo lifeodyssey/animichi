@@ -6,6 +6,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { PENDING_DRAIN_BATCH_CAP, PENDING_DRAIN_CRON } from "../src/cron-config";
 import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../src/ingest/cron-queries";
 import { catalogIngestBangumi } from "../src/ingest/ingest-bangumi";
@@ -15,7 +16,13 @@ import type { FetchLike } from "../src/ingest/sources";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import { stubEgressSigningKey } from "./egress-stub";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import {
+  databaseDescribe,
+  openPlaneSeams,
+  restoreNeonConfig,
+  truncateCatalog,
+  type PlaneSeams,
+} from "./integration-db";
 
 /**
  * The anitabi arm here is the egress service relaying the upstream's own 403
@@ -29,6 +36,8 @@ const REFUSING_HOST = ANITABI_EGRESS_BASE_URL;
 const RELAYED = { get: (name: string) => (name === "x-egress-response" ? "relayed-upstream" : null) };
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 let raised: UpstreamRefusal[] = [];
 let refusedRequests = 0;
 
@@ -47,6 +56,7 @@ const fetchImpl: FetchLike = (url) => {
 const alarm = { upstreamRefused: (refusal: UpstreamRefusal) => { raised.push(refusal); } };
 
 const dependencies: CronDependencies = {
+    connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
   connect: () => Promise.resolve(db),
   ingestBangumi: (catalogDb, id, egressSigningKey) =>
     catalogIngestBangumi(catalogDb, egressSigningKey, alarm).ingest(id, { fetchImpl }),
@@ -62,7 +72,7 @@ const dependencies: CronDependencies = {
 };
 
 async function parkWorks(count: number): Promise<void> {
-  const store = new JobStore(db);
+  const store = new JobStore(query);
   for (let n = 0; n < count; n++) await store.ensurePending(String(470000 + n));
 }
 
@@ -87,7 +97,9 @@ async function refusedRows(): Promise<{ stage: string; error: string; parked_hou
   return result.rows as { stage: string; error: string; parked_hours: number }[];
 }
 
-beforeAll(async () => { db = await openServerlessDb(); }, 120_000);
+beforeAll(async () => { seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query; }, 120_000);
 
 beforeEach(async () => {
   await truncateCatalog(db);
@@ -99,7 +111,10 @@ beforeEach(async () => {
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 databaseDescribe("the refusal alarm on real Postgres (#1784)", () => {
   it("raises exactly one alarm for one refused job and parks the row as a refusal", async () => {

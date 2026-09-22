@@ -1,11 +1,18 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { eq, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { statementBuilder } from "../src/db/client";
 import { ingestJobs } from "../src/db/schema";
 import { JobStore } from "../src/ingest/jobs";
 import { listDrainableBangumiIds } from "../src/ingest/cron-queries";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import {
+  databaseDescribe,
+  openPlaneSeams,
+  restoreNeonConfig,
+  truncateCatalog,
+  type PlaneSeams,
+} from "./integration-db";
 
 /**
  * Guard/acquire time semantics against REAL Postgres (issue #1227): the
@@ -17,6 +24,8 @@ import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog 
  */
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 let jobs: JobStore;
 
 const STALE_AGE = 45 * 60; // 45 min — three RUNNING_TTLs past dead
@@ -59,15 +68,20 @@ async function jobStatus(workId: string): Promise<string | undefined> {
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
-  jobs = new JobStore(db);
+  seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query;
+  jobs = new JobStore(query);
 }, 120_000);
 
 beforeEach(async () => {
   await truncateCatalog(db);
 });
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 databaseDescribe("singleflight guard vs abandoned running rows (#1227)", () => {
   it("reports a fresh running row as in_progress and refuses the acquire", async () => {
@@ -130,7 +144,7 @@ databaseDescribe("pending drain eligibility (#1229)", () => {
     await insertRunningJob("stale-running", STALE_AGE);
     await insertRunningJob("fresh-running", FRESH_AGE);
 
-    const drainable = await listDrainableBangumiIds(db, 10);
+    const drainable = await listDrainableBangumiIds(query, 10);
 
     expect(drainable).toContain("stale-running");
     expect(drainable).not.toContain("fresh-running");
@@ -140,7 +154,7 @@ databaseDescribe("pending drain eligibility (#1229)", () => {
     await insertFailedJob("cached-failure", 3600);
     await insertFailedJob("retryable-failure", -1);
 
-    const drainable = await listDrainableBangumiIds(db, 10);
+    const drainable = await listDrainableBangumiIds(query, 10);
 
     expect(drainable).not.toContain("cached-failure");
     expect(drainable).toContain("retryable-failure");

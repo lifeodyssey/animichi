@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import type { UpstreamUnavailableData } from "../src/lib/errors";
 
 const handler = new OpenAPIHandler(catalogRouter);
@@ -22,16 +22,15 @@ async function handleRequest(body: unknown, context: CatalogContext) {
   return handler.handle(request, { context });
 }
 
+/** A context whose READ answers on the Prisma plane (#1631); the Drizzle seam
+ * is the ingest's (#1630), and here it finds no parked job, so the route's
+ * uncovered-work path runs end to end. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
-  const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
-  const db = { execute } as unknown as CatalogDb;
-  return { db, fetchImpl };
+  return { prisma: fakeCatalogPrisma(...responses), fetchImpl };
 }
 
 function unreachableContext(): CatalogContext {
-  const execute = () => { throw new Error("db should not be reached"); };
-  const db = { execute } as unknown as CatalogDb;
-  return { db };
+  return { prisma: unreachableCatalogPrisma() };
 }
 
 describe("work-id contract on the OpenAPI wire", () => {
@@ -43,10 +42,7 @@ describe("work-id contract on the OpenAPI wire", () => {
 
   it("serializes UPSTREAM_UNAVAILABLE for a preview outage", async () => {
     const fetchImpl = (() => Promise.reject(new Error("anitabi down"))) as unknown as typeof fetch;
-    const response = await call(
-      { bangumi_id: "3302" },
-      context([[], [], [{ bangumi_id: "3302" }], []], fetchImpl),
-    );
+    const response = await call({ bangumi_id: "3302" }, context([[]], fetchImpl));
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
       defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,

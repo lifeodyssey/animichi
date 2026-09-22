@@ -15,6 +15,9 @@ class E2eNoSkipMutationTest < Minitest::Test
   CONTRACT = File.join(ROOT, "test/repo-config/e2e-no-skip.test.rb")
   FIXTURE_FILES = %w[e2e/playwright.config.ts e2e/package.json e2e/reporters/no-skipped-tests.ts].freeze
   CONSEQUENCE = "can skip themselves"
+  # The live lane's env-file flag, as the contract names it (#1813). The
+  # mutations below drop it from a copy of the real command.
+  ENV_FILE_FLAG = "--env-file-if-exists=../.env.test"
 
   # Every spelling Playwright accepts for a skipped or quarantined case.
   SKIP_MUTATIONS = {
@@ -53,7 +56,39 @@ class E2eNoSkipMutationTest < Minitest::Test
     end
   end
 
+  # The live lane's properties (#1813). Widening that assertion from an
+  # exact-string pin to facts about the command is only an improvement if the
+  # facts can still fail: a pin that blocked a repair traded for an assertion
+  # that cannot fail would be the same defect, one layer up.
+  def test_the_rule_rejects_a_lane_that_stopped_loading_the_env_file
+    with_temp_root do |root|
+      write_fixtures(root)
+      rewrite_live_login(root) { |source| source.sub(" #{ENV_FILE_FLAG}", "") }
+      status, output = run_contract(root)
+      refute(status.success?, "mutation survived: the lane's env-file flag was dropped")
+      assert_includes(output, ENV_FILE_FLAG, "the refusal must name the flag the lane must carry")
+    end
+  end
+
+  # The other half of the property: `--env-file` REQUIRES the file, and the lane
+  # must run unchanged on a machine that has none.
+  def test_the_rule_rejects_a_lane_that_made_the_env_file_required
+    with_temp_root do |root|
+      write_fixtures(root)
+      rewrite_live_login(root) { |source| source.sub("--env-file-if-exists=", "--env-file=") }
+      status, = run_contract(root)
+      refute(status.success?, "mutation survived: the env file was made required")
+    end
+  end
+
   private
+
+  # The fixture lane's own command, rewritten in place. Text, not a JSON round
+  # trip, so the fixture differs from the committed file by the mutation alone.
+  def rewrite_live_login(root)
+    path = File.join(root, "e2e/package.json")
+    File.write(path, yield(File.read(path)))
+  end
 
   def run_contract_with_spec(source, label)
     with_temp_root do |root|

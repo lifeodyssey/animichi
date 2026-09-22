@@ -20,6 +20,7 @@ class PrVerificationAffectedTest < Minitest::Test
     ["@animichi/test-postgres", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/pi-session-neon", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/prisma-geography", "docker build -f packages/test-postgres/Dockerfile"],
+    ["users", "docker build -f packages/test-postgres/Dockerfile"],
     ["infra", "pulumi/actions"]
   ].freeze
   def setup

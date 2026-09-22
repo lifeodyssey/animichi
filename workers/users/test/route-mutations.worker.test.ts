@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import { fakeUsersPrisma, type FakeSavedRouteRow } from "./fake-users-prisma";
 
 const SAVED_ROUTE_A = "00000000-0000-4000-8000-00000000000a";
 const UNKNOWN = "00000000-0000-4000-8000-00000000000f";
@@ -15,8 +15,8 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 }
 
 function setup(seed: FakeSavedRouteRow[] = []) {
-  const store = fakeDb(seed);
-  const app = createUsersApp({ makeDb: () => store.db });
+  const store = fakeUsersPrisma(seed);
+  const app = createUsersApp({ makePrisma: () => store.prisma });
   const headers = identityHeaders("user-a", { "content-type": "application/json" });
   return { app, headers, rows: store.rows };
 }

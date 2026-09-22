@@ -24,6 +24,14 @@ export const CURRENT_KEY_VAR = "INGEST_SIGNING_KEY";
 export const PREVIOUS_KEY_VAR = "INGEST_SIGNING_KEY_PREVIOUS";
 export const CEILING_VAR = "UPSTREAM_REQUEST_CEILING_PER_HOUR";
 
+/**
+ * Where the ceiling's counter lives (#1810, #1824). One `fly secrets` value of
+ * the same kind as the signing key — the Fly Redis Private URL `fly redis
+ * status` prints, which carries the store's own password inside the address —
+ * and it is not in this tree.
+ */
+export const CEILING_STORE_URL_VAR = "CEILING_STORE_URL";
+
 /** The whole configuration, or null when anything required is missing — null refuses everything. */
 export function readEgressConfig(env: Record<string, string | undefined>): EgressConfig | null {
   const currentKey = env[CURRENT_KEY_VAR];
@@ -35,6 +43,51 @@ export function readEgressConfig(env: Record<string, string | undefined>): Egres
     previousKey: typeof previousRaw === "string" && isSigningKey(previousRaw) ? previousRaw : null,
     ceilingPerHour: ceiling,
   };
+}
+
+/**
+ * The ceiling store's address, or null — and null means the service has no
+ * counter, so its ceiling is null and every request is refused
+ * (`configuration`). A ceiling the service cannot count is not a ceiling.
+ */
+export interface CeilingStoreConfig {
+  readonly url: string;
+}
+
+/**
+ * Read the ceiling store's address (#1810, #1824). The store is the Redis
+ * `fly redis create` provisions, reached over TCP, and the address is the
+ * Private URL that command's status prints — so `redis` is the only scheme
+ * this service will dial.
+ *
+ * THE SCHEME IS THE CHECK. #1810's store was an HTTPS REST endpoint addressed
+ * by a separate token; that pair cannot be filled from `fly redis status`, and
+ * its `https://` address must fail closed at boot rather than be read as a
+ * Redis host — a service that dialed it would be reaching a destination that
+ * is not its store. Every other scheme, the public `rediss://` endpoint
+ * included, is a destination this service was not told to use: the counter is
+ * reached over Fly's private network, and a value naming anything else is a
+ * paste of the wrong URL.
+ *
+ * A missing value, a value with no host to dial, and a value still carrying
+ * the line break it was copied with are all null as well. The password inside
+ * the address is the store's own; a URL that carries none is accepted here and
+ * refused by the store, which is the one authority on whether it will open.
+ */
+export function readCeilingStoreConfig(env: Record<string, string | undefined>): CeilingStoreConfig | null {
+  const url = redisUrl(env[CEILING_STORE_URL_VAR]);
+  return url === null ? null : { url };
+}
+
+/** The Fly Private URL, or null: `redis://`, a host, and no whitespace from a bad paste. */
+function redisUrl(raw: string | undefined): string | null {
+  if (raw === undefined || raw === "" || /\s/.test(raw)) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "redis:" && url.hostname !== "" ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -114,6 +114,7 @@ test_suffix_stripping() {
   repo="$(mktemp -d)"
   mkdir -p "${repo}/docs/ops"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
+  printf 'x\n' > "${repo}/docs/ops/secrets.md"
   printf 'AGENTS.md\n`docs/ops/deployment.md.` `docs/ops/deployment.md#L10` `docs/ops/deployment.md:12`\n' > "${repo}/AGENTS.md"
   printf '// see ../../../docs/ops/secrets.md?raw\n' > "${repo}/src.ts"
   commit_fixture "${repo}"
@@ -179,6 +180,73 @@ test_single_digit_line_suffix() {
   echo "PASS: a single-digit :line suffix strips and the ref still counts"
 }
 
+# ── Case 12: a test program's docs/ strings are fixtures, and the gate says so
+# The checker's subject is what a reader is meant to follow. A corpus in a test
+# program has to name real `docs/archive/**` keys to exercise the real
+# allowlist (#1650) — and those keys are exactly the objects DOCS_POLICY rule 7
+# keeps in R2 instead of in the tree, so the string is an input, not a link.
+test_test_program_refs_are_fixtures() {
+  local repo out=/tmp/docs-path-case12.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/docs/ops" "${repo}/workers/edge/test"
+  printf 'x\n' > "${repo}/docs/ops/deployment.md"
+  printf 'const APPROVABLE = [\n  "docs/archive/a..b.png",\n  "docs/archive/A-Z_0.9.gif",\n];\n' \
+    > "${repo}/workers/edge/test/allowlist-corpus.test.ts"
+  printf 'AGENTS.md\nlive ref `docs/ops/deployment.md`\n' > "${repo}/AGENTS.md"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -eq 0 ] || fail_test "a test program's docs/ corpus must not fail the gate, got exit ${rc}: $(cat "${out}")"
+  grep -q "skipped 1 test programs" "${out}" \
+    || fail_test "the gate must report what it skipped, not skip silently: $(cat "${out}")"
+  echo "PASS: a test program's docs/ strings are fixtures and the skip is reported"
+}
+
+# ── Case 13: prose under a test/ directory is still prose ──────────────────
+# The exclusion is the file's NAME, not its directory. This is the difference
+# between "test programs" and "all of **/test/**": widening the carve-out to
+# the directory turns this case red instead of passing quietly, which is the
+# only way the gate can say how much of the tree it still reads.
+test_prose_under_test_dir_still_caught() {
+  local repo out=/tmp/docs-path-case13.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/workers/edge/test"
+  printf 'the runbook moved to `docs/ops/gone.md`\n' > "${repo}/workers/edge/test/notes.md"
+  printf 'const APPROVABLE = ["docs/archive/a..b.png"];\n' \
+    > "${repo}/workers/edge/test/allowlist-corpus.test.ts"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -ne 0 ] || fail_test "a broken docs/ ref in prose under a test/ dir must fail, got exit 0"
+  grep -q 'workers/edge/test/notes.md:1: broken docs/ reference `docs/ops/gone.md`' "${out}" \
+    || fail_test "prose under a test/ dir must still be reported: $(cat "${out}")"
+  if grep -q 'allowlist-corpus.test.ts' "${out}"; then
+    fail_test "a test program's docs/ strings are inputs, not references: $(cat "${out}")"
+  fi
+  echo "PASS: prose under a test/ directory is still caught; the corpus file is still exempt"
+}
+
+# ── Case 14: a bare ref in a file that quotes no docs/ span is still read ───
+# The quoted-span pass runs first and exits 1 when it matches nothing; under
+# `pipefail` + errexit that took the whole extraction subshell with it, so a
+# file with no backticked `docs/` span had every bare token dropped. A broken
+# bare ref — the ordinary way prose cites a doc — went unseen entirely.
+test_bare_ref_in_file_without_quoted_span() {
+  local repo out=/tmp/docs-path-case14.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/docs/ops" "${repo}/src"
+  printf 'x\n' > "${repo}/docs/ops/deployment.md"
+  printf '// the procedure lives in docs/ops/never-written.md now\n' > "${repo}/src/bare.ts"
+  printf 'see docs/ops/deployment.md for the runbook\n' > "${repo}/README.md"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -ne 0 ] || fail_test "a broken bare docs/ ref must fail the gate, got exit 0"
+  grep -q 'src/bare.ts:1: broken docs/ reference `docs/ops/never-written.md`' "${out}" \
+    || fail_test "the bare ref must be named: $(cat "${out}")"
+  if grep -q 'README.md' "${out}"; then
+    fail_test "the resolving bare ref must still resolve: $(cat "${out}")"
+  fi
+  echo "PASS: a bare docs/ ref is read even when the file quotes no docs/ span"
+}
+
 test_good_refs_pass
 test_missing_ref_fails
 test_external_urls_skipped
@@ -190,5 +258,8 @@ test_glob_skipped
 test_parent_escape_fails
 test_test_script_exempt
 test_single_digit_line_suffix
+test_test_program_refs_are_fixtures
+test_prose_under_test_dir_still_caught
+test_bare_ref_in_file_without_quoted_span
 
 echo "All check-docs-paths.sh behavioral tests passed."

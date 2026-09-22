@@ -1,15 +1,17 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 const handler = new OpenAPIHandler(catalogRouter);
 
+/** A context whose alias-index and candidate answers come from the Prisma plane
+ * (#1631), one row-list per `query()` in call order. Resolve reads no Drizzle
+ * seam at all — the alias lookup, the stored candidates and the upstream title
+ * search are all it touches — so that seam is left unreachable. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
-  const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
-  const db = { execute } as unknown as CatalogDb;
-  return { db, fetchImpl };
+  return { prisma: fakeCatalogPrisma(...responses), fetchImpl };
 }
 
 async function call(path: string, body: unknown, ctx: CatalogContext): Promise<Response> {
@@ -51,7 +53,7 @@ describe("resolve exact and alias outcomes through the published route", () => {
       [{ bangumi_id: "3302", priority: 40 }],
       [{
         id: "3302", title: "らき☆すた", title_cn: "幸运星",
-        cover_url: null, air_date: "2007-04-08", points_count: "0",
+        cover_url: null, air_date: "2007-04-08", points_count: 0,
       }],
     ]));
 
@@ -70,7 +72,7 @@ describe("resolve exact and alias outcomes through the published route", () => {
 
     const response = await call("resolve", { query: "Lucky Star" }, context([
       [{ bangumi_id: "3302", priority: 40 }],
-      [{ id: "3302", title: "らき☆すた", title_cn: null, cover_url: null, air_date: null, points_count: "0" }],
+      [{ id: "3302", title: "らき☆すた", title_cn: null, cover_url: null, air_date: null, points_count: 0 }],
     ], fetchImpl));
 
     expect(response.status).toBe(200);
@@ -85,8 +87,8 @@ describe("resolve exact and alias outcomes through the published route", () => {
         { bangumi_id: "100", priority: 40 },
       ],
       [
-        { id: "200", title: "Two", title_cn: null, cover_url: null, air_date: null, points_count: "7" },
-        { id: "100", title: "One", title_cn: null, cover_url: null, air_date: null, points_count: "3" },
+        { id: "200", title: "Two", title_cn: null, cover_url: null, air_date: null, points_count: 7 },
+        { id: "100", title: "One", title_cn: null, cover_url: null, air_date: null, points_count: 3 },
       ],
     ]));
 

@@ -1,6 +1,7 @@
 import {
   applyDrizzleEraCatalog,
   createCleanDatabase,
+  createMigratedDatabase,
   dropCleanDatabase,
   SPIKE_SETUP_BUDGET,
   startTestPostgresCluster,
@@ -15,43 +16,75 @@ import type { TestProject } from "vitest/node";
  * with a migrated database. Any failure in this setup throws — the old
  * silent-skip mode is removed (AC2).
  *
- * WHICH schema owns that database is the catalog's own open item, and until #1628–#1631 move the
- * query layer onto Prisma it is still the Drizzle-era shape: this suite writes
- * `points.latitude` / `longitude` as plain scalars and reads `points.embedding`, both of which the
- * #1626 data plane removed or made generated. So the fixture builds a database of its OWN here —
- * from pristine `template1`, with the frozen fixture `@animichi/test-postgres` keeps for exactly
- * these two lanes (#1625: the shared plane is Prisma-only now, one chain per database). It asks
- * for the cluster alone (#1783): the server, its admin database and the five service roles, with
- * no Prisma-migrated database beside this one that nothing reads. Delete this legacy branch with
- * #1628–#1631.
+ * TWO databases, one per plane shape, both created from pristine `template1` on
+ * the container the plane owns. The query layer is mid-migration, so which shape
+ * a file needs depends on which tables it touches:
+ *
+ *   - `<suite>_legacy` — the frozen Drizzle-era catalog
+ *     (`@animichi/test-postgres`'s `sql/drizzle-era-catalog.sql`). Every file
+ *     that writes `points.latitude` / `longitude` as plain scalars or reads
+ *     `points.embedding` still needs this shape — the #1626 data plane makes the
+ *     first two generated and omits the third. Those reads are #1629–#1631's to
+ *     move; the fixture is deleted with that branch.
+ *   - `<suite>_plane` — the committed Prisma chain (#1626), the shape every real
+ *     environment has. The nearby path moved onto it in #1628, so the
+ *     `nearby-*.integration.test.ts` files run here.
+ *
+ * NEITHER is the plane's own database (`startTestPostgres` migrates that one):
+ * one chain per database, and a suite that migrated the plane's database would
+ * be the `MIGRATION.MARKER_MISMATCH` #1625 removed — and would collide with every
+ * other arm sharing the container. The plane database is a CLONE of the
+ * container's migrated template (#1769), so it costs no chain apply of its own
+ * and does not queue on the cluster turn.
  *
  * The recipe itself is `@animichi/test-postgres` (#1326), shared with the edge's
  * agent-db arm and with `scripts/local-gates/db-fresh-schema.sh`. What stays this
- * arm's own is the database name and `SPIKE_SETUP_BUDGET`: one container serves
+ * arm's own is the database names and `SPIKE_SETUP_BUDGET`: one container serves
  * the whole suite, so it probes 30 × 1 s.
  */
 const LEGACY_DATABASE = "catalog_integration_legacy";
+const PLANE_DATABASE = "catalog_integration_plane";
+
+/** The two databases this suite owns, by the names it created them under. */
+interface SuiteDatabases {
+  readonly legacy: string;
+  readonly plane: string;
+}
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   const cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
-  const name = uniqueDatabaseName(LEGACY_DATABASE);
+  const owned: SuiteDatabases = {
+    legacy: uniqueDatabaseName(LEGACY_DATABASE),
+    plane: uniqueDatabaseName(PLANE_DATABASE),
+  };
   try {
-    const dsn = await createCleanDatabase(cluster.adminDsn, name);
-    await applyDrizzleEraCatalog(dsn);
-    project.provide("integrationDatabase", { enabled: true, dsn });
+    project.provide("integrationDatabase", { enabled: true, ...(await buildDatabases(cluster, owned)) });
   } catch (failure) {
-    await dropWithoutMaskingFailure(cluster, name);
+    await dropWithoutMaskingFailure(cluster, owned);
     throw failure;
   }
-  return () => dropCleanDatabase(cluster.adminDsn, name);
+  return () => dropWithoutMaskingFailure(cluster, owned);
 }
 
-/** A drop with nothing to drop — the failure happened before the create — must
- * not replace the failure that caused it. */
-async function dropWithoutMaskingFailure(cluster: TestPostgresCluster, name: string): Promise<void> {
-  try {
-    await dropCleanDatabase(cluster.adminDsn, name);
-  } catch {
-    // best-effort: the failure being propagated is the one that matters
-  }
+/** Create both databases and hand back their DSNs. */
+async function buildDatabases(
+  cluster: TestPostgresCluster,
+  owned: SuiteDatabases,
+): Promise<{ readonly dsn: string; readonly planeDsn: string }> {
+  const dsn = await createCleanDatabase(cluster.adminDsn, owned.legacy);
+  await applyDrizzleEraCatalog(dsn);
+  const planeDsn = await createMigratedDatabase(cluster.adminDsn, owned.plane);
+  return { dsn, planeDsn };
+}
+
+/** Drop both databases, each even if the other's drop fails. A drop with nothing
+ * to drop — the failure happened before the create — must not replace the
+ * failure that caused the teardown. */
+async function dropWithoutMaskingFailure(cluster: TestPostgresCluster, owned: SuiteDatabases): Promise<void> {
+  const results = await Promise.allSettled([
+    dropCleanDatabase(cluster.adminDsn, owned.legacy),
+    dropCleanDatabase(cluster.adminDsn, owned.plane),
+  ]);
+  const [first] = results.filter((result) => result.status === "rejected");
+  if (first !== undefined) throw first.reason;
 }

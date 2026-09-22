@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { PENDING_DRAIN_CRON, TTL_REFRESH_CRON } from "../src/cron-config";
 import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../src/ingest/cron-queries";
 import { catalogIngestBangumi } from "../src/ingest/ingest-bangumi";
@@ -9,7 +10,13 @@ import type { FetchLike } from "../src/ingest/sources";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import { stubEgressSigningKey } from "./egress-stub";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import {
+  databaseDescribe,
+  openPlaneSeams,
+  restoreNeonConfig,
+  truncateCatalog,
+  type PlaneSeams,
+} from "./integration-db";
 
 const SUBJECT = {
   id: 1,
@@ -38,8 +45,11 @@ const fetchImpl: FetchLike = (url) => Promise.resolve({
 });
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 
 const dependencies: CronDependencies = {
+    connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
   connect: () => Promise.resolve(db),
   ingestBangumi: (catalogDb, id, egressSigningKey) => catalogIngestBangumi(catalogDb, egressSigningKey).ingest(id, { fetchImpl }),
   listDoneBangumiIds,
@@ -81,14 +91,19 @@ async function runScheduled(cron: string, environment: "staging" | "production")
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
+  seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query;
 }, 120_000);
 
 beforeEach(async () => {
   await truncateCatalog(db);
 });
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 const schedules = [
   { environment: "staging", cron: PENDING_DRAIN_CRON, workId: "460200" },
@@ -97,7 +112,7 @@ const schedules = [
 
 databaseDescribe("scheduled pending drain on real Postgres (#1229)", () => {
   it.each(schedules)("drains a pending row to done in $environment", async ({ cron, environment, workId }) => {
-    await new JobStore(db).ensurePending(workId);
+    await new JobStore(query).ensurePending(workId);
 
     await runScheduled(cron, environment);
 

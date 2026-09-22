@@ -48,14 +48,24 @@ void test("reset SQL drops public, and prisma_contract only when told to", () =>
 // Owner decision 2026-08-27 (reverses #539 for STAGING ONLY): the CD smoke
 // probes workers.dev because the zone front door bot-challenges GitHub-runner
 // IPs. Production must never re-open it.
-void test("workers_dev is open for staging only, never production", () => {
+void test("workers_dev is open for staging only, and closed in production by declaration", () => {
   const toml = read("workers/edge/wrangler.toml");
-  const staging = toml.slice(toml.indexOf("[env.staging]"));
+  // Line-anchored anchors: the config's own comments quote the section names in
+  // prose (#1524), so a bare indexOf would slice from a comment mention; the production
+  // slice ends at the first [env.production.<sub-table, which ends the env's own keys.
+  const staging = toml.slice(toml.indexOf("\n[env.staging]\n"));
   assert.match(staging, /^workers_dev = true$/m);
-  // Production carries no explicit workers_dev: wrangler defaults it to false,
-  // and the guard is that nobody ever writes `true` there.
-  const production = toml.slice(toml.indexOf("[env.production]"), toml.indexOf("[env.staging]"));
+  // wrangler resolves an unset `workers_dev` to `routes.length === 0`
+  // (wrangler 4.132.0, cli.js `getSubdomainValues`), and production declares
+  // no routes — so this test's old assumption ("wrangler defaults it to
+  // false") was wrong: an omitted key would OPEN the host on the next deploy.
+  // The catalog suite (wrangler-private.worker.test.ts) researched the
+  // opposite default and was right; #1524 measured it. The closure must be
+  // declared, not merely not-open:
+  const production = toml.slice(toml.indexOf("\n[env.production]\n"), toml.indexOf("\n[env.production."));
   assert.doesNotMatch(production, /^workers_dev = true$/m);
+  assert.match(production, /^workers_dev = false$/m);
+  assert.match(production, /^preview_urls = false$/m);
 });
 
 // #1216 — the migrator's own error lived only in the discarded response body, so

@@ -39,7 +39,7 @@ import type { TurnstileGate } from "../protect/turnstile.ts";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
-import { credentialsRequired, unauthorized } from "./responses.ts";
+import { authenticationRejection, credentialsRequired } from "./responses.ts";
 import type { EdgeTierRoute } from "./routing-policy.ts";
 import type { AgentTurnTier, TurnIdentity } from "./agent-turn.ts";
 
@@ -112,7 +112,9 @@ export async function agentTierResponse(
 ): Promise<Response> {
   const auth = await gates.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedTierResponse(env, request, auth, pathname, route, gates);
-  if (auth.reason === "invalid") return unauthorized(pathname);
+  // Only an ABSENT credential may reach the anonymous pipeline below (#441,
+  // #452): a rejected one and one we could not check are never demoted into it.
+  if (auth.reason !== "absent") return authenticationRejection(request, auth);
   if (!admitsAnonymous(route)) return credentialsRequired();
   const anonymous = await handleAnonymousV1(
     env, request, Date.now(), gates.turnstileGate,

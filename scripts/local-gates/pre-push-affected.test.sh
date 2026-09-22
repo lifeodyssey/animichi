@@ -270,4 +270,18 @@ expect_status "coverage report refused" 1 "$STATUS"
 gate_env GATE_PROBE=1
 ok "the coverage reports are checked over the same union after the scripts, and a refusal blocks"
 
+# 22. The root env sheets (#1813): `.env.test.example` is the file an operator
+#     copies to `.env.test`, so editing it is documentation. Nothing else gates
+#     it — the root-allowlist check owns the top-level ENTRY, not the contents —
+#     so both sheets are whitelisted by name rather than left to stop a push for
+#     a change CI's affected matrix would not even select.
+new_repo
+commit_change feature .env.test.example .env.example
+run_gate < /dev/null
+expect_status "root env sheets" 0 "$STATUS"
+expect "root env sheets" "packages: (none)" "$OUT"
+refute "root env sheets" "no gate covers" "$OUT"
+refute "root env sheets" "--filter" "$RECORDED"
+ok "the root env example sheets need no package gate"
+
 finish

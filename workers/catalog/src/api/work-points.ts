@@ -7,7 +7,7 @@ import {
   type PointsByBangumiResult,
   type PublishedPointRow,
 } from "../application/list-points-for-bangumi";
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { catalogIngestBangumi, type IngestGuard } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
 import { previewForWork, type MissPreview } from "./preview";
@@ -64,12 +64,21 @@ function syncingResult(): PointsByBangumiResult {
   return { ...emptyResult(), partial: true };
 }
 
-/** Bind the read port to the shared points reader and ingest infrastructure (#1792: egress required for anitabi). */
-export function workPointsDb(db: CatalogDb, egressSigningKey?: string): WorkPointsPort {
-  const points = bangumiPoints(db);
+/** Bind the read port to the shared points reader and ingest infrastructure (#1792: egress required for anitabi).
+ *
+ * One seam: the published-points read (`adapters/outbound/bangumi-points.ts`,
+ * #1631) and the ingest's enrich/publish writes (#1630) are both plans off this
+ * request's runtime, so the port takes the request's {@link CatalogPrisma} and
+ * nothing else.
+ */
+export function workPointsDb(
+  query: CatalogPrisma,
+  egressSigningKey?: string,
+): WorkPointsPort {
+  const points = bangumiPoints(query);
   return {
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
     previewForWork: (bangumiId, fetchImpl) => previewForWork(bangumiId, fetchImpl, egressSigningKey),
-    ingest: catalogIngestBangumi(db, egressSigningKey),
+    ingest: catalogIngestBangumi(query, egressSigningKey),
   };
 }

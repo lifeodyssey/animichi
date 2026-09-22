@@ -20,8 +20,24 @@ Root guide: `../../AGENTS.md`.
 ## Stack (per the ADR)
 
 - **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
-- **oRPC** contract; **Drizzle for queries only** — Neon via @neondatabase/serverless (neon-http); no Hyperdrive.
-- PostGIS via `sql` tagged template — do not vectorize structured geo (SD-29).
+- **Two query paths, mid-migration.** The Prisma data plane (spec §4.2) serves the reads it has
+  moved — the **nearby** read (#1628), the `src/api` handlers (#1631), the cron/daily queries — and
+  the **ingest → enrich → publish writes** (#1630), including `src/publish/`. `src/db/prisma.ts`
+  builds the contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`,
+  and the Hono `/catalog/*` boundary (or a cron pass) acquires ONE `Runtime` per request and
+  disposes it with `await using` — never a connection cached across requests. What is still
+  **Drizzle** (Neon via @neondatabase/serverless, neon-http) is the staging **import**
+  (`src/import/switch.ts`, which writes the pre-Prisma column set), `src/media/img.ts`, and the seam
+  itself (`src/db/{client,schema,expressions}.ts`); #1629–#1631 and #1633 move the rest.
+  **No Hyperdrive**: no binding, no preference branch, no comment —
+  `test/no-hyperdrive.worker.test.ts` is the tripwire.
+- PostGIS via the geography pack's typed operations on the Prisma path, `sql` tagged template on the
+  Drizzle one — do not vectorize structured geo (SD-29). Distances are reported AND ordered by the
+  spheroid (`ST_Distance`), one metric, never `<->` (§4.11).
+- **`pg` is aliased to `test/fakes/pg-pool-stub.ts` in the worker pool.** workerd runs with the
+  CJS→ESM shim disabled and `pg` ships CommonJS, so `src/db/prisma.ts` (which imports the Prisma
+  serverless entry) could not load at all without it. The stub LOADS without a socket and fails
+  loudly if a test reaches a real driver; the Node integration arm resolves the real `pg`.
 
 ## Contract discipline (`packages/contract` is the source of truth)
 
@@ -48,15 +64,22 @@ Root guide: `../../AGENTS.md`.
   `scripts/build-gazetteer.ts`; review output: `data/gazetteer-audit.csv`. The canonical invocation and
   provenance live in `docs/data-sources.md`.
 
-## workerd gotchas (Drizzle / timestamptz)
+## workerd gotchas (plans / Drizzle / timestamptz)
 
-- **Drizzle via the single adapter seam** — every statement is built with the Drizzle **query
-  builder** through `statementBuilder()` (`src/db/client.ts`) plus the typed expression helpers in
-  `src/db/expressions.ts`, then executed through `CatalogDb` (`db.execute` / `db.batch`). Raw `sql`
-  tagged template is reserved for narrow fragments (PostGIS, pg_trgm, interval) inside the
-  expressions module. Every complete-SQL statement runs through the builder so the worker pool can
-  test through fakes; the remaining live-Neon caveat (builder execution under workerd + neon-http
-  still needs a real-Neon validation) is documented on `statementBuilder()`.
+- **A converted path builds PLANS.** With `CatalogPrisma` (`src/db/prisma.ts`): build with the
+  shared contract's builder, run on the request's runtime (`executor.query`), and group with
+  `transaction()`. Three facts that shape that code: the builder's surface stops at
+  `returning`/`build`, so an upsert and a server-clock write are plan repairs in `src/db/plans.ts`;
+  a projection's ALIAS is the key the row carries; and a raw fragment interpolates BOUND values
+  (only a hand-built `RawExpr` renders text). `transaction()` inside an open transaction JOINS it —
+  never a second connection.
+- **Drizzle via the single adapter seam** — what is left on it (the staging import, media) builds
+  with the Drizzle **query builder** through `statementBuilder()` (`src/db/client.ts`) plus the typed
+  expression helpers in `src/db/expressions.ts`, then executes through `CatalogDb` (`db.execute` /
+  `db.batch`). Raw `sql` tagged template is reserved for narrow fragments (PostGIS, pg_trgm,
+  interval) inside the expressions module. Every complete-SQL statement runs through the builder so
+  the worker pool can test through fakes; the remaining live-Neon caveat (builder execution under
+  workerd + neon-http still needs a real-Neon validation) is documented on `statementBuilder()`.
 - **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
   Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see `src/api/search.ts`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
@@ -72,10 +95,18 @@ Root guide: `../../AGENTS.md`.
   TCP, Docker, or child-process work. Filesystem parity checks belong here, not in Worker tests —
   **unless the check must never be skippable**. The suite is **hermetic and fail-loudly** (card
   1049): its `globalSetup` (`test/integration-db-global.ts`) boots a **Docker Postgres+PostGIS**
-  container and installs the frozen Drizzle-era shape
-  (`packages/test-postgres/sql/drizzle-era-catalog.sql`) on a database of its own — the plane's own
-  database is migrated by the Prisma chain now (#1625), and this query layer still reads the
-  pre-Prisma shape, so the suite keeps a database of its own until #1628–#1631 land
+  container and builds **two databases of its own** on it — `<suite>_legacy` with the frozen
+  Drizzle-era shape (`packages/test-postgres/sql/drizzle-era-catalog.sql`), and `<suite>_plane` as a
+  clone of the container's migrated template, i.e. the committed Prisma chain (#1626), the shape every
+  real environment now has. The plane database is where the converted paths' suites run: the nearby
+  read (#1628), the read handlers (#1631), and **ingest / enrich / publish** (#1630) —
+  `ingest-*.integration.test.ts`, `enrich.integration.test.ts`, `publish.integration.test.ts`,
+  `snapshot-integration.integration.test.ts`, the cron/daily suites. The legacy one is what is left:
+  the staging import (`import-integration.integration.test.ts` seeds and imports its pre-Prisma
+  column set, and reads the candidate export through `openPrismaSeam(localDatabaseUrl())` — one
+  database, two seams), plus the other files that still write `points.latitude`/`longitude` as
+  scalars or read `points.embedding`, until #1629–#1631 move those. Neither
+  is the plane's own database — one chain per database, and `startTestPostgres` migrates the plane's
   (`integration-db-global.ts` carries the same note). Any setup failure throws — there is no
   silent-skip path and **zero Neon environment variables**.
   The suite is `test:integration`, one of the four scripts every lane already runs for an affected

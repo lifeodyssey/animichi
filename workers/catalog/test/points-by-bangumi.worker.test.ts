@@ -12,14 +12,14 @@
 
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
+import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import {
   pointsByBangumi,
   type PointsByBangumiPort,
   type PublishedPointRow,
 } from "../src/application/list-points-for-bangumi";
-import { bangumiPoints, type BangumiPointsDb } from "../src/adapters/outbound/bangumi-points";
+import { bangumiPoints } from "../src/adapters/outbound/bangumi-points";
 
 const ROW: PublishedPointRow = {
   id: "spot-1",
@@ -42,15 +42,6 @@ const ROW: PublishedPointRow = {
 
 function fakePort(rows: PublishedPointRow[]): PointsByBangumiPort {
   return { pointsForBangumi: () => Promise.resolve(rows) };
-}
-
-function pointsDb(rows: unknown[]): { db: BangumiPointsDb; reads: () => number } {
-  let reads = 0;
-  const execute = () => {
-    reads += 1;
-    return Promise.resolve({ rows });
-  };
-  return { db: { execute }, reads: () => reads };
 }
 
 describe("pointsByBangumi use case", () => {
@@ -99,47 +90,36 @@ describe("pointsByBangumi use case", () => {
   });
 });
 
-describe("bangumiPoints outbound adapter (ONE Neon read port)", () => {
+describe("bangumiPoints outbound adapter (ONE Prisma read)", () => {
   it("issues exactly one SELECT and preserves the returned scene order", async () => {
-    const { db, reads } = pointsDb([ROW]);
-    await expect(bangumiPoints(db).pointsForBangumi("1")).resolves.toEqual([ROW]);
-    expect(reads()).toBe(1);
+    const counter = countingCatalogPrisma([ROW]);
+    await expect(bangumiPoints(counter.query).pointsForBangumi("1")).resolves.toEqual([ROW]);
+    expect(counter.statements()).toBe(1);
   });
 
-  it("maps a valid joined row to a validated PublishedPointRow", async () => {
-    const { db } = pointsDb([ROW]);
-    await expect(bangumiPoints(db).pointsForBangumi("1")).resolves.toEqual([ROW]);
+  it("hands back the plan's rows unchanged — the projection IS the row shape", async () => {
+    await expect(bangumiPoints(fakeCatalogPrisma([ROW])).pointsForBangumi("1")).resolves.toEqual([ROW]);
   });
 
   it("returns an empty list for a bangumi with no rows (unknown or empty)", async () => {
-    const { db } = pointsDb([]);
-    await expect(bangumiPoints(db).pointsForBangumi("999999")).resolves.toEqual([]);
+    await expect(bangumiPoints(fakeCatalogPrisma([])).pointsForBangumi("999999")).resolves.toEqual([]);
   });
 
-  it("rejects an invalid numeric Neon row", async () => {
-    const { db } = pointsDb([{ ...ROW, latitude: "not-a-number" }]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
-
-  it("rejects a null required numeric field instead of coercing", async () => {
-    const { db } = pointsDb([{ ...ROW, latitude: null }]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row latitude is not numeric");
-  });
-
-  it("rejects a non-object row", async () => {
-    const { db } = pointsDb([null]);
-    await expect(bangumiPoints(db).pointsForBangumi("1"))
-      .rejects.toThrow("Catalog row is not an object");
+  it("returns a fresh array rather than the runtime's own list", async () => {
+    const answered = [ROW];
+    const rows = await bangumiPoints(fakeCatalogPrisma(answered)).pointsForBangumi("1");
+    expect(rows).toEqual(answered);
+    expect(rows).not.toBe(answered);
   });
 });
 
 describe("pointsByBangumiId route seam", () => {
+  /** A context whose READ answers on the Prisma plane (#1631), one row-list per
+   * `query()` in call order; the Drizzle seam is the ingest's (#1630) and here
+   * it finds no parked job, so a work with no published rows takes the
+   * uncovered-work path. */
   function context(rows: unknown[][]): CatalogContext {
-    const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
-    const db = { execute } as unknown as CatalogDb;
-    return { db };
+    return { prisma: fakeCatalogPrisma(...rows) };
   }
 
   async function call(body: unknown, ctx: CatalogContext): Promise<Response> {
@@ -168,11 +148,17 @@ describe("pointsByBangumiId route seam", () => {
       .toEqual(["ep1", "ep2", "ep3"]);
   });
 
-  it("rejects an invalid Neon row as a 500", async () => {
+  it("reads the published rows on the Prisma plane — the Drizzle seam is never reached", async () => {
+    const counter = countingCatalogPrisma([ROW]);
     const response = await call(
       { bangumi_id: "1" },
-      context([[{ ...ROW, latitude: "not-a-number" }]]),
+      { prisma: counter.query },
     );
-    expect(response.status).toBe(500);
+
+    expect(response.status).toBe(200);
+    expect(counter.statements()).toBe(1);
+    const body = await response.json();
+    expect((body as { rows: { id: string }[] }).rows.map((point) => point.id))
+      .toEqual([ROW.id]);
   });
 });

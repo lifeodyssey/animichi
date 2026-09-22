@@ -1,13 +1,13 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import type { CatalogDb } from "../src/db/client";
 import type {
   RouteTooManyPointsData,
   UpstreamUnavailableData,
   WorkNotFoundData,
 } from "../src/lib/errors";
 import type { Itinerary } from "../src/types";
+import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 interface ErrorEnvelope<TData> {
   defined: true;
@@ -61,16 +61,18 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
   return response;
 }
 
-/** Build a minimal CatalogContext; casts stay at the test fake boundary. */
+/**
+ * Build a minimal CatalogContext; casts stay at the test fake boundary. Every
+ * read and every ingest write answers on the Prisma plane (#1630), one row-list
+ * per `query()` in call order.
+ */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
-  const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
-  return { db, fetchImpl };
+  return { prisma: fakeCatalogPrisma(rows), fetchImpl };
 }
 
-/** Context whose DB must not be touched. */
+/** Context whose Prisma seam must not be touched. */
 function unreachableContext(): CatalogContext {
-  const db = { execute: () => { throw new Error("db should not be reached"); } } as unknown as CatalogDb;
-  return { db };
+  return { prisma: unreachableCatalogPrisma() };
 }
 
 /** Joined point+bangumi rows spaced far enough apart to produce distinct clusters. */

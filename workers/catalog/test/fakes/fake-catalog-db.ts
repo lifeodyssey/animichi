@@ -122,3 +122,16 @@ export function fakeCatalogDb(
   };
   return db as unknown as CatalogDb;
 }
+
+/**
+ * A `CatalogDb` whose every statement throws, for the contexts whose READS all
+ * cross the Prisma plane (#1631): what is left on this seam is the ingest
+ * (#1630), so a test that reaches it through a read has found a wire that still
+ * passes `context.db` where it should pass `context.prisma`.
+ */
+export function unreachableCatalogDb(): CatalogDb {
+  const refuse = (): never => {
+    throw new Error("the Drizzle seam should not be reached");
+  };
+  return { execute: refuse, batch: refuse } as unknown as CatalogDb;
+}

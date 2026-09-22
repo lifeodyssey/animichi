@@ -12,7 +12,7 @@ import {
   type NearbyObservation,
   type NearbyObserverPort,
 } from "../application/nearby-points";
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import type { Point } from "../types";
 
 export interface NearbyInput {
@@ -33,8 +33,8 @@ const observer: NearbyObserverPort = {
 
 /** Points within `input.radius_m` meters of (lat,lng), nearest first, with `distance_m`. */
 export async function nearby(
-  db: CatalogDb,
+  prisma: CatalogPrisma,
   input: NearbyInput,
 ): Promise<{ rows: Point[] }> {
-  return nearbyPoints(nearbyGeoPort(db), nearbyDetailsPort(db), input, { observer });
+  return nearbyPoints(nearbyGeoPort(prisma), nearbyDetailsPort(prisma), input, { observer });
 }

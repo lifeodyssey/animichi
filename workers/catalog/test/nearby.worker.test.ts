@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
+import type { CatalogPrisma } from "../src/db/prisma";
+import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
- * Unit tests for the `nearby` transport (card CATALOG-3): wiring only. Radius
- * policy, distance ordering, and typed empty results are unit-tested in
- * nearby-points.worker.test.ts and proven against real PostGIS in
- * nearby-points.integration.test.ts. Here both reads `nearby()` performs go through
- * the single `db.execute` seam (the #992 one-adapter cutover): the PostGIS
- * geo read (via the geo port's adapter) and the detail IN-read (via the
- * details port's adapter). The fake `db.execute` returns the geo read on its
- * first call and the detail read on its second (the geo query is always issued
- * first).
+ * Unit tests for the `nearby` transport (card CATALOG-3, moved onto the Prisma
+ * seam by #1628): wiring only. Radius policy, distance ordering, and typed empty
+ * results are unit-tested in nearby-points.worker.test.ts, the invalid radius at
+ * the wire in errors-wire.worker.test.ts, and the whole path against real PostGIS
+ * in nearby-points.integration.test.ts.
+ *
+ * Here both reads `nearby()` performs go through one request's Prisma seam: the
+ * PostGIS geo read first, then the detail IN-read.
+ *
+ * The BUILDER is the real contract-bound one, so a plan that names a column the
+ * contract does not declare fails here rather than in production; only the
+ * executor is doubled (see `fakes/fake-catalog-prisma.ts`).
  *
  * Named *.worker.test.ts so the existing vitest-pool-workers config picks it
  * up; the logic is runtime-agnostic.
@@ -19,14 +23,16 @@ import { nearby } from "../src/api/nearby";
  * Fixture: two points near Washinomiya, returned nearest-first by the geo read.
  */
 
+/** A geo plan row — `distanceM` is the projection's own alias. */
 interface GeoRow {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
-  distance_m: number;
+  distanceM: number;
 }
 
+/** A detail plan row — the contract's column names, verbatim. */
 interface DetailRow {
   id: string;
   bangumi_id: string | null;
@@ -40,13 +46,13 @@ interface DetailRow {
 }
 
 const GEO: GeoRow[] = [
-  { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distance_m: 5 },
-  { id: "satte", name: "幸手権現堂", latitude: 36.0833, longitude: 139.725, distance_m: 4200 },
+  { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distanceM: 5 },
+  { id: "satte", name: "幸手権現堂", latitude: 36.0833, longitude: 139.725, distanceM: 4200 },
 ];
 
 const WASHINOMIYA: DetailRow = {
   id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg",
-  episode: 1, time_seconds: 12, origin: "anitabi", origin_url: null, city: "Kuki",
+  episode: 1, time_seconds: 12, origin: "anitabi", origin_url: "https://anitabi.cn/w", city: "Kuki",
 };
 
 const SATTE: DetailRow = {
@@ -56,24 +62,10 @@ const SATTE: DetailRow = {
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
-/**
- * Minimal CatalogDb double: the geo PostGIS read (first execute) then the
- * detail IN-read (second execute) through the one `db.execute` seam.
- */
-function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
-  let call = 0;
-  const execute = () => {
-    const rows = call === 0 ? geo : details;
-    call += 1;
-    return Promise.resolve({ rows });
-  };
-  return { execute } as unknown as CatalogDb;
-}
+const run = (geo: GeoRow[], details: DetailRow[], prisma: CatalogPrisma = fakeCatalogPrisma(geo, details)) =>
+  nearby(prisma, { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
 
-const run = (geo: GeoRow[], details: DetailRow[]) =>
-  nearby(fakeDb(geo, details), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
-
-describe("nearby (api/nearby.ts)", () => {
+describe("nearby (api/nearby.ts) reads the geo plan first, in order", () => {
   it("returns rows nearest-first with distance_m carried from the geo read", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows.map((r) => r.id)).toEqual(["washinomiya", "satte"]);
@@ -97,6 +89,14 @@ describe("nearby (api/nearby.ts)", () => {
     });
   });
 
+  it("carries origin_url from the detail read onto the row", async () => {
+    const { rows } = await run(GEO, DETAILS);
+    expect(rows[0]?.origin_url).toBe("https://anitabi.cn/w");
+    expect(rows[1]?.origin_url).toBeUndefined();
+  });
+});
+
+describe("nearby (api/nearby.ts) fills in what the detail read omits", () => {
   it("defaults required fields when a detail row has nulls", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows[1]).toMatchObject({ bangumi_id: "lucky-star", screenshot_url: "" });
@@ -111,8 +111,8 @@ describe("nearby (api/nearby.ts)", () => {
 
   it("defaults to empty bangumi_id and screenshot_url when a point has no detail row", async () => {
     const geo: GeoRow[] = [
-      { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distance_m: 5 },
-      { id: "undetailed", name: "素顔の神", latitude: 36.102, longitude: 139.659, distance_m: 10 },
+      { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distanceM: 5 },
+      { id: "undetailed", name: "素顔の神", latitude: 36.102, longitude: 139.659, distanceM: 10 },
     ];
     const { rows } = await run(geo, [WASHINOMIYA]);
 
@@ -125,5 +125,10 @@ describe("nearby (api/nearby.ts)", () => {
     });
     expect(rows[1]?.name_cn).toBeUndefined();
     expect(rows[1]?.episode).toBeUndefined();
+  });
+
+  it("answers an over-cap radius from the geo read, never widening it", async () => {
+    const { rows } = await run(GEO, DETAILS);
+    expect(rows).toHaveLength(2);
   });
 });

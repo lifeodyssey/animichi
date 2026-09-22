@@ -12,8 +12,10 @@ import { declaredNeonAuthOrigin } from "./helpers/neon-auth-origin";
  * login chain, and a self-skipping spec is indistinguishable from a passing one
  * in a summary, so this file has no skip path left: without credentials the
  * case FAILS, naming exactly what is missing. Emitting them is the lane's job —
- * `pnpm --filter animichi-e2e run test:login` reads them from `.env.test`
- * (docs/ops/auth-migration-neon.md §4 Path A). No pull-request job may hold a
+ * `pnpm --filter animichi-e2e run test:login` loads the repo-root `.env.test`
+ * into THIS process (`node --env-file-if-exists`, #1813), so the file is the
+ * operator's to create and a machine without one is not an error. Path A,
+ * docs/ops/auth-migration-neon.md §4. No pull-request job may hold a
  * credential (`.github/test/workflow-credentials.test.rb`), so PR CI reports this
  * proof as `NOT RUN` rather than selecting it; nothing here decides that.
  */

@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# docs/ meta-check (#913, close-out W5): every `docs/`-prefixed string in
-# tracked files must resolve against the repo root — extends the AGENTS.md
+# docs/ meta-check (#913, close-out W5): every `docs/`-prefixed string a reader
+# is meant to follow must resolve against the repo root — extends the AGENTS.md
 # reference check's surface (which replaced the agnix lint) to code comments
 # and all docs, keeping the A-3 broken-link class out of the tree.
 # Skipped deliberately:
 #  - docs/archive/ — read-only history (DOCS_POLICY): refs there cannot be fixed
-#  - */*.test.sh under the gate directories — behavioral fixtures must
-#    contain broken refs on purpose
+#  - test programs — a `docs/…` string in a file whose whole job is to be
+#    executed by a test runner is an input under test, not a reference a reader
+#    follows. A corpus that pins the docs-asset allowlist has to name real
+#    `docs/archive/**` keys to exercise the real prefix, and those keys are
+#    exactly the objects DOCS_POLICY rule 7 keeps in R2 rather than in the tree
+#    (#1650). The predicate is the file's NAME (`*.test.<ext>`, `*.spec.<ext>`),
+#    not its directory: a non-test file that happens to live under `test/` is
+#    prose and is still checked, which is the difference between this and
+#    "everything under a test directory"
 #  - URL tokens (https://x/...docs/..., host.tld/docs/...) — external docs
 #  - globs / templates / quoted prose with spaces that do not resolve
 #  - extensionless non-directory tails (branch names like docs/feat-x)
@@ -21,14 +28,23 @@ cd "${ROOT}"
 TOTAL_FILES=0
 TOTAL_REFS=0
 TOTAL_BROKEN=0
+# Counted and reported rather than silent: the one exclusion in this script
+# whose size tracks the tree is the test-program carve-out, and it is the one
+# that could be widened until nothing is checked.
+TOTAL_TEST_PROGRAMS=0
 
 # Quoted spans (backticks / quotes) may contain spaces; bare tokens may not.
+# Both passes must survive "no match" — `grep` exits 1 on it, `pipefail` makes
+# that the pipeline's status, and errexit then takes the whole substitution
+# subshell down. Without the guard the quoted-span pass decides the file: a file
+# with no backticked `docs/` span aborts the subshell on the first pass and
+# every bare token in it goes unseen.
 candidates() {
   local file="$1"
   {
     grep -noE '"[^"]*docs/[^"]*"|'\''[^'\'']*docs/[^'\'']*'\''|`[^`]*docs/[^`]*`' "${file}" 2>/dev/null \
-      | sed -E 's/^([0-9]+:)["'\''`]/\1/; s/["'\''`]$//'
-    grep -noE '[^[:space:][:cntrl:]"'\''`(){}<>、，]*docs/[^[:space:][:cntrl:]"'\''`(){}<>、，]*' "${file}" 2>/dev/null
+      | sed -E 's/^([0-9]+:)["'\''`]/\1/; s/["'\''`]$//' || true
+    grep -noE '[^[:space:][:cntrl:]"'\''`(){}<>、，]*docs/[^[:space:][:cntrl:]"'\''`(){}<>、，]*' "${file}" 2>/dev/null || true
   } | sort -u
 }
 
@@ -110,7 +126,9 @@ main() {
   git ls-files > "${tmp}"
   while IFS= read -r file; do
     case "${file}" in
-      docs/archive/*|.github/scripts/*.test.sh|scripts/local-gates/*.test.sh) continue ;;
+      docs/archive/*) continue ;;
+      *.test.ts|*.test.tsx|*.test.mjs|*.test.rb|*.test.sh|*.spec.ts)
+        TOTAL_TEST_PROGRAMS=$((TOTAL_TEST_PROGRAMS + 1)); continue ;;
     esac
     TOTAL_FILES=$((TOTAL_FILES + 1))
     check_file "${file}"
@@ -120,6 +138,7 @@ main() {
     exit 1
   fi
   echo "checked ${TOTAL_FILES} files, ${TOTAL_REFS} docs/ references, all resolve"
+  echo "skipped ${TOTAL_TEST_PROGRAMS} test programs — their docs/ strings are fixtures, not references"
 }
 
 main

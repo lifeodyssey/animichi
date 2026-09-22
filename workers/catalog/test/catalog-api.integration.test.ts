@@ -1,8 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
-import type pg from "pg";
 import type { CatalogDb } from "../src/db/client";
 import { closeDbPools } from "../src/db/connections";
-import { databaseDescribe, openDirectPool, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
 import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-integration-client";
 import { seed } from "./fixtures/integration-suite-seed";
 import { stubFetch, unresolvableResponse } from "./integration-upstream-stubs";
@@ -55,11 +54,9 @@ vi.mock("../src/db/connections", async (importOriginal) => {
  */
 
 let db: CatalogDb;
-let pool: pg.Pool;
 
 beforeAll(async () => {
   db = await openServerlessDb();
-  pool = await openDirectPool();
   await truncateCatalog(db);
   await seed(db);
 }, 120_000);
@@ -72,7 +69,6 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  void pool.end();
   closeDbPools();
   restoreNeonConfig();
 });
@@ -104,13 +100,13 @@ async function assertSpots404(): Promise<void> {
 }
 
 /**
- * The nearby assertions run the geo read through pg direct (openDirectPool),
- * like nearby-points.integration.test.ts: the app's nearby path runs its geo SQL
- * through the PostGIS adapter (src/adapters/outbound/nearby-points.ts), whose
- * flat-bound template the direct-cloud endpoint accepts. This suite's job is
- * the harness, not the adapter proof (that lives in the integration suite), so the
- * assertion intent is kept while the query runs on the authoritative
- * PostGIS surface.
+ * The nearby assertions drive the REAL endpoint: since #1628 the geo read runs
+ * through the Prisma adapter (`src/adapters/outbound/nearby-points.ts`) and the
+ * per-request Prisma runtime the Hono middleware acquires, so the assertion
+ * intent is kept and the statement under it is the one the Worker issues — not a
+ * mirror written here. The Prisma-plane specifics (metric, plan, runtime
+ * lifetime) are `nearby-metric.integration.test.ts` and
+ * `nearby-runtime.integration.test.ts`.
  */
 interface NearbyRow {
   id: string;
@@ -120,18 +116,9 @@ interface NearbyRow {
   distance_m: number;
 }
 
-/** Mirrors the adapter geo SQL in src/adapters/outbound/nearby-points.ts, run via pg direct. */
 async function nearbyRows(lat: number, lng: number, radiusM: number): Promise<NearbyRow[]> {
-  const { rows } = await pool.query<NearbyRow>(
-    `SELECT id, name, latitude, longitude,
-            ST_Distance(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) AS distance_m
-       FROM points
-      WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
-      ORDER BY location <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-      LIMIT 200`,
-    [lat, lng, radiusM],
-  );
-  return rows;
+  const out = await call<{ rows: NearbyRow[] }>("nearby", { lat, lng, radius_m: radiusM });
+  return out.rows;
 }
 
 async function assertNearbyHit(): Promise<void> {

@@ -18,9 +18,12 @@
   },
   "dependencies": {
     "@animichi/contract": "workspace:*",
+    "@animichi/pi-session-neon": "workspace:*",
+    "@animichi/prisma-geography": "workspace:*",
     "@neondatabase/serverless": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
+    "@prisma/orm-postgres": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"

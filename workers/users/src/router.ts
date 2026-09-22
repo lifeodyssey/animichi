@@ -11,19 +11,19 @@ import type { SavedRouteStore } from "./application/save-saved-route";
 import { NeonAtomicCommitStore } from "./adapters/neon-atomic-commit";
 import { NeonIdempotencyStore } from "./adapters/neon-idempotency-store";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
-import type { UsersDb } from "./db/client";
+import type { UsersPrisma } from "./db/prisma";
 
 /** Per-request dependencies established by authentication middleware. */
-export interface UsersContext { db: UsersDb; userId: string; idempotencyKey?: string }
+export interface UsersContext { prisma: UsersPrisma; userId: string; idempotencyKey?: string }
 
 const os = implement(usersContract).$context<UsersContext>();
 
-/** Stateless Neon adapters bound to the per-request executor. */
-const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.db);
-const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteStore(context.db);
-const idemStore = (context: UsersContext): IdempotencyStore => new NeonIdempotencyStore(context.db);
-const atomicStore = (context: UsersContext): AtomicCommitStore => new NeonAtomicCommitStore(context.db);
-const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.db);
+/** Stateless Neon adapters bound to the per-request Prisma access. */
+const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.prisma);
+const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteStore(context.prisma);
+const idemStore = (context: UsersContext): IdempotencyStore => new NeonIdempotencyStore(context.prisma);
+const atomicStore = (context: UsersContext): AtomicCommitStore => new NeonAtomicCommitStore(context.prisma);
+const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.prisma);
 
 /** Redacted load observability: outcome, count, duration. Never route/actor ids. */
 function listSavedRoutesObserver(): ListSavedRoutesObserverPort {

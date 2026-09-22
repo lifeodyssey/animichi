@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { PgDialect } from "drizzle-orm/pg-core";
-import type { SQL } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
+import { describe, expect, it } from "vitest";
 import { captureProvenance, pointFieldMap, type ProvenanceRecord } from "../src/ingest/provenance";
+import { recordingCatalogPrisma } from "./fakes/plan-inspection";
 
 describe("Point provenance field map (AC4)", () => {
   it("maps every published point field to the anitabi source", () => {
@@ -23,35 +21,36 @@ describe("Point provenance field map (AC4)", () => {
   });
 });
 
-describe("Provenance UPSERT statement (AC4)", () => {
-  it("refreshes captured_at so the latest capture wins", async () => {
-    const statements: string[] = [];
-    const db = fakeDb((sql) => statements.push(new PgDialect().sqlToQuery(sql).sql));
-    await captureProvenance(db, record());
-    expect(statements[0]).toContain("EXCLUDED.captured_at");
+describe("Provenance UPSERT plan (AC4)", () => {
+  it("conflicts on (scope, entity_id) and refreshes captured_at so the latest capture wins", async () => {
+    const seam = recordingCatalogPrisma();
+
+    await captureProvenance(seam.query, record());
+
+    expect(seam.statements()).toBe(1);
+    const ast = seam.plans()[0]?.ast as { kind: string; onConflict?: unknown };
+    expect(ast.kind).toBe("insert");
+    // The conflict clause is the plan-level repair `db/plans.ts` adds.
+    expect(ast.onConflict).toBeDefined();
+    expect(JSON.stringify(ast)).toContain("captured_at");
+    expect(seam.columns()).toEqual(expect.arrayContaining(["scope", "entity_id"]));
   });
 
-  it("binds field_map as a single-encoded JSON document, not a string of a string", async () => {
-    const params: unknown[] = [];
-    const db = fakeDb((sql) => params.push(...new PgDialect().sqlToQuery(sql).params));
-    await captureProvenance(db, record());
-    const param = params.find((p) => typeof p === "string" && tryParse(p) !== null && Object.hasOwn(tryParse(p) as Record<string, unknown>, "name"));
-    expect(param).not.toBeUndefined();
-    expect(JSON.parse(param as string)).toEqual(record().fieldMap);
+  it("binds field_map as ONE jsonb document, not a re-stringified one", async () => {
+    const seam = recordingCatalogPrisma();
+
+    await captureProvenance(seam.query, record());
+
+    // The plan binds the document itself; a lane that JSON.stringify'd it would
+    // put a STRING here, and Postgres would store that string as a jsonb scalar.
+    expect(seam.params()).toContainEqual(record().fieldMap);
+    expect(seam.params().some((value) => typeof value === "string" && tryParse(value) !== null)).toBe(false);
   });
 });
 
 /** Parse a JSON string without throwing on non-JSON values. */
 function tryParse(value: string): unknown {
   try { return JSON.parse(value); } catch { return null; }
-}
-
-function fakeDb(capture: (sql: SQL) => void): CatalogDb {
-  const execute = vi.fn((query: SQL) => {
-    capture(query);
-    return Promise.resolve({ rows: [] });
-  });
-  return { execute } as unknown as CatalogDb;
 }
 
 function record(): ProvenanceRecord {

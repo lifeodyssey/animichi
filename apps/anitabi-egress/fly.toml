@@ -5,8 +5,14 @@
 #
 #   cd apps/anitabi-egress && fly deploy --app animichi-anitabi-egress
 #
-# No address and no secret appears here. The signing key is set with
-# `fly secrets set INGEST_SIGNING_KEY=…`; its value never enters this tree.
+# No address and no secret appears here. Three values come from `fly secrets`,
+# and none of their values enters this tree: the signing key and its rotation
+# mate (INGEST_SIGNING_KEY, INGEST_SIGNING_KEY_PREVIOUS), and the external
+# counter the ceiling spends from (CEILING_STORE_URL, #1810). That last one is
+# the Private URL of the Redis `fly redis create` provisions — reached over TCP
+# with RESP, its password inside the address (#1824) — and the service refuses
+# every request with `configuration` when it is missing, unreadable, or not a
+# `redis` address: a ceiling it cannot count is not one.
 
 app = "animichi-anitabi-egress"
 primary_region = "nrt"

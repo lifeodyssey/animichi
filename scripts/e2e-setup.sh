@@ -48,6 +48,8 @@ echo "  NEON_AUTH_BASE_URL (or VITE_NEON_AUTH_BASE_URL in apps/web/.env)"
 echo "  QA_NEON_USER_EMAIL"
 echo "  QA_NEON_USER_PASSWORD"
 echo "  (See docs/ops/auth-migration-neon.md §4 Path A for what these are.)"
+echo "  Put them in a repo-root .env.test (cp .env.test.example .env.test) — the lane loads"
+echo "  that file itself (#1813), so no exports by hand. Absent, it is simply not loaded."
 echo "  Run it: pnpm --filter animichi-e2e run test:login"
 echo ""
 

@@ -1,6 +1,8 @@
 import { type JWK } from "jose";
+import { expect } from "vitest";
 import {
   GITHUB_OIDC_ISSUER,
+  type GitHubOidcAllowlistResult,
   type GitHubOidcClaims,
   type GitHubOidcPolicy,
 } from "../src/oidc-github";
@@ -38,14 +40,14 @@ export function productionPolicy(): GitHubOidcPolicy {
   };
 }
 
-export type Shoulders = {
+export interface Shoulders {
   sub?: string;
   ref?: string;
   environment?: string;
   repository?: string;
   workflow_ref?: string;
   job_workflow_ref?: string;
-};
+}
 
 export function claims(overrides: Shoulders = {}): GitHubOidcClaims {
   return {
@@ -58,6 +60,20 @@ export function claims(overrides: Shoulders = {}): GitHubOidcClaims {
     workflow_ref: TRUSTED_CD_WORKFLOW,
     ...overrides,
   };
+}
+
+/**
+ * Assert the allowlist rejected the token, and hand its reason back.
+ *
+ * `expect.any(String)` is an `any`-typed value and `no-unsafe-assignment`
+ * refuses it inside an expected object; asserting the discriminated union is
+ * the type-safe form and a stricter one, because the reason must be non-empty
+ * where `expect.any(String)` also accepted `""`.
+ */
+export function rejectionReason(result: GitHubOidcAllowlistResult): string {
+  if (result.ok) throw new Error("expected the allowlist to reject the token");
+  expect(result.reason.trim()).not.toBe("");
+  return result.reason;
 }
 
 export type { JWK };

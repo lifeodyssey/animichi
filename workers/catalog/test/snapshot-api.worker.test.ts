@@ -11,7 +11,7 @@ import type { Env } from "../src/index";
 import { catalogRequest } from "./catalog-request";
 import { r2ObjectStore } from "../src/publish/object-store";
 import { publishSnapshot } from "../src/publish/snapshot";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 
 /** A minimal in-memory R2Bucket matching the operations r2ObjectStore uses. */
 function fakeBucket(): R2Bucket {
@@ -39,10 +39,10 @@ function fakeBucket(): R2Bucket {
 }
 
 async function seed(bucket: R2Bucket): Promise<void> {
-  const db = fakeCatalogDb({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
+  const query = fakeTableRows({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
   const store = r2ObjectStore(bucket);
-  await publishSnapshot({ db, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
-  await publishSnapshot({ db, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
+  await publishSnapshot({ query, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+  await publishSnapshot({ query, store }, { sourceRunId: "daily-2", createdAt: "2026-08-15T00:00:00Z" });
 }
 
 function envOf(bucket: R2Bucket, token?: string): Env {
@@ -79,8 +79,8 @@ describe("GET /catalog/snapshot (AC5)", () => {
 describe("POST /catalog/snapshot/rollback (AC5)", () => {
   it("404s when there is no previous snapshot to roll back to", async () => {
     const bucket = fakeBucket();
-    const db = fakeCatalogDb({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
-    await publishSnapshot({ db, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+    const query = fakeTableRows({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
+    await publishSnapshot({ query, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
     const res = await catalogRequest(
       "/catalog/snapshot/rollback",
       { method: "POST", headers: { authorization: "Bearer ops-token" } },
