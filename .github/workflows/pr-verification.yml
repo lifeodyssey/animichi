@@ -237,7 +237,7 @@ jobs:
       # which this builder sources rather than naming a copy of — the shape the
       # `e2e` job's builder already uses.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
+        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography", "users"]'), matrix.package) }}
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env

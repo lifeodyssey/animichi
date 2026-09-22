@@ -13,16 +13,15 @@
  * publishable remainder, so the snapshot is built from gated rows along the
  * single export data path.
  *
- * Statements are built with the Drizzle query builder + executed through the
- * single CatalogDb seam; no complete SQL lives here.
+ * Statements are builder plans over the shared contract, run on the request's
+ * runtime ({@link CatalogPrisma}). A projection's alias IS the key the row
+ * carries into the exported JSON, and the aliases here are the snapshot's own
+ * keys (`titleCn`, `coverUrl`, `bangumiId`, …) — the shape every reader of a
+ * published snapshot already has, not a rename.
  */
-import { asc } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
 import { jsonToArrayBuffer } from "./bytes";
-import {
-  aliases, bangumi, catalogProvenance, mediaAssets, points, seriesEdges,
-} from "../db/schema";
 
 /** The kinds of exported row-bundles in a snapshot. */
 export type ExportKind =
@@ -61,10 +60,9 @@ export const EXPORTED_TABLES = [
 ] as const;
 
 /**
- * The exported point row, as selected below. `readPoints` executes the
- * statement through the typed `db.execute<ExportedSpotRow>` generic, so the
- * exported points object carries exactly these fields. The Record extension
- * mirrors `versioning.ts`'s row type — the seam the execute generic requires.
+ * The exported point row, as `pointsPlan` projects it. The plan carries this
+ * type, so the exported points object has exactly these fields under these
+ * names — the ones a published snapshot's readers already use.
  */
 export interface ExportedSpotRow extends Record<string, unknown> {
   readonly id: string;
@@ -98,19 +96,19 @@ export function exportObjectKey(keyPrefix: string, kind: ExportKind): string {
 }
 
 /** Export the public catalog rows for a snapshot under the given key prefix. */
-export async function exportCandidate(db: CatalogDb, keyPrefix: string): Promise<CandidateExport> {
-  return candidateFromRows(await readPublicRows(db), keyPrefix);
+export async function exportCandidate(query: CatalogPrisma, keyPrefix: string): Promise<CandidateExport> {
+  return candidateFromRows(await readPublicRows(query), keyPrefix);
 }
 
 /** Read every public table's rows (ungated candidate material). */
-export async function readPublicRows(db: CatalogDb): Promise<PublicRows> {
+export async function readPublicRows(query: CatalogPrisma): Promise<PublicRows> {
   return {
-    works: await readWorks(db),
-    points: await readPoints(db),
-    aliases: await readAliases(db),
-    series: await readSeries(db),
-    provenance: await readProvenance(db),
-    media: await readMedia(db),
+    works: await readWorks(query),
+    points: await readPoints(query),
+    aliases: await readAliases(query),
+    series: await readSeries(query),
+    provenance: await readProvenance(query),
+    media: await readMedia(query),
   };
 }
 
@@ -156,86 +154,102 @@ async function bundle(keyPrefix: string, kind: ExportKind, rows: readonly unknow
   return { kind, key: exportObjectKey(keyPrefix, kind), body, hash, sizeBytes: body.byteLength };
 }
 
-async function readWorks(db: CatalogDb): Promise<unknown[]> {
-  const statement = statementBuilder()
-    .select({
-      id: bangumi.id, title: bangumi.title, titleCn: bangumi.titleCn,
-      coverUrl: bangumi.coverUrl, airDate: bangumi.airDate, summary: bangumi.summary,
-      epsCount: bangumi.epsCount, rating: bangumi.rating, pointsCount: bangumi.pointsCount,
-      primaryColor: bangumi.primaryColor, city: bangumi.city, platform: bangumi.platform,
-      updatedAt: bangumi.updatedAt,
-    })
-    .from(bangumi)
-    .orderBy(asc(bangumi.id))
-    .getSQL();
-  return (await db.execute(statement)).rows;
+async function readWorks(query: CatalogPrisma): Promise<readonly unknown[]> {
+  return query.executor.query(worksPlan(query));
 }
 
-async function readPoints(db: CatalogDb): Promise<readonly ExportedSpotRow[]> {
-  const statement = statementBuilder()
-    .select({
-      id: points.id, bangumiId: points.bangumiId, name: points.name, nameCn: points.nameCn,
-      latitude: points.latitude, longitude: points.longitude, image: points.image,
-      episode: points.episode, timeSeconds: points.timeSeconds, sceneDesc: points.sceneDesc,
-      origin: points.origin, originUrl: points.originUrl, city: points.city,
-    })
-    .from(points)
-    .orderBy(asc(points.id))
-    .getSQL();
-  const result = await db.execute<ExportedSpotRow>(statement);
-  return result.rows;
+/** The work row: the public `bangumi` columns the snapshot has always carried. */
+function worksPlan(query: CatalogPrisma): SqlOrmPlan {
+  return query.builder.public.bangumi
+    .select((fields) => ({
+      id: fields.id, title: fields.title, titleCn: fields.title_cn, coverUrl: fields.cover_url,
+      airDate: fields.air_date, summary: fields.summary, epsCount: fields.eps_count,
+      rating: fields.rating, pointsCount: fields.points_count, primaryColor: fields.primary_color,
+      city: fields.city, platform: fields.platform, updatedAt: fields.updated_at,
+    }))
+    .orderBy("id")
+    .build();
 }
 
-async function readAliases(db: CatalogDb): Promise<unknown[]> {
-  const statement = statementBuilder()
-    .select({
-      bangumiId: aliases.bangumiId, alias: aliases.alias,
-      aliasNormalized: aliases.aliasNormalized, source: aliases.source, priority: aliases.priority,
-    })
-    .from(aliases)
-    .orderBy(asc(aliases.id))
-    .getSQL();
-  return (await db.execute(statement)).rows;
+async function readPoints(query: CatalogPrisma): Promise<readonly ExportedSpotRow[]> {
+  return query.executor.query(pointsPlan(query));
 }
 
-async function readSeries(db: CatalogDb): Promise<unknown[]> {
-  const statement = statementBuilder()
-    .select({
-      fromBangumiId: seriesEdges.fromBangumiId,
-      toBangumiId: seriesEdges.toBangumiId,
-      relation: seriesEdges.relation,
-    })
-    .from(seriesEdges)
-    .orderBy(asc(seriesEdges.fromBangumiId), asc(seriesEdges.toBangumiId), asc(seriesEdges.relation))
-    .getSQL();
-  return (await db.execute(statement)).rows;
+/** The spot row: `latitude`/`longitude` are generated columns on this plane, and read back here. */
+function pointsPlan(query: CatalogPrisma): SqlOrmPlan<ExportedSpotRow> {
+  return query.builder.public.points
+    .select((fields) => ({
+      id: fields.id, bangumiId: fields.bangumi_id, name: fields.name, nameCn: fields.name_cn,
+      latitude: fields.latitude, longitude: fields.longitude, image: fields.image,
+      episode: fields.episode, timeSeconds: fields.time_seconds, sceneDesc: fields.scene_desc,
+      origin: fields.origin, originUrl: fields.origin_url, city: fields.city,
+    }))
+    .orderBy("id")
+    .build();
 }
 
-async function readProvenance(db: CatalogDb): Promise<unknown[]> {
-  const statement = statementBuilder()
-    .select({
-      scope: catalogProvenance.scope, entityId: catalogProvenance.entityId,
-      workId: catalogProvenance.workId, source: catalogProvenance.source,
-      upstreamId: catalogProvenance.upstreamId, attribution: catalogProvenance.attribution,
-      license: catalogProvenance.license, fieldMap: catalogProvenance.fieldMap,
-      capturedAt: catalogProvenance.capturedAt,
-    })
-    .from(catalogProvenance)
-    .orderBy(asc(catalogProvenance.id))
-    .getSQL();
-  return (await db.execute(statement)).rows;
+async function readAliases(query: CatalogPrisma): Promise<readonly unknown[]> {
+  return query.executor.query(aliasesPlan(query));
 }
 
-async function readMedia(db: CatalogDb): Promise<unknown[]> {
-  const statement = statementBuilder()
-    .select({
-      pointId: mediaAssets.pointId, r2Key: mediaAssets.r2Key,
-      contentHash: mediaAssets.contentHash, tombstoned: mediaAssets.tombstoned,
-    })
-    .from(mediaAssets)
-    .orderBy(asc(mediaAssets.pointId))
-    .getSQL();
-  return (await db.execute(statement)).rows;
+/** The alias row, ordered by the id the export never carries. */
+function aliasesPlan(query: CatalogPrisma): SqlOrmPlan {
+  return query.builder.public.aliases
+    .select((fields) => ({
+      bangumiId: fields.bangumi_id, alias: fields.alias,
+      aliasNormalized: fields.alias_normalized, source: fields.source, priority: fields.priority,
+    }))
+    .orderBy("id")
+    .build();
+}
+
+async function readSeries(query: CatalogPrisma): Promise<readonly unknown[]> {
+  return query.executor.query(seriesPlan(query));
+}
+
+/** The series edge row; the composite key is the export's order. */
+function seriesPlan(query: CatalogPrisma): SqlOrmPlan {
+  return query.builder.public.series_edges
+    .select((fields) => ({
+      fromBangumiId: fields.from_bangumi_id,
+      toBangumiId: fields.to_bangumi_id,
+      relation: fields.relation,
+    }))
+    .orderBy("from_bangumi_id")
+    .orderBy("to_bangumi_id")
+    .orderBy("relation")
+    .build();
+}
+
+async function readProvenance(query: CatalogPrisma): Promise<readonly unknown[]> {
+  return query.executor.query(provenancePlan(query));
+}
+
+/** The provenance row: the source map every exported work and spot is attributed by. */
+function provenancePlan(query: CatalogPrisma): SqlOrmPlan {
+  return query.builder.public.catalog_provenance
+    .select((fields) => ({
+      scope: fields.scope, entityId: fields.entity_id, workId: fields.work_id,
+      source: fields.source, upstreamId: fields.upstream_id, attribution: fields.attribution,
+      license: fields.license, fieldMap: fields.field_map, capturedAt: fields.captured_at,
+    }))
+    .orderBy("id")
+    .build();
+}
+
+async function readMedia(query: CatalogPrisma): Promise<readonly unknown[]> {
+  return query.executor.query(mediaPlan(query));
+}
+
+/** The media-asset row, one per point, ordered by that point. */
+function mediaPlan(query: CatalogPrisma): SqlOrmPlan {
+  return query.builder.public.media_assets
+    .select((fields) => ({
+      pointId: fields.point_id, r2Key: fields.r2_key,
+      contentHash: fields.content_hash, tombstoned: fields.tombstoned,
+    }))
+    .orderBy("point_id")
+    .build();
 }
 
 /** SHA-256 hex digest of the given bytes (the fallback content hash). */

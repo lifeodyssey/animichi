@@ -12,7 +12,7 @@ import { SnapshotReadEntrypoint } from "../src/index";
 import { Env } from "../src/index";
 import { r2ObjectStore } from "../src/publish/object-store";
 import { publishSnapshot } from "../src/publish/snapshot";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { serviceSnapshotSource } from "../src/import/snapshot-source";
 
 function fakeBucket(): R2Bucket {
@@ -38,8 +38,8 @@ function entrypoint(bucket: R2Bucket): SnapshotReadEntrypoint {
 }
 
 async function seed(bucket: R2Bucket): Promise<void> {
-  const db = fakeCatalogDb({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
-  await publishSnapshot({ db, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" });
+  const query = fakeTableRows({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
+  await publishSnapshot({ query, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" });
 }
 
 describe("SnapshotReadEntrypoint (AC2)", () => {

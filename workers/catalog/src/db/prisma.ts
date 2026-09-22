@@ -46,14 +46,28 @@ export interface CatalogPlanExecutor {
 }
 
 /**
+ * One transaction on a request's runtime. Stated structurally for the same
+ * reason as {@link CatalogPlanExecutor}: the batch depends on the capability,
+ * not on the driver that provides it.
+ */
+export interface CatalogTransaction extends CatalogPlanExecutor {
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+}
+
+/**
  * What a query adapter is handed for one request: the contract's statement
- * builder and this request's executor. Statement building and execution stay
- * separate, as they were under the `DbExecutor` seam (#992) — only the
- * implementation behind them changed.
+ * builder, this request's executor, and the ability to run several statements
+ * as one unit.
+ *
+ * Statement building and execution stay separate, as they were under the
+ * `DbExecutor` seam (#992) — only the implementation behind them changed.
  */
 export interface CatalogPrisma {
   readonly builder: CatalogStatementBuilder;
   readonly executor: CatalogPlanExecutor;
+  /** Run `fn` in one transaction; commits when it resolves, rolls back when it throws. */
+  transaction<T>(fn: (query: CatalogPrisma) => PromiseLike<T>): Promise<T>;
 }
 
 let client: CatalogClient | undefined;
@@ -71,5 +85,75 @@ export function acquireCatalogRuntime(url: string): Promise<CatalogRuntime> {
 
 /** Pair the shared builder with one request's runtime. */
 export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
-  return { builder: catalogClient().sql, executor: runtime };
+  return { builder: catalogClient().sql, executor: runtime, transaction: (fn) => inCatalogTransaction(runtime, fn) };
+}
+
+/**
+ * Run `fn` in one transaction on this request's runtime: commit when it
+ * resolves, roll back when it throws, and give the connection back either way.
+ *
+ * This is what the `db.batch` calls (§2.3 of the Prisma spec) become: neon-http
+ * had no client transaction, so the atomic units were batches; a real
+ * transaction can read its own writes and is what a multi-statement publish
+ * needs. `fn` receives a {@link CatalogPrisma} bound to the transaction, so the
+ * statements inside stay the same builder plans they are outside it.
+ *
+ * The connection is `destroy`ed rather than released when the rollback itself
+ * fails: the driver says that leaves the socket indeterminate, and reusing it
+ * would poison the next statement. A destroyed connection is NOT also released
+ * — the driver's connection contract calls a second teardown after destroy a
+ * caller error. Every other path — commit, rolled-back failure, and a
+ * transaction that could not even be opened — releases exactly once.
+ */
+export async function inCatalogTransaction<T>(
+  runtime: CatalogRuntime,
+  fn: (query: CatalogPrisma) => PromiseLike<T>,
+): Promise<T> {
+  const connection = await runtime.connection();
+  let transaction: CatalogTransaction;
+  try {
+    transaction = await connection.transaction();
+  } catch (error) {
+    await connection.release();
+    throw error;
+  }
+  try {
+    const value = await fn(bindTransaction(transaction));
+    await transaction.commit();
+    await connection.release();
+    return value;
+  } catch (error) {
+    await settleFailed(connection, transaction, error);
+    throw error;
+  }
+}
+
+/**
+ * The transaction as a {@link CatalogPrisma}. Its `transaction` JOINS the open
+ * transaction rather than opening a second one: Postgres has no nested
+ * transactions, and a helper that silently started a parallel connection would
+ * make the atomicity it promises a lie.
+ */
+function bindTransaction(transaction: CatalogTransaction): CatalogPrisma {
+  const bound: CatalogPrisma = {
+    builder: catalogClient().sql,
+    executor: transaction,
+    transaction: (fn) => Promise.resolve(fn(bound)),
+  };
+  return bound;
+}
+
+/** Settle a failed unit: roll back and release; evict the connection when even the rollback fails. */
+async function settleFailed(
+  connection: { destroy(reason?: unknown): Promise<void>; release(): Promise<void> },
+  transaction: CatalogTransaction,
+  reason: unknown,
+): Promise<void> {
+  try {
+    await transaction.rollback();
+  } catch {
+    await connection.destroy(reason);
+    return;
+  }
+  await connection.release();
 }

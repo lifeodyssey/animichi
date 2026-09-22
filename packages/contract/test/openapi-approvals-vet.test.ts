@@ -62,7 +62,9 @@ describe("the vet decides with the record, not around it", () => {
     expect(result.violations).toEqual(["GET / was removed"]);
     expect(result.recorded).toEqual([]);
   });
+});
 
+describe("the vet's manual flag and additive skips", () => {
   it("lets the manual flag waive breaking changes without consulting the record", () => {
     const entry = recordedRootRemoval({ path: "/healthz" });
     const result = vetOpenApiDiff(ROOT_ADVERTISED, ROOT_RETIRED, {

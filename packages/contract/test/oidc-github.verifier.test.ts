@@ -44,7 +44,7 @@ describe("createGitHubOidcVerifier (constructor-injected JWKS seam)", () => {
     const jwks = createLocalJWKSet({ keys: [jwk] });
     const verifier = createGitHubOidcVerifier(stagingPolicy(), jwks);
     const token = await new SignJWT(claims())
-      .setProtectedHeader({ alg: "RS256", kid: untrusted.kid ?? "untrusted", typ: "JWT" })
+      .setProtectedHeader({ alg: "RS256", kid: "untrusted", typ: "JWT" })
       .setIssuer(GITHUB_OIDC_ISSUER)
       .setAudience(AUDIENCE)
       .setExpirationTime("5m")
@@ -66,7 +66,9 @@ describe("createGitHubOidcVerifier (constructor-injected JWKS seam)", () => {
     const result = await verifier.verify(token);
     expect(result.ok).toBe(false);
   });
+});
 
+describe("createGitHubOidcVerifier (audience and the production sub anchor)", () => {
   it("rejects a token for the wrong audience at the jose layer", async () => {
     const { privateKey, publicKey } = await generateKeyPair("RS256", { extractable: true });
     const jwk = { ...(await exportJWK(publicKey)), kid: "oidc-test-key" } as JWK;

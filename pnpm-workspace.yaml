@@ -186,5 +186,6 @@ patchedDependencies:
 # Manifest pins: a `package.json` cannot carry a comment, so the register lines for the pins
 # declared there live in this block, in the same shape as the lines beside the catalog
 # entries above. Each line's gate is the gate that fails when the bump is attempted.
+# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
 # hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741
 # hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744

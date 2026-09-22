@@ -9,11 +9,26 @@ import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import type { Env } from "../src/index";
 import { catalogRequest } from "./catalog-request";
-import { mountAdminRoutes, type AdminDeps } from "../src/import/admin-routes";
+import {
+  mountAdminRoutes,
+  type AcquirePrisma,
+  type AdminDeps,
+  type AdminRouteOptions,
+} from "../src/import/admin-routes";
 import { canarySelection } from "../src/import/admin-commands";
-import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
-const db = {} as unknown as CatalogDb;
+const query: CatalogPrisma = unreachableCatalogPrisma();
+const CONN_STR = "postgresql://user:password@catalog.example/animichi";
+
+/** Never dials out: the route's seam is injected, so the test stays in-process. */
+const acquirePrisma: AcquirePrisma = () => Promise.resolve({ query, dispose: () => Promise.resolve() });
+
+/** The admin route's seams, with the production defaults for everything unstated. */
+function options(overrides: Partial<AdminRouteOptions> = {}): AdminRouteOptions {
+  return { resolveDb: () => Promise.resolve({ connStr: CONN_STR }), acquirePrisma, ...overrides };
+}
 const COMPLETE = { status: "complete", runId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" } as const;
 
 function authorizedEnv(): Env {
@@ -40,14 +55,17 @@ describe("authorized admin command (AC5)", () => {
     const runner = vi.fn<AdminDeps["runFull"]>().mockResolvedValue(COMPLETE);
     const deps: AdminDeps = { runFull: runner, runCanary: vi.fn() };
     const testApp = new Hono<{ Bindings: Env }>();
-    mountAdminRoutes(testApp, deps, () => 1_700_000_000_000, () => Promise.resolve(db));
+    mountAdminRoutes(testApp, options({ deps, nowClock: () => 1_700_000_000_000 }));
     const res = await testApp.request("/catalog/admin/full-ingest", {
       method: "POST",
       headers: { authorization: "Bearer ops-token" },
     }, authorizedEnv());
     expect(res.status).toBe(200);
     // No store is configured, so the full-ingest runner is called with a null store.
-    expect(runner).toHaveBeenCalledWith(db, 1_700_000_000_000, null);
+    const [seams, epoch, store] = runner.mock.calls[0] ?? [];
+    expect(seams?.query).toBe(query);
+    expect(epoch).toBe(1_700_000_000_000);
+    expect(store).toBeNull();
   });
 
   it("passes the resolved snapshot store to the full-ingest runner (publish mirror)", async () => {
@@ -55,26 +73,31 @@ describe("authorized admin command (AC5)", () => {
     const deps: AdminDeps = { runFull: runner, runCanary: vi.fn() };
     const testApp = new Hono<{ Bindings: Env }>();
     const store = { put: vi.fn(), get: vi.fn(), list: vi.fn(), delete: vi.fn() } as import("../src/publish/object-store").ObjectStore;
-    mountAdminRoutes(testApp, deps, () => 1_700_000_000_000, () => Promise.resolve(db), () => store);
+    mountAdminRoutes(testApp, options({ deps, nowClock: () => 1_700_000_000_000, resolveStore: () => store }));
     const res = await testApp.request("/catalog/admin/full-ingest", {
       method: "POST",
       headers: { authorization: "Bearer ops-token" },
     }, authorizedEnv());
     expect(res.status).toBe(200);
-    expect(runner).toHaveBeenCalledWith(db, 1_700_000_000_000, store);
+    const [seams, epoch, storeArg] = runner.mock.calls[0] ?? [];
+    expect(seams?.query).toBe(query);
+    expect(epoch).toBe(1_700_000_000_000);
+    expect(storeArg).toBe(store);
   });
 
   it("the canary pipeline is the production pipeline (injected runner called)", async () => {
     const runCanary = vi.fn<AdminDeps["runCanary"]>().mockResolvedValue(COMPLETE);
     const deps: AdminDeps = { runFull: vi.fn(), runCanary };
     const testApp = new Hono<{ Bindings: Env }>();
-    mountAdminRoutes(testApp, deps, () => 1_700_000_000_000, () => Promise.resolve(db));
+    mountAdminRoutes(testApp, options({ deps, nowClock: () => 1_700_000_000_000 }));
     const res = await testApp.request("/catalog/admin/canary", {
       method: "POST",
       headers: { authorization: "Bearer ops-token" },
     }, authorizedEnv());
     expect(res.status).toBe(200);
-    expect(runCanary).toHaveBeenCalledWith(db, 1_700_000_000_000, null);
+    const [seams, epoch] = runCanary.mock.calls[0] ?? [];
+    expect(seams?.query).toBe(query);
+    expect(epoch).toBe(1_700_000_000_000);
   });
 });
 

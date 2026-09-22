@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   identityClassSchema,
   identityPolicySchema,
-  type IdentityPolicy,
 } from "../src/identity-contract.js";
 import { DEFAULT_IDENTITY_POLICY } from "../src/identity-policy.js";
 
@@ -45,14 +44,16 @@ describe("IdentityPolicy matrix", () => {
     const parsed = identityPolicySchema.parse(DEFAULT_IDENTITY_POLICY);
     expect(parsed).toEqual(DEFAULT_IDENTITY_POLICY);
   });
+});
 
+describe("IdentityPolicy schema validation", () => {
   it("recognises exactly the three identity classes", () => {
     expect(identityClassSchema.options).toEqual(["public", "anonymous", "authenticated"]);
     expect(identityClassSchema.safeParse("agent").success).toBe(false);
   });
 
   it("rejects a negative rate-limit window", () => {
-    const bad = structuredClone(DEFAULT_IDENTITY_POLICY) as IdentityPolicy;
+    const bad = structuredClone(DEFAULT_IDENTITY_POLICY);
     bad.anonymous.rateLimit = { limit: 20, windowSeconds: -1 };
     expect(identityPolicySchema.safeParse(bad).success).toBe(false);
   });

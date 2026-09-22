@@ -8,6 +8,18 @@ vi.mock("../src/ingest/ingest-bangumi", () => ({
   catalogIngestBangumi: () => ({ ingest: mocks.ingest }),
 }));
 
+/**
+ * The runtime the entrypoint acquires is mocked out: this suite is about the
+ * DELEGATION (the use case gets the id, and no database configured refuses
+ * before any work), not about dialling Postgres from the worker pool. The
+ * runtime's own lifetime is proved against real Postgres in
+ * nearby-runtime.integration.test.ts.
+ */
+vi.mock("../src/db/prisma", () => ({
+  acquireCatalogRuntime: () => Promise.resolve({ [Symbol.asyncDispose]: () => Promise.resolve() }),
+  catalogPrisma: () => ({}),
+}));
+
 import { IngestEntrypoint } from "../src/index";
 
 const ctx = {} as unknown as ExecutionContext;

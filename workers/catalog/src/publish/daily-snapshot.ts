@@ -9,8 +9,12 @@
  * matches the run that produced it. A partial or failed run never publishes
  * (AC6). The ingest, publish, and gc steps are injected so the gate is
  * worker-testable.
+ *
+ * Each port closes over its own seam rather than receiving one: the run and the
+ * snapshot publish are both Prisma plans over the pass's runtime (#1630), so a
+ * port that took a database handle would have to name a seam the pass does not
+ * have.
  */
-import type { CatalogDb } from "../db/client";
 import type { RunStatus } from "../ingest/daily-run";
 import type { ObjectStore } from "./object-store";
 import type { PublishResult } from "./snapshot";
@@ -25,19 +29,18 @@ export interface DailyRunOutcome {
 
 /** The injectable daily publish collaborators (subset of CronDependencies). */
 export interface DailyPublishPorts {
-  runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<DailyRunOutcome>;
-  publishRun: (db: CatalogDb, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
+  runDailyIngest: () => Promise<DailyRunOutcome>;
+  publishRun: (store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
 }
 
 /** Publish + GC the day's snapshot, gated to a fully successful run. */
 export async function publishAfterRun(
-  db: CatalogDb,
   store: ObjectStore | null,
   ports: DailyPublishPorts,
 ): Promise<void> {
-  const outcome = await ports.runDailyIngest(db, store);
+  const outcome = await ports.runDailyIngest();
   if (store === null || outcome.status !== "complete") return;
-  const result = await ports.publishRun(db, store, outcome.runId, outcome.createdAt);
+  const result = await ports.publishRun(store, outcome.runId, outcome.createdAt);
   if (result.status === "published") await ports.gcSnapshots(store);
 }

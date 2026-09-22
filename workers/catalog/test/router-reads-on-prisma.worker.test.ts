@@ -2,7 +2,6 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { GeocodeResult } from "../src/types";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
@@ -71,7 +70,7 @@ describe("geocode reads the gazetteer on the Prisma plane", () => {
     const response = await call(
       "geocode",
       post("geocode", { query: "西宮" }),
-      { db: unreachableCatalogDb(), prisma: counter.query },
+      { prisma: counter.query },
     );
 
     expect(response.status).toBe(200);
@@ -92,7 +91,7 @@ describe("geocode reads the gazetteer on the Prisma plane", () => {
     const response = await call(
       "geocode",
       post("geocode", { query: "no-such-place" }),
-      { db: unreachableCatalogDb(), prisma: fakeCatalogPrisma([], []) },
+      { prisma: fakeCatalogPrisma([], []) },
     );
 
     expect(response.status).toBe(200);
@@ -107,7 +106,7 @@ describe("popular reads the ranking on the Prisma plane", () => {
     const response = await call(
       "public/popular",
       { method: "GET" },
-      { db: unreachableCatalogDb(), prisma: counter.query },
+      { prisma: counter.query },
     );
 
     expect(response.status).toBe(200);

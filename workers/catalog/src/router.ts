@@ -13,17 +13,12 @@ import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
-import type { CatalogDb } from "./db/client";
 import type { CatalogPrisma } from "./db/prisma";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
 import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
-  /** The not-yet-moved Drizzle seam: what is left of it after #1631 is the
-   * ingest (`ingest/`), reached through `searchDb` / `workPointsDb` until #1630
-   * converts it. Every READ crosses `prisma`. */
-  db: CatalogDb;
   /** This request's Prisma data-plane seam (builder + runtime); see `db/prisma.ts`. */
   prisma: CatalogPrisma;
   fetchImpl?: typeof fetch;
@@ -39,7 +34,7 @@ export interface CatalogContext {
 const os = implement(catalogContract).$context<CatalogContext>();
 
 const search = os.search.handler(async ({ input, context }) =>
-  searchHandler(searchDb(context.prisma, context.db, context.egressSigningKey), input, {
+  searchHandler(searchDb(context.prisma, context.egressSigningKey), input, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
     waitUntil: context.waitUntil,
@@ -53,7 +48,7 @@ const resolve = os.resolve.handler(async ({ input, context }) =>
 );
 
 const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
-  pointsByBangumiId(workPointsDb(context.prisma, context.db, context.egressSigningKey), input.bangumi_id, {
+  pointsByBangumiId(workPointsDb(context.prisma, context.egressSigningKey), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
   }),
