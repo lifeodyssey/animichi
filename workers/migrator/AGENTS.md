@@ -158,7 +158,12 @@ TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
 `test/migrate.worker.thrown.test.ts` + `test/direct-dsn.test.ts`): valid test-signed JWT → apply + success; wrong repo /
 wrong audience / expired → 403; `-pooler` rejected before any connection;
 fixed-name lock and in-process queueing; a `/migrate` that threw names which
-site threw and carries a redacted cause. `test/apply-lock.workerd.test.ts` owns
+site threw and carries a redacted cause. That seam only samples the redaction;
+`test/redacted-cause.test.ts` owns the rules, in both directions — the shapes a
+credential arrives in (quoted, colon-separated, JSON, and userinfo a driver
+printed with no scheme) and the near-misses that must survive word for word,
+because a guard widened until it eats the driver's message restores the opacity
+#1868 was opened to remove. `test/apply-lock.workerd.test.ts` owns
 the Durable Object's own behaviour — the class bundled from `src/` unchanged,
 its collaborator swapped at link time for `test/recorded-apply.ts` — and proves
 serialization by order and that an apply of 32 s returns rather than resetting
