@@ -1,11 +1,12 @@
-# Orca delivery, 2026-09-18 → 21
+# Orca delivery, 2026-09-18 → 22
 
-Four days of coordinated lane delivery. The live pickup file is the newest `HANDOFF-*.md`;
+Five days of coordinated lane delivery. The live pickup file is the newest `HANDOFF-*.md`;
 the earlier ones are kept as history and say so in their own first lines.
 
 | File | What it is | Read it when |
 |---|---|---|
-| [HANDOFF-2026-09-21-2330.md](HANDOFF-2026-09-21-2330.md) | **Live** coordination state as of 2026-09-21T15:45Z | Picking up coordination mid-flight |
+| [HANDOFF-2026-09-22-0950.md](HANDOFF-2026-09-22-0950.md) | **Live** coordination state, 2026-09-22 | Picking up coordination mid-flight |
+| [HANDOFF-2026-09-21-2330.md](HANDOFF-2026-09-21-2330.md) | 21 September 15:45Z snapshot. Superseded: a later untracked tick did most of its next-tick list, and the launcher receipts in `/private/tmp` were the only record of it | Seeing why a handoff's "held" rows must be re-verified before they are acted on |
 | [HANDOFF-2026-09-21.md](HANDOFF-2026-09-21.md) | 21 September 13:45Z snapshot | Tracing how the 13:45Z lanes settled |
 | [HANDOFF-2026-09-20.md](HANDOFF-2026-09-20.md) | 20 September snapshot. Stale, and instructively so: it called #1825/#1832 owner-blocked while the round-3 reports it links say both passed | Seeing how an inference becomes a fact by being written down |
 | [HANDOFF.md](HANDOFF.md) | 19 September snapshot (#1628 still in review) | Reading how the prisma stack looked before #1628 merged |
