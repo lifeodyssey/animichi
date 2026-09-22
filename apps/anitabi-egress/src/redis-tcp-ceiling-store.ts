@@ -23,10 +23,10 @@
  * `resp-replies.ts`, and this module is what turns the reply into the count — or
  * into a refusal, in every other way the exchange can end.
  *
- * THE REPLY SET IS READ WHOLE (#1825): one reply per command sent, each AUTH
- * answered `+OK`, the increment a POSITIVE count, the expiry `1`. A set that is
- * not that one is a refusal — each of the four is a reply that would otherwise
- * read as a count, and each says below what it would have read as.
+ * THE REPLY SET IS READ WHOLE (#1825): one reply per command sent, the AUTH the
+ * address may owe (at most one: a URL carries one credential) answered `+OK`,
+ * the increment a POSITIVE count, the expiry `1`. A set that is not that one is
+ * a refusal, and each guard below says what its reply would otherwise read as.
  *
  * The counter is MONOTONE within its hour: it counts admissions the service
  * attempted, including the ones the ceiling then refused, so a refusal never
@@ -235,19 +235,21 @@ function countFrom(replies: readonly Reply[], authCount: number, owed: number): 
 /**
  * One reply per command sent, and no more: `countIn` reads the increment's
  * answer by the POSITION it was sent at, which is only that answer while the
- * store answered the pipeline it was given. A reply beyond the last command is
- * a peer answering something else, however readable its elements are.
+ * store answered the pipeline it was given. The reader grants as soon as it
+ * holds `owed` replies and hands that array over, so the extra refused here is
+ * one that arrived WITH them: a later one lands after the count is read and
+ * never reaches this guard, and no grant is ever short.
  */
 function requireEveryCommandAnswered(replies: readonly Reply[], owed: number): void {
   if (replies.length === owed) return;
-  const answered = `the ceiling store answered ${String(replies.length)} of ${String(owed)} commands`;
+  const answered = `the ceiling store answered ${String(replies.length)} commands for a pipeline of ${String(owed)}`;
   throw new CeilingStoreError("reply-count", answered);
 }
 
 /**
  * The credential the address carries was ACCEPTED — which Redis says with
- * `+OK` and with no other status: anything else in an AUTH slot is not this
- * store's answer to the AUTH, however well the rest of the pipeline reads.
+ * `+OK` and with no other status: anything else in the one AUTH slot a URL can
+ * owe is not this store's answer to the AUTH, however well the rest reads.
  */
 function requireCredentialAccepted(replies: readonly Reply[], authCount: number): void {
   const accepted = replies.slice(0, authCount).every((reply) => reply.kind === "status" && reply.value === "OK");
@@ -269,9 +271,10 @@ function requireExpirySet(reply: Reply | undefined): void {
 
 /**
  * The replies owed after the AUTH ones: the increment's count, which is the
- * whole answer — and a COUNT, so positive. `upstream-ceiling.ts` promises the
- * store "never answers a lower number and never answers zero"; this is where
- * that promise is kept, because the ceiling reads any number here as a total.
+ * whole answer — and a COUNT, so positive. Of `upstream-ceiling.ts`'s promise
+ * that the store "never answers a lower number and never answers zero", one
+ * reply can show only the zero half: a lower number is `INCR`'s monotonicity
+ * across increments, and the ceiling reads any number here as a total.
  */
 function countIn(replies: readonly Reply[], authCount: number): number {
   const increment = replies[authCount];

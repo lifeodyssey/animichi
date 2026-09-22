@@ -212,7 +212,7 @@ export async function truncateCatalog(db: CatalogDb): Promise<void> {
   try {
     await db.execute(sql.raw(catalogTruncateSql()));
   } catch (error) {
-    throw new Error("catalog integration isolation failed; review the FK-closed table set", { cause: error });
+    throw new Error("TRUNCATE failed during catalog integration isolation", { cause: error });
   }
 }
 
@@ -220,7 +220,7 @@ export async function truncateCatalogPool(pool: pg.Pool): Promise<void> {
   try {
     await pool.query(catalogTruncateSql());
   } catch (error) {
-    throw new Error("catalog integration isolation failed; review the FK-closed table set", { cause: error });
+    throw new Error("TRUNCATE failed during catalog integration isolation", { cause: error });
   }
 }
 
