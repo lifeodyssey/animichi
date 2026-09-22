@@ -1,10 +1,8 @@
-// FORBIDDEN: the two surfaces that put SQL the builder never saw into a query.
+// FORBIDDEN, form 2 of 2: a hand-built `RawExpr`, whose `parts` are RENDERED as
+// SQL text rather than bound.
+//
+// Alone in its own file for the reason given in `ts-prisma-raw-query-lane.ts`.
 import { RawExpr, param } from "@prisma/orm-postgres/relational-core";
-
-export async function listRows(db: any, id: string): Promise<unknown> {
-  // ruleid: ts-no-prisma-raw-escape
-  return await db.raw.sql`SELECT * FROM anime WHERE id = ${id}`.returnsRow({}).build();
-}
 
 export function stamp(seconds: number): RawExpr {
   // ruleid: ts-no-prisma-raw-escape

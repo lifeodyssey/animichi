@@ -54,26 +54,56 @@ copy_into() {
   done
 }
 
+# One forbidden fixture, scanned ALONE. Returns success when RULE_ID fired on it.
+scan_forbidden_case() {
+  local fixture="$1" root target findings
+  root="$(mktemp -d)"
+  target="${root}/workers/catalog/src"
+  mkdir -p "${target}"
+  copy_into "${target}" "${fixture}" || { rm -rf "${root}"; return 1; }
+  findings="$(cd "${root}" && "${SEMGREP_BIN}" --config "${RULES}" --json . 2>/dev/null || true)"
+  rm -rf "${root}"
+  grep -q "${RULE_ID}" <<<"${findings}"
+}
+
+# The rule's forbidden surface is a `pattern-either`; the gate must prove EVERY
+# branch of it, so there is a fixture per branch and none may be left unproved.
+rule_branch_count() {
+  grep -cE '^[[:space:]]+- pattern: ' "${RULES}/${RULE_ID}.yaml"
+}
+
 forbidden() {
-  # Forbidden examples must FAIL the gate, and must fail BY NAME.
+  # Forbidden examples must FAIL the gate, and must fail BY NAME, one at a time.
   #
   # A non-zero exit is not enough on its own: `semgrep --error` also exits
   # non-zero when it loaded no rules at all, so a gate that only read the exit
   # code would report "rejected" for a ruleset that had been deleted. What is
   # asserted instead is that RULE_ID itself produced a finding, which nothing
   # but the rule can do.
-  local root target findings
-  root="$(mktemp -d)"
-  target="${root}/workers/catalog/src"
-  mkdir -p "${target}"
-  copy_into "${target}" "${REPO_ROOT}/.semgrep/tests/fixtures/forbidden"/*.ts || { rm -rf "${root}"; return 1; }
-  findings="$(cd "${root}" && "${SEMGREP_BIN}" --config "${RULES}" --json . 2>/dev/null || true)"
-  rm -rf "${root}"
-  if ! grep -q "${RULE_ID}" <<<"${findings}"; then
-    echo "FAIL: ${RULE_ID} did not fire on the raw-SQL escape-hatch fixtures." >&2
-    return 1
+  #
+  # And it is asserted PER FIXTURE. Scanning the forbidden set together and
+  # asking only whether RULE_ID appeared somewhere let one branch's finding
+  # stand in for the other's: deleting `$DB.raw.sql`...`` from the rule left
+  # this gate green while that escape hatch was wide open.
+  local fixture scanned=0 branches missing=0
+  for fixture in "${REPO_ROOT}/.semgrep/tests/fixtures/forbidden"/*.ts; do
+    [[ -f "${fixture}" ]] || continue
+    scanned=$((scanned + 1))
+    if scan_forbidden_case "${fixture}"; then
+      echo "ok: $(basename "${fixture}") rejected by ${RULE_ID}."
+    else
+      echo "FAIL: ${RULE_ID} did not fire on $(basename "${fixture}") — that escape hatch is unproved." >&2
+      missing=1
+    fi
+  done
+  # Without this, an emptied fixture directory would skip the loop entirely and
+  # report success having proved nothing — the same silent pass in a new place.
+  branches="$(rule_branch_count)"
+  if [[ "${scanned}" -lt "${branches}" ]]; then
+    echo "FAIL: ${scanned} forbidden fixture(s) for ${branches} rule branch(es) — each branch needs its own." >&2
+    missing=1
   fi
-  echo "ok: raw-SQL escape-hatch examples rejected by ${RULE_ID}."
+  return "${missing}"
 }
 
 approved() {

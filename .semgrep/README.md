@@ -62,12 +62,20 @@ Run from the repo root:
 
 It fails closed and asserts each gate:
 
-- **(a) Escape hatches FAIL, by name** — `.semgrep/tests/fixtures/forbidden/`
-  holds both surfaces; the mirror scan must report a finding whose rule id is
-  `ts-no-prisma-raw-escape`. The id is checked rather than the exit code,
-  because `semgrep --error` also exits non-zero when it loaded no rules at all:
-  a gate reading only the exit code would report "rejected" for a ruleset that
-  had been deleted.
+- **(a) Escape hatches FAIL, by name, ONE AT A TIME** — `.semgrep/tests/fixtures/
+  forbidden/` holds one fixture per forbidden surface, and each is scanned in its
+  own mirror tree; the finding must carry the rule id `ts-no-prisma-raw-escape`.
+  The id is checked rather than the exit code, because `semgrep --error` also
+  exits non-zero when it loaded no rules at all: a gate reading only the exit
+  code would report "rejected" for a ruleset that had been deleted.
+
+  One fixture per surface is the point. The two surfaces used to share a file and
+  a single scan, with the gate asking only whether the id appeared somewhere —
+  so either finding satisfied the whole check, and deleting the `$DB.raw.sql`
+  branch from the rule left this gate green with that escape hatch wide open.
+  The gate now also refuses to run with fewer fixtures than the rule has
+  `pattern-either` branches, so emptying the directory cannot pass by proving
+  nothing.
 - **(b) Sanctioned shapes PASS** — the `fns.raw` builder-plan fixture and the
   real seam directories' modules must yield zero findings. Every copy is checked
   explicitly: these functions run from a `||` list, which suppresses `set -e`
