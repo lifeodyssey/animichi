@@ -20,6 +20,11 @@ import { fakeRuntime } from "./fakes/fake-catalog-runtime";
  * await. It is asserted anyway, because that is what the wrapper's doc comment
  * promises and because `inCatalogTransaction` is a seam — a promise that holds
  * only for today's driver is not the promise the comment makes.
+ *
+ * `attachCause`'s own three promises — the descriptor it writes, what a
+ * non-object throw does, and which reading of "already carries a cause" it
+ * implements — are asserted in the last suite, since each is a property of what
+ * the caller is left holding.
  */
 describe("inCatalogTransaction keeps the caller's error", () => {
   it("when the rollback succeeds and the release that follows it fails", async () => {
@@ -39,19 +44,20 @@ describe("inCatalogTransaction keeps the caller's error", () => {
     expect(fake.destroy).not.toHaveBeenCalled();
   });
 
-  it("when the transaction cannot be opened and the release after it fails", async () => {
+  it("when the transaction cannot be opened and the eviction after it fails", async () => {
     const fake = fakeRuntime();
     const beginFailure = new Error("BEGIN failed");
-    const releaseFailure = new Error("release failed");
+    const evictionFailure = new Error("destroy failed");
     fake.openTransaction.mockRejectedValueOnce(beginFailure);
-    fake.release.mockRejectedValueOnce(releaseFailure);
+    fake.destroy.mockRejectedValueOnce(evictionFailure);
 
     await expect(inCatalogTransaction(fake.runtime, () => Promise.resolve("unused"))).rejects.toBe(beginFailure);
 
     // The same property on the arm that never reached a transaction: the failed
-    // BEGIN is the caller's error, and the failed release is recorded on it.
-    expect(beginFailure.cause).toBe(releaseFailure);
-    expect(fake.release).toHaveBeenCalledTimes(1);
+    // BEGIN is the caller's error, and the failed eviction is recorded on it.
+    expect(beginFailure.cause).toBe(evictionFailure);
+    expect(fake.destroy).toHaveBeenCalledTimes(1);
+    expect(fake.release).not.toHaveBeenCalled();
     expect(fake.rollback).not.toHaveBeenCalled();
   });
 
@@ -70,5 +76,53 @@ describe("inCatalogTransaction keeps the caller's error", () => {
     // still runs — it is the cause, not the eviction, that is spared.
     expect(original.cause).toBe(dbError);
     expect(fake.destroy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("attachCause records what the caller is left holding", () => {
+  it("writes `cause` with the descriptor native `Error.cause` carries", async () => {
+    const fake = fakeRuntime();
+    const original = new Error("enrich failed");
+    const evictionFailure = new Error("destroy failed");
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+    fake.destroy.mockRejectedValue(evictionFailure);
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(original))).rejects.toBe(original);
+
+    // The descriptor is the property's contract, not decoration: an enumerable
+    // `cause` would leak into `JSON.stringify` and every spread of the error.
+    expect(Object.getOwnPropertyDescriptor(original, "cause")).toEqual({
+      value: evictionFailure, writable: true, enumerable: false, configurable: true,
+    });
+  });
+
+  it("keeps a non-object throw that cannot carry the eviction failure", async () => {
+    const fake = fakeRuntime();
+    const thrown: unknown = "enrich failed";
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+    fake.destroy.mockRejectedValue(new Error("destroy failed"));
+
+    // A primitive cannot take the property at all. Discovering that must not
+    // become the failure, so the caller still receives its own throw.
+    await expect(inCatalogTransaction(fake.runtime, () => {
+      throw thrown;
+    })).rejects.toBe(thrown);
+
+    expect(fake.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("records the eviction failure on an error whose `cause` is present but undefined", async () => {
+    const fake = fakeRuntime();
+    const original = new Error("enrich failed", { cause: undefined });
+    const evictionFailure = new Error("destroy failed");
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+    fake.destroy.mockRejectedValue(evictionFailure);
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(original))).rejects.toBe(original);
+
+    // "Already carries one" is decided by VALUE, not by the key's presence: a
+    // `cause` holding `undefined` names no underlying failure to protect, so
+    // the eviction failure is recorded where a real cause would be spared.
+    expect(original.cause).toBe(evictionFailure);
   });
 });
