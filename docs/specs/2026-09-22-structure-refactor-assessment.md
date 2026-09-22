@@ -21,7 +21,7 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 #829 至今 OPEN 的原因就是这两波延期，不是从未拆分。
 
 在这之上，树又走了一年中最远的一段：Prisma 8 接管数据库层、Atlas 退役、原生 Pi agent 重写、
-`apps/agent` 整包删除（#1756）。结果是 23 条 story 里 **14 条 LANDED、7 条 DEAD、2 条 LIVE**；
+`apps/agent` 整包删除（#1756）。结果是 23 条 story 里 **15 条 LANDED、8 条 DEAD、0 条 LIVE**；
 包级设计稿的结构性搬家里，users / edge / web 基本走完，**catalog 还剩四个切片没走**，
 而那四个切片**全部被在途的 #1832 压住**。
 
@@ -98,7 +98,9 @@ catalog 的四项要等 #1832 合入后才谈得上派工。把它当"未拆分�
 | S7 ingest/enrich/publish 归位 | **LIVE** | `src/{ingest,enrich,publish}/` 共 40 余文件仍在 src 顶层，未进 application/adapters | `src/ingest/**`（23 文件）`src/enrich/**`（2）`src/publish/**`（15）`src/import/**`（6）`src/scheduled/**` | **BLOCKED BY #1832**（其 diff 覆盖这四个目录的大部分） |
 | S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 仍有 7 文件 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,optional,rows,timing,upstream}.ts` | **BLOCKED BY #1832** |
 
-> **catalog 的结论**：八个切片里五个已落地或被有意替代，四项残留**全部落在 #1832 的 diff 面上**。
+> **catalog 的结论**：九个切片（S0–S8）里五个已落地或被有意替代（S0/S1/S3/S5 完整落地，S8 的
+> 「删 `api/`」主项被薄入站层方案有意替代），四项残留（S2/S4/S6/S7）**全部落在 #1832 的 diff 面上**；
+> S8 剩下的空壳删除残项并入队列第 4 项。
 > #1832 是一次横扫 catalog 的 Prisma 切换（32 个源文件 + 20 余测试），在它合入前
 > 任何 catalog 结构卡都会撞车。合入后这四项可以 `rebase --onto` 直接派。
 
@@ -208,7 +210,7 @@ settlement/views 分关切）。设计的**意图**（只读 catalog 入口、�
 **纯搬家，零行为变更。** 不许借机改认证逻辑、不许合并文件、不许动 `platform/geo.ts`。
 
 **验收（逐条机器可判）。**
-1. `git ls-tree -r origin/main -- apps/web/src/lib/auth apps/web/src/lib/byok apps/web/src/lib/turnstile` 输出为空。
+1. `git ls-tree -r HEAD -- apps/web/src/lib/auth apps/web/src/lib/byok apps/web/src/lib/turnstile` 输出为空。
 2. `apps/web/src/platform/{auth,byok,turnstile}/` 下的文件名集合，与搬家前 `lib/` 下的完全一致（11 个文件，不增不减）。
 3. `git grep -c "lib/auth\|lib/byok\|lib/turnstile" -- apps/web` 为 0。
 4. `pnpm --filter web test` 与 `pnpm --filter web typecheck` 全绿；`pnpm --filter web lint:oxlint` 无 warning。
@@ -247,22 +249,29 @@ feature→feature 的深层引用**（`checker.ts:201-205` `crossFeatureViolatio
 `MAP_PRIMITIVE_EDGES` 或 `SHARED_UI_FEATURE`。两点已预先核验：
 ① 今天 `features/**` 里对这四组的唯一命中是 `features/chat/lib/work-title.ts:18` 的一行**注释**
 （`* components/home/PopularRanking): zh readers…`），不是 import——搬家不凭空造出 chat→landing 的边；
-② `checker.ts:73` `SHARED_UI_FEATURE = "features/auth/ui"` 已是门禁认可的共享边界，
-而 W3 给 `components/auth` 指定的去向正是 `features/auth/ui/*`——**设计的目标位置与门禁的豁免位置重合**，
-不需要新增豁免。
+② `checker.ts:73` `SHARED_UI_FEATURE = "features/auth/ui"` 确是门禁认可的共享边界，但豁免只朝一个方向：
+`checker.ts:204` 放行的是以 `features/auth/ui/` 开头的**目标**（别的 feature import **进** auth），
+头注原话：auth「remains a leaf feature — the generic cross-feature rule still rejects auth importing
+another feature's internals」。而 `components/auth/AuthCallback.tsx:4` 与
+`components/auth/use-auth-callback.ts:2-3` 今天都 import `../../features/chat/save/complete-deferred-save`
+——搬家前是 ui→feature（合法），按 W3 搬进 `features/auth/ui/*` 后即成 `features/auth` →
+`features/chat` 的 feature→feature 边，`crossFeatureViolation` 必拒。**「不需要新增豁免」不成立**：
+W3 的 auth 切片有一个真前置——先把 deferred-save 重放依赖从 `features/chat` 挪到两 feature 共同的
+下层（或反向让 chat 订阅 auth 完成事件），否则这条边只能靠 `MAP_PRIMITIVE_EDGES` 新条目换绿，与验收第 5 条冲突。
 
 **为何被压住。** `apps/web/src/routes/__root.tsx` 第 10–13 行 import 了
 `../components/{NotFound,RootError,Splash,theme-bootstrap}`，而该文件在 #1818 的 diff 内。
 搬 `Splash.tsx` 必须改 `__root.tsx`。
 
 **验收（逐条机器可判）。**
-1. `git ls-tree -r origin/main -- apps/web/src/components/auth apps/web/src/components/home apps/web/src/components/legal` 输出为空；`apps/web/src/components/Splash.tsx` 不存在。
+1. `git ls-tree -r HEAD -- apps/web/src/components/auth apps/web/src/components/home apps/web/src/components/legal` 输出为空；`apps/web/src/components/Splash.tsx` 不存在。
 2. `apps/web/src/components/` 下只剩 `NotFound.tsx`、`RootError.tsx`、`CatalogSearchResults.tsx`、`theme-bootstrap.ts`、`settings/`。
 3. `git grep -c "components/auth\|components/home\|components/legal\|components/Splash" -- apps/web e2e` 为 0。
 4. `pnpm --filter web test` / `typecheck` / `lint:oxlint --deny-warnings` 全绿。
 5. `apps/web/tests/unit/state-ownership/architecture.test.ts` 绿，**且 `MAP_PRIMITIVE_EDGES` 未新增条目**
-   （`git diff` 对 `apps/web/tests/unit/state-ownership/checker.ts` 为空）。按上面①②两条核验，
-   本卡不该需要新豁免；若实现者发现需要，PR 说明必须写清是哪条边、为什么——
+   （`git diff` 对 `apps/web/tests/unit/state-ownership/checker.ts` 为空）。auth→chat 那条边按②的
+   前置先行解除（依赖挪出 `features/chat`），本卡不该需要新豁免；若实现者最终仍需要，
+   PR 说明必须写清是哪条边、为什么——
    该文件头注已写明「No feature→UI reverse-edge allowlist exists」。
 6. 不新增 `apps/web/src/domain/`（#829 story 23）。
 7. `apps/web/vitest.config.ts` thresholds 未改。
@@ -277,10 +286,10 @@ feature→feature 的深层引用**（`checker.ts:201-205` `crossFeatureViolatio
 
 | 序 | 建议标题 | 内容 | 主要验收 |
 |---|---|---|---|
-| 1 | `refactor(catalog): move the pure alias and series kernels into domain` | `lib/{alias,series}.ts` → `domain/model/`（设计 §2.1 点名） | `git ls-tree -- workers/catalog/src/lib/alias.ts` 空；`test/dependency-rule.worker.test.ts` 绿 |
+| 1 | `refactor(catalog): move the pure alias and series kernels into domain` | `lib/{alias,series}.ts` → `domain/model/`（设计 §2.1 点名） | `git ls-tree HEAD -- workers/catalog/src/lib/alias.ts` 空；`test/dependency-rule.worker.test.ts` 绿 |
 | 2 | `refactor(catalog): give the point read its own use case` | `api/spots.ts` → `application/get-point.ts` + outbound repo（S6 残项） | `api/spots.ts` 的 `grep -cE 'sql\`\|SELECT '` 为 0 |
 | 3 | `refactor(catalog): cut the search read into a use case` | `api/{search,work-points,preview}.ts` → `application/`（S4） | `application/search-points.ts` 存在；`api/search.ts` < 60 行 |
-| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ 删 `adapters/inbound/.gitkeep` 空壳 | `git ls-tree -- workers/catalog/src/adapters/inbound` 不只含 `.gitkeep` |
+| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ 删 `adapters/inbound/.gitkeep` 空壳 | `git ls-tree HEAD -- workers/catalog/src/adapters/inbound` 不只含 `.gitkeep` |
 
 第 4 项规模很大（40 余文件），派工前应先拆；本评估不代拆——那需要它自己的 grilling。
 
