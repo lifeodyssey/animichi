@@ -727,14 +727,31 @@ jobs:
           advanced-security: false
           annotations: true
 
-  # No subject on a merged commit: the PR title expression is empty, and
-  # `merge-base origin/main HEAD` is `HEAD`, so the range commitlint would lint is
-  # the zero commits the squash already resolved into one.
+  # No subject on a merged commit: there is no pull request to read a title of
+  # (the step skips on the missing number), and `merge-base origin/main HEAD` is
+  # `HEAD`, so the range the range-lint would read is the zero commits the squash
+  # already resolved into one.
+  #
+  # The two lints are two programs (.github/scripts/commits/), and stay two: the
+  # range guards the branch's own history, the title guards what a squash merge
+  # writes onto `main` — two inputs read for two reasons (#1858).
+  #
+  # The title is read at run time, not from the event payload (#1858): a rerun
+  # replays the payload that started the run, so after a title fix the job
+  # reported the old length in text byte-identical to the first failure (observed
+  # on #1857; only close+reopen manufactured a fresh verdict). lint-pr-title.sh
+  # fetches the live title through the API instead. That read is why this job
+  # widens the workflow-level `contents: read` cap by `pull-requests: read`:
+  # read-only PR metadata on a public repository, scoped to this job alone, so
+  # every other job keeps the workflow-level default.
   commits:
     name: CI / commits
     if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # lint-pr-title.sh re-reads the live PR title through the API; read-only, job-scoped
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -742,16 +759,14 @@ jobs:
           persist-credentials: false
       - uses: $/.github/actions/setup-workspace
       - name: Lint the PR's commits
-        run: |
-          set -euo pipefail
-          pnpm exec commitlint --from "$(git merge-base origin/main HEAD)" --to HEAD
+        run: bash .github/scripts/commits/lint-commit-range.sh
       - name: Lint the PR title
+        if: ${{ env.PR_NUMBER != '' }}
         env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        if: ${{ env.PR_TITLE != '' }}
-        run: |
-          set -euo pipefail
-          printf '%s\n' "$PR_TITLE" | pnpm exec commitlint
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/commits/lint-pr-title.sh
 
   security:
     name: Security

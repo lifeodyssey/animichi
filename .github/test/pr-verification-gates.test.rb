@@ -33,38 +33,71 @@ end
 
 class PrVerificationCommitsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  PR_TITLE_EXPRESSION = "github.event.pull_request.title"
-  COMMIT_RANGE_FLAGS = %w[--from --to].freeze
+  RANGE_LINT = ".github/scripts/commits/lint-commit-range.sh"
+  TITLE_LINT = ".github/scripts/commits/lint-pr-title.sh"
+  RANGE_COMMAND = 'pnpm exec commitlint --from "$(git merge-base origin/main HEAD)" --to HEAD'
+  PAYLOAD_TITLE = "github.event.pull_request.title"
 
   def setup
     @ci = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/pr-verification.yml")), aliases: true)
   end
 
-  def commitlint_steps
-    @ci.dig("jobs", "commits", "steps").to_a.select { |step| step["run"].to_s.include?("commitlint") }
+  def lint_steps
+    @ci.dig("jobs", "commits", "steps").to_a.select { |step| step["run"].to_s.include?("commits/") }
   end
 
-  def pr_title_env_name(step)
-    env = step["env"]
-    return nil unless env.is_a?(Hash)
-
-    env.find { |_, value| value.to_s.include?(PR_TITLE_EXPRESSION) }&.first
+  def step_running(script)
+    lint_steps.find { |step| step["run"].to_s.include?(script) }
   end
 
-  def test_commitlint_lints_the_squash_subject
-    step = commitlint_steps.find { |candidate| pr_title_env_name(candidate) }
-    assert(step,
-                     "pr-verification.yml:commits: no commitlint step reads #{PR_TITLE_EXPRESSION} — " \
-                     "the squash-merge subject would reach main unlinted")
-    assert(step["run"].to_s.include?("$#{pr_title_env_name(step)}"),
-                     "pr-verification.yml:commits: the step holding #{PR_TITLE_EXPRESSION} must feed " \
-                     "that name to commitlint, not declare it and lint something else")
+  def commits_job_text
+    Psych.dump(@ci.dig("jobs", "commits"))
   end
 
-  def test_commitlint_lints_the_branch_commits
-    assert(commitlint_steps.any? { |step| COMMIT_RANGE_FLAGS.all? { |flag| step["run"].to_s.include?(flag) } },
-                     "pr-verification.yml:commits: no commitlint step lints the branch's own commits " \
-                     "over a #{COMMIT_RANGE_FLAGS.join('/')} range")
+  def test_the_branch_range_lint_is_its_own_program_over_the_merge_base
+    step = step_running(RANGE_LINT)
+    assert step, "pr-verification.yml:commits: the branch's own commits must be linted by #{RANGE_LINT}"
+    assert_includes File.read(File.join(ROOT, RANGE_LINT)), RANGE_COMMAND,
+                    "#{RANGE_LINT}: the merge-base range command is the check the repository agreed on; " \
+                    "changing it is a decision, not a refactor"
+  end
+
+  def test_the_title_lint_is_its_own_program_reading_the_live_title
+    step = step_running(TITLE_LINT)
+    assert step, "pr-verification.yml:commits: the squash subject must be linted by #{TITLE_LINT}"
+    assert_equal "${{ github.event.pull_request.number }}", step.dig("env", "PR_NUMBER"),
+                 "pr-verification.yml:commits: the title step must hand the script the pull_request number, " \
+                 "so the script reads the title as it is when the job runs"
+    refute commits_job_text.include?(PAYLOAD_TITLE),
+           "pr-verification.yml:commits: #{PAYLOAD_TITLE} is the event's copy of the title — a rerun replays " \
+           "it, so a fixed title was reported at its old length in identical text (#1857); the live read is the fix"
+  end
+
+  def test_the_title_step_skips_only_events_without_a_pull_request
+    step = step_running(TITLE_LINT)
+    assert step, "pr-verification.yml:commits: the squash subject must be linted by #{TITLE_LINT}"
+    assert_includes step["if"].to_s, "env.PR_NUMBER",
+                    "pr-verification.yml:commits: on merge_group there is no pull request to read a title of; " \
+                    "the skip must key on the missing number"
+  end
+
+  def test_the_title_lint_may_read_the_pull_request_and_nothing_wider
+    assert step_running(TITLE_LINT),
+           "pr-verification.yml:commits: the squash subject must be linted by #{TITLE_LINT}"
+    permissions = @ci.dig("jobs", "commits", "permissions") || {}
+    assert_equal "read", permissions["pull-requests"],
+                 "pr-verification.yml:commits: #{TITLE_LINT} reads the live title through the API, which " \
+                 "needs pull-requests: read — the workflow-level contents-only cap would refuse it"
+    assert_equal "read", permissions["contents"],
+                 "pr-verification.yml:commits: the checkout needs contents: read; nothing wider is justified"
+  end
+
+  def test_the_two_lints_remain_two_steps
+    assert lint_steps.one? { |step| step["run"].to_s.include?(RANGE_LINT) } &&
+           lint_steps.one? { |step| step["run"].to_s.include?(TITLE_LINT) } &&
+           lint_steps.size == 2,
+           "pr-verification.yml:commits: the range guards the branch's history and the title guards what a " \
+           "squash merge writes onto main — two inputs for two reasons; each stays its own step and program"
   end
 
   def test_commits_gate_replaces_codeql
