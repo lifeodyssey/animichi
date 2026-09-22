@@ -25,10 +25,11 @@ import { fakeRuntime } from "./fakes/fake-catalog-runtime";
  *     carries one of its own (what the caller is left HOLDING when one of these
  *     teardown calls fails is pinned in the sibling suite,
  *     `prisma-transaction-error-identity.worker.test.ts`);
- *   - a transaction that cannot even be OPENED still releases the connection,
- *     so a failed BEGIN does not hold pool capacity until the request ends.
+ *   - a transaction that cannot even be OPENED is DESTROYED, not released: a
+ *     rejected `BEGIN` is a failed round-trip, so nothing establishes the clean
+ *     state `release()` states as its precondition.
  *
- * Otherwise the connection is released on every path, so a request that failed
+ * Every other path releases the connection, so a request that failed
  * mid-transaction does not leak its socket.
  */
 
@@ -137,18 +138,16 @@ describe("inCatalogTransaction eviction failures", () => {
 });
 
 describe("inCatalogTransaction connection lifecycle", () => {
-  it("releases the connection when the transaction cannot even be opened", async () => {
+  it("destroys the connection when the transaction cannot even be opened", async () => {
     const fake = fakeRuntime();
     fake.openTransaction.mockRejectedValue(new Error("BEGIN failed"));
 
     await expect(inCatalogTransaction(fake.runtime, () => Promise.resolve("unused")))
       .rejects.toThrow("BEGIN failed");
 
-    // No transaction was opened, so the connection is still clean: release it
-    // rather than holding it until the request-scoped runtime is disposed.
-    expect(fake.release).toHaveBeenCalledTimes(1);
+    expect(fake.destroy).toHaveBeenCalledTimes(1);
+    expect(fake.release).not.toHaveBeenCalled();
     expect(fake.rollback).not.toHaveBeenCalled();
-    expect(fake.destroy).not.toHaveBeenCalled();
   });
 });
 

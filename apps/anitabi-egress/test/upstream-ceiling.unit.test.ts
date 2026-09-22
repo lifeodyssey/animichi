@@ -4,6 +4,8 @@ import {
   ceilingWindowOf,
   UpstreamRequestCeiling,
   type CeilingStore,
+  type CeilingStoreFailure,
+  type CeilingStoreFailureReporter,
 } from "../src/upstream-ceiling.ts";
 
 /**
@@ -33,6 +35,9 @@ interface StoreDouble {
   readonly store: CeilingStore;
   /** One count per window key. The test owns it, so it survives a new ceiling over the same store. */
   readonly counts: Map<string, number>;
+  /** Every store failure the ceiling handed to the operator's surface (#1833). */
+  readonly failures: CeilingStoreFailure[];
+  readonly reporter: CeilingStoreFailureReporter;
   goUnreachable(): void;
   goReachable(): void;
 }
@@ -40,9 +45,14 @@ interface StoreDouble {
 /** An external counter the test owns, and can make fail to answer, as a real one does. */
 function storeDouble(): StoreDouble {
   const counts = new Map<string, number>();
+  const failures: CeilingStoreFailure[] = [];
   let reachable = true;
   return {
     counts,
+    failures,
+    reporter: (failure) => {
+      failures.push(failure);
+    },
     goUnreachable: () => {
       reachable = false;
     },
@@ -62,14 +72,16 @@ function storeDouble(): StoreDouble {
 
 void describe("UpstreamRequestCeiling", () => {
   void it("grants every request under the limit", async () => {
-    const ceiling = new UpstreamRequestCeiling(3, storeDouble().store, () => T);
+    const double = storeDouble();
+    const ceiling = new UpstreamRequestCeiling(3, double.store, double.reporter, () => T);
     assert.equal(await ceiling.tryAcquire(), "granted");
     assert.equal(await ceiling.tryAcquire(), "granted");
     assert.equal(await ceiling.tryAcquire(), "granted");
   });
 
   void it("refuses once the limit is reached, without letting the overflow through", async () => {
-    const ceiling = new UpstreamRequestCeiling(2, storeDouble().store, () => T);
+    const double = storeDouble();
+    const ceiling = new UpstreamRequestCeiling(2, double.store, double.reporter, () => T);
     await ceiling.tryAcquire();
     await ceiling.tryAcquire();
     assert.equal(await ceiling.tryAcquire(), "exhausted");
@@ -85,12 +97,12 @@ void describe("UpstreamRequestCeiling", () => {
 void describe("the count survives the process that made it", () => {
   void it("refuses after a restart in the same hour, on the store's count", async () => {
     const double = storeDouble();
-    const before = new UpstreamRequestCeiling(2, double.store, () => T);
+    const before = new UpstreamRequestCeiling(2, double.store, double.reporter, () => T);
     await before.tryAcquire();
     await before.tryAcquire();
     assert.equal(await before.tryAcquire(), "exhausted");
 
-    const after = new UpstreamRequestCeiling(2, double.store, () => T);
+    const after = new UpstreamRequestCeiling(2, double.store, double.reporter, () => T);
     assert.equal(
       await after.tryAcquire(),
       "exhausted",
@@ -101,8 +113,8 @@ void describe("the count survives the process that made it", () => {
 
   void it("shares one budget between two instances over one store", async () => {
     const double = storeDouble();
-    const one = new UpstreamRequestCeiling(2, double.store, () => T);
-    const two = new UpstreamRequestCeiling(2, double.store, () => T);
+    const one = new UpstreamRequestCeiling(2, double.store, double.reporter, () => T);
+    const two = new UpstreamRequestCeiling(2, double.store, double.reporter, () => T);
     assert.equal(await one.tryAcquire(), "granted");
     assert.equal(await two.tryAcquire(), "granted");
     assert.equal(
@@ -130,7 +142,7 @@ void describe("a store that cannot answer", () => {
   void it("refuses rather than counting in memory", async () => {
     const double = storeDouble();
     double.goUnreachable();
-    const ceiling = new UpstreamRequestCeiling(100, double.store, () => T);
+    const ceiling = new UpstreamRequestCeiling(100, double.store, double.reporter, () => T);
     assert.equal(
       await ceiling.tryAcquire(),
       "store-unavailable",
@@ -138,12 +150,18 @@ void describe("a store that cannot answer", () => {
         "which is the promise #1810 makes the store enforce",
     );
     assert.equal(double.counts.size, 0, "a refusal must not have been counted anywhere");
+    assert.deepEqual(
+      double.failures,
+      [{ code: "unreachable", message: "the ceiling store did not answer" }],
+      "the store's own message must reach the operator: a bare catch is what made every diagnostic in the " +
+        "store unreachable (#1833)",
+    );
   });
 
   void it("counts in the store again once the store answers", async () => {
     const double = storeDouble();
     double.goUnreachable();
-    const ceiling = new UpstreamRequestCeiling(1, double.store, () => T);
+    const ceiling = new UpstreamRequestCeiling(1, double.store, double.reporter, () => T);
     assert.equal(await ceiling.tryAcquire(), "store-unavailable");
     double.goReachable();
     assert.equal(await ceiling.tryAcquire(), "granted", "the ceiling reads the store, not a count of its own");
@@ -169,7 +187,7 @@ void describe("the window is the fixed clock hour", () => {
   void it("starts the next hour's budget at the boundary, under a new key", async () => {
     let now = T;
     const double = storeDouble();
-    const ceiling = new UpstreamRequestCeiling(1, double.store, () => now);
+    const ceiling = new UpstreamRequestCeiling(1, double.store, double.reporter, () => now);
     assert.equal(await ceiling.tryAcquire(), "granted");
     assert.equal(await ceiling.tryAcquire(), "exhausted");
     now = (Math.floor(T / HOUR) + 1) * HOUR;
