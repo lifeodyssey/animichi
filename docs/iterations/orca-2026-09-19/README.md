@@ -5,7 +5,8 @@ the earlier ones are kept as history and say so in their own first lines.
 
 | File | What it is | Read it when |
 |---|---|---|
-| [HANDOFF-2026-09-22-0950.md](HANDOFF-2026-09-22-0950.md) | **Live** coordination state, 2026-09-22 | Picking up coordination mid-flight |
+| [HANDOFF-2026-09-22-1715.md](HANDOFF-2026-09-22-1715.md) | **Live** coordination state, 2026-09-22 17:15Z. Carries four owner decisions that exist nowhere else | Picking up coordination, or deciding what is waiting on you |
+| [HANDOFF-2026-09-22-0950.md](HANDOFF-2026-09-22-0950.md) | 22 September 02:00Z snapshot | Tracing how that morning's lanes settled |
 | [HANDOFF-2026-09-21-2330.md](HANDOFF-2026-09-21-2330.md) | 21 September 15:45Z snapshot. Superseded: a later untracked tick did most of its next-tick list, and the launcher receipts in `/private/tmp` were the only record of it | Seeing why a handoff's "held" rows must be re-verified before they are acted on |
 | [HANDOFF-2026-09-21.md](HANDOFF-2026-09-21.md) | 21 September 13:45Z snapshot | Tracing how the 13:45Z lanes settled |
 | [HANDOFF-2026-09-20.md](HANDOFF-2026-09-20.md) | 20 September snapshot. Stale, and instructively so: it called #1825/#1832 owner-blocked while the round-3 reports it links say both passed | Seeing how an inference becomes a fact by being written down |
