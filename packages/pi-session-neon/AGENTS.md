@@ -74,6 +74,7 @@ with no live reader — are authorized by `docs/specs/2026-09-12-prisma8-databas
 column a live statement names and no other.
 
 One frozen copy of the shape this chain replaced survives as a TEST FIXTURE
-(`packages/test-postgres/sql/drizzle-era-catalog.sql`), because `workers/catalog` and the agent's
-catalog tools still query scalar coordinates. It is not an authority and nothing applies it to a
-real database; it is deleted with #1629–#1631.
+(`packages/test-postgres/sql/drizzle-era-catalog.sql`). `workers/catalog` stopped needing it with
+#1633; its one remaining consumer is the agent's catalog-tool lane
+(`packages/agent/integration-test/catalog-postgres.ts`), which still queries scalar coordinates. It
+is not an authority and nothing applies it to a real database; it is deleted with that lane.

@@ -147,13 +147,13 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
   | Server | Use it for |
   |---|---|
-  | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables). Prisma 8 owns the schema — one chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1636); catalog/users still query it through Drizzle raw SQL over neon-http until #1629–#1631. Branch/query Neon. |
+  | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables). Prisma 8 owns the schema — one chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1636) — and since #1633 every catalog/users query is a builder plan over that contract. Branch/query Neon. |
   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
-  | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start). Prefer over memory. |
+  | context7 | Current library docs for the exact stack (Hono, Prisma 8, oRPC, AI SDK, TanStack Start). Prefer over memory. |
   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
   | logfire | Observability — the agent and Workers share the Logfire dashboard. |
 
-- **Stack skills — invoke the Skill tool when the task matches** (docs fallback = context7 for any lib without a skill: Hono, oRPC, Drizzle, TanStack Start):
+- **Stack skills — invoke the Skill tool when the task matches** (docs fallback = context7 for any lib without a skill: Hono, oRPC, Prisma 8, TanStack Start):
 
   These are user-scope installations on this machine, not CI dependencies. If a plugin skill is
   missing, install it with `claude plugin install <plugin>@<marketplace>` (for example

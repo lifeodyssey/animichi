@@ -64,7 +64,7 @@ make check-full
 
 Neon 数据面的 schema 在 `packages/pi-session-neon/src/contract.prisma` 里声明，作为一条 Prisma 8
 迁移链版本化在 `packages/pi-session-neon/migrations/` 下；生成的产物必须和迁移一起更新。
-Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。`supabase/`
+Worker 自己不再持有 schema：这条链生成的 contract 是这个数据面唯一的映射（#1633）。`supabase/`
 是已归档的历史 Supabase 迁移树（issue #1000），不应用，也不能作为 Neon 新表的来源。
 
 ```bash
@@ -119,7 +119,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [架构文档](docs/ARCHITECTURE.md) — 系统设计参考
 - [部署指南](docs/ops/deployment.md) — Cloudflare Workers 部署
-- [迁移边界](docs/ops/migrations.md) — Prisma 链的权威与 Drizzle 查询/类型边界
+- [迁移边界](docs/ops/migrations.md) — Prisma 链的权威，以及谁不得执行迁移
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings
 - [实现计划（归档）](docs/archive/plans/) — 历史执行计划（平层 `plans/` 不再新增）
