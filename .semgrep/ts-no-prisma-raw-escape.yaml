@@ -1,0 +1,51 @@
+# Policy (#999, rewritten for the Prisma data plane by #1633): runtime code
+# reaches the data plane through BUILDER PLANS. Two surfaces put SQL the builder
+# never saw into a query, and this rule is about those two:
+#
+#   - the client's whole-query raw lane, `db.raw.sql`…`` — the package's own
+#     reference calls it "a raw-SQL lane … Write whole-query raw SQL through the
+#     client's raw lane". A complete statement there is the thing the plan
+#     builder exists instead of;
+#   - a hand-built `new RawExpr({ parts: [...] })`, whose `parts` are RENDERED as
+#     SQL text rather than bound.
+#
+# What it deliberately does NOT reject is `fns.raw`…`` / `match.raw`…`` inside a
+# builder callback. Those are the sanctioned fragment form and the repository is
+# full of them (the gazetteer's trigram ranking, every ingest predicate): their
+# interpolations are BOUND values, so there is no path from caller input into
+# SQL text. A rule that caught them would catch most of the query layer.
+#
+# Exclusions are by PATH, not by file name: the seam directory is what is
+# sanctioned, so the exemption survives a file being renamed inside it.
+# It replaces `ts-no-complete-sql-statement`, `ts-no-sql-raw` and
+# `ts-no-direct-neon`, which were written against Drizzle's shapes
+# (`sql`…``, `sql.raw(...)`, `neon(...)`) and went green-by-absence when that
+# dependency left the repository (#1633).
+rules:
+  - id: ts-no-prisma-raw-escape
+    languages: [ts]
+    severity: ERROR
+    message: >-
+      Prisma raw-SQL escape hatch in runtime code. `db.raw.sql` is a whole-query
+      raw lane and `new RawExpr(...)` renders its parts as SQL TEXT; both bypass
+      the builder plan that every data-plane read and write goes through
+      (#999, #1630, #1633). Build the statement with `query.builder.<ns>.<table>`
+      and state a PostgreSQL-specific expression as an `fns.raw` / `match.raw`
+      fragment, whose interpolations are bound. A plan the builder's surface
+      cannot express is a plan REPAIR, and those live in the sanctioned seam
+      directory (`src/db/`).
+    paths:
+      include:
+        - /workers/catalog/src
+        - /workers/users/src
+        - /packages/prisma-geography/src
+      exclude:
+        # The sanctioned seam DIRECTORIES: the one construction site per worker,
+        # and the plan repairs beside it. By path, so a rename inside them keeps
+        # the exemption and a new file outside them does not inherit it.
+        - /workers/catalog/src/db/
+        - /workers/users/src/db/
+    patterns:
+      - pattern-either:
+          - pattern: $DB.raw.sql`...`
+          - pattern: new RawExpr(...)

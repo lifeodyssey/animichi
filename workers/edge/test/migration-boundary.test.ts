@@ -33,22 +33,17 @@ void test("the Prisma chain is the only Neon migration authority", () => {
   assert.deepEqual(readdirSync(ROOT).filter((entry) => entry === "migrations"), []);
 });
 
-void test("Drizzle schemas cannot become migration runners", () => {
-  // Every worker that maps the data plane, discovered rather than listed: a new
-  // service's schema must not slip past this boundary by not being enumerated.
-  // The expected set is the pin: it is what exists today, so a worker that ADDS
-  // a Drizzle schema is a finding rather than an automatic pass. #1632 moved the
-  // users worker onto Prisma and deleted its entry; catalog's is the last one and
-  // goes with #1631/#1633.
+void test("no worker maps the data plane with a schema of its own", () => {
+  // Every worker, discovered rather than listed: a new service must not slip
+  // past this boundary by not being enumerated. #1632 moved the users worker
+  // onto Prisma and #1633 moved the catalog, so the expected set is now EMPTY —
+  // the contract the chain generates is the only map of this data plane, and a
+  // worker that grows a `src/db/schema.ts` is a finding whatever it holds.
   const workers = readdirSync(`${ROOT}workers`);
-  const schemas = workers.map((worker) => `workers/${worker}/src/db/schema.ts`);
-  const present = schemas.filter((path) => existsSync(`${ROOT}${path}`));
-  assert.deepEqual(present.sort(), ["workers/catalog/src/db/schema.ts"]);
-  for (const path of present) {
-    const source = read(path);
-    assert.doesNotMatch(source, /drizzle-kit|drizzle\s+(?:migrate|generate|push|pull)/i);
-    assert.match(source, /typing only|query-only/i);
-  }
+  const present = workers
+    .map((worker) => `workers/${worker}/src/db/schema.ts`)
+    .filter((path) => existsSync(`${ROOT}${path}`));
+  assert.deepEqual(present.sort(), []);
 });
 
 // Both workflow-shape halves of this file are gone, for the same reason: a fact
