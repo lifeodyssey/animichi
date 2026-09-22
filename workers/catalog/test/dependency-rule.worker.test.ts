@@ -42,12 +42,26 @@ const LAYER_RULES: readonly LayerRule[] = [
   },
 ];
 
-const FROM_CLAUSE = /\bfrom\s+"([^"]+)"/g;
-const SIDE_EFFECT = /^\s*import\s+"([^"]+)"/gm;
-const DYNAMIC = /\bimport\(\s*"([^"]+)"\s*\)/g;
+/**
+ * The quote is CAPTURED and back-referenced rather than spelled, so both quote
+ * styles are read and a mismatched pair (`from "x'`) still is not an import.
+ * The repository pins no quote style, so a single-quoted specifier is reachable
+ * and used to walk past all three of these untouched. The specifier is group 2.
+ */
+const FROM_CLAUSE = /\bfrom\s+(["'])([^"'\n]+)\1/g;
+const SIDE_EFFECT = /^\s*import\s+(["'])([^"'\n]+)\1/gm;
+const DYNAMIC = /\bimport\(\s*(["'])([^"'\n]+)\1\s*\)/g;
+
+/** A commented-out line carries no import, whatever it quotes. */
+function insideComment(source: string, index: number): boolean {
+  const before = source.slice(source.lastIndexOf("\n", index) + 1, index).trimStart();
+  return before.startsWith("//") || before.startsWith("*");
+}
 
 function matchesOf(source: string, pattern: RegExp): string[] {
-  return [...source.matchAll(pattern)].map((match) => match[1] ?? "");
+  return [...source.matchAll(pattern)]
+    .filter((match) => !insideComment(source, match.index))
+    .map((match) => match[2] ?? "");
 }
 
 /** Every module specifier a source file imports, static or dynamic. */
@@ -144,6 +158,35 @@ describe("dependency rule detection", () => {
       "src/domain/itinerary/plan.ts": 'import { haversine } from "../geo";\nimport type { Pacing } from "../../types";\n',
       "src/application/plan-itinerary.ts": 'import { optional } from "../lib/optional";\nimport { MAX } from "@animichi/contract/constants";\n',
       "src/adapters/outbound/route-points.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
+    })).toEqual([]);
+  });
+});
+
+describe("import spelling", () => {
+  /**
+   * Separate from the rule above on purpose: these say which spellings the
+   * extractor READS, not which directions the layering forbids. Each case here
+   * would pass identically under the other quote style — that is the point.
+   */
+  it("flags a single-quoted specifier in all three import forms", () => {
+    expect(dependencyRuleViolations({
+      "src/domain/probe.ts": "import { overview } from '../adapters/outbound/overview-points';\n",
+      "src/application/a.ts": "import '../adapters/outbound/route-points';\n",
+      "src/application/b.ts": "const m = await import('../adapters/outbound/nearby-points');\n",
+    })).toEqual([
+      "src/domain/probe.ts: ../adapters/outbound/overview-points",
+      "src/application/a.ts: ../adapters/outbound/route-points",
+      "src/application/b.ts: ../adapters/outbound/nearby-points",
+    ]);
+  });
+
+  it("reads neither a commented-out import nor a mismatched quote as one", () => {
+    expect(dependencyRuleViolations({
+      "src/domain/note.ts":
+        "// import { overview } from '../adapters/outbound/overview-points';\n"
+        + "/**\n * import '../adapters/outbound/route-points';\n */\n"
+        + "const unterminated = `from \"../adapters/outbound/nearby-points';\n"
+        + "const apostrophe = \"the adapter's own layer owns that import\";\n",
     })).toEqual([]);
   });
 });
