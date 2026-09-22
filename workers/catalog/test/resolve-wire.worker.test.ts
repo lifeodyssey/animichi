@@ -7,7 +7,7 @@ import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 const handler = new OpenAPIHandler(catalogRouter);
 
 /** A context whose alias-index and candidate answers come from the Prisma plane
- * (#1631), one row-list per `query()` in call order. Resolve reads no Drizzle
+ * (#1631), one row-list per `query()` in call order. Resolve reads no second
  * seam at all — the alias lookup, the stored candidates and the upstream title
  * search are all it touches — so that seam is left unreachable. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {

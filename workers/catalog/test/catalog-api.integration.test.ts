@@ -27,7 +27,7 @@ vi.mock("cloudflare:workers", () => ({
  * branch, with `DATABASE_URL` pointing at Neon Local's proven HTTP endpoint.
  * Each call goes through the
  * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
- * -> Drizzle/PostGIS query -> response. This is the integration that the
+ * -> plan -> PostGIS query -> response. This is the integration that the
  * Worker-runtime test cannot do (workerd has no TCP sockets).
  *
  * The wire is PLAIN JSON / OpenAPI — exactly what packages/contract/openapi.json
@@ -163,7 +163,7 @@ databaseDescribe("Catalog public animeOverview (anonymous GET, cache-tagged)", (
   it("returns a typed 404 for an unknown work", assertOverview404);
 });
 
-databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
+databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + PostGIS plans)", () => {
   it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);
   it("search returns no rows for an unknown alias", assertSearchMiss);
   it("spots returns a single representative point for the work (top-level {point})", assertSpotsHit);

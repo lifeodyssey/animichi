@@ -114,10 +114,9 @@ describe("bangumiPoints outbound adapter (ONE Prisma read)", () => {
 });
 
 describe("pointsByBangumiId route seam", () => {
-  /** A context whose READ answers on the Prisma plane (#1631), one row-list per
-   * `query()` in call order; the Drizzle seam is the ingest's (#1630) and here
-   * it finds no parked job, so a work with no published rows takes the
-   * uncovered-work path. */
+  /** A context whose READ answers on the plane, one row-list per `query()` in
+   * call order. The ingest's own claim read finds no parked job, so a work with
+   * no published rows takes the uncovered-work path. */
   function context(rows: unknown[][]): CatalogContext {
     return { prisma: fakeCatalogPrisma(...rows) };
   }
@@ -148,7 +147,7 @@ describe("pointsByBangumiId route seam", () => {
       .toEqual(["ep1", "ep2", "ep3"]);
   });
 
-  it("reads the published rows on the Prisma plane — the Drizzle seam is never reached", async () => {
+  it("reads the published rows in ONE statement on the plane", async () => {
     const counter = countingCatalogPrisma([ROW]);
     const response = await call(
       { bangumi_id: "1" },

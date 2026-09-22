@@ -16,9 +16,9 @@ import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-p
  * enumerates procedures without calling them, so nothing proved they still
  * answer after their seam changed.
  *
- * The Drizzle seam is UNREACHABLE in both contexts: these routes read through
- * the request's Prisma runtime, and reaching `context.db` means the wiring went
- * back to the pre-#1631 shape.
+ * Both contexts carry the plan seam and nothing else: `CatalogContext` has no
+ * second query path to fall back to since #1633, so what these cases measure is
+ * that each route still ANSWERS, not which seam it chose.
  */
 const handler = new OpenAPIHandler(catalogRouter);
 
