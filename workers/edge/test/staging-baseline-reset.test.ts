@@ -68,6 +68,121 @@ void test("workers_dev is open for staging only, and closed in production by dec
   assert.match(production, /^preview_urls = false$/m);
 });
 
+// #1842: the environment ratchet — exactly these environments, so a new one
+// cannot appear unnoticed. Every header that names env.<name> counts:
+// [env.x] directly, and [env.x.<sub>] / [[env.x.<sub>]] through TOML's
+// implicit parent declaration. Measured with smol-toml 1.8.0:
+// [env.preview.vars] with no [env.preview] header parses to env keys
+// ["production", "preview"], and wrangler 4.132.0 enumerates environments as
+// Object.keys(rawConfig.env ?? {}) in wrangler-dist/cli.js
+// (normalizeAndValidateConfig) — so a sub-table-only environment is a live
+// environment and is counted, not a blind spot. The Ruby contract
+// (test/repo-config/wrangler-workers-dev.test.rb) implements this same rule
+// by choice: each guard lane stays single-runtime and carries its own
+// red/green proof of the rule.
+//
+// #1854 adds the header's tail: TOML permits a comment after a table header,
+// so `[env.preview] # a note` is a live declaration exactly as the bare form
+// is, and anchoring the closing bracket to end-of-line missed it. The hole was
+// wider than the reported sub-table case — a plain `[env.preview]` with a
+// trailing comment escaped too. The pattern stays the header shape only: `#`
+// is a comment *here* and nowhere else, so a value carrying one (a colour, a
+// URL fragment) is untouched, and a fix that strips from the first `#` of
+// every line would trade a missed environment for a wrong one.
+const ENV_HEADER = /^\[+([^\]]+)\]+[ \t]*(?:#.*)?$/gm;
+
+// Match any bracketed header line that names env.<name>, at any depth — the
+// whole line must be the header, so the file's own prose quoting section names
+// inside comments cannot match. The first filter narrows the capture group,
+// which `noUncheckedIndexedAccess` types as possibly absent even though this
+// pattern's group is not optional.
+const declaredEnvironments = (toml: string): string[] =>
+  [...toml.matchAll(ENV_HEADER)]
+    .map((match) => {
+      const raw = match[1];
+      if (raw === undefined) return undefined;
+      const normalized = raw.trim();
+      const m = /^env\.[A-Za-z0-9_-]+/.exec(normalized);
+      return m ? m[0] : undefined;
+    })
+    .filter((name) => name !== undefined)
+    .filter((value, index, all) => all.indexOf(value) === index)
+    .sort();
+
+void test("the edge declares exactly the environments this contract names", () => {
+  assert.deepEqual(declaredEnvironments(read("workers/edge/wrangler.toml")),
+    ["env.production", "env.staging"].sort(),
+    "a new edge environment must join this contract, not escape it; every header " +
+    "that names env.<name> counts — [env.x] directly, [env.x.<sub>] and " +
+    "[[env.x.<sub>]] through TOML's implicit parent tables — so a sub-table-only " +
+    "environment is counted (#1842)");
+});
+
+// The header's tail is a comment when the line IS a header: the bare,
+// sub-table and double-bracketed forms must all count with one. (This lane
+// reads header names only; that a commented header still scopes the keys under
+// it is the Ruby contract's assertion.)
+void test("a header with a trailing comment declares its environment", () => {
+  const fixture = `[env.production]
+workers_dev = false
+[env.preview] # a preview ring, deliberately declared
+name = "animichi-edge-preview"
+[env.canary.vars] # a sub-table only: TOML's implicit parent declares env.canary
+[[env.qa.ratelimits]] # double-bracketed: still a parent declaration
+`;
+  assert.deepEqual(declaredEnvironments(fixture),
+    ["env.canary", "env.preview", "env.production", "env.qa"],
+    "a trailing comment closes the header, not the declaration (#1854)");
+});
+
+// The trap's other direction: loosening the anchors is the lazy way to see a
+// missed header, and `marker` below is a header-shaped string inside a value.
+// This lane reads headers only, so the value-survives-intact half of the trap
+// is the Ruby contract's proof (it reads values); what this pins is that a
+// `#` in a value declares no environment from here either.
+void test("a hash inside a value declares no environment", () => {
+  const fixture = `[env.production]
+accent = "#eb4034"
+docs = "https://animichi.com/docs#install"
+marker = "[env.evil]#not-a-header"
+`;
+  assert.deepEqual(declaredEnvironments(fixture), ["env.production"],
+    "a `#` inside a value declares nothing; the value line is not a header (#1854)");
+});
+
+// #1854 — whitespace inside the brackets. TOML ignores whitespace around a table
+// key, so `[ env.preview ]` declares `env.preview`. The scanner normalises the
+// bracketed text once (absorb whitespace after the opening bracket via `\s*` in
+// the regex) before deciding `env.<name>` — this shape and any future spacing
+// variant are covered by construction.
+void test("whitespace inside the brackets declares its environment", () => {
+  const fixture = `[env.production]
+workers_dev = false
+[ env.preview ]
+name = "animichi-edge-preview"
+[ env.preview.vars ] # note
+foo = "bar"
+`;
+  assert.deepEqual(declaredEnvironments(fixture),
+    ["env.production", "env.preview"].sort(),
+    "whitespace inside the brackets must not hide the declaration (#1854): " +
+    "the scanner normalises the bracketed text once, so this shape and " +
+    "any future spacing variant are covered by construction");
+});
+
+// Normalisation must not turn a non-env header into one: `[ envelope ]`
+// declares nothing — absorbing whitespace makes the key `envelope`, which has
+// no `env.` prefix.
+void test("whitespace inside a non-env header declares nothing", () => {
+  const fixture = `[ env.production ]
+workers_dev = false
+[ envelope ]
+foo = "bar"
+`;
+  assert.deepEqual(declaredEnvironments(fixture), ["env.production"],
+    "normalising `[ envelope ]` must not produce an env declaration (#1854)");
+});
+
 // #1216 — the migrator's own error lived only in the discarded response body, so
 // a reset staging database failed as a bare "HTTP 500". This repository is
 // public: the body is logged, and any DSN in it must lose its password first.

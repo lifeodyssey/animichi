@@ -69,7 +69,10 @@ class WranglerWorkersDevTest < Minitest::Test
 
   def test_edge_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging], edge_sections.keys,
-                 "a new edge environment must join this contract, not escape it"
+                 "a new edge environment must join this contract, not escape it; " \
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
   end
 
   # --- web ---
@@ -125,9 +128,9 @@ class WranglerWorkersDevTest < Minitest::Test
   def test_users_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging].sort, users_sections.keys.sort,
                  "a new users environment must join this contract, not escape it; " \
-                 "an environment declared only through a sub-table (e.g. [env.preview.vars]) " \
-                 "escapes this guard — that blind spot is filed as #1842 and does not apply here " \
-                 "because both environments have direct key = value lines"
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
   end
 
   # --- migrator (#1836) ---
@@ -155,7 +158,95 @@ class WranglerWorkersDevTest < Minitest::Test
 
   def test_migrator_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging].sort, migrator_sections.keys.sort,
-                 "a new migrator environment must join this contract, not escape it"
+                 "a new migrator environment must join this contract, not escape it; " \
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
+  end
+
+  # --- the header shape the ratchet reads (#1854) ---
+
+  # TOML permits a comment after a table header, so `[env.preview] # a note` is
+  # a live declaration exactly as the bare form is. Both scanners anchored the
+  # closing bracket to end-of-line and never saw it — and the hole is wider
+  # than the sub-table case that was reported: a plain `[env.preview]` carrying
+  # a trailing comment escaped too, so the ratchet's claimed scope ("exactly
+  # these environments") exceeded its real scope.
+  def test_a_header_with_a_trailing_comment_declares_its_environment
+    sections = parse_toml_env_text(<<~TOML)
+      [env.production]
+      workers_dev = false
+      [env.preview] # a preview ring, deliberately declared
+      name = "animichi-edge-preview"
+      [env.canary.vars] # a sub-table only: TOML's implicit parent declares env.canary
+      [[env.qa.ratelimits]] # double-bracketed: still a parent declaration
+    TOML
+
+    assert_equal %w[env.canary env.preview env.production env.qa], sections.keys.sort,
+                 "a trailing comment closes the header, not the declaration (#1854): " \
+                 "the bare, sub-table and double-bracketed forms all count with one"
+    assert_equal '"animichi-edge-preview"', sections["env.preview"]["name"],
+                 "the commented header still scopes the keys under it (#1854)"
+  end
+
+  # The trap: fixing the header scan by stripping everything after the first
+  # `#` on every line would silently truncate a value that legitimately holds
+  # one — a colour, a URL fragment — trading a missed environment for a wrong
+  # one. The rule is the header shape only, and a bracketed value is not a
+  # header at all.
+  def test_a_hash_inside_a_value_is_read_intact_and_declares_no_environment
+    sections = parse_toml_env_text(<<~TOML)
+      [env.production]
+      accent = "#eb4034"
+      docs = "https://animichi.com/docs#install"
+      marker = "[env.evil]#not-a-header"
+    TOML
+
+    assert_equal %w[env.production], sections.keys.sort,
+                 "a `#` inside a value declares nothing; the value line is not a header (#1854)"
+    assert_equal '"#eb4034"', sections["env.production"]["accent"],
+                 "a colour value is read intact, not truncated at its `#` (#1854)"
+    assert_equal '"https://animichi.com/docs#install"', sections["env.production"]["docs"],
+                 "a URL fragment is read intact, not truncated at its `#` (#1854)"
+  end
+
+  # --- whitespace inside the brackets (#1854) ---
+
+  # TOML ignores whitespace around a table key, so `[ env.preview ]` declares
+  # `env.preview`. The scanner normalises the bracketed text once (strip
+  # surrounding horizontal whitespace) before deciding `env.<name>` — this
+  # shape and any future spacing variant are covered by construction.
+  def test_whitespace_inside_the_brackets_declares_its_environment
+    sections = parse_toml_env_text(<<~TOML)
+      [env.production]
+      workers_dev = false
+      [ env.preview ]
+      name = "animichi-edge-preview"
+      [ env.preview.vars ] # note
+      foo = "bar"
+    TOML
+
+    assert_equal %w[env.production env.preview].sort, sections.keys.sort,
+                 "whitespace inside the brackets must not hide the declaration (#1854): " \
+                 "the scanner normalises the bracketed text once, so this shape and " \
+                 "any future spacing variant are covered by construction"
+    assert_equal '"animichi-edge-preview"', sections["env.preview"]["name"],
+                 "the normalised header still scopes the keys under it (#1854)"
+  end
+
+  # Normalisation must not turn a non-env header into one: `[ envelope ]`
+  # declares nothing — stripping spaces makes the key `envelope`, which has
+  # no `env.` prefix.
+  def test_whitespace_inside_a_non_env_header_declares_nothing
+    sections = parse_toml_env_text(<<~TOML)
+      [ env.production ]
+      workers_dev = false
+      [ envelope ]
+      foo = "bar"
+    TOML
+
+    assert_equal %w[env.production], sections.keys.sort,
+                 "normalising `[ envelope ]` must not produce an env declaration (#1854)"
   end
 
   # --- SUT coverage (#1836 AC3) ---
@@ -236,19 +327,54 @@ class WranglerWorkersDevTest < Minitest::Test
     units.uniq
   end
 
-  # Shared TOML section parser. Structurally mirrors the edge parser that
-  # #1524 established: a sub-table header ends the environment's own key list,
-  # and keys after it belong to the sub-table.
+  # Shared TOML section parser. Structurally mirrors the edge test's header
+  # scan. #1524 established the key scoping: a sub-table header ends the
+  # environment's own key list, and keys after it belong to the sub-table —
+  # they are never attributed to the parent.
   #
-  # Blind-spot note (#1842): an environment declared only through sub-tables
-  # (e.g. [env.preview.vars]) never enters the hash. Both users and migrator
-  # environments have direct key = value lines, so this does not apply here.
+  # #1842 establishes the environment enumeration: the environments a
+  # wrangler.toml declares are the `env.<name>` prefixes named by ANY section
+  # header — `[env.<name>]` directly, and `[env.<name>.<sub>]` or
+  # `[[env.<name>.<sub>]]` through TOML's implicit parent declaration.
+  # Measured with smol-toml 1.8.0: `[env.preview.vars]` with no `[env.preview]`
+  # header parses to `env` keys `["production", "preview"]`, and wrangler
+  # 4.132.0 enumerates environments as `Object.keys(rawConfig.env ?? {})`
+  # (wrangler-dist/cli.js, normalizeAndValidateConfig) — so a sub-table-only
+  # environment is a live environment, not a blind spot. Header lines outside
+  # that bare-word form (quoted or dotted quoted env names, whitespace inside
+  # the brackets) are not recognized by this parser; no config this contract
+  # reads uses them. Two hand-rolled implementations of this one rule exist by
+  # choice (see the edge test's matching scan): each guard lane stays
+  # single-runtime, and each carries its own red/green proof of the rule.
+  #
+  # #1854 closes the header's tail: TOML permits a comment after a header, so
+  # the closing bracket is followed by blank-or-comment, not end-of-line —
+  # `[env.preview] # a note` is the same declaration as `[env.preview]`. The
+  # rule is the header shape only: a blanket strip from the first `#` of every
+  # line would truncate a value that legitimately holds one (a colour, a URL
+  # fragment), trading a missed environment for a wrong one. The scan is still
+  # line-oriented: a header-shaped line inside a multi-line string reads as a
+  # header (a limit the bare form already had), and a comment after a *key's*
+  # value is not modelled — that key is dropped, so the contract fails loudly
+  # rather than passing silently.
   def parse_toml_env_sections(path)
+    parse_toml_env_text(File.read(path))
+  end
+
+  def parse_toml_env_text(toml)
     parsed = Hash.new { |hash, key| hash[key] = {} }
     current = nil
-    content_lines(File.read(path)).each do |line|
-      table = /\A\[+([^\]]+)\]+\z/.match(line)
-      current = table[1][/\Aenv\.[A-Za-z0-9_-]+\z/] if table
+    content_lines(toml).each do |line|
+      table = /\A(\[+)([^\]]+)\]+[ \t]*(?:#.*)?\z/.match(line)
+      if table
+        env = table[2].strip[/\Aenv\.[A-Za-z0-9_-]+/]
+        if env
+          parsed[env] unless parsed.key?(env)
+          current = table[2].strip == env ? env : nil
+        else
+          current = nil
+        end
+      end
       next if current.nil?
       pair = /\A([A-Za-z0-9_-]+)\s*=\s*(\S+)\z/.match(line)
       parsed[current][pair[1]] = pair[2] if pair
