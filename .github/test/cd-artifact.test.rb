@@ -45,7 +45,16 @@ class CdArtifactTest < Minitest::Test
   end
 
   def test_consumers_never_rebuild_the_snapshot
-    refute_match(/build-push-action|containers push|--dry-run|--filter web (?:run )?build|pulumi install/, @cd.to_s)
+    refute_match(/build-push-action|containers push|--dry-run|--filter web (?:run )?build/, @cd.to_s)
+    # #1865: the one permitted regeneration is the gitignored provider SDK that
+    # cannot travel inside the snapshot — `sdks/` is excluded by the directory's
+    # own `.gitignore`. Each deploy lane runs exactly
+    # `pulumi install --no-dependencies --non-interactive`, which reproduces the
+    # `packages:` the sealed Pulumi.yaml pins without touching its bytes; every
+    # other pulumi install shape stays banned, as does rebuilding anything the
+    # snapshot itself carries.
+    refute_match(/pulumi install(?! --no-dependencies)/, @cd.to_s)
+    assert_equal 2, @cd.to_s.scan("pulumi install --no-dependencies --non-interactive").length
     uploads = @cd.fetch("jobs").values.flat_map { |job| job.fetch("steps") }
                  .select { |item| item["uses"].to_s.start_with?("actions/upload-artifact@") }
     # #1695: the staging artifact also carries the probe transcript that must

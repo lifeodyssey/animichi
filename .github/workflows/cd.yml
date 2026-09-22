@@ -136,10 +136,21 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
         run: bash .github/scripts/release/schema-preflight.sh staging
+      # The generated provider SDKs do not travel in git (#1865): the directory's
+      # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
+      # `packages:` with `pulumi install` — the CLI is already on PATH from the
+      # setup step above. This must run before the frozen install, which packs the
+      # SDK into pnpm's store minus its gitignored `bin/`; the SDK's own
+      # `postinstall` (`tsc`), allowlisted by the directory's `pnpm-workspace.yaml`
+      # (#1772), is what builds `bin/` there, so that one install runs without
+      # `--ignore-scripts`.
+      - name: Materialise the generated provider SDKs
+        working-directory: release/foundation/infra/database-access
+        run: pulumi install --no-dependencies --non-interactive
       - name: Install sealed foundation dependencies
         run: |
           pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
-          pnpm install --dir release/foundation/infra/database-access --frozen-lockfile --ignore-scripts
+          pnpm install --dir release/foundation/infra/database-access --frozen-lockfile
       - name: Apply database access
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
@@ -301,10 +312,21 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
         run: bash .github/scripts/release/schema-preflight.sh production
+      # The generated provider SDKs do not travel in git (#1865): the directory's
+      # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
+      # `packages:` with `pulumi install` — the CLI is already on PATH from the
+      # setup step above. This must run before the frozen install, which packs the
+      # SDK into pnpm's store minus its gitignored `bin/`; the SDK's own
+      # `postinstall` (`tsc`), allowlisted by the directory's `pnpm-workspace.yaml`
+      # (#1772), is what builds `bin/` there, so that one install runs without
+      # `--ignore-scripts`.
+      - name: Materialise the generated provider SDKs
+        working-directory: release/foundation/infra/database-access
+        run: pulumi install --no-dependencies --non-interactive
       - name: Install sealed foundation dependencies
         run: |
           pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
-          pnpm install --dir release/foundation/infra/database-access --frozen-lockfile --ignore-scripts
+          pnpm install --dir release/foundation/infra/database-access --frozen-lockfile
       - name: Apply database access
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
