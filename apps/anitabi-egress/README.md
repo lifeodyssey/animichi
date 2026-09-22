@@ -77,6 +77,13 @@ count in memory. A `CEILING_STORE_URL` that is missing, that still carries the
 refused at boot the same way, as `configuration`. A ceiling that is not enforced
 is not a ceiling.
 
+The body says which of the two ceiling refusals it was; *why* the store could
+not be read goes to the service's own log stream instead — one JSON line per
+failed increment, carrying the store's own message and a `code` naming which
+reply-set guard fired or how the connection ended. `fly logs` reads it, and
+[`docs/ops/anitabi-egress.md`](../../docs/ops/anitabi-egress.md) lists the
+codes. The line carries no address and no credential.
+
 ## Reading the answers
 
 Every response carries `x-egress-response`:

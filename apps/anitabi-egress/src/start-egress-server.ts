@@ -13,9 +13,16 @@
  * The ceiling is null — every request refused with `configuration` — when the
  * service has no key, no limit, or no STORE to count in. A ceiling that cannot
  * be counted is not enforced, and this service does not run without it.
+ *
+ * The store's failures leave by a second road (#1833): the ceiling reports each
+ * one through the sink below, which is the process's stderr — what `fly logs`
+ * reads, and where `docs/ops/anitabi-egress.md` sends an operator looking. The
+ * caller's answer is unchanged and still one of three ceiling outcomes; the
+ * line is for whoever has to fix the store.
  */
 import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createConnection, type Socket } from "node:net";
+import { ceilingStoreFailureLogger, type LogSink } from "./ceiling-store-log.ts";
 import {
   readCeilingStoreConfig,
   readEgressConfig,
@@ -38,6 +45,8 @@ export interface EgressServerOptions {
   upstreamFetch?: UpstreamFetch;
   /** The ceiling's counter, when the caller supplies one (tests); otherwise it is built from the environment. */
   ceilingStore?: CeilingStore;
+  /** Where a store failure is written, when the caller owns the stream (tests); otherwise this process's stderr. */
+  logSink?: LogSink;
 }
 
 /** Start the service; port 0 picks an ephemeral port (tests). */
@@ -60,15 +69,38 @@ export async function startEgressServer(options: EgressServerOptions): Promise<{
   return { server, port: address.port };
 }
 
-/** The ceiling the handler asks: null when the service has no key, no limit, or no store to count in. */
-function ceilingFor(
+/**
+ * The ceiling the handler asks: null when the service has no key, no limit, or
+ * no store to count in.
+ *
+ * Exported for one reason, as `connectedWithin` below is: the reporter it hands
+ * the ceiling is the only thing that makes a store failure readable to an
+ * operator, and a wiring nothing can call is a wiring no test can prove. A
+ * request-level test would need a listening port to say the same thing (#1833).
+ */
+export function ceilingFor(
   config: EgressConfig | null,
   options: EgressServerOptions,
   nowSeconds: () => number,
 ): Ceiling | null {
   if (config === null) return null;
   const store = options.ceilingStore ?? storeFromEnv(options.env, dialStore);
-  return store === null ? null : new UpstreamRequestCeiling(config.ceilingPerHour, store, nowSeconds);
+  if (store === null) return null;
+  return new UpstreamRequestCeiling(
+    config.ceilingPerHour,
+    store,
+    ceilingStoreFailureLogger(options.logSink ?? writeToStderr),
+    nowSeconds,
+  );
+}
+
+/**
+ * The process's own log stream, and the one the service ships with: `fly logs`
+ * is where the operating document sends an operator, and a line written here is
+ * on it. It is a sink like any other, so a test can own the stream instead.
+ */
+function writeToStderr(line: string): void {
+  process.stderr.write(line);
 }
 
 /** The store the environment names, or null — and null means a ceiling that cannot be counted. */
