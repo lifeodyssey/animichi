@@ -46,3 +46,17 @@ void test("the operator-class and descending catalog indexes are declared as col
   assert.deepEqual(declaredIndex(schema, "raw_payload_history", "idx_raw_payload_history_work_source"),
     { columns: ["work_id", "source", "seq"], name: "idx_raw_payload_history_work_source", unique: false });
 });
+
+/** The tables the retired Python agent's chain built (20260826000004_agent.sql plus
+ * 20260902000000_agent_runs.sql). Four were adopted by the edge agent tier as raw SQL outside
+ * the contract; none of them may be declared here. */
+const PYTHON_AGENT_TABLES = [
+  "agent_memory", "agent_memory_metadata", "agent_memory_operations", "anon_daily_message_count",
+  "daily_usage", "feedback", "messages", "request_log", "runs", "run_steps", "sessions",
+  "turn_outbox_events", "turn_reservations",
+] as const;
+
+void test("the contract declares none of the retired Python agent's tables", () => {
+  const declared = new Set(Object.keys(contractJson.roots));
+  assert.deepEqual(PYTHON_AGENT_TABLES.filter((table) => declared.has(table)), []);
+});
