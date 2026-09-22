@@ -11,11 +11,13 @@ class WorkflowWorkspaceTest < Minitest::Test
   # `wrangler deploy --dry-run`) and the pre-push commitlint cases (the workspace's
   # real commitlint), so the lane that invokes the runner is the job that needs the
   # install — `contracts`, which used to run those files one by one, no longer does.
+  # The `commits` job's two lint programs drive the same real commitlint (#1858).
   WORKSPACE_SCRIPTS = %w[
     .github/scripts/delivery-toolchain-tests.sh
     .github/scripts/release/build-worker.mjs .github/scripts/release/verify-config.mjs
     .github/scripts/release/seal-foundation.sh .github/scripts/release/registry-login.sh
     .github/scripts/release/record-receipt.mjs .github/scripts/release/publish-services.sh
+    .github/scripts/commits/lint-commit-range.sh .github/scripts/commits/lint-pr-title.sh
     scripts/local-gates/oxlint-changed.sh scripts/local-gates/pre-push-affected.sh
   ].freeze
 
