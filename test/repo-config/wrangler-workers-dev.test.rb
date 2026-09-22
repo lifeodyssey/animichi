@@ -160,12 +160,36 @@ class WranglerWorkersDevTest < Minitest::Test
 
   # --- SUT coverage (#1836 AC3) ---
 
+  # Units this contract deliberately excludes: catalog has its own contract
+  # in workers/catalog/test/wrangler-private.worker.test.ts; the migrator is
+  # deployed separately (not by publish-services.sh) and is asserted here for
+  # its own deliberate config.
+  DEPLOY_SCRIPT_EXCLUSIONS = {
+    "catalog" => "own contract: workers/catalog/test/wrangler-private.worker.test.ts",
+  }.freeze
+
+  # Units this contract covers that are NOT in the deploy script (deployed
+  # separately, deliberately asserted here).
+  CONTRACT_ONLY_UNITS = {
+    "migrator" => "deployed separately; deliberately asserts workers_dev = true (#1836)",
+  }.freeze
+
   def test_contract_sut_header_names_exactly_the_production_units_covered
-    expected = %w[edge web users migrator].sort
-    assert_equal expected, sut_production_units.sort,
-                 "every production unit in publish-services.sh that this contract covers " \
-                 "must be named here; adding a unit to publish-services.sh without adding " \
-                 "it to this contract makes this test red — that is the point of #1836"
+    deployed = publish_services_deployed_units
+    covered  = %w[edge web users migrator]
+
+    uncovered_deployed = deployed - covered - DEPLOY_SCRIPT_EXCLUSIONS.keys
+    assert_empty uncovered_deployed,
+                 "production units deployed by publish-services.sh but not covered by " \
+                 "this contract and not listed in DEPLOY_SCRIPT_EXCLUSIONS: #{uncovered_deployed}. " \
+                 "Either add wrangler contract assertions for them here, or add them to " \
+                 "DEPLOY_SCRIPT_EXCLUSIONS with a reason. (#{DEPLOY_SCRIPT_EXCLUSIONS})"
+
+    missing_from_script = covered - deployed - CONTRACT_ONLY_UNITS.keys
+    assert_empty missing_from_script,
+                 "contract covers units not in publish-services.sh and not in " \
+                 "CONTRACT_ONLY_UNITS: #{missing_from_script}. Either add them to the " \
+                 "deploy script, or add them to CONTRACT_ONLY_UNITS with a reason."
   end
 
   private
@@ -186,13 +210,21 @@ class WranglerWorkersDevTest < Minitest::Test
     @migrator_sections ||= parse_toml_env_sections(File.join(ROOT, MIGRATOR_TOML))
   end
 
-  def sut_production_units
-    # The production units this contract covers: those named in test methods
-    # and in this header. publish-services.sh deploys catalog, users, edge, web;
-    # the migrator is deployed separately. This contract covers edge, web,
-    # users, and migrator — but NOT catalog (its own contract is in
-    # workers/catalog/test/wrangler-private.worker.test.ts).
-    %w[edge web users migrator]
+  # Parse publish-services.sh to extract the production units it deploys.
+  # The script uses two deployment patterns:
+  #   1. A `for unit in ...; do ... done` loop
+  #   2. Standalone `deploy_service "name" ...` calls
+  # This returns all unit names as an array.
+  def publish_services_deployed_units
+    path = File.join(ROOT, ".github/scripts/release/publish-services.sh")
+    content = File.read(path)
+    units = []
+    # Pattern 1: for unit in X Y Z; do
+    for_match = content.match(/for\s+unit\s+in\s+([^;]+);/)
+    units.concat(for_match[1].split) if for_match
+    # Pattern 2: deploy_service "name" ...
+    content.scan(/deploy_service\s+"([^"]+)"/) { units << $1 }
+    units.uniq
   end
 
   # Shared TOML section parser. Structurally mirrors the edge parser that
