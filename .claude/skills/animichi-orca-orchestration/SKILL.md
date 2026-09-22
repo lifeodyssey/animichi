@@ -116,7 +116,7 @@ took 150–200 minutes open→merge with up to five merges of main each, versus
 8–23 minutes for PRs that avoided them; GitHub merge queue is unavailable on this
 user-owned repository, so serialization is the lever.
 
-### The roster (2026-09-21)
+### The roster (2026-09-22)
 
 Dispatch through `orca-pi-headless-support/scripts/orca-headless/orca-headless.rb`. Its
 accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
@@ -126,8 +126,15 @@ at launch, which is the point.
 |---|---|
 | Writer | `--provider pi --model bigmodel/glm-5.3-flash --effort max` |
 | Writer | `--provider pi --model opencode-go/deepseek-v4.1-flash --effort max` |
+| Writer | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
+| Writer | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
 | Writer, **visible UI only** | `--provider kimi --model kimi-code/k3-256k-max --effort max` |
 | Reviewer | `--provider claude --model claude-opus-5 --effort high` |
+
+`--runtime-client` has no default and `start` refuses without it: pass
+`/Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js`.
+The two MiMo selections were added on 2026-09-22 at the owner's request; `mimo-v2.5-pro`
+delivered #1841 the same day.
 
 **Retired, do not dispatch:** grok (allowance exhausted 2026-09-21) and command-code
 (subscription expired 2026-09-20). If a provider fails, record it and hold — never
@@ -200,6 +207,18 @@ The cure is the same every time, and it is cheap: **make the check produce a red
 - Before trusting "no findings", ask whether the bot has spoken yet, and read both channels:
   line-level `reviewThreads` **and** top-level issue comments. A quota-exhausted notice is
   not a review.
+
+**A correction to the pnpm rule above, measured 2026-09-22 by a reviewer who checked it rather
+than repeating it.** `Scope: 0 of N` is real when a filter matches nothing — but pnpm 12 prints
+**no `Scope:` line at all for a single-package filter that matches**. So "read the `Scope:`
+line" has nothing to read on the success path, and its absence proves nothing either way. The
+positive evidence is the `$ <script>` echo pnpm prints before running, and
+`pnpm --filter <name> exec pwd` returning the package's directory. Name the package correctly
+first: only `packages/contract` is scoped (`@animichi/contract`); `web`, `catalog`, `users`,
+`edge-worker` and `anitabi-egress` are bare.
+
+That correction is itself the lesson: I had put "read the `Scope:` line" into four task briefs
+and into this file before anyone checked whether the line appears on the path that matters.
 
 ## One coordinator, and a tick that only nudges
 
