@@ -118,10 +118,12 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  *
  * A failing `destroy` does not replace the caller's error, and neither does a
  * failing `release` on a failure path. The driver's contract leaves a connection
- * whose teardown failed retryable, so the teardown failure is CONTEXT for the
- * unit's own error — attached to it as `cause`, never raised in its place.
- * Wrapping the unit's error, as the driver's own `withTransaction` does, would
- * change the error identity `classifyIngestFailure` matches on.
+ * whose teardown failed retryable, so the teardown failure is never raised: it
+ * becomes CONTEXT for the unit's own error — recorded on it as `cause` — when
+ * that error can take one and does not already carry one of its own, and is
+ * dropped otherwise ({@link attachCause}). Wrapping the unit's error, as the
+ * driver's own `withTransaction` does, would change the error identity
+ * `classifyIngestFailure` matches on.
  */
 export async function inCatalogTransaction<T>(
   runtime: CatalogRuntime,
@@ -188,7 +190,8 @@ async function settleFailed(
 /**
  * Evict a suspect connection, recording a failed eviction on `reason` instead
  * of throwing it: the driver's contract leaves the connection retryable, so the
- * caller's error has to survive the cleanup.
+ * caller's error has to survive the cleanup. See {@link attachCause} for what
+ * that "recording" can promise.
  *
  * Nothing is owed after a failed eviction. The driver marks the connection
  * closed BEFORE it awaits the socket's `end()`, and the failure unwinds through
@@ -210,7 +213,8 @@ async function evict(
 /**
  * Give the connection back, recording a failed release on `reason` instead of
  * throwing it: both callers already hold an error of their own, and that error
- * is the one the caller has to receive.
+ * is the one the caller has to receive. See {@link attachCause} for what that
+ * "recording" can promise.
  */
 async function releaseQuietly(
   connection: { release(): Promise<void> },
