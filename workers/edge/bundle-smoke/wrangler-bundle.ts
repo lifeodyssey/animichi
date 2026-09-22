@@ -14,11 +14,31 @@ export interface WranglerBundle { readonly code: string; readonly metafile: Meta
 /** Bound the official build so a stalled Wrangler names itself instead of consuming its caller's budget. */
 const BUILD_TIMEOUT_MS = 60_000;
 
+/** Wrangler's own last line for a `--dry-run` that built; `execFile` hands it back on the error's stdout. */
+const DRY_RUN_FINISHED = "--dry-run: exiting now.";
+
+/** What Node's `timeout` kill leaves behind: the bound's SIGTERM, and the output captured up to it. */
+type KilledChildError = Error & { readonly killed: true; readonly signal: unknown; readonly stdout?: string };
+
 /** Node's `timeout` option kills the child and says so; every other rejection is the build's own failure. */
-function killedByTimeout(error: unknown) {
+function killedByTimeout(error: unknown): error is KilledChildError {
   if (!(error instanceof Error)) return false;
-  const failure = error as Error & { killed?: unknown; signal?: unknown };
+  const failure = error as { killed?: unknown; signal?: unknown };
   return failure.killed === true && failure.signal !== null && failure.signal !== undefined;
+}
+
+/**
+ * Two different stalls arrive here wearing one message: a build still running when the bound elapsed, and a
+ * build that had already printed its last line before its process outlived the bound. The captured stdout
+ * separates them, and the refusals this was written for (#1859) were all the second — so the message names
+ * the state it saw rather than sending the reader after the bundler in both cases.
+ */
+function timeoutDiagnostic(error: KilledChildError) {
+  const bound = String(BUILD_TIMEOUT_MS / 1_000);
+  if ((error.stdout ?? "").includes(DRY_RUN_FINISHED)) {
+    return `Wrangler finished its dry-run build and printed "${DRY_RUN_FINISHED}", then did not exit within ${bound} seconds`;
+  }
+  return `Wrangler did not finish its dry-run build within ${bound} seconds`;
 }
 
 async function runWrangler(config: string, directory: string, outfile: string, metafile: string) {
@@ -28,8 +48,7 @@ async function runWrangler(config: string, directory: string, outfile: string, m
     await promisify(execFile)("pnpm", args, { env, maxBuffer: 5 * 1024 * 1024, timeout: BUILD_TIMEOUT_MS });
   } catch (error) {
     if (!killedByTimeout(error)) throw error;
-    const bound = String(BUILD_TIMEOUT_MS / 1_000);
-    throw new Error(`Wrangler did not finish its dry-run build within ${bound} seconds`, { cause: error });
+    throw new Error(timeoutDiagnostic(error), { cause: error });
   }
 }
 
