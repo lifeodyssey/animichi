@@ -107,6 +107,25 @@ by — `workers/catalog` knows six reasons and reads an unknown one as `unmarked
 come from the egress service", which would be false. Whose refusal it is travels in the header; which
 of the two ceiling refusals it was is in the body.
 
+**Why the store could not answer is on `fly logs`, not in that body.** The body says one of two things
+because the caller's vocabulary holds exactly that much, so the failure itself goes to the service's
+own log stream — one JSON line per failed increment:
+
+```json
+{"event":"ceiling-store-failure","code":"expiry","message":"the ceiling store did not give the window an expiry"}
+```
+
+`code` is the finding, and it is what `fly logs` is filtered by. Four of them are the reply-set guards
+#1825 added, one per way a store's answers can look like a count without being one — `reply-count` (it
+answered a conversation it was not asked), `credential` (it refused the credential the address
+carries), `expiry` (it left the window with no timeout, so the key would never die), `count` (the
+increment answered no positive number). The rest are the ways the connection itself ends:
+`oversized-reply`, `timeout`, `connection`, `hang-up`, and `unreachable` — a rejection naming none of
+the others, which in this service is the dial, its own socket error travelling in `message`.
+
+`message` is the store's own words. The line carries **no address and no credential**: the Private URL
+holds a password, and a diagnostic that printed it would leak the credential it was added to debug.
+
 **Why not the data plane.** The constraint this service exists under is *"No Neon credential. No user
 data. No write path."* and it still holds. The store is not Neon and holds no product data: it is a
 counter, reachable with its own credential, holding one integer per hour under a key derived from the
@@ -225,11 +244,13 @@ Work in this order; the first two are free and rule out most of it.
    upstream 403 are different problems with different fixes — see the table above.
 2. **Which ceiling refusal is it?** A `ceiling` refusal the service marked carries a body, and
    `detail: ceiling-store-unavailable` means the hour's count could not be read: a store problem, not
-   traffic. If the budget itself ran out, the caller is spending more than the agreement allows. If it
-   did not, `fly secrets list --app animichi-anitabi-egress` first — the service refuses everything
-   with `configuration` when the store's address is missing, unreadable, or not a `redis` address, so
-   a secret that was never set (or a leftover `https://` one from #1810) and a store that is down look
-   different from outside.
+   traffic. `fly logs --app animichi-anitabi-egress` then carries that failure's own line, whose `code`
+   names which guard fired or how the connection ended — that is the *why*, and it is deliberately not
+   in the caller's body. If the budget itself ran out, the caller is spending more than the agreement
+   allows. If it did not, `fly secrets list --app animichi-anitabi-egress` first — the service refuses
+   everything with `configuration` when the store's address is missing, unreadable, or not a `redis`
+   address, so a secret that was never set (or a leftover `https://` one from #1810) and a store that is
+   down look different from outside.
 3. **Has the address changed?** `fly ips list` against the value the guard pins. An egress address
    is allocated once and persists across deploys, so a change here is unexpected and would mean
    the allowlist silently stopped matching. **This is the failure that is quiet**: nothing breaks

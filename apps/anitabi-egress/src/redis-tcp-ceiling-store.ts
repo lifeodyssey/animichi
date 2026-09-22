@@ -42,10 +42,11 @@
  * Every failure is a rejection — an unreachable store, a refused AUTH, a
  * connection that drops, a reply that is not the answer asked for. None of
  * them may read as a count: a store whose failures were tolerated is a ceiling
- * that is not enforced.
+ * that is not enforced. Each rejection carries the failure code an operator
+ * reads (#1833), so the four reply-set guards below are four findings.
  */
 import { ReplyBuffer, type Reply } from "./resp-replies.ts";
-import type { CeilingStore } from "./upstream-ceiling.ts";
+import { CeilingStoreError, type CeilingStore, type CeilingStoreFailureCode } from "./upstream-ceiling.ts";
 
 /**
  * How long a window's key outlives its hour. Comfortably past the hour it
@@ -102,14 +103,6 @@ export interface RedisTcpCeilingStoreOptions {
   /** The store's Private URL, as `readCeilingStoreConfig` accepted it. */
   readonly url: string;
   readonly connect: StoreConnect;
-}
-
-/** A store that could not answer. The ceiling turns it into its own refusal. */
-class CeilingStoreError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "CeilingStoreError";
-  }
 }
 
 export class RedisTcpCeilingStore implements CeilingStore {
@@ -180,7 +173,7 @@ class ReplyReader {
     private readonly reject: (cause: Error) => void,
   ) {
     this.timer = setTimeout(() => {
-      this.fail("the ceiling store did not answer within its timeout");
+      this.fail("timeout", "the ceiling store did not answer within its timeout");
     }, STORE_TIMEOUT_MS);
   }
 
@@ -188,7 +181,7 @@ class ReplyReader {
   arrived(chunk: Uint8Array): void {
     this.buffered.push(chunk);
     if (this.buffered.overlong()) {
-      this.fail(OVERSIZED_REPLY_HEADER);
+      this.fail("oversized-reply", OVERSIZED_REPLY_HEADER);
       return;
     }
     for (let reply = this.buffered.next(); reply !== undefined; reply = this.buffered.next()) {
@@ -198,11 +191,11 @@ class ReplyReader {
   }
 
   failed(cause: unknown): void {
-    this.fail(`the ceiling store's connection failed (${String(cause)})`);
+    this.fail("connection", `the ceiling store's connection failed (${String(cause)})`);
   }
 
   hungUp(): void {
-    this.fail("the ceiling store closed the connection before answering");
+    this.fail("hang-up", "the ceiling store closed the connection before answering");
   }
 
   private grant(): void {
@@ -211,9 +204,9 @@ class ReplyReader {
     });
   }
 
-  private fail(message: string): void {
+  private fail(code: CeilingStoreFailureCode, message: string): void {
     this.settle(() => {
-      this.reject(new CeilingStoreError(message));
+      this.reject(new CeilingStoreError(code, message));
     });
   }
 
@@ -229,7 +222,8 @@ class ReplyReader {
  * The count in a WHOLE conversation, or a refusal: `replies` answers the `owed`
  * commands that went out, of which the first `authCount` were the address's
  * AUTH. Every slot has one answer and one shape, so a set that is not the one
- * asked for is refused here rather than read as a count.
+ * asked for is refused here rather than read as a count, and each guard names
+ * the code an operator reads (#1833) so the refusal says WHICH of them fired.
  */
 function countFrom(replies: readonly Reply[], authCount: number, owed: number): number {
   requireEveryCommandAnswered(replies, owed);
@@ -246,7 +240,8 @@ function countFrom(replies: readonly Reply[], authCount: number, owed: number): 
  */
 function requireEveryCommandAnswered(replies: readonly Reply[], owed: number): void {
   if (replies.length === owed) return;
-  throw new CeilingStoreError(`the ceiling store answered ${String(replies.length)} of ${String(owed)} commands`);
+  const answered = `the ceiling store answered ${String(replies.length)} of ${String(owed)} commands`;
+  throw new CeilingStoreError("reply-count", answered);
 }
 
 /**
@@ -256,7 +251,8 @@ function requireEveryCommandAnswered(replies: readonly Reply[], owed: number): v
  */
 function requireCredentialAccepted(replies: readonly Reply[], authCount: number): void {
   const accepted = replies.slice(0, authCount).every((reply) => reply.kind === "status" && reply.value === "OK");
-  if (!accepted) throw new CeilingStoreError("the ceiling store did not accept the credential its address carries");
+  if (accepted) return;
+  throw new CeilingStoreError("credential", "the ceiling store did not accept the credential its address carries");
 }
 
 /**
@@ -267,7 +263,7 @@ function requireCredentialAccepted(replies: readonly Reply[], authCount: number)
  */
 function requireExpirySet(reply: Reply | undefined): void {
   if (reply?.kind !== "integer" || reply.value !== 1) {
-    throw new CeilingStoreError("the ceiling store did not give the window an expiry");
+    throw new CeilingStoreError("expiry", "the ceiling store did not give the window an expiry");
   }
 }
 
@@ -280,7 +276,7 @@ function requireExpirySet(reply: Reply | undefined): void {
 function countIn(replies: readonly Reply[], authCount: number): number {
   const increment = replies[authCount];
   if (increment?.kind !== "integer" || increment.value <= 0) {
-    throw new CeilingStoreError("the ceiling store's increment answered with no positive count");
+    throw new CeilingStoreError("count", "the ceiling store's increment answered with no positive count");
   }
   return increment.value;
 }
