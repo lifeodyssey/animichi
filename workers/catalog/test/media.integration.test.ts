@@ -1,110 +1,67 @@
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import { ANITABI_THUMBNAIL_PLAN, ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
-import { serveImage, type ImageFetchLike, type ImgDeps } from "../src/media/img";
-import {
-  databaseDescribe,
-  openServerlessDb,
-  restoreNeonConfig,
-  truncateCatalog,
-} from "./integration-db";
+import { serveImage, type ImgDeps } from "../src/media/img";
+import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
+import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
+import { pointInsert, pointSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
+import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
 
 /**
  * Integration suite for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
  *
- * Uses the suite branch's full Atlas schema, then drives serveImage through Neon
- * Local HTTP with an in-memory mock R2Bucket and a
- * call-counting stub fetch. Proves the one-shot pull: first request fetches the
- * origin once + stores it in R2 + writes the media_assets row; the second serves
- * from R2 without re-fetching; an origin-404 tombstones and serves the fallback
- * on this and every later request without re-fetching.
+ * Runs on the Prisma-plane database the committed chain built (#1633), driving
+ * the real `serveImage` through one request's `CatalogPrisma` seam with an
+ * in-memory mock R2Bucket and a call-counting stub fetch. Proves the one-shot
+ * pull: first request fetches the origin once + stores it in R2 + writes the
+ * media_assets row; the second serves from R2 without re-fetching; an origin-404
+ * tombstones and serves the fallback on this and every later request without
+ * re-fetching.
+ *
+ * Seeding and asserting go through the pool rather than the seam under test, so
+ * a plan that wrote the wrong row cannot also be the thing that reads it back.
  */
 
-let db: CatalogDb;
+let pool: pg.Pool;
+let runtime: CatalogRuntime;
+let query: CatalogPrisma;
 
+const MEDIA_WORK = workSeed("3701", "らき☆すた");
+
+/** Seed one point carrying an origin image URL, on its own work. */
 async function seedPoint(id: string, image: string | null): Promise<void> {
-  await db.execute(
-    sql`INSERT INTO points (id, name, latitude, longitude, image)
-        VALUES (${id}, ${"spot"}, ${36.1}, ${139.6}, ${image})`,
-  );
+  const point = pointInsert([pointSeed(id, MEDIA_WORK, "spot", 36.1, 139.6)]);
+  await pool.query(point.text, point.values);
+  await pool.query("UPDATE points SET image = $1 WHERE id = $2", [image, id]);
 }
 
 async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombstoned: boolean } | undefined> {
-  const rows = (
-    await db.execute(
-      sql`SELECT r2_key, tombstoned FROM media_assets WHERE point_id = ${pointId}`,
-    )
-  ).rows as { r2_key: string | null; tombstoned: boolean }[];
-  return rows[0];
-}
-
-// In-memory R2Bucket stub: only the get/put surface serveImage exercises.
-function mockBucket(): { bucket: R2Bucket; store: Map<string, { body: ArrayBuffer; contentType: string }> } {
-  const store = new Map<string, { body: ArrayBuffer; contentType: string }>();
-  const bucket = {
-    put: putAsset(store),
-    get: getAsset(store),
-  };
-  return { bucket: bucket as unknown as R2Bucket, store };
-}
-
-function putAsset(store: Map<string, { body: ArrayBuffer; contentType: string }>) {
-  return (key: string, body: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }): Promise<R2Object> => {
-    store.set(key, { body, contentType: opts?.httpMetadata?.contentType ?? "image/jpeg" });
-    return Promise.resolve(undefined as unknown as R2Object);
-  };
-}
-
-function getAsset(store: Map<string, { body: ArrayBuffer; contentType: string }>) {
-  return (key: string) => {
-    const hit = store.get(key);
-    if (!hit) return Promise.resolve(null);
-    return Promise.resolve({
-      httpMetadata: { contentType: hit.contentType },
-      arrayBuffer: () => Promise.resolve(hit.body),
-    });
-  };
-}
-
-// Call-counting fetch stub returning bytes (status 200) or a status (404/etc).
-function mockFetch(status: number, bytes: Uint8Array): {
-  fetchImpl: ImageFetchLike; calls: () => number; urls: string[]; agents: (string | undefined)[];
-} {
-  let count = 0;
-  const urls: string[] = [];
-  const agents: (string | undefined)[] = [];
-  const fetchImpl: ImageFetchLike = (input, init) => {
-    count += 1;
-    urls.push(input);
-    agents.push(init?.headers?.["User-Agent"]);
-    return Promise.resolve(fetchResponse(status, bytes));
-  };
-  return { fetchImpl, calls: () => count, urls, agents };
-}
-
-function fetchResponse(status: number, bytes: Uint8Array) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: { get: (n: string) => (n.toLowerCase() === "content-type" ? "image/png" : null) },
-    arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
-  };
+  const { rows } = await pool.query(
+    "SELECT r2_key, tombstoned FROM media_assets WHERE point_id = $1", [pointId],
+  );
+  return (rows as { r2_key: string | null; tombstoned: boolean }[])[0];
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
-  await truncateCatalog(db);
+  pool = new pg.Pool({ connectionString: planeDatabaseUrl(), connectionTimeoutMillis: 10_000 });
+  await truncateCatalogPool(pool);
+  const work = workInsert([MEDIA_WORK]);
+  await pool.query(work.text, work.values);
+  runtime = await acquireCatalogRuntime(planeDatabaseUrl());
+  query = catalogPrisma(runtime);
 }, 120_000);
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await runtime[Symbol.asyncDispose]();
+  await pool.end();
+});
 
 databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
   it("first request fetches origin once, stores in R2, writes media_assets, serves bytes", async () => {
     await seedPoint("ok-1", "https://image.anitabi.cn/ok-1.png");
-    const { bucket, store } = mockBucket();
-    const { fetchImpl, calls, urls, agents } = mockFetch(200, new Uint8Array([1, 2, 3]));
-    const deps: ImgDeps = { db, bucket, fetchImpl };
+    const { bucket, store } = makeImageBucketStub();
+    const { fetchImpl, calls, urls, agents } = makeCountingImageFetch(200, new Uint8Array([1, 2, 3]));
+    const deps: ImgDeps = { query, bucket, fetchImpl };
     const res = await serveImage(deps, "ok-1", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toContain("public");
@@ -118,9 +75,9 @@ databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
 
   it("second request serves from R2 without re-fetching the origin", async () => {
     await seedPoint("ok-2", "https://image.anitabi.cn/ok-2.png");
-    const { bucket } = mockBucket();
-    const { fetchImpl, calls } = mockFetch(200, new Uint8Array([9, 9]));
-    const deps: ImgDeps = { db, bucket, fetchImpl };
+    const { bucket } = makeImageBucketStub();
+    const { fetchImpl, calls } = makeCountingImageFetch(200, new Uint8Array([9, 9]));
+    const deps: ImgDeps = { query, bucket, fetchImpl };
     await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
     const res = await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(200);
@@ -132,9 +89,9 @@ databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
 databaseDescribe("serveImage tombstone path", () => {
   it("origin 404 tombstones the asset and serves the fallback", async () => {
     await seedPoint("gone-1", "https://image.anitabi.cn/gone-1.png");
-    const { bucket, store } = mockBucket();
-    const { fetchImpl, calls } = mockFetch(404, new Uint8Array());
-    const res = await serveImage({ db, bucket, fetchImpl }, "gone-1", ANITABI_THUMBNAIL_PLAN);
+    const { bucket, store } = makeImageBucketStub();
+    const { fetchImpl, calls } = makeCountingImageFetch(404, new Uint8Array());
+    const res = await serveImage({ query, bucket, fetchImpl }, "gone-1", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
     expect(store.size).toBe(0);
@@ -143,10 +100,10 @@ databaseDescribe("serveImage tombstone path", () => {
 
   it("a tombstoned asset serves the fallback on later requests without re-fetching", async () => {
     await seedPoint("gone-2", "https://image.anitabi.cn/gone-2.png");
-    const { bucket } = mockBucket();
-    const { fetchImpl, calls } = mockFetch(404, new Uint8Array());
-    await serveImage({ db, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
-    const res = await serveImage({ db, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
+    const { bucket } = makeImageBucketStub();
+    const { fetchImpl, calls } = makeCountingImageFetch(404, new Uint8Array());
+    await serveImage({ query, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
+    const res = await serveImage({ query, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
   });

@@ -11,7 +11,7 @@ import { mountSnapshotRoutes } from "./api/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes, type AdminConnection } from "./import/admin-routes";
-import { connectionString, dbFor } from "./db/connections";
+import { connectionString } from "./db/connections";
 import { acquireCatalogRuntime, catalogPrisma } from "./db/prisma";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
 import { egressSigningKeyFromEnv } from "./ingest/anitabi-egress";
@@ -115,8 +115,13 @@ app.get("/catalog/img/:pointId", async (c) => {
   if (!connStr || !bucket) {
     return c.json({ error: "catalog media not configured" }, 503);
   }
-  const { db } = await dbFor(connStr);
-  return serveImage({ db, bucket, fetchImpl: fetch }, c.req.param("pointId"), plan);
+  // The image path acquires and disposes its own runtime, like `/catalog/*`
+  // below: the bytes are already in memory when `serveImage` resolves, so the
+  // response survives the scope that gave the connection back.
+  await using runtime = await acquireCatalogRuntime(connStr);
+  return await serveImage(
+    { query: catalogPrisma(runtime), bucket, fetchImpl: fetch }, c.req.param("pointId"), plan,
+  );
 });
 
 app.use("/catalog/*", async (c, next) => {
