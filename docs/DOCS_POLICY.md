@@ -14,8 +14,8 @@ stable boundaries, current entry points, and active plans only.
 | `README.md` | Repo entry point and current usage |
 | `AGENTS.md` | Canonical root guide — identity, monorepo layout, cross-stack guardrails, tool routing |
 | `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
-| `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
-| `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Drizzle) conventions |
+| `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Prisma 8) + data-platform conventions |
+| `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Prisma 8) conventions |
 | `packages/agent/AGENTS.md` | Platform-independent TypeScript agent domain library conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `packages/prisma-geography/AGENTS.md` | Private Prisma geography extension pack conventions and test-only SQL boundary |
@@ -94,7 +94,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC service over Neon, `/v1/users/*`; no token verification of its own — it trusts the edge-forwarded identity (AUTH-2 #950) |
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
 | Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
-| DB — catalog/user data (data plane) | **Neon Postgres**; one Prisma 8 chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1626, #1636). Catalog and users still QUERY through Drizzle raw SQL over neon-http until #1629–#1631 | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
+| DB — catalog/user data (data plane) | **Neon Postgres**; one Prisma 8 chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1626, #1636). Since #1633 every catalog/users query is a builder plan over the contract that chain generates, run on a per-request runtime | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
 | DB — private geography extension | `packages/prisma-geography/` + `packages/prisma-geography/AGENTS.md` | Prisma 8 control/runtime extension for `geography(Point,4326)` and metre/KNN operations; no consumer migration in #1623 |
 | DB — auth | **Neon Auth (Better Auth)** integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950) | `docs/ops/auth-migration-neon.md` runbook |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
