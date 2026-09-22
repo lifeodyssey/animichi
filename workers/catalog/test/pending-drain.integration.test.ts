@@ -50,7 +50,6 @@ let seams: PlaneSeams;
 
 const dependencies: CronDependencies = {
     connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
-  connect: () => Promise.resolve(db),
   ingestBangumi: (catalogDb, id, egressSigningKey) => catalogIngestBangumi(catalogDb, egressSigningKey).ingest(id, { fetchImpl }),
   listDoneBangumiIds,
   listDrainableBangumiIds,

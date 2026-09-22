@@ -11,7 +11,7 @@
  */
 import { DAILY_DISCOVER_CRON, DAILY_IMPORT_CRON, PENDING_DRAIN_CRON, SEED_CRON, TTL_REFRESH_CRON } from "../cron-config";
 import { allowsImportCron, allowsIngestCron, allowsPendingDrainCron, type RuntimeEnvironment } from "../operational-config";
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { importSnapshot, type ImportResult } from "./import-snapshot";
 import type { SnapshotSource } from "./snapshot-source";
 
@@ -61,9 +61,9 @@ export function guardCron(
  * it is a hard no-op — never activates anything (AC1/AC2 fail-closed).
  */
 export async function runImportJob(
-  db: CatalogDb,
+  query: CatalogPrisma,
   source: SnapshotSource | null,
 ): Promise<ImportResult> {
   if (source === null) return { status: "invalid", reason: "no snapshot import source" };
-  return importSnapshot(source, db);
+  return importSnapshot(source, query);
 }

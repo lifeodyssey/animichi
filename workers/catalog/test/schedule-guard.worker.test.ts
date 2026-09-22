@@ -25,11 +25,9 @@ import {
   allowsPendingDrainCron,
   runtimeEnvironment,
 } from "../src/operational-config";
-import type { CatalogDb } from "../src/db/client";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
 import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
-const db = {} as unknown as CatalogDb;
 /**
  * The cron's Prisma seam. Every dependency in these cases is injected, so this
  * seam is never reached — building it unreachable is what proves the wiring used
@@ -44,7 +42,6 @@ function deps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
@@ -169,6 +166,11 @@ describe("scheduled handler per-environment dispatch (AC1)", () => {
   it("no-ops the import cron when no import source is configured", async () => {
     const handle = deps({ importSource: vi.fn<CronDependencies["importSource"]>().mockReturnValue(null) });
     await createScheduledHandler(handle)({ cron: DAILY_IMPORT_CRON }, STAGING);
-    expect(handle.runImport).toHaveBeenCalledWith(db, null);
+    // By identity, not deep equality: `query` is the refusing proxy above, and
+    // reading a property off it to compare structurally is what it exists to
+    // forbid. The import runs on the pass's own seam, with no source.
+    const calls = vi.mocked(handle.runImport).mock.calls;
+    expect(calls[0]?.[0]).toBe(query);
+    expect(calls[0]?.[1]).toBeNull();
   });
 });

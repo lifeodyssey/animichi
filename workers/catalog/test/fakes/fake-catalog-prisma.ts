@@ -117,14 +117,64 @@ export function unreachableCatalogPrisma(): CatalogPrisma {
 export function fakeTableRows(rows: Readonly<Record<string, readonly unknown[]>>): CatalogPrisma {
   const seam: CatalogPrisma = {
     builder: catalogClient().sql,
-    executor: { query: (plan) => Promise.resolve((rows[readTable(plan)] ?? []) as readonly never[]) },
+    executor: { query: (plan) => Promise.resolve((rows[planTable(plan)] ?? []) as readonly never[]) },
     transaction: (fn) => joined(seam, fn),
   };
   return seam;
 }
 
-/** The table a plan's own source names; a plan that carries none answers nothing. */
-function readTable(plan: { readonly ast: unknown }): string {
-  const source = (plan.ast as { readonly from?: { readonly name?: unknown } }).from;
-  return typeof source?.name === "string" ? source.name : "";
+/**
+ * The table a plan names, whichever kind it is: a SELECT carries its source
+ * under `from`, an INSERT / UPDATE / DELETE under `table`. Reading only one of
+ * them would silently answer "" for every write, which is how a fake starts
+ * agreeing with a plan it never looked at.
+ */
+export function planTable(plan: { readonly ast: unknown }): string {
+  const ast = plan.ast as {
+    readonly from?: { readonly name?: unknown };
+    readonly table?: { readonly name?: unknown };
+  };
+  const named = ast.from ?? ast.table;
+  return typeof named?.name === "string" ? named.name : "";
+}
+
+/**
+ * One injected failure for {@link failingCatalogPrisma}: the statement's
+ * 0-based position within the unit, the table it names, or both. Omitting a
+ * condition means "any", and a failure that names neither matches everything.
+ */
+export interface CatalogPlanFailure {
+  readonly atIndex?: number;
+  readonly onTable?: string;
+  readonly error: Error;
+}
+
+/**
+ * A seam whose executor throws the first failure matching the statement it was
+ * handed. The position is counted across the whole unit, so a transaction's
+ * third statement is index 2 whether or not the ones before it were reads.
+ */
+export function failingCatalogPrisma(...failures: readonly CatalogPlanFailure[]): CatalogPrisma {
+  let index = 0;
+  const seam: CatalogPrisma = {
+    builder: catalogClient().sql,
+    executor: {
+      query: (plan) => {
+        const failure = matchingFailure(failures, planTable(plan), index++);
+        if (failure !== undefined) return Promise.reject(failure);
+        return Promise.resolve([] as readonly never[]);
+      },
+    },
+    transaction: (fn) => joined(seam, fn),
+  };
+  return seam;
+}
+
+/** The first failure whose every stated condition holds for this statement. */
+function matchingFailure(
+  failures: readonly CatalogPlanFailure[], table: string, index: number,
+): Error | undefined {
+  return failures.find((failure) =>
+    (failure.atIndex === undefined || failure.atIndex === index)
+    && (failure.onTable === undefined || failure.onTable === table))?.error;
 }

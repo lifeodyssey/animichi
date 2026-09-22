@@ -57,7 +57,6 @@ const alarm = { upstreamRefused: (refusal: UpstreamRefusal) => { raised.push(ref
 
 const dependencies: CronDependencies = {
     connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
-  connect: () => Promise.resolve(db),
   ingestBangumi: (catalogDb, id, egressSigningKey) =>
     catalogIngestBangumi(catalogDb, egressSigningKey, alarm).ingest(id, { fetchImpl }),
   listDoneBangumiIds,

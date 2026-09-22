@@ -13,7 +13,7 @@
 import { COMPATIBILITY, MANIFEST_SCHEMA_VERSION, type SnapshotManifest } from "../publish/manifest";
 import { arrayBufferToText, textToArrayBuffer } from "../publish/bytes";
 
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import type { SnapshotSource } from "./snapshot-source";
 import { neonImportActivation, type ImportActivation } from "./switch";
 
@@ -51,7 +51,7 @@ export type ImportValidate = (
 /** Load + validate + atomically activate the current production snapshot. */
 export async function importSnapshot(
   source: SnapshotSource,
-  db: CatalogDb,
+  query: CatalogPrisma,
   validate: ImportValidate = validateImport,
   activate: ImportActivation = neonImportActivation,
 ): Promise<ImportResult> {
@@ -68,7 +68,7 @@ export async function importSnapshot(
   if (!(await validate(candidate, manifest)).valid) {
     return { status: "invalid", reason: "import validation failed" };
   }
-  await activate.switchCatalog(db, candidate);
+  await activate.switchCatalog(query, candidate);
   return { status: "imported", snapshotId: candidate.snapshotId };
 }
 

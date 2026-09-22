@@ -7,8 +7,7 @@
  * then DOES lives in `./cron-jobs`; kept out of the Worker entry so the
  * composition root stays a slim list of mounts and entrypoint exports.
  */
-import type { CatalogDb } from "../db/client";
-import { connectionString, dbFor } from "../db/connections";
+import { connectionString } from "../db/connections";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma } from "../db/prisma";
 import { catalogIngestBangumi } from "../ingest/ingest-bangumi";
 import type { IngestResult } from "../ingest/ingest-bangumi";
@@ -53,16 +52,13 @@ export interface CronJobResult {
 /**
  * Injectable seams for the cron jobs; tests substitute every one.
  *
- * The ingest path takes the request's {@link CatalogPrisma} (#1630), and so does
- * the snapshot publish it can trigger; the still-Drizzle seam is what is left —
- * the staging import — and naming both here is what keeps a seam from silently
- * becoming the other one's type.
+ * Every job takes the pass's {@link CatalogPrisma} (#1630, #1633) — the staging
+ * import was the last one on a seam of its own, and joined this one when the
+ * Drizzle client left the repository.
  */
 export interface CronDependencies {
   /** Acquire this cron pass's Prisma seam; the handler disposes it when done. */
   connectPrisma: (connectionString: string) => Promise<CronPrisma>;
-  /** The still-Drizzle seam, for the staging import. */
-  connect: (connectionString: string) => Promise<CatalogDb>;
   ingestBangumi: (query: CatalogPrisma, bangumiId: string, egressSigningKey?: string) => Promise<IngestResult>;
   listDoneBangumiIds: (query: CatalogPrisma, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listDrainableBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
@@ -73,13 +69,12 @@ export interface CronDependencies {
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
   /** Build the read-only snapshot source, or null when no import binding exists (AC2). */
   importSource: (env: ScheduledEnvironment) => SnapshotSource | null;
-  /** Run the daily staging import over the catalog db (AC1/AC3/AC4). */
-  runImport: (db: CatalogDb, source: SnapshotSource | null) => Promise<ImportResult>;
+  /** Run the daily staging import over the pass's seam (AC1/AC3/AC4). */
+  runImport: (query: CatalogPrisma, source: SnapshotSource | null) => Promise<ImportResult>;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
   connectPrisma: defaultCronPrisma,
-  connect: async (connStr) => (await dbFor(connStr)).db,
   ingestBangumi: (query, bangumiId, egressSigningKey) => catalogIngestBangumi(query, egressSigningKey).ingest(bangumiId),
   listDoneBangumiIds,
   listDrainableBangumiIds,
@@ -89,7 +84,7 @@ const DEFAULT_DEPENDENCIES: CronDependencies = {
   publishRun: (query, store, sourceRunId, createdAt) => publishSnapshot({ query, store }, { sourceRunId, createdAt }),
   gcSnapshots: (store) => gcSnapshots(store, SNAPSHOT_KEEP),
   importSource: (env) => snapshotSourceFor(env),
-  runImport: (db, source) => runImportJob(db, source),
+  runImport: (query, source) => runImportJob(query, source),
 };
 
 export function createScheduledHandler(
@@ -146,14 +141,12 @@ function logCronCompletion(kind: CronKind, result: CronJobResult): void {
 }
 
 /**
- * Run one cron pass over the seams its kind actually uses.
+ * Run one cron pass on the ONE runtime its kind needs, disposed on scope exit.
  *
- * The ingest kinds acquire ONE Prisma runtime for the whole pass, disposed on
- * scope exit; `dailyDiscover` runs its ingest AND its snapshot publish on that
- * one seam. Only `dailyImport` takes the Drizzle handle, and only because the
- * staging import still writes the pre-Prisma column set. Acquiring both for
- * every kind would open a Postgres connection for a cron that never issues a
- * statement on it.
+ * `dailyDiscover` runs its ingest AND its snapshot publish on that seam, and
+ * since #1633 `dailyImport` takes it too: the staging import was the last job
+ * with a client of its own, and it had one only because it still wrote the
+ * pre-Prisma column set.
  */
 async function runCron(
   kind: ScheduledCronKind,
@@ -161,20 +154,30 @@ async function runCron(
   dependencies: CronDependencies,
   context: CronContext,
 ): Promise<CronJobResult> {
-  if (kind === "dailyImport") {
-    await runDailyImport(await dependencies.connect(connStr), dependencies, context.importSource);
-    return { attempted: 0, ingested: 0, skipped: 0 };
-  }
   const seam = await dependencies.connectPrisma(connStr);
   try {
-    if (kind === "dailyDiscover") {
-      await publishDailyDiscover(seam.query, dependencies, context);
-      return { attempted: 0, ingested: 0, skipped: 0 };
-    }
-    return await runIngestKind(kind, seam.query, dependencies, context.egressSigningKey);
+    return await runCronKind(kind, seam.query, dependencies, context);
   } finally {
     await seam.dispose();
   }
+}
+
+/** The pass itself, once its seam is open: the two publishing kinds, then ingest. */
+async function runCronKind(
+  kind: ScheduledCronKind,
+  query: CatalogPrisma,
+  dependencies: CronDependencies,
+  context: CronContext,
+): Promise<CronJobResult> {
+  if (kind === "dailyImport") {
+    await runDailyImport(query, dependencies, context.importSource);
+    return { attempted: 0, ingested: 0, skipped: 0 };
+  }
+  if (kind === "dailyDiscover") {
+    await publishDailyDiscover(query, dependencies, context);
+    return { attempted: 0, ingested: 0, skipped: 0 };
+  }
+  return runIngestKind(kind, query, dependencies, context.egressSigningKey);
 }
 
 /** The three kinds that only ever run ingest batches. */
@@ -226,11 +229,11 @@ function combineResults(left: CronJobResult, right: CronJobResult): CronJobResul
  * (`CronJobResult` above stays zeroed for it); log its outcome directly so a
  * validation/activation failure is not a silent no-op. */
 async function runDailyImport(
-  db: CatalogDb,
+  query: CatalogPrisma,
   dependencies: CronDependencies,
   importSource: SnapshotSource | null,
 ): Promise<void> {
-  logImportOutcome(await dependencies.runImport(db, importSource));
+  logImportOutcome(await dependencies.runImport(query, importSource));
 }
 
 /** The import's own failure reason is the signal; success logs the snapshot id. */

@@ -19,7 +19,6 @@ const DATABASE_URL = "postgresql://user:password@catalog.example/animichi";
 const INGESTED = { status: "ingested", version: 1, pointCount: 2 } as const;
 const BASE_DEPENDENCIES: CronDependencies = {
   connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
-  connect: () => Promise.resolve({} as never),
   ingestBangumi: () => Promise.resolve(INGESTED),
   listDoneBangumiIds: () => Promise.resolve(new Set()),
   listDrainableBangumiIds: () => Promise.resolve([]),

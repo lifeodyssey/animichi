@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ImportCandidate } from "../src/import/import-snapshot";
-import { importBatch } from "../src/import/switch";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { importTransaction } from "../src/import/switch";
+import { failingCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 function candidate(): ImportCandidate {
   return {
@@ -14,23 +14,21 @@ function candidate(): ImportCandidate {
   };
 }
 
-// importBatch (like publishVersion, story 11) has no try/catch around
-// db.batch: the PINNED behavior is a clean propagation with no partial-state
-// ambiguity — a failure anywhere in the one-transaction batch rejects the
-// whole switchCatalog call, so an invalid/partial activation never lands.
-describe("B6: importBatch mid-batch failure (fakeCatalogDb batch fidelity)", () => {
-  it("propagates a failure on a delete statement (matched by rendered SQL)", async () => {
-    const db = fakeCatalogDb({}, {
-      errors: [{ sqlIncludes: "delete from \"bangumi\"", error: new Error("delete failed") }],
-    });
-    await expect(importBatch(db, candidate())).rejects.toThrow("delete failed");
+// importTransaction (like publishVersion) has no try/catch around the unit: the
+// PINNED behaviour is a clean propagation with no partial-state ambiguity — a
+// failure anywhere in the one transaction rejects the whole switchCatalog call,
+// so an invalid/partial activation never lands.
+describe("B6: importTransaction mid-unit failure", () => {
+  it("propagates a failure on a delete statement, named by the table it clears", async () => {
+    const query = failingCatalogPrisma({ onTable: "bangumi", error: new Error("delete failed") });
+    await expect(importTransaction(query, candidate())).rejects.toThrow("delete failed");
   });
 
-  it("propagates a failure on the trailing works insert (matched by batch index)", async () => {
+  it("propagates a failure on the trailing works insert, named by its position", async () => {
     // Statement order: [record run, delete x6 (DELETE_ORDER), insert works] —
-    // one object kind ("works") means the batch is exactly 8 statements, so
-    // the insert lands at index 7.
-    const db = fakeCatalogDb({}, { errors: [{ atIndex: 7, error: new Error("insert failed") }] });
-    await expect(importBatch(db, candidate())).rejects.toThrow("insert failed");
+    // one object kind ("works") means the unit is exactly 8 statements, so the
+    // insert lands at index 7.
+    const query = failingCatalogPrisma({ atIndex: 7, error: new Error("insert failed") });
+    await expect(importTransaction(query, candidate())).rejects.toThrow("insert failed");
   });
 });
