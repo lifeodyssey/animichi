@@ -12,6 +12,7 @@ import { hasPrismaSnapshot, PRISMA_TARGET } from "./prisma-target";
 import { MAX_PREFLIGHT_BYTES, parsePreflightMetadata, type PreflightMetadata } from "./preflight-metadata";
 import type { SelectedExecutor, SelectedMigration } from "./selected-migration";
 import { selectedExecutor } from "./selected-executor";
+import { redactedCause } from "./redacted-cause";
 
 /**
  * #1051 / #1124 / #1589 / #1634 — the migrator's Hono application + environment.
@@ -67,11 +68,18 @@ interface FailureJson {
   success: false;
   exitCode: number;
   error?: string;
+  cause?: string;
 }
 
+/**
+ * `result.error` may be a driver message, so only the stable `failureCode` is published.
+ * `result.cause` is different in kind: `selected-migration.ts` builds it through
+ * `redactedCause`, and only for a failure that threw, so it is publishable as it stands.
+ */
 function failureBody(result: Extract<SelectedMigration, { kind: "failure" }>): FailureJson {
   if (result.error === undefined) return { success: false, exitCode: result.exitCode };
-  return { success: false, exitCode: result.exitCode, error: result.failureCode ?? "migration_failed" };
+  const named: FailureJson = { success: false, exitCode: result.exitCode, error: result.failureCode ?? "migration_failed" };
+  return result.cause === undefined ? named : { ...named, cause: result.cause };
 }
 
 /**
@@ -103,6 +111,20 @@ async function guardRequest(c: Context<{ Bindings: Env }>, deps: MigratorDeps): 
   return { ok: true, metadata: body };
 }
 
+/**
+ * The apply never produced an outcome at all — the secret would not resolve, the lock is
+ * unbound, or the Durable Object RPC itself failed. That last one is how staging died on
+ * 2026-09-22: the object was reset mid-apply and this catch reported the platform's message
+ * as a bare `migration_unavailable` (#1868). A distinct name, because `migration_unavailable`
+ * now means the narrower thing — the apply ran and threw — and the two want different
+ * operator responses: this one leaves the database in an unread state.
+ */
+function dispatchFailure(c: Context<{ Bindings: Env }>, error: unknown): Response {
+  const cause = redactedCause(error);
+  console.error(`[migrator] apply dispatch failed: ${cause}`);
+  return c.json({ success: false, error: "apply_dispatch_failed", cause }, 500);
+}
+
 async function handleMigrate(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Promise<Response> {
   const guard = await guardRequest(c, deps);
   if (!guard.ok) return guard.response;
@@ -110,8 +132,8 @@ async function handleMigrate(c: Context<{ Bindings: Env }>, deps: MigratorDeps):
     const dsn = await resolveDsn(c.env);
     if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
     return outcomeResponse(await selectedExecutor(c.env, deps).migrate(dsn, guard.metadata));
-  } catch {
-    return c.json({ success: false, error: "migration_unavailable" }, 500);
+  } catch (error) {
+    return dispatchFailure(c, error);
   }
 }
 
