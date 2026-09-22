@@ -5,6 +5,7 @@ import { ChatResponseDataPart } from "../src/chat-data-parts.js";
 const FIXTURES = ["search", "clarify", "error"] as const;
 const STREAM_HEADER = { "x-vercel-ai-ui-message-stream": "v1" };
 type Frame = Record<string, unknown>;
+type ParsedFrame = Frame | "[DONE]";
 
 function fixturePath(name: string): URL {
   return new URL(`../fixtures/chat-stream/${name}.sse`, import.meta.url);
@@ -14,36 +15,36 @@ function isFrame(value: unknown): value is Frame {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseValue(value: string): Frame | "[DONE]" {
+function parseValue(value: string): ParsedFrame {
   if (value === "[DONE]") return value;
   const parsed: unknown = JSON.parse(value);
   if (!isFrame(parsed)) throw new Error("SSE data must be a JSON object");
   return parsed;
 }
 
-function parseEvent(event: string): Frame | "[DONE]" {
+function parseEvent(event: string): ParsedFrame {
   if (!event.startsWith("data: ")) throw new Error("Invalid SSE framing");
   return parseValue(event.slice(6));
 }
 
-function parseFixture(name: string): Array<Frame | "[DONE]"> {
+function parseFixture(name: string): ParsedFrame[] {
   const raw = readFileSync(fixturePath(name), "utf8");
   return raw.trim().split("\n\n").map(parseEvent);
 }
 
-function frameTypes(frames: Array<Frame | "[DONE]">): string[] {
+function frameTypes(frames: ParsedFrame[]): string[] {
   return frames.map((frame) => frame === "[DONE]" ? frame : String(frame.type));
 }
 
-function dataResponses(frames: Array<Frame | "[DONE]">): Frame[] {
+function dataResponses(frames: ParsedFrame[]): Frame[] {
   return frames.filter((frame): frame is Frame => frame !== "[DONE]" && frame.type === "data-response");
 }
 
-function assertDataResponses(frames: Array<Frame | "[DONE]">): void {
+function assertDataResponses(frames: ParsedFrame[]): void {
   for (const frame of dataResponses(frames)) ChatResponseDataPart.parse(frame.data);
 }
 
-function assertTerminator(frames: Array<Frame | "[DONE]">): void {
+function assertTerminator(frames: ParsedFrame[]): void {
   expect(frames.at(-1)).toBe("[DONE]");
   expect(frames.slice(0, -1)).not.toContain("[DONE]");
 }
