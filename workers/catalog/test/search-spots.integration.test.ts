@@ -1,12 +1,8 @@
-import { desc, eq, sql, type SQL } from "drizzle-orm";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { search, searchDb } from "../src/api/search";
 import { spots, SpotNotFoundError } from "../src/api/spots";
-import { statementBuilder, type CatalogDb } from "../src/db/client";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
-import { aliases, bangumi, points as pointsTable } from "../src/db/schema";
-import { makePgCatalog } from "./integration-db-global/pg-catalog";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import { CONTESTED_ALIAS, EMPTY_WORK, RESOLVED_WORK, seedSearchSpots } from "./search-spots.fixtures";
 
@@ -22,73 +18,55 @@ import { CONTESTED_ALIAS, EMPTY_WORK, RESOLVED_WORK, seedSearchSpots } from "./s
  * same rows in the same order" is measured rather than asserted, and a plan that
  * reads a different row set cannot agree with them. The oracles are kept as the
  * behaviour being replaced; one that tracked the new code could not measure it.
+ * They are frozen as TEXT rather than as builder calls (#1633): the library that
+ * rendered them has left the repository, and an oracle a live library rebuilds
+ * on every run could move under a version bump with no line of this file
+ * changing. Each literal is what `PgDialect().sqlToQuery(…)` emitted for the
+ * pre-#1631 chain, and the rows both paths returned were compared before the
+ * chain was deleted.
  *
  * The alias oracle also settles the ordering: both works carry
  * `CONTESTED_ALIAS`, the shadowed one at a LOWER priority and inserted FIRST, so
  * heap order hands back the wrong work and only `ORDER BY priority DESC` returns
  * `RESOLVED_WORK`.
  *
- * `search` spans both seams — its alias lookup is Prisma's (#1631), its
- * published-points read is still Drizzle's until #1629 — so this file drives the
- * pair exactly as `router.ts` wires them.
+ * `search` reaches one seam now: #1629 moved its published-points read onto the
+ * plane its alias lookup already used, so this file drives it exactly as
+ * `router.ts` wires it.
  */
 
 let pool: pg.Pool;
 let runtime: CatalogRuntime;
 let prisma: CatalogPrisma;
-let drizzle: CatalogDb;
 
 /** `search` over the two seams the router hands it. */
 function searchOnBothSeams(query: string) {
   return search(searchDb(prisma), { query });
 }
 
-/** The pre-#1631 alias statement, frozen. */
-function drizzleFirstBangumiIdStatement(normalized: string): SQL {
-  return statementBuilder()
-    .select({ bangumiId: aliases.bangumiId })
-    .from(aliases)
-    .where(eq(aliases.aliasNormalized, normalized))
-    .orderBy(desc(aliases.priority))
-    .limit(1)
-    .getSQL();
+/**
+ * The pre-#1631 alias statement, frozen as the TEXT the query builder emitted.
+ * A literal rather than a rebuilding call: an oracle a live library regenerates
+ * on every run can move under a version bump without this file changing, and
+ * then it no longer measures the behaviour being replaced.
+ */
+const PRE_1631_FIRST_BANGUMI_ID_SQL = 'select "bangumi_id" from "aliases" where "aliases"."alias_normalized" = $1 order by "aliases"."priority" desc limit $2';
+
+/** The alias oracle's bound values: the normalized alias, then the row cap. */
+function pre1631FirstBangumiIdParams(normalized: string): unknown[] {
+  return [normalized, 1];
 }
 
-/** The pre-#1631 representative statement, frozen. */
-function drizzleRepresentativeStatement(bangumiId: string): SQL {
-  return statementBuilder()
-    .select({
-      id: pointsTable.id, name: pointsTable.name, nameCn: pointsTable.nameCn,
-      bangumiId: pointsTable.bangumiId, episode: pointsTable.episode,
-      timeSeconds: pointsTable.timeSeconds, image: pointsTable.image,
-      latitude: pointsTable.latitude, longitude: pointsTable.longitude, city: pointsTable.city,
-      origin: pointsTable.origin, originUrl: pointsTable.originUrl,
-    })
-    .from(pointsTable)
-    .where(eq(pointsTable.bangumiId, bangumiId))
-    .orderBy(sql`id ASC`)
-    .limit(1)
-    .getSQL();
+/** The pre-#1631 representative statement, frozen as its emitted text. */
+const PRE_1631_REPRESENTATIVE_SQL = 'select "id", "name", "name_cn", "bangumi_id", "episode", "time_seconds", "image", "latitude", "longitude", "city", "origin", "origin_url" from "points" where "points"."bangumi_id" = $1 order by id ASC limit $2';
+
+/** The representative oracle's bound values: the work id, then the row cap. */
+function pre1631RepresentativeParams(bangumiId: string): unknown[] {
+  return [bangumiId, 1];
 }
 
-/** The pre-#1631 joined points statement, frozen. */
-function drizzlePointsForBangumiStatement(bangumiId: string): SQL {
-  return statementBuilder()
-    .select({
-      id: pointsTable.id, name: pointsTable.name, nameCn: pointsTable.nameCn,
-      bangumiId: pointsTable.bangumiId, episode: pointsTable.episode,
-      timeSeconds: pointsTable.timeSeconds, image: pointsTable.image,
-      latitude: pointsTable.latitude, longitude: pointsTable.longitude,
-      city: pointsTable.city, origin: pointsTable.origin, originUrl: pointsTable.originUrl,
-      title: bangumi.title, titleCn: bangumi.titleCn,
-      coverUrl: bangumi.coverUrl, syncedAt: bangumi.updatedAt,
-    })
-    .from(pointsTable)
-    .leftJoin(bangumi, eq(pointsTable.bangumiId, bangumi.id))
-    .where(eq(pointsTable.bangumiId, bangumiId))
-    .orderBy(sql`episode ASC`, sql`time_seconds ASC`, sql`id ASC`)
-    .getSQL();
-}
+/** The pre-#1631 joined points statement, frozen as its emitted text. */
+const PRE_1631_POINTS_FOR_BANGUMI_SQL = 'select "points"."id", "points"."name", "points"."name_cn", "points"."bangumi_id", "points"."episode", "points"."time_seconds", "points"."image", "points"."latitude", "points"."longitude", "points"."city", "points"."origin", "points"."origin_url", "bangumi"."title", "bangumi"."title_cn", "bangumi"."cover_url", "bangumi"."updated_at" from "points" left join "bangumi" on "points"."bangumi_id" = "bangumi"."id" where "points"."bangumi_id" = $1 order by episode ASC, time_seconds ASC, id ASC';
 
 /** The representative row as the pre-#1631 handler read it — the oracle's own names. */
 interface RepresentativeOracleRow {
@@ -117,8 +95,10 @@ interface JoinedOracleRow {
 }
 
 async function drizzleRepresentativeRows(bangumiId: string): Promise<RepresentativeOracleRow[]> {
-  const result = await drizzle.execute(drizzleRepresentativeStatement(bangumiId));
-  return result.rows as unknown as RepresentativeOracleRow[];
+  const { rows } = await pool.query(
+    PRE_1631_REPRESENTATIVE_SQL, pre1631RepresentativeParams(bangumiId),
+  );
+  return rows as RepresentativeOracleRow[];
 }
 
 beforeAll(async () => {
@@ -127,7 +107,6 @@ beforeAll(async () => {
   await seedSearchSpots(pool);
   runtime = await acquireCatalogRuntime(planeDatabaseUrl());
   prisma = catalogPrisma(runtime);
-  drizzle = makePgCatalog(pool);
 }, 120_000);
 
 afterAll(async () => {
@@ -137,8 +116,10 @@ afterAll(async () => {
 
 databaseDescribe("search alias lookup on the Prisma plane (#1631)", () => {
   it("resolves the contested alias to its highest-priority work, as the Drizzle path did", async () => {
-    const result = await drizzle.execute(drizzleFirstBangumiIdStatement(CONTESTED_ALIAS));
-    const oracle = (result.rows as unknown as { bangumi_id: string }[])[0];
+    const { rows: oracleRows } = await pool.query(
+      PRE_1631_FIRST_BANGUMI_ID_SQL, pre1631FirstBangumiIdParams(CONTESTED_ALIAS),
+    );
+    const oracle = (oracleRows as { bangumi_id: string }[])[0];
 
     const { rows } = await searchOnBothSeams(CONTESTED_ALIAS);
 
@@ -154,8 +135,10 @@ databaseDescribe("search alias lookup on the Prisma plane (#1631)", () => {
   });
 
   it("matches the frozen joined statement row-for-row (AC1)", async () => {
-    const result = await drizzle.execute(drizzlePointsForBangumiStatement(RESOLVED_WORK.workId));
-    const oracle = result.rows as unknown as JoinedOracleRow[];
+    const { rows: oracleRows } = await pool.query(
+      PRE_1631_POINTS_FOR_BANGUMI_SQL, [RESOLVED_WORK.workId],
+    );
+    const oracle = oracleRows as JoinedOracleRow[];
 
     const { rows } = await searchOnBothSeams(CONTESTED_ALIAS);
 
