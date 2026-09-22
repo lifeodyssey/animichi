@@ -38,7 +38,11 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    `packages/contract/src/oidc-github.ts` (`@animichi/contract/oidc-github`).
 2. **Apply the sealed graph (#1124, #1634)**: after OIDC, a fixed-name
    Durable Object mutex (`migrator-apply-lock`, not `migrator-job-*`)
-   serializes apply. Inside that gate the Worker rechecks the requested schema
+   serializes apply. The gate is the object's own `QueueLock`, **not**
+   `blockConcurrencyWhile` (#1868): the platform caps that callback at 30
+   seconds and resets the object on overrun, which is how a staging apply died
+   at 31 s on 2026-09-22. An RPC that stays in flight keeps the object alive
+   with no such bound, so the apply is only as long as the migration is. Inside that gate the Worker rechecks the requested schema
    identity against the graph it carries and then calls Prisma's control client,
    which owns graph traversal, per-migration transactions, its advisory lock and
    the marker. The migrator no longer carries an apply loop, a revision ledger,
@@ -61,7 +65,16 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    transport, redirects included, for calls that carry the OIDC token). There is
    one identity on both sides; a request the graph cannot reach is refused, never
    partially applied.
-4. **Report**: returns success plus Prisma's own receipt — `markerHash`,
+4. **Report**: a failure that THREW names which of the two things threw and
+   carries its cause (#1868). `apply_dispatch_failed` means no apply produced a
+   verdict — the secret did not resolve, the lock is unbound, or the Durable
+   Object RPC itself failed — so the database state is unread; `migration_unavailable`
+   is the narrower fact that the apply ran and threw. Both put the thrown message
+   through `src/redacted-cause.ts` first, and log it as well as return it,
+   because the answer itself can be lost on the way out. Every handled outcome
+   keeps its own identity and no cause: `refused`, a native failure code,
+   `prisma_marker_mismatch`, `stale_prisma_bundle`.
+   Otherwise: returns success plus Prisma's own receipt — `markerHash`,
    `migrationsApplied` and `applied`. A receipt whose marker is not the requested
    identity refuses success (`prisma_marker_mismatch`). That receipt is visible
    **only** through this OIDC-authenticated response: #1339 removed the anonymous
@@ -142,10 +155,17 @@ applies zero migrations. CI receives no DSN; the Worker resolves its secret.
 
 TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
 `test/migrate.worker.http.test.ts` + `test/apply-lock.test.ts` +
-`test/direct-dsn.test.ts`): valid test-signed JWT → apply + success; wrong repo /
+`test/migrate.worker.thrown.test.ts` + `test/direct-dsn.test.ts`): valid test-signed JWT → apply + success; wrong repo /
 wrong audience / expired → 403; `-pooler` rejected before any connection;
-fixed-name lock and in-process queueing. The executor and JWKS are injected in
-plain Vitest, and `test/selected-executor-double.ts` records every DSN the route
+fixed-name lock and in-process queueing; a `/migrate` that threw names which
+site threw and carries a redacted cause. `test/apply-lock.workerd.test.ts` owns
+the Durable Object's own behaviour — the class bundled from `src/` unchanged,
+its collaborator swapped at link time for `test/recorded-apply.ts` — and proves
+serialization by order and that an apply of 32 s returns rather than resetting
+the object. It replaced an assertion that read `src/apply-lock.ts` and matched
+it for the string "blockConcurrencyWhile": that pinned the construct which
+caused #1868, and any fix keeping the word would have left it green. The
+executor and JWKS are injected in plain Vitest, and `test/selected-executor-double.ts` records every DSN the route
 hands it — so a refusal test asserts the route never reached the database, not
 merely that it answered a refusal. `test/deployment-contract.test.ts` resolves
 all three Wrangler rings and bundles the deployed entry with an esbuild
@@ -166,7 +186,9 @@ test would still pass. `test/migrate.worker.handshake.test.ts` owns `/healthz`'s
 Test timeouts are budgets, not defaults (#1594). `test/test-timeout-budget.ts`
 declares one number per suite kind with the measurement that justifies it: the
 unit arm keeps vitest's tight 5 s for plain in-process tests, the workerd
-suites carry their own `describe(…, { timeout })`, and the integration config
+suites carry their own `describe(…, { timeout })` — including the 90 s one
+`apply-lock.workerd.test.ts` needs to spend longer than the platform's own
+30-second cap, which workerd exposes no knob to shorten — and the integration config
 is package-wide because every file there provisions a database of its own on
 the shared container (#1663) and migrates it. `test/vitest-config-timeout.test.ts`
 globs every `vitest*.config.{ts,mts,cts,js,mjs,cjs}` in the package — every
