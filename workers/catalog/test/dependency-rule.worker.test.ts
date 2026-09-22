@@ -52,24 +52,78 @@ const FROM_CLAUSE = /\bfrom\s+(["'])([^"'\n]+)\1/g;
 const SIDE_EFFECT = /^\s*import\s+(["'])([^"'\n]+)\1/gm;
 const DYNAMIC = /\bimport\(\s*(["'])([^"'\n]+)\1\s*\)/g;
 
-/** A commented-out line carries no import, whatever it quotes. */
-function insideComment(source: string, index: number): boolean {
-  const before = source.slice(source.lastIndexOf("\n", index) + 1, index).trimStart();
+interface CommentSpan {
+  /** Index of the block's opener. */
+  readonly start: number;
+  /** Index just past its closer, or end of file when nothing closes it. */
+  readonly end: number;
+}
+
+/** The text between the start of `index`'s own line and `index` itself. */
+function linePrefix(source: string, index: number): string {
+  return source.slice(source.lastIndexOf("\n", index) + 1, index);
+}
+
+/** The block an opener at `open` spans; an unterminated one runs to end of file, as tsc reads it. */
+function blockCommentFrom(source: string, open: number): CommentSpan {
+  const close = source.indexOf("*/", open + 2);
+  return { start: open, end: close === -1 ? source.length : close + 2 };
+}
+
+/**
+ * Where every block comment runs. An opener counts only at the start of its own
+ * line, because a route glob ends in the same two characters: `src/index.ts`
+ * registers `"/catalog/public/*"` and `"/catalog/*"`, and reading one as an
+ * opener with no closer after it costs every import below. `workers/users` was
+ * measured losing its own `export type { UsersRouter }` exactly that way.
+ */
+function blockCommentSpans(source: string): readonly CommentSpan[] {
+  const spans: CommentSpan[] = [];
+  let open = source.indexOf("/*");
+  while (open !== -1) {
+    const atLineStart = linePrefix(source, open).trim() === "";
+    const block = atLineStart ? blockCommentFrom(source, open) : undefined;
+    if (block) spans.push(block);
+    open = source.indexOf("/*", block?.end ?? open + 2);
+  }
+  return spans;
+}
+
+/**
+ * Whether `index` sits in a comment: inside a block, on a `//` line, or on a
+ * block's `*` continuation line. A well-formed block subsumes the last one, but
+ * it stays — a string literal carrying a closer ends a block early, and the
+ * continuation lines below it must still not be read as code. That keeps this a
+ * superset of the line-only filter it replaces, never a swap for it.
+ */
+function insideComment(source: string, index: number, blocks: readonly CommentSpan[]): boolean {
+  if (blocks.some((block) => index >= block.start && index < block.end)) return true;
+  const before = linePrefix(source, index).trimStart();
   return before.startsWith("//") || before.startsWith("*");
 }
 
-function matchesOf(source: string, pattern: RegExp): string[] {
+function matchesOf(source: string, pattern: RegExp, blocks: readonly CommentSpan[]): string[] {
   return [...source.matchAll(pattern)]
-    .filter((match) => !insideComment(source, match.index))
+    .filter((match) => !insideComment(source, match.index, blocks))
     .map((match) => match[2] ?? "");
 }
 
-/** Every module specifier a source file imports, static or dynamic. */
+/**
+ * Every module specifier a source file imports, static or dynamic.
+ *
+ * A regex over text, not a parser, so three shapes are read wrong — and all
+ * three err toward reporting an import that is not there, never toward missing
+ * one, which is the only direction that would weaken the gate: a string literal
+ * shaped like an import counts (`const s = "from '../db/prisma'"`); a block
+ * comment opened mid-line is not read as a comment at all; and a string carrying
+ * a closer ends its block early, so the rest of that block is read as code.
+ */
 export function importSpecifiers(source: string): string[] {
+  const blocks = blockCommentSpans(source);
   return [
-    ...matchesOf(source, FROM_CLAUSE),
-    ...matchesOf(source, SIDE_EFFECT),
-    ...matchesOf(source, DYNAMIC),
+    ...matchesOf(source, FROM_CLAUSE, blocks),
+    ...matchesOf(source, SIDE_EFFECT, blocks),
+    ...matchesOf(source, DYNAMIC, blocks),
   ];
 }
 
@@ -188,6 +242,28 @@ describe("import spelling", () => {
         + "const unterminated = `from \"../adapters/outbound/nearby-points';\n"
         + "const apostrophe = \"the adapter's own layer owns that import\";\n",
     })).toEqual([]);
+  });
+
+  it("reads a bare line inside a block comment as comment, not import", () => {
+    expect(dependencyRuleViolations({
+      "src/domain/note.ts":
+        "/*\nimport { overview } from '../adapters/outbound/overview-points';\n*/\n",
+    })).toEqual([]);
+  });
+
+  /**
+   * `src/index.ts` registers two route globs whose last two characters spell a
+   * block-comment opener — `"/catalog/public/*"` and `"/catalog/*"`. Read as
+   * one, an opener with no closer after it stops every import below from being
+   * read; `workers/users/src/index.ts` loses one that way. An opener therefore
+   * counts only at the start of a line; this case is what holds it there.
+   */
+  it("reads an import that follows a route glob ending in a comment opener", () => {
+    expect(dependencyRuleViolations({
+      "src/application/plan.ts":
+        'app.use("/catalog/public/*", cacheHeaders);\n'
+        + 'import { prisma } from "../db/prisma";\n',
+    })).toEqual(["src/application/plan.ts: ../db/prisma"]);
   });
 });
 
