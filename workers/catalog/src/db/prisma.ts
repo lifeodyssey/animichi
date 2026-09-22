@@ -113,15 +113,24 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  * fails: the driver says that leaves the socket indeterminate, and reusing it
  * would poison the next statement. A destroyed connection is NOT also released
  * — the driver's connection contract calls a second teardown after destroy a
- * caller error. Every other path — commit, rolled-back failure, and a
- * transaction that could not even be opened — releases exactly once.
+ * caller error. The same eviction covers a transaction that could not even be
+ * OPENED, and the driver's contract is explicit about that one: `release()`
+ * "must only be called when the connection is known to be in a clean, reusable
+ * state", and it names a failed transaction operation — or a connection that is
+ * "otherwise suspect" — as the case for `destroy(reason)` instead. A rejected
+ * `BEGIN` establishes neither, because a failed round-trip is not a statement
+ * error the server answered: nothing here knows the socket survived it. Every
+ * remaining path — commit and rolled-back failure — releases exactly once.
  *
  * A failing `destroy` does not replace the caller's error, and neither does a
- * failing `release` on a failure path. The driver's contract leaves a connection
- * whose teardown failed retryable, so the teardown failure is never raised: it
+ * failing `release` on a failure path. The teardown failure is never raised: it
  * becomes CONTEXT for the unit's own error — recorded on it as `cause` — when
- * that error can take one and does not already carry one of its own, and is
- * dropped otherwise ({@link attachCause}). Wrapping the unit's error, as the
+ * that error can take one and does not already carry a cause value, and is
+ * dropped otherwise ({@link attachCause}). Swallowing a failed EVICTION rests on
+ * the driver's contract, which leaves a connection whose `destroy` failed
+ * retryable so a follow-up call can still dispose of the handle; a failed
+ * `release` needs no such premise, because both of its callers already hold an
+ * error of their own ({@link releaseQuietly}). Wrapping the unit's error, as the
  * driver's own `withTransaction` does, would change the error identity
  * `classifyIngestFailure` matches on.
  */
@@ -134,7 +143,7 @@ export async function inCatalogTransaction<T>(
   try {
     transaction = await connection.transaction();
   } catch (error) {
-    await releaseQuietly(connection, error);
+    await evict(connection, error);
     throw error;
   }
   let value: T;
@@ -189,9 +198,9 @@ async function settleFailed(
 
 /**
  * Evict a suspect connection, recording a failed eviction on `reason` instead
- * of throwing it: the driver's contract leaves the connection retryable, so the
- * caller's error has to survive the cleanup. See {@link attachCause} for what
- * that "recording" can promise.
+ * of throwing it: the driver's contract leaves a connection whose `destroy`
+ * failed retryable, so the caller's error has to survive the cleanup. See
+ * {@link attachCause} for what that "recording" can promise.
  *
  * Nothing is owed after a failed eviction. The driver marks the connection
  * closed BEFORE it awaits the socket's `end()`, and the failure unwinds through
@@ -229,17 +238,22 @@ async function releaseQuietly(
 
 /**
  * Attach a teardown failure to the error the caller will receive, when that
- * value can carry a cause and does not already carry one.
+ * value can carry a cause and does not already carry a cause VALUE.
  *
  * Neither guard may itself become the failure: a frozen error and a non-object
  * throw cannot take the property, so the guard is this function's own `catch`
  * rather than an `instanceof` pre-check. `defineProperty` carries the descriptor
  * native `Error.cause` has; a plain assignment would make it enumerable.
+ * `prisma-transaction-error-identity.worker.test.ts` asserts each of those.
  *
- * An error that already carries a cause KEEPS it and the teardown failure is
- * dropped: the unit set that cause deliberately (`upstream-failures.ts`,
- * `retry.ts`) and it names what failed underneath, which a teardown failure —
- * after the unit's error, not underneath it — must not replace.
+ * "Already carries one" is decided by VALUE (`cause === undefined`), not by the
+ * key's presence: an error built with `{ cause: undefined }` names no underlying
+ * failure, so there is nothing for the teardown failure to displace and it is
+ * recorded there instead. An error carrying a real cause KEEPS it and the
+ * teardown failure is dropped: the unit set that cause deliberately
+ * (`upstream-failures.ts`, `retry.ts`) and it names what failed underneath,
+ * which a teardown failure — after the unit's error, not underneath it — must
+ * not replace.
  */
 function attachCause(error: unknown, cause: unknown): void {
   try {
