@@ -68,6 +68,34 @@ void test("workers_dev is open for staging only, and closed in production by dec
   assert.match(production, /^preview_urls = false$/m);
 });
 
+// #1842: the environment ratchet — exactly these environments, so a new one
+// cannot appear unnoticed. Every header that names env.<name> counts:
+// [env.x] directly, and [env.x.<sub>] / [[env.x.<sub>]] through TOML's
+// implicit parent declaration. Measured with smol-toml 1.8.0:
+// [env.preview.vars] with no [env.preview] header parses to env keys
+// ["production", "preview"], and wrangler 4.132.0 enumerates environments as
+// Object.keys(rawConfig.env ?? {}) in wrangler-dist/cli.js
+// (normalizeAndValidateConfig) — so a sub-table-only environment is a live
+// environment and is counted, not a blind spot. The Ruby contract
+// (test/repo-config/wrangler-workers-dev.test.rb) implements this same rule
+// by choice: each guard lane stays single-runtime and carries its own
+// red/green proof of the rule.
+void test("the edge declares exactly the environments this contract names", () => {
+  const toml = read("workers/edge/wrangler.toml");
+  // Match any bracketed header line that names env.<name>, at any depth —
+  // the whole line must be the header, so the file's own prose quoting
+  // section names inside comments cannot match.
+  const envNames = [...toml.matchAll(/^\[+(env\.[A-Za-z0-9_-]+)(?:\.[^\]]*)?\]+$/gm)]
+    .map((m) => m[1])
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort();
+  assert.deepEqual(envNames, ["env.production", "env.staging"].sort(),
+    "a new edge environment must join this contract, not escape it; every header " +
+    "that names env.<name> counts — [env.x] directly, [env.x.<sub>] and " +
+    "[[env.x.<sub>]] through TOML's implicit parent tables — so a sub-table-only " +
+    "environment is counted (#1842)");
+});
+
 // #1216 — the migrator's own error lived only in the discarded response body, so
 // a reset staging database failed as a bare "HTTP 500". This repository is
 // public: the body is logged, and any DSN in it must lose its password first.

@@ -69,7 +69,10 @@ class WranglerWorkersDevTest < Minitest::Test
 
   def test_edge_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging], edge_sections.keys,
-                 "a new edge environment must join this contract, not escape it"
+                 "a new edge environment must join this contract, not escape it; " \
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
   end
 
   # --- web ---
@@ -125,9 +128,9 @@ class WranglerWorkersDevTest < Minitest::Test
   def test_users_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging].sort, users_sections.keys.sort,
                  "a new users environment must join this contract, not escape it; " \
-                 "an environment declared only through a sub-table (e.g. [env.preview.vars]) " \
-                 "escapes this guard — that blind spot is filed as #1842 and does not apply here " \
-                 "because both environments have direct key = value lines"
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
   end
 
   # --- migrator (#1836) ---
@@ -155,7 +158,10 @@ class WranglerWorkersDevTest < Minitest::Test
 
   def test_migrator_declares_exactly_the_environments_this_contract_names
     assert_equal %w[env.production env.staging].sort, migrator_sections.keys.sort,
-                 "a new migrator environment must join this contract, not escape it"
+                 "a new migrator environment must join this contract, not escape it; " \
+                 "every header that names env.<name> counts — [env.x] directly, " \
+                 "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
+                 "tables — so a sub-table-only environment is counted (#1842)"
   end
 
   # --- SUT coverage (#1836 AC3) ---
@@ -236,19 +242,39 @@ class WranglerWorkersDevTest < Minitest::Test
     units.uniq
   end
 
-  # Shared TOML section parser. Structurally mirrors the edge parser that
-  # #1524 established: a sub-table header ends the environment's own key list,
-  # and keys after it belong to the sub-table.
+  # Shared TOML section parser. Structurally mirrors the edge test's header
+  # scan. #1524 established the key scoping: a sub-table header ends the
+  # environment's own key list, and keys after it belong to the sub-table —
+  # they are never attributed to the parent.
   #
-  # Blind-spot note (#1842): an environment declared only through sub-tables
-  # (e.g. [env.preview.vars]) never enters the hash. Both users and migrator
-  # environments have direct key = value lines, so this does not apply here.
+  # #1842 establishes the environment enumeration: the environments a
+  # wrangler.toml declares are the `env.<name>` prefixes named by ANY section
+  # header — `[env.<name>]` directly, and `[env.<name>.<sub>]` or
+  # `[[env.<name>.<sub>]]` through TOML's implicit parent declaration.
+  # Measured with smol-toml 1.8.0: `[env.preview.vars]` with no `[env.preview]`
+  # header parses to `env` keys `["production", "preview"]`, and wrangler
+  # 4.132.0 enumerates environments as `Object.keys(rawConfig.env ?? {})`
+  # (wrangler-dist/cli.js, normalizeAndValidateConfig) — so a sub-table-only
+  # environment is a live environment, not a blind spot. Header lines outside
+  # that bare-word form (quoted or dotted quoted env names, whitespace inside
+  # the brackets) are not recognized by this parser; no config this contract
+  # reads uses them. Two hand-rolled implementations of this one rule exist by
+  # choice (see the edge test's matching scan): each guard lane stays
+  # single-runtime, and each carries its own red/green proof of the rule.
   def parse_toml_env_sections(path)
     parsed = Hash.new { |hash, key| hash[key] = {} }
     current = nil
     content_lines(File.read(path)).each do |line|
       table = /\A\[+([^\]]+)\]+\z/.match(line)
-      current = table[1][/\Aenv\.[A-Za-z0-9_-]+\z/] if table
+      if table
+        env = table[1][/\Aenv\.[A-Za-z0-9_-]+/]
+        if env
+          parsed[env] unless parsed.key?(env)
+          current = table[1] == env ? env : nil
+        else
+          current = nil
+        end
+      end
       next if current.nil?
       pair = /\A([A-Za-z0-9_-]+)\s*=\s*(\S+)\z/.match(line)
       parsed[current][pair[1]] = pair[2] if pair
