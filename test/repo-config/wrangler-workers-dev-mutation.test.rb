@@ -20,10 +20,11 @@ class WranglerWorkersDevMutationTest < Minitest::Test
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
+  DEPLOY_SCRIPT = ".github/scripts/release/publish-services.sh"
 
   def with_tree
     Dir.mktmpdir("wrangler-workers-dev-mutation-") do |root|
-      [CONTRACT, EDGE_TOML, WEB_JSONC, USERS_TOML, MIGRATOR_TOML].each do |relative|
+      [CONTRACT, EDGE_TOML, WEB_JSONC, USERS_TOML, MIGRATOR_TOML, DEPLOY_SCRIPT].each do |relative|
         FileUtils.mkdir_p(File.join(root, File.dirname(relative)))
         FileUtils.cp(File.join(ROOT, relative), File.join(root, relative))
       end
@@ -201,15 +202,17 @@ class WranglerWorkersDevMutationTest < Minitest::Test
     with_tree do |root|
       path = File.join(root, CONTRACT)
       source = File.read(path)
-      # Add "catalog" to sut_production_units without touching the expected list.
+      # Add a unit to the covered list that is not in the deploy script,
+      # without updating CONTRACT_ONLY_UNITS — the missing_from_script
+      # assertion must fire.
       changed = source.sub(
-        "    %w[edge web users migrator]\n  end\n\n  # Shared TOML section parser",
-        "    %w[edge web users migrator catalog]\n  end\n\n  # Shared TOML section parser"
+        "covered  = %w[edge web users migrator]",
+        "covered  = %w[edge web users migrator payments]"
       )
-      refute_equal source, changed, "mutation needle missing: sut_production_units"
+      refute_equal source, changed, "mutation needle missing: sut_covered_units"
       File.write(path, changed)
-      reject_tree(root, "SUT header: production unit added without updating expected",
-                  "adding a unit to publish-services.sh without adding")
+      reject_tree(root, "SUT header: covered unit added without deploy script presence",
+                  "contract covers units not in publish-services.sh")
     end
   end
 end
