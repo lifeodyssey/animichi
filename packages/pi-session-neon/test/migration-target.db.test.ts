@@ -58,10 +58,15 @@ void test("a fresh database applies the whole chain and the marker names the che
       (SELECT count(*) = 4 FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('sessions', 'turn_reservations', 'daily_usage', 'anon_daily_message_count')) AS agent_ledger,
       (SELECT count(*) = 1 FROM pg_trigger WHERE tgname = 'trg_sessions_updated_at' AND NOT tgisinternal) AS sessions_stamped`)).rows,
       [{ trigram: true, history: true, generated_coordinates: true, located: true, no_embedding: true, no_embedding_index: true, no_location_column: true, agent_ledger: true, sessions_stamped: true }]);
-    const written = await client.query(`INSERT INTO points (id, name, location)
-      VALUES ('coordinate-proof', 'Kyoto', ST_SetSRID(ST_MakePoint(135.7681, 35.0116), 4326)::geography)
-      RETURNING ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude`);
-    assert.deepEqual((await client.query("SELECT latitude, longitude FROM points WHERE id = 'coordinate-proof'")).rows, written.rows);
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
+});
+
+void test("a direct write to a derived scalar column is refused, not corrected", async () => {
+  const { dsn, client, name } = await cleanTarget("native_derived_refusal");
+  try {
+    await migrate(dsn);
+    // #1217's class, proved unrepresentable: the database refuses the statement outright
+    // (428C9, generated_always) instead of landing it and correcting the value afterwards.
     await assert.rejects(client.query("UPDATE points SET latitude = 1"), { code: "428C9" });
   } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
