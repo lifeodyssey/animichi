@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { issuedToken, joseEnv, makeApp, post, productionEnv, testEnv } from "./migrate.worker.helpers";
 import { requestMetadata } from "./sealed-migrations";
 import { recordingExecutor } from "./selected-executor-double";
 import type { SelectedMetadata, SelectedMigration } from "../src/selected-migration";
+
+afterEach(() => { vi.restoreAllMocks(); });
 
 describe("selected migration metadata", () => {
   it("refuses an empty object before reading credentials or applying", async () => {
@@ -14,12 +16,15 @@ describe("selected migration metadata", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid_migration" });
   });
+  // The secret never resolved, so no apply ran: `apply_dispatch_failed`, not the narrower
+  // `migration_unavailable` an apply that threw would answer (#1868).
   it("sanitizes a Secrets Store resolution failure after accepting metadata", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { app, token } = await makeApp();
     const get = (): Promise<string> => Promise.reject(new Error("password=fixture"));
     const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: { get } });
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ success: false, error: "migration_unavailable" });
+    expect(await response.json()).toEqual({ success: false, error: "apply_dispatch_failed", cause: "password=[redacted]" });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
   it("keeps database errors out of the failure response", async () => {

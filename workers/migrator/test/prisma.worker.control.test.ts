@@ -76,18 +76,27 @@ it("returns only the native failure code and closes the control client", async (
   expect(native.close).toHaveBeenCalledOnce();
 });
 
+// `toEqual`, not `toMatchObject`: a handled outcome states its identity and stops there. A
+// `cause` appearing here would mean the thrown-failure channel had widened to swallow the
+// outcomes that already name themselves, which is the same defect under a newer name (#1868).
 it("refuses a successful native result that names a different marker", async () => {
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: "f".repeat(64), migrationsApplied: 0 } });
   const response = await (await nativeApp(DSN)).migrate();
   expect(response.status).toBe(500);
-  expect(await response.json()).toMatchObject({ error: "prisma_marker_mismatch" });
+  expect(await response.json()).toEqual({ success: false, exitCode: 1, error: "prisma_marker_mismatch" });
 });
 
-it("sanitizes connection failures and still closes the native client", async () => {
-  native.connect.mockRejectedValue(new Error("postgresql://secret@private.test/db"));
+// The apply RAN and threw — the narrower of the two thrown failures (#1868), and the one
+// whose cause reaches CD through a public repository's log, so the DSN in the driver's own
+// message is replaced before either the response or the log line carries it.
+it("names a thrown connection failure without its connection string, and still closes the native client", async () => {
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  native.connect.mockRejectedValue(new Error(`refused postgresql://migrator:REDACT_ME_PLACEHOLDER@private.test/db`));
   const response = await (await nativeApp(DSN)).migrate();
   expect(response.status).toBe(500);
-  expect(await response.json()).toMatchObject({ error: "migration_unavailable" });
+  expect(await response.json()).toEqual({ success: false, exitCode: 1,
+    error: "migration_unavailable", cause: "refused postgresql://[redacted]" });
+  expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply threw: refused postgresql://[redacted]");
   expect(native.close).toHaveBeenCalledOnce();
 });
 

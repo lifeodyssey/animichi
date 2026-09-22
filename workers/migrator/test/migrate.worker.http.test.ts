@@ -41,11 +41,15 @@ describe("POST /migrate HTTP seam (AC5)", () => {
 });
 
 describe("POST /migrate apply default", () => {
+  // No lock, so nothing was dispatched and nothing applied — and the reason says which (#1868).
   it("fails closed when the apply lock binding is missing", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { app, token } = await makeApp({ selected: undefined });
     const res = await app.request(post({}, token), {}, testEnv());
+    logged.mockRestore();
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ success: false, error: "migration_unavailable" });
+    expect(await res.json()).toEqual({ success: false,
+      error: "apply_dispatch_failed", cause: "migrator apply lock not configured" });
   });
 });
 
