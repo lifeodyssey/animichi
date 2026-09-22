@@ -14,57 +14,65 @@
  * shape every real environment has, and `points.latitude`/`longitude` are the
  * generated columns the export reads back.
  */
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { exportCandidate, EXPORTED_TABLES } from "../src/publish/candidate-export";
 import { buildManifest, MANIFEST_SCHEMA_VERSION } from "../src/publish/manifest";
 import { publishSnapshot, readCurrentSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { readPointer } from "../src/publish/pointer";
-import { databaseDescribe, openPlaneSeams, restoreNeonConfig, truncateCatalog, type PlaneSeams } from "./integration-db";
+import { databaseDescribe, openPlaneSeams, truncateCatalogPool, type PlaneSeams } from "./integration-db";
 import { textToArrayBuffer } from "../src/publish/bytes";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
 async function seedPublic(): Promise<void> {
-  await db.execute(sql`INSERT INTO bangumi (id, title) VALUES ('w1', 'Lucky Star'), ('w2', 'Slow Loop')`);
-  await db.execute(sql`INSERT INTO points (id, bangumi_id, name, location, image) VALUES
-    ('p1', 'w1', 'Gate', ST_SetSRID(ST_MakePoint(139.6, 36.1), 4326)::geography, '/gate.png'),
-    ('p2', 'w1', 'School', ST_SetSRID(ST_MakePoint(139.7, 35.6), 4326)::geography, '/school.png'),
-    ('p3', 'w2', 'Bay', ST_SetSRID(ST_MakePoint(135.0, 34.0), 4326)::geography, null)`);
-  await db.execute(sql`INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority) VALUES
-    ('w1', 'らき☆すた', 'らきすた', 'bangumi', 0)`);
-  await db.execute(sql`INSERT INTO series_edges (from_bangumi_id, to_bangumi_id, relation) VALUES ('w1', 'w2', 'sequel')`);
-  await db.execute(sql`INSERT INTO catalog_provenance (scope, entity_id, work_id, source, attribution, license) VALUES
-    ('work', 'w1', 'w1', 'bangumi', null, null),
-    ('point', 'p1', 'w1', 'anitabi', 'Anitabi', 'https://anitabi.cn')`);
-  await db.execute(sql`INSERT INTO media_assets (point_id, r2_key, content_hash, tombstoned) VALUES
-    ('p1', 'points/p1', ${'aa'.repeat(32)}, false)`);
+  await pool.query("INSERT INTO bangumi (id, title) VALUES ('w1', 'Lucky Star'), ('w2', 'Slow Loop')");
+  await pool.query(
+    "INSERT INTO points (id, bangumi_id, name, location, image) VALUES"
+    + " ('p1', 'w1', 'Gate', ST_SetSRID(ST_MakePoint(139.6, 36.1), 4326)::geography, '/gate.png'),"
+    + " ('p2', 'w1', 'School', ST_SetSRID(ST_MakePoint(139.7, 35.6), 4326)::geography, '/school.png'),"
+    + " ('p3', 'w2', 'Bay', ST_SetSRID(ST_MakePoint(135.0, 34.0), 4326)::geography, null)",
+  );
+  await pool.query(
+    "INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority) VALUES"
+    + " ('w1', 'らき☆すた', 'らきすた', 'bangumi', 0)",
+  );
+  await pool.query("INSERT INTO series_edges (from_bangumi_id, to_bangumi_id, relation) VALUES ('w1', 'w2', 'sequel')");
+  await pool.query(
+    "INSERT INTO catalog_provenance (scope, entity_id, work_id, source, attribution, license) VALUES"
+    + " ('work', 'w1', 'w1', 'bangumi', null, null),"
+    + " ('point', 'p1', 'w1', 'anitabi', 'Anitabi', 'https://anitabi.cn')",
+  );
+  await pool.query(
+    "INSERT INTO media_assets (point_id, r2_key, content_hash, tombstoned) VALUES ('p1', 'points/p1', $1, false)",
+    ["aa".repeat(32)],
+  );
 }
 
 async function seedPrivate(): Promise<void> {
-  await db.execute(sql`INSERT INTO ingest_jobs (work_id, status) VALUES ('private-1', 'done')`);
-  await db.execute(sql`INSERT INTO catalog_runs (run_id, status) VALUES ('private-run', 'complete')`);
-  await db.execute(sql`INSERT INTO raw_payload_history (work_id, source, payload) VALUES ('private-1', 'bangumi', '{}'::jsonb)`);
+  await pool.query("INSERT INTO ingest_jobs (work_id, status) VALUES ('private-1', 'done')");
+  await pool.query("INSERT INTO catalog_runs (run_id, status) VALUES ('private-run', 'complete')");
+  await pool.query(
+    "INSERT INTO raw_payload_history (work_id, source, payload) VALUES ('private-1', 'bangumi', '{}'::jsonb)",
+  );
 }
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
   await seedPublic();
   await seedPrivate();
 }, 120_000);
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("Candidate export contains only public catalog data (AC1)", () => {

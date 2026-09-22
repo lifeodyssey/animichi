@@ -11,10 +11,9 @@
  * The delete is a builder plan on the request's runtime ({@link CatalogPrisma}).
  * Its keep window — the newest `keep` versions, then `MIN(version)` over them —
  * is a derived subquery the builder does not model first-class, so it is
- * composed as a narrowly scoped fragment inside the DELETE's predicate
- * (atomic capability carve-out — see `../db/expressions`). The work id and the
- * window size are interpolations, and an interpolation in a raw fragment is a
- * BOUND value, never rendered SQL text.
+ * composed as a narrowly scoped fragment inside the DELETE's predicate. The work
+ * id and the window size are interpolations, and an interpolation in a raw
+ * fragment is a BOUND value, never rendered SQL text.
  */
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";

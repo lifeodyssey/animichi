@@ -1,14 +1,12 @@
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { saveRawAnitabi, saveRawBangumi } from "../src/ingest/raw-store";
 import { enrichWork } from "../src/enrich/enrich";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -37,60 +35,53 @@ const RAW_ANITABI = [
   { id: "p-tokyo", name: "東京駅", lat: 35.6812, lng: 139.7671, screenshot: "/2024/tokyo.jpg", episode: 3 },
 ];
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
 async function pointCount(workId: string): Promise<number> {
   const rows = (
-    await db.execute(
-      sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${workId}`,
-    )
+    await pool.query("SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = $1", [workId])
   ).rows as { n: number }[];
   return rows[0]?.n ?? 0;
 }
 
 async function locationWkt(pointId: string): Promise<string | null> {
   const rows = (
-    await db.execute(sql`SELECT ST_AsText(location) AS wkt FROM points WHERE id = ${pointId}`)
+    await pool.query("SELECT ST_AsText(location) AS wkt FROM points WHERE id = $1", [pointId])
   ).rows as { wkt: string | null }[];
   return rows[0]?.wkt ?? null;
 }
 
 async function currentVersion(workId: string): Promise<number | undefined> {
   const rows = (
-    await db.execute(
-      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current`,
-    )
+    await pool.query("SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [workId])
   ).rows as { version: number }[];
   return rows[0]?.version;
 }
 
 async function allVersions(workId: string): Promise<number[]> {
   const rows = (
-    await db.execute(
-      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} ORDER BY version`,
-    )
+    await pool.query("SELECT version FROM cluster_version WHERE bangumi_id = $1 ORDER BY version", [workId])
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
 }
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
   await saveRawBangumi(query, "lucky-star", RAW_BANGUMI);
   await saveRawAnitabi(query, "lucky-star", RAW_ANITABI);
 }, 120_000);
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 async function assertEnrichBangumiRow(): Promise<void> {
-  const rows = await bangumiRow(db);
+  const rows = await bangumiRow();
   const row = rows[0];
   expect(row?.title).toBe("らき☆すた");
   expect(row?.title_cn).toBe("幸运星");
@@ -100,17 +91,16 @@ async function assertEnrichBangumiRow(): Promise<void> {
   expect(row?.air_date).toBe("2007-04-08");
 }
 
-async function bangumiRow(db: CatalogDb) {
-  return (await db.execute(
-    sql`SELECT title, title_cn, cover_url, rating, eps_count, air_date
-        FROM bangumi WHERE id = 'lucky-star'`,
+async function bangumiRow() {
+  return (await pool.query(
+    "SELECT title, title_cn, cover_url, rating, eps_count, air_date FROM bangumi WHERE id = 'lucky-star'",
   )).rows as { title: string; title_cn: string; cover_url: string; rating: number; eps_count: number; air_date: string }[];
 }
 
 async function assertEnrichAliases(): Promise<void> {
-  const rows = (await db.execute(
-    sql`SELECT alias, alias_normalized, source FROM aliases
-        WHERE bangumi_id = 'lucky-star' ORDER BY alias_normalized`,
+  const rows = (await pool.query(
+    "SELECT alias, alias_normalized, source FROM aliases"
+    + " WHERE bangumi_id = 'lucky-star' ORDER BY alias_normalized",
   )).rows as { alias: string; alias_normalized: string; source: string }[];
   const normalized = rows.map((r) => r.alias_normalized);
   expect(normalized).toContain("らき☆すた".normalize("NFKC").toLowerCase());
@@ -135,14 +125,14 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
 
   it("expands leading-slash Anitabi image paths to the CDN host", async () => {
     const rows = (
-      await db.execute(sql`SELECT image FROM points WHERE id = 'p-washinomiya'`)
+      await pool.query("SELECT image FROM points WHERE id = 'p-washinomiya'")
     ).rows as { image: string }[];
     expect(rows[0]?.image).toBe("https://image.anitabi.cn/2024/shrine.jpg");
   });
 
   it("stores origin and origin_url from the upstream payload", async () => {
     const rows = (
-      await db.execute(sql`SELECT origin, origin_url FROM points WHERE id = 'p-washinomiya'`)
+      await pool.query("SELECT origin, origin_url FROM points WHERE id = 'p-washinomiya'")
     ).rows as { origin: string | null; origin_url: string | null }[];
     expect(rows[0]).toEqual({
       origin: "バンダイチャンネル",
@@ -152,7 +142,7 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
 
   it("leaves origin null when the payload omits it", async () => {
     const rows = (
-      await db.execute(sql`SELECT origin, origin_url FROM points WHERE id = 'p-tokyo'`)
+      await pool.query("SELECT origin, origin_url FROM points WHERE id = 'p-tokyo'")
     ).rows as { origin: string | null; origin_url: string | null }[];
     expect(rows[0]).toEqual({ origin: null, origin_url: null });
   });

@@ -1,6 +1,5 @@
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { publishVersion } from "../src/publish/versioning";
 import { getItinerarySnapshot, saveItinerarySnapshot } from "../src/publish/snapshots";
@@ -8,8 +7,7 @@ import { gcOldVersions } from "../src/publish/gc";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -22,14 +20,14 @@ import {
  * partial unique index that forces the flip-then-insert publish order.
  */
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
 async function currentVersions(workId: string): Promise<number[]> {
   const rows = (
-    await db.execute(
-      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current ORDER BY version`,
+    await pool.query(
+      "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current ORDER BY version", [workId],
     )
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
@@ -37,8 +35,8 @@ async function currentVersions(workId: string): Promise<number[]> {
 
 async function allVersions(workId: string): Promise<number[]> {
   const rows = (
-    await db.execute(
-      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} ORDER BY version`,
+    await pool.query(
+      "SELECT version FROM cluster_version WHERE bangumi_id = $1 ORDER BY version", [workId],
     )
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
@@ -46,14 +44,13 @@ async function allVersions(workId: string): Promise<number[]> {
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
 }, 120_000);
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("publishVersion atomic version switch over cluster_version", () => {
@@ -83,7 +80,9 @@ databaseDescribe("publishVersion atomic version switch over cluster_version", ()
     // at int4's ceiling makes the SECOND statement of the publish fail — after
     // the flip, before the insert. Inside one transaction the flip is discarded;
     // without one the work would be left with no current row at all.
-    await db.execute(sql`INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('overflow', 2147483647, true)`);
+    await pool.query(
+      "INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('overflow', 2147483647, true)",
+    );
     await expect(publishVersion(query, "overflow")).rejects.toThrow();
     expect(await currentVersions("overflow")).toEqual([2147483647]);
   });

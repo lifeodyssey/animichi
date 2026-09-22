@@ -236,9 +236,6 @@ catalogs:
     ai:
       specifier: ^7.0.102
       version: 7.0.105
-    drizzle-orm:
-      specifier: ^0.45.2
-      version: 0.45.2
     jose:
       specifier: ^6.2.12
       version: 6.2.12
@@ -773,9 +770,6 @@ importers:
       '@animichi/prisma-geography':
         specifier: workspace:*
         version: link:../../packages/prisma-geography
-      '@neondatabase/serverless':
-        specifier: 'catalog:'
-        version: 1.1.0
       '@orpc/openapi':
         specifier: 'catalog:'
         version: 1.15.1(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
@@ -785,9 +779,6 @@ importers:
       '@prisma/orm-postgres':
         specifier: 'catalog:'
         version: 8.0.0-rc.9(@prisma/cli-engine@0.3.0(@prisma/management-api-sdk@1.69.0)(magicast@0.5.4))(magicast@0.5.4)(typanion@3.14.0)(typescript@7.0.2)(vite@8.3.0(@types/node@26.6.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.13)(yaml@2.9.1))
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.45.2(@cloudflare/workers-types@5.20260916.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(kysely@0.29.4)(pg@8.23.0)
       hono:
         specifier: '>=4.13.7'
         version: 4.13.7
@@ -17939,17 +17930,6 @@ snapshots:
       kysely: 0.29.4
       pg: 8.22.0
     optional: true
-
-  drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260916.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(kysely@0.29.4)(pg@8.23.0):
-    optionalDependencies:
-      '@cloudflare/workers-types': 5.20260916.1
-      '@electric-sql/pglite': 0.3.15
-      '@libsql/client': 0.17.4
-      '@neondatabase/serverless': 1.1.0
-      '@opentelemetry/api': 1.9.1
-      '@types/pg': 8.23.1
-      kysely: 0.29.4
-      pg: 8.23.0
 
   dunder-proto@1.0.1:
     dependencies:

@@ -1,7 +1,6 @@
-import { afterAll, expect, it, vi } from "vitest";
-import { closeDbPools } from "../src/db/connections";
+import { expect, it, vi } from "vitest";
 import { IngestEntrypoint } from "../src/index";
-import { databaseDescribe, localDatabaseUrl } from "./integration-db";
+import { databaseDescribe, planeDatabaseUrl } from "./integration-db";
 import { call, type ApiPoint } from "./catalog-integration-client";
 import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
 import { stubEgressSigningKey } from "./egress-stub";
@@ -22,17 +21,6 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-vi.mock("../src/db/connections", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../src/db/connections")>();
-  return {
-    ...original,
-    dbFor: async (connStr: string) => {
-      const { localDatabaseUrl, pgCatalog } = await import("./integration-db");
-      return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
-    },
-  };
-});
-
 databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
   it("IngestEntrypoint publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();
@@ -41,7 +29,7 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
       {} as unknown as ExecutionContext,
       {
         ENVIRONMENT: "test",
-        DATABASE_URL: localDatabaseUrl(),
+        DATABASE_URL: planeDatabaseUrl(),
         INGEST_SIGNING_KEY: stubEgressSigningKey(),
       },
     );
@@ -72,8 +60,4 @@ databaseDescribe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> 
     expect(second.rows.map((r) => r.id).sort()).toEqual(["keihan-uji", "uji-bridge"]);
     expect(urls.length).toBe(searchCallsAfterFirst); // alias hit: no re-resolve, no re-ingest
   });
-});
-
-afterAll(() => {
-  closeDbPools();
 });

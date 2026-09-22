@@ -1,6 +1,5 @@
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { catalogIngestBangumi, type IngestBangumi } from "../src/ingest/ingest-bangumi";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
@@ -9,8 +8,7 @@ import { stubEgressSigningKey } from "./egress-stub";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -83,37 +81,48 @@ function makeGatedFetch(gate: Promise<void>): FetchLike {
   };
 }
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 let ingest: IngestBangumi;
 
 async function pointCount(bangumiId: string): Promise<number> {
-  const rows = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${bangumiId}`)).rows as { n: number }[];
+  const { rows } = await pool.query<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = $1", [bangumiId],
+  );
   return rows[0]?.n ?? 0;
 }
 
 async function bangumiExists(bangumiId: string): Promise<boolean> {
-  const rows = (await db.execute(sql`SELECT 1 FROM bangumi WHERE id = ${bangumiId}`)).rows as { "?column?": number }[];
+  const { rows } = await pool.query("SELECT 1 FROM bangumi WHERE id = $1", [bangumiId]);
   return rows.length > 0;
 }
 
 async function currentVersion(bangumiId: string): Promise<number | undefined> {
-  const rows = (await db.execute(sql`SELECT version FROM cluster_version WHERE bangumi_id = ${bangumiId} AND is_current`)).rows as { version: number }[];
+  const { rows } = await pool.query(
+    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [bangumiId],
+  ) as { rows: { version: number }[] };
   return rows[0]?.version;
 }
 
 async function jobStatus(bangumiId: string): Promise<string | undefined> {
-  const rows = (await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${bangumiId}`)).rows as { status: string }[];
+  const { rows } = await pool.query(
+    "SELECT status FROM ingest_jobs WHERE work_id = $1", [bangumiId],
+  ) as { rows: { status: string }[] };
   return rows[0]?.status;
 }
 
 async function backdateNegativeCache(bangumiId: string): Promise<void> {
-  await db.execute(sql`UPDATE ingest_jobs SET negative_cached_until = NOW() - INTERVAL '1 second' WHERE work_id = ${bangumiId}`);
+  await pool.query(
+    "UPDATE ingest_jobs SET negative_cached_until = NOW() - INTERVAL '1 second' WHERE work_id = $1", [bangumiId],
+  );
 }
 
 async function negativeCacheSeconds(bangumiId: string): Promise<number | undefined> {
-  const rows = (await db.execute(sql`SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds FROM ingest_jobs WHERE work_id = ${bangumiId}`)).rows as { seconds: number }[];
+  const { rows } = await pool.query(
+    "SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds"
+    + " FROM ingest_jobs WHERE work_id = $1", [bangumiId],
+  ) as { rows: { seconds: number }[] };
   return rows[0]?.seconds;
 }
 
@@ -127,15 +136,14 @@ async function awaitRunning(bangumiId: string): Promise<void> {
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
   ingest = catalogIngestBangumi(query, stubEgressSigningKey());
 }, 120_000);
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("IngestBangumi end-to-end: claim -> fetch -> raw -> enrich -> publish -> done", () => {
@@ -205,10 +213,10 @@ databaseDescribe("IngestBangumi retryable upstream: fetch throws", () => {
 
 databaseDescribe("IngestBangumi crash recovery + idempotent replay", () => {
   it("reclaims a stale running claim (crashed peer) and completes it", async () => {
-    await db.execute(sql`
-      INSERT INTO ingest_jobs (work_id, status, started_at)
-      VALUES ('460105', 'running', NOW() - INTERVAL '16 minutes')
-    `);
+    await pool.query(
+      "INSERT INTO ingest_jobs (work_id, status, started_at)"
+      + " VALUES ('460105', 'running', NOW() - INTERVAL '16 minutes')",
+    );
     const result = await ingest.ingest("460105", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(result.status).toBe("ingested");
     expect(await jobStatus("460105")).toBe("done");

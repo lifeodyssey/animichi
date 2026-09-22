@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { localDatabaseUrl } from "./integration-db";
+import { planeDatabaseUrl } from "./integration-db";
 import { catalogRequest } from "./catalog-request";
 
 export interface ApiPoint {
@@ -40,7 +40,7 @@ async function appRequest(method: string, payload: unknown): Promise<Response> {
   return await catalogRequest(
     `/catalog/${method}`,
     { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
-    { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
+    { ENVIRONMENT: "test", DATABASE_URL: planeDatabaseUrl() },
   );
 }
 
@@ -50,7 +50,7 @@ export async function getPublic(path: string, expectStatus = 200): Promise<Respo
   const res = await catalogRequest(
     `/catalog/public/${path}`,
     { method: "GET" },
-    { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
+    { ENVIRONMENT: "test", DATABASE_URL: planeDatabaseUrl() },
   );
   expect(res.status).toBe(expectStatus);
   return res;

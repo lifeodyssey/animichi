@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Catalog service \u2014 Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
+  "description": "Animichi Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
   "scripts": {
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "tsx scripts/oxlint/check-no-inline-config.ts && tsx scripts/check-worker-entry-exports.ts && oxlint --type-aware --deny-warnings .",
@@ -20,11 +20,9 @@
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
     "@animichi/prisma-geography": "workspace:*",
-    "@neondatabase/serverless": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@prisma/orm-postgres": "catalog:",
-    "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },

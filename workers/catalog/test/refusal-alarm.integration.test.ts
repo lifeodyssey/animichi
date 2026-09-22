@@ -3,9 +3,8 @@
  * refusing every request raises one alarm, however many jobs it refuses. The
  * upstream is a fetch double answering Anitabi with a 403.
  */
+import pg from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { PENDING_DRAIN_BATCH_CAP, PENDING_DRAIN_CRON } from "../src/cron-config";
 import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../src/ingest/cron-queries";
@@ -19,8 +18,7 @@ import { stubEgressSigningKey } from "./egress-stub";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -35,7 +33,7 @@ const REFUSING_HOST = ANITABI_EGRESS_BASE_URL;
 /** The relayed marker; a refusal of ours would instead carry `refused-here`. */
 const RELAYED = { get: (name: string) => (name === "x-egress-response" ? "relayed-upstream" : null) };
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 let raised: UpstreamRefusal[] = [];
@@ -89,19 +87,19 @@ async function drainEverything(count: number): Promise<void> {
 }
 
 async function refusedRows(): Promise<{ stage: string; error: string; parked_hours: number }[]> {
-  const result = await db.execute(sql`
-    SELECT stage, error, ROUND(EXTRACT(EPOCH FROM negative_cached_until - finished_at) / 3600)::int AS parked_hours
-    FROM ingest_jobs WHERE status = 'failed' AND error_code = 'upstream_refused'
-  `);
-  return result.rows as { stage: string; error: string; parked_hours: number }[];
+  const { rows } = await pool.query(
+    "SELECT stage, error, ROUND(EXTRACT(EPOCH FROM negative_cached_until - finished_at) / 3600)::int AS parked_hours"
+    + " FROM ingest_jobs WHERE status = 'failed' AND error_code = 'upstream_refused'",
+  );
+  return rows as { stage: string; error: string; parked_hours: number }[];
 }
 
 beforeAll(async () => { seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query; }, 120_000);
 
 beforeEach(async () => {
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
   raised = [];
   refusedRequests = 0;
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -112,7 +110,6 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("the refusal alarm on real Postgres (#1784)", () => {

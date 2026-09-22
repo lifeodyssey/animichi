@@ -92,7 +92,6 @@ catalog:
   # hold-back: @vitest/coverage-istanbul@4.1.11 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742
   "@vitest/coverage-istanbul": "4.1.11"
   "ai": ^7.0.102
-  "drizzle-orm": "^0.45.2"
   "esbuild": "0.28.2"
   "hono": "^4.13.7"
   "jose": "^6.2.12"

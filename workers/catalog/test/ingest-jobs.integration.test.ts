@@ -8,7 +8,6 @@ import {
   databaseDescribe,
   openPlanePrisma,
   planePool,
-  restoreNeonConfig,
   type PlanePrisma,
 } from "./integration-db";
 
@@ -58,7 +57,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("JobStore singleflight over ingest_jobs", () => {

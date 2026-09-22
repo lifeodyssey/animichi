@@ -1,6 +1,5 @@
+import pg from "pg";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { PENDING_DRAIN_CRON, TTL_REFRESH_CRON } from "../src/cron-config";
 import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../src/ingest/cron-queries";
@@ -13,8 +12,7 @@ import { stubEgressSigningKey } from "./egress-stub";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -44,7 +42,7 @@ const fetchImpl: FetchLike = (url) => Promise.resolve({
   json: () => Promise.resolve(FETCH_BODIES.get(url)),
 });
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
@@ -63,22 +61,20 @@ const dependencies: CronDependencies = {
 };
 
 async function jobStatus(workId: string): Promise<string | undefined> {
-  const result = await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${workId}`);
-  const rows = result.rows as { status: string }[];
-  return rows[0]?.status;
+  const { rows } = await pool.query("SELECT status FROM ingest_jobs WHERE work_id = $1", [workId]);
+  return (rows as { status: string }[])[0]?.status;
 }
 
 async function pointCount(workId: string): Promise<number> {
-  const result = await db.execute(sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${workId}`);
-  const rows = result.rows as { n: number }[];
-  return rows[0]?.n ?? 0;
+  const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = $1", [workId]);
+  return (rows as { n: number }[])[0]?.n ?? 0;
 }
 
 async function insertStaleRunning(workId: string): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO ingest_jobs (work_id, status, started_at)
-    VALUES (${workId}, 'running', NOW() - INTERVAL '16 minutes')
-  `);
+  await pool.query(
+    "INSERT INTO ingest_jobs (work_id, status, started_at)"
+    + " VALUES ($1, 'running', NOW() - INTERVAL '16 minutes')", [workId],
+  );
 }
 
 async function runScheduled(cron: string, environment: "staging" | "production"): Promise<void> {
@@ -91,17 +87,16 @@ async function runScheduled(cron: string, environment: "staging" | "production")
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
 }, 120_000);
 
 beforeEach(async () => {
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
 });
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 const schedules = [
