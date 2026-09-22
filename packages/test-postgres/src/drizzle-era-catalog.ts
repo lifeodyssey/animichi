@@ -1,13 +1,17 @@
-/** The catalog schema `workers/catalog`'s Drizzle query layer still reads and writes.
+/** The catalog schema `workers/catalog`'s RETIRED Drizzle query layer read and wrote.
  *
  * A TEST FIXTURE, not a migration authority: one frozen SQL file, no checksum, no revision
- * ledger, no CLI, and no path to a shared or live database. Two integration lanes — the catalog
- * suite and the agent's native catalog tools — write `points.latitude` / `longitude` as plain
- * scalars and read `points.embedding`, both of which the Prisma data plane makes generated or
- * omits. Until #1629–#1631 move that query layer, those lanes build a database of their own from
- * this file instead of reading the Prisma-migrated plane (one chain per database).
+ * ledger, no CLI, and no path to a shared or live database. The query layer it records is gone
+ * (#1628–#1633); this module is LIVE, and its consumers are two named files rather than an era:
+ * `packages/agent/integration-test/catalog-postgres.ts` calls `applyDrizzleEraCatalog` on a
+ * database of its own, and `workers/catalog/test/geocode-migration-parity.integration.test.ts`
+ * reads the SQL as text to pin the table shapes its geocode seed relies on.
  *
- * `sql/drizzle-era-catalog.sql` and this module are deleted together with that branch.
+ * They need it because the agent lane's own `catalog-seed.ts` writes `points.latitude` /
+ * `longitude` as plain scalars and the fixture carries `points.embedding`: on the Prisma-migrated
+ * plane those coordinates are GENERATED and `embedding` is absent, so that seed cannot run there
+ * (one chain per database). The catalog integration suite stopped building this shape with #1633.
+ * Both files go when neither consumer needs the pre-Prisma shape any more.
  */
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

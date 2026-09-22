@@ -8,9 +8,12 @@ compatibility date and flags. No deployed account, paid model or live Neon branc
 
 The path is the shared `createPilgrimageHarness` with all seven tools and the official Pi
 0.85.1 faux provider, a native `MemorySessionRepo`, the actual typed oRPC client, actual
-`wrangler dev` HTTP, unchanged Catalog handlers and Drizzle neon-http, and disposable
-PostgreSQL from `@animichi/test-postgres`. The test redirects only the catalog hostname and
-sets the public `neonConfig.fetchEndpoint` before loading the production Worker.
+`wrangler dev` HTTP, unchanged Catalog handlers over the Prisma data plane, and disposable
+PostgreSQL from `@animichi/test-postgres`. The Worker's own reads open a real TCP connection
+through `@prisma/orm-postgres/serverless`; the Neon HTTP proxy described below serves this
+harness's seeding client (`@neondatabase/serverless`), not the Worker. The test redirects only
+the catalog hostname and sets the public `neonConfig.fetchEndpoint` before loading the
+production Worker.
 
 The published community image `TimoWilhelm/local-neon-http-proxy` packages upstream Neon
 Proxy `release-proxy-8853` plus its shipped Caddy configuration. Its immutable multi-platform
