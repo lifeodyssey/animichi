@@ -108,11 +108,15 @@ export interface CeilingStoreFailure {
 
 /**
  * Where a store failure goes so an operator can read it (#1833). It is called
- * once per failed increment, before the refusal is returned, and it MUST NOT
- * THROW: the refusal is this module's contract with the caller and the line is
- * a courtesy to the operator, so a reporter that threw would trade the first
- * for the second. The composition root installs one that writes to stderr,
- * which `fly logs` carries.
+ * once per failed increment, before the refusal is returned.
+ *
+ * WHO GUARANTEES WHAT. A reporter that writes its line and returns is still
+ * what a good one looks like, but the ceiling no longer DEPENDS on that: the
+ * ceiling contains the reporter where the reporter enters the object — the
+ * constructor — so a reporter that throws is tolerated, its throw ends at the
+ * reporter, and the refusal the caller reads is unconditional. No caller has
+ * to guard its call, and none ever will. The composition root installs one
+ * that writes to stderr, which `fly logs` carries.
  */
 export type CeilingStoreFailureReporter = (failure: CeilingStoreFailure) => void;
 
@@ -136,13 +140,24 @@ export class CeilingStoreError extends Error {
  */
 export type CeilingDecision = "granted" | "exhausted" | "store-unavailable";
 
+/**
+ * The ceiling the handler asks before relaying. The reporter is contained
+ * where it enters the object — the constructor holds the wrapped one, so a
+ * reporter that throws ends at the reporter and the three outcomes are the
+ * caller's regardless — which is why `tryAcquire` carries no guard of its own
+ * and every caller of this object, present and future, reads the same answer.
+ */
 export class UpstreamRequestCeiling {
+  private readonly reportStoreFailure: CeilingStoreFailureReporter;
+
   constructor(
     private readonly limit: number,
     private readonly store: CeilingStore,
-    private readonly reportStoreFailure: CeilingStoreFailureReporter,
+    reportStoreFailure: CeilingStoreFailureReporter,
     private readonly nowSeconds: () => number = defaultNowSeconds,
-  ) {}
+  ) {
+    this.reportStoreFailure = reporterThatCannotThrow(reportStoreFailure);
+  }
 
   /** Count one upstream request against this hour's window, or refuse it. */
   async tryAcquire(): Promise<CeilingDecision> {
@@ -155,6 +170,26 @@ export class UpstreamRequestCeiling {
     }
     return used <= this.limit ? "granted" : "exhausted";
   }
+}
+
+/**
+ * The reporter as the ceiling holds it: the one it was given, called with the
+ * failure exactly as before, and tolerated when it throws. The catch is
+ * deliberately empty of action: the reporter IS the operator's diagnostics
+ * channel, so its own failure has no second sink left to be told to, and
+ * routing the throw back through the same reporter would re-enter the code
+ * that threw. The one thing a reporter's failure must never do — change the
+ * answer the caller reads — is the one thing this guarantees.
+ */
+function reporterThatCannotThrow(report: CeilingStoreFailureReporter): CeilingStoreFailureReporter {
+  return (failure) => {
+    try {
+      report(failure);
+    } catch {
+      // The reporter is the last channel; its own failure has nobody left to
+      // tell, and the refusal below is the caller's regardless.
+    }
+  };
 }
 
 /**
