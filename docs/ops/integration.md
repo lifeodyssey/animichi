@@ -58,12 +58,28 @@ S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket �
 - **prod**(prod 栈持有 zone 硬化:DNSSEC/CAA/限速/HSTS;apex/www/301/子域拓扑随 S0-v2 Track C 落):
   zone 级资源归属规则——staging 栈只持 staging 主机作用域的规则,zone 全局资源归 prod 栈。
   production 没有 Access 应用——它有真正的登录。
-- workers.dev:**production 全关;staging 两个 Worker 开着**
+- workers.dev:**production 的 edge 与 web 全关(自 #1524 起由配置显式钉住);staging 两个
+  Worker 开着**
   (`animichi-staging` 与 `animichi-web-staging`,owner 2026-08-27 定)——zone 前门对 GitHub
   runner IP 出 Bot Fight Mode managed challenge,Free plan 不能按主机名跳过,所以 CD 的 smoke
   直接探 workers.dev。这两个主机名同在上面那一个 Access 应用的 `destinations` 里:Access 不是
   zone 功能,所以它罩得住 zone 外的主机——这正是 #539 那条「workers.dev 绕过 zone 闸」的关闭
   方式(不是容忍)。`preview_urls` 两边都关:逐版本 preview URL 是没人加进该应用的主机名。
+  production 的「关」在 #1524 之前没有任何配置保证:两个配置的 production 段都没写
+  `workers_dev`,而 wrangler 对未设置的 `workers_dev` 取默认 `routes.length === 0`
+  (wrangler 4.132.0,cli.js `getSubdomainValues`),这两个 production 段又都不声明 routes
+  (路由归 Pulumi)——漏写就等于下一个 deploy 重新把主机打开。#1524 起这两段
+  (edge `[env.production]`;web 顶层 + `env.production`)显式声明
+  `workers_dev = false` + `preview_urls = false`,并由
+  `test/repo-config/wrangler-workers-dev.test.rb` 钉住。实测 2026-09-21(改前):
+  `animichi.zhenjiazhou0127.workers.dev/healthz` 与 `animichi-web.
+  zhenjiazhou0127.workers.dev/` 均答 HTTP 404,body 与一个从未注册过的主机名、以及一个已部署
+  但子域开关关着的 Worker 三者字节一致(三者都是 `error code: 1042`)——这次实测只说明该主机名
+  是关着的,说明不了为什么关;配置当时也没有任何东西保证它。**migrator 不在这条里,是故意的**:
+  `workers/migrator/wrangler.toml` 的 `[env.production]`(`migrator-production`)写的是
+  `workers_dev = true`(`preview_urls` 为 `false`)——部署流水线要 POST 到这个 OIDC 保护的
+  helper,得有 CI 够得着的主机名,理由写在该文件自己的注释里。把 migrator 折进这份契约、以及补上
+  `workers/users` 一层不声明 `preview_urls` 的缺口,都另开卡跟进(`workers/users` 那张是 #1836)。
 
 ## 3. 数据链路
 

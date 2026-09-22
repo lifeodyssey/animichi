@@ -41,7 +41,7 @@ interface CliResult {
 function runVet(baseline: string, candidate: string, flag?: string): CliResult {
   const flags = flag === undefined ? [] : [flag];
   const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate, "--document", USERS_DOCUMENT, ...flags];
-  return spawnSync(process.execPath, args, { cwd: PACKAGE_ROOT, encoding: "utf8" }) as CliResult;
+  return spawnSync(process.execPath, args, { cwd: PACKAGE_ROOT, encoding: "utf8" });
 }
 
 function runBaselineGate(baseRef: string): CliResult {
@@ -49,7 +49,7 @@ function runBaselineGate(baseRef: string): CliResult {
     cwd: PACKAGE_ROOT,
     encoding: "utf8",
     env: { ...process.env, CONTRACT_BASE_REF: baseRef },
-  }) as CliResult;
+  });
 }
 
 function writeFixture(dir: string, name: string, document: ApiDocument): string {
@@ -58,14 +58,14 @@ function writeFixture(dir: string, name: string, document: ApiDocument): string 
   return path;
 }
 
+const baseline = usersOpenApi as ApiDocument;
+let tempDir: string | undefined;
+
+afterEach(() => {
+  if (tempDir !== undefined) rmSync(tempDir, { recursive: true, force: true });
+});
+
 describe("vet-openapi CLI", () => {
-  const baseline = usersOpenApi as ApiDocument;
-  let tempDir: string | undefined;
-
-  afterEach(() => {
-    if (tempDir !== undefined) rmSync(tempDir, { recursive: true, force: true });
-  });
-
   it("approves an unchanged document (exit 0)", () => {
     tempDir = mkdtempSync(join(tmpdir(), "vet-gate-"));
     const candidate = writeFixture(tempDir, "candidate.json", JSON.parse(JSON.stringify(baseline)) as ApiDocument);
@@ -116,13 +116,6 @@ describe("vet-openapi CLI", () => {
 });
 
 describe("vet-openapi CLI approval semantics", () => {
-  const baseline = usersOpenApi as ApiDocument;
-  let tempDir: string | undefined;
-
-  afterEach(() => {
-    if (tempDir !== undefined) rmSync(tempDir, { recursive: true, force: true });
-  });
-
   it("the explicit approval flag is available but never default", () => {
     tempDir = mkdtempSync(join(tmpdir(), "vet-gate-"));
     const mutated = JSON.parse(JSON.stringify(baseline)) as ApiDocument;
