@@ -27,13 +27,23 @@ import {
 } from "../src/operational-config";
 import type { CatalogDb } from "../src/db/client";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
+import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 const db = {} as unknown as CatalogDb;
+/**
+ * The cron's Prisma seam. Every dependency in these cases is injected, so this
+ * seam is never reached — building it unreachable is what proves the wiring used
+ * the injected one rather than dialing out.
+ */
+const query = unreachableCatalogPrisma();
+
 const PROD = { DATABASE_URL: "postgresql://u:p@host/db", ENVIRONMENT: "production" };
 const STAGING = { DATABASE_URL: "postgresql://u:p@host/staging", ENVIRONMENT: "staging" };
 
 function deps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
+    connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
+      .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
     connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
@@ -128,10 +138,13 @@ describe("scheduled handler per-environment dispatch (AC1)", () => {
     await createScheduledHandler(handle)({ cron: SEED_CRON }, PROD);
     // The seed pass ingests every checked-in title (SEED_BANGUMI, 10 works)
     // that listDoneBangumiIds (mocked empty) doesn't already report done —
-    // one call per bangumi id, over the connected db.
+    // one call per bangumi id, over the connected Prisma seam.
     expect(handle.ingestBangumi).toHaveBeenCalledTimes(10);
-    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(1, db, "160209", undefined);
-    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(10, db, "328609", undefined);
+    const calls = vi.mocked(handle.ingestBangumi).mock.calls;
+    expect(calls[0]?.[0]).toBe(query);
+    expect(calls[0]?.[1]).toBe("160209");
+    expect(calls[9]?.[0]).toBe(query);
+    expect(calls[9]?.[1]).toBe("328609");
   });
 
   it("runs the import cron in staging through the injected import runner", async () => {

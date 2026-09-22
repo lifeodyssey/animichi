@@ -11,6 +11,7 @@ import contractJson from "@animichi/pi-session-neon/contract" with { type: "json
 import type { Contract } from "@animichi/pi-session-neon/types";
 import postgresServerless from "@prisma/orm-postgres/serverless";
 import type { CatalogPrisma } from "../src/db/prisma";
+import { withJoinedTransaction } from "./fakes/fake-catalog-prisma";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import {
   aliasInsert,
@@ -145,7 +146,7 @@ async function capturePlan(dsn: string): Promise<PlanCapture> {
   const explainer = new pg.Client({ connectionString: dsn });
   await explainer.connect();
   return {
-    prisma: { builder: client.sql, executor: runtime },
+    prisma: withJoinedTransaction({ builder: client.sql, executor: runtime }),
     explain: (needle) => explainRecorded(explainer, recorded, needle),
     explainWithoutSeqScan: async (needle) => {
       await explainer.query("BEGIN");

@@ -1,102 +1,79 @@
-import { describe, expect, it, vi } from "vitest";
-import { PgDialect } from "drizzle-orm/pg-core";
-import type { SQL } from "drizzle-orm";
+import { describe, expect, it } from "vitest";
 import { appendRawHistory, cleanupRawHistory, DEFAULT_KEEP_COUNT } from "../src/ingest/raw_history";
-import type { CatalogDb } from "../src/db/client";
+import { recordingCatalogPrisma } from "./fakes/plan-inspection";
 
-interface FakeDb {
-  db: CatalogDb;
-  deleteParams: () => unknown[];
-  executeCalls: () => number;
-}
+/**
+ * Raw payload retention, as the worker pool can see it (#1006 AC5, #1630).
+ *
+ * The sweep used to decide its own candidates: it read EVERY history row and
+ * counted downsides per (work_id, source) in JavaScript, then deleted the seqs it
+ * had chosen. The plan lane moved that ranking into the statement
+ * (`row_number() over (partition by work_id, source order by seq desc)`), so the
+ * database picks the candidates and the sweep only decides what to do with them.
+ *
+ * That splits the suite. The RANKING is now SQL, so whether it really keeps the
+ * newest N and whether an active run's evidence survives is proved against real
+ * Postgres in daily-run.integration.test.ts. What stays here is the worker-side
+ * contract: how many statements the sweep issues, that it issues no DELETE when
+ * nothing falls outside the window, and that the payload is bound as one JSON
+ * document rather than a string of a string.
+ */
 
-/** A fake db: the first execute is the ordered read; the next is the DELETE.RETURNING. */
-function fakeDb(rows: readonly unknown[]): FakeDb {
-  let selectDone = false;
-  let deleteRows: unknown[] = [];
-  let deleteParams: unknown[] = [];
-  const execute = vi.fn((query: SQL) => {
-    if (!selectDone) {
-      selectDone = true;
-      return Promise.resolve({ rows });
-    }
-    const params = new PgDialect().sqlToQuery(query).params;
-    deleteParams = params;
-    deleteRows = deletedRows(rows, params);
-    return Promise.resolve({ rows: deleteRows });
-  });
-  return {
-    db: { execute } as unknown as CatalogDb,
-    deleteParams: () => deleteParams,
-    executeCalls: () => execute.mock.calls.length,
-  };
-}
-
-/** The rows the DELETE.RETURNING would delete: candidates whose run differs from active. */
-function deletedRows(rows: readonly unknown[], params: unknown[]): unknown[] {
-  const activeRun = params[params.length - 1] as string | null;
-  const candidates = new Set(params.slice(0, -1) as number[]);
-  return rows.filter((row) => {
-    const record = row as Record<string, unknown>;
-    return candidates.has(record.seq as number) && record.run_id !== activeRun;
-  });
-}
-
-const ROWS = (seqs: number[], runs: (string | null)[]) =>
-  seqs.map((seq, i) => ({ seq, work_id: "w", source: "anitabi", run_id: runs[i] }));
+/** The rows the ranked read projects, newest-first within one work/source group. */
+const RANKED = (ranks: readonly number[]) => ranks.map((rank) => ({ seq: 100 - rank, rank }));
 
 describe("Raw payload retention (AC5)", () => {
   it("defaults to keeping the newest two payloads per work/source", () => {
     expect(DEFAULT_KEEP_COUNT).toBe(2);
   });
 
-  it("returns the count of rows pruned beyond the newest two", async () => {
-    // 4 rows for one work/source; the two oldest (seq 1,2) are candidates.
-    const fake = fakeDb(ROWS([4, 3, 2, 1], ["d-2", "d-2", "d-1", null]));
-    const deleted = await cleanupRawHistory(fake.db, "d-2");
-    expect(deleted).toBe(2);
-    expect(fake.executeCalls()).toBe(2);
-  });
+  it("issues the ranked read then one DELETE, binding the out-of-window seqs", async () => {
+    // Ranks 1 and 2 are kept; 3 and 4 are beyond the window.
+    const seam = recordingCatalogPrisma(RANKED([1, 2, 3, 4]), [{ seq: 97 }, { seq: 96 }]);
 
-  it("derives the count from rows actually deleted via DELETE.RETURNING", async () => {
-    // seq 1,2 are candidates but belong to the active run, so nothing is deleted.
-    const fake = fakeDb(ROWS([4, 3, 2, 1], ["d-2", "d-2", "d-2", "d-2"]));
-    const deleted = await cleanupRawHistory(fake.db, "d-2");
-    expect(deleted).toBe(0);
-    expect(fake.executeCalls()).toBe(2);
-  });
+    await expect(cleanupRawHistory(seam.query, "d-2")).resolves.toBe(2);
 
-  it("issues a single DELETE bound to the candidate seqs and the active run", async () => {
-    const fake = fakeDb(ROWS([4, 3, 2, 1], ["d-2", "d-2", "d-1", null]));
-    await cleanupRawHistory(fake.db, "d-2");
-    const params = fake.deleteParams();
-    expect(params).toEqual(expect.arrayContaining([1, 2, "d-2"]));
+    expect(seam.statements()).toBe(2);
+    const params = seam.params();
+    expect(params).toEqual(expect.arrayContaining([97, 96, "d-2"]));
+    // The kept rows are never named in the DELETE.
+    expect(params).not.toContain(99);
+    expect(params).not.toContain(98);
   });
 
   it("prunes nothing when every work/source group is within the keep bound", async () => {
-    const fake = fakeDb(ROWS([2, 1], ["d-1", "d-1"]));
-    const deleted = await cleanupRawHistory(fake.db, "d-1");
-    expect(deleted).toBe(0);
-    expect(fake.executeCalls()).toBe(1);
+    const seam = recordingCatalogPrisma(RANKED([1, 2]));
+
+    await expect(cleanupRawHistory(seam.query, "d-1")).resolves.toBe(0);
+
+    // One statement: the ranked read. No DELETE is issued at all.
+    expect(seam.statements()).toBe(1);
+  });
+
+  it("honours an explicit keep count", async () => {
+    const seam = recordingCatalogPrisma(RANKED([1, 2, 3]), [{ seq: 97 }]);
+
+    await expect(cleanupRawHistory(seam.query, "d-1", 2)).resolves.toBe(1);
+    expect(seam.statements()).toBe(2);
   });
 
   it("rejects a non-positive keep count", async () => {
-    const fake = fakeDb(ROWS([2, 1], ["d-1", "d-1"]));
-    return expect(cleanupRawHistory(fake.db, "d-1", 0)).rejects.toThrow(/keepCount/);
+    const seam = recordingCatalogPrisma(RANKED([1]));
+    await expect(cleanupRawHistory(seam.query, "d-1", 0)).rejects.toThrow(/keepCount/);
+    expect(seam.statements()).toBe(0);
   });
 });
 
 describe("Raw payload serialization (thread 8)", () => {
-  it("binds the payload as a single-encoded JSON document, not a string of a string", async () => {
-    let captured: unknown[] = [];
-    const execute = vi.fn((query: SQL) => {
-      captured = new PgDialect().sqlToQuery(query).params;
-      return Promise.resolve({ rows: [] });
-    });
-    const db = { execute } as unknown as CatalogDb;
+  it("binds the payload as ONE jsonb document, not a re-stringified one", async () => {
+    const seam = recordingCatalogPrisma();
     const payload = { id: 1, name: "Sora" };
-    await appendRawHistory(db, { workId: "w-1", source: "bangumi", payload });
-    const bound = captured.find((p) => typeof p === "string" && p.includes("Sora"));
-    expect(JSON.parse(bound as string)).toEqual(payload);
+
+    await appendRawHistory(seam.query, { workId: "w-1", source: "bangumi", payload });
+
+    // The plan binds the document itself; a lane that JSON.stringify'd it would
+    // put a STRING here, and Postgres would store that string as a jsonb scalar.
+    expect(seam.params()).toContainEqual(payload);
+    expect(seam.params().some((value) => typeof value === "string" && value.includes("Sora"))).toBe(false);
   });
 });

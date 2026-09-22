@@ -9,153 +9,111 @@
  * newest keepCount rows per (work_id, source), and rows whose run_id is the
  * currently-active run are exempt even when they fall outside that bound — a
  * restarting run never loses its own evidence mid-flight.
+ *
+ * Every statement is a builder plan over this request's Prisma runtime
+ * ({@link CatalogPrisma}). The per-group ranking the cleanup needs is a window
+ * function inside the plan's own projection, so the sweep reads back exactly the
+ * rows it will delete and the hand-rolled row coercion the `unknown[]` seam
+ * required has nowhere left to live.
  */
-import { and, inArray, sql, type SQL } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { rawPayloadHistory } from "../db/schema";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
+import { asJsonValue } from "../lib/json";
 
 /** How many newest raw payloads per work/source the cleanup retains. */
 export const DEFAULT_KEEP_COUNT = 2;
 
-/** A raw payload history row as read by the cleanup sweep. */
+/** A raw payload history row with its rank inside its own group. */
 interface HistoryRow {
   seq: number;
-  workId: string;
-  source: string;
-  runId: string | null;
+  rank: number;
 }
 
 /** Append one fetched payload to the history, tagged with the capturing run. */
 export async function appendRawHistory(
-  db: CatalogDb,
-  args: { workId: string; source: string; payload: unknown; runId?: string },
+  query: CatalogPrisma,
+  args: { workId: string; source: string; payload: object; runId?: string },
 ): Promise<void> {
-  await db.execute(appendStatement(args));
+  await query.executor.query(appendPlan(query, args));
 }
 
 /** The INSERT into raw_payload_history (run id optional for older fetches). */
-function appendStatement(args: { workId: string; source: string; payload: unknown; runId?: string }): SQL {
-  return statementBuilder()
-    .insert(rawPayloadHistory)
-    .values({
-      workId: args.workId,
+function appendPlan(
+  query: CatalogPrisma,
+  args: { workId: string; source: string; payload: object; runId?: string },
+): SqlOrmPlan {
+  return query.builder.public.raw_payload_history
+    .insert([{
+      work_id: args.workId,
       source: args.source,
-      payload: args.payload,
-      runId: args.runId ?? null,
-    })
-    .getSQL();
+      payload: asJsonValue(args.payload),
+      run_id: args.runId ?? null,
+    }])
+    .build();
 }
 
 /** Total history rows for a work/source — a diagnosis/assertion helper. */
 export async function historyCount(
-  db: CatalogDb,
+  query: CatalogPrisma,
   workId: string,
   source: string,
 ): Promise<number> {
-  const rows = (await db.execute(countStatement(workId, source))).rows;
-  return readCount(rows);
+  const rows = await query.executor.query(countPlan(query, workId, source));
+  return rows[0]?.n ?? 0;
 }
 
 /** The COUNT over the work/source group. */
-function countStatement(workId: string, source: string): SQL {
-  return statementBuilder()
-    .select({ n: sql`COUNT(*)::int`.as("n") })
-    .from(rawPayloadHistory)
-    .where(and(eqWork(workId), eqSource(source)))
-    .getSQL();
-}
-
-/** The work_id = ? predicate fragment. */
-function eqWork(workId: string): SQL {
-  return sql`${rawPayloadHistory.workId} = ${workId}`;
-}
-
-/** The source = ? predicate fragment. */
-function eqSource(source: string): SQL {
-  return sql`${rawPayloadHistory.source} = ${source}`;
+function countPlan(query: CatalogPrisma, workId: string, source: string): SqlOrmPlan<{ n: number }> {
+  return query.builder.public.raw_payload_history
+    .select((_fields, fns) => ({ n: fns.raw`count(*)::int`.returns("pg/int4@1") }))
+    .where((fields, match) => match.and(
+      match.eq(fields.work_id, workId),
+      match.eq(fields.source, source),
+    ))
+    .build();
 }
 
 /** Bounded cleanup: keep the newest keepCount per group, protecting active runs. */
 export async function cleanupRawHistory(
-  db: CatalogDb,
+  query: CatalogPrisma,
   activeRunId: string,
   keepCount: number = DEFAULT_KEEP_COUNT,
 ): Promise<number> {
-  const rows = (await db.execute(orderedRowsStatement())).rows;
-  const deleteCandidates = collectCandidates(rows, keepCount);
-  if (deleteCandidates.length === 0) return 0;
-  const deleted = await db.execute(deleteStatement(deleteCandidates, activeRunId));
-  return deleted.rows.length;
-}
-
-/** All history rows ordered by work_id, source, seq DESC. */
-function orderedRowsStatement(): SQL {
-  return statementBuilder()
-    .select({
-      seq: rawPayloadHistory.seq,
-      workId: rawPayloadHistory.workId,
-      source: rawPayloadHistory.source,
-      runId: rawPayloadHistory.runId,
-    })
-    .from(rawPayloadHistory)
-    .orderBy(sql`${rawPayloadHistory.workId} ASC, ${rawPayloadHistory.source} ASC, ${rawPayloadHistory.seq} DESC`)
-    .getSQL();
-}
-
-/** The seqs beyond the newest keepCount within each group (deletion candidates). */
-function collectCandidates(ordered: readonly unknown[], keepCount: number): number[] {
   assertKeep(keepCount);
-  const rows = ordered.flatMap(rowOf);
-  const counts = new Map<string, number>();
-  const candidates: number[] = [];
-  for (const row of rows) {
-    const bucket = row.workId + "\u0000" + row.source;
-    const kept = counts.get(bucket) ?? 0;
-    counts.set(bucket, kept + 1);
-    if (kept < keepCount) continue;
-    candidates.push(row.seq);
-  }
-  return candidates;
+  const rows = await query.executor.query(rankedPlan(query));
+  const seqs = rows.filter((row) => row.rank > keepCount).map((row) => row.seq);
+  if (seqs.length === 0) return 0;
+  const deleted = await query.executor.query(deletePlan(query, seqs, activeRunId));
+  return deleted.length;
+}
+
+/**
+ * Every history row with its rank inside its own (work_id, source) group,
+ * newest first — the window the retention bound is expressed over, so the
+ * candidates are decided by the database's own ordering rather than by a
+ * client-side pass over an untyped row list.
+ */
+function rankedPlan(query: CatalogPrisma): SqlOrmPlan<HistoryRow> {
+  return query.builder.public.raw_payload_history
+    .select((fields, fns) => ({
+      seq: fields.seq,
+      rank: fns.raw`row_number() over (partition by ${fields.work_id}, ${fields.source} order by ${fields.seq} desc)::int`.returns("pg/int4@1"),
+    }))
+    .build();
 }
 
 /** The DELETE ... WHERE seq IN (...) AND run_id IS DISTINCT FROM active. */
-function deleteStatement(seqs: readonly number[], activeRunId: string): SQL {
-  return statementBuilder()
-    .delete(rawPayloadHistory)
-    .where(and(inArray(rawPayloadHistory.seq, [...seqs]), notActiveRun(activeRunId)))
-    .returning({ seq: rawPayloadHistory.seq })
-    .getSQL();
-}
-
-/** COALESCE(run_id, '') <> ? — exempt the active run's evidence. */
-function notActiveRun(activeRunId: string): SQL {
-  return sql`COALESCE(${rawPayloadHistory.runId}, '') <> ${activeRunId}`;
-}
-
-/** Coerce one raw history row to a typed value; malformed rows are dropped. */
-function rowOf(value: unknown): HistoryRow[] {
-  if (value === null || typeof value !== "object") return [];
-  const record = value as Record<string, unknown>;
-  const seq = numeric(record.seq);
-  const workId = record.work_id;
-  const source = record.source;
-  const runId = record.run_id;
-  if (seq === undefined || typeof workId !== "string" || typeof source !== "string") return [];
-  return [{ seq, workId, source, runId: typeof runId === "string" ? runId : null }];
-}
-
-/** A bigserial value arrives as a string under a raw execute; normalise it. */
-function numeric(value: unknown): number | undefined {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function readCount(rows: readonly unknown[]): number {
-  const row = rows[0];
-  if (typeof row !== "object" || row === null || !("n" in row)) return 0;
-  const n = (row as Record<string, unknown>).n;
-  return typeof n === "number" ? n : 0;
+function deletePlan(
+  query: CatalogPrisma, seqs: readonly number[], activeRunId: string,
+): SqlOrmPlan<{ seq: number }> {
+  return query.builder.public.raw_payload_history
+    .delete()
+    .where((fields, match) => match.and(
+      match.in(fields.seq, [...seqs]),
+      match.raw`coalesce(${fields.run_id}, '') <> ${activeRunId}`.returns("pg/bool@1"),
+    ))
+    .returning("seq")
+    .build();
 }
 
 function assertKeep(keepCount: number): void {

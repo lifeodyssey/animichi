@@ -26,6 +26,7 @@ import type { Contract } from "@animichi/pi-session-neon/types";
 import postgresServerless from "@prisma/orm-postgres/serverless";
 import pg from "pg";
 import type { CatalogPrisma } from "../src/db/prisma";
+import { withJoinedTransaction } from "./fakes/fake-catalog-prisma";
 
 /** One statement as the runtime lowered it, with its pre-encoding parameters. */
 interface RecordedStatement {
@@ -71,7 +72,7 @@ export async function captureNearbyPlan(dsn: string): Promise<NearbyPlanCapture>
   const explainer = new pg.Client({ connectionString: dsn });
   await explainer.connect();
   return {
-    prisma: { builder: client.sql, executor: runtime },
+    prisma: withJoinedTransaction({ builder: client.sql, executor: runtime }),
     explain: (needle) => explainRecorded(explainer, recorded, needle),
     recordedSql: () => recorded.map((entry) => entry.text),
     close: async () => {

@@ -4,121 +4,150 @@
  * A run row keyed by a STABLE run id records the discovered targets, per-source
  * outcomes, budget use, failures, completion state, and published versions as
  * JSONB snapshots. readRun / beginRun / recordRun are the idempotent gate +
- * transitions; statements are built with the Drizzle builder over the CatalogDb
- * seam so retries never issue raw SQL.
+ * transitions; every statement is a builder plan on the request's runtime
+ * ({@link CatalogPrisma}), so retries never issue raw SQL.
+ *
+ * `beginRun` is the run's singleflight gate, and it is the one write here the
+ * conflict clause does not serve: the gate has to leave a live run untouched,
+ * which is `ON CONFLICT … DO UPDATE … WHERE` and the Postgres renderer emits no
+ * conflict predicate. It is stated as the pair that predicate means — UPDATE the
+ * row when it is claimable, else INSERT it — with the unique key deciding the
+ * race between two callers that both found no row.
  */
-import { eq, sql, type SQL } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { catalogRuns } from "../db/schema";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
+import { atServerNow } from "../db/plans";
+import { asJsonValue } from "../lib/json";
+import { isUniqueViolation } from "../lib/pg-error";
 import type { RunSnapshot } from "./daily-run";
 
+interface RunRow extends Record<string, unknown> {
+  status: string;
+  started_at: string | null;
+  published_versions: unknown;
+}
+
 /** Read the recorded run snapshot, or null when no run exists for the id. */
-export async function readRunRow(db: CatalogDb, runId: string): Promise<RunSnapshot | null> {
-  const rows = (await db.execute(readStatement(runId))).rows;
-  if (rows.length === 0) return null;
-  return parseRunSnapshot(rows[0]);
+export async function readRunRow(query: CatalogPrisma, runId: string): Promise<RunSnapshot | null> {
+  const rows = await query.executor.query(readPlan(query, runId));
+  const [first] = rows;
+  return first === undefined ? null : snapshotOf(first);
 }
 
 /** The SELECT of status + reclaim signals for one run id. */
-function readStatement(runId: string): SQL {
-  return statementBuilder()
-    .select({ status: catalogRuns.status, startedAt: catalogRuns.startedAt, publishedVersions: catalogRuns.publishedVersions })
-    .from(catalogRuns)
-    .where(eq(catalogRuns.runId, runId))
-    .getSQL();
+function readPlan(query: CatalogPrisma, runId: string): SqlOrmPlan<RunRow> {
+  return query.builder.public.catalog_runs
+    .select("status", "started_at", "published_versions")
+    .where((fields, match) => match.eq(fields.run_id, runId))
+    .build();
 }
 
 /** Atomically reserve the run row; false when another invocation owns it. */
-export async function beginRunRow(db: CatalogDb, runId: string): Promise<boolean> {
-  const rows = (await db.execute(beginStatement(runId))).rows;
-  return rows.length > 0;
+export async function beginRunRow(query: CatalogPrisma, runId: string): Promise<boolean> {
+  const reclaimed = await query.executor.query(reclaimPlan(query, runId));
+  if (reclaimed.length > 0) return true;
+  return insertRun(query, runId);
 }
 
-/** INSERT ... ON CONFLICT (run_id) DO UPDATE status running WHERE not already running. */
-function beginStatement(runId: string): SQL {
-  return statementBuilder()
-    .insert(catalogRuns)
-    .values({ runId, status: "running", startedAt: nowSql() })
-    .onConflictDoUpdate({
-      target: catalogRuns.runId,
-      set: { status: "running" },
-      setWhere: sql`${catalogRuns.status} <> 'running'`,
-    })
-    .returning({ runId: catalogRuns.runId })
-    .getSQL();
+/**
+ * Reclaim a run row that is not already running. This is the `setWhere` half of
+ * the deleted `ON CONFLICT (run_id) DO UPDATE … WHERE status <> 'running'`:
+ * `started_at` is deliberately NOT reassigned, exactly as the conflict clause
+ * left it.
+ */
+function reclaimPlan(query: CatalogPrisma, runId: string): SqlOrmPlan<{ run_id: string }> {
+  return query.builder.public.catalog_runs
+    .update({ status: "running" })
+    .where((fields, match) => match.and(
+      match.eq(fields.run_id, runId),
+      match.ne(fields.status, "running"),
+    ))
+    .returning("run_id")
+    .build();
+}
+
+/** Start a run that has no row yet. A unique-key clash means another caller got there first. */
+async function insertRun(query: CatalogPrisma, runId: string): Promise<boolean> {
+  const plan = atServerNow(
+    query.builder.public.catalog_runs
+      .insert([{ run_id: runId, status: "running" }])
+      .returning("run_id")
+      .build(),
+    ["started_at"],
+  );
+  try {
+    return (await query.executor.query(plan)).length > 0;
+  } catch (error) {
+    if (isUniqueViolation(error)) return false;
+    throw error;
+  }
 }
 
 /** Persist the full snapshot over the run row. */
-export async function recordRunRow(db: CatalogDb, runId: string, snapshot: RunSnapshot): Promise<void> {
-  await db.execute(recordStatement(runId, snapshot));
+export async function recordRunRow(query: CatalogPrisma, runId: string, snapshot: RunSnapshot): Promise<void> {
+  await query.executor.query(recordPlan(query, runId, snapshot));
 }
 
 /** UPDATE the run row with the serialized snapshot. */
-function recordStatement(runId: string, snapshot: RunSnapshot): SQL {
-  return statementBuilder()
-    .update(catalogRuns)
-    .set({
+function recordPlan(query: CatalogPrisma, runId: string, snapshot: RunSnapshot): SqlOrmPlan {
+  const terminal = isTerminal(snapshot.status);
+  const update = query.builder.public.catalog_runs
+    .update({
       status: snapshot.status,
-      targets: snapshot.targets,
-      sourceOutcomes: snapshot.sources,
-      budgetUsed: {
+      targets: snapshot.targets === null ? null : asJsonValue(snapshot.targets),
+      source_outcomes: asJsonValue(snapshot.sources),
+      budget_used: {
         workUsed: snapshot.budgetUsed.workUsed,
         requestUsed: snapshot.budgetUsed.requestUsed,
         runtimeUsedMs: snapshot.budgetUsed.runtimeUsedMs,
         firstExhausted: snapshot.firstExhausted,
       },
-      failures: snapshot.failures,
-      publishedVersions: snapshot.published,
-      finishedAt: finishedAtValue(snapshot),
+      failures: asJsonValue(snapshot.failures),
+      published_versions: asJsonValue(snapshot.published),
+      finished_at: null,
     })
-    .where(eq(catalogRuns.runId, runId))
-    .getSQL();
+    .where((fields, match) => match.eq(fields.run_id, runId))
+    .build();
+  // A terminal snapshot stamps the finish; a run still going clears it. The
+  // stamp is the database's own clock, so it is applied as a plan repair rather
+  // than bound as a value.
+  return terminal ? atServerNow(update, ["finished_at"]) : update;
 }
 
-/** finished_at is set only for terminal states. */
-function finishedAtValue(snapshot: RunSnapshot): SQL | null {
-  return snapshot.status === "running" || snapshot.status === "pending" ? null : nowSql();
+/** Whether a run status is one a run does not leave. */
+function isTerminal(status: RunSnapshot["status"]): boolean {
+  return status !== "running" && status !== "pending";
 }
 
 /** Mark a run failed with a reason (stale reclaim before a retry re-runs it). */
-export async function markRunFailedRow(db: CatalogDb, runId: string, reason: string): Promise<void> {
-  await db.execute(failStatement(runId, reason));
+export async function markRunFailedRow(query: CatalogPrisma, runId: string, reason: string): Promise<void> {
+  await query.executor.query(failPlan(query, runId, reason));
 }
 
 /** UPDATE the run row to failed with a reclaim marker and a finished timestamp. */
-function failStatement(runId: string, reason: string): SQL {
-  return statementBuilder()
-    .update(catalogRuns)
-    .set({
+function failPlan(query: CatalogPrisma, runId: string, reason: string): SqlOrmPlan {
+  const update = query.builder.public.catalog_runs
+    .update({
       status: "failed",
-      failures: [{ bangumiId: runId, stage: "reclaim", reason }],
-      finishedAt: nowSql(),
+      failures: asJsonValue([{ bangumiId: runId, stage: "reclaim", reason }]),
     })
-    .where(eq(catalogRuns.runId, runId))
-    .getSQL();
-}
-
-/** NOW() — the transition timestamp. */
-function nowSql(): SQL {
-  return sql`NOW()`;
+    .where((fields, match) => match.eq(fields.run_id, runId))
+    .build();
+  return atServerNow(update, ["finished_at"]);
 }
 
 /** Coerce a catalog_runs row into a snapshot for the protocol's read gate. */
-function parseRunSnapshot(value: unknown): RunSnapshot | null {
-  if (value === null || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  const status = record.status;
-  if (typeof status !== "string") return null;
+function snapshotOf(row: RunRow): RunSnapshot | null {
+  if (typeof row.status !== "string") return null;
   return {
-    status: status as RunSnapshot["status"],
+    status: row.status as RunSnapshot["status"],
     targets: null,
     sources: {},
     budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
     firstExhausted: null,
     failures: [],
-    published: parsePublished(record.publishedVersions),
-    startedAtMs: parseStartedAt(record.startedAt),
+    published: parsePublished(row.published_versions),
+    startedAtMs: parseStartedAt(row.started_at),
   };
 }
 

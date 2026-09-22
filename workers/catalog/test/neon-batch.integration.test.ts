@@ -1,12 +1,50 @@
-import { expect, it, vi } from "vitest";
-import { PgDialect } from "drizzle-orm/pg-core";
-import type { SQL } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
+import { expect, it } from "vitest";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { enrichWork } from "../src/enrich/enrich";
 import { publishVersion } from "../src/publish/versioning";
+import { recordingCatalogPrisma } from "./fakes/plan-inspection";
 
-interface CapturedQuery extends Promise<{ rows: unknown[] }> {
-  statement: SQL;
+/**
+ * One atomic unit per publish, now that the batch is gone.
+ *
+ * This suite used to pin neon-http's `db.batch` contract: an ordered array of
+ * statements, submitted together, all-or-nothing. The Prisma plane has no
+ * `batch` — it has a real client TRANSACTION — so what replaced that contract is
+ * what has to be pinned here: every write of one enrich runs inside ONE
+ * `transaction()`, the version flip precedes the insert so a reader never sees
+ * the new rows against the old pointer, and a publish reached from inside a
+ * caller's transaction JOINS it instead of opening a second connection.
+ *
+ * The fake's `transaction` runs `fn` on a bound seam whose own `transaction`
+ * joins — the shape `bindTransaction` gives a request in `db/prisma.ts` — and
+ * counts only the openings that are NOT a join. Atomicity itself — that a
+ * mid-pass throw really discards, and that a failed publish discards its flip —
+ * is proved against real Postgres in publish.integration.test.ts.
+ */
+
+/** The seam under test, with its transaction openings counted. */
+interface TransactionRecording {
+  readonly query: CatalogPrisma;
+  transactions(): number;
+  planKinds(): string[];
+}
+
+function atomicSeam(...answers: readonly (readonly unknown[])[]): TransactionRecording {
+  const recording = recordingCatalogPrisma(...answers);
+  let opened = 0;
+  const bound: CatalogPrisma = { ...recording.query, transaction: (fn) => Promise.resolve(fn(bound)) };
+  const seam: CatalogPrisma = {
+    ...recording.query,
+    transaction: (fn) => {
+      opened += 1;
+      return Promise.resolve(fn(bound));
+    },
+  };
+  return {
+    query: seam,
+    transactions: () => opened,
+    planKinds: () => recording.plans().map((plan) => (plan.ast as { kind: string }).kind),
+  };
 }
 
 const RAW_BANGUMI = { name: "Batch Anime", name_cn: "批次动画" };
@@ -14,60 +52,46 @@ const RAW_ANITABI = [
   { id: "point-1", name: "Batch Place", geo: [35, 139] },
   { id: "point-2", name: "Second Place", geo: [36, 140] },
 ];
-const dialect = new PgDialect();
 
-/** Bound parameter values for one submitted statement (asserted as data, not SQL). */
-function queryParams(statement: SQL): unknown[] {
-  return dialect.sqlToQuery(statement).params;
-}
+it("publishes a version in ONE transaction of its own, flip then read then insert", async () => {
+  // The flip answers nothing, the version read answers the next version the SQL
+  // computed, and the insert returns it.
+  const seam = atomicSeam([], [{ version: 7 }], [{ version: 7 }]);
 
-/** Raw-zone read results, resolved in the order enrichWork requests them. */
-function rawRead(reads: number): { rows: unknown[] } {
-  if (reads === 0) return { rows: [{ payload: RAW_BANGUMI }] };
-  if (reads === 1) return { rows: [{ payload: RAW_ANITABI }] };
-  return { rows: [] };
-}
+  await expect(publishVersion(seam.query, "batch-work")).resolves.toBe(7);
 
-function capturedQuery(statement: SQL, reads: number): CapturedQuery {
-  return Object.assign(Promise.resolve(rawRead(reads)), { statement });
-}
-
-type BatchMock = ReturnType<typeof vi.fn<(queries: readonly CapturedQuery[]) => Promise<{ rows: unknown[] }[]>>>;
-
-function fakeDb(version: number): { db: CatalogDb; batch: BatchMock } {
-  let reads = 0;
-  const execute = vi.fn((statement: SQL) => capturedQuery(statement, reads++));
-  const batch = vi.fn((queries: readonly CapturedQuery[]) =>
-    Promise.resolve(queries.map((_query, index) =>
-      index === queries.length - 1 ? { rows: [{ version }] } : { rows: [] })),
-  );
-  return { db: { execute, batch } as unknown as CatalogDb, batch };
-}
-
-function statementAt(queries: readonly CapturedQuery[], index: number): SQL {
-  const query = queries[index];
-  if (!query) throw new Error("batch query " + String(index) + " was not submitted");
-  return query.statement;
-}
-
-it("publishes with one ordered neon-http batch", async () => {
-  const { db, batch } = fakeDb(7);
-  await expect(publishVersion(db, "batch-work")).resolves.toBe(7);
-  expect(batch).toHaveBeenCalledTimes(1);
-  const submitted = batch.mock.calls[0]?.[0] ?? [];
-  expect(submitted).toHaveLength(2);
+  // A standalone publish is one unit of its own: a crash between the flip and
+  // the insert must discard the flip rather than leave the work with no current
+  // version at all.
+  expect(seam.transactions()).toBe(1);
+  expect(seam.planKinds()).toEqual(["update", "select", "insert"]);
 });
 
-it("submits all enrich writes in one ordered neon-http batch", async () => {
-  const { db, batch } = fakeDb(11);
-  await expect(enrichWork(db, "batch-work")).resolves.toEqual({ version: 11, pointCount: 2 });
-  expect(batch).toHaveBeenCalledTimes(1);
-  const submitted = batch.mock.calls[0]?.[0] ?? [];
-  expect(submitted).toHaveLength(5);
-  expect(queryParams(statementAt(submitted, 1))).toEqual(
-    expect.arrayContaining(["point-1", "point-2"]),
+it("runs every enrich write inside ONE transaction, flip before insert", async () => {
+  // One answer list per statement, in the order the pass issues them:
+  // the two raw reads, then inside the transaction the three upserts, the flip,
+  // the next-version read and the version insert.
+  const seam = atomicSeam(
+    [{ payload: RAW_BANGUMI }],
+    [{ payload: RAW_ANITABI }],
+    [],
+    [],
+    [],
+    [],
+    [{ version: 11 }],
+    [{ version: 11 }],
   );
-  expect(queryParams(statementAt(submitted, 2))).toEqual(
-    expect.arrayContaining(["Batch Anime", "批次动画"]),
-  );
+
+  await expect(enrichWork(seam.query, "batch-work")).resolves.toEqual({ version: 11, pointCount: 2 });
+
+  // The publish inside the pass JOINS the pass's transaction — still one unit,
+  // not two connections.
+  expect(seam.transactions()).toBe(1);
+  // The two raw reads happen BEFORE the transaction opens; inside it:
+  // upsert bangumi, upsert points, upsert aliases, flip, next-version, insert.
+  expect(seam.planKinds()).toEqual([
+    "select", "select",
+    "insert", "insert", "insert",
+    "update", "select", "insert",
+  ]);
 });

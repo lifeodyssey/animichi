@@ -9,7 +9,6 @@ import {
   type CatalogPrisma,
   type CatalogRuntime,
 } from "../src/db/prisma";
-import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import {
   aliasInsert,
   aliasSeed,
@@ -79,7 +78,7 @@ async function seed(): Promise<void> {
 /** The route's context: this request's REAL Prisma seam, and a Drizzle seam that
  * throws if a read reaches for it. */
 function context(): CatalogContext {
-  return { db: unreachableCatalogDb(), prisma };
+  return { prisma };
 }
 
 async function call(method: string, payload: unknown): Promise<unknown> {

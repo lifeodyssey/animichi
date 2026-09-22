@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { EXPORTED_TABLES, exportCandidate } from "../src/publish/candidate-export";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 
 const ROWS = {
   bangumi: [{ id: "w1", title: "Lucky Star" }],
@@ -33,7 +33,7 @@ describe("candidate export allowlist (AC1)", () => {
 
 describe("candidate export content (AC1 support)", () => {
   it("serializes each public table to an immutable object with a hash, size, and count", async () => {
-    const exported = await exportCandidate(fakeCatalogDb(ROWS), "snapshots/snap-a/data");
+    const exported = await exportCandidate(fakeTableRows(ROWS), "snapshots/snap-a/data");
     expect(exported.counts).toEqual({ works: 1, points: 1, aliases: 1, series: 1, provenance: 1, media: 1 });
     expect(exported.objects).toHaveLength(6);
     const samples = exported.objects.map((object) => ({
@@ -56,9 +56,9 @@ describe("candidate export content (AC1 support)", () => {
   });
 
   it("produces identical hashes for two exports of the same rows (deterministic order)", async () => {
-    const db = fakeCatalogDb(ROWS);
-    const first = await exportCandidate(db, "snapshots/snap-a/data");
-    const second = await exportCandidate(db, "snapshots/snap-a/data");
+    const query = fakeTableRows(ROWS);
+    const first = await exportCandidate(query, "snapshots/snap-a/data");
+    const second = await exportCandidate(query, "snapshots/snap-a/data");
     expect(first.objects.map((o) => o.hash)).toEqual(second.objects.map((o) => o.hash));
     expect(first.objects.map((o) => [o.kind, o.hash])).toEqual(second.objects.map((o) => [o.kind, o.hash]));
   });
