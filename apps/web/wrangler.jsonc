@@ -45,6 +45,18 @@
   // standing between a redundant deploy and a deindexed production site, so the config
   // states the truth instead of leaning on it.
   "vars": { "APP_ENV": "production" },
+  // The top level IS the production Worker (`name` = `animichi-web`, the same
+  // Worker as `env.production`), so its subdomain posture is pinned here too
+  // (#1524): wrangler resolves an unset `workers_dev` to
+  // `routes.length === 0` (wrangler 4.132.0, cli.js `getSubdomainValues`) and
+  // this config declares no routes, so an omitted key would OPEN
+  // `animichi-web.<subdomain>.workers.dev` on the next deploy. Measured
+  // 2026-09-21 before the pin: the host answered 404 with a body byte-identical
+  // both to a never-registered host and to a deployed Worker whose subdomain is
+  // off (`error code: 1042` in all three cases), so the measurement shows the
+  // host is closed and not why. Nothing in this config guaranteed it.
+  "workers_dev": false,
+  "preview_urls": false,
   "env": {
     "staging": {
       "name": "animichi-web-staging",
@@ -75,6 +87,14 @@
     },
     "production": {
       "name": "animichi-web",
+      // Subdomain posture pinned explicitly (#1524), for the same reason as
+      // the top level above: no routes are declared here, so wrangler's
+      // `routes.length === 0` default would open the workers.dev host if the
+      // key were omitted. `preview_urls = false` keeps the per-version
+      // preview URLs — hostnames nobody added to any Access application —
+      // closed as well.
+      "workers_dev": false,
+      "preview_urls": false,
       // Public production RUNTIME_CONFIG, committed for the same reason as
       // staging's: CD builds the web output ONCE and promotes the same bytes to
       // both environments, so nothing environment-varying may exist at build
