@@ -2,48 +2,28 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
 import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH } from "@animichi/contract";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
-import { makeDb as realMakeDb, type UsersDb } from "./db/client";
+import { acquireUsersRuntime, usersPrisma, type UsersPrisma } from "./db/prisma";
 import { USERS_ERRORS } from "./lib/errors";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
 export interface Env {
   ENVIRONMENT?: string;
-  HYPERDRIVE?: { connectionString: string };
   DATABASE_URL?: string | SecretsStoreSecret;
 }
 
 /** Injectable boundaries used by workerd tests. */
 export interface UsersAppDeps {
-  makeDb?: (connStr: string) => UsersDb;
+  /** Replace this request's Prisma access — a test seam, never a deployment knob. */
+  makePrisma?: (connStr: string) => UsersPrisma;
 }
-
-const dbPools = new Map<string, UsersDb>();
 
 /** In staging the DSN arrives as a Secrets Store binding (#912 PR2): `.get()`
  * resolves the string; the string branch keeps local dev and tests unchanged. */
 async function connectionString(env: Env): Promise<string | undefined> {
-  if (env.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
   const url = env.DATABASE_URL;
   if (url == null) return undefined;
   return typeof url === "string" ? url : await url.get();
-}
-
-function realDbFor(connStr: string): UsersDb {
-  const cached = dbPools.get(connStr);
-  if (cached) return cached;
-  const db = realMakeDb(connStr);
-  dbPools.set(connStr, db);
-  return db;
-}
-
-function dbFor(connStr: string, factory?: UsersAppDeps["makeDb"]): UsersDb {
-  return factory ? factory(connStr) : realDbFor(connStr);
-}
-
-/** Clear cached real Neon clients; neon-http owns no persistent sockets. */
-export function closeDbPools(): void {
-  dbPools.clear();
 }
 
 const unauthorized = {
@@ -64,15 +44,6 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
   return c.json({ status: "ok", service: "users", env: c.env.ENVIRONMENT ?? "unknown" });
 }
 
-async function requestService(
-  c: Context<{ Bindings: Env }>,
-  deps: UsersAppDeps,
-): Promise<{ db: UsersDb } | Response> {
-  const connStr = await connectionString(c.env);
-  if (!connStr) return c.json({ error: "users database not configured" }, 503);
-  return { db: dbFor(connStr, deps.makeDb) };
-}
-
 /**
  * The internal-identity boundary (AUTH-2 #950): the users service trusts ONLY
  * the edge's verified identity, which arrives over the USERS service binding
@@ -89,6 +60,23 @@ function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
   if (c.req.header(USER_TYPE_HEADER) !== "human") return null;
   const userId = c.req.header(USER_IDENTITY_HEADER);
   return typeof userId === "string" && userId.length > 0 ? userId : null;
+}
+
+/** The identity and retry-safe key this request is admitted with. */
+interface Admission { userId: string; idempotencyKey?: string }
+
+/** Admission, or the Response that refuses the request before any work. */
+function admit(c: Context<{ Bindings: Env }>): Admission | Response {
+  const userId = edgeIdentity(c);
+  if (userId === null) return c.json(unauthorized, 401);
+  // The retry-safe create key, forwarded unchanged from the edge; the save
+  // handler only honors it for a create (no id). Reject an over-long token
+  // here, before dispatch, so the ledger never sees an unbounded PK key value.
+  const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
+  if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+    return c.json(idempotencyKeyInvalid, 400);
+  }
+  return idempotencyKey === undefined ? { userId } : { userId, idempotencyKey };
 }
 
 async function handleMatched(
@@ -111,18 +99,21 @@ async function guardUsersV1(
   service: UsersV1Service,
   c: Context<{ Bindings: Env }, string>, next: Next,
 ): Promise<Response | undefined> {
-  const ready = await requestService(c, service.deps);
-  if (isResponse(ready)) return ready;
-  const userId = edgeIdentity(c);
-  if (userId === null) return c.json(unauthorized, 401);
-  // The retry-safe create key, forwarded unchanged from the edge; the save
-  // handler only honors it for a create (no id). Reject an over-long token
-  // here, before dispatch, so the ledger never sees an unbounded PK key value.
-  const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
-  if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
-    return c.json(idempotencyKeyInvalid, 400);
+  const connStr = await connectionString(c.env);
+  if (!connStr) return c.json({ error: "users database not configured" }, 503);
+  const admission = admit(c);
+  if (isResponse(admission)) return admission;
+  const injected = service.deps.makePrisma?.(connStr);
+  if (injected !== undefined) {
+    return handleMatched(c, next, service.apiHandler, { prisma: injected, ...admission });
   }
-  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId, idempotencyKey });
+  // Each request acquires its own Prisma runtime and gives it back when this
+  // scope exits — never a connection cached across requests (spec §4.2). The
+  // await is load-bearing: `await using` disposes on scope exit, so returning
+  // the handler's promise unawaited would hand back the connection while the
+  // request is still using it.
+  await using runtime = await acquireUsersRuntime(connStr);
+  return await handleMatched(c, next, service.apiHandler, { prisma: usersPrisma(runtime), ...admission });
 }
 
 /** Create an independently injectable Users Hono application. */
