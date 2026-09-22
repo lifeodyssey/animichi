@@ -4,10 +4,14 @@ import { describe, expect, it } from "vitest";
 import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
 
 /**
- * Pure-filesystem suite proving the geocode seed fixture stays in parity with the schema this
- * suite actually builds — the frozen Drizzle-era shape `@animichi/test-postgres` installs, which
- * is what this query layer still reads until #1629–#1631 move it. Seed rows are not embedded in
- * that shape (the gazetteer seed is a documented load path); this test pins the table shapes the
+ * Pure-filesystem suite proving the geocode seed fixture stays in parity with the table shapes it
+ * assumes — the ones in the frozen pre-Prisma schema `@animichi/test-postgres` keeps as
+ * `sql/drizzle-era-catalog.sql`. It reads that file as TEXT and builds no database of its own.
+ *
+ * The Drizzle query layer that schema records is retired (#1628–#1633); the schema file is not,
+ * and this suite is one of its two remaining readers — the other one installs it
+ * (`packages/agent/integration-test/catalog-postgres.ts`). Seed rows are not embedded in that
+ * schema (the gazetteer seed is a documented load path); this test pins the table shapes the
  * fixture relies on and forbids seed drift back into it. It runs in the Node integration pool
  * because the workerd pool cannot read outside workers/catalog.
  */

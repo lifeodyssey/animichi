@@ -32,8 +32,9 @@
  * The two reads — the alias lookup and the published points — are plans over
  * the shared contract (#1631, spec §4.2), run on this request's runtime; see
  * `firstBangumiIdPlan` for why that removes the row narrowing the Drizzle seam
- * needed. The L1 preview is an upstream fetch, and the ingest is still
- * Drizzle's until #1630 converts it.
+ * needed. The L1 preview is an upstream fetch; the full ingest scheduled behind
+ * it writes through the same Prisma data plane (#1630), via the `store` port's
+ * builder plans rather than a query layer of its own.
  */
 
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
