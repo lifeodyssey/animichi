@@ -58,6 +58,56 @@ class CdStageTest < Minitest::Test
     refute_match(/needs\.plan|fromJSON/, @cd.to_s)
   end
 
+  # (#1865) The generated provider SDKs do not travel in git: the directory's
+  # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
+  # `packages:` with `pulumi install`. A hydrated snapshot whose SDK was sealed
+  # elsewhere still resolves `@pulumi/neon` through pnpm's store minus the SDK's
+  # gitignored `bin/`, and the apply dies on `Cannot find module './utilities'`
+  # — so each lane that applies database access materialises the SDKs itself,
+  # before the frozen install packs them and before the apply runs.
+  MATERIALISE = "Materialise the generated provider SDKs"
+  SDK_DIR = "release/foundation/infra/database-access"
+
+  def apply_jobs
+    @cd.fetch("jobs").select { |_id, job| job["steps"].any? { |item| item["name"] == "Apply database access" } }.keys.sort
+  end
+
+  def test_each_lane_that_applies_database_access_materialises_the_generated_sdks_first
+    assert_equal %w[promote-production stage], apply_jobs,
+                 "the lanes running 'pulumi up' against #{SDK_DIR} moved — the materialisation rule below pins them so it cannot pass vacuously"
+    apply_jobs.each do |job|
+      materialise = steps(job).find { |item| item["name"] == MATERIALISE }
+      assert materialise, "#{job}: runs 'pulumi up' against #{SDK_DIR} without the '#{MATERIALISE}' step " \
+                          "that materialises the generated provider SDKs (#1865)"
+      assert_equal SDK_DIR, materialise["working-directory"]
+      assert_equal "pulumi install --no-dependencies --non-interactive", materialise["run"],
+                   "#{job}: the materialisation must reproduce Pulumi.yaml's pinned packages without running a second, unfrozen dependency install"
+      refute materialise["if"], "#{job}: #{MATERIALISE} must not be skippable"
+      refute materialise["continue-on-error"], "#{job}: #{MATERIALISE} must fail the lane when it fails"
+      assert_operator position(job, MATERIALISE), :<, position(job, "Install sealed foundation dependencies"),
+                     "#{job}: the SDKs must be materialised before the frozen install packs them into pnpm's store"
+      assert_operator position(job, MATERIALISE), :<, position(job, "Apply database access"),
+                     "#{job}: materialise the generated provider SDKs before 'Apply database access' (#1865)"
+    end
+  end
+
+  # (#1865) The root foundation install keeps scripts suppressed, but the
+  # database-access install must both stay frozen — the directory carries its
+  # own lockfile — and let the SDK's own `postinstall` (`tsc`, allowlisted by
+  # its `pnpm-workspace.yaml`) build the gitignored `bin/` into the store copy.
+  def test_the_database_access_install_stays_frozen_and_lets_the_sdk_build
+    apply_jobs.each do |job|
+      lines = step(job, "Install sealed foundation dependencies")["run"].split("\n")
+      assert_equal 2, lines.length, "#{job}: unexpected foundation install shape"
+      assert_equal "pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts", lines[0]
+      assert_equal "pnpm install --dir release/foundation/infra/database-access --frozen-lockfile", lines[1],
+                   "#{job}: the database-access install must stay frozen; the directory carries its own lockfile (#1865)"
+      refute_match(/--ignore-scripts/, lines[1],
+                   "#{job}: suppressing scripts leaves the SDK's store copy without its gitignored `bin/`, " \
+                   "and the apply dies on \"Cannot find module './utilities'\" (#1865)")
+    end
+  end
+
   def test_only_read_only_observation_and_receipt_upload_follow_smoke
     %w[stage promote-production].each do |job|
       after = steps(job).drop(position(job, "Smoke the release") + 1)
