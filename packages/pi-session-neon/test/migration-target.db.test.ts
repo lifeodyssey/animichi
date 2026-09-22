@@ -66,6 +66,16 @@ void test("a fresh database applies the whole chain and the marker names the che
   } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
+void test("a direct write to a derived scalar column is refused, not corrected", async () => {
+  const { dsn, client, name } = await cleanTarget("native_derived_refusal");
+  try {
+    await migrate(dsn);
+    // #1217's class, proved unrepresentable: the database refuses the statement outright
+    // (428C9, generated_always) instead of landing it and correcting the value afterwards.
+    await assert.rejects(client.query("UPDATE points SET latitude = 1"), { code: "428C9" });
+  } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
+});
+
 void test("a fresh database satisfies every exact-set grant postcheck the baseline declares", async () => {
   const { dsn, client, name } = await cleanTarget("native_chain_grants");
   try {
