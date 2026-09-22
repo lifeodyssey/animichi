@@ -116,7 +116,7 @@ interface StoreFailure {
 
 /** The four reply-set guards of #1825, each of which would otherwise read as a count. */
 const GUARDS: readonly StoreFailure[] = [
-  { what: "an answer the pipeline never asked for", code: "reply-count", message: /answered 3 of 2 commands/,
+  { what: "an answer the pipeline never asked for", code: "reply-count", message: /answered 3 commands for a pipeline of 2/,
     store: () => storeOver([":7\r\n:1\r\n:1\r\n"], OPEN_URL) },
   { what: "a credential the store refused", code: "credential", message: /did not accept the credential/,
     store: () => storeOver(["+PONG\r\n:7\r\n:1\r\n"]) },
