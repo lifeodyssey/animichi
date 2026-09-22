@@ -106,6 +106,9 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  * would then reach a SECOND `release()`. Hoisted, a failing `release` reaches
  * the caller as itself, with no rollback and exactly one release.
  *
+ * That is the ONE path where a failed teardown is the caller's to see, because
+ * it is the only path with no error of the caller's own to report instead.
+ *
  * The connection is `destroy`ed rather than released when the rollback itself
  * fails: the driver says that leaves the socket indeterminate, and reusing it
  * would poison the next statement. A destroyed connection is NOT also released
@@ -113,11 +116,12 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  * caller error. Every other path — commit, rolled-back failure, and a
  * transaction that could not even be opened — releases exactly once.
  *
- * A failing `destroy` does not replace the caller's error. The driver's
- * contract leaves a connection whose teardown failed retryable, so the eviction
- * failure is CONTEXT for the unit's own error — attached to it as `cause`,
- * never raised in its place. Wrapping it, as the driver's own `withTransaction`
- * does, would change the error identity `classifyIngestFailure` matches on.
+ * A failing `destroy` does not replace the caller's error, and neither does a
+ * failing `release` on a failure path. The driver's contract leaves a connection
+ * whose teardown failed retryable, so the teardown failure is CONTEXT for the
+ * unit's own error — attached to it as `cause`, never raised in its place.
+ * Wrapping the unit's error, as the driver's own `withTransaction` does, would
+ * change the error identity `classifyIngestFailure` matches on.
  */
 export async function inCatalogTransaction<T>(
   runtime: CatalogRuntime,
@@ -128,7 +132,7 @@ export async function inCatalogTransaction<T>(
   try {
     transaction = await connection.transaction();
   } catch (error) {
-    await connection.release();
+    await releaseQuietly(connection, error);
     throw error;
   }
   let value: T;
@@ -162,8 +166,10 @@ function bindTransaction(transaction: CatalogTransaction): CatalogPrisma {
  * Settle a failed unit: roll back and release; evict the connection when even
  * the rollback fails.
  *
- * Never throws. The unit's own error is the caller's, and an eviction failure is
- * recorded on it rather than raised in its place.
+ * Never throws, on any path. The unit's own error is the caller's: a failing
+ * eviction and a failing release are teardown failures, recorded on that error
+ * rather than raised in its place — see {@link attachCause} for what that
+ * "recorded" can promise.
  */
 async function settleFailed(
   connection: { destroy(reason?: unknown): Promise<void>; release(): Promise<void> },
@@ -176,14 +182,19 @@ async function settleFailed(
     await evict(connection, reason);
     return;
   }
-  await connection.release();
+  await releaseQuietly(connection, reason);
 }
 
 /**
  * Evict a suspect connection, recording a failed eviction on `reason` instead
  * of throwing it: the driver's contract leaves the connection retryable, so the
- * caller's error has to survive the cleanup, and the runtime's own `await using`
- * disposal is the cleanup that remains.
+ * caller's error has to survive the cleanup.
+ *
+ * Nothing is owed after a failed eviction. The driver marks the connection
+ * closed BEFORE it awaits the socket's `end()`, and the failure unwinds through
+ * `finally` blocks that detach the connection from the driver and drop its
+ * lease — so the runtime's own `await using` disposal finds no delegate left to
+ * close.
  */
 async function evict(
   connection: { destroy(reason?: unknown): Promise<void> },
@@ -197,14 +208,41 @@ async function evict(
 }
 
 /**
- * Attach the eviction failure to the error the caller will receive, when that
- * value can carry a cause. A frozen error and a non-object throw cannot, and
- * the attempt to attach one must not itself become the failure — so the guard
- * is the `catch`, and the cast is the assertion that the runtime rejects.
+ * Give the connection back, recording a failed release on `reason` instead of
+ * throwing it: both callers already hold an error of their own, and that error
+ * is the one the caller has to receive.
+ */
+async function releaseQuietly(
+  connection: { release(): Promise<void> },
+  reason: unknown,
+): Promise<void> {
+  try {
+    await connection.release();
+  } catch (releaseFailure) {
+    attachCause(reason, releaseFailure);
+  }
+}
+
+/**
+ * Attach a teardown failure to the error the caller will receive, when that
+ * value can carry a cause and does not already carry one.
+ *
+ * Neither guard may itself become the failure: a frozen error and a non-object
+ * throw cannot take the property, so the guard is this function's own `catch`
+ * rather than an `instanceof` pre-check. `defineProperty` carries the descriptor
+ * native `Error.cause` has; a plain assignment would make it enumerable.
+ *
+ * An error that already carries a cause KEEPS it and the teardown failure is
+ * dropped: the unit set that cause deliberately (`upstream-failures.ts`,
+ * `retry.ts`) and it names what failed underneath, which a teardown failure —
+ * after the unit's error, not underneath it — must not replace.
  */
 function attachCause(error: unknown, cause: unknown): void {
   try {
-    Object.defineProperty(error as object, "cause", { value: cause, configurable: true, writable: true });
+    const carrier = error as { cause?: unknown };
+    if (carrier.cause === undefined) {
+      Object.defineProperty(carrier, "cause", { value: cause, configurable: true, writable: true });
+    }
   } catch {
     return; // A value that cannot carry the context still keeps its own error.
   }
