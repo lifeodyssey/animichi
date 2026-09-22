@@ -42,13 +42,19 @@ class AnitabiEgressSurfaceTest < Minitest::Test
   # The main domain the document forbids requesting. It is neither of the two
   # origins the capture permits, and no module that builds a request may use it.
   #
+  # The pattern is case-insensitive (`i`) because URL schemes and hostnames are
+  # case-insensitive by specification — an all-uppercase `HTTPS://ANITABI.CN`
+  # must not walk past the guard. The optional trailing dot (`\.?`) accepts
+  # the fully-qualified form `anitabi.cn.` which resolves identically; without
+  # it the negative lookahead would reject the dot as a hostname-continuation
+  # character and the guard would be evaded.
+  #
   # The lookahead is what keeps the two PERMITTED origins — `api.anitabi.cn` and
   # `image.anitabi.cn` — from matching: it excludes only what would continue the
   # hostname (a label character or a dot). A path does not, so `anitabi.cn/…` is
-  # the main domain with a path on it, refused like the bare origin. The earlier
-  # lookahead also excluded `/` and so read stricter than it was (#1809).
+  # the main domain with a path on it, refused like the bare origin.
   FORBIDDEN_MAIN_ORIGIN = "https://anitabi.cn"
-  FORBIDDEN_URL = %r{https?://(?:www\.)?anitabi\.cn(?![\w.-])}
+  FORBIDDEN_URL = %r{https?://(?:www\.)?anitabi\.cn\.?(?![\w.-])}i
 
   # The shapes a request to that domain can take: the rule's own subject, over a
   # line rather than over the tree, because the tree asks for the main domain in
@@ -65,6 +71,11 @@ class AnitabiEgressSurfaceTest < Minitest::Test
     "https://anitabi.cn:8443/x",
     "https://www.anitabi.cn/x",
     %(const url = "https://anitabi.cn" + "/bangumi/1/lite";),
+    # Case evasion: URL schemes and hostnames are case-insensitive (#1809)
+    "HTTPS://ANITABI.CN/",
+    # Terminal dot: fully-qualified form resolves identically (#1809)
+    "https://anitabi.cn.",
+    "http://ANITABI.CN./bangumi/1/lite",
   ].freeze
 
   # The modules that build a request URL: the service's own source, and the
@@ -140,6 +151,9 @@ class AnitabiEgressSurfaceTest < Minitest::Test
       "https://api.anitabi.cn/bangumi/2461/lite",
       "https://image.anitabi.cn/bangumi/1/p.jpg",
       "https://anitabi.cn.example.test/x",
+      # Hostname that merely contains the forbidden domain as a substring
+      "https://evil-anitabi.cn/x",
+      "https://anitabi.cn.evil.com/x",
     ].each do |line|
       refute_match FORBIDDEN_URL, line, "#{line} is not a request to the main domain"
     end
