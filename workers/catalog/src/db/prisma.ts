@@ -98,12 +98,26 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  * needs. `fn` receives a {@link CatalogPrisma} bound to the transaction, so the
  * statements inside stay the same builder plans they are outside it.
  *
+ * Teardown is OUTSIDE the unit's `try`, and the distinction is load-bearing. A
+ * failing `release` is a teardown failure, not a unit failure: caught by the
+ * unit-failure arm it would send a transaction that already COMMITTED to
+ * `rollback()`, and because the driver's `rollback()` has no settled guard — a
+ * bare `ROLLBACK` outside a transaction is a WARNING, not an error — the arm
+ * would then reach a SECOND `release()`. Hoisted, a failing `release` reaches
+ * the caller as itself, with no rollback and exactly one release.
+ *
  * The connection is `destroy`ed rather than released when the rollback itself
  * fails: the driver says that leaves the socket indeterminate, and reusing it
  * would poison the next statement. A destroyed connection is NOT also released
  * — the driver's connection contract calls a second teardown after destroy a
  * caller error. Every other path — commit, rolled-back failure, and a
  * transaction that could not even be opened — releases exactly once.
+ *
+ * A failing `destroy` does not replace the caller's error. The driver's
+ * contract leaves a connection whose teardown failed retryable, so the eviction
+ * failure is CONTEXT for the unit's own error — attached to it as `cause`,
+ * never raised in its place. Wrapping it, as the driver's own `withTransaction`
+ * does, would change the error identity `classifyIngestFailure` matches on.
  */
 export async function inCatalogTransaction<T>(
   runtime: CatalogRuntime,
@@ -117,15 +131,16 @@ export async function inCatalogTransaction<T>(
     await connection.release();
     throw error;
   }
+  let value: T;
   try {
-    const value = await fn(bindTransaction(transaction));
+    value = await fn(bindTransaction(transaction));
     await transaction.commit();
-    await connection.release();
-    return value;
   } catch (error) {
     await settleFailed(connection, transaction, error);
     throw error;
   }
+  await connection.release();
+  return value;
 }
 
 /**
@@ -143,7 +158,13 @@ function bindTransaction(transaction: CatalogTransaction): CatalogPrisma {
   return bound;
 }
 
-/** Settle a failed unit: roll back and release; evict the connection when even the rollback fails. */
+/**
+ * Settle a failed unit: roll back and release; evict the connection when even
+ * the rollback fails.
+ *
+ * Never throws. The unit's own error is the caller's, and an eviction failure is
+ * recorded on it rather than raised in its place.
+ */
 async function settleFailed(
   connection: { destroy(reason?: unknown): Promise<void>; release(): Promise<void> },
   transaction: CatalogTransaction,
@@ -152,8 +173,39 @@ async function settleFailed(
   try {
     await transaction.rollback();
   } catch {
-    await connection.destroy(reason);
+    await evict(connection, reason);
     return;
   }
   await connection.release();
+}
+
+/**
+ * Evict a suspect connection, recording a failed eviction on `reason` instead
+ * of throwing it: the driver's contract leaves the connection retryable, so the
+ * caller's error has to survive the cleanup, and the runtime's own `await using`
+ * disposal is the cleanup that remains.
+ */
+async function evict(
+  connection: { destroy(reason?: unknown): Promise<void> },
+  reason: unknown,
+): Promise<void> {
+  try {
+    await connection.destroy(reason);
+  } catch (evictionFailure) {
+    attachCause(reason, evictionFailure);
+  }
+}
+
+/**
+ * Attach the eviction failure to the error the caller will receive, when that
+ * value can carry a cause. A frozen error and a non-object throw cannot, and
+ * the attempt to attach one must not itself become the failure — so the guard
+ * is the `catch`, and the cast is the assertion that the runtime rejects.
+ */
+function attachCause(error: unknown, cause: unknown): void {
+  try {
+    Object.defineProperty(error as object, "cause", { value: cause, configurable: true, writable: true });
+  } catch {
+    return; // A value that cannot carry the context still keeps its own error.
+  }
 }

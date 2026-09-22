@@ -17,6 +17,11 @@ import { catalogPrisma, inCatalogTransaction } from "../src/db/prisma";
  *     says the socket is indeterminate and reusing it would poison the next
  *     statement on that runtime — and an EVICTED connection is NOT also
  *     released, since a second teardown after destroy is caller error;
+ *   - a `release` that fails on the SUCCESS path is a teardown failure, not a
+ *     unit failure: no rollback on a transaction that already committed, and
+ *     exactly one release;
+ *   - a `destroy` that itself fails does not replace the unit's error — the
+ *     eviction failure rides on that error as `cause`;
  *   - a transaction that cannot even be OPENED still releases the connection,
  *     so a failed BEGIN does not hold pool capacity until the request ends.
  *
@@ -76,34 +81,6 @@ describe("inCatalogTransaction", () => {
     expect(fake.destroy).not.toHaveBeenCalled();
   });
 
-  it("evicts the connection when the rollback itself fails, and does not release it", async () => {
-    const fake = fakeRuntime();
-    fake.rollback.mockRejectedValue(new Error("connection lost"));
-
-    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(new Error("enrich failed"))))
-      .rejects.toThrow("enrich failed");
-
-    // The socket is indeterminate: reuse would poison the next statement, and
-    // the driver's connection contract calls a second teardown after destroy
-    // caller error — so the eviction replaces the release.
-    expect(fake.destroy).toHaveBeenCalledTimes(1);
-    expect(fake.release).not.toHaveBeenCalled();
-  });
-
-  it("releases the connection when the transaction cannot even be opened", async () => {
-    const fake = fakeRuntime();
-    fake.openTransaction.mockRejectedValue(new Error("BEGIN failed"));
-
-    await expect(inCatalogTransaction(fake.runtime, () => Promise.resolve("unused")))
-      .rejects.toThrow("BEGIN failed");
-
-    // No transaction was opened, so the connection is still clean: release it
-    // rather than holding it until the request-scoped runtime is disposed.
-    expect(fake.release).toHaveBeenCalledTimes(1);
-    expect(fake.rollback).not.toHaveBeenCalled();
-    expect(fake.destroy).not.toHaveBeenCalled();
-  });
-
   it("hands the body a seam bound to the open transaction, and does not nest", async () => {
     const fake = fakeRuntime();
     let inner: unknown;
@@ -118,6 +95,86 @@ describe("inCatalogTransaction", () => {
     // ...and nesting opened NO second transaction: a helper that did would make
     // the atomicity it promises a lie (Postgres has no nested transactions).
     expect(fake.commit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("inCatalogTransaction teardown", () => {
+  it("evicts the connection when the rollback itself fails, and does not release it", async () => {
+    const fake = fakeRuntime();
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(new Error("enrich failed"))))
+      .rejects.toThrow("enrich failed");
+
+    // The socket is indeterminate: reuse would poison the next statement, and
+    // the driver's connection contract calls a second teardown after destroy
+    // caller error — so the eviction replaces the release.
+    expect(fake.destroy).toHaveBeenCalledTimes(1);
+    expect(fake.release).not.toHaveBeenCalled();
+  });
+});
+
+describe("inCatalogTransaction teardown failures", () => {
+  it("reports a failing release on the success path as teardown, not as unit failure", async () => {
+    const fake = fakeRuntime();
+    const releaseFailure = new Error("release failed");
+    fake.release.mockRejectedValueOnce(releaseFailure);
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.resolve("published"))).rejects.toBe(releaseFailure);
+
+    // The unit COMMITTED, so a teardown failure must not be read as a unit
+    // failure: `settleFailed` would roll back a settled transaction — a bare
+    // `ROLLBACK` outside one is a WARNING, not an error — and then release a
+    // SECOND time.
+    expect(fake.commit).toHaveBeenCalledTimes(1);
+    expect(fake.rollback).not.toHaveBeenCalled();
+    expect(fake.release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("inCatalogTransaction eviction failures", () => {
+  it("keeps the unit's error when the eviction also fails, with the eviction failure on its cause", async () => {
+    const fake = fakeRuntime();
+    const original = new Error("enrich failed");
+    const evictionFailure = new Error("destroy failed");
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+    fake.destroy.mockRejectedValue(evictionFailure);
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(original))).rejects.toBe(original);
+
+    // The eviction failure is context, not a substitute: the driver's contract
+    // leaves a connection whose teardown failed retryable, so the error the
+    // unit threw is the one the caller gets back.
+    expect(original.cause).toBe(evictionFailure);
+    expect(fake.destroy).toHaveBeenCalledTimes(1);
+    expect(fake.release).not.toHaveBeenCalled();
+  });
+
+  it("keeps a frozen error that cannot carry the eviction failure", async () => {
+    const fake = fakeRuntime();
+    const original = Object.freeze(new Error("enrich failed"));
+    fake.rollback.mockRejectedValue(new Error("connection lost"));
+    fake.destroy.mockRejectedValue(new Error("destroy failed"));
+
+    // Attaching the cause must not ITSELF become the failure: a frozen error
+    // cannot carry one, and the error the unit threw still wins.
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.reject(original))).rejects.toBe(original);
+  });
+});
+
+describe("inCatalogTransaction connection lifecycle", () => {
+  it("releases the connection when the transaction cannot even be opened", async () => {
+    const fake = fakeRuntime();
+    fake.openTransaction.mockRejectedValue(new Error("BEGIN failed"));
+
+    await expect(inCatalogTransaction(fake.runtime, () => Promise.resolve("unused")))
+      .rejects.toThrow("BEGIN failed");
+
+    // No transaction was opened, so the connection is still clean: release it
+    // rather than holding it until the request-scoped runtime is disposed.
+    expect(fake.release).toHaveBeenCalledTimes(1);
+    expect(fake.rollback).not.toHaveBeenCalled();
+    expect(fake.destroy).not.toHaveBeenCalled();
   });
 });
 
