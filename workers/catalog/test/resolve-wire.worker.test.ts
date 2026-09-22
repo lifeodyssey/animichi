@@ -2,7 +2,6 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import { unreachableCatalogDb } from "./fakes/fake-catalog-db";
 import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 const handler = new OpenAPIHandler(catalogRouter);
@@ -12,7 +11,7 @@ const handler = new OpenAPIHandler(catalogRouter);
  * seam at all — the alias lookup, the stored candidates and the upstream title
  * search are all it touches — so that seam is left unreachable. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
-  return { db: unreachableCatalogDb(), prisma: fakeCatalogPrisma(...responses), fetchImpl };
+  return { prisma: fakeCatalogPrisma(...responses), fetchImpl };
 }
 
 async function call(path: string, body: unknown, ctx: CatalogContext): Promise<Response> {

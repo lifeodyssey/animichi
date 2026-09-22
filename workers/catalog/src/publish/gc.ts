@@ -8,44 +8,32 @@
  * they are immutable and intentionally outlive their version (no-drift), so a GC'd
  * version's snapshot still reads back unchanged.
  *
- * The statement is built with the Drizzle query builder; the keep-window is a
- * derived subquery (`MIN(version) over the newest-kept set`) that the builder
- * does not model first-class, so it is composed as a narrowly scoped fragment
- * inside the DELETE (atomic capability carve-out — see `../db/expressions`).
+ * The delete is a builder plan on the request's runtime ({@link CatalogPrisma}).
+ * Its keep window — the newest `keep` versions, then `MIN(version)` over them —
+ * is a derived subquery the builder does not model first-class, so it is
+ * composed as a narrowly scoped fragment inside the DELETE's predicate
+ * (atomic capability carve-out — see `../db/expressions`). The work id and the
+ * window size are interpolations, and an interpolation in a raw fragment is a
+ * BOUND value, never rendered SQL text.
  */
-import { and, desc, eq, lt, sql, type SQL } from "drizzle-orm";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import { clusterVersion } from "../db/schema";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
 
 /** Delete non-current versions older than the newest `keep`; returns count deleted. */
-export async function gcOldVersions(db: CatalogDb, bangumiId: string, keep: number): Promise<number> {
+export async function gcOldVersions(query: CatalogPrisma, bangumiId: string, keep: number): Promise<number> {
   if (keep < 1) throw new Error("keep must be >= 1");
-  const rows = (await db.execute(gcStatement(bangumiId, keep))).rows as { id: number }[];
-  return rows.length;
+  return (await query.executor.query(gcPlan(query, bangumiId, keep))).length;
 }
 
-/** The keep-window delete, as a typed builder statement. */
-function gcStatement(bangumiId: string, keep: number): SQL {
-  const keptMin = sql`(SELECT MIN(version) FROM (${newestKept(bangumiId, keep)}) AS kept)`;
-  return statementBuilder()
-    .delete(clusterVersion)
-    .where(and(
-      eq(clusterVersion.bangumiId, bangumiId),
-      sql`NOT ${clusterVersion.isCurrent}`,
-      lt(clusterVersion.version, keptMin),
+/** The keep-window delete: the work's non-current versions below the window's floor. */
+function gcPlan(query: CatalogPrisma, bangumiId: string, keep: number): SqlOrmPlan<{ id: string }> {
+  return query.builder.public.cluster_version
+    .delete()
+    .where((fields, match) => match.and(
+      match.eq(fields.bangumi_id, bangumiId),
+      match.eq(fields.is_current, false),
+      match.raw`${fields.version} < (select min(version) from (select version from cluster_version where bangumi_id = ${bangumiId} order by version desc limit ${keep}) as kept)`.returns("pg/bool@1"),
     ))
-    .returning({ id: clusterVersion.id })
-    .getSQL();
-}
-
-/** The newest `keep` version rows for the work (the keep window). */
-function newestKept(bangumiId: string, keep: number): SQL {
-  return statementBuilder()
-    .select({ version: clusterVersion.version })
-    .from(clusterVersion)
-    .where(eq(clusterVersion.bangumiId, bangumiId))
-    .orderBy(desc(clusterVersion.version))
-    .limit(keep)
-    .getSQL();
+    .returning("id")
+    .build();
 }

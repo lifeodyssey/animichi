@@ -39,7 +39,6 @@
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import { bangumiPoints } from "../adapters/outbound/bangumi-points";
 import { pointsByBangumi, type PublishedPointRow } from "../application/list-points-for-bangumi";
-import type { CatalogDb } from "../db/client";
 import type { CatalogPrisma } from "../db/prisma";
 import { normalizeAlias } from "../lib/alias";
 import { catalogIngestBangumi, type IngestBangumi } from "../ingest/ingest-bangumi";
@@ -135,24 +134,20 @@ function emptyResult(): SearchResult {
 
 /** Build the production `SearchDb`.
  *
- * Both seams are parameters because the migration is mid-flight: the alias
- * lookup and the published points read through
- * `adapters/outbound/bangumi-points.ts` are Prisma's (#1631, spec §4.2) off this
- * request's runtime, while the ingest (`ingest/`) is still Drizzle's until
- * #1630 converts it. `db` is that not-yet-moved seam, not a second Prisma
- * construction site.
+ * One seam: the alias lookup, the published-points read
+ * (`adapters/outbound/bangumi-points.ts`, #1631) and the ingest's enrich/publish
+ * writes (#1630) are all plans off this request's runtime.
  */
 export function searchDb(
-  prisma: CatalogPrisma,
-  db: CatalogDb,
+  query: CatalogPrisma,
   egressSigningKey?: string,
 ): SearchDb {
-  const ingest = catalogIngestBangumi(db, egressSigningKey);
-  const points = bangumiPoints(prisma);
+  const ingest = catalogIngestBangumi(query, egressSigningKey);
+  const points = bangumiPoints(query);
   return {
-    bangumiIdForAlias: (normalized) => firstBangumiId(prisma, normalized),
+    bangumiIdForAlias: (normalized) => firstBangumiId(query, normalized),
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
-    resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl, egressSigningKey),
+    resolvePreview: (search, fetchImpl) => previewForQuery(search, fetchImpl, egressSigningKey),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };
 }

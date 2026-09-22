@@ -13,13 +13,15 @@ import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snap
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 import { DAILY_DISCOVER_CRON } from "../src/cron-config";
 
 // Daily-snapshot publish is a production-lineage behaviour (the daily ingest
 // discover cron runs only in production per the per-env AC1 guard).
 const ENV = { DATABASE_URL: "postgresql://u:p@host/db", ENVIRONMENT: "production" };
-const db = fakeCatalogDb({});
+/** The cron's Prisma seam: injected, so the gate never dials out. */
+const query = fakeTableRows({});
 
 /** A complete run outcome carrying the real run id + createdAt the gate must thread through. */
 const COMPLETE: DailyRunOutcome = { status: "complete", runId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" };
@@ -28,15 +30,17 @@ const COMPLETE: DailyRunOutcome = { status: "complete", runId: "daily-2026-08-14
 function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   const store = inMemoryObjectStore().store;
   return {
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
+    connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
+      .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
+    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(fakeCatalogDb({})),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
     runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(COMPLETE),
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(store),
-    publishRun: vi.fn<CronDependencies["publishRun"]>().mockImplementation((d, s, runId, at) =>
-      publishSnapshot({ db: d, store: s }, { sourceRunId: runId, createdAt: at }),
+    publishRun: vi.fn<CronDependencies["publishRun"]>().mockImplementation((q, s, runId, at) =>
+      publishSnapshot({ query: q, store: s }, { sourceRunId: runId, createdAt: at }),
     ),
     gcSnapshots: vi.fn<CronDependencies["gcSnapshots"]>().mockImplementation((s) => gcSnapshots(s, 2)),
     importSource: vi.fn<CronDependencies["importSource"]>().mockReturnValue(null),
@@ -95,12 +99,12 @@ describe("publishAfterRun unit gate", () => {
     const run = vi.fn().mockResolvedValue(COMPLETE);
     const publish = vi.fn().mockResolvedValue({ status: "published", snapshot: {} });
     const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
-    await publishAfterRun(db, store, {
+    await publishAfterRun(store, {
       runDailyIngest: run, publishRun: publish, gcSnapshots: gc,
     });
-    expect(run).toHaveBeenCalledWith(db, store);
+    expect(run).toHaveBeenCalledWith();
     expect(publish).toHaveBeenCalledTimes(1);
-    expect(publish).toHaveBeenCalledWith(db, store, COMPLETE.runId, COMPLETE.createdAt);
+    expect(publish).toHaveBeenCalledWith(store, COMPLETE.runId, COMPLETE.createdAt);
     expect(gc).toHaveBeenCalledTimes(1);
   });
 
@@ -108,7 +112,7 @@ describe("publishAfterRun unit gate", () => {
     const store = inMemoryObjectStore().store;
     const publish = vi.fn().mockResolvedValue({ status: "invalid", reason: "bad" });
     const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
-    await publishAfterRun(db, store, {
+    await publishAfterRun(store, {
       runDailyIngest: vi.fn().mockResolvedValue(COMPLETE),
       publishRun: publish, gcSnapshots: gc,
     });
@@ -119,10 +123,10 @@ describe("publishAfterRun unit gate", () => {
     const store = inMemoryObjectStore().store;
     const publish = vi.fn().mockResolvedValue({ status: "published", snapshot: {} });
     const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
-    await publishAfterRun(db, store, {
+    await publishAfterRun(store, {
       runDailyIngest: vi.fn().mockResolvedValue({ status: "complete", runId: "daily-2026-08-30", createdAt: "2026-08-30T04:00:00Z" }),
       publishRun: publish, gcSnapshots: gc,
     });
-    expect(publish).toHaveBeenCalledWith(db, store, "daily-2026-08-30", "2026-08-30T04:00:00Z");
+    expect(publish).toHaveBeenCalledWith(store, "daily-2026-08-30", "2026-08-30T04:00:00Z");
   });
 });

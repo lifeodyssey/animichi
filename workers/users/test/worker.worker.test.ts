@@ -2,11 +2,11 @@ import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, SavedRoute } from "
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
-import { fakeDb } from "./in-memory-routes-db";
+import { fakeUsersPrisma } from "./fake-users-prisma";
 
 function setup() {
-  const store = fakeDb();
-  const app = createUsersApp({ makeDb: () => store.db });
+  const store = fakeUsersPrisma();
+  const app = createUsersApp({ makePrisma: () => store.prisma });
   const headers = identityHeaders("user-a", { "content-type": "application/json" });
   return { app, headers };
 }

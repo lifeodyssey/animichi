@@ -9,23 +9,23 @@
  *                           SNAPSHOT_ADMIN_TOKEN secret (401 when absent/wrong).
  *
  * Mounted before the oRPC /catalog DB middleware so reads need only the R2
- * bucket — the CatalogDb slot is the immutable export's source of truth and is
+ * bucket — the plan seam is the immutable export's source of truth and is
  * never queried by these routes.
  */
 import { Hono } from "hono";
 import type { Env } from "../index";
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import { r2ObjectStore } from "../publish/object-store";
 import { timingSafeEqual } from "../lib/timing";
 import { readCurrentSnapshot, rollbackToPrevious, type SnapshotDeps } from "../publish/snapshot";
 
-/** A db that must never be queried: snapshot reads/rollback are store-only. */
-const NO_DB = {
-  execute: () => Promise.reject(new Error("snapshot reader never queries the db")),
-} as unknown as CatalogDb;
+/** A plan seam that must never be queried: snapshot reads/rollback are store-only. */
+const NO_QUERY = {
+  executor: { query: () => Promise.reject(new Error("snapshot reader never queries the db")) },
+} as unknown as CatalogPrisma;
 
 function snapshotDeps(bucket: R2Bucket | undefined): SnapshotDeps | null {
-  return bucket ? { db: NO_DB, store: r2ObjectStore(bucket) } : null;
+  return bucket ? { query: NO_QUERY, store: r2ObjectStore(bucket) } : null;
 }
 
 /** Register the snapshot reader + guarded rollback routes on the catalog app. */

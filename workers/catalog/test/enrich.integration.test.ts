@@ -1,13 +1,15 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import type { CatalogPrisma } from "../src/db/prisma";
 import { saveRawAnitabi, saveRawBangumi } from "../src/ingest/raw-store";
 import { enrichWork } from "../src/enrich/enrich";
 import {
   databaseDescribe,
-  openServerlessDb,
+  openPlaneSeams,
   restoreNeonConfig,
   truncateCatalog,
+  type PlaneSeams,
 } from "./integration-db";
 
 /**
@@ -36,6 +38,8 @@ const RAW_ANITABI = [
 ];
 
 let db: CatalogDb;
+let query: CatalogPrisma;
+let seams: PlaneSeams;
 
 async function pointCount(workId: string): Promise<number> {
   const rows = (
@@ -72,13 +76,18 @@ async function allVersions(workId: string): Promise<number[]> {
 }
 
 beforeAll(async () => {
-  db = await openServerlessDb();
+  seams = await openPlaneSeams();
+  db = seams.db;
+  query = seams.query;
   await truncateCatalog(db);
-  await saveRawBangumi(db, "lucky-star", RAW_BANGUMI);
-  await saveRawAnitabi(db, "lucky-star", RAW_ANITABI);
+  await saveRawBangumi(query, "lucky-star", RAW_BANGUMI);
+  await saveRawAnitabi(query, "lucky-star", RAW_ANITABI);
 }, 120_000);
 
-afterAll(() => { restoreNeonConfig(); });
+afterAll(async () => {
+  await seams.dispose();
+  restoreNeonConfig();
+});
 
 async function assertEnrichBangumiRow(): Promise<void> {
   const rows = await bangumiRow(db);
@@ -111,7 +120,7 @@ async function assertEnrichAliases(): Promise<void> {
 
 databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
   it("returns the published version and point count", async () => {
-    const result = await enrichWork(db, "lucky-star");
+    const result = await enrichWork(query, "lucky-star");
     expect(result.version).toBe(1);
     expect(result.pointCount).toBe(3);
   });
@@ -157,7 +166,7 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
 
 databaseDescribe("re-enrich from raw is idempotent and publishes a new version", () => {
   it("does not duplicate points and bumps to a new current version", async () => {
-    const result = await enrichWork(db, "lucky-star");
+    const result = await enrichWork(query, "lucky-star");
     expect(result.version).toBe(2);
     expect(result.pointCount).toBe(3);
     expect(await pointCount("lucky-star")).toBe(3);
@@ -168,6 +177,6 @@ databaseDescribe("re-enrich from raw is idempotent and publishes a new version",
 
 databaseDescribe("enrichWork throws when the raw zone is missing a payload", () => {
   it("rejects a work with no raw_bangumi / raw_anitabi rows", async () => {
-    await expect(enrichWork(db, "absent-work")).rejects.toThrow(/No raw_bangumi/);
+    await expect(enrichWork(query, "absent-work")).rejects.toThrow(/No raw_bangumi/);
   });
 });

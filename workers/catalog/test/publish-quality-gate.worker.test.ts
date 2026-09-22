@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { publishSnapshot, type PublishInput } from "../src/publish/snapshot";
 import type { ObjectStore } from "../src/publish/object-store";
 import type { ExportedSpotRow } from "../src/publish/candidate-export";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
+import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { entryText, inMemoryObjectStore } from "./fakes/in-memory-object-store";
 import { KYOTO, NORTH_24_5M, driftRecorder, spotRow } from "./spot-quality.fixtures";
 
@@ -38,8 +38,8 @@ describe("publish quality gate — coordinate rejection AC", () => {
       spotRow({ id: "p-null-island", latitude: 0, longitude: 0 }),
       spotRow({ id: "p-over-range", latitude: 91, longitude: 139 }),
     ];
-    const db = fakeCatalogDb({ points: rows });
-    const result = await publishSnapshot({ db, store, alerts: recorder.alerts }, FIRST_PUBLISH);
+    const query = fakeTableRows({ points: rows });
+    const result = await publishSnapshot({ query, store, alerts: recorder.alerts }, FIRST_PUBLISH);
     expect(result.status).toBe("published");
     expect(await publishedSpotIds(store, "snap-daily-1")).toEqual(["p-good"]);
     expect(recorder.reports[0]?.rejectedSpots).toEqual([
@@ -58,8 +58,8 @@ describe("publish quality gate — duplicate merge AC", () => {
       spotRow({ id: "p-near-dup", latitude: NORTH_24_5M.latitude, longitude: 139, episode: 3 }),
       spotRow({ id: "p-other-episode", latitude: 35, longitude: 139, episode: 4 }),
     ];
-    const db = fakeCatalogDb({ points: rows });
-    const result = await publishSnapshot({ db, store, alerts: recorder.alerts }, FIRST_PUBLISH);
+    const query = fakeTableRows({ points: rows });
+    const result = await publishSnapshot({ query, store, alerts: recorder.alerts }, FIRST_PUBLISH);
     expect(result.status).toBe("published");
     expect(await publishedSpotIds(store, "snap-daily-1")).toEqual(["p-kept", "p-other-episode"]);
     expect(recorder.reports[0]?.duplicateMerges).toEqual([
@@ -72,8 +72,8 @@ describe("publish quality gate — zero spots AC", () => {
   it("publishes an anime with zero spots uneventfully, with an all-clear report", async () => {
     const { store } = inMemoryObjectStore();
     const recorder = driftRecorder();
-    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }], points: [] });
-    const result = await publishSnapshot({ db, store, alerts: recorder.alerts }, FIRST_PUBLISH);
+    const query = fakeTableRows({ bangumi: [{ id: "w1" }], points: [] });
+    const result = await publishSnapshot({ query, store, alerts: recorder.alerts }, FIRST_PUBLISH);
     expect(result.status).toBe("published");
     if (result.status !== "published") return;
     expect(result.snapshot.counts.points).toBe(0);
@@ -89,10 +89,10 @@ describe("publish quality gate — drift alert AC", () => {
     const { store } = inMemoryObjectStore();
     const recorder = driftRecorder();
     await publishSnapshot(
-      { db: fakeCatalogDb({ points: spreadRows(10) }), store, alerts: recorder.alerts }, FIRST_PUBLISH,
+      { query: fakeTableRows({ points: spreadRows(10) }), store, alerts: recorder.alerts }, FIRST_PUBLISH,
     );
     const result = await publishSnapshot(
-      { db: fakeCatalogDb({ points: spreadRows(3) }), store, alerts: recorder.alerts }, SECOND_PUBLISH,
+      { query: fakeTableRows({ points: spreadRows(3) }), store, alerts: recorder.alerts }, SECOND_PUBLISH,
     );
     expect(result.status).toBe("published");
     expect(recorder.reports[0]?.spotCountDrifts).toEqual([]);
@@ -105,10 +105,10 @@ describe("publish quality gate — drift alert AC", () => {
     const { store } = inMemoryObjectStore();
     const recorder = driftRecorder();
     await publishSnapshot(
-      { db: fakeCatalogDb({ points: spreadRows(10) }), store, alerts: recorder.alerts }, FIRST_PUBLISH,
+      { query: fakeTableRows({ points: spreadRows(10) }), store, alerts: recorder.alerts }, FIRST_PUBLISH,
     );
     await publishSnapshot(
-      { db: fakeCatalogDb({ points: spreadRows(10) }), store, alerts: recorder.alerts }, SECOND_PUBLISH,
+      { query: fakeTableRows({ points: spreadRows(10) }), store, alerts: recorder.alerts }, SECOND_PUBLISH,
     );
     expect(recorder.reports).toHaveLength(2);
     expect(recorder.reports[1]?.spotCountDrifts).toEqual([]);

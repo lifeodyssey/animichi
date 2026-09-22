@@ -2,18 +2,22 @@
  * Immutable catalog snapshot orchestration (issue #1012, AC3/AC5/AC6).
  *
  * publishSnapshot runs the export -> gate -> stage -> validate -> activate
- * pipeline over the CatalogDb seam for reads and the ObjectStore seam for
- * durable objects. The spot quality gate (X15 #285) interposes between the
- * row read and the candidate build: it rejects unpublishable coordinates,
- * merges same-episode duplicates, and alerts spot-count drift against the
- * last publish, so the activated snapshot only ever carries gated rows.
- * Activation is a single atomic pointer write (see pointer.ts), so validation
- * success moves previous->old and activates the new run; validation failure
- * deletes NOTHING (no objects are staged until activation), and a staging
- * failure removes only the keys this attempt staged — never objects belonging
- * to a snapshot activated by an earlier attempt.
+ * pipeline over the Prisma plan seam for reads ({@link CatalogPrisma}) and the
+ * ObjectStore seam for durable objects. The spot quality gate (X15 #285)
+ * interposes between the row read and the candidate build: it rejects
+ * unpublishable coordinates, merges same-episode duplicates, and alerts
+ * spot-count drift against the last publish, so the activated snapshot only
+ * ever carries gated rows. Activation is a single atomic pointer write (see
+ * pointer.ts), so validation success moves previous->old and activates the new
+ * run; validation failure deletes NOTHING (no objects are staged until
+ * activation), and a staging failure removes only the keys this attempt staged
+ * — never objects belonging to a snapshot activated by an earlier attempt.
+ *
+ * The `query` member is the request's plan seam and is read ONLY by the publish
+ * path: the reader and rollback below are store-only, and the surface that
+ * mounts them passes a seam that must never be queried.
  */
-import type { CatalogDb } from "../db/client";
+import type { CatalogPrisma } from "../db/prisma";
 import {
   candidateFromRows, exportObjectKey, readPublicRows, type CandidateExport, EXPORTED_TABLES,
 } from "./candidate-export";
@@ -28,7 +32,7 @@ import {
 
 /** Collaborators for publishing and reading snapshots. */
 export interface SnapshotDeps {
-  db: CatalogDb;
+  query: CatalogPrisma;
   store: ObjectStore;
   /** Quality-gate alert seam; defaults to the console observability. */
   alerts?: SpotQualityAlerts;
@@ -76,7 +80,7 @@ export async function publishSnapshot(
  * against the last publish — the only spot rows bundled are gated rows.
  */
 async function gatedCandidate(deps: SnapshotDeps, snapshotId: string): Promise<CandidateExport> {
-  const rows = await readPublicRows(deps.db);
+  const rows = await readPublicRows(deps.query);
   const gated = gateSpotRows(
     rows.points, await publishedSpotCounts(deps.store), deps.alerts ?? consoleSpotQualityAlerts(),
   );
