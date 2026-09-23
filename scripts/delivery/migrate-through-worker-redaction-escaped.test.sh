@@ -28,16 +28,18 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # backslash, so the JSON string's own quote survives. Removing a unit turns its own
 # witnesses red and no other case: no case in the main redaction suite moves for any
 # mutation of the escaped branch. Dropping the escaped branch or the plain-character unit
-# turns all eleven escaped cases red; dropping the JSON-escape unit turns only the `\/`
-# witness red; dropping the inner-escape unit turns the inner-quote, backslash-run and
-# `\\cd` witnesses red, and each branch of that unit has its own witness — `[^"\\]` the
-# `\\cd` case, `\\.` the backslash-run case; the pre-tokenizer body `[^"]` turns the
+# turns all thirteen escaped cases red; dropping the JSON-escape unit turns only the `\/`
+# witness red; dropping the inner-escape unit turns six red — the inner-quote, backslash-run,
+# truncated inner-quote and closed `\\cd` cases, plus the truncated `\\cd` and `\\n` cases
+# added for #1909 — and each branch of that unit has its own witness: `[^"\\]` dropped takes
+# the closed `\\cd`, truncated `\\cd` and `\\n` cases, `\\.` dropped the inner-quote,
+# backslash-run and truncated inner-quote cases; the pre-tokenizer body `[^"]` turns the
 # inner-quote, truncated inner-quote and structural cases red; dropping the key's
 # plain-quote option turns only the main suite's plain JSON key case red, its escaped-quote
-# option only the escaped-key case here; requiring the closer turns the two truncated cases
-# and the structural case red; and the rejected guard that admits a quote, `\\\\\\([^\\]|$)`,
-# turns the inner-quote, backslash-run, truncated inner-quote and structural cases red
-# (#1909).
+# option only the escaped-key case here; requiring the closer turns the three truncated
+# cases and the structural case red; and the rejected guard that admits a quote,
+# `\\\\([^\\]|$)`, turns the inner-quote, backslash-run, truncated inner-quote and structural
+# cases red (#1909).
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
 }
@@ -141,6 +143,20 @@ case_redacts_an_escaped_quoted_password_carrying_an_inner_escape() {
                  '{"cause":"password=***","tail":"preserved"}'
 }
 
+# #1909 (the same unit, value never closed). The card's first input: `\\c` arrives and the
+# closer never does. The unit reads it whole, so the body stops where the units stop rather
+# than at the backslash — without it the branch ends at `ab` and prints `\\cd"}`.
+case_redacts_a_truncated_escaped_password_carrying_an_inner_escape() {
+  assert_redacts '{"cause":"password=\"ab\\cd"}' '{"cause":"password=***"}'
+}
+
+# #1909 (the same unit, the closer right behind it). The card's second input: the value ends
+# at its own closer, which the branch takes with it, so the JSON string's closing quote and
+# brace stay — the tail-less twin of the closed `\\cd` case above.
+case_redacts_an_escaped_quoted_password_carrying_an_inner_escape_ending_at_its_closer() {
+  assert_redacts '{"cause":"password=\"ab\\ncd\""}' '{"cause":"password=***"}'
+}
+
 # #1909 (the JSON structure the unit must keep). A value that ends in a backslash carries
 # the two raw backslashes of that backslash's encoding right before the quote that ends
 # the JSON string. A unit that admits a quote — `\\\\([^\\]|$)`, the guard #1909
@@ -164,6 +180,8 @@ for test_case in \
   case_redacts_a_second_password_behind_a_value_ending_in_a_backslash \
   case_redacts_an_escaped_quoted_password_carrying_a_json_escape \
   case_redacts_an_escaped_quoted_password_carrying_an_inner_escape \
+  case_redacts_a_truncated_escaped_password_carrying_an_inner_escape \
+  case_redacts_an_escaped_quoted_password_carrying_an_inner_escape_ending_at_its_closer \
   case_keeps_the_json_structure_when_a_value_ends_in_a_backslash; do
   "$test_case"
 done
