@@ -42,9 +42,9 @@ refute "lockfile" "animichi-cloudflare-worker" "$RECORDED"
 ok "a root manifest selects every package once, without the closure prefix"
 
 # 4. Whitelisted paths need no package; the docs bucket still runs its checks.
+#    The contracts' three families left this case in #1883 for pre-push-affected-contracts.test.sh.
 new_repo
-commit_change feature docs/a.md .github/workflows/x.yml test/repo-config/gitleaks.test.rb .gitignore \
-  Gemfile Gemfile.lock .ruby-version
+commit_change feature docs/a.md .gitignore Gemfile Gemfile.lock .ruby-version
 run_gate < /dev/null
 expect_status "docs" 0 "$STATUS"
 expect "docs" "packages: (none)" "$OUT"
@@ -52,7 +52,7 @@ for check in agents-refs docs-paths root-allowlist spec-references; do
   expect "docs" "check-$check" "$RECORDED"
 done
 refute "docs" "--filter" "$RECORDED"
-ok "CI-owned workflow and repository tests need no package; docs checks still run"
+ok "a whitelisted docs and root-config change needs no package; docs checks still run"
 
 # 5. A ref that is not HEAD is refused: its paths would be gated against the
 #    checked-out tree, so a broken change could pass on another branch's green.

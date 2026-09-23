@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Shared fixture for the pre-push gate's behavioral tests —
-# `pre-push-affected.test.sh` (which packages a diff selects) and
-# `pre-push-affected-commitlint.test.sh` (which messages a push carries).
+# `pre-push-affected.test.sh` (which packages a diff selects),
+# `pre-push-affected-commitlint.test.sh` (which messages a push carries) and
+# `pre-push-affected-contracts.test.sh` (which diffs fire the contracts bucket).
 #
 # Hermetic: every case builds a throwaway git repository under one temp root
-# with its own `origin/main`, a fake `pnpm` / `make` on PATH and the
-# four documentation checks stubbed. No real suite, container or network call.
+# with its own `origin/main`, a fake `pnpm` / `make` on PATH and the four
+# documentation checks plus the contracts runner stubbed. No real suite,
+# container or network call.
 # The fake pnpm does double duty — it answers `ls -r --depth -1 --json` and
 # records every `run` asked of it: the selected set, the serial flag and the
 # absent `...` closure are read off it — and it forwards `exec commitlint` to
@@ -72,6 +74,13 @@ STUB
     printf '#!/usr/bin/env bash\nprintf "check-%s\\n" >> "$INVOCATIONS"\n' "$check" \
       > "$REPO/scripts/local-gates/check-$check.sh"
   done
+  # The contracts bucket's runner reads the registry out of the workflow and runs
+  # the 74 tests the fixture has none of. A case asserts the bucket fired and
+  # that a diff outside its three families runs nothing, so it is stubbed like
+  # the four documentation checks above it; the runner's own reading of the
+  # registry is repository-contracts.test.sh's subject.
+  printf '#!/usr/bin/env bash\nprintf "repository-contracts\\n" >> "$INVOCATIONS"\n' \
+    > "$REPO/scripts/local-gates/repository-contracts.sh"
   chmod +x "$BIN"/* "$REPO/scripts/local-gates"/*.sh
 }
 
