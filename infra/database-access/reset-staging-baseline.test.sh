@@ -87,7 +87,8 @@ new_case() {
   CASE_DB="reset_case_$case_number"
   export CASE_DB CALL_LOG="$WORK/calls-$case_number"
   : > "$CALL_LOG"
-  admin postgres "CREATE DATABASE $CASE_DB TEMPLATE template1" >/dev/null
+  # template0, not template1: the image's preloaded workers can still hold template1 here (#1890).
+  admin postgres "CREATE DATABASE $CASE_DB TEMPLATE template0" >/dev/null
   [ -z "$2" ] || admin "$CASE_DB" "$2" >/dev/null
 }
 
