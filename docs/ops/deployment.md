@@ -97,9 +97,8 @@ retains its native single pending selection, so a pending selection may be repla
 the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
 commit-order queue or `queue: max` exception.
 
-Before any Pulumi apply or Worker publication, both jobs verify every image a selected snapshot
-names against the real remote manifest and linux/amd64 configuration with Docker, then read actual
-migration compatibility from the existing migrator's authenticated `/preflight`.
+Before any Pulumi apply or Worker publication, both jobs read actual migration compatibility from
+the existing migrator's authenticated `/preflight`.
 What protects production is that job's own `production` environment approval, above. After
 that preflight, CD retires the legacy migrator container application when
 the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
@@ -122,7 +121,7 @@ attempt the next read retries instead of a stall to the job timeout. A receipt t
 fails naming the expected digest, the last observed digest, the attempt count, the wait budget and the
 last read failure (#1683). It proves B was tested.
 Later C staging can proceed while B waits for approval; production must still pass fresh
-baseline/ledger/registry checks before promoting B. Version IDs are script-scoped and are not expected
+baseline/ledger checks before promoting B. Version IDs are script-scoped and are not expected
 to match between staging and production.
 
 The same artifact carries `evidence.json`, the probe transcript the deploy lane recorded beside the
@@ -138,9 +137,9 @@ remote identity validation, receipt validation and workflow order. The real Wran
 also executes in CI's unconditional contracts job. The
 [assertion map](../iterations/production-readiness-2026-08/SELECTED-ARTIFACT-ASSERTION-MAP.md)
 traces every replaced CD contract. See [ADR 0007](../adr/0007-selected-release-artifacts.md) for the
-activation prerequisites: deployed ledger preflight, same-lock revalidation, exact builder identity,
-registry access, runtime secrets, baseline cutover and production routing must be established
-before this controller can deliver successfully. Local tests do not prove those platform gates.
+activation prerequisites: deployed ledger preflight, same-lock revalidation, runtime secrets,
+baseline cutover and production routing must be established before this controller can deliver
+successfully. Local tests do not prove those platform gates.
 
 ### Container application retirement (#1589 migrator, #1605 edge)
 
@@ -473,7 +472,7 @@ Local code and database tests do not replace the pending live bootstrap observat
    check for an open failure alert on the revision it names: `is:issue is:open in:title "Failure
    alert:"` lists them, and an alert on the receipt's `source_sha` means that revision's own CI
    failed — do not approve. After approval the job re-downloads the same ID/digest, verifies the
-   receipt, and checks production's current baseline, registry and ledger before any mutation.
+   receipt, and checks production's current baseline and ledger before any mutation.
    Production observes its own script-scoped version/deployment IDs and smokes `https://animichi.com`
    after publication.
 

@@ -19,7 +19,7 @@ All test paths below are under `.github/test/`.
 | `cd-stage`: one staging chain; migration-selected reset before apply from controller checkout; smoke last | `cd-stage.test.rb` checks ordered foundation/migrator/schema/services/smoke in both whole-chain locks. Automatic schema reset retires; unknown/incompatible history refuses. Only read-only observed identities and immutable receipt upload may follow smoke. |
 | `cd-stage-smoke`: real public URLs; decisive failure; last executable command; success-only condition | `cd-stage-smoke.test.rb` preserves the original assertions against the renamed `Smoke the release` step. `staging-smoke-check.test.sh` still exercises HTTP probe behavior. |
 | `cd-plan-smoke`: API lookup of a specifically named prior smoke step | `cd-receipt.test.rb` replaces mutable prior-run name lookup with the same controller run's immutable staging receipt, checked after production approval and before credentials. `release-receipt.test.rb` and `release-receipt-cli.test.rb` reject wrong ID/digest/run/source and permit B promotion after later C staging. |
-| `cd-migrations`: authenticated helper; no direct Atlas apply; production baseline guard | `cd-migrations.test.rb` preserves all three and requires real registry/ledger preflight before every actual mutation, including Pulumi and migrator publication. `release-schema-gate.test.rb` exercises fail-closed HTTP/status/response behavior. `release-migration-request.test.rb` executes the actual shell controller and proves full metadata forwarding before OIDC minting. Native migrator workerd/PostgreSQL tests own same-lock compatibility revalidation. |
+| `cd-migrations`: authenticated helper; no direct Atlas apply; production baseline guard | `cd-migrations.test.rb` preserves all three and requires the selected snapshot's own verification before every actual mutation, including Pulumi and migrator publication. `release-schema-gate.test.rb` exercises fail-closed HTTP/status/response behavior. `release-migration-request.test.rb` executes the actual shell controller and proves full metadata forwarding before OIDC minting. Native migrator workerd/PostgreSQL tests own same-lock compatibility revalidation. |
 | `cd-publish`: pinned Wrangler; selected version tag; sealed bundle; exact environment; shell/action parity | `cd-publish.test.rb` checks installed pinned native Wrangler and exact migrator/service entry invocations. `release-publish-services.test.rb` executes the entry against an argument-recording CLI and checks all four services, selected SHA and invalid-input refusal. `release-config.test.rb` uses Wrangler's native parser. |
 | `cd-credentials`: exact Pulumi principal; nonempty bounded ESC exports; staging union; Access scope; Wrangler token; no retired/runtime/database credentials | `cd-credentials.test.rb` preserves exact issuer/token scope, environment/stack identities, staging Access ownership and prohibited keys. Neon control-plane export/reset readers retire with automatic reset. Native Wrangler consumes the exported token; `workflow-credentials.test.rb` checks every ESC export has a missing-value guard. Export lists are not claimed as provider-enforced least privilege; #1565 owns that boundary. |
 
@@ -30,10 +30,9 @@ unsafe archives, missing or modified units and omitted selected-source prerequis
 `release-consumer-cli.test.rb` executes the sealer/archive/consumer with a real temporary A→B→C
 Git history, including controller overwrite and extra-download refusal.
 
-`release-registry.test.rb` and `release-registry-cli.test.rb` require native remote manifest/image
-inspection. `release-observation.test.rb` and `release-container-observation.test.rb` validate real
-platform response identities without equating script-scoped version IDs across environments.
-These local fixtures do not claim that registry permissions or live deployments have been proven.
+`release-observation.test.rb` and `release-container-observation.test.rb` validate real platform
+response identities without equating script-scoped version IDs across environments.
+These local fixtures do not claim that live deployments have been proven.
 
 Cross-workflow tests retain invocation existence, PR-scoped check reachability, frozen installation,
 credentials, runner limits and required contexts. `pr-verification-plan.test.rb` adds release
@@ -46,7 +45,7 @@ sibling paths remain unowned and are rejected by its behavioral test.
 
 Passing local contracts and mutation tests does not activate delivery. #1575 must first install
 read-only preflight on both environments; same-lock revalidation now has native workerd and
-disposable PostgreSQL tests, with live activation still pending. The exact builder OIDC/ESC identity,
-registry access, runtime secrets, baseline cutover and production hostname must be ready. Real
-cross-run artifact download, concurrent environment execution, approval and promotion evidence
-remain required by the issue and [ADR 0007](../../adr/0007-selected-release-artifacts.md).
+disposable PostgreSQL tests, with live activation still pending. Runtime secrets, baseline cutover
+and production hostname must be ready. Real cross-run artifact download, concurrent environment
+execution, approval and promotion evidence remain required by the issue and
+[ADR 0007](../../adr/0007-selected-release-artifacts.md).
