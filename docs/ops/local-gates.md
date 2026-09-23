@@ -354,8 +354,8 @@ Ruby with the Gemfile's gems installed (`bundle install`) — a push that runs t
   `pre-push-affected-commitlint.test.sh` (which messages a push carries) and
   `pre-push-affected-contracts.test.sh` (which diffs fire the contracts bucket) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
-  and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
-  job runs the four `check-*.test.sh` suites
+  and the stub harness they share; CI's `delivery-toolchain` job runs the non-docs `*.test.sh`, and its
+  `docs` job runs the four `check-*.test.sh` suites
 - `commitlint.config.js` — the commit-message and PR-title rules; their exemption and its boundary
   are driven through this workspace's own CLI by
   `scripts/local-gates/pre-push-affected-commitlint-config.test.sh`

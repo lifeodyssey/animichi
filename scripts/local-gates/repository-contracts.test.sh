@@ -114,7 +114,7 @@ printf '#!/usr/bin/env bash\nprintf "untracked probe\\n" >> "$RECORD"\n' >"$REPO
 run_runner
 expect_status "untracked target" 1 "$STATUS"
 expect "untracked target" "bash probe-untracked.sh" "$OUT"
-expect "untracked target" "is not a committed file" "$OUT"
+expect "untracked target" "is not a regular file" "$OUT"
 expect_ran_nothing "untracked target"
 ok "a registry line naming an untracked path stops the push"
 
@@ -127,24 +127,40 @@ git -C "$REPO" add probe-staged.sh
 run_runner
 expect_status "staged target" 1 "$STATUS"
 expect "staged target" "bash probe-staged.sh" "$OUT"
-expect "staged target" "is not a committed file" "$OUT"
+expect "staged target" "is not a regular file" "$OUT"
 expect_ran_nothing "staged target"
 ok "a staged but uncommitted path stops the push"
 
-# 6. A committed directory is not a program. The path is at HEAD, so
-#    `git cat-file -e` accepts the tree as an object and the line clears
-#    validation; `bash` on it then fails, after the lines above it have already
-#    run — the fail-fast the header promises. `-t` asks what the object is, and
+# 6. A committed directory is not a program. The path is at HEAD, so a check
+#    that asks only whether some object of that name exists clears the line and
+#    `bash` on the directory then fails, after the lines above it have already
+#    run — running them is the loss of the fail-fast the header promises, not
+#    the promise kept. The mode answers whether the entry is a regular file, and
 #    the fixture's own `.github` is a committed tree.
 new_repo "$(contracts_workflow $'bash probe-two.sh\nbash .github')"
 run_runner
 expect_status "committed directory" 1 "$STATUS"
 expect "committed directory" "bash .github" "$OUT"
-expect "committed directory" "is not a committed file" "$OUT"
+expect "committed directory" "is not a regular file" "$OUT"
 expect_ran_nothing "committed directory"
 ok "a registry line naming a committed directory stops the push"
 
-# 7. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
+# 7. A committed symlink is a blob, so a check that asks `git cat-file -t`
+#    clears it; `bash` on a link to a directory then fails at exit 126, after
+#    the lines above it have run. `git ls-tree` reports the link's own mode,
+#    `120000`, and the fixture's link points at its own committed `.github`.
+new_repo "$(contracts_workflow $'bash probe-two.sh\nbash probe-link')"
+ln -s .github "$REPO/probe-link"
+git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner add -A
+git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner commit -qm 'chore(repo): commit a symlink to a directory'
+run_runner
+expect_status "committed symlink" 1 "$STATUS"
+expect "committed symlink" "bash probe-link" "$OUT"
+expect "committed symlink" "is not a regular file" "$OUT"
+expect_ran_nothing "committed symlink"
+ok "a registry line naming a committed symlink to a directory stops the push"
+
+# 8. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
 #    cannot carry a second command past the classifier into the gate.
 new_repo "$(contracts_workflow 'bash probe-two.sh; printf pwned > pwned.txt')"
 run_runner
@@ -154,7 +170,7 @@ expect "smuggled command" "cannot classify" "$OUT"
 expect_ran_nothing "smuggled command"
 ok "a line carrying a second command is refused rather than run"
 
-# 8. An empty registry and a missing job both stop the push: a gate that finds
+# 9. An empty registry and a missing job both stop the push: a gate that finds
 #    nothing to run has nothing to vouch for, and silence is never the answer.
 new_repo "$(contracts_workflow '')"
 run_runner
