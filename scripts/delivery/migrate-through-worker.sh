@@ -98,8 +98,9 @@ report_failure() {
 # PostgreSQL carries the password in URI user-info (`//user:pw@host`), in a URI
 # parameter (`?password=pw`), and in keyword/value DSNs (`password=pw`). Three rules
 # cover the shapes a driver prints, and this pass's criterion is "no password" rather
-# than the Worker's "no connection string": the role and the endpoint stay, so the
-# failure stays diagnosable, and only the secret goes.
+# than the Worker's "no connection string": the role and the endpoint stay — except
+# where a value runs on to a second key and takes the endpoint with it, which rule 2's
+# ranking below accepts — so the failure stays diagnosable, and only the secret goes.
 #
 #   1. URI user-info: `://user:pw@` becomes `://user:***@`. The secret class admits the
 #      at-sign this rule is hunting and refuses `/` and `?`, so the engine gives characters

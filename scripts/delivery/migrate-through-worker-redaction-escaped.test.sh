@@ -43,7 +43,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # plain-quote option turns only the main suite's plain JSON key case red, its escaped-quote
 # option only the escaped-key case here; requiring the closer turns the three truncated
 # cases and the structural case red; and the rejected guard that admits a quote,
-# `\\\\\\([^\\]|$)`, turns the inner-quote, backslash-run, truncated inner-quote and structural
+# `\\\\([^\\]|$)`, turns the inner-quote, backslash-run, truncated inner-quote and structural
 # cases red (#1909).
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
