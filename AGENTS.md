@@ -125,9 +125,10 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   design system → `/design-consultation` · visual → `/design-review` · architecture → `/plan-eng-review` ·
   quality → `/health` · brainstorm → `/office-hours`. TDD: `/frontend-tdd` (React).
 - **Orca card delivery** — backend/Infra/CI-CD Ready for Dev → merged PR follows
-  `docs/ops/orca-card-delivery.md`: Codex Sol max with `/implement`, different-model Matt review workers,
-  three review rounds maximum, all PR feedback resolved before merge. This scoped owner
-  choice overrides the OpenCode-only/fleet and legacy Codex dispatch routing below.
+  `docs/ops/orca-card-delivery.md`: writers from the coordinator skill's roster, invoking `/implement`
+  when their Skill tool allows it, different-model Matt review workers, three review rounds maximum,
+  all PR feedback resolved before merge. This scoped owner choice overrides the OpenCode-only/fleet
+  and legacy Codex dispatch routing below.
 - **Legacy Codex routing (outside the Orca flow)** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
   `/codex:review`; images via `/codex:imagegen`. **Read `.claude/skills/use-codex/SKILL.md` first** —
   short, and skipping it costs whole dispatches. Four facts it exists for: **never run the raw CLI

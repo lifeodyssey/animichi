@@ -34,8 +34,8 @@ project authorities before making a delivery decision:
 - `docs/ops/review-gate.md`
 - `docs/agents/issue-tracker.md`
 
-When using a headless attempt, also read
-`scripts/orca-headless/README.md` and use its exact launcher contract. These
+When using a headless attempt, also read the README of the launcher named under
+"The roster" below, and use its exact launcher contract. These
 documents own Matt's methods, gate details, issue-tracker syntax, and recovery
 rules; this skill supplies only Animichi coordination policy and must not copy
 their review procedure.
@@ -63,7 +63,7 @@ Process the bound Run as a FIFO inbox, not as a fire-and-forget queue:
    stale status, or missing message is not settlement.
 3. Acknowledge a Delivery only after every message is handled and every settled
    terminal has a next owner: reuse for an immediate follow-up, explicitly
-   retain when requested, or release. For a headless attempt, run
+   retain when requested, or release. For a headless attempt, run, in that launcher's checkout,
    `ruby scripts/orca-headless/orca-headless.rb status --state-dir <attempt>`;
    after the accepted bound `worker_done`, run
    `ruby scripts/orca-headless/orca-headless.rb cleanup --state-dir <attempt>
@@ -111,14 +111,15 @@ the files its scope names with every card already In Dev or unmerged; if both
 touch a shared registry or inventory (for example
 `packages/contract/src/agent-paths.ts`, `approved-breaking-changes.ts`, the
 generated OpenAPI documents, `workers/edge/test/route-inventory.test.ts`), hold
-the second card until the first merges. Measured 2026-09-15: PRs on these files
-took 150–200 minutes open→merge with up to five merges of main each, versus
-8–23 minutes for PRs that avoided them; GitHub merge queue is unavailable on this
+the second card until the first merges. GitHub merge queue is unavailable on this
 user-owned repository, so serialization is the lever.
 
 ### The roster (2026-09-22)
 
-Dispatch through `orca-pi-headless-support/scripts/orca-headless/orca-headless.rb`. Its
+Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
+`~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
+yet (#1840); the in-repo `scripts/orca-headless/` accepts only the retired Codex and Grok
+selections and refuses every writer below. Its
 accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
@@ -126,8 +127,8 @@ at launch, which is the point.
 |---|---|
 | Writer | `--provider pi --model bigmodel/glm-5.3-flash --effort max` |
 | Writer | `--provider pi --model opencode-go/deepseek-v4.1-flash --effort max` |
-| Writer | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
-| Writer | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
+| Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
+| Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
 | Writer, **visible UI only** | `--provider kimi --model kimi-code/k3-256k-max --effort max` |
 | Reviewer | `--provider claude --model claude-opus-5 --effort high` |
 
@@ -216,8 +217,10 @@ than repeating it.** `Scope: 0 of N` is real when a filter matches nothing — b
 line" has nothing to read on the success path, and its absence proves nothing either way. The
 positive evidence is the `$ <script>` echo pnpm prints before running, and
 `pnpm --filter <name> exec pwd` returning the package's directory. Name the package correctly
-first: only `packages/contract` is scoped (`@animichi/contract`); `web`, `catalog`, `users`,
-`edge-worker` and `anitabi-egress` are bare.
+first: the six `packages/*` libraries are scoped (`@animichi/contract`, `@animichi/agent`,
+`@animichi/eval`, `@animichi/pi-session-neon`, `@animichi/prisma-geography`,
+`@animichi/test-postgres`); `web`, `catalog`, `users`, `edge-worker`, `migrator`,
+`anitabi-egress`, `animichi-e2e` and `infra` are bare.
 
 That correction is itself the lesson: I had put "read the `Scope:` line" into four task briefs
 and into this file before anyone checked whether the line appears on the path that matters.
@@ -237,9 +240,10 @@ whenever either witness says a coordinator is alive: a heartbeat on
 reporting `"verdict": "live"`. The second witness exists because the first one lapsed for
 40 minutes while the coordinator was busy — which is exactly when it was needed.
 
-If you are the coordinator, touch that heartbeat on a schedule you do not have to remember.
-A 15-minute cron that drains the inbox and touches the file is the mechanism; intending to
-remember is not.
+If you are the coordinator, touch that heartbeat on a schedule you do not have to remember:
+a recurring job in your own session, such as a 15-minute Claude Code `CronCreate` job that
+drains the inbox and touches the file. The launchd automation above runs every 30 minutes
+and only nudges, so it is not that schedule, and intending to remember is not one either.
 
 **Repairing a safety mechanism that has never fired is a first deployment, not a fix.** The
 automation's 101 recorded runs contain 100 `skipped_precheck` and exactly one execution —
@@ -328,8 +332,9 @@ superseded. Condition 1 is about what the bots said, not about how long you wait
 the final push yet". When the bots are exhausted that condition can never be satisfied, so under
 the owner's standing authorisation fall back to the REST route
 (`gh api -X PUT repos/<owner>/<repo>/pulls/<n>/…` with `merge_method=squash`) and do not come back
-to ask. Prefer the literal CLI form with a written-out number otherwise — the hook parses the
-number off the command line and rejects a variable.
+to ask. Prefer the literal CLI form with a written-out number otherwise. The hook parses the
+number off the command line, and when it finds none, as with a variable, it silently checks
+the current branch's PR instead.
 
 Note the hook's real scope while you are here: it matches a merge-shaped string **anywhere in a
 bash command**, so it will also block a heredoc that merely quotes one. That is this skill's own
