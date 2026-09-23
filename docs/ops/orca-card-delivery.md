@@ -137,7 +137,8 @@ no restart loop or scheduler. Empty waits require liveness inspection, not dupli
 
 ## Development, gates, and candidate
 
-Require Matt `/implement` directly in every developer/fixer prompt. Its review
+Require Matt `/implement` in every developer/fixer prompt, invoked when the
+worker's Skill tool allows it; otherwise the worker works from the brief. Its review
 step must be routed to the independent, different-model reviewer. The coordinator
 owns candidate commits and publication under this flow's assigned responsibilities.
 Keep skill methods in the installed skills rather than reproducing them here.
@@ -286,8 +287,9 @@ an unacknowledged FIFO delivery hides later guidance. Do this before worker_done
 Append the appropriate role instruction to each task prompt:
 
 ```text
-Developer/fixer: Invoke and follow Matt /implement for development AND every fix,
-including local-review findings, PR comments and CI repairs. Read the actual skill.
+Developer/fixer: If your Skill tool allows it, invoke and follow Matt /implement for
+development AND every fix, including local-review findings, PR comments and CI
+repairs, and read the actual skill; otherwise work from this brief.
 Route its review step to the coordinator's separate, different-model reviewer;
 do not substitute self-review. Return changes and evidence for the coordinator's
 candidate commit. The coordinator owns commit, push, PR, and squash merge actions.

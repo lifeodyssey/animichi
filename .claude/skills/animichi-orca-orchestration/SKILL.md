@@ -134,7 +134,8 @@ at launch, which is the point.
 `--runtime-client` has no default and `start` refuses without it: pass
 `/Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js`.
 The two MiMo selections were added on 2026-09-22 at the owner's request; `mimo-v2.5-pro`
-delivered #1841 the same day.
+delivered #1841 the same day. The owner paused both on 2026-09-23;
+do not dispatch them until the owner lifts the pause.
 
 **Retired, do not dispatch:** grok (allowance exhausted 2026-09-21) and command-code
 (subscription expired 2026-09-20). If a provider fails, record it and hold — never
@@ -156,8 +157,9 @@ user-visible surface (a test helper, a build config) is not a visible-UI card.
 Every developer or fixer role spec must explicitly require:
 
 - the exact selection above, named in the spec so the worker can report a mismatch;
-- direct invocation and following of Matt `/implement` for implementation and
-  every fix, including review, PR-feedback, and CI repairs;
+- invoking and following Matt `/implement` for implementation and every fix,
+  including review, PR-feedback, and CI repairs, when the worker's Skill tool
+  allows it, and otherwise working from the brief;
 - changes and evidence returned to the coordinator, with no publication or
   merge by the worker.
 

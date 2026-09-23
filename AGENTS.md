@@ -180,7 +180,7 @@ dispatching anything. The retired `use-opencode` and `fleet-orchestra` skills ar
 by it; the `opencode serve` channel they described is no longer how work is dispatched.
 Role definitions live in `.claude/agents/`:
 - planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
-- executor — dispatched through the Orca headless launcher; see the coordinator skill below
+- executor — dispatched through the Orca headless launcher; see the coordinator skill above
   for the current roster. Brief-driven; publication stays with the coordinator.
 - reviewer — card-level final review: read the candidate diff vs brief before merge; **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
