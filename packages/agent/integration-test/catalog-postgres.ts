@@ -26,7 +26,7 @@ const execute = promisify(execFile);
 // (#1628–#1633). What still needs the pre-Prisma shape is THIS lane's own seed: `catalog-seed.ts`
 // writes `points.latitude` / `longitude` as plain scalars, and the plane the Prisma chain builds
 // makes those coordinates GENERATED, so that INSERT cannot run against it. The lane therefore
-// keeps a database of its OWN — from pristine `template1`, with the frozen fixture
+// keeps a database of its OWN — from pristine `template0`, with the frozen fixture
 // `@animichi/test-postgres` keeps for exactly these two lanes. It asks for the cluster alone
 // (#1783): the server, its admin database and the five service roles, with no Prisma-migrated
 // database beside this one that nothing reads.
@@ -65,7 +65,7 @@ export async function catalogPostgres(context: TestContext) {
   }
 }
 
-/** This lane's database: pristine `template1`, then the frozen Drizzle-era shape. */
+/** This lane's database: pristine `template0`, then the frozen Drizzle-era shape. */
 async function openLegacyDatabase(cluster: TestPostgresCluster, name: string): Promise<string> {
   const dsn = await createCleanDatabase(cluster.adminDsn, name);
   await applyDrizzleEraCatalog(dsn);

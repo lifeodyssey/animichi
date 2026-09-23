@@ -30,7 +30,7 @@ test plane creates them for the cluster it owns (`@animichi/test-postgres`, #162
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
 One Prisma chain owns every table this package builds: the seven native tables and the 19
 catalog/users data-plane tables rebuilt from the chain it replaced. No applied migration is
-altered, and no object has two owners. The migration-target ACs run against a per-test `template1`
+altered, and no object has two owners. The migration-target ACs run against a per-test `template0`
 database migrated only by that chain, and the shared fixture installs nothing on top of it, so
 the suite no longer compares against an Atlas-built database.
 
@@ -69,7 +69,7 @@ never disable the regression tests or convert root strings into another storage 
 After editing `src/contract.prisma`, run `contract:emit` and plan a migration from the intended
 contract hash or ref. Release migration selection must use the chosen artifact's contract hash,
 not the latest checkout. `test/migration-target.db.test.ts` applies the chain from zero on its own
-`template1` database, proves replay changes nothing, proves an earlier head leaves the later node
+`template0` database, proves replay changes nothing, proves an earlier head leaves the later node
 pending, and covers B selected while C exists, backward refusal and conflicting pre-existing table
 refusal.
 

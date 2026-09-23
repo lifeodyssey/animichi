@@ -5,7 +5,7 @@ The one disposable PostgreSQL + PostGIS + pgvector data plane every database-bac
 of which runs on workerd, so it is a devDependency of its consumers and never a dependency.
 Root guide: `../../AGENTS.md`.
 
-Before it existed the same recipe — the image tag, the clean database from `template1`, the chain
+Before it existed the same recipe — the image tag, the clean database, the chain
 apply — was written three times, in three languages, and #1324 fixed the startup race in only one of
 them. What each arm keeps is its own database name and its own budget; everything else is here.
 
@@ -143,8 +143,18 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
 - **No chain is applied to the image's own database.** The image pre-initialises it with its own
   extension set — postgis, vector, documentdb and the objects those bring — so it is never the
   pristine schema the chain's clean-apply check needs: an apply there would pass or fail for
-  reasons that say nothing about a fresh schema. `createCleanDatabase` still creates from pristine
-  `template1`; `startTestPostgres` clones the migrated template instead.
+  reasons that say nothing about a fresh schema. `createCleanDatabase` still creates from a
+  pristine template; `startTestPostgres` clones the migrated template instead.
+- **That pristine template is `template0`, not `template1` (#1890).** `CREATE DATABASE … TEMPLATE x`
+  refuses while any other session is attached to `x`, and only after the server has already spent
+  5 s waiting for that session to leave. `template1` is connectable and this image's preloaded
+  background workers reach it — 2 sessions and 104 ms of session time in fourteen hours on the
+  shared container, rare enough that no sampler caught the holder and often enough to fail `main`
+  twice. `template0` is the template PostgreSQL keeps unconnectable for exactly that reason — the
+  residual is recorded in `src/clean-database.ts` — and a database created from each of the two
+  compares identical on this image (measured).
+  `scripts/local-gates/db-fresh-schema.sh` creates from the same template, and #1874's retry there
+  went with the race.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
   drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
   returns a plane without that guarantee.
