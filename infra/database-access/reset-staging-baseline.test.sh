@@ -25,88 +25,8 @@
 # the offline image, like scripts/local-gates/db-fresh-schema.sh.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SCRIPT="$ROOT/infra/database-access/reset-staging-baseline.sh"
-# shellcheck source=packages/test-postgres/postgres-image.env
-. "$ROOT/packages/test-postgres/postgres-image.env"
-command -v docker >/dev/null || { echo "reset-staging-baseline.test: docker is required" >&2; exit 1; }
-command -v psql >/dev/null || { echo "reset-staging-baseline.test: psql is required" >&2; exit 1; }
-docker image inspect "$TEST_POSTGRES_IMAGE" >/dev/null 2>&1 || {
-  echo "reset-staging-baseline.test: build $TEST_POSTGRES_IMAGE first (packages/test-postgres/postgres-image.env)" >&2
-  exit 1
-}
-
-WORK="$(mktemp -d)"
-cid=""
-trap 'test -z "$cid" || docker rm -f "$cid" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT
-failures=0
-case_number=0
-OUT=""
-
-cid="$(docker run -d -e POSTGRES_PASSWORD=gate -e POSTGRES_DB=postgres -p 127.0.0.1::5432 "$TEST_POSTGRES_IMAGE")"
-PORT="$(docker port "$cid" 5432/tcp | sed 's/.*://')"
-export PORT
-for _ in $(seq 1 60); do
-  docker exec "$cid" pg_isready -h 127.0.0.1 -p 5432 -U postgres >/dev/null 2>&1 && break
-  sleep 1
-done
-
-admin() { PGPASSWORD=gate psql -h 127.0.0.1 -p "$PORT" -U postgres -d "$1" -v ON_ERROR_STOP=1 -qtAc "$2"; }
-admin postgres "CREATE ROLE migrator NOLOGIN" >/dev/null
-
-mkdir -p "$WORK/bin"
-cat > "$WORK/bin/npx" <<'STUB'
-#!/usr/bin/env bash
-# `npx --yes neonctl@3.6.0 <command> …`: psql reaches the case's database, branch calls are
-# recorded, and the branch list answers BRANCH_LIST, by default that no backup exists yet. Taking a
-# backup also records whether the marker schema was still there for it to copy.
-set -euo pipefail
-shift 2
-if [ "$1" = psql ]; then
-  role=""; prev=""
-  while [ "$1" != "--" ]; do [ "$prev" != "--role-name" ] || role="$1"; prev="$1"; shift; done
-  shift
-  case " $* " in *" -f "*) echo "psql $role -f" ;; *) echo "psql $role" ;; esac >> "${CALL_LOG:?}"
-  # neonctl announces every psql connection on stderr (#1793) — "INFO: Connecting to the
-  # database using psql..." — and the reset script's reads swallow stderr, so the rehearsal
-  # reads back the real shape: diagnostic ahead of the rows, on every call.
-  printf 'INFO: Connecting to the database using psql...\n' >&2
-  PGPASSWORD=gate exec psql -h 127.0.0.1 -p "${PORT:?}" -U postgres -d "${CASE_DB:?}" "$@"
-fi
-echo "branches $2" >> "${CALL_LOG:?}"
-[ "$2" != create ] || PGPASSWORD=gate psql -h 127.0.0.1 -p "${PORT:?}" -U postgres -d "${CASE_DB:?}" -qtAc \
-  "SELECT coalesce(to_regnamespace('prisma_contract')::text, 'absent')" > "$CALL_LOG.backup-saw"
-[ "$2" != list ] || echo "${BRANCH_LIST:-[]}"
-STUB
-chmod +x "$WORK/bin/npx"
-
-# new_case <label> <seed SQL>: a database of its own, seeded, and the call log emptied.
-new_case() {
-  LABEL="$1"
-  case_number=$((case_number + 1))
-  CASE_DB="reset_case_$case_number"
-  export CASE_DB CALL_LOG="$WORK/calls-$case_number"
-  : > "$CALL_LOG"
-  admin postgres "CREATE DATABASE $CASE_DB TEMPLATE template1" >/dev/null
-  [ -z "$2" ] || admin "$CASE_DB" "$2" >/dev/null
-}
-
-run_script() { # run_script <want-exit>
-  local rc=0
-  OUT="$(PATH="$WORK/bin:$PATH" NEON_API_KEY=stub-neon-key bash "$SCRIPT" 2>&1)" || rc=$?
-  expect "$LABEL exits $1" "$1" "$rc"
-}
-
-expect() { # expect <label> <want> <got>
-  if [ "$2" = "$3" ]; then printf 'PASS %s\n' "$1"; return; fi
-  failures=$((failures + 1))
-  printf 'FAIL %s: want [%s] got [%s]\n%s\n' "$1" "$2" "$3" "$OUT"
-}
-
-said() { grep -qF -- "$1" <<<"$OUT" && echo yes || echo no; }
-backup_taken() { grep -qx "branches create" "$CALL_LOG" && echo yes || echo no; }
-relation() { admin "$CASE_DB" "SELECT coalesce(to_regclass('$1')::text, 'absent')"; }
-marker_schema() { admin "$CASE_DB" "SELECT coalesce(to_regnamespace('prisma_contract')::text, 'absent')"; }
+# shellcheck source=infra/database-access/reset-staging-baseline.test.harness.sh
+. "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.test.harness.sh"
 
 # Prisma 8's marker carries updated_at; the one staging held was written 2026-09-12 (#1781).
 MARKER="CREATE SCHEMA prisma_contract;
@@ -141,6 +61,14 @@ expect "and the backup precedes the drop" "$(printf 'branches create\npsql neond
 expect "and the leftover table is gone" absent "$(relation public.bangumi)"
 expect "and the Atlas ledger is gone" absent "$(relation public.atlas_schema_revisions)"
 expect "and the migrator can build the chain" t "$(admin "$CASE_DB" "SELECT has_schema_privilege('migrator', 'public', 'CREATE')")"
+# #1896: the chain's access migration grants the five service roles USAGE on `public`, and it runs
+# as `migrator`. A GRANT by a role holding no grant option is not an error — it warns and grants
+# nothing — so staging reached CD with `jobs_svc` and `readonly` still lacking USAGE. The `f` below
+# is what rules out every membership that would answer this question for jobs_svc anyway, Neon's
+# `neon_superuser` and `pg_read_all_data` among them: it holds none, so only the re-grant moves it.
+expect "and jobs_svc reaches the schema by no other path" f "$(admin "$CASE_DB" "SELECT has_schema_privilege('jobs_svc', 'public', 'USAGE')")"
+expect "and the migrator re-grants with no superuser to fall back on" off "$(as_migrator "SELECT current_setting('is_superuser')")"
+expect "and the migrator can pass USAGE on, as the chain does" t "$(as_migrator "GRANT USAGE ON SCHEMA public TO jobs_svc; SELECT has_schema_privilege('jobs_svc', 'public', 'USAGE')")"
 
 new_case "the cutover state with a business row" "$ATLAS INSERT INTO public.bangumi VALUES ('real');"
 run_script 1
@@ -191,7 +119,7 @@ recorded_marker() { # recorded_marker <interval added to the recorded instant>
     INSERT INTO prisma_contract.marker
       VALUES ('app', repeat('a', 64), repeat('b', 64), '$RECORDED_AT'::timestamptz + interval '$1');"
 }
-marker_tables() { admin "$CASE_DB" "SELECT string_agg(tablename, ',' ORDER BY tablename) FROM pg_tables WHERE schemaname = 'prisma_contract'"; }
+
 expect "the committed record names one app marker" "prisma_contract.marker space=app" "${RECORDED% updated_at=*}"
 
 new_case "the marker the record names, beside the Atlas ledger" "$(recorded_marker '0') $ATLAS $APPROVED"
@@ -255,5 +183,4 @@ run_script 1
 expect "and it refuses to guess" yes "$(said "cannot confirm staging state")"
 expect "and it takes no backup" no "$(backup_taken)"
 
-[ "$failures" -eq 0 ] || { echo "$failures reset-staging-baseline test(s) failed." >&2; exit 1; }
-echo "All reset-staging-baseline tests passed."
+report_suite "reset-staging-baseline"

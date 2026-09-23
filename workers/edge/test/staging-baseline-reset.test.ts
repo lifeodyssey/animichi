@@ -39,7 +39,7 @@ void test("reset SQL drops public, and prisma_contract only when told to", () =>
   assert.match(sql, /^\\if :drop_marker_schema\nDROP TABLE prisma_contract\.marker, prisma_contract\.ledger, prisma_contract\.contract;\nDROP SCHEMA prisma_contract;\n\\endif\n/);
   assert.match(sql, /DROP SCHEMA IF EXISTS public CASCADE/);
   assert.match(sql, /CREATE SCHEMA public/);
-  assert.match(sql, /GRANT USAGE, CREATE ON SCHEMA public TO migrator/);
+  assert.match(sql, /GRANT USAGE, CREATE ON SCHEMA public TO migrator WITH GRANT OPTION/);
   assert.deepEqual(sql.match(/DROP \w+/g), ["DROP TABLE", "DROP SCHEMA", "DROP SCHEMA"]);
   assert.deepEqual(sql.match(/CASCADE/g), ["CASCADE"]);
   assert.doesNotMatch(sql, /neon_auth|production/i);
