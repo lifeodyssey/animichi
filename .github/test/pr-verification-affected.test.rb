@@ -7,14 +7,8 @@ class PrVerificationAffectedTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CI_FILE = File.join(ROOT, ".github", "workflows", "pr-verification.yml")
   PACKAGE_SCRIPTS = %w[lint typecheck test test:integration].freeze
-  # Atlas is still applied by the catalog spike, the native catalog fixture and
-  # the migrator's transition handshake; the packages whose gates reach it only
-  # through the shared plane (#1625) are not listed (#1634 retires it entirely).
   MATRIX_TOOLCHAINS = [
-
-
     ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
-
     ["@animichi/agent", "docker build -f packages/test-postgres/Dockerfile"],
     ["edge-worker", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/test-postgres", "docker build -f packages/test-postgres/Dockerfile"],

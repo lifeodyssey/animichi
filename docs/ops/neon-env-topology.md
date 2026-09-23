@@ -5,7 +5,7 @@
 
 ## Branches / environments
 
-| Name | Purpose | Wipe policy | Who applies Atlas migrations | Notes |
+| Name | Purpose | Wipe policy | Who applies migrations | Notes |
 | --- | --- | --- | --- | --- |
 | **production** (`main` compute) | Live user data | **No wipe** | Main-only CD database phase (migrator DSN); one human approval before the production cohort | Soft baseline only for history squash (#845/#849) |
 | **staging** | Pre-prod integration | Wipe **allowed** with owner go (campaign W6 may wipe or soft-baseline) | Main-only CD calls the OIDC-authenticated migrator; owner break-glass CLI only with explicit HITL, not routine | Target for #832 min-privilege DSN cutover first |
