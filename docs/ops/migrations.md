@@ -9,11 +9,11 @@ separates the Neon data plane from the historical Supabase compatibility archive
 | Surface | Source of truth | Apply mechanism | Boundary |
 |---|---|---|---|
 | Neon catalog, user and native agent data | `packages/pi-session-neon/src/contract.prisma` plus the emitted chain under `packages/pi-session-neon/migrations/` | Prisma 8's programmatic migration API, inside the migrator Worker | The only versioned schema history for Neon. The chain is schema-only; reference/seed data (e.g. the gazetteer at `workers/catalog/data/gazetteer_seed.sql`) is loaded separately and idempotently (`make seed-gazetteer`) |
-| Catalog/users runtime access | `workers/catalog/src/db/schema.ts` and `workers/users/src/db/schema.ts` | Drizzle `neon-http` client with raw `sql` queries | Runtime column/type metadata and query typing only; never a migration source. #1629–#1631 move this onto Prisma |
+| Catalog/users runtime access | the contract this chain generates (`@animichi/pi-session-neon/contract`) | Prisma 8 builder plans on a per-request runtime | No worker keeps a schema of its own since #1633; `workers/edge/test/migration-boundary.test.ts` pins that none grows one back |
 | Supabase auth/legacy compatibility (**HISTORICAL**) | `supabase/migrations/` | **Not applied** — archived/historical only (issue #1000); never a live apply or source surface | The Prisma chain is the single authority; never a source for new Neon catalog or user tables |
 
 The chain is append-only once a migration has reached a shared environment. Do not edit an
-applied migration, hand-edit an emitted `migration.json` / `ops.json`, or copy a Drizzle schema
+applied migration, hand-edit an emitted `migration.json` / `ops.json`, or copy a worker's schema
 into a second migration source. The gazetteer seed (`workers/catalog/data/gazetteer_seed.sql`) is
 a generated artifact and must stay out of the chain — it was removed from it in #847 and is
 loaded via `make seed-gazetteer` after the schema exists.
@@ -22,9 +22,9 @@ The retired Atlas chain (`migrations/neon/*.sql` and its `atlas.sum`) was delete
 tools owning one database is the defect that made the first real production migration fail with
 `42710`, because the release applied Atlas and then the Prisma baseline on the same DSN.
 
-The application never runs migrations at startup. A Worker may construct a Drizzle client
-and execute a query, but it must not import `drizzle-kit`, call a Drizzle migration API, or
-run `drizzle-kit generate`, `migrate`, `push`, or `pull`.
+The application never runs migrations at startup. A Worker may acquire a runtime and execute a
+builder plan, but it must not import a migration CLI, call a migration API, or apply the chain
+itself — the migrator Worker's OIDC door is the only path.
 
 ## Approved pre-production history rewrite (2026-08-12, #992)
 
@@ -73,8 +73,8 @@ After this cutover, the normal append-only policy resumes for every shared envir
    ```
 
    A check run is local/static evidence; it does not prove that a Neon branch accepted the DDL.
-4. Run the affected tests and inspect the exact diff. Do not use Drizzle as a desired-state
-   generator: the Drizzle files mirror the schema runtime queries need, and the contract remains
+4. Run the affected tests and inspect the exact diff. Do not treat any generated artifact as a
+   desired-state source: the emitted files mirror what the chain declares, and the contract remains
    authoritative.
 
 ## Applying a Neon migration

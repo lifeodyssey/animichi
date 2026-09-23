@@ -1,19 +1,25 @@
-import { sql } from "drizzle-orm";
 import pg from "pg";
 import { describe, expect, it } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import {
   CATALOG_TABLES,
-  captureNeonConfig,
   catalogTruncateSql,
   directPoolConfig,
-  restoreNeonConfig,
-  truncateCatalog,
   truncateCatalogPool,
 } from "./integration-db";
-import { makePgCatalog } from "./integration-db-global/pg-catalog";
 
-describe("catalog database helper", () => {
+/**
+ * The suite harness's own guarantees (#1633 rewrote the half that was about the
+ * Drizzle seam; what is left is the statement, the pool config, and the one
+ * isolation call every database file makes).
+ *
+ * `truncateCatalogPool` is the isolation step, and the thing it must never do is
+ * fail QUIETLY or fail with a message that blames the table set: an operator
+ * reading "FK-closed table set" would go looking for an ordering bug that is not
+ * there, when what actually happened was a connection or a real FK violation.
+ * Both arms below pin that.
+ */
+
+describe("the catalog isolation statement", () => {
   it("builds the exact no-CASCADE FK-closed TRUNCATE statement", () => {
     const statement = catalogTruncateSql();
 
@@ -24,29 +30,11 @@ describe("catalog database helper", () => {
     expect(statement).toMatch(/RESTART IDENTITY$/u);
   });
 
-  it("snapshots and restores all three process-global neonConfig values", () => {
-    const snapshot = captureNeonConfig();
-    const fetchEndpoint = snapshot.fetchEndpoint;
-    const previous = snapshot.poolQueryViaFetch;
-
-    restoreNeonConfig(snapshot);
-    expect(captureNeonConfig().fetchEndpoint).toEqual(fetchEndpoint);
-    expect(captureNeonConfig().poolQueryViaFetch).toEqual(previous);
-  });
-
   it("leaves docker-postgres TLS behavior to the connection URI", () => {
     const config = directPoolConfig("postgresql://127.0.0.1:5432/catalog_integration?sslmode=disable");
 
     expect(config.connectionTimeoutMillis).toBe(10_000);
     expect(config).not.toHaveProperty("ssl");
-  });
-
-  it("fails loudly, not silently skips, when the database is unreachable (AC2)", async () => {
-    const deadPool = new pg.Pool({ host: "127.0.0.1", port: 1, connectionTimeoutMillis: 500 });
-    const db = makePgCatalog(deadPool);
-
-    await expect(db.execute(sql`SELECT 1`)).rejects.toThrow();
-    await deadPool.end();
   });
 });
 
@@ -69,22 +57,8 @@ function expectDatabaseErrorCause(error: Error): pg.DatabaseError {
   return error.cause;
 }
 
-describe("truncate guard AC1: connection errors", () => {
-  it("truncateCatalog does not falsely name FK-closed table set", async () => {
-    const deadPool = new pg.Pool({ host: "127.0.0.1", port: 1, connectionTimeoutMillis: 500 });
-    const db = makePgCatalog(deadPool);
-
-    try {
-      const error = await rejectionOf(truncateCatalog(db));
-      expect(error.message).not.toContain("FK-closed table set");
-      expect(error.message).toContain("TRUNCATE failed during catalog integration isolation");
-      expect(error.cause).toBeDefined();
-    } finally {
-      await deadPool.end();
-    }
-  });
-
-  it("truncateCatalogPool does not falsely name FK-closed table set", async () => {
+describe("truncateCatalogPool fails loudly, and never blames the table set", () => {
+  it("rejects rather than silently skipping when the database is unreachable (AC2)", async () => {
     const deadPool = new pg.Pool({ host: "127.0.0.1", port: 1, connectionTimeoutMillis: 500 });
 
     try {
@@ -96,43 +70,17 @@ describe("truncate guard AC1: connection errors", () => {
       await deadPool.end();
     }
   });
-});
 
-describe("truncate guard AC2: FK-ordering failures", () => {
-  it("FK-ordering failure reaches operator with actionable cause", async () => {
+  it("hands an FK-ordering failure to the operator with its actionable cause", async () => {
     const fkError = new pg.DatabaseError("violates foreign key constraint \"fk_points_bangumi\"", 0, "error");
     fkError.code = "23503";
-    const failingDb = {
-      execute: () => Promise.reject(fkError),
-    } as unknown as CatalogDb;
+    const failingPool = { query: () => Promise.reject(fkError) } as unknown as pg.Pool;
 
-    const error = await rejectionOf(truncateCatalog(failingDb));
+    const error = await rejectionOf(truncateCatalogPool(failingPool));
+
     const cause = expectDatabaseErrorCause(error);
     expect(error.message).toContain("TRUNCATE failed during catalog integration isolation");
     expect(cause.message).toContain("fk_points_bangumi");
     expect(cause.code).toBe("23503");
-  });
-});
-
-describe("truncate guard AC3: both functions identical", () => {
-  it("truncateCatalog and truncateCatalogPool behave identically", async () => {
-    const fkError = new pg.DatabaseError("violates foreign key constraint", 0, "error");
-    fkError.code = "23503";
-    const failingDb = {
-      execute: () => Promise.reject(fkError),
-    } as unknown as CatalogDb;
-    const failingPool = {
-      query: () => Promise.reject(fkError),
-    } as unknown as pg.Pool;
-
-    const dbError = await rejectionOf(truncateCatalog(failingDb));
-    const poolError = await rejectionOf(truncateCatalogPool(failingPool));
-    const dbCause = expectDatabaseErrorCause(dbError);
-    const poolCause = expectDatabaseErrorCause(poolError);
-
-    expect(dbError.message).toBe(poolError.message);
-    expect(dbCause.message).toBe(poolCause.message);
-    expect(dbCause.code).toBe("23503");
-    expect(poolCause.code).toBe("23503");
   });
 });

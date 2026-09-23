@@ -209,7 +209,7 @@ Browser
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy/cache
   ├─ /healthz ───────────────────────────────────▶ Worker readiness answer (`{"status":"ok"}`)
   ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
-  │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
+  │                                                          └─ Neon Postgres/PostGIS via a per-request Prisma runtime (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker gateway → native `AgentSession` DO
                                                             ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
                                                             ├─ catalog read path (`CATALOG` service binding)
@@ -223,9 +223,9 @@ native agent tier reaches the catalog through that same binding
 (`workers/edge/src/agent/host/native-bootstrap.ts`). Deploy order: catalog Worker first (so
 `service = "catalog"` resolves), then the main Worker.
 
-Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
-runtime query/type metadata. The checked-in Atlas directory is the only Neon schema authority for
-all three. See
+Catalog and users Workers query Neon as Prisma 8 builder plans over the contract the migration
+chain generates, on a runtime acquired per request and released on scope exit. That one chain in
+`packages/pi-session-neon/migrations/` is the only Neon schema authority for all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
 The deployment target stays intentionally thin. The Worker owns routing and edge auth, and hosts

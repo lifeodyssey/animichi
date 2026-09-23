@@ -94,7 +94,9 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   automation reaches that hostname without the two `CF-Access-*` headers, and removing one is
   a silent exposure nothing goes red for. `stagingAccessAllowedEmails` is refused empty for
   the same reason: an `allow` policy with no include rules is a door no human can open.
-- No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
+- No Hyperdrive: catalog reaches Neon over a per-request `pg` connection from
+  `@prisma/orm-postgres/serverless`, which needs only a connection string that Neon's direct host
+  supplies (`docs/specs/2026-09-12-prisma8-database-layer-spec.md` §4.2).
 - **The pre-apply `pulumi stack export` rollback backup is retired** (#485 → #1077). Pulumi Cloud's
   own update history is the rollback record, so CD no longer copies a state snapshot into the R2
   bucket before every `pulumi up`. Nothing writes to that `rollback-backups/` prefix any more, so

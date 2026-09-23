@@ -2,71 +2,54 @@
  * Atomic staging Catalog switch for the snapshot import (issue #1016, AC4).
  *
  * The default ImportActivation deletes every row from the six public catalog
- * tables and inserts the validated candidate rows in ONE server-side batch
- * (db.batch) — the repository's documented one-PostgreSQL-transaction primitive
- * (same as publishVersion). The import-run marker is recorded in catalog_runs
- * (reused table; no new migration) in the same batch, so the whole switch is
- * all-or-nothing: an invalid import never reaches here (zero activation), and a
- * valid import atomically replaces staging's active Catalog. Statements are
- * built with the Drizzle builder through the single CatalogDb seam.
+ * tables and inserts the validated candidate rows in ONE transaction on the
+ * request's runtime — the repository's atomic unit since #1630, where the
+ * neon-http batch used to be. An invalid import never reaches here (zero
+ * activation), and a valid import atomically replaces staging's active Catalog.
+ * The import-run marker is recorded in catalog_runs (reused table; no new
+ * migration) inside that same transaction, so the whole switch is
+ * all-or-nothing.
+ *
+ * Every statement is a builder plan. What the plans load is the snapshot's own
+ * rows read as this plane's columns — `./snapshot-rows`, which owns that
+ * pairing and the two places the exported shape and the table's differ.
  */
-import { getTableColumns, type SQL } from "drizzle-orm";
-import type { AnyPgTable } from "drizzle-orm/pg-core";
-import type { CatalogDb } from "../db/client";
-import { statementBuilder } from "../db/client";
-import {
-  aliases,
-  bangumi,
-  catalogProvenance,
-  catalogRuns,
-  mediaAssets,
-  points,
-  seriesEdges,
-} from "../db/schema";
-import * as x from "../db/expressions";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "../db/prisma";
+import { atServerNow, upsert } from "../db/plans";
+import { asJsonValue } from "../lib/json";
+import { TABLE_BY_KIND, tableRows } from "./snapshot-rows";
 import { type ImportCandidate, type ImportKind } from "./import-snapshot";
 
 /** The atomic-switch seam the import orchestrator calls (AC4). */
 export interface ImportActivation {
-  switchCatalog(db: CatalogDb, candidate: ImportCandidate): Promise<void>;
+  switchCatalog(query: CatalogPrisma, candidate: ImportCandidate): Promise<void>;
 }
 
-/** The production adapter: clear the public catalog and load the candidate in one batch. */
+/** The production adapter: clear the public catalog and load the candidate in one transaction. */
 export const neonImportActivation: ImportActivation = {
-  switchCatalog: (db, candidate) => importBatch(db, candidate),
-};
-
-/** The public table a snapshot kind maps to (staging's active Catalog). */
-const TABLE_BY_KIND: Record<ImportKind, AnyPgTable> = {
-  works: bangumi,
-  points: points,
-  aliases: aliases,
-  series: seriesEdges,
-  provenance: catalogProvenance,
-  media: mediaAssets,
+  switchCatalog: (query, candidate) => importTransaction(query, candidate),
 };
 
 /** Atomic replace: clear every public table, load the candidate, record the run. */
-export async function importBatch(db: CatalogDb, candidate: ImportCandidate): Promise<void> {
-  await db.batch(prepareBatch(db, buildStatements(candidate)));
+export async function importTransaction(
+  query: CatalogPrisma, candidate: ImportCandidate,
+): Promise<void> {
+  await query.transaction(async (tx) => {
+    for (const plan of switchPlans(tx, candidate)) await tx.executor.query(plan);
+  });
 }
 
 /** Every switch statement in mandatory order: the record first, then per-kind pairs. */
-function buildStatements(candidate: ImportCandidate): [SQL, ...SQL[]] {
-  const middle: SQL[] = [];
+function switchPlans(query: CatalogPrisma, candidate: ImportCandidate): SqlOrmPlan[] {
   // Delete children before parents, insert parents before children, so the
-  // one-batch FK-safe switch holds with real rows in staging (card 1049 — the
-  // prior works-first delete order violated points_refs_bangumi on re-import).
-  for (const kind of DELETE_ORDER) {
-    middle.push(deleteTable(TABLE_BY_KIND[kind]));
-  }
-  for (const kind of INSERT_ORDER) {
-    const object = candidate.objects.find((o) => o.kind === kind);
-    if (object !== undefined && object.rows.length > 0) {
-      middle.push(insertRows(TABLE_BY_KIND[kind], object.rows));
-    }
-  }
-  return [recordImportStatement(candidate), ...middle];
+  // one-transaction FK-safe switch holds with real rows in staging (card 1049 —
+  // the prior works-first delete order violated points_refs_bangumi on re-import).
+  return [
+    recordImportPlan(query, candidate),
+    ...DELETE_ORDER.map((kind) => clearTable(query, kind)),
+    ...loadPlans(query, candidate),
+  ];
 }
 
 /** Delete order: child tables before the parents that reference them. */
@@ -79,74 +62,49 @@ const INSERT_ORDER: readonly ImportKind[] = [
   "works", "points", "aliases", "series", "provenance", "media",
 ];
 
-/** Convert ordered SQL into lazy Drizzle batch items without executing them. */
-function prepareBatch(db: CatalogDb, statements: readonly [SQL, ...SQL[]]) {
-  const [first, ...rest] = statements;
-  return [db.execute(first), ...rest.map((statement) => db.execute(statement))] as const;
-}
-
-/** DELETE all rows from one public catalog table. */
-function deleteTable(table: AnyPgTable): SQL {
-  return statementBuilder().delete(table).getSQL();
-}
-
-/** INSERT a validated row set into one public catalog table. */
-function insertRows(table: AnyPgTable, rows: readonly unknown[]): SQL {
-  const values = rows.map((row) => importInsertValue(table, row));
-  return statementBuilder().insert(table).values(values).getSQL();
-}
-
-/** Cast a validated import row to the target table's insert value. */
-function importInsertValue(table: AnyPgTable, row: unknown): InsertValueFor<typeof table> {
-  if (!isRecord(row)) return row as InsertValueFor<typeof table>;
-  // The export serializes rows under their DB column names; Drizzle insert keys
-  // are the TS column names, so remap (e.g. entity_id -> entityId) before insert
-  // (card 1049: provenance/points were imported with nulled columns otherwise).
-  const byDbName = new Map<string, string>();
-  const timestampKeys = new Set<string>();
-  const cols = getTableColumns(table) as Record<string, { name: string; columnType: string }>;
-  for (const [tsKey, column] of Object.entries(cols)) {
-    byDbName.set(column.name, tsKey);
-    if (column.columnType === "PgTimestamp" || column.columnType === "PgTimestampWithTimezone") timestampKeys.add(tsKey);
+/** One INSERT per kind the candidate actually carries rows for. */
+function loadPlans(query: CatalogPrisma, candidate: ImportCandidate): SqlOrmPlan[] {
+  const plans: SqlOrmPlan[] = [];
+  for (const kind of INSERT_ORDER) {
+    const object = candidate.objects.find((o) => o.kind === kind);
+    if (object !== undefined && object.rows.length > 0) plans.push(loadTable(query, kind, object.rows));
   }
-  const remapped: Record<string, unknown> = {};
-  for (const key of Object.keys(row)) {
-    const target = byDbName.get(key) ?? key;
-    // The export serializes timestamps to ISO strings; restore them to Date so
-    // Drizzle's timestamp mapper can encode them (card 1049).
-    const raw = row[key];
-    remapped[target] = timestampKeys.has(target) && typeof raw === "string" ? new Date(raw) : raw;
-  }
-  return remapped;
+  return plans;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+/** DELETE all rows from one public catalog table — no predicate is the point. */
+function clearTable(query: CatalogPrisma, kind: ImportKind): SqlOrmPlan {
+  return query.builder.public[TABLE_BY_KIND[kind]].delete().build();
 }
 
-/** The object shape Drizzle accepts in .values() for a table (boundary cast). */
-type InsertValueFor<T> = T extends { $inferInsert: infer I } ? I : never;
+/**
+ * INSERT a validated row set into one public catalog table.
+ *
+ * The table is chosen at run time from the kind, so the builder's INSERT is the
+ * union of all six and its row type widens to what they have in common — this
+ * one call site does NOT get the per-column check a named table's insert gets.
+ * What covers it instead is the round trip: `import-integration` exports,
+ * imports, and reads the values back, and a mapper that drops or renames a
+ * column fails there rather than in the type system.
+ */
+function loadTable(query: CatalogPrisma, kind: ImportKind, rows: readonly unknown[]): SqlOrmPlan {
+  return query.builder.public[TABLE_BY_KIND[kind]].insert(tableRows(kind, rows)).build();
+}
 
 /** INSERT (or re-mark) the staging import run so the environment has observable state. */
-function recordImportStatement(candidate: ImportCandidate): SQL {
-  return statementBuilder()
-    .insert(catalogRuns)
-    .values({
-      runId: importRunId(candidate.snapshotId),
+function recordImportPlan(query: CatalogPrisma, candidate: ImportCandidate): SqlOrmPlan {
+  const insert = query.builder.public.catalog_runs
+    .insert([{
+      run_id: importRunId(candidate.snapshotId),
       status: "complete",
-      sourceOutcomes: { imports: [candidate.snapshotId] },
-      publishedVersions: { snapshot: candidate.snapshotId },
-      finishedAt: x.now(),
-    })
-    .onConflictDoUpdate({
-      target: catalogRuns.runId,
-      set: {
-        status: "complete",
-        publishedVersions: { snapshot: candidate.snapshotId },
-        finishedAt: x.now(),
-      },
-    })
-    .getSQL();
+      source_outcomes: asJsonValue({ imports: [candidate.snapshotId] }),
+      published_versions: asJsonValue({ snapshot: candidate.snapshotId }),
+    }])
+    .build();
+  return upsert(atServerNow(insert, ["finished_at"]), {
+    target: ["run_id"],
+    update: ["status", "published_versions", "finished_at"],
+  });
 }
 
 /** A stable, idempotent staging import run id derived from the snapshot id. */

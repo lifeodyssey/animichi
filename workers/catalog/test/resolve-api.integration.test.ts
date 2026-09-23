@@ -35,9 +35,7 @@ import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integ
  * DSN. Resolve's alias-index path (the July geocoding wave) is part of its
  * contract, so stubbing the seam to something like an empty answer list does not
  * fail loudly — it silently turns every resolve into a miss and an upstream
- * search. Do not stub it. The Drizzle seam is left UNREACHABLE on purpose:
- * resolve reads nothing through it since #1631, so touching it here means a read
- * went back to `context.db`.
+ * search. Do not stub it.
  *
  * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
  * that `pointsByBangumiId` would reject with a 400 cannot be written here (#363).
@@ -75,8 +73,8 @@ async function seed(): Promise<void> {
   await run(aliasInsert(ALIASES));
 }
 
-/** The route's context: this request's REAL Prisma seam, and a Drizzle seam that
- * throws if a read reaches for it. */
+/** The route's context: this request's REAL plan seam, and nothing else — the
+ * second seam a route could once be handed is gone with #1633. */
 function context(): CatalogContext {
   return { prisma };
 }

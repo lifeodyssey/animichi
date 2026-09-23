@@ -4,16 +4,21 @@
  * Every fixture value is parsed through `packages/contract` (the cross-service
  * source of truth) at construction, so a fixture that no longer matches the wire
  * contract fails loudly HERE instead of surfacing as a downstream 400/500 in a
- * live integration run. The INSERT statements are emitted from the same records the
- * assertions read (with table + column names taken from the Drizzle schema), so
- * the seed, the schema, and the expectation cannot drift apart.
+ * live integration run. The INSERT statements are emitted from the same records
+ * the assertions read, so the seed and the expectation cannot drift apart.
+ *
+ * The table and column NAMES used to be read off the Drizzle schema, which left
+ * the repository with #1633. They are written out below instead: the committed
+ * Prisma chain is the schema authority now, and it has no string-keyed shape to
+ * look a column up in. Nothing is lost by the change — a name that stops
+ * matching the chain fails on the seeding statement itself, which is where a
+ * wrong name was always going to surface.
  *
  * SCOPE: only seeds built through these builders carry that guarantee. The other
  * integration files still hand-write their INSERTs — converting them is tracked as a
  * follow-up to #363.
  */
 
-import { getTableColumns, getTableName } from "drizzle-orm";
 import {
   AnimeCandidate,
   Latitude,
@@ -21,11 +26,6 @@ import {
   PointsByBangumiIdInput,
   ResolveOutcome,
 } from "@animichi/contract";
-import { aliases, bangumi, points } from "../../src/db/schema";
-
-const bangumiColumns = getTableColumns(bangumi);
-const pointColumns = getTableColumns(points);
-const aliasColumns = getTableColumns(aliases);
 
 /** A parameterized statement: placeholder SQL plus its positional values. */
 export interface SeedStatement {
@@ -122,11 +122,7 @@ function statement(
 }
 
 export function workInsert(seeds: readonly WorkSeed[]): SeedStatement {
-  return statement(
-    getTableName(bangumi),
-    [bangumiColumns.id.name, bangumiColumns.title.name],
-    seeds.map((s) => [s.workId, s.title]),
-  );
+  return statement("bangumi", ["id", "title"], seeds.map((s) => [s.workId, s.title]));
 }
 
 /**
@@ -134,16 +130,13 @@ export function workInsert(seeds: readonly WorkSeed[]): SeedStatement {
  *
  * `latitude` / `longitude` are NOT written directly: the Prisma data plane makes
  * them generated columns over `location` (#1626, spec §4.8.1), so a scalar write
- * is `cannot insert a non-DEFAULT value into column "latitude"` (`428C9`). The
- * pre-Prisma plane derives the same two scalars from `location` with the
- * `sync_points_coordinates` trigger — and `location` is the column spatial search
- * reads — so the geometry is the one write correct on both planes.
+ * is `cannot insert a non-DEFAULT value into column "latitude"` (`428C9`), and
+ * `location` is the column spatial search reads anyway.
  */
 export function pointInsert(seeds: readonly PointSeed[]): SeedStatement {
-  const columns = [pointColumns.id.name, pointColumns.bangumiId.name, pointColumns.name.name];
   const values = seeds.map((s): (string | number)[] => [s.id, s.workId, s.name, s.longitude, s.latitude]);
   return {
-    text: `INSERT INTO ${getTableName(points)} (${columns.join(", ")}, ${pointColumns.location.name})`
+    text: "INSERT INTO points (id, bangumi_id, name, location)"
       + ` VALUES ${values.map((_, index) => pointGroup(index)).join(", ")}`,
     values: values.flatMap((row) => [...row]),
   };
@@ -162,11 +155,8 @@ function pointGroup(index: number): string {
 
 export function aliasInsert(seeds: readonly AliasSeed[]): SeedStatement {
   return statement(
-    getTableName(aliases),
-    [
-      aliasColumns.bangumiId.name, aliasColumns.alias.name, aliasColumns.aliasNormalized.name,
-      aliasColumns.source.name, aliasColumns.priority.name,
-    ],
+    "aliases",
+    ["bangumi_id", "alias", "alias_normalized", "source", "priority"],
     seeds.map((s) => [s.workId, s.alias, s.normalized, s.source, s.priority]),
   );
 }

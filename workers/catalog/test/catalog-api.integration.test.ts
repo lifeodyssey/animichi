@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
-import type { CatalogDb } from "../src/db/client";
-import { closeDbPools } from "../src/db/connections";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./integration-db";
+import pg from "pg";
+import { databaseDescribe, directPoolConfig, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-integration-client";
 import { seed } from "./fixtures/integration-suite-seed";
 import { stubFetch, unresolvableResponse } from "./integration-upstream-stubs";
@@ -21,17 +20,6 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-vi.mock("../src/db/connections", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../src/db/connections")>();
-  return {
-    ...original,
-    dbFor: async (connStr: string) => {
-      const { localDatabaseUrl, pgCatalog } = await import("./integration-db");
-      return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
-    },
-  };
-});
-
 /**
  * End-to-end proof for the wired Catalog service (Wave 2 capstone).
  *
@@ -39,7 +27,7 @@ vi.mock("../src/db/connections", async (importOriginal) => {
  * branch, with `DATABASE_URL` pointing at Neon Local's proven HTTP endpoint.
  * Each call goes through the
  * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
- * -> Drizzle/PostGIS query -> response. This is the integration that the
+ * -> plan -> PostGIS query -> response. This is the integration that the
  * Worker-runtime test cannot do (workerd has no TCP sockets).
  *
  * The wire is PLAIN JSON / OpenAPI — exactly what packages/contract/openapi.json
@@ -53,12 +41,12 @@ vi.mock("../src/db/connections", async (importOriginal) => {
  * Schema comes from the full Atlas-applied `test-base` parent.
  */
 
-let db: CatalogDb;
+let pool: pg.Pool;
 
 beforeAll(async () => {
-  db = await openServerlessDb();
-  await truncateCatalog(db);
-  await seed(db);
+  pool = new pg.Pool(directPoolConfig(planeDatabaseUrl()));
+  await truncateCatalogPool(pool);
+  await seed(pool);
 }, 120_000);
 
 afterEach(() => {
@@ -68,9 +56,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-afterAll(() => {
-  closeDbPools();
-  restoreNeonConfig();
+afterAll(async () => {
+  await pool.end();
 });
 
 async function assertSearchHit(): Promise<void> {
@@ -176,7 +163,7 @@ databaseDescribe("Catalog public animeOverview (anonymous GET, cache-tagged)", (
   it("returns a typed 404 for an unknown work", assertOverview404);
 });
 
-databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/PostGIS)", () => {
+databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + PostGIS plans)", () => {
   it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);
   it("search returns no rows for an unknown alias", assertSearchMiss);
   it("spots returns a single representative point for the work (top-level {point})", assertSpotsHit);

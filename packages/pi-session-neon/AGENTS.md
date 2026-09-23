@@ -74,6 +74,9 @@ with no live reader — are authorized by `docs/specs/2026-09-12-prisma8-databas
 column a live statement names and no other.
 
 One frozen copy of the shape this chain replaced survives as a TEST FIXTURE
-(`packages/test-postgres/sql/drizzle-era-catalog.sql`), because `workers/catalog` and the agent's
-catalog tools still query scalar coordinates. It is not an authority and nothing applies it to a
-real database; it is deleted with #1629–#1631.
+(`packages/test-postgres/sql/drizzle-era-catalog.sql`). Two test lanes read it: the agent's
+catalog-tool lane (`packages/agent/integration-test/catalog-postgres.ts`) installs it on a database
+of its own, because its `catalog-seed.ts` writes the scalar `points` coordinates the Prisma plane
+generates; and `workers/catalog/test/geocode-migration-parity.integration.test.ts` reads it as text
+to pin the table shapes its geocode seed relies on. It is not an authority and nothing applies
+it to a shared or live database; it goes when neither lane needs the pre-Prisma shape any more.

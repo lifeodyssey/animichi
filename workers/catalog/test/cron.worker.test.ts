@@ -28,12 +28,11 @@ function result(attempted: number, ingested: number): CronJobResult {
   return { attempted, ingested, skipped: attempted - ingested };
 }
 
-/** The two database seams, as the cron's injected dependencies hand them over. */
-function seams(): Pick<CronDependencies, "connectPrisma" | "connect"> {
+/** The one database seam every cron kind runs on, as the dependencies hand it over. */
+function seams(): Pick<CronDependencies, "connectPrisma"> {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue({} as never),
   };
 }
 
@@ -115,7 +114,7 @@ describe("scheduled handler refusals", () => {
     await expect(createScheduledHandler(deps)({ cron: SEED_CRON }, {})).rejects.toThrow(
       "catalog database not configured",
     );
-    expect(deps.connect).not.toHaveBeenCalled();
+    expect(deps.connectPrisma).not.toHaveBeenCalled();
   });
 
   it("fails an unknown cron instead of silently running the wrong job", async () => {

@@ -9,7 +9,7 @@ manually with a personal `NEON_API_KEY`.
 
 ## Workers dev branch
 
-The catalog and users Workers use a standing cloud dev branch through neon-http.
+The catalog and users Workers use a standing cloud dev branch.
 For `wrangler dev`, create a standing branch once with
 `neonctl branches create --name dev/<name> --parent test-base`, then mint/find its real cloud DSN
 with `neonctl connection-string dev/<name>`. Put that secret in the Worker's ignored `.dev.vars`.

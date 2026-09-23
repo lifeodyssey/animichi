@@ -64,8 +64,8 @@ make check-full
 
 Neon データ面のスキーマは `packages/pi-session-neon/src/contract.prisma` で宣言し、
 `packages/pi-session-neon/migrations/` の 1 本の Prisma 8 チェーンとして版管理します。生成物は
-マイグレーションと同じ変更で再生成してください。Worker の Drizzle schema は実行時の
-クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。`supabase/` は
+マイグレーションと同じ変更で再生成してください。Worker は独自のスキーマを持ちません。
+このチェーンが生成する contract がこのデータ面の唯一の地図です（#1633）。`supabase/` は
 アーカイブ対象の歴史的 Supabase マイグレーションツリー（issue #1000）で、適用されず
 Neon の新しいテーブルのソースでもありません。
 
@@ -122,7 +122,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [アーキテクチャ](docs/ARCHITECTURE.md) — システム設計リファレンス
 - [デプロイ](docs/ops/deployment.md) — Cloudflare Workers デプロイガイド
-- [マイグレーション境界](docs/ops/migrations.md) — Prisma チェーンの権威と Drizzle のクエリ/型境界
+- [マイグレーション境界](docs/ops/migrations.md) — Prisma チェーンの権威と、誰が適用してはならないか
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
 - [実装計画（アーカイブ）](docs/archive/plans/) — 過去の実行計画（平層 `plans/` には新規を置かない）

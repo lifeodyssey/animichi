@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import pg from "pg";
 import { nearbyDetailsPort } from "../src/adapters/outbound/nearby-points";
-import type { CatalogDb } from "../src/db/client";
 import { acquireCatalogRuntime, catalogPrisma } from "../src/db/prisma";
 import { catalogRequest } from "./catalog-request";
 import { WASHINOMIYA_ORIGIN } from "./nearby-points.fixtures";
@@ -31,22 +30,6 @@ vi.mock("cloudflare:workers", () => ({
     }
   },
 }));
-
-vi.mock("../src/db/connections", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../src/db/connections")>();
-  return {
-    ...original,
-    // The nearby path must never fall back to the Drizzle seam: this client
-    // throws if anything touches it.
-    dbFor: () => Promise.resolve({
-      db: {
-        execute: () => {
-          throw new Error("the nearby path is served by Prisma; Drizzle must not be reached");
-        },
-      } as unknown as CatalogDb,
-    }),
-  };
-});
 
 /** Requests this file drives: a leak outgrows the reap slack. */
 const REQUESTS = 4;

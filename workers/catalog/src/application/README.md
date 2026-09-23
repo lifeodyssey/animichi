@@ -10,5 +10,5 @@ ports (e.g. `PointsForRoutePort`), implemented by outbound adapters under
 
 A port is declared **here**, next to the use case that needs it — never in the
 adapter that implements it. `test/dependency-rule.worker.test.ts` fails on any
-import from `adapters/`, `api/`, the data-platform stages, `db/`, hono or
-drizzle, in this layer or in `src/domain/`.
+import from `adapters/`, `api/`, the data-platform stages, `db/`, hono or the
+Prisma data-access packages, in this layer or in `src/domain/`.

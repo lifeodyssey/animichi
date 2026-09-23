@@ -22,9 +22,9 @@ async function handleRequest(body: unknown, context: CatalogContext) {
   return handler.handle(request, { context });
 }
 
-/** A context whose READ answers on the Prisma plane (#1631); the Drizzle seam
- * is the ingest's (#1630), and here it finds no parked job, so the route's
- * uncovered-work path runs end to end. */
+/** A context whose READ answers on the plane (#1631). The ingest's own claim
+ * read finds no parked job, so the route's uncovered-work path runs end to
+ * end. */
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
   return { prisma: fakeCatalogPrisma(...responses), fetchImpl };
 }

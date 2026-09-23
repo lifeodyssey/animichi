@@ -1,6 +1,5 @@
 import type { MissPreview, SearchDb } from "../src/api/search";
 import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
-import type { CatalogDb } from "../src/db/client";
 
 export const ROW: PublishedPointRow = {
   id: "spot-1",
@@ -80,12 +79,4 @@ export function recordLookup(lookups: string[], index: AliasIndex, alias: string
 export function waitUntilSpy(): { waitUntil: (p: Promise<unknown>) => void; scheduled: Promise<unknown>[] } {
   const scheduled: Promise<unknown>[] = [];
   return { waitUntil: (p) => void scheduled.push(p), scheduled };
-}
-
-/** The Drizzle seam `searchDb()` still needs — the ingest, until #1630 converts
- * it; every read crosses the Prisma plane. Answers `rows` to any statement, so
- * the ingest's claim reads find no parked job and the pipeline stops there.
- * Casts stay at the boundary. */
-export function catalogDb(rows: unknown[]): CatalogDb {
-  return { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
 }

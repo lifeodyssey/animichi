@@ -12,7 +12,6 @@ import { createScheduledHandler, type CronDependencies } from "../src/scheduled/
 import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snapshot";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
-import { fakeCatalogDb } from "./fakes/fake-catalog-db";
 import { fakeTableRows } from "./fakes/fake-catalog-prisma";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 import { DAILY_DISCOVER_CRON } from "../src/cron-config";
@@ -32,7 +31,6 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(fakeCatalogDb({})),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),

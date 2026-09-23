@@ -1,13 +1,8 @@
-import { asc, type SQL } from "drizzle-orm";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { nearbyGeoPort, nearbyDetailsPort, MAX_RESULTS } from "../src/adapters/outbound/nearby-points";
 import { MAX_RADIUS_M, nearbyPoints } from "../src/application/nearby-points";
-import { statementBuilder, type CatalogDb } from "../src/db/client";
-import * as x from "../src/db/expressions";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
-import { points as pointsTable } from "../src/db/schema";
-import { makePgCatalog } from "./integration-db-global/pg-catalog";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import { seedNearbyPoints, WASHINOMIYA_ORIGIN } from "./nearby-points.fixtures";
 
@@ -20,7 +15,8 @@ import { seedNearbyPoints, WASHINOMIYA_ORIGIN } from "./nearby-points.fixtures";
  * `location` column, so there is no separate driver arm to route around.
  *
  * EQUIVALENCE (AC1): `drizzleGeoRows` is the statement the pre-#1628 adapter
- * issued, frozen here as the oracle, executed on the SAME database this file
+ * issued, frozen here as the oracle — as the TEXT it rendered rather than as a
+ * call that rebuilds it (#1633) — executed on the SAME database this file
  * seeds. `keeps the rows, the order and the reported metres of the Drizzle path`
  * compares the two row-for-row, so "the same results as before" is measured
  * rather than asserted. The one deliberate difference — the ordering expression
@@ -36,7 +32,6 @@ import { seedNearbyPoints, WASHINOMIYA_ORIGIN } from "./nearby-points.fixtures";
 let pool: pg.Pool;
 let runtime: CatalogRuntime;
 let prisma: CatalogPrisma;
-let drizzle: CatalogDb;
 
 /** The use case over the real adapters, through one request's Prisma seam. */
 function around(lat: number, lng: number, radius_m: number) {
@@ -47,20 +42,24 @@ function around(lat: number, lng: number, radius_m: number) {
  * The pre-#1628 geo statement, frozen: `ST_DWithin` filter, KNN (`<->`) order,
  * capped, `ST_Distance` reported. Kept verbatim — this is the behaviour the
  * slice replaces, and an oracle that tracks the new code could not measure it.
+ *
+ * Frozen as the TEXT the pre-#1628 query builder emitted, rather than as a call
+ * that rebuilds it. A builder regenerates the oracle on every run, so a library
+ * upgrade could move the thing being measured without a line of this file
+ * changing; a literal cannot. The text is what
+ * `PgDialect().sqlToQuery(<the pre-#1628 builder chain>)` rendered on the tree
+ * that still held that chain.
  */
-function drizzleGeoStatement(lat: number, lng: number, radiusM: number): SQL {
-  const point = x.geoPoint(lat, lng);
-  return statementBuilder()
-    .select({
-      id: pointsTable.id, name: pointsTable.name,
-      latitude: pointsTable.latitude, longitude: pointsTable.longitude,
-      distanceM: x.distanceMeters(pointsTable.location, point).as("distance_m"),
-    })
-    .from(pointsTable)
-    .where(x.withinMeters(pointsTable.location, point, radiusM))
-    .orderBy(x.knnDistance(pointsTable.location, point), asc(pointsTable.id))
-    .limit(MAX_RESULTS)
-    .getSQL();
+const PRE_1628_GEO_SQL = 'select "id", "name", "latitude", "longitude", ST_Distance("location", ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as "distance_m" from "points" where ST_DWithin("points"."location", ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5) order by "points"."location" <-> ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, "points"."id" asc limit $8';
+
+/**
+ * The frozen statement's bound values, in the order its placeholders name them.
+ * `ST_MakePoint(x, y)` is (longitude, latitude), and the point appears three
+ * times — the reported distance, the radius filter, and the KNN ordering — so
+ * the pair repeats before the radius and the cap.
+ */
+function pre1628GeoParams(lat: number, lng: number, radiusM: number): unknown[] {
+  return [lng, lat, lng, lat, radiusM, lng, lat, MAX_RESULTS];
 }
 
 /** The pre-#1628 adapter's row shape, alias included — the oracle's own names. */
@@ -74,8 +73,8 @@ interface DrizzleGeoRow {
 
 /** The Drizzle path's rows for the same query, as the pre-#1628 adapter read them. */
 async function drizzleGeoRows(lat: number, lng: number, radiusM: number): Promise<DrizzleGeoRow[]> {
-  const result = await drizzle.execute(drizzleGeoStatement(lat, lng, radiusM));
-  return result.rows as unknown as DrizzleGeoRow[];
+  const { rows } = await pool.query(PRE_1628_GEO_SQL, pre1628GeoParams(lat, lng, radiusM));
+  return rows as DrizzleGeoRow[];
 }
 
 /** Read a seeded row back through pg direct, without the geo predicate. */
@@ -90,7 +89,6 @@ beforeAll(async () => {
   await seedNearbyPoints(pool);
   runtime = await acquireCatalogRuntime(planeDatabaseUrl());
   prisma = catalogPrisma(runtime);
-  drizzle = makePgCatalog(pool);
 }, 120_000);
 
 afterAll(async () => {

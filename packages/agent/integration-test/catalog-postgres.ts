@@ -22,16 +22,19 @@ const execute = promisify(execFile);
 
 // WHAT this lane's database is, and why it is not the plane's own (#1625).
 //
-// The native tools are served by `workers/catalog`, whose Drizzle layer still reads and writes the
-// pre-Prisma shape: `catalog-seed.ts` writes `points.latitude` / `longitude` as scalars and the
-// worker's schema declares `points.embedding`. The data plane the Prisma chain builds makes the
-// coordinates GENERATED and deliberately omits `embedding`, so this lane keeps a database of its
-// OWN — from pristine `template1`, with the frozen fixture `@animichi/test-postgres` keeps for
-// exactly these two lanes. It asks for the cluster alone (#1783): the server, its admin database
-// and the five service roles, with no Prisma-migrated database beside this one that nothing reads.
+// The native tools are served by `workers/catalog`, which reads through the Prisma data plane
+// (#1628–#1633). What still needs the pre-Prisma shape is THIS lane's own seed: `catalog-seed.ts`
+// writes `points.latitude` / `longitude` as plain scalars, and the plane the Prisma chain builds
+// makes those coordinates GENERATED, so that INSERT cannot run against it. The lane therefore
+// keeps a database of its OWN — from pristine `template1`, with the frozen fixture
+// `@animichi/test-postgres` keeps for exactly these two lanes. It asks for the cluster alone
+// (#1783): the server, its admin database and the five service roles, with no Prisma-migrated
+// database beside this one that nothing reads.
 //
-// This is the same isolation answer as the catalog suite's (`workers/catalog/test/integration-db-global.ts`)
-// and the same debt: #1628–#1631 move that query layer onto Prisma and delete this branch with it.
+// The catalog suite isolates the same way (`workers/catalog/test/integration-db-global.ts` builds
+// its own database on the shared cluster), but no longer with THIS shape — it went to the plane
+// with #1633. So the conversion that was going to delete this branch landed and the branch stayed:
+// what reads the old shape is this lane's own test code, not the worker.
 //
 // The DSN handed to the Worker is therefore the container's OWN — its host and its published port —
 // and not a placeholder. Two readers take that string and only one of them dials it:

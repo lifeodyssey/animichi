@@ -10,7 +10,7 @@ Use this directory for:
 
 Current canonical docs:
 - `deployment.md` — Cloudflare Workers deployment runbook (topology, auth flow, env boundaries, rollback)
-- `migrations.md` — Neon Atlas migration authority, Drizzle query/type boundary, CI, and deployment order
+- `migrations.md` — the Prisma 8 chain as Neon's migration authority, the builder-plan query boundary, CI, and deployment order
 - `neon-backup-rpo.md` — Neon PITR placement, RPO/RTO targets, HITL monitor checklist, failed-migrate + bad-migration recovery (N5 / #860)
 - `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules, BYOK egress red lines (#1248)
 - `secrets.md` — repository/environment secret inventory, consumers, rotation impact

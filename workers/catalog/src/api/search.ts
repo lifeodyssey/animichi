@@ -32,8 +32,9 @@
  * The two reads — the alias lookup and the published points — are plans over
  * the shared contract (#1631, spec §4.2), run on this request's runtime; see
  * `firstBangumiIdPlan` for why that removes the row narrowing the Drizzle seam
- * needed. The L1 preview is an upstream fetch, and the ingest is still
- * Drizzle's until #1630 converts it.
+ * needed. The L1 preview is an upstream fetch; the full ingest scheduled behind
+ * it writes through the same Prisma data plane (#1630), via the `store` port's
+ * builder plans rather than a query layer of its own.
  */
 
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
@@ -63,8 +64,9 @@ export interface SearchOptions {
 
 /**
  * The minimal DB surface `search` depends on. Tests inject a fake; the
- * production one comes from `searchDb(...)`, which spans both seams while the
- * query layer is mid-migration (see that factory).
+ * production one comes from `searchDb(...)`, which takes this request's
+ * `CatalogPrisma` (plus the egress signing key), and every DB read and write
+ * behind it is a plan off that one runtime (see that factory).
  *
  * The miss path is split into two so the handler can return the fast preview
  * before the slow ingest finishes:

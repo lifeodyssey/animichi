@@ -7,8 +7,8 @@ import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-p
  *
  * Since #1631 the joined read is a plan over the shared contract, so the row
  * IS the plan's projection and the `Catalog row <key> is not …` narrowing the
- * Drizzle seam needed (`src/lib/rows.ts`, deleted by #1629) is gone rather than
- * ported (§4.2): a value the contract does not allow is refused by the
+ * pre-Prisma seam needed (`src/lib/rows.ts`, deleted by #1629) is gone rather
+ * than ported (§4.2): a value the contract does not allow is refused by the
  * driver's codecs, below this layer, and cannot be reached from here. What
  * remains testable here is the projection's output shape — snapshotted below —
  * and that the read really crosses the Prisma plane.
@@ -35,9 +35,8 @@ function makeJoinedRow(overrides: Record<string, unknown> = {}): Record<string, 
   return { ...JOINED_ROW, ...overrides };
 }
 
-/** The production factory over both seams: the alias lookup and the joined
- * points read answer on the Prisma plane (#1631); the ingest's Drizzle seam is
- * never reached by a read. */
+/** The production factory: the alias lookup and the joined points read, both
+ * answered on the plane in that order (#1631). */
 function runSearch(row: Record<string, unknown>) {
   return search(
     searchDb(fakeCatalogPrisma([{ bangumi_id: "1" }], [row])),
@@ -71,7 +70,7 @@ describe("search joined-row output shape", () => {
     `);
   });
 
-  it("reads the joined row on the Prisma plane — the Drizzle seam is never reached", async () => {
+  it("reads the joined row in ONE statement on the plane", async () => {
     const counter = countingCatalogPrisma([{ bangumi_id: "1" }], [makeJoinedRow()]);
 
     const result = await search(

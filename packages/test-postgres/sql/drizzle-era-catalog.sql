@@ -1,12 +1,15 @@
--- The catalog schema `workers/catalog`'s Drizzle query layer still reads and writes, frozen as a
--- TEST FIXTURE when the migration authority moved to Prisma (#1636).
+-- The catalog schema `workers/catalog`'s RETIRED Drizzle query layer read and wrote, frozen as a
+-- TEST FIXTURE when the migration authority moved to Prisma (#1636). That query layer is gone
+-- (#1628–#1633). This file is NOT a leftover of it: two test lanes read this fixture today —
+-- `packages/agent/integration-test/catalog-postgres.ts` installs it on a database of its own, and
+-- `workers/catalog/test/geocode-migration-parity.integration.test.ts` reads it as text to pin the
+-- table shapes its geocode seed relies on.
 --
 -- This is not a migration and not an authority: no checksum file, no revision ledger, no CLI, and
--- nothing applies it to a shared or live database. Two integration lanes need a database whose
--- `points.latitude` / `longitude` are plain scalars and whose `points.embedding` exists, because
--- their query code still writes that shape; the data plane the Prisma chain builds makes the
--- coordinates GENERATED and omits `embedding`. #1629–#1631 move that query layer onto Prisma and
--- delete this file with the branch that reads it.
+-- nothing applies it to a shared or live database. What those lanes need is a shape the plane no
+-- longer has: `points.latitude` / `longitude` as plain scalars — the agent lane's own
+-- `catalog-seed.ts` writes them that way, and the Prisma chain makes them GENERATED — plus
+-- `points.embedding`, which the plane omits.
 --
 -- The role block is deliberately absent: the five service roles are cluster-global and
 -- `@animichi/test-postgres` creates them once for the whole container. So is `photo_offers`:

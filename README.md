@@ -64,9 +64,9 @@ make check-full
 
 Neon schema changes are declared in `packages/pi-session-neon/src/contract.prisma` and versioned
 as one Prisma 8 chain under `packages/pi-session-neon/migrations/`. Its emitted artifacts must be
-regenerated in the same change. Drizzle schemas in the Workers are runtime query/type metadata
-only; they do not generate or apply migrations. `supabase/` is an archived historical Supabase
-migration tree (issue #1000); it is not applied and is not a source for new Neon tables.
+regenerated in the same change. No Worker keeps a schema of its own: the contract that chain
+generates is the only map of this data plane (#1633). `supabase/` is an archived historical
+Supabase migration tree (issue #1000); it is not applied and is not a source for new Neon tables.
 
 ```bash
 make db-new NAME=x     # scaffold a migration in the chain
@@ -125,7 +125,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 
 - [Architecture](docs/ARCHITECTURE.md) — full system design reference
 - [Deployment](docs/ops/deployment.md) — Cloudflare Workers deploy guide
-- [Migrations](docs/ops/migrations.md) — the Prisma chain's authority and the Drizzle query/type boundary
+- [Migrations](docs/ops/migrations.md) — the Prisma chain's authority and what may not apply it
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
 - [Implementation plans (archive)](docs/archive/plans/) — historical execution plans (flat `plans/` no longer accepts new files)

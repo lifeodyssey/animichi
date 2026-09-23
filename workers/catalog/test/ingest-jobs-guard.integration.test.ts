@@ -1,16 +1,12 @@
+import pg from "pg";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
-import { eq, sql, type SQL } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
-import { statementBuilder } from "../src/db/client";
-import { ingestJobs } from "../src/db/schema";
 import { JobStore } from "../src/ingest/jobs";
 import { listDrainableBangumiIds } from "../src/ingest/cron-queries";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -23,7 +19,7 @@ import {
  * comparisons — these shapes must run on Postgres.
  */
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 let jobs: JobStore;
@@ -31,56 +27,44 @@ let jobs: JobStore;
 const STALE_AGE = 45 * 60; // 45 min — three RUNNING_TTLs past dead
 const FRESH_AGE = 60; // 1 min — well inside the TTL
 
-function secondsAgo(seconds: number) {
-  return sql`NOW() - make_interval(secs => ${seconds})`;
-}
+/** `NOW() - <n> seconds`, as a fragment the seeding statements share. */
+const SECONDS_AGO = "NOW() - make_interval(secs => $2)";
 
 async function insertRunningJob(workId: string, ageSeconds: number): Promise<void> {
-  const statement = statementBuilder()
-    .insert(ingestJobs)
-    .values({ workId, status: "running", createdAt: secondsAgo(ageSeconds), startedAt: secondsAgo(ageSeconds) })
-    .getSQL();
-  await db.execute(statement);
+  await pool.query(
+    `INSERT INTO ingest_jobs (work_id, status, created_at, started_at)`
+    + ` VALUES ($1, 'running', ${SECONDS_AGO}, ${SECONDS_AGO})`,
+    [workId, ageSeconds],
+  );
 }
 
 async function insertFailedJob(workId: string, cachedForSeconds: number): Promise<void> {
-  const statement = statementBuilder()
-    .insert(ingestJobs)
-    .values({
-      workId, status: "failed", errorCode: "upstream_error",
-      negativeCachedUntil: secondsAgo(-cachedForSeconds),
-    })
-    .getSQL();
-  await db.execute(statement);
-}
-
-function statusStatement(workId: string): SQL {
-  return statementBuilder()
-    .select({ status: ingestJobs.status })
-    .from(ingestJobs)
-    .where(eq(ingestJobs.workId, workId))
-    .getSQL();
+  // A NEGATIVE offset: the park runs `cachedForSeconds` into the future.
+  await pool.query(
+    "INSERT INTO ingest_jobs (work_id, status, error_code, negative_cached_until)"
+    + ` VALUES ($1, 'failed', 'upstream_error', ${SECONDS_AGO})`,
+    [workId, -cachedForSeconds],
+  );
 }
 
 async function jobStatus(workId: string): Promise<string | undefined> {
-  const rows = (await db.execute(statusStatement(workId))).rows as { status: string }[];
-  return rows[0]?.status;
+  const { rows } = await pool.query("SELECT status FROM ingest_jobs WHERE work_id = $1", [workId]);
+  return (rows as { status: string }[])[0]?.status;
 }
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
   jobs = new JobStore(query);
 }, 120_000);
 
 beforeEach(async () => {
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
 });
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 databaseDescribe("singleflight guard vs abandoned running rows (#1227)", () => {

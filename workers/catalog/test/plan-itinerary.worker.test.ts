@@ -140,7 +140,7 @@ describe("pointsForRoute outbound adapter — Prisma fetch wired to the port", (
 
 const seamHandler = new OpenAPIHandler(catalogRouter);
 /** A context whose points answer on the Prisma plane (#1631), one row-list per
- * `query()` in call order. The route reads no Drizzle seam — the plan is built
+ * `query()` in call order. The route reads one seam — the plan is built
  * from the requested ids and the upstream is not on this path — so that seam is
  * left unreachable. */
 function seamContext(rows: unknown[][]): CatalogContext {

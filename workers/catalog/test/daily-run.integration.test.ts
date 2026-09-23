@@ -1,6 +1,5 @@
+import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
-import type { CatalogDb } from "../src/db/client";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { runDailyIngestWith, type RunPlan, type RunPolicy } from "../src/ingest/daily-run";
 import { catalogPorts } from "../src/ingest/catalog-daily-run";
@@ -9,8 +8,7 @@ import { captureProvenance } from "../src/ingest/provenance";
 import {
   databaseDescribe,
   openPlaneSeams,
-  restoreNeonConfig,
-  truncateCatalog,
+  truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
 
@@ -31,33 +29,31 @@ const POLICY: RunPolicy = {
   budget: { workLimit: 5, requestLimit: 20, runtimeLimitMs: 600_000 },
 };
 
-let db: CatalogDb;
+let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
 async function runStatus(runId: string): Promise<string | null> {
-  const rows = (await db.execute(sql`SELECT status FROM catalog_runs WHERE run_id = ${runId}`)).rows;
+  const { rows } = await pool.query("SELECT status FROM catalog_runs WHERE run_id = $1", [runId]);
   return (rows[0] as { status: string } | undefined)?.status ?? null;
 }
 
 async function currentPointer(workId: string): Promise<number | undefined> {
-  const result = await db.execute(
-    sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current`,
+  const { rows } = await pool.query(
+    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [workId],
   );
-  const rows = result.rows as { version: number }[];
-  return rows[0]?.version;
+  return (rows as { version: number }[])[0]?.version;
 }
 
 beforeAll(async () => {
   seams = await openPlaneSeams();
-  db = seams.db;
+  pool = seams.pool;
   query = seams.query;
-  await truncateCatalog(db);
+  await truncateCatalogPool(pool);
 }, 120_000);
 
 afterAll(async () => {
   await seams.dispose();
-  restoreNeonConfig();
 });
 
 function plan(runId: string): RunPlan {
@@ -86,7 +82,9 @@ databaseDescribe("Daily run durability (AC1)", () => {
     const id = "daily-idem";
     await runDailyIngestWith(catalogPorts(query, id, POLICY.keepHistory), plan(id));
     await runDailyIngestWith(catalogPorts(query, id, POLICY.keepHistory), plan(id));
-    const rows = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM catalog_runs WHERE run_id = ${id}`)).rows as { n: number }[];
+    const { rows } = await pool.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM catalog_runs WHERE run_id = $1", [id],
+    );
     expect(rows[0]?.n).toBe(1);
   });
 });
@@ -121,10 +119,10 @@ databaseDescribe("Provenance capture (AC4)", () => {
       license: "https://anitabi.cn",
       fieldMap: { name: "anitabi", latitude: "anitabi" },
     });
-    const result = await db.execute(
-      sql`SELECT upstream_id, source FROM catalog_provenance WHERE entity_id = 'p-1'`,
+    const { rows: provenance } = await pool.query(
+      "SELECT upstream_id, source FROM catalog_provenance WHERE entity_id = 'p-1'",
     );
-    const rows = result.rows as { upstream_id: string; source: string }[];
+    const rows = provenance as { upstream_id: string; source: string }[];
     expect(rows[0]?.upstream_id).toBe("p-1");
     expect(rows[0]?.source).toBe("anitabi");
   });
