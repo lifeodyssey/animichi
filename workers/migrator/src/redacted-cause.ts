@@ -40,8 +40,21 @@ const KEYWORD_PASSWORD = /("?password"?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&}"']+)
  * anywhere in the pair, a dot required inside the host, and a left boundary so a match cannot
  * begin mid-token. A colon and an at-sign alone are not enough; `12:30 at ops@animichi.com`
  * has both, and fails all three.
+ *
+ * The secret class is `\S+`, which admits the very at-sign this rule is hunting — on purpose.
+ * The trailing `@[\w.-]+\.[\w.-]+` makes the engine give characters back until an at-sign is
+ * left standing before a dotted host, so the match lands on the LAST one; that is the split
+ * `new URL` performs, and it is why `migrator:secret@x@ep-x.neon.tech/db` is a working
+ * credential rather than a malformed string. Narrow the class back to `[^\s@]+` and the rule
+ * does not tighten, it stops firing: one at-sign in a password, and the role, the secret and
+ * the endpoint all reach the log intact (measured 2026-09-23).
+ *
+ * The cost is paid in the other direction, and it was already being paid. A token whose secret
+ * position opens with an at-sign — a scoped package spec, `npm:@animichi/contract@1.2.3` — is
+ * redacted now as well, joining `mailto:ops@example.com`, which was redacted before this. What
+ * still keeps prose out is the whitespace gate, which no ordinary sentence gets past.
  */
-const SCHEMELESS_USERINFO = /(?<![\w:/@])[\w.-]+:[^\s@]+@[\w.-]+\.[\w.-]+(?:[:/]\S*)?/g;
+const SCHEMELESS_USERINFO = /(?<![\w:/@])[\w.-]+:\S+@[\w.-]+\.[\w.-]+(?:[:/]\S*)?/g;
 
 const CREDENTIAL_PATTERNS: readonly [RegExp, string][] = [
   [SCHEME_DSN, "postgresql://[redacted]"],

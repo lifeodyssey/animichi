@@ -9,6 +9,12 @@ import { redactedCause } from "../src/redacted-cause";
  * or a connection string": `password='x'`, `password="x"`, `"password":"x"`, `password: x` and a
  * schemeless `user:pass@host` all came through intact, into a CD log of a public repository.
  *
+ * A second round found that same schemeless rule blind to a password with an `@` in it — entirely
+ * ordinary, and enough to make the pattern miss altogether, so role, secret and endpoint went
+ * through together. The three at-sign rows below are that round. The last of them puts the at-sign
+ * FIRST, which is the row that fails if someone tries to buy back an over-redacted package spec by
+ * demanding a non-`@` first character: that trade sells a real password shape for a cosmetic one.
+ *
  * Every row asserts the WHOLE line rather than the absence of the secret. A rule that returned
  * the empty string would satisfy "the password is gone" and destroy the one thing #1868 exists
  * to deliver, so each expectation carries the surviving text with it.
@@ -64,6 +70,21 @@ const CREDENTIAL_SHAPES = [
     redacted: "cannot reach [redacted]",
   },
   {
+    shape: "userinfo whose secret carries an at-sign of its own",
+    thrown: `cannot reach migrator:${PLACEHOLDER}@x@ep-x.neon.tech/neondb`,
+    redacted: "cannot reach [redacted]",
+  },
+  {
+    shape: "userinfo whose secret carries two",
+    thrown: `cannot reach migrator:${PLACEHOLDER}@a@b@ep-x.neon.tech/neondb`,
+    redacted: "cannot reach [redacted]",
+  },
+  {
+    shape: "userinfo whose secret opens with one",
+    thrown: `cannot reach migrator:@${PLACEHOLDER}@ep-x.neon.tech/neondb`,
+    redacted: "cannot reach [redacted]",
+  },
+  {
     shape: "an environment variable, prefix and case intact",
     thrown: `env PGPASSWORD=${PLACEHOLDER} unset`,
     redacted: "env PGPASSWORD=[redacted] unset",
@@ -89,13 +110,24 @@ describe("shapes a credential arrives in", () => {
  * module will ever see. It survives only because the rule requires a separator immediately after
  * the key, and the next character there is a space — so whoever one day accepts whitespace as a
  * separator turns the commonest error in the system into `password [redacted]`.
+ *
+ * Whitespace carries more of the userinfo rule than it used to, because that secret class has to
+ * admit an at-sign or a password containing one defeats it. The docs-path row is what proves the
+ * gate still holds: `md:` clears the left boundary, a dotted host stands two words further on, and
+ * the only thing between them — the one thing the class cannot cross — is a space.
  */
 const TEXT_THAT_MERELY_RESEMBLES_ONE = [
   { shape: "a URL carrying no userinfo", message: "connect https://ep-x.neon.tech/neondb failed" },
   { shape: "a keyword pair that is not a password", message: "timeout=30 retries=3 gave up" },
   { shape: "the word password with no value bound to it", message: "FATAL:  password authentication failed for user \"migrator\"" },
   { shape: "a colon and an at-sign in prose", message: "see runbook 12:30 at ops@animichi.com for details" },
+  {
+    shape: "a colon-token and a dotted host that only whitespace separates",
+    message: "see docs/ops/migrations.md: ping ops@example.com for the runbook",
+  },
   { shape: "a colon-and-at pair with no dot in the host", message: "[worker:migrator@v2] booted" },
+  { shape: "a clock joined to an undotted node tag", message: "the apply started at 12:30 and ran to 12:31@node-3" },
+  { shape: "a colon-token whose at-sign belongs to a later word", message: "retry 3: backoff 250ms@attempt-2 then give up" },
   { shape: "an ssh remote, whose at-sign precedes its colon", message: "git@github.com:org/repo not found" },
   { shape: "a host and port with no at-sign", message: "P1001: Can't reach database server at ep-x.neon.tech:5432" },
   { shape: "Prisma naming its own failure", message: "P3009: migrate found failed migrations in the target database" },
