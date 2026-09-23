@@ -5,8 +5,8 @@
 # and the lines it refuses. One throwaway git repository per case, each with its
 # own workflow and its own probe programs; the real runner, no real contract
 # test, no network. `Gemfile`, `Gemfile.lock` and `.ruby-version` are symlinked
-# from the checkout so the `bundle exec ruby` form resolves the way it does in
-# the workspace — the form is the runner's subject, not bundler's.
+# from the checkout so the `bundle exec ruby` form resolves through the checkout's
+# own bundler configuration — the form is the runner's subject, not bundler's.
 set -euo pipefail
 
 CHECKOUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -23,7 +23,9 @@ ok() {
 }
 expect() { case "$3" in *"$2"*) ;; *) fail "$1" "expected to see '$2' in: $3" ;; esac; }
 refute() { case "$3" in *"$2"*) fail "$1" "did not expect '$2' in: $3" ;; esac; }
-expect_status() { [ "$2" = "$3" ] || fail "$1" "expected exit $2, got $3"; }
+expect_status() {
+  [ "$2" = "$3" ] || { fail "$1" "expected exit $2, got $3"; printf '%s\n' "$OUT" >&2; }
+}
 expect_ran_nothing() {
   [ -z "$RAN" ] || fail "$1" "expected nothing to run, got: $RAN"
 }
@@ -35,6 +37,15 @@ contracts_workflow() {
   while IFS= read -r line; do printf '          %s\n' "$line"; done <<<"$1"
 }
 
+# The two probe programs every case names; each records that it ran, so a case
+# can tell "the runner ran it" from "the runner reported green without running".
+# `new_repo` seeds them before it commits: the registry check reads HEAD, so an
+# uncommitted probe would be refused by the check under test.
+seed_probes() {
+  printf 'File.write(ENV.fetch("RECORD"), "ruby probe\\n", mode: "a")\n' >"$REPO/probe-one.rb"
+  printf '#!/usr/bin/env bash\nprintf "shell probe\\n" >> "$RECORD"\n' >"$REPO/probe-two.sh"
+}
+
 new_repo() { # <workflow yaml>
   REPO="$(mktemp -d "$TMPROOT/case.XXXXXX")"
   RECORD="$REPO/record"
@@ -42,21 +53,22 @@ new_repo() { # <workflow yaml>
   local link
   for link in Gemfile Gemfile.lock .ruby-version; do ln -s "$CHECKOUT/$link" "$REPO/$link"; done
   printf '%s\n' "$1" >"$REPO/.github/workflows/pr-verification.yml"
+  seed_probes
   git -C "$REPO" init -q -b main
   git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner add -A
   git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner commit -qm 'chore(repo): seed the probe registry'
 }
 
-# The two probe programs every case names; each records that it ran, so a case
-# can tell "the runner ran it" from "the runner reported green without running".
-seed_probes() {
-  printf 'File.write(ENV.fetch("RECORD"), "ruby probe\\n", mode: "a")\n' >"$REPO/probe-one.rb"
-  printf '#!/usr/bin/env bash\nprintf "shell probe\\n" >> "$RECORD"\n' >"$REPO/probe-two.sh"
-}
-
+# A runner that resolves `bundle exec` from the fixture alone is the CI failure
+# this pins: `ruby/setup-ruby` installs the Gemfile's gems under the checkout's
+# `vendor/bundle` and records that path in the checkout's `.bundle/config`,
+# which a fixture repository never sees — bundler would read the default gem
+# path instead and find none of the lockfile's gems. BUNDLE_GEMFILE is the
+# checkout's, so the fixture resolves the way the real gate does, on a laptop
+# (gems installed globally) and in CI (gems in the checkout) alike.
 run_runner() { # ...args — no args runs the registry
   set +e
-  OUT="$(cd "$REPO" && env RECORD="$RECORD" bash "$RUNNER" "$@" 2>&1)"
+  OUT="$(cd "$REPO" && env BUNDLE_GEMFILE="$CHECKOUT/Gemfile" RECORD="$RECORD" bash "$RUNNER" "$@" 2>&1)"
   STATUS=$?
   set -e
   RAN="$(cat "$RECORD" 2>/dev/null || true)"
@@ -66,7 +78,6 @@ OUT="" STATUS=0 RAN=""
 # 1. `--list` is the registry, and reading it runs nothing: this is the read
 #    that makes CI's contracts job and this gate one list rather than two.
 new_repo "$(contracts_workflow $'bundle exec ruby probe-one.rb\nbash probe-two.sh')"
-seed_probes
 run_runner --list
 expect_status "list" 0 "$STATUS"
 expect "list" "bundle exec ruby probe-one.rb" "$OUT"
@@ -86,7 +97,6 @@ ok "the default run executes every line of the registry"
 # 3. A line the classifier cannot run stops the push and names itself. The whole
 #    registry is read first, so a refused line cannot leave a green prefix.
 new_repo "$(contracts_workflow $'bundle exec ruby probe-one.rb\npnpm exec something')"
-seed_probes
 run_runner
 expect_status "unknown form" 1 "$STATUS"
 expect "unknown form" "cannot classify" "$OUT"
@@ -94,21 +104,35 @@ expect "unknown form" "pnpm exec something" "$OUT"
 expect_ran_nothing "unknown form"
 ok "a command the gate cannot classify stops the push before any of it runs"
 
-# 4. A line naming a path that is not committed is a contract that would pass by
-#    absence, so it stops the push too.
-new_repo "$(contracts_workflow $'bash probe-two.sh\nbash absent.sh')"
-seed_probes
+# 4. A line naming a path that is present but untracked is the failure this
+#    check exists for: the file is here, so `-f` is satisfied, and CI's checkout
+#    of HEAD has no such file, so the same line is green here and red there. It
+#    stops the push.
+new_repo "$(contracts_workflow $'bash probe-two.sh\nbash probe-untracked.sh')"
+printf '#!/usr/bin/env bash\nprintf "untracked probe\\n" >> "$RECORD"\n' >"$REPO/probe-untracked.sh"
 run_runner
-expect_status "absent target" 1 "$STATUS"
-expect "absent target" "bash absent.sh" "$OUT"
-expect "absent target" "is not committed" "$OUT"
-expect_ran_nothing "absent target"
-ok "a registry line naming an uncommitted path stops the push"
+expect_status "untracked target" 1 "$STATUS"
+expect "untracked target" "bash probe-untracked.sh" "$OUT"
+expect "untracked target" "is not committed" "$OUT"
+expect_ran_nothing "untracked target"
+ok "a registry line naming an untracked path stops the push"
 
-# 5. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
+# 5. Staging is not committing: the index holds this file and HEAD does not, so a
+#    check built on `git ls-files` accepts it while CI's checkout of HEAD still
+#    has no such file. The predicate reads HEAD, and refuses.
+new_repo "$(contracts_workflow $'bash probe-two.sh\nbash probe-staged.sh')"
+printf '#!/usr/bin/env bash\nprintf "staged probe\\n" >> "$RECORD"\n' >"$REPO/probe-staged.sh"
+git -C "$REPO" add probe-staged.sh
+run_runner
+expect_status "staged target" 1 "$STATUS"
+expect "staged target" "bash probe-staged.sh" "$OUT"
+expect "staged target" "is not committed" "$OUT"
+expect_ran_nothing "staged target"
+ok "a staged but uncommitted path stops the push"
+
+# 6. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
 #    cannot carry a second command past the classifier into the gate.
 new_repo "$(contracts_workflow 'bash probe-two.sh; printf pwned > pwned.txt')"
-seed_probes
 run_runner
 expect_status "smuggled command" 1 "$STATUS"
 expect "smuggled command" "cannot classify" "$OUT"
@@ -116,7 +140,7 @@ expect "smuggled command" "cannot classify" "$OUT"
 expect_ran_nothing "smuggled command"
 ok "a line carrying a second command is refused rather than run"
 
-# 6. An empty registry and a missing job both stop the push: a gate that finds
+# 7. An empty registry and a missing job both stop the push: a gate that finds
 #    nothing to run has nothing to vouch for, and silence is never the answer.
 new_repo "$(contracts_workflow '')"
 run_runner

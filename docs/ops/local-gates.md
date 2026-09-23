@@ -200,7 +200,7 @@ pnpm project, which would otherwise be invisible to the join:
 |---|---|
 | `packages/pi-session-neon/migrations/**` | `prisma migration check` — artifact integrity and a connected graph, no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
 | `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
-| `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s four delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 36 s serial and 11 s at four (2026-09-19, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
+| `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s four delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 38 s serial and 15 s at four (`--list` through `xargs -P4`, 2026-09-23, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. `.npmrc` was deleted with the pnpm 12 settings move (#1672) but stays in the pattern: `test/repo-config/pnpm-workspace-settings.test.rb` refuses a non-auth key there, and a re-added one still selects every package. |
 
 ### docs/specs liveness (#1649)
@@ -216,7 +216,7 @@ that it is named. An entry with no owner, outside `docs/specs/`, naming an untra
 written without the `|` separator fails the gate closed, and the gate's own files are never a
 reference, so an entry cannot justify itself. Those three files — the gate, its behavioral test
 and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate (it
-selects the contracts bucket, below), and CI's `docs` job runs the same gate on every pull request.
+selects the contracts bucket, above), and CI's `docs` job runs the same gate on every pull request.
 
 ### The whitelist, and failing closed
 
@@ -312,7 +312,7 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
   `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
   shell check under `scripts/` and `.github/scripts/` is invoked by its exact path, and that every invoked
   repository script still exists. Deleting a check also requires deleting its CI invocation.
-  The `contracts` job's own 74 tests are no longer in this list: #1883 gave them the pre-push bucket
+  The `contracts` job's own 74 commands are no longer in this list: #1883 gave them the pre-push bucket
   above, and `repository-contracts.sh` reads them out of the job rather than restating them.
 
 ## Prerequisites
@@ -320,7 +320,9 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
 An installed workspace (`pnpm install`) — the message check runs `pnpm exec commitlint` and every
 selected package's scripts need their dependencies — plus `git`, `pnpm`, `node` ≥ 24, `jq`,
 plus the pre-commit tools: `shellcheck`,
-`actionlint`, `uv` (it installs `semgrep` 1.172.0), `ruby` for the contracts.
+`actionlint`, `uv` (it installs `semgrep` 1.172.0), and for the contracts bucket `.ruby-version`'s
+Ruby with the Gemfile's gems installed (`bundle install`) — a push that runs the registry runs
+`bundle exec ruby` on every line.
 
 ## Failure handling
 
@@ -348,8 +350,9 @@ plus the pre-commit tools: `shellcheck`,
 - `test/repo-config/pre-push-routing.test.rb` — the routing table against the workspace: every
   `pnpm-workspace.yaml` package has a row, every row names a workspace package and a known bucket
 - `scripts/local-gates/pre-push-fixture.sh` — the throwaway repository, the fake `pnpm` / `make`
-  and the assertions `pre-push-affected.test.sh` (which packages a diff selects) and
-  `pre-push-affected-commitlint.test.sh` (which messages a push carries) share
+  and the assertions `pre-push-affected.test.sh` (which packages a diff selects),
+  `pre-push-affected-commitlint.test.sh` (which messages a push carries) and
+  `pre-push-affected-contracts.test.sh` (which diffs fire the contracts bucket) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
   and the stub harness they share; CI's `contracts` job runs the non-docs `*.test.sh`, and its `docs`
   job runs the four `check-*.test.sh` suites

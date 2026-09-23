@@ -14,10 +14,13 @@
 # The command forms are closed. The job's steps are `bundle exec ruby <path>`
 # and `bash <path>`; any other line stops the push and names itself, because a
 # contract this script cannot classify is a contract that would otherwise pass
-# by absence. The registry supplies a PATH and this script supplies the
-# interpreter, so a workflow line can never reach a program the gate did not
-# classify — running a step's text verbatim would let a later step reach a
-# command a push hook has no business running.
+# by absence. A line's path must be committed at HEAD, too: CI checks out that
+# tree, so a line naming a path that exists only in this working tree runs here
+# and is missing there — a contract that passes by absence one step later. The
+# registry supplies a PATH and this script supplies the interpreter, so a
+# workflow line can never reach a program the gate did not classify — running a
+# step's text verbatim would let a later step reach a command a push hook has no
+# business running.
 #
 # The whole registry is read before any of it runs: a line this script cannot
 # run must stop the push, not a prefix of the suite reported as green.
@@ -73,7 +76,10 @@ commands="$(registry)"
 
 while IFS= read -r command; do
   target="$(target_of "$command")" || refuse "the contracts job runs a command this gate cannot classify: $command"
-  [ -f "$target" ] || refuse "the contracts job runs a path that is not committed: $command"
+  # `HEAD:` and not `git ls-files`: the index holds a file that is staged and not
+  # yet committed, which is the same fail-open one step narrower.
+  git cat-file -e "HEAD:$target" 2>/dev/null ||
+    refuse "the contracts job runs a path that is not committed at HEAD: $command"
 done <<<"$commands"
 
 printf 'pre-push: contracts — %s commands from the %s job of %s\n' \

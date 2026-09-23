@@ -42,19 +42,16 @@ refute "lockfile" "animichi-cloudflare-worker" "$RECORDED"
 ok "a root manifest selects every package once, without the closure prefix"
 
 # 4. Whitelisted paths need no package; the docs bucket still runs its checks.
-#    The contracts' own three families left this case in #1883 — they have a
-#    bucket now, and cases 23-25 are theirs.
+#    The contracts' three families left this case in #1883 for pre-push-affected-contracts.test.sh.
 new_repo
 commit_change feature docs/a.md .gitignore Gemfile Gemfile.lock .ruby-version
 run_gate < /dev/null
 expect_status "docs" 0 "$STATUS"
 expect "docs" "packages: (none)" "$OUT"
-expect "docs" "contracts=0" "$OUT"
 for check in agents-refs docs-paths root-allowlist spec-references; do
   expect "docs" "check-$check" "$RECORDED"
 done
 refute "docs" "--filter" "$RECORDED"
-refute "docs" "repository-contracts" "$RECORDED"
 ok "a whitelisted docs and root-config change needs no package; docs checks still run"
 
 # 5. A ref that is not HEAD is refused: its paths would be gated against the
@@ -286,51 +283,5 @@ expect "root env sheets" "packages: (none)" "$OUT"
 refute "root env sheets" "no gate covers" "$OUT"
 refute "root env sheets" "--filter" "$RECORDED"
 ok "the root env example sheets need no package gate"
-
-# 23. The contracts bucket (#1883). `.github/**` is what every
-#     `.github/test/*.test.rb` reads and it was whitelisted until this card, so
-#     a change to a workflow reached CI's `contracts` job with no local reader
-#     at all. It fires that job's own registry, and selects no package.
-new_repo
-commit_change feature .github/workflows/x.yml
-run_gate < /dev/null
-expect_status "workflow change" 0 "$STATUS"
-expect "workflow change" "packages: (none)" "$OUT"
-expect "workflow change" "contracts=1" "$OUT"
-expect "workflow change" "repository-contracts" "$RECORDED"
-refute "workflow change" "--filter" "$RECORDED"
-ok "a workflow change runs the contracts bucket and selects no package"
-
-# 24. The other two families. `scripts/**` holds the two Orca runners the
-#     contracts job runs, `delivery-test-naming.test.rb`'s four delivery homes
-#     and `pre-push-routing.test.rb`'s subject; `test/repo-config/**` is the
-#     contracts' own home, where a changed contract has to re-run.
-new_repo
-commit_change feature scripts/delivery/x.sh
-run_gate < /dev/null
-expect_status "delivery script change" 0 "$STATUS"
-expect "delivery script change" "contracts=1" "$OUT"
-expect "delivery script change" "repository-contracts" "$RECORDED"
-refute "delivery script change" "--filter" "$RECORDED"
-ok "a scripts/ change runs the contracts bucket"
-
-new_repo
-commit_change feature test/repo-config/x.test.rb
-run_gate < /dev/null
-expect_status "contract test change" 0 "$STATUS"
-expect "contract test change" "contracts=1" "$OUT"
-expect "contract test change" "repository-contracts" "$RECORDED"
-ok "a changed contract test re-runs the contracts bucket"
-
-# 25. A push that touches none of the three runs none of it: the bucket is the
-#     contracts' own, not a tax on every push.
-new_repo
-commit_change feature workers/catalog/src/x.ts docs/a.md
-run_gate < /dev/null
-expect_status "outside the contracts" 0 "$STATUS"
-expect "outside the contracts" "contracts=0" "$OUT"
-refute "outside the contracts" "repository-contracts" "$RECORDED"
-expect "outside the contracts" "--filter ...catalog run --if-present test" "$RECORDED"
-ok "a push outside the contracts' three families runs no contract test"
 
 finish

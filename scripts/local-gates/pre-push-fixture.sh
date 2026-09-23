@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Shared fixture for the pre-push gate's behavioral tests —
-# `pre-push-affected.test.sh` (which packages a diff selects) and
-# `pre-push-affected-commitlint.test.sh` (which messages a push carries).
+# `pre-push-affected.test.sh` (which packages a diff selects),
+# `pre-push-affected-commitlint.test.sh` (which messages a push carries) and
+# `pre-push-affected-contracts.test.sh` (which diffs fire the contracts bucket).
 #
 # Hermetic: every case builds a throwaway git repository under one temp root
 # with its own `origin/main`, a fake `pnpm` / `make` on PATH and the four
