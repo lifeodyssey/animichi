@@ -4,8 +4,9 @@ Owner decisions: 2026-09-12 and 2026-09-13. Scope: backend, Infra, and CI/CD car
 Ready for Dev. This is the operating contract for an Orca coordinator; it is not
 an implemented background scheduler or evidence that a card has run.
 
-Planning and dependencies are tracked in [Orca harness #1612](https://github.com/lifeodyssey/animichi/issues/1612)
-and its sub-issues, all labelled `orca harness`. Those issues track harness work.
+[Orca harness #1612](https://github.com/lifeodyssey/animichi/issues/1612) established this harness
+and closed on 2026-09-19. Planning and dependencies now live in the issues it left behind, all
+labelled `orca harness` — `gh issue list --label 'orca harness' --state open` is the current set.
 Business cards retain their existing GitHub Issues and Project membership.
 
 ## Scope and completion

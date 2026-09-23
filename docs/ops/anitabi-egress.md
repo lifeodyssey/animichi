@@ -19,7 +19,8 @@ Cloudflare's own dedicated egress IP is Enterprise-only. A survey of the alterna
 cheap hosted proxies use *shared* addresses on their entry tiers, which would return us to the
 same problem. So: one small service on Fly with a static egress address, doing nothing else.
 
-Tracked in #1792. The licence-compliance half — attribution and image sizing — is #1791.
+The service landed in #1792 (2026-09-19); the licence-compliance half — attribution and image
+sizing — landed in #1791 the day before.
 
 ## Deployment is deliberately manual
 
@@ -205,7 +206,8 @@ the repository: the values are the operator's, set on the Fly app as above, in t
 the signing key's Fly copy — the one input here that Pulumi does not manage (the ESC/Secrets Store
 chain in #1812 provisions the *caller's* copy of the signing key, and stops at the Worker).
 
-**Provisioning it, after this card merges** (#1824): `fly redis create` with primary region `nrt`,
+**Provisioning it is the operator's step, never CD's** — #1824 landed the code that reads it on
+2026-09-21, and the store itself is set by hand: `fly redis create` with primary region `nrt`,
 then `fly secrets set CEILING_STORE_URL="<the Private URL from fly redis status>" --app
 animichi-anitabi-egress`. Two steps, and the second is the only one that touches the app. Until it
 runs, the service has no store and refuses every request with `configuration` — loudly, which is what

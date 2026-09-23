@@ -593,9 +593,10 @@ reviewed change. `infra/database-access/Pulumi.prod.yaml` has no encrypted mater
 
 Until every stack is imported, the rollback path is the old one: re-point `PULUMI_BACKEND_URL` at
 R2 and restore the export taken in step 1. After the cutover, rollback is Pulumi Cloud history.
-Deleting the GitHub secrets themselves is the owner's step in #1367 (#1081), taken after one green
-staging deploy and one green nightly on the ESC path — deleting `R2_ACCESS_KEY_ID` /
-`R2_SECRET_ACCESS_KEY` is what closes this rollback window for good.
+Deleting the GitHub secrets themselves is tracked as #1367, taken after one green staging deploy
+on the ESC path — the nightly that used to be the second witness was deleted with the Python agent
+(#1607). Deleting `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` is what closes this rollback window
+for good; `docs/ops/secrets.md` records which copies each name still has.
 
 ## Staging access (Cloudflare Access, D3 #1369)
 

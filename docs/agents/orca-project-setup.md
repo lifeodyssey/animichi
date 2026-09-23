@@ -132,7 +132,9 @@ out of public issue updates and PR descriptions.
 Orca 1.4.200 rejects Astra `max` in its normal launch catalog even when the local
 Codex CLI supports it. The owner selected temporary **Astra xhigh** for the MVP.
 Do not silently lower other roles' effort or restore max without verifying Orca
-compatibility. Track this in [review #1614](https://github.com/lifeodyssey/animichi/issues/1614).
+compatibility — a standing rule, not a card's open question. The review gate that carried it,
+[#1614](https://github.com/lifeodyssey/animichi/issues/1614), closed on 2026-09-19; re-verify
+against the Orca version in front of you rather than against that card.
 
 Before Grok admission, verify current remaining allowance, observation time and
 actual `grok-4.6` / `xhigh` identity. `grok usage` is historical session usage,
@@ -145,8 +147,9 @@ They do not expand this MVP into a scheduler or change the review budget.
 
 ## Verification and rollout
 
-Track the rollout in [Orca harness #1612](https://github.com/lifeodyssey/animichi/issues/1612)
-and its existing `orca harness` issues. Keep configuration, local tests, independent
+[Orca harness #1612](https://github.com/lifeodyssey/animichi/issues/1612) established the harness
+and closed on 2026-09-19; the rollout is tracked by the `orca harness` issues still open after it.
+Keep configuration, local tests, independent
 review, PR feedback and confirmed merge as separate evidence boundaries.
 A successful configuration probe alone does not prove the full MVP.
 

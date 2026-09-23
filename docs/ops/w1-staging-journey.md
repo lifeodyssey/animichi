@@ -217,12 +217,13 @@ Screenshot **S5f**: the translate tool's output part.
 
 Screenshot **S5g**: the recall answer next to the first turn in the transcript.
 
-> **A known parity difference, not a failure:** an EARLIER run's tool returns
-> are not replayed into the transcript, so the retention window is in practice
-> per run rather than across turns as the retired Python agent's message history
-> made it. The owner
-> decision is #1297. Until it lands, cross-turn recall rests on the fact ledger
-> and the envelope's current anime — which is exactly what step 3 checks.
+> **The parity difference this step used to warn about was decided, not deferred.** #1297 chose
+> to replay earlier runs' tool calls rather than accept a per-run retention window, redesigned
+> into #1377 (replay every turn's tool calls as structured messages), #1378 (freeze tool-return
+> summaries at write time) and #1379 (render session state as an `agent_status` message). All
+> three closed on 2026-09-05, and the `turn-transcript.ts` / `seededMessages` pair whose
+> behaviour the warning described is gone from the tree. Step 3 therefore observes the replayed
+> transcript: record what the run shows rather than expecting the old per-run window.
 
 ## 3f · BYOK: the caller's own key (W2-3, #1289)
 
