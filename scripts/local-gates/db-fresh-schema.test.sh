@@ -124,9 +124,9 @@ test_success_applies_only_to_pristine_template0_schema() {
 }
 
 # The gate issues its create once and fails closed on any refusal. Since #1890
-# the source is `template0`, which `datallowconn = false` keeps every session
-# out of, so #1874's exclusivity conflict cannot arise and there is no refusal
-# class left that reissuing the statement would clear.
+# the source is `template0`, which `datallowconn = false` closes to sessions, so
+# #1874's exclusivity conflict is not expected on this image; the residual is
+# recorded in `packages/test-postgres/src/clean-database.ts`.
 CREATE_DENIED='ERROR:  permission denied to create database'
 
 # A docker stub whose `CREATE DATABASE gate TEMPLATE` refuses. It delegates to

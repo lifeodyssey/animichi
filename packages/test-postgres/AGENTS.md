@@ -150,8 +150,9 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   5 s waiting for that session to leave. `template1` is connectable and this image's preloaded
   background workers reach it — 2 sessions and 104 ms of session time in fourteen hours on the
   shared container, rare enough that no sampler caught the holder and often enough to fail `main`
-  twice. `template0` is the template PostgreSQL keeps unconnectable for exactly that reason, and a
-  database created from each of the two compares identical on this image (measured).
+  twice. `template0` is the template PostgreSQL keeps unconnectable for exactly that reason — the
+  residual is recorded in `src/clean-database.ts` — and a database created from each of the two
+  compares identical on this image (measured).
   `scripts/local-gates/db-fresh-schema.sh` creates from the same template, and #1874's retry there
   went with the race.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
