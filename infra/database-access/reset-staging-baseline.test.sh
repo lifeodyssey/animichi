@@ -52,14 +52,22 @@ for _ in $(seq 1 60); do
 done
 
 admin() { PGPASSWORD=gate psql -h 127.0.0.1 -p "$PORT" -U postgres -d "$1" -v ON_ERROR_STOP=1 -qtAc "$2"; }
+# The roles the reset's grant chain runs through, as staging holds them (#1896). `neondb_owner`
+# connects for the reset and so owns the `public` it recreates; it is a superuser here because Neon
+# gives it `neon_superuser`, which reads and drops whatever the retired chain left (the script's
+# own :32-33). The other two carry no attribute and no membership on purpose: `migrator` must
+# re-grant on the schema's grant option alone, and `jobs_svc` — one of the two service roles
+# staging reached CD without USAGE for — must have no path to it but that re-grant.
+admin postgres "CREATE ROLE neondb_owner LOGIN SUPERUSER PASSWORD 'gate'" >/dev/null
 admin postgres "CREATE ROLE migrator NOLOGIN" >/dev/null
+admin postgres "CREATE ROLE jobs_svc NOLOGIN" >/dev/null
 
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/npx" <<'STUB'
 #!/usr/bin/env bash
-# `npx --yes neonctl@3.6.0 <command> …`: psql reaches the case's database, branch calls are
-# recorded, and the branch list answers BRANCH_LIST, by default that no backup exists yet. Taking a
-# backup also records whether the marker schema was still there for it to copy.
+# `npx --yes neonctl@3.6.0 <command> …`: psql reaches the case's database as `--role-name`, branch
+# calls are recorded, and the branch list answers BRANCH_LIST, by default that no backup exists
+# yet. Taking a backup also records whether the marker schema was still there for it to copy.
 set -euo pipefail
 shift 2
 if [ "$1" = psql ]; then
@@ -71,7 +79,9 @@ if [ "$1" = psql ]; then
   # database using psql..." — and the reset script's reads swallow stderr, so the rehearsal
   # reads back the real shape: diagnostic ahead of the rows, on every call.
   printf 'INFO: Connecting to the database using psql...\n' >&2
-  PGPASSWORD=gate exec psql -h 127.0.0.1 -p "${PORT:?}" -U postgres -d "${CASE_DB:?}" "$@"
+  # The role is who psql connects as, not a label on the call log: `public` belongs to whoever
+  # recreates it, and what that owner grants the migrator is this rehearsal's subject (#1896).
+  PGPASSWORD=gate exec psql -h 127.0.0.1 -p "${PORT:?}" -U "${role:?}" -d "${CASE_DB:?}" "$@"
 fi
 echo "branches $2" >> "${CALL_LOG:?}"
 [ "$2" != create ] || PGPASSWORD=gate psql -h 127.0.0.1 -p "${PORT:?}" -U postgres -d "${CASE_DB:?}" -qtAc \
@@ -108,6 +118,10 @@ said() { grep -qF -- "$1" <<<"$OUT" && echo yes || echo no; }
 backup_taken() { grep -qx "branches create" "$CALL_LOG" && echo yes || echo no; }
 relation() { admin "$CASE_DB" "SELECT coalesce(to_regclass('$1')::text, 'absent')"; }
 marker_schema() { admin "$CASE_DB" "SELECT coalesce(to_regnamespace('prisma_contract')::text, 'absent')"; }
+# The seat the chain's access migration runs its grants from: `migrator`, with whatever the reset
+# left it and nothing else. From a superuser session the grant below would carry whatever the reset
+# had granted or not, and the case would stop proving anything (#1896).
+as_migrator() { admin "$CASE_DB" "SET ROLE migrator; $1"; }
 
 # Prisma 8's marker carries updated_at; the one staging held was written 2026-09-12 (#1781).
 MARKER="CREATE SCHEMA prisma_contract;
@@ -142,6 +156,14 @@ expect "and the backup precedes the drop" "$(printf 'branches create\npsql neond
 expect "and the leftover table is gone" absent "$(relation public.bangumi)"
 expect "and the Atlas ledger is gone" absent "$(relation public.atlas_schema_revisions)"
 expect "and the migrator can build the chain" t "$(admin "$CASE_DB" "SELECT has_schema_privilege('migrator', 'public', 'CREATE')")"
+# #1896: the chain's access migration grants the five service roles USAGE on `public`, and it runs
+# as `migrator`. A GRANT by a role holding no grant option is not an error — it warns and grants
+# nothing — so staging reached CD with `jobs_svc` and `readonly` still lacking USAGE. The `f` below
+# is what rules out every membership that would answer this question for jobs_svc anyway, Neon's
+# `neon_superuser` and `pg_read_all_data` among them: it holds none, so only the re-grant moves it.
+expect "and jobs_svc reaches the schema by no other path" f "$(admin "$CASE_DB" "SELECT has_schema_privilege('jobs_svc', 'public', 'USAGE')")"
+expect "and the migrator re-grants with no superuser to fall back on" off "$(as_migrator "SELECT current_setting('is_superuser')")"
+expect "and the migrator can pass USAGE on, as the chain does" t "$(as_migrator "GRANT USAGE ON SCHEMA public TO jobs_svc; SELECT has_schema_privilege('jobs_svc', 'public', 'USAGE')")"
 
 new_case "the cutover state with a business row" "$ATLAS INSERT INTO public.bangumi VALUES ('real');"
 run_script 1
