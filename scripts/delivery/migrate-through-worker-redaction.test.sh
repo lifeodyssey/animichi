@@ -54,7 +54,8 @@ assert_redacts() {
 # The four shapes #1872 names, the two rules the function already had, the pair #1881 adds
 # per class it changed, and the escaped surface #1887 adds to rule 2: every rule is exercised
 # here. Removing a rule turns its cases red and only those — rule 1 the three `scheme_userinfo`
-# cases; rule 2 the four quoted/JSON/colon cases, the two escaped-quote cases, plus
+# cases; rule 2 the four quoted/JSON/colon cases, the two escaped-quote cases, the
+# quote-in-secret regression and its tail witness, plus
 # `case_redacts_a_uri_password_parameter`; rule 3 the other three `redacts` cases. A #1881
 # pair runs one case per direction, so widening a class is as red as dropping it: the at-sign
 # case against the endpoint case, the one-slash case against rule 1's own output.
@@ -87,6 +88,24 @@ case_redacts_an_escaped_quoted_password_in_a_json_string() {
 # leak above lost diagnostic is this pass's own ranking.
 case_redacts_an_escaped_quoted_password_with_spaces_inside() {
   assert_redacts 'password=\"xx xx\"' 'password=***'
+}
+
+# #1897 (CodeRabbit). A secret that itself holds a quote reaches the body
+# JSON-encoded as three backslashes and a quote. A body of bare non-quotes stops
+# at that unit's own `\"`, redacts half the value and prints the rest, `cd\"`,
+# to the public log; the body admits the unit whole, so only a lone `\"` ends
+# the value and the tail behind it survives.
+case_redacts_an_escaped_quoted_password_whose_secret_holds_a_quote() {
+  assert_redacts '{"cause":"password=\"ab\\\"cd\"","tail":"preserved"}' \
+                 '{"cause":"password=***","tail":"preserved"}'
+}
+
+# The body's new unit, in the direction it is paid: a normal escaped value keeps
+# everything behind it, tail included — a body widened to `.*` would run to the
+# line's LAST `\"` and eat `,"tail":"preserved"` with it.
+case_keeps_the_tail_behind_a_normal_escaped_quoted_password() {
+  assert_redacts '{"cause":"password=\"xxxxxxxx\"","tail":"preserved","op":"\"slow\""}' \
+                 '{"cause":"password=***","tail":"preserved","op":"\"slow\""}'
 }
 
 case_redacts_a_scheme_userinfo_password() {
@@ -159,6 +178,8 @@ for test_case in \
   case_redacts_a_colon_separated_password \
   case_redacts_an_escaped_quoted_password_in_a_json_string \
   case_redacts_an_escaped_quoted_password_with_spaces_inside \
+  case_redacts_an_escaped_quoted_password_whose_secret_holds_a_quote \
+  case_keeps_the_tail_behind_a_normal_escaped_quoted_password \
   case_redacts_a_scheme_userinfo_password \
   case_redacts_a_scheme_userinfo_secret_with_an_at_sign \
   case_keeps_a_scheme_userinfo_endpoint_past_a_later_at_sign \
