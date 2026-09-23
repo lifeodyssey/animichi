@@ -4,7 +4,9 @@
 # redaction suite stays under the 200-line test cap. Every case here feeds rule 2 a
 # value whose quotes and backslashes arrive JSON-encoded — the two-layer shape a
 # driver echoing a config line takes inside a response body — and asserts the whole
-# redacted line back. The other surfaces live in migrate-through-worker-redaction.test.sh.
+# redacted line back. The unescaped surfaces live in migrate-through-worker-redaction.test.sh,
+# and the shape where a second key's opener is the other `\"` that could close the value —
+# the ambiguous closer — in migrate-through-worker-redaction-ambiguous-closer.test.sh.
 
 set -euo pipefail
 
@@ -27,20 +29,22 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # it can only close the value, and the trailing unit takes the two raw backslashes of a
 # value ending in an inner backslash and stops before the quote, so the JSON string's own
 # quote survives. Removing a unit turns its own witnesses red and no other case: no case in
-# the main redaction suite moves for any mutation of the escaped branch. Dropping the
-# escaped branch or the plain-character unit turns all thirteen escaped cases red; dropping
-# the JSON-escape unit turns only the `\/` witness red; dropping the inner-escape unit turns
-# six red — the inner-quote, backslash-run, truncated inner-quote and closed `\\cd` cases,
-# plus the truncated `\\cd` case and the one ending at its closer, added for #1909 — and
-# each branch of that unit has its own witness: `[^"\\]` dropped takes the closed `\\cd`,
-# truncated `\\cd` and closer-ending cases, `\\.` dropped the inner-quote, backslash-run and
-# truncated inner-quote cases; the pre-tokenizer body `[^"]` turns the inner-quote,
-# truncated inner-quote and structural cases red; dropping the new trailing unit turns only
-# the structural case red; dropping the key's plain-quote option turns only the main
-# suite's plain JSON key case red, its escaped-quote option only the escaped-key case here;
-# requiring the closer turns the three truncated cases and the structural case red; and the
-# rejected guard that admits a quote, `\\\\([^\\]|$)`, turns the inner-quote, backslash-run,
-# truncated inner-quote and structural cases red (#1909).
+# the main redaction suite moves for any mutation of the escaped branch, and every count
+# below is this file's cases — the same units also carry the ambiguous-closer suite's, which
+# that file's header counts. Dropping the escaped branch or the plain-character unit turns
+# all thirteen escaped cases red; dropping the JSON-escape unit turns only the `\/` witness
+# here red; dropping the inner-escape unit turns six red — the inner-quote, backslash-run,
+# truncated inner-quote and closed `\\cd` cases, plus the truncated `\\cd` case and the one
+# ending at its closer, added for #1909 — and each branch of that unit has its own witness:
+# `[^"\\]` dropped takes the closed `\\cd`, truncated `\\cd` and closer-ending cases, `\\.`
+# dropped the inner-quote, backslash-run and truncated inner-quote cases; the pre-tokenizer
+# body `[^"]` turns the inner-quote, truncated inner-quote and structural cases red;
+# dropping the new trailing unit turns only the structural case red; dropping the key's
+# plain-quote option turns only the main suite's plain JSON key case red, its escaped-quote
+# option only the escaped-key case here; requiring the closer turns the three truncated
+# cases and the structural case red; and the rejected guard that admits a quote,
+# `\\\\\\([^\\]|$)`, turns the inner-quote, backslash-run, truncated inner-quote and structural
+# cases red (#1909).
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
 }
@@ -153,7 +157,7 @@ case_redacts_a_truncated_escaped_password_carrying_an_inner_escape() {
 
 # #1909 (the same unit, the closer right behind it). The card's second input: the value ends
 # at its own closer, which the branch takes with it, so the JSON string's closing quote and
-# brace stay — the closed `\\cd` case above with `\\n` for `\\c` and no tail.
+# brace stay.
 case_redacts_an_escaped_quoted_password_carrying_an_inner_escape_ending_at_its_closer() {
   assert_redacts '{"cause":"password=\"ab\\ncd\""}' '{"cause":"password=***"}'
 }

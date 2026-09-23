@@ -5,8 +5,9 @@
 # The orchestration cases live in migrate-through-worker.test.sh and drive the whole script
 # against a `curl` stub; these cases call one pure text transform, so they live apart from
 # that suite, one responsibility per file, and every suite stays under the 200-line test cap.
-# The escaped-JSON surface of rule 2 is the second half of this one:
-# migrate-through-worker-redaction-escaped.test.sh.
+# The escaped-JSON surface of rule 2 is in migrate-through-worker-redaction-escaped.test.sh,
+# and the ambiguous closer a later `password` key's opener creates in
+# migrate-through-worker-redaction-ambiguous-closer.test.sh.
 
 set -euo pipefail
 
@@ -58,7 +59,8 @@ assert_redacts() {
 # adds to rule 2 has its own file. Removing a rule turns its cases red and only those —
 # rule 1 the three `scheme_userinfo` cases; rule 2 the four quoted/JSON/colon cases plus
 # `case_redacts_a_uri_password_parameter`, the escaped-quote cases going red in
-# migrate-through-worker-redaction-escaped.test.sh; rule 3 the other three `redacts` cases.
+# migrate-through-worker-redaction-escaped.test.sh and the ambiguous-closer cases in the
+# third; rule 3 the other three `redacts` cases.
 # A #1881 pair runs one case per direction, so widening a class is as red as dropping it:
 # the at-sign case against the endpoint case, the one-slash case against rule 1's own output.
 case_redacts_a_single_quoted_password() {
