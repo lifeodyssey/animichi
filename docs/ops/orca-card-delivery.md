@@ -178,8 +178,11 @@ All required reports must pass on the current SHA, with the behavioral mutation 
 required by [review discipline](review-gate.md).
 
 At most three automatic review rounds are allowed per card; opening a PR does
-not reset the counter. Post-PR code fixes also invalidate the old review and need
-a fresh review within that budget. If the third round fails, or later changes would
+not reset the counter. These post-PR changes do not consume a round and are not
+re-reviewed (owner, 2026-09-18): fixes for bot findings (fix, reply inline,
+resolve), CI-environment fixes (a Ruby version), commit or PR body wording, and
+restack conflict resolution reported hunk by hunk. Any other post-PR code change
+needs a fresh review within that budget. If the third round fails, or later changes would
 need a fourth, preserve all evidence and return the card to HUMAN. Do not create
 another Run/card to evade the limit. Infrastructure/dispatch failures are recorded
 as attempt failures, not fabricated review verdicts; Orca's own retry limit also

@@ -12,8 +12,9 @@ stable boundaries, current entry points, and active plans only.
 | Document | Purpose |
 |----------|---------|
 | `README.md` | Repo entry point and current usage |
-| `AGENTS.md` | Canonical root guide — identity, monorepo layout, cross-stack guardrails, tool routing |
+| `AGENTS.md` | Canonical root guide and index — identity, monorepo layout, core commands, cross-stack guardrails, the owner's testing rules, the rule for recording new knowledge, and one line per `docs/agents/*.md` and `.claude/rules/*.md` |
 | `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
+| `docs/agents/*.md` | Shared agent knowledge every tool reads: package managers, commit and PR hygiene, tool routing, the harness and escalation path, delivery flow with the merge checks, review and verification, worktrees and local gates, CI and GitHub mechanics, code standards, database, infra and secrets, agent and eval, frontend, owner decisions, and the issue-tracker, triage-label, domain and Orca guides |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Prisma 8) + data-platform conventions |
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Prisma 8) conventions |
 | `packages/agent/AGENTS.md` | Platform-independent TypeScript agent domain library conventions |

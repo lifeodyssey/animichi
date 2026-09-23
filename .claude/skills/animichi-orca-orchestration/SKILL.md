@@ -173,8 +173,9 @@ Every pre-PR and post-fix review role spec must explicitly require:
   candidate, including fixes, and no candidate edits by the reviewer.
 
 Reviews use the Standards and Spec axes. Count the initial review as round one;
-allow at most three complete review rounds for the card, including post-PR
-fixes. Do not evade the limit with a new Run, card, or PR; unresolved findings,
+allow at most three complete review rounds for the card; the post-PR changes
+that do not consume one are listed in `docs/ops/orca-card-delivery.md`
+(owner, 2026-09-18). Do not evade the limit with a new Run, card, or PR; unresolved findings,
 model-identity uncertainty, or missing evidence is a human gate.
 
 ## What would have to happen for this check to go red?
@@ -320,9 +321,12 @@ Merge when **all three** hold, and not before:
    `reviewThreads(isResolved:false)` and top-level issue comments (qodo summaries, SonarCloud,
    codecov). A bot that left **nothing** does not block — absence is not a pending item, and
    waiting for it is waiting for something that may never come.
-2. **An Orca review seat has APPROVED the current head**, on a model different from every model
-   that wrote the candidate, fixes included. The coordinator reading the diff is a coordinator's
-   check, not a review; it does not satisfy this.
+2. **The last APPROVE from an Orca review seat covers the current head**, on a model different from
+   every model that wrote the candidate, fixes included: the PR opened at an approved head
+   (`Review: APPROVE at <sha>` in the body; owner, 2026-09-24), and every push since is a change
+   `docs/ops/orca-card-delivery.md` exempts from re-review (owner, 2026-09-18); any other change
+   needs a fresh APPROVE. The coordinator reading the diff is a coordinator's check, not a review;
+   it does not satisfy this.
 3. **Every CI check is green** — not "no required check is red". A non-required red is a thing to
    fix or explain, never a thing to step over.
 
@@ -354,7 +358,8 @@ git diff <new-base>..<rebased-head>  | git hash-object --stdin
 ```
 
 Equal hashes mean the reviewed delta is byte-identical and the verdict still covers it. Unequal
-means it genuinely changed and needs a fresh seat.
+means it genuinely changed and needs a fresh seat, with the one exception the runbook's list
+makes: restack conflict resolution reported hunk by hunk needs no fresh seat (owner, 2026-09-18).
 
 ### Launcher facts that cost a lane each
 
