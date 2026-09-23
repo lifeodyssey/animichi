@@ -14,6 +14,13 @@
  * connection reset reported as "already claimed" would strand the caller's write
  * behind a key nothing claimed. The walk is bounded too — a failure that is its
  * own cause ends it rather than recursing.
+ *
+ * A conflict whose row is GONE by the time the follow-up read runs is still this
+ * caller's claim (`claimOrExisting` reads nothing and takes the key). That read
+ * is a statement of its own, and the last test below is its witness: `beforePlan`
+ * fires once per statement the executor was asked for, so a hook that refuses
+ * the INSERT must not refuse the read as well — which is why the double records
+ * a statement BEFORE it fires the hook.
  */
 import type { SaveSavedRouteInput } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
@@ -79,6 +86,16 @@ function claimFailingWith(failure: Error): FakeUsersPrisma {
   });
 }
 
+/** A claim whose INSERT is refused as a conflict, with no row behind it — what a
+ * concurrent writer that claimed the key and then dropped the row leaves. */
+function claimRefusedAsConflict(): FakeUsersPrisma {
+  return fakeUsersPrisma([], {
+    beforePlan: (index) => {
+      if (index === CLAIM_INSERT) throw pgUniqueViolation(LEDGER);
+    },
+  });
+}
+
 describe("a claim's conflict is read from the driver failure", () => {
   it("reads a raw pg failure's code as the SQLSTATE", async () => {
     const store = claimCollidingWith({ uniqueViolation: () => pgUniqueViolation(LEDGER) });
@@ -90,6 +107,18 @@ describe("a claim's conflict is read from the driver failure", () => {
     const store = claimCollidingWith({ uniqueViolation: () => causedBy(pgUniqueViolation(LEDGER)) });
     const outcome = await new NeonIdempotencyStore(store.prisma).claim(claimParams());
     expect(outcome).toMatchObject({ kind: "exists", row: { state: "committed", fingerprint: FINGERPRINT } });
+  });
+
+  it("reads the follow-up statement as its own, not as the refused claim again", async () => {
+    const store = claimRefusedAsConflict();
+    const outcome = await new NeonIdempotencyStore(store.prisma).claim(claimParams());
+    expect(outcome).toEqual({ kind: "claimed" });
+    // The refused INSERT is counted, so the read that follows it is the SECOND
+    // statement and its hook fires at index 1 rather than re-firing at index 0.
+    expect(store.queries).toEqual([
+      { kind: "insert", table: LEDGER },
+      { kind: "select", table: LEDGER },
+    ]);
   });
 
   it("rethrows a failure that is not a unique violation, exactly as it arrived", async () => {
