@@ -15,7 +15,7 @@ class WorkflowWorkspaceTest < Minitest::Test
   WORKSPACE_SCRIPTS = %w[
     .github/scripts/delivery-toolchain-tests.sh
     .github/scripts/release/build-worker.mjs .github/scripts/release/verify-config.mjs
-    .github/scripts/release/seal-foundation.sh .github/scripts/release/registry-login.sh
+    .github/scripts/release/seal-foundation.sh
     .github/scripts/release/record-receipt.mjs .github/scripts/release/publish-services.sh
     .github/scripts/commits/lint-commit-range.sh .github/scripts/commits/lint-pr-title.sh
     scripts/local-gates/oxlint-changed.sh scripts/local-gates/pre-push-affected.sh

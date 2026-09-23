@@ -9,18 +9,14 @@ jobs:
     name: Release / complete snapshot
     if: ${{ github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    environment: release-build
     timeout-minutes: 90
     concurrency:
       group: release-build-${{ github.run_id }}
       cancel-in-progress: false
     permissions:
       contents: read
-      id-token: write # main-only release-build identity for registry credentials
     outputs:
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
-    env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,34 +52,15 @@ jobs:
       # migration, and the graph is connected.
       - name: Check the sealed migration graph's integrity
         run: pnpm --filter @animichi/pi-session-neon exec prisma migration check
-      - name: Log into the registry build principal
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
-        with:
-          organization: lifeodyssey
-          requested-token-type: urn:pulumi:token-type:access_token:personal
-          scope: user:lifeodyssey
-      - name: Resolve the pinned Pulumi CLI version
-        id: pulumi-cli
-        run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
-      - name: Open registry-only build configuration
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
-        with:
-          version: ${{ steps.pulumi-cli.outputs.version }}
-          environment: lifeodyssey/animichi/release-build
-          export-environment-variables: CLOUDFLARE_API_TOKEN
-      - name: Require the registry credential
-        run: |
-          for key in CLOUDFLARE_API_TOKEN; do
-            [ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }
-          done
-      - run: bash .github/scripts/release/registry-login.sh push
-      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      # #1717: the build names no image, so it opens no registry configuration and holds
+      # no identity — no ESC environment, no registry principal, no login, no buildx, no
+      # registry proof, and no Cloudflare variable either: `build-worker.test.sh` runs the
+      # same bundling dry-run in a job that declares no Cloudflare variable at all.
       - name: Bundle Workers and seal the container-free snapshot
         run: |
           node .github/scripts/release/build-worker.mjs edge
           node .github/scripts/release/build-worker.mjs migrator
           ruby .github/scripts/release/seal.rb
-          ruby .github/scripts/release/inspect-images.rb
       - name: Archive the complete snapshot
         run: tar --format=ustar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf release.tar release
       - name: Publish the immutable snapshot

@@ -55,7 +55,6 @@ class ReleaseBuildTest < Minitest::Test
     assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs edge"
     assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs migrator"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/seal.rb"
-    assert_includes step.fetch("run"), "ruby .github/scripts/release/inspect-images.rb"
   end
 
   def test_one_complete_snapshot_is_uploaded_after_sealing
@@ -67,9 +66,18 @@ class ReleaseBuildTest < Minitest::Test
     refute_includes @build.to_s, "VITE_"
   end
 
-  def test_build_uses_a_separate_exact_environment_and_only_registry_export
-    assert_equal "release-build", @build.dig("jobs", "snapshot", "environment")
-    assert_equal ["lifeodyssey/animichi/release-build"], @steps.map { |step| step.dig("with", "environment") }.compact
-    assert_equal ["CLOUDFLARE_API_TOKEN"], @steps.map { |step| step.dig("with", "export-environment-variables") }.compact
+  # #1717: the build pushes no image, so it opens no registry configuration — no ESC
+  # environment, no registry principal, no login, no buildx, and no proof to read.
+  def test_the_build_opens_no_registry_configuration
+    uses = @steps.map { |step| step["uses"].to_s }
+    assert_empty uses.grep(%r{\Apulumi/(esc-action|auth-actions)@})
+    assert_empty uses.grep(%r{\Adocker/setup-buildx-action@})
+    refute_match(/registry-login\.sh|inspect-images\.rb/, @steps.map { |step| step["run"] }.join("\n"))
+  end
+
+  # That ESC environment was the job's only reader of an environment secret or
+  # variable, so the binding left with it (#1717): the job's own `if:` pins main.
+  def test_the_build_binds_no_environment
+    refute @build.dig("jobs", "snapshot").key?("environment")
   end
 end

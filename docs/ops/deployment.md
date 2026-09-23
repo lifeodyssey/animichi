@@ -488,12 +488,6 @@ The repository candidate is not platform readiness. Before enabling the new buil
 
 - Bootstrap #1575's read-only migrator endpoint through authorized CD on each target environment;
   observe a signed read-only response and wrong-environment refusal. Verify apply-lock revalidation.
-- Provision a main-only GitHub `release-build` environment and its exact native Pulumi issuer claim
-  for `lifeodyssey/animichi/.github/workflows/release-build.yml@refs/heads/main`. Keep deployment
-  identities on the existing exact `cd.yml` path; never add a wildcard or reuse staging's subject.
-- Provision the build registry configuration and credential; demonstrate real pushed manifest
-  digests and read access from both deployment environments. #1565 owns provider-enforced principal
-  separation and sibling-ESC denial; export filtering does not establish that boundary.
 - Complete runtime-secret/foundation provisioning, approved production baseline cutover and
   production hostname/routing readiness. The current committed production topology leaves apex
   activation off, so the production smoke URL is an explicit readiness prerequisite.
@@ -515,27 +509,23 @@ It does not read repository/environment GitHub secrets. The selected controller 
 
 | Responsibility | GitHub environment | ESC environment | Pulumi stacks |
 | --- | --- | --- | --- |
-| Build | `release-build` | `lifeodyssey/animichi/release-build` | none |
 | Staging chain | `staging` | `lifeodyssey/animichi/staging` | `lifeodyssey/staging` in both projects |
 | Production chain | `production` | `lifeodyssey/animichi/prod` | `lifeodyssey/prod` in both projects |
 
 `pulumi/auth-actions` retains the existing personal token type and `scope: user:lifeodyssey`.
 That account model does not prove per-role authorization. #1565 requires provider-side boundaries
 and actual sibling-environment denial; neither an ESC export list nor a shell wrapper supplies them.
-The new build environment/issuer permission is a platform activation prerequisite, not an existing
-staging credential reused under a different label.
 
-Build exports `CLOUDFLARE_API_TOKEN` for registry publication. Deployment exports the Cloudflare
-credential for native Wrangler and Pulumi. Staging additionally exports its Access service-token
-pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild step alone reads it, from the ESC
-step's own output (`steps.esc.outputs.NEON_API_KEY`), and production never does. The Neon provider
-reads its encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
-#1370's required provisioning, and must not be copied into artifact or job outputs.
+Deployment exports the Cloudflare credential for native Wrangler and Pulumi. Staging additionally
+exports its Access service-token pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild
+step alone reads it, from the ESC step's own output (`steps.esc.outputs.NEON_API_KEY`), and
+production never does. The Neon provider reads its encrypted stack configuration. Runtime values
+belong in Secrets Store through Pulumi, subject to #1370's required provisioning, and must not be
+copied into artifact or job outputs.
 
 Each ESC opening is followed by a nonempty-value check because the action otherwise only warns.
 Its Pulumi CLI version is explicitly pinned. `CLOUDFLARE_ACCOUNT_ID` is a repository variable, not
-a secret. Registry login uses a private runner directory and short-lived native Wrangler credentials;
-consumers request pull permission and validate real Docker manifest/configuration responses.
+a secret.
 
 Applies stay organization-qualified and use the sealed foundation sources/dependencies.
 `PULUMI_BACKEND_URL`, passphrase and R2 state keys are absent from the delivery lane. The old state

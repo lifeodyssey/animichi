@@ -74,6 +74,17 @@ class CdCredentialsTest < Minitest::Test
     assert_equal "esc", esc["id"]
   end
 
+  # #1717: the release names no image, so the registry read `inspect-images.rb` performed
+  # validated an empty set in both jobs. The pull login, the buildx setup and the proof step
+  # left with it; the selected snapshot's verification is the gate that remains (cd-migrations).
+  def test_cd_opens_no_registry_credential
+    %w[stage promote-production].each do |job|
+      job_steps = steps(job)
+      assert_empty job_steps.map { |step| step["uses"].to_s }.grep(%r{\Adocker/setup-buildx-action@})
+      refute_match(/registry-login\.sh|inspect-images\.rb/, job_steps.map { |step| step["run"].to_s }.join("\n"))
+    end
+  end
+
   def test_no_runtime_secret_upload_database_credential_or_retired_key
     assert_empty (RETIRED + RUNTIME).select { |key| @source.include?(key) }
     assert_empty @source.scan(/\b[A-Z][A-Z0-9_]*DATABASE[A-Z0-9_]*\b/).uniq
