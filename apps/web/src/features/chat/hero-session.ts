@@ -59,18 +59,21 @@ export function useHeroSend(chat: ChatSession, hero: HeroSession): (text: string
   }), [sendMessage, status, sessionId]);
 }
 
-function heroReconnectLost(hero: HeroSession, chat: ChatSession): boolean {
-  if (hero.minted || !hero.entry.q) return false;
-  return chat.status === "error" && chat.lastHttpStatus() === 404;
+/** The query to resend when the reconnect came back 404, else nothing. */
+function heroResendQuery(hero: HeroSession, chat: ChatSession): string | undefined {
+  if (hero.minted || !hero.entry.q) return undefined;
+  if (chat.status !== "error" || chat.lastHttpStatus() !== 404) return undefined;
+  return hero.entry.q;
 }
 
 /** The 404 resend: once per mount, behind the same health gate as the first send. */
 export function useHeroResend(hero: HeroSession, chat: ChatSession, healthy: boolean, send: (text: string) => void): void {
   const resent = useRef(false);
   useEffect(() => {
-    if (resent.current || !healthy || !heroReconnectLost(hero, chat)) return;
+    const query = heroResendQuery(hero, chat);
+    if (resent.current || !healthy || query === undefined) return;
     resent.current = true;
     chat.clearError();
-    send(hero.entry.q ?? "");
+    send(query);
   }, [hero, chat, healthy, send]);
 }
