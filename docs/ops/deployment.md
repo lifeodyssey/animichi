@@ -97,9 +97,8 @@ retains its native single pending selection, so a pending selection may be repla
 the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
 commit-order queue or `queue: max` exception.
 
-Before any Pulumi apply or Worker publication, both jobs verify every image a selected snapshot
-names against the real remote manifest and linux/amd64 configuration with Docker, then read actual
-migration compatibility from the existing migrator's authenticated `/preflight`.
+Before any Pulumi apply, both jobs read actual migration compatibility from the migrator's
+authenticated `/preflight`.
 What protects production is that job's own `production` environment approval, above. After
 that preflight, CD retires the legacy migrator container application when
 the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
@@ -122,7 +121,7 @@ attempt the next read retries instead of a stall to the job timeout. A receipt t
 fails naming the expected digest, the last observed digest, the attempt count, the wait budget and the
 last read failure (#1683). It proves B was tested.
 Later C staging can proceed while B waits for approval; production must still pass fresh
-baseline/ledger/registry checks before promoting B. Version IDs are script-scoped and are not expected
+baseline/ledger checks before promoting B. Version IDs are script-scoped and are not expected
 to match between staging and production.
 
 The same artifact carries `evidence.json`, the probe transcript the deploy lane recorded beside the
@@ -138,9 +137,9 @@ remote identity validation, receipt validation and workflow order. The real Wran
 also executes in CI's unconditional contracts job. The
 [assertion map](../iterations/production-readiness-2026-08/SELECTED-ARTIFACT-ASSERTION-MAP.md)
 traces every replaced CD contract. See [ADR 0007](../adr/0007-selected-release-artifacts.md) for the
-activation prerequisites: deployed ledger preflight, same-lock revalidation, exact builder identity,
-registry access, runtime secrets, baseline cutover and production routing must be established
-before this controller can deliver successfully. Local tests do not prove those platform gates.
+activation prerequisites: deployed ledger preflight, same-lock revalidation, runtime secrets,
+baseline cutover and production routing must be established before this controller can deliver
+successfully. Local tests do not prove those platform gates.
 
 ### Container application retirement (#1589 migrator, #1605 edge)
 
@@ -473,7 +472,7 @@ Local code and database tests do not replace the pending live bootstrap observat
    check for an open failure alert on the revision it names: `is:issue is:open in:title "Failure
    alert:"` lists them, and an alert on the receipt's `source_sha` means that revision's own CI
    failed — do not approve. After approval the job re-downloads the same ID/digest, verifies the
-   receipt, and checks production's current baseline, registry and ledger before any mutation.
+   receipt, and checks production's current baseline and ledger before any mutation.
    Production observes its own script-scoped version/deployment IDs and smokes `https://animichi.com`
    after publication.
 
@@ -488,12 +487,6 @@ The repository candidate is not platform readiness. Before enabling the new buil
 
 - Bootstrap #1575's read-only migrator endpoint through authorized CD on each target environment;
   observe a signed read-only response and wrong-environment refusal. Verify apply-lock revalidation.
-- Provision a main-only GitHub `release-build` environment and its exact native Pulumi issuer claim
-  for `lifeodyssey/animichi/.github/workflows/release-build.yml@refs/heads/main`. Keep deployment
-  identities on the existing exact `cd.yml` path; never add a wildcard or reuse staging's subject.
-- Provision the build registry configuration and credential; demonstrate real pushed manifest
-  digests and read access from both deployment environments. #1565 owns provider-enforced principal
-  separation and sibling-ESC denial; export filtering does not establish that boundary.
 - Complete runtime-secret/foundation provisioning, approved production baseline cutover and
   production hostname/routing readiness. The current committed production topology leaves apex
   activation off, so the production smoke URL is an explicit readiness prerequisite.
@@ -515,27 +508,23 @@ It does not read repository/environment GitHub secrets. The selected controller 
 
 | Responsibility | GitHub environment | ESC environment | Pulumi stacks |
 | --- | --- | --- | --- |
-| Build | `release-build` | `lifeodyssey/animichi/release-build` | none |
 | Staging chain | `staging` | `lifeodyssey/animichi/staging` | `lifeodyssey/staging` in both projects |
 | Production chain | `production` | `lifeodyssey/animichi/prod` | `lifeodyssey/prod` in both projects |
 
 `pulumi/auth-actions` retains the existing personal token type and `scope: user:lifeodyssey`.
 That account model does not prove per-role authorization. #1565 requires provider-side boundaries
 and actual sibling-environment denial; neither an ESC export list nor a shell wrapper supplies them.
-The new build environment/issuer permission is a platform activation prerequisite, not an existing
-staging credential reused under a different label.
 
-Build exports `CLOUDFLARE_API_TOKEN` for registry publication. Deployment exports the Cloudflare
-credential for native Wrangler and Pulumi. Staging additionally exports its Access service-token
-pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild step alone reads it, from the ESC
-step's own output (`steps.esc.outputs.NEON_API_KEY`), and production never does. The Neon provider
-reads its encrypted stack configuration. Runtime values belong in Secrets Store through Pulumi, subject to
-#1370's required provisioning, and must not be copied into artifact or job outputs.
+Deployment exports the Cloudflare credential for native Wrangler and Pulumi. Staging additionally
+exports its Access service-token pair for smoke. No job exports `NEON_API_KEY`: the staging rebuild
+step alone reads it, from the ESC step's own output (`steps.esc.outputs.NEON_API_KEY`), and
+production never does. The Neon provider reads its encrypted stack configuration. Runtime values
+belong in Secrets Store through Pulumi, subject to #1370's required provisioning, and must not be
+copied into artifact or job outputs.
 
 Each ESC opening is followed by a nonempty-value check because the action otherwise only warns.
 Its Pulumi CLI version is explicitly pinned. `CLOUDFLARE_ACCOUNT_ID` is a repository variable, not
-a secret. Registry login uses a private runner directory and short-lived native Wrangler credentials;
-consumers request pull permission and validate real Docker manifest/configuration responses.
+a secret.
 
 Applies stay organization-qualified and use the sealed foundation sources/dependencies.
 `PULUMI_BACKEND_URL`, passphrase and R2 state keys are absent from the delivery lane. The old state

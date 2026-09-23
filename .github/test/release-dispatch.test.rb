@@ -23,10 +23,12 @@ class ReleaseDispatchTest < Minitest::Test
     assert_includes guard, "needs.snapshot.result == 'success'"
   end
 
+  # #1717: the snapshot job holds no OIDC identity — the ESC step was its only consumer, so
+  # re-adding the permission without one is a standing grant and fails here.
   def test_dispatch_job_holds_only_actions_write
     assert_equal({ "actions" => "write" }, @job["permissions"])
     snapshot = @build.dig("jobs", "snapshot", "permissions")
-    assert_equal({ "contents" => "read", "id-token" => "write" }, snapshot)
+    assert_equal({ "contents" => "read" }, snapshot)
   end
 
   def test_dispatch_passes_the_snapshot_jobs_own_artifact_id

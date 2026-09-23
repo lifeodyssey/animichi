@@ -56,20 +56,23 @@ class CdMigrationsTest < Minitest::Test
 
   # The pre-publication compatibility read left with the Atlas ledger it read (#1634): with one
   # authority the only preflight worth running is the one against the migrator this release just
-  # published, and that one still precedes the apply. What stays asserted here is the registry
-  # read before every mutation, and the native preflight before the apply.
+  # published, and that one still precedes the apply. The registry read left with the images it
+  # read (#1717): `seal.rb` names no image and `ReleaseSnapshot.validate_images` refuses one, so
+  # `inspect-images.rb` validated an empty set. What stays asserted here is the selected
+  # snapshot's own verification before every mutation, and the native preflight before the apply.
   # Staging's eighth is the rebuild of a schema stranded on the Atlas chain.
   MUTATIONS = { "stage" => 8, "promote-production" => 7 }.freeze
   STAGING_REBUILD = "bash infra/database-access/reset-staging-baseline.sh"
+  SNAPSHOT_VERIFICATION = "$/.github/actions/hydrate-release"
 
-  def test_real_registry_precedes_every_actual_mutation
+  def test_snapshot_verification_precedes_every_actual_mutation
     %w[stage promote-production].each do |job|
       steps = @cd.dig("jobs", job, "steps")
-      registry = steps.index { |step| step["run"] == "ruby .github/scripts/release/inspect-images.rb" }
-      refute_nil registry
+      verified = steps.index { |step| step["uses"] == SNAPSHOT_VERIFICATION }
+      refute_nil verified, "#{job}: the selected snapshot must be verified before it is deployed"
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
       assert_equal MUTATIONS.fetch(job), mutations.length
-      mutations.each { |i| assert_operator i, :>, registry }
+      mutations.each { |i| assert_operator i, :>, verified }
     end
   end
 
