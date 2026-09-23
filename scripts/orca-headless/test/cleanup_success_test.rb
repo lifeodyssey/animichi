@@ -14,7 +14,8 @@ class HeadlessCleanupSuccessTest < Minitest::Test
 
   def test_releases_then_closes_only_the_exact_owned_terminal
     responses = [worker_show_response("completed", "succeeded"), terminal_show_response,
-                 settlement_response, release_response, terminal_show_response, close_response]
+                 run_show_response, settlement_response, release_response,
+                 terminal_show_response, close_response]
     runner = FakeCommandRunner.new(responses.map { |item| command_result(item) })
     code, out, = invoke(cleanup_args, runner)
     assert_cleanup_success(code, out, runner)
@@ -23,7 +24,7 @@ class HeadlessCleanupSuccessTest < Minitest::Test
   def test_cleans_up_when_provider_metadata_is_stale_but_wrapper_is_owned
     terminal = terminal_show_response
     terminal.dig("result", "terminal")["agentIdentity"] = "codex"
-    responses = [worker_show_response("completed", "succeeded"), terminal,
+    responses = [worker_show_response("completed", "succeeded"), terminal, run_show_response,
                  settlement_response, release_response, terminal, close_response]
     runner = FakeCommandRunner.new(responses.map { |item| command_result(item) })
     observer = FakeProcessObserver.new(wrapper_observation)
@@ -55,13 +56,14 @@ class HeadlessCleanupSuccessTest < Minitest::Test
 
   def successful_cleanup_responses
     values = [worker_show_response("completed", "succeeded"), terminal_show_response,
-              settlement_response, release_response, terminal_show_response, close_response]
+              run_show_response, settlement_response, release_response,
+              terminal_show_response, close_response]
     values.map { |item| command_result(item) }
   end
 
   def command_markers(runner)
-    [runner.calls.fetch(3).fetch(2), runner.calls.fetch(4).fetch(1),
-     runner.calls.fetch(4).fetch(2), runner.calls.fetch(5).fetch(1),
-     runner.calls.fetch(5).fetch(2)]
+    [runner.calls.fetch(4).fetch(2), runner.calls.fetch(5).fetch(1),
+     runner.calls.fetch(5).fetch(2), runner.calls.fetch(6).fetch(1),
+     runner.calls.fetch(6).fetch(2)]
   end
 end

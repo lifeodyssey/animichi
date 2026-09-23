@@ -53,6 +53,17 @@ module OrcaHeadless
       StatusEvidence.valid_settlement?(dispatch, outcome) && live_wrapper
     end
 
+    def current_coordinator!(context, response)
+      runtime!(context, response, "run inspection")
+      result = response["result"]
+      run = result.is_a?(Hash) ? result["run"] : nil
+      handle = run.is_a?(Hash) ? run["coordinator_handle"] : nil
+      bound = run.is_a?(Hash) && run["id"] == context.launch["runId"]
+      return handle if bound && handle.is_a?(String) && !handle.empty?
+
+      raise EvidenceError, "the Run's current coordinator is unknown"
+    end
+
     def terminal!(context, response, label = "terminal")
       runtime!(context, response, "terminal inspection")
       terminal = response.dig("result", "terminal")

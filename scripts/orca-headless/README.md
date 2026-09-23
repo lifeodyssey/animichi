@@ -71,7 +71,12 @@ ruby scripts/orca-headless/orca-headless.rb cleanup \
 Cleanup requires all of the following positive evidence: the wrapper recorded the exact child
 exit and entered its post-exit hold; Orca reports the recorded Task/Dispatch as settled; the named
 `worker_done` binds the same Run, Task, Dispatch, terminal, and outcome; and the current terminal,
-PTY, incarnation, workspace, and wrapper ownership still match. Cleanup always observes the recorded
+PTY, incarnation, workspace, and wrapper ownership still match. The settlement read is performed
+as the Run's current coordinator, learned from the runtime's own `orchestration run-show` record
+for the attempt's Run ID and never accepted from a flag; because the runtime attests the calling
+process against that handle, a `run-use` seat move does not strand settled lanes, and a caller
+that is neither the launch-time nor the current coordinator is fenced (`consumer_fenced`) before
+any mutation. Cleanup always observes the recorded
 local wrapper PID through native process inspection, whether provider metadata is present or absent.
 Its command must still be the exact recorded runner command, its TTY must still be attached and
 foreground-owned by its process group, and its process start must predate the wrapper's ready receipt;

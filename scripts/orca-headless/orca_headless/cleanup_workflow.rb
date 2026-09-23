@@ -22,7 +22,9 @@ module OrcaHeadless
       worker = inspect(context, "worker", CleanupCommands.worker_show(context))
       outcome = CleanupGuard.settled_worker!(context, worker)
       CleanupGuard.terminal!(context, inspect_terminal(context, "terminal-before"), "terminal-before")
-      settlement = inspect(context, "settlement", CleanupCommands.settlement(context))
+      run = inspect(context, "run", CleanupCommands.run_show(context))
+      coordinator = CleanupGuard.current_coordinator!(context, run)
+      settlement = inspect(context, "settlement", CleanupCommands.settlement(context, coordinator))
       CleanupGuard.settlement!(context, settlement, outcome)
     end
 
