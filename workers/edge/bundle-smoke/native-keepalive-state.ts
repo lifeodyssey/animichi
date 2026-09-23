@@ -23,7 +23,7 @@ export interface AlarmWrite {
   source: "probe" | "sdk";
   /** The instant that was asked for. */
   requested: number;
-  /** The instant actually stored — the clamp's while the fired deadline is undelivered. */
+  /** The instant the clamp asked the runtime to keep — the runtime may keep its own clock a moment later. */
   stored: number;
   /** Whether the fired deadline's callback had already started when the write arrived. */
   afterCallbackEntry: boolean;
@@ -71,7 +71,9 @@ export function observeCleanup(ctx: DurableObjectState, cleanup: ReturnType<type
  * The ledger is what lets the probe name the SDK's re-arm as a write rather than reading an entry state
  * that any component may have set: `source` separates the probe's own fire from the SDK's writes, and
  * `afterCallbackEntry` separates a write made while the fired deadline's callback was in flight — the
- * keepalive re-arm — from anything armed before the callback started.
+ * keepalive re-arm — from anything armed before the callback started. The instant this writes is the
+ * probe's clock, and the runtime keeps `max(that, its own now)` for a due instant, so a reader must not
+ * expect the alarm it reads back to equal `stored` to the millisecond (#1900).
  */
 export function clampDueAlarm(ctx: DurableObjectState, state: ReturnType<typeof keepaliveState>) {
   const storage = ctx.storage;
