@@ -211,8 +211,8 @@ fails, and with the exemption inverted seven of its cases fail.
   `apps/web/src/features/map-spike/map-colors.ts`, the same literals `map-style.ts` paints.
 - `fixtures/chat-stream.ts` — the recorded agent streams every chat spec replays. The recordings
   carry the envelope the deployed edge sends, `session_id` included (#1903), and
-  `RECORDING_SESSION_ID` is the id they assign; `patchSessionId` injects a different one only for a
-  spec that stubs a recovery route by name.
+  `RECORDING_SESSION_ID` is the id they assign; `patchSessionId` overrides it for a spec that names
+  its own id.
 - `../scripts/e2e-setup.sh` — dependency + browser install; no Supabase/Mailpit preparation.
 - `../test/repo-config/e2e-spec-coverage.test.rb` — the rule that every committed `*.spec.ts` is in
   the lane or named as outside it.
