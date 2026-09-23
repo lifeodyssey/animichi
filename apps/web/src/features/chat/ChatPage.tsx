@@ -39,7 +39,9 @@ import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
 import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
-import { assignedSessionId, useChatEntry, usePublishSessionId } from "./conversation-address";
+import { assignedSessionId, usePublishSessionId } from "./conversation-address";
+import { useHeroResend, useHeroSend, useHeroSession, usePublishMintedSession } from "./hero-session";
+import type { HeroSession } from "./hero-session";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
@@ -68,32 +70,36 @@ function useTurnActions(chat: ChatSession): ChatActions {
 }
 
 /** A5 covers backend reachability only; stream failures render inline D-strips. */
-function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState {
+function entryStateOf(hero: HeroSession, health: BackendHealth): ChatEntryState {
   return deriveEntryState({
     healthy: health.status !== "down",
-    query: search.q,
-    sessionId: search.session,
-    routeReference: resolveRouteReference(search.route),
+    query: hero.entry.q,
+    sessionId: hero.minted ? undefined : hero.entry.session,
+    routeReference: resolveRouteReference(hero.entry.route),
   });
 }
 
-function useAutoSendFromQuery(search: ChatSearch, health: BackendHealth, send: (text: string) => void) {
+function useAutoSendFromQuery(hero: HeroSession, health: BackendHealth, send: (text: string) => void) {
   useAutoSend({
-    query: search.q,
-    enabled: health.healthy && !search.session,
+    query: hero.entry.q,
+    enabled: health.healthy && hero.minted,
     send,
-    sessionId: search.session,
+    sessionId: hero.entry.session,
   });
 }
 
-/** The conversation this page shows, including its address: the id the backend
- * assigns to a fresh draft is published into `?session=` (#1337). */
-function useChatState(entry: ChatSearch) {
+/** The conversation this page shows, including its address: the page mints the
+ * id itself for a hero entry (#1901); a fresh draft publishes the id the
+ * backend assigns (#1337). The minted entry is not a resume: nothing exists
+ * to reconnect to or read back until the first POST lands. */
+function useChatState(hero: HeroSession) {
+  const entry = hero.entry;
   const config = useMemo(currentChatConfig, []);
   const health = useBackendHealth(config.baseUrl);
-  const chat = useChatSession(config.chatUrl, entry.session, entry.session !== undefined);
-  const history = useConversationHistory(config.baseUrl, entry.session);
+  const chat = useChatSession(config.chatUrl, entry.session, entry.session !== undefined && !hero.minted);
+  const history = useConversationHistory(config.baseUrl, hero.minted ? undefined : entry.session);
   usePublishSessionId(entry, chat.sessionIdOf() ?? assignedSessionId(chat.messages));
+  usePublishMintedSession(hero);
   return { config, health, chat, history: withoutSnapshotAssistant(history, snapshotOperationId(chat.messages, chat.operationIdOf())) };
 }
 
@@ -126,13 +132,20 @@ function useGuardedTray(chat: ChatSession, auth: ReturnType<typeof useAuthStatus
   return useTrayState(chat, { challenged: false, auth }, sessionKey);
 }
 
-function useChatPage(entry: ChatSearch) {
-  const { config, health, chat, history } = useChatState(entry);
+/** The hero entry's two sends: the first fire and the reconnect-404 resend share one send. */
+function useHeroSends(hero: HeroSession, chat: ChatSession, health: BackendHealth) {
+  const heroSend = useHeroSend(chat, hero);
+  useAutoSendFromQuery(hero, health, heroSend);
+  useHeroResend(hero, chat, health.healthy, heroSend);
+}
+
+function useChatPage(hero: HeroSession) {
+  const { config, health, chat, history } = useChatState(hero);
   const auth = useAuthStatus();
-  const tray = useGuardedTray(chat, auth, entry.session);
+  const tray = useGuardedTray(chat, auth, hero.entry.session);
   const actions = useLockedActions(useTurnActions(chat), tray.quota.locked);
   const surfaces = usePageSurfaces(actions);
-  useAutoSendFromQuery(entry, health, actions.send);
+  useHeroSends(hero, chat, health);
   return { config, health, chat, history, actions, auth, ...surfaces, ...tray };
 }
 
@@ -188,34 +201,34 @@ function shellProps(search: ChatSearch, page: PageState, entry: ChatEntryState, 
   return { ...chrome, body: chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale), dock: chatDock(page.departure, page.dict, page.chat, page.recompute), composer: chatComposer(page.dict, page.quota, page.departure.onSend, gate) };
 }
 
-function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
-  const entry = entryStateOf(search, page.health);
+function ChatPageView({ hero, page }: Readonly<{ hero: HeroSession; page: PageState }>) {
+  const entry = entryStateOf(hero, page.health);
   const gate = composerGateOf(entry, page.chat, page.history, page.failure);
-  return <ChatShell {...shellProps(search, page, entry, gate)} />;
+  return <ChatShell {...shellProps(hero.entry, page, entry, gate)} />;
 }
 
 /** Publishes the live session id so every in-chat login wall and the settings
  * link can send the visitor back to this conversation (#507 review P1-1). */
-function withReturnTarget(entry: ChatSearch, page: PageState) {
+function withReturnTarget(hero: HeroSession, page: PageState) {
   return (
     <ChatReturnTargetProvider sessionIdOf={page.chat.sessionIdOf}>
-      <ChatPageView search={entry} page={page} />
+      <ChatPageView hero={hero} page={page} />
     </ChatReturnTargetProvider>
   );
 }
 
 /** The provider stack around the page view: spot selection, clarify pick, actions. */
-function withProviders(entry: ChatSearch, page: PageState) {
+function withProviders(hero: HeroSession, page: PageState) {
   return (
     <SpotSelectionProvider selection={page.selection}>
       <ClarifyPickProvider turn={page.clarifyPick}>
-        <ChatActionsProvider actions={page.actions}>{withReturnTarget(entry, page)}</ChatActionsProvider>
+        <ChatActionsProvider actions={page.actions}>{withReturnTarget(hero, page)}</ChatActionsProvider>
       </ClarifyPickProvider>
     </SpotSelectionProvider>
   );
 }
 
 export function ChatPage(props: ChatPageProps) {
-  const entry = useChatEntry(props.search);
-  return withProviders(entry, useChatPage(entry));
+  const hero = useHeroSession(props.search);
+  return withProviders(hero, useChatPage(hero));
 }
