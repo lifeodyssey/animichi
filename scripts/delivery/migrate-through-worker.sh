@@ -120,16 +120,22 @@ report_failure() {
 #      may be plain or escaped; the value's own quotes go with the value, as in the
 #      Worker's replacement. A quoted value is matched whole, so `{"password":"pw"}`
 #      keeps its closing brace, and a bare one still stops at a space, an `&` or a
-#      quote. The escaped branch tokenizes its body: a character that is neither quote
-#      nor backslash, the four backslashes an inner `\\` is JSON-encoded into, or the
-#      three backslashes and quote an inner `\"` becomes. A lone `\"` matches no unit,
-#      so it can only close the value, and a second span behind it reaches rule 2 with
-#      its key intact — but that closer is optional, so a value whose end never arrived
-#      still ends where the units stop instead of falling through to the bare branch,
-#      which takes the lone backslash and prints the rest of the secret behind the next
-#      quote (#1905). A closed escaped value also stops before a following `;host=`, which
-#      the bare branch eats (#1881 gap 4). A value whose closer never arrived has no such
-#      boundary and takes it.
+#      quote. The escaped branch reads its body one JSON token at a time (#1909): a
+#      character that is neither quote nor backslash; a JSON escape of anything other
+#      than a quote or a backslash, such as `\/` or `\n`; or an inner-layer escape —
+#      two raw backslashes followed by one JSON token. That third unit is the general
+#      case of the two the branch used to name separately: an inner `\\` arrives as
+#      four backslashes and an inner `\"` as three backslashes and a quote, and both
+#      are two raw backslashes plus one token. A lone `\"` matches no unit, so it can
+#      only close the value, and neither can the `\\"` of a value ending in an inner
+#      backslash, so the quote that ends the JSON string stays and `","tail":…`
+#      survives with it. A second span behind a closer reaches rule 2 with its key
+#      intact — but that closer is optional, so a value whose end never arrived still
+#      ends where the units stop instead of falling through to the bare branch, which
+#      takes the lone backslash and prints the rest of the secret behind the next
+#      quote (#1905). A closed escaped value also stops before a following `;host=`,
+#      which the bare branch eats (#1881 gap 4). A value whose closer never arrived has
+#      no such boundary and takes it.
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
@@ -152,7 +158,7 @@ report_failure() {
 redact_dsn_passwords() {
   sed -E \
     -e "s#://([^:/@[:space:]]+):[^[:space:]/?]+@#://\1:***@#g" \
-    -e "s#(\"?[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\\\\\\\\\\\\\|\\\\\\\\\\\\\")*(\\\\\")?|[^[:space:]&\"]+)#\1***#g" \
+    -e "s#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\[^\"\\\\]|\\\\\\\\([^\"\\\\]|\\\\.))*(\\\\\")?|[^[:space:]&\"]+)#\1***#g" \
     -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):/?[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
     "$1"
 }
