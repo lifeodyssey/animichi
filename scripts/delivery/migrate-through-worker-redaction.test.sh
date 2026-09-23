@@ -86,7 +86,7 @@ case_redacts_an_escaped_quoted_password_in_a_json_string() {
 # whitespace-terminated, so a multi-word secret behind escaped quotes is not left halved —
 # leak above lost diagnostic is this pass's own ranking.
 case_redacts_an_escaped_quoted_password_with_spaces_inside() {
-  assert_redacts 'password="xx xx"' 'password=***'
+  assert_redacts 'password=\"xx xx\"' 'password=***'
 }
 
 case_redacts_a_scheme_userinfo_password() {
