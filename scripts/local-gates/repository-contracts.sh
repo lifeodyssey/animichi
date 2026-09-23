@@ -14,9 +14,14 @@
 # The command forms are closed. The job's steps are `bundle exec ruby <path>`
 # and `bash <path>`; any other line stops the push and names itself, because a
 # contract this script cannot classify is a contract that would otherwise pass
-# by absence. A line's path must be a file committed at HEAD, too: CI checks out
-# that tree, so a line naming a path that exists only in this working tree runs
-# here and is missing there — a contract that passes by absence one step later.
+# by absence. A line's path must be a regular file committed at HEAD, too: its
+# entry in `git ls-tree HEAD` reports `100644` or `100755` — not the `040000` of
+# a tree, and not the `120000` of a symlink. A check that asks only whether some
+# object of that name exists clears the last two, and `bash` then fails on a
+# directory or a symlink to one at exit 126, after the earlier lines have run.
+# CI checks out that tree, so a line naming a path that exists only in this
+# working tree runs here and is missing there — a contract that passes by
+# absence one step later.
 # The registry supplies a PATH and this script supplies the interpreter, so a
 # workflow line can never reach a program the gate did not classify — running a
 # step's text verbatim would let a later step reach a command a push hook has no
@@ -58,6 +63,18 @@ target_of() {
   printf '%s\n' "$path"
 }
 
+# The mode of the entry `git ls-tree` reports for a path at HEAD, or nothing
+# when it reports none, several, or an entry under another name: `dir/` lists
+# the directory's children and `.` lists the whole tree, so only an entry whose
+# own path is the target answers for the target.
+mode_of() {
+  local entry
+  entry="$(git ls-tree HEAD -- "$1" 2>/dev/null)" || return 0
+  case "$entry" in "" | *$'\n'*) return 0 ;; esac
+  [ "${entry##*$'\t'}" = "$1" ] || return 0
+  printf '%s\n' "${entry%% *}"
+}
+
 # The interpreter this script chose, over the path it read out of the line.
 run_contract() {
   case "$1" in
@@ -76,12 +93,15 @@ commands="$(registry)"
 
 while IFS= read -r command; do
   target="$(target_of "$command")" || refuse "the contracts job runs a command this gate cannot classify: $command"
-  # `HEAD:` and not `git ls-files`: the index holds a file that is staged and not
-  # yet committed, which is the same fail-open one step narrower. `blob` and not
-  # `-e`: `-e` accepts any object, so a line naming a committed directory cleared
-  # this check and only failed inside `bash`, after the lines above it had run.
-  [ "$(git cat-file -t "HEAD:$target" 2>/dev/null)" = blob ] ||
-    refuse "the contracts job runs a path that is not a committed file at HEAD: $command"
+  # `HEAD` and not `git ls-files`: the index holds a file that is staged and not
+  # yet committed, which is the same fail-open one step narrower. The mode and
+  # not `git cat-file -t`: `-t` answers `blob` for a committed symlink too, so a
+  # line naming a symlink to a directory cleared this check and only failed
+  # inside `bash` at exit 126, after the lines above it had run.
+  case "$(mode_of "$target")" in
+    100644 | 100755) ;;
+    *) refuse "the contracts job runs a path that is not a regular file committed at HEAD: $command" ;;
+  esac
 done <<<"$commands"
 
 printf 'pre-push: contracts — %s commands from the %s job of %s\n' \
