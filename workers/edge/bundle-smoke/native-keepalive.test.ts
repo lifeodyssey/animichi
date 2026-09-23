@@ -34,8 +34,8 @@ function keepaliveReArm(held: Observation): AlarmWrite | undefined {
   return held.writes.filter((write) => write.source === "sdk" && write.afterCallbackEntry).at(-1);
 }
 
-/** Whether the alarm read while the deadline was undelivered is that re-arm's write, not a pre-dispatch one. */
-function alarmIsReArmWrite(held: Observation, reArm: AlarmWrite) {
+/** Whether the alarm read while the deadline was undelivered is at or after the instant that re-arm stored. */
+function alarmAtOrAfterReArm(held: Observation, reArm: AlarmWrite) {
   return held.alarm !== null && held.alarm >= reArm.stored;
 }
 
@@ -49,7 +49,7 @@ function alarmIsReArmWrite(held: Observation, reArm: AlarmWrite) {
  * alarm the entry already held decides nothing: that field is recorded because a failure should show what
  * the entry held, and a legitimate SDK may pre-arm something there. The alarm the runtime holds is instead
  * bracketed by that re-arm: at or before the physical now, and at or after the instant that re-arm's
- * clamped write asked for — the runtime keeps `max(requested, its own now)` for an already-due instant and
+ * clamped write asked for — the runtime keeps `max(stored, its own now)` for an already-due instant and
  * never moves one back. The two clocks therefore do not have to agree to the millisecond; requiring that
  * was the race this file was fixed for (#1900). A clamp the SDK's re-arm can bypass leaves the alarm in
  * the physical future, displacing a deadline that was already due — the failure names that displacement.
@@ -61,7 +61,7 @@ async function assertAlarmHeldDue(worker: Miniflare) {
   assert.ok(reArm !== undefined, `No SDK re-arm of the physical alarm arrived while the fired deadline's callback was undelivered: ${JSON.stringify(held)}`);
   assert.ok(held.alarm !== null, `No physical alarm is armed while the fired deadline is undelivered: ${JSON.stringify(held)}`);
   assert.ok(held.alarm <= held.physicalNow, `An SDK re-arm displaced the fired deadline's alarm ${String(held.alarm - held.physicalNow)} ms into the physical future: ${JSON.stringify(held)}`);
-  assert.ok(alarmIsReArmWrite(held, reArm), `The alarm read while the deadline is undelivered is not a re-arm write: ${JSON.stringify(held)}`);
+  assert.ok(alarmAtOrAfterReArm(held, reArm), `The alarm read while the deadline is undelivered is not a re-arm write: ${JSON.stringify(held)}`);
   assert.ok(reArm.requested > reArm.stored, `The clamp must rewrite the instant the SDK re-arm asked for: it asked for ${String(reArm.requested)} and the alarm holds ${String(reArm.stored)}, read at ${String(held.physicalNow)}: ${JSON.stringify(held)}`);
 }
 

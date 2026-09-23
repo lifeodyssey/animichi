@@ -71,9 +71,10 @@ export function observeCleanup(ctx: DurableObjectState, cleanup: ReturnType<type
  * The ledger is what lets the probe name the SDK's re-arm as a write rather than reading an entry state
  * that any component may have set: `source` separates the probe's own fire from the SDK's writes, and
  * `afterCallbackEntry` separates a write made while the fired deadline's callback was in flight — the
- * keepalive re-arm — from anything armed before the callback started. The instant this writes is the
- * probe's clock, and the runtime keeps `max(that, its own now)` for a due instant, so a reader must not
- * expect the alarm it reads back to equal `stored` to the millisecond (#1900).
+ * keepalive re-arm — from anything armed before the callback started. While the fired deadline is
+ * undelivered, the instant this writes is the probe's clock, and the runtime keeps `max(that, its own now)`
+ * for a due instant, so a reader must not expect the alarm it reads back to equal `stored` to the
+ * millisecond (#1900).
  */
 export function clampDueAlarm(ctx: DurableObjectState, state: ReturnType<typeof keepaliveState>) {
   const storage = ctx.storage;
