@@ -4,9 +4,11 @@
 # out of pr-verification.yml's `contracts` job, the two command forms it runs,
 # and the lines it refuses. One throwaway git repository per case, each with its
 # own workflow and its own probe programs; the real runner, no real contract
-# test, no network. `Gemfile`, `Gemfile.lock` and `.ruby-version` are symlinked
-# from the checkout so the `bundle exec ruby` form resolves through the checkout's
-# own bundler configuration — the form is the runner's subject, not bundler's.
+# test, no network. `BUNDLE_GEMFILE`, which `run_runner` sets, points the `bundle
+# exec ruby` form at the checkout's own Gemfile, so bundler resolves there the
+# way it does for the real gate — the form is the runner's subject, not
+# bundler's. Only `.ruby-version` is symlinked: an rbenv or mise shim reads it
+# from the working directory, and `BUNDLE_GEMFILE` does not choose the Ruby.
 set -euo pipefail
 
 CHECKOUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -50,8 +52,7 @@ new_repo() { # <workflow yaml>
   REPO="$(mktemp -d "$TMPROOT/case.XXXXXX")"
   RECORD="$REPO/record"
   mkdir -p "$REPO/.github/workflows"
-  local link
-  for link in Gemfile Gemfile.lock .ruby-version; do ln -s "$CHECKOUT/$link" "$REPO/$link"; done
+  ln -s "$CHECKOUT/.ruby-version" "$REPO/.ruby-version"
   printf '%s\n' "$1" >"$REPO/.github/workflows/pr-verification.yml"
   seed_probes
   git -C "$REPO" init -q -b main
@@ -113,7 +114,7 @@ printf '#!/usr/bin/env bash\nprintf "untracked probe\\n" >> "$RECORD"\n' >"$REPO
 run_runner
 expect_status "untracked target" 1 "$STATUS"
 expect "untracked target" "bash probe-untracked.sh" "$OUT"
-expect "untracked target" "is not committed" "$OUT"
+expect "untracked target" "is not a committed file" "$OUT"
 expect_ran_nothing "untracked target"
 ok "a registry line naming an untracked path stops the push"
 
@@ -126,11 +127,24 @@ git -C "$REPO" add probe-staged.sh
 run_runner
 expect_status "staged target" 1 "$STATUS"
 expect "staged target" "bash probe-staged.sh" "$OUT"
-expect "staged target" "is not committed" "$OUT"
+expect "staged target" "is not a committed file" "$OUT"
 expect_ran_nothing "staged target"
 ok "a staged but uncommitted path stops the push"
 
-# 6. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
+# 6. A committed directory is not a program. The path is at HEAD, so
+#    `git cat-file -e` accepts the tree as an object and the line clears
+#    validation; `bash` on it then fails, after the lines above it have already
+#    run — the fail-fast the header promises. `-t` asks what the object is, and
+#    the fixture's own `.github` is a committed tree.
+new_repo "$(contracts_workflow $'bash probe-two.sh\nbash .github')"
+run_runner
+expect_status "committed directory" 1 "$STATUS"
+expect "committed directory" "bash .github" "$OUT"
+expect "committed directory" "is not a committed file" "$OUT"
+expect_ran_nothing "committed directory"
+ok "a registry line naming a committed directory stops the push"
+
+# 7. The grammar is `<interpreter> <path>` and nothing else, so a workflow line
 #    cannot carry a second command past the classifier into the gate.
 new_repo "$(contracts_workflow 'bash probe-two.sh; printf pwned > pwned.txt')"
 run_runner
@@ -140,7 +154,7 @@ expect "smuggled command" "cannot classify" "$OUT"
 expect_ran_nothing "smuggled command"
 ok "a line carrying a second command is refused rather than run"
 
-# 7. An empty registry and a missing job both stop the push: a gate that finds
+# 8. An empty registry and a missing job both stop the push: a gate that finds
 #    nothing to run has nothing to vouch for, and silence is never the answer.
 new_repo "$(contracts_workflow '')"
 run_runner

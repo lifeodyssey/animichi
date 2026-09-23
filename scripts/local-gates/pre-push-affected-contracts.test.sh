@@ -47,9 +47,11 @@ ok "a changed contract test re-runs the contracts bucket"
 # 3. A push that touches none of the three runs none of it: the bucket is the
 #    contracts' own, not a tax on every push. The diff carries the rest of the
 #    whitelist too — a docs file and the root configs the contracts job also
-#    reads — so a route that grew or shrank shows up here.
+#    reads — so a route that grew or shrank shows up here. `Gemfile.lock` and
+#    `.ruby-version` are this case's own: the split left them with no
+#    `contracts=0` guard anywhere else.
 new_repo
-commit_change feature workers/catalog/src/x.ts docs/a.md Gemfile .gitignore
+commit_change feature workers/catalog/src/x.ts docs/a.md Gemfile Gemfile.lock .ruby-version .gitignore
 run_gate < /dev/null
 expect_status "outside the contracts" 0 "$STATUS"
 expect "outside the contracts" "contracts=0" "$OUT"
