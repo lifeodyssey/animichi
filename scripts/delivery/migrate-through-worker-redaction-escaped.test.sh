@@ -24,22 +24,23 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # The rule-2 comment in the script carries the layer story: the escaped body is read one
 # JSON token at a time — a plain character, a JSON escape such as `\/`, or an inner-layer
 # escape of two raw backslashes plus one token — while a lone `\"` matches no body unit, so
-# it can only close the value, and neither does the `\\"` of a value ending in an inner
-# backslash, so the JSON string's own quote survives. Removing a unit turns its own
-# witnesses red and no other case: no case in the main redaction suite moves for any
-# mutation of the escaped branch. Dropping the escaped branch or the plain-character unit
-# turns all thirteen escaped cases red; dropping the JSON-escape unit turns only the `\/`
-# witness red; dropping the inner-escape unit turns six red — the inner-quote, backslash-run,
-# truncated inner-quote and closed `\\cd` cases, plus the truncated `\\cd` and `\\n` cases
-# added for #1909 — and each branch of that unit has its own witness: `[^"\\]` dropped takes
-# the closed `\\cd`, truncated `\\cd` and `\\n` cases, `\\.` dropped the inner-quote,
-# backslash-run and truncated inner-quote cases; the pre-tokenizer body `[^"]` turns the
-# inner-quote, truncated inner-quote and structural cases red; dropping the key's
-# plain-quote option turns only the main suite's plain JSON key case red, its escaped-quote
-# option only the escaped-key case here; requiring the closer turns the three truncated
-# cases and the structural case red; and the rejected guard that admits a quote,
-# `\\\\([^\\]|$)`, turns the inner-quote, backslash-run, truncated inner-quote and structural
-# cases red (#1909).
+# it can only close the value, and the trailing unit takes the two raw backslashes of a
+# value ending in an inner backslash and stops before the quote, so the JSON string's own
+# quote survives. Removing a unit turns its own witnesses red and no other case: no case in
+# the main redaction suite moves for any mutation of the escaped branch. Dropping the
+# escaped branch or the plain-character unit turns all thirteen escaped cases red; dropping
+# the JSON-escape unit turns only the `\/` witness red; dropping the inner-escape unit turns
+# six red — the inner-quote, backslash-run, truncated inner-quote and closed `\\cd` cases,
+# plus the truncated `\\cd` case and the one ending at its closer, added for #1909 — and
+# each branch of that unit has its own witness: `[^"\\]` dropped takes the closed `\\cd`,
+# truncated `\\cd` and closer-ending cases, `\\.` dropped the inner-quote, backslash-run and
+# truncated inner-quote cases; the pre-tokenizer body `[^"]` turns the inner-quote,
+# truncated inner-quote and structural cases red; dropping the new trailing unit turns only
+# the structural case red; dropping the key's plain-quote option turns only the main
+# suite's plain JSON key case red, its escaped-quote option only the escaped-key case here;
+# requiring the closer turns the three truncated cases and the structural case red; and the
+# rejected guard that admits a quote, `\\\\([^\\]|$)`, turns the inner-quote, backslash-run,
+# truncated inner-quote and structural cases red (#1909).
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
 }
@@ -152,7 +153,7 @@ case_redacts_a_truncated_escaped_password_carrying_an_inner_escape() {
 
 # #1909 (the same unit, the closer right behind it). The card's second input: the value ends
 # at its own closer, which the branch takes with it, so the JSON string's closing quote and
-# brace stay — the tail-less twin of the closed `\\cd` case above.
+# brace stay — the closed `\\cd` case above with `\\n` for `\\c` and no tail.
 case_redacts_an_escaped_quoted_password_carrying_an_inner_escape_ending_at_its_closer() {
   assert_redacts '{"cause":"password=\"ab\\ncd\""}' '{"cause":"password=***"}'
 }
@@ -161,12 +162,12 @@ case_redacts_an_escaped_quoted_password_carrying_an_inner_escape_ending_at_its_c
 # the two raw backslashes of that backslash's encoding right before the quote that ends
 # the JSON string. A unit that admits a quote — `\\\\([^\\]|$)`, the guard #1909
 # rejected — takes that quote and then the comma behind it, leaving
-# `{"cause":"password=***"tail":…`. The shipped unit needs a JSON token after its two
-# backslashes and its token admits no bare quote, so the body stops before them, the
-# quote still closes the JSON string, and `","tail":"preserved"}` is byte-identical.
+# `{"cause":"password=***"tail":…`. The trailing unit takes exactly those two
+# backslashes and stops before the quote, so it still closes the JSON string and
+# `","tail":"preserved"}` is byte-identical.
 case_keeps_the_json_structure_when_a_value_ends_in_a_backslash() {
   assert_redacts '{"cause":"password=\"ab\\","tail":"preserved"}' \
-                 '{"cause":"password=***\\","tail":"preserved"}'
+                 '{"cause":"password=***","tail":"preserved"}'
 }
 
 for test_case in \
