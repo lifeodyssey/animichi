@@ -11,11 +11,12 @@ import { defineConfig } from "vitest/config";
  * Covers tests that import the Hono app and exercise it inside the workerd
  * runtime (*.worker.test.ts).
  *
- * The Docker PostGIS integration suite runs under a separate Node config,
- * `vitest.integration.config.ts`, because it needs a real TCP socket + the `pg`
- * driver — a Node-only integration check rather than a Worker-runtime check.
- * The suite runs as the `test:integration` script, not from `npm test`, which
- * is `test:worker` alone.
+ * Two Node configs sit beside this one, for the two reasons a suite cannot run
+ * in workerd. `vitest.integration.config.ts` is the Docker PostGIS suite: a real
+ * TCP socket + the `pg` driver, run as the `test:integration` script so no push
+ * boots a container for free. `vitest.node.config.ts` is everything else Node —
+ * `node:fs`, a child process, a Miniflare bucket — and it needs no container, so
+ * `npm test` chains it after `test:worker` (#1771).
  */
 /** Resolved from `import.meta.url` as a string and `node:path`: this config is
  * type-checked with Cloudflare's DOM-shaped globals, where a `URL` object is not
@@ -45,7 +46,7 @@ export default defineConfig({
       provider: "istanbul",
       include: ["src/**/*.ts"],
       // Database-only modules (ingest/enrich/publish/media/import/scheduled) are
-      // exercised by the *.integration.test.ts Node suite against a real container +
+      // exercised by the *.integration.test.ts container suite against a real database +
       // the import-integration suite (AC4 atomic switch), not the workerd pool,
       // so they are excluded from this worker-runtime coverage scope.
       exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**", "src/import/**", "src/scheduled/**"],

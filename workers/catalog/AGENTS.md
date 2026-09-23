@@ -8,7 +8,8 @@ Root guide: `../../AGENTS.md`.
 ## Commands (from `workers/catalog/`)
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
-- `pnpm test` (`test:worker` alone — hermetic, boots no container) · `pnpm run test:integration`
+- `pnpm test` (`test:worker` then `test:node` — hermetic, boots no container) ·
+  `pnpm run test:integration`
   (Docker; deliberately not chained into `test`, see Test pools) · `pnpm run typecheck`
   (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
   ESLint is gone.
@@ -93,9 +94,14 @@ Root guide: `../../AGENTS.md`.
 ## Test pools
 
 - `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
-- `*.integration.test.ts` runs in the Node pool via `vitest.integration.config.ts` for filesystem,
-  TCP, Docker, or child-process work. Filesystem parity checks belong here, not in Worker tests —
-  **unless the check must never be skippable**. The suite is **hermetic and fail-loudly** (card
+- `*.node.test.ts` runs in the plain Node pool via `vitest.node.config.ts`: filesystem, a child
+  process, a Miniflare bucket, a fake seam — everything workerd cannot host that needs **no**
+  database. It boots no container and `pnpm test` chains it after `test:worker` (#1771).
+  Filesystem parity checks belong in a Node pool, not in Worker tests — **unless the check must
+  never be skippable**.
+- `*.integration.test.ts` runs in the Node pool via `vitest.integration.config.ts`, and every file
+  it selects reaches for the database; `test/repo-config/integration-lane-selection.test.rb`
+  refuses one that does not. The suite is **hermetic and fail-loudly** (card
   1049): its `globalSetup` (`test/integration-db-global.ts`) boots a **Docker Postgres+PostGIS**
   container and builds **one database of its own** on it — `<suite>_plane`, a clone of the
   container's migrated template, i.e. the committed Prisma chain (#1626), the shape every real

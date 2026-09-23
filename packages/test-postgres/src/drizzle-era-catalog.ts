@@ -4,7 +4,7 @@
  * ledger, no CLI, and no path to a shared or live database. The query layer it records is gone
  * (#1628–#1633); this module is LIVE, and its consumers are two named files rather than an era:
  * `packages/agent/integration-test/catalog-postgres.ts` calls `applyDrizzleEraCatalog` on a
- * database of its own, and `workers/catalog/test/geocode-migration-parity.integration.test.ts`
+ * database of its own, and `workers/catalog/test/geocode-migration-parity.node.test.ts`
  * reads the SQL as text to pin the table shapes its geocode seed relies on.
  *
  * They need it because the agent lane's own `catalog-seed.ts` writes `points.latitude` /

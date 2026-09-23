@@ -8,12 +8,13 @@
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "tsx scripts/oxlint/check-no-inline-config.ts && tsx scripts/check-worker-entry-exports.ts && oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:worker",
+    "test": "npm run test:worker && npm run test:node",
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
     "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
     "test:smoke": "tsx scripts/startup-smoke.ts",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
+    "test:node": "vitest run --config vitest.node.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

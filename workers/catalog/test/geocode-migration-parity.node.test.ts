@@ -12,8 +12,8 @@ import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
  * and this suite is one of its two remaining readers — the other one installs it
  * (`packages/agent/integration-test/catalog-postgres.ts`). Seed rows are not embedded in that
  * schema (the gazetteer seed is a documented load path); this test pins the table shapes the
- * fixture relies on and forbids seed drift back into it. It runs in the Node integration pool
- * because the workerd pool cannot read outside workers/catalog.
+ * fixture relies on and forbids seed drift back into it. It runs in the plain Node pool because
+ * the workerd pool cannot read outside workers/catalog, and it opens no database.
  */
 
 const SCHEMA = new URL("../../../packages/test-postgres/sql/drizzle-era-catalog.sql", import.meta.url);

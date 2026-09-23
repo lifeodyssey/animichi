@@ -6,6 +6,10 @@ import { defineConfig } from "vitest/config";
  * container's migrated template into one suite database (see
  * test/integration-db-global.ts, #1769); every *.integration.test.ts runs against
  * it with zero Neon credentials.
+ *
+ * Every file this selects reaches for that database — a Node suite that does not
+ * is a `*.node.test.ts` in `vitest.node.config.ts`, and
+ * `test/repo-config/integration-lane-selection.test.rb` refuses the mix (#1771).
  */
 export default defineConfig({
   test: {

@@ -13,7 +13,7 @@ import { inlineConfigViolations } from "../scripts/oxlint/check-no-inline-config
  * now a violation like any other, so a suppression cannot re-enter the worker.
  *
  * Directive text is assembled at runtime — a literal would make this very file
- * trip the guard it tests. Pure filesystem work, hence the Node integration pool.
+ * trip the guard it tests. Pure filesystem work, hence the plain Node pool.
  */
 
 const DISABLE_NEXT_LINE = ["// eslint", "disable-next-line"].join("-");
