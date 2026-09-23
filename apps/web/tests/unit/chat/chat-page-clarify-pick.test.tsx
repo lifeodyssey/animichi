@@ -144,7 +144,7 @@ describe("clarify → pick → results (W1 #1220, MSW seam)", () => {
     // server just called stale — a third turn never leaves the browser.
     const reconnects = reconnectPaths();
     fireEvent.click(screen.getByRole("button", { name: en.errorStates.d16Retry }));
-    await waitFor(() => { expect(reconnects).toHaveLength(1); });
+    await waitFor(() => { expect(reconnects).toEqual(["/v1/conversations/s-fixture/stream"]); });
     expect(sent).toHaveLength(2);
   });
 });

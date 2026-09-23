@@ -11,8 +11,7 @@ export function parseChatDataPart(data: unknown): ChatDataPart | null {
   return result.success ? result.data : null;
 }
 
-/** The session id this envelope assigns, or `undefined` when it carries none.
- * The recordings send `null` until the backend has minted one. */
+/** The session id this envelope assigns, or `undefined` when it carries none. */
 export function assignedSessionIdIn(part: ChatDataPart): string | undefined {
   const assigned = part.session_id;
   return typeof assigned === "string" && assigned !== "" ? assigned : undefined;

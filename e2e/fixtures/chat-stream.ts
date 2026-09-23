@@ -51,8 +51,8 @@ export function patchFinalFrame(recording: string, patch: EnvelopePatch): string
   return recording.split("\n").map((line) => patchLine(line, patch)).join("\n");
 }
 
-/** The recordings assign `RECORDING_SESSION_ID`; inject a specific id when a
- * spec has to assert on one (a recovery route it stubs by name). */
+/** The recordings assign `RECORDING_SESSION_ID`; a spec that prefers to name
+ * its own id — asserting and stubbing routes by it — overrides it here. */
 export function patchSessionId(recording: string, sessionId: string): string {
   return patchFinalFrame(recording, (envelope) => ({ ...envelope, session_id: sessionId }));
 }
