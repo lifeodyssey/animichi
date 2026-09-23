@@ -140,10 +140,10 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   `ECONNREFUSED` and `ECONNRESET`; anything else — a wrong password, a missing database — rethrows on
   the first attempt. The pre-#1326 edge fixture retried everything for 60 s and then reported a
   generic timeout; that is the behaviour that changed, on purpose.
-- **No chain is applied to the image's own database.** The postgis image pre-initialises it with
-  the tiger/topology schemas, which the migration chain would be asked to take over even though it
-  names none of them. `createCleanDatabase` still creates from pristine `template1`;
-  `startTestPostgres` clones the migrated template instead.
+- **No chain is applied to the image's own database.** The image pre-initialises it with its own
+  extension set — postgis, vector, documentdb and the objects those bring — which the migration
+  chain would be asked to take over even though it names none of them. `createCleanDatabase` still
+  creates from pristine `template1`; `startTestPostgres` clones the migrated template instead.
 - **`startTestPostgres` drops its own database on any failure after `.start()`**, and `stop()`
   drops it too: the shared container is never stopped by an arm (#1663). Do not add a code path that
   returns a plane without that guarantee.

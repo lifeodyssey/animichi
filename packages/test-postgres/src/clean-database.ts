@@ -1,10 +1,11 @@
 /** The clean-database recipe the migration chain has to be applied to.
  *
- * The postgis image pre-initialises its default database with the tiger and
- * topology schemas, so no arm may migrate that database: the chain would be
- * asked to take over a schema that carries objects it does not name. Every arm
- * instead creates its own database from pristine `template1` — the same
- * semantics `scripts/local-gates/db-fresh-schema.sh` uses.
+ * The image pre-initialises its default database with its own extension set —
+ * postgis, vector, documentdb and the objects those bring — so no arm may
+ * migrate that database: the chain would be asked to take over a schema that
+ * carries objects it does not name. Every arm instead creates its own database
+ * from pristine `template1` — the same semantics
+ * `scripts/local-gates/db-fresh-schema.sh` uses.
  *
  * Create and drop live together because they are one lifecycle: whoever created
  * a database owns removing it (#1663). `createCleanDatabase` cannot own the
