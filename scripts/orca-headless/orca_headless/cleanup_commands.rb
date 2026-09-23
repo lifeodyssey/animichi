@@ -13,9 +13,14 @@ module OrcaHeadless
       [orca(context), "terminal", "show", "--terminal", handle(context), "--json"]
     end
 
-    def settlement(context)
-      [orca(context), "orchestration", "check", "--terminal",
-       context.launch.fetch("coordinatorHandle"), "--run", context.launch.fetch("runId"),
+    def run_show(context)
+      [orca(context), "orchestration", "run-show", "--id", context.launch.fetch("runId"),
+       "--json"]
+    end
+
+    def settlement(context, coordinator_handle)
+      [orca(context), "orchestration", "check", "--terminal", coordinator_handle,
+       "--run", context.launch.fetch("runId"),
        "--all", "--types", "worker_done", "--json"]
     end
 

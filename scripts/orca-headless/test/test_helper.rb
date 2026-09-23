@@ -136,6 +136,6 @@ module CleanupTestFixture
 
   def cleanup_prechecks
     [worker_show_response("completed", "succeeded"), terminal_show_response,
-     settlement_response].map { |item| command_result(item) }
+     run_show_response, settlement_response].map { |item| command_result(item) }
   end
 end

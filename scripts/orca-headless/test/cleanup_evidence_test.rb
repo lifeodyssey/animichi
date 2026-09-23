@@ -14,8 +14,8 @@ module CleanupEvidenceFixture
   end
 
   def successful_cleanup_with(worker)
-    values = [worker, terminal_show_response, settlement_response, release_response,
-              terminal_show_response, close_response]
+    values = [worker, terminal_show_response, run_show_response, settlement_response,
+              release_response, terminal_show_response, close_response]
     values.map { |item| command_result(item) }
   end
 
@@ -56,7 +56,7 @@ class CleanupMessageShapeTest < Minitest::Test
     code, _out, error = invoke(cleanup_args, runner)
     assert_equal 1, code
     assert_match(/settlement messages are invalid/, error)
-    assert_equal 3, runner.calls.length
+    assert_equal 4, runner.calls.length
   end
 
   def test_refuses_a_non_object_message_record
@@ -64,7 +64,7 @@ class CleanupMessageShapeTest < Minitest::Test
     code, _out, error = invoke(cleanup_args, runner)
     assert_equal 1, code
     assert_match(/settlement messages are invalid/, error)
-    assert_equal 3, runner.calls.length
+    assert_equal 4, runner.calls.length
   end
 
   def test_refuses_a_non_object_settlement_payload
@@ -92,7 +92,8 @@ class CleanupMessageShapeTest < Minitest::Test
   end
 
   def runner_for_settlement(settlement)
-    values = [worker_show_response("completed", "succeeded"), terminal_show_response, settlement]
+    values = [worker_show_response("completed", "succeeded"), terminal_show_response,
+              run_show_response, settlement]
     FakeCommandRunner.new(values.map { |item| command_result(item) })
   end
 end

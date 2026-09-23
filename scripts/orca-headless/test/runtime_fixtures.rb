@@ -46,6 +46,13 @@ module RuntimeFixtures
       .map { |payload| command_result(payload) }
   end
 
+  def run_show_response(coordinator_handle = "term_coordinator1", generation = 1)
+    run = { "id" => "run_example1", "objective" => "Headless test",
+            "coordinator_handle" => coordinator_handle, "consumer_generation" => generation,
+            "created_at" => "2026-09-12T23:28:32Z", "updated_at" => "2026-09-12T23:28:32Z" }
+    ok_response("run" => run)
+  end
+
   def worker_show_response(status = "dispatched", outcome = nil)
     terminal = terminal_response.dig("result", "terminal")
       .merge("worktreePath" => File.realpath(@workspace))
