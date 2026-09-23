@@ -10,7 +10,7 @@ data: {"type":"tool-output-available","toolCallId":"resolve_anime-fixture","outp
 
 data: {"type":"data-response","id":"response","data":{"intent":"clarify"}}
 
-data: {"type":"data-response","id":"response","data":{"intent":"clarify","success":true,"status":"needs_clarification","message":"どの作品でしょうか？","data":{"reason":"anime_ambiguity","clarification_id":1,"candidates":[{"title":"115908","id":"115908"},{"title":"117696","id":"117696"}]},"session":{},"route_history":[],"errors":[],"ui":{"component":"Clarification"},"session_id":"s-fixture"}}
+data: {"type":"data-response","id":"response","data":{"intent":"clarify","success":true,"status":"needs_clarification","message":"どの作品でしょうか？","data":{"reason":"anime_ambiguity","clarification_id":1,"candidates":[{"title":"115908","id":"115908"},{"title":"117696","id":"117696"}]},"ui":{"component":"Clarification"},"session_id":"s-fixture"}}
 
 data: {"type":"finish-step"}
 
