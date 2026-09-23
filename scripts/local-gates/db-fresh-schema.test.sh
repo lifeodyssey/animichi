@@ -20,15 +20,6 @@ source "$SCRIPT_DIR/stub-env.sh"
 STUB="$GATE_STUB_ROOT/out"
 mkdir -p "$STUB"
 
-run_gate() {
-  local rc=0
-  (
-    cd "$REPO_ROOT"
-    PATH="$GATE_STUB_BIN:$PATH" GATE_TEST_LOG="$GATE_STUB_ROOT/log" "$GATE"
-  ) >"$GATE_STUB_ROOT/stdout" 2>&1 || rc=$?
-  echo "$rc"
-}
-
 assert_msg() {
   grep -qF -- "$1" "$GATE_STUB_ROOT/stdout" || {
     echo "FAIL: output lacks: $1" >&2
@@ -59,15 +50,20 @@ make_dockerless_bin() {
   printf '%s\n' "$dockerless"
 }
 
+# The log is truncated per run, so it records THIS run's invocations and a
+# count of them means what it reads as.
 run_with_path() {
   local path="$1"
   local rc=0
+  : >"$GATE_STUB_ROOT/log"
   (
     cd "$REPO_ROOT"
     PATH="$path" GATE_TEST_LOG="$GATE_STUB_ROOT/log" "$GATE"
   ) >"$GATE_STUB_ROOT/stdout" 2>&1 || rc=$?
   printf '%s\n' "$rc"
 }
+
+run_gate() { run_with_path "$GATE_STUB_BIN:$PATH"; }
 
 test_docker_not_installed_fails_closed() {
   local rc
@@ -127,9 +123,75 @@ test_success_applies_only_to_pristine_template1_schema() {
   echo "ok: applies the full chain to the pristine template1 database on the disposable container"
 }
 
+# PostgreSQL's own refusal when template1 has another session attached (#1874),
+# and a refusal that is NOT that: the gate must reissue the first statement and
+# stop on the second.
+TEMPLATE1_IN_USE='ERROR:  source database "template1" is being accessed by other users'
+CREATE_DENIED='ERROR:  permission denied to create database'
+
+# A docker stub that refuses `CREATE DATABASE gate TEMPLATE template1` the way a
+# busy template1 refuses it. It delegates to the shared stub first, so the
+# invocation is recorded exactly as every other one is, and only then replaces
+# the exit status. `clears` frees template1 after one refusal, as a transient
+# background-worker session does; `persists` never frees it.
+make_busy_template1_docker() {
+  local dir="$GATE_STUB_ROOT/$1" lifetime="$2" refusal="$3"
+  mkdir -p "$dir"
+  cat >"$dir/docker" <<STUB
+#!/usr/bin/env bash
+"$GATE_STUB_BIN/docker" "\$@" || exit \$?
+case "\$*" in *'CREATE DATABASE gate TEMPLATE'*) ;; *) exit 0 ;; esac
+[ "$lifetime" = clears ] && [ -e "$dir/refused" ] && exit 0
+: >"$dir/refused"
+printf '%s\n' '$refusal' >&2
+exit 1
+STUB
+  chmod +x "$dir/docker"
+  printf '%s\n' "$dir:$GATE_STUB_BIN:$PATH"
+}
+
+# How many times the gate issued the create — the difference between waiting a
+# busy template1 out and reporting a refusal it cannot wait out.
+assert_create_attempts() {
+  local seen
+  seen="$(grep -cF -- 'CREATE DATABASE gate TEMPLATE template1' "$GATE_STUB_ROOT/log" || true)"
+  [ "$seen" = "$1" ] || { echo "FAIL: expected $1 create attempts, saw $seen" >&2; exit 1; }
+}
+
+test_busy_template1_is_waited_out() {
+  local rc
+  rc="$(run_with_path "$(make_busy_template1_docker busy-once clears "$TEMPLATE1_IN_USE")")"
+  [ "$rc" = "0" ] || { echo "FAIL: a transient template1 session must not fail the gate" >&2
+    cat "$GATE_STUB_ROOT/stdout" >&2; exit 1; }
+  assert_msg "fresh-schema apply: OK"
+  assert_create_attempts 2
+  echo "ok: a busy template1 is waited out by reissuing the same create"
+}
+
+test_template1_never_free_fails_closed() {
+  local rc
+  rc="$(run_with_path "$(make_busy_template1_docker busy-forever persists "$TEMPLATE1_IN_USE")")"
+  [ "$rc" != "0" ] || { echo "FAIL: a template1 that never comes free must fail closed" >&2; exit 1; }
+  assert_msg "template1 never came free"
+  assert_msg "no other session attached"
+  echo "ok: a template1 that never comes free fails closed, naming the precondition"
+}
+
+test_refusal_beyond_template1_is_not_reissued() {
+  local rc
+  rc="$(run_with_path "$(make_busy_template1_docker create-denied persists "$CREATE_DENIED")")"
+  [ "$rc" != "0" ] || { echo "FAIL: a refusal beyond template1 must fail closed" >&2; exit 1; }
+  assert_msg "permission denied to create database"
+  assert_create_attempts 1
+  echo "ok: a refusal that is not the template1 conflict is reported once, not reissued"
+}
+
 test_docker_not_installed_fails_closed
 test_daemon_down_fails_closed
 test_image_missing_fails_with_build_command
 test_tcp_readiness_fails_closed
 test_success_applies_only_to_pristine_template1_schema
+test_busy_template1_is_waited_out
+test_template1_never_free_fails_closed
+test_refusal_beyond_template1_is_not_reissued
 echo "db-fresh-schema.test.sh: all green"
