@@ -16,6 +16,17 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
              %r{production-baseline-guard},
              %r{migrations/neon}, /atlas\.sum/, /atlas_schema_revisions/,
              /\batlas\s+migrate\b/, /ariga\/setup-atlas/, /ATLAS_BIN/, /ATLAS_VERSION/].freeze
+  # Those patterns are all artefact names, so they catch a reference to the retired chain's
+  # directory, checksum, ledger, CLI and environment variables. They cannot catch the claim that
+  # misleads an operator more: that the retired authority is what applies migrations TODAY
+  # (#1871, found on `workers/migrator/wrangler.toml`). That claim is prose — an apply verb and
+  # the authority's name inside ONE sentence. A record of the retirement separates the two with a
+  # sentence boundary, or uses no apply verb at all, which is why the boundary is the rule.
+  STILL_APPLYING = /
+    \bapplies\b [^.]* \batlas\b                                # "applies the committed Atlas chain"
+  | \batlas\b [^.]* \b(?:is|are)\s+(?:still\s+)?applied\b      # "Atlas is still applied by"
+  /xi
+
   # History, not live surfaces — exempt by path family, one stated reason each:
   HISTORY = {
     %r{\Adocs/archive/} => "read-only history (DOCS_POLICY)",
@@ -45,11 +56,29 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
   }.freeze
 
   def test_no_live_surface_names_a_retired_migration_authority
-    offenders = live_files.flat_map { |path| retired_lines(path) }
+    offenders = live_files.flat_map { |path| offending_lines(path, RETIRED) }
     assert_empty(offenders,
                  "these live surfaces still name a deleted migration authority — the staging-only " \
                  "baseline gate (#1621, #1635) or the Atlas chain (#1636). Delete the reference, " \
                  "or move a dated record under docs/archive/:\n  " \
+                 "#{offenders.join("\n  ")}")
+  end
+
+  # The rule, not the tree: once every live surface is fixed the sweep below is empty either
+  # way, so this is what deleting STILL_APPLYING turns red.
+  def test_the_still_applying_rule_reads_a_claim_and_leaves_a_record
+    assert_match(STILL_APPLYING, "POST /migrate applies the committed Atlas chain")
+    assert_match(STILL_APPLYING, "Atlas is still applied by the catalog spike")
+    refute_match(STILL_APPLYING, "the Atlas chain was retired in #1636")
+    refute_match(STILL_APPLYING, "src/atlas-leftovers.ts — a cleanup of Atlas leftovers")
+  end
+
+  def test_no_live_surface_claims_a_retired_authority_still_applies
+    offenders = live_files.flat_map { |path| offending_lines(path, [STILL_APPLYING]) }
+    assert_empty(offenders,
+                 "these live surfaces read as though a deleted migration authority still " \
+                 "applies migrations (#1636, #1871). Say what applies now, or put the " \
+                 "retirement in a sentence of its own so it reads as history:\n  " \
                  "#{offenders.join("\n  ")}")
   end
 
@@ -65,12 +94,12 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
     out.split("\0").select { |path| File.file?(File.join(ROOT, path)) }
   end
 
-  def retired_lines(path)
+  def offending_lines(path, patterns)
     text = File.binread(File.join(ROOT, path))
     return [] if text.include?("\0")
 
     text.force_encoding(Encoding::UTF_8).scrub.each_line.with_index(1)
-        .select { |line, _| RETIRED.any? { |pattern| line.match?(pattern) } }
+        .select { |line, _| patterns.any? { |pattern| line.match?(pattern) } }
         .map { |line, number| "#{path}:#{number}: #{line.strip}" }
   end
 end

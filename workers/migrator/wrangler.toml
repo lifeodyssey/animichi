@@ -1,10 +1,15 @@
-# #1051 / #1124 / #1589 — the migrator Worker.
+# #1051 / #1124 / #1589 / #1634 — the migrator Worker.
 #
-# POST /migrate applies the committed Atlas chain over neon-http from this
-# Worker behind a fixed-name DO mutex. The retired one-shot Atlas container is
-# deliberately absent. The migrator DSN (MIGRATOR_DATABASE_URL, dedicated `migrator`
-# role, #1050) is a Secrets Store binding, never in GitHub, never on a runtime
-# worker (workers/edge/test/migrator-role-isolation.test.ts).
+# POST /migrate applies the one Prisma chain, read from the graph this Worker
+# carries at /bundle/migrations (src/prisma-target.ts), behind a fixed-name DO
+# mutex (src/lock.ts). Prisma's control client carries the apply over `pg` — a
+# TCP connection, which nodejs_compat below provides — to the DIRECT Neon
+# host; src/direct-dsn.ts rejects a pooled one before any SQL. neon-http is left
+# with two read-only probes: the ledger check that refuses a database the
+# retired chain migrated (src/atlas-leftovers.ts, #1625) and GET /catalog-schema.
+# The migrator DSN (MIGRATOR_DATABASE_URL, dedicated `migrator` role, #1050) is a
+# Secrets Store binding, never in GitHub, never on a runtime worker
+# (workers/edge/test/migrator-role-isolation.test.ts).
 #
 # Reached by the deploy pipeline at POST /migrate. Each environment's URL is
 # supplied to CI as the `MIGRATOR_STAGING_URL` / `MIGRATOR_PRODUCTION_URL`

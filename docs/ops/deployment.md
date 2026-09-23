@@ -76,9 +76,9 @@ The action downloads by ID/run/repository and treats a digest mismatch as an err
 artifact causes refusal; the controller never rebuilds it or substitutes another release.
 
 The immutable tar contains all five Worker deployments: web output/assets, catalog, users, edge
-and migrator bundles/configurations; the complete native Atlas
-chain and baseline marker; the native Prisma contract and complete migration graph; and all tracked
-Pulumi sources with the generated pinned Neon SDK.
+and migrator bundles/configurations; the native Prisma contract and complete migration graph,
+carried inside the migrator bundle by `workers/migrator/scripts/prepare-migrations.ts`; and all
+tracked Pulumi sources with the generated pinned Neon SDK.
 The controller validates the archive boundary, required components, file digests and exact migration
 and infrastructure source closure. Wrangler's pinned native parser seals and verifies configurations.
 Artifact files cannot replace controller scripts or actions, and publication runs with `--no-bundle`.
@@ -99,10 +99,11 @@ commit-order queue or `queue: max` exception.
 
 Before any Pulumi apply or Worker publication, both jobs verify every image a selected snapshot
 names against the real remote manifest and linux/amd64 configuration with Docker, then read actual
-migration compatibility from the existing migrator's authenticated `/preflight`. Production refuses a staging-only baseline
-before any mutation. After the Atlas check, CD retires the legacy migrator container application when
+migration compatibility from the existing migrator's authenticated `/preflight`.
+What protects production is that job's own `production` environment approval, above. After
+that preflight, CD retires the legacy migrator container application when
 the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
-Atlas and Prisma bundle identities, and runs native Prisma read-only preview. Application foundation,
+Prisma bundle identity, and runs native Prisma read-only preview. Application foundation,
 DDL and service publication remain gated behind that preview. Missing, empty, partially applied,
 divergent or newer database history fails closed. A Wrangler dry run or `/healthz` response does not
 prove the applied database state or registry availability.
@@ -155,7 +156,7 @@ stay bound.
 
 The environment-scoped CD job performs retirement in this order:
 
-1. Call the already-serving migrator's authenticated Atlas-only preflight.
+1. Call the already-serving migrator's authenticated `/preflight`.
 2. Retire the migrator application, then the edge application
    (`scripts/delivery/retire-migrator-container.sh`, `scripts/delivery/retire-edge-container.sh`,
    both on the shared `scripts/delivery/container-application-retirement.sh`). If the selected

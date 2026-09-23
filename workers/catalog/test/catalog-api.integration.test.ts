@@ -23,8 +23,8 @@ vi.mock("cloudflare:workers", () => ({
 /**
  * End-to-end proof for the wired Catalog service (Wave 2 capstone).
  *
- * Boots the REAL Hono `app` (from src/index.ts) against the suite-owned Neon
- * branch, with `DATABASE_URL` pointing at Neon Local's proven HTTP endpoint.
+ * Boots the REAL Hono `app` (from src/index.ts) against the suite database on
+ * the hermetic Docker arm, with `DATABASE_URL` set to it.
  * Each call goes through the
  * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
  * -> plan -> PostGIS query -> response. This is the integration that the
@@ -38,7 +38,7 @@ vi.mock("cloudflare:workers", () => ({
  * `{point}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves
  * real contract conformance: it would FAIL against the old RPCHandler.
  *
- * Schema comes from the full Atlas-applied `test-base` parent.
+ * Schema comes from the committed Prisma chain, cloned into the suite database.
  */
 
 let pool: pg.Pool;

@@ -2,9 +2,10 @@ import { defineConfig } from "vitest/config";
 
 /**
  * Postgres-backed integration config — plain Node environment (default forks pool).
- * The global setup boots the hermetic Docker Postgres+PostGIS arm (see
- * test/integration-db-global.ts) and applies the committed Atlas chain to a clean
- * database; every *.integration.test.ts runs against it with zero Neon credentials.
+ * The global setup boots the hermetic Docker Postgres+PostGIS arm and clones the
+ * container's migrated template into one suite database (see
+ * test/integration-db-global.ts, #1769); every *.integration.test.ts runs against
+ * it with zero Neon credentials.
  */
 export default defineConfig({
   test: {

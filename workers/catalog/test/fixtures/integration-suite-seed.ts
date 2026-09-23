@@ -1,13 +1,13 @@
 import type pg from "pg";
 
 /** A brand-new work id (not in seed()) so ingest exercises the full fetch ->
- * raw -> enrich -> publish pass against the real suite branch. */
+ * raw -> enrich -> publish pass against the real suite database. */
 export const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
 export const NEW_TITLE = "けいおん！";
 
 // A second uncovered work, reached via the search MISS path (Bangumi search ->
 // resolve id -> ingest -> return). Distinct from NEW_WORK_ID so the two ingest
-// E2Es don't collide in the shared suite branch.
+// E2Es don't collide in the shared suite database.
 export const MISS_WORK_ID = "100020"; // Bangumi subject id (Hibike! Euphonium)
 export const MISS_TITLE = "響け！ユーフォニアム";
 

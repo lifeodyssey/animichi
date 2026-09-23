@@ -2,7 +2,8 @@
  * Immutable snapshot integration suite (issue #1012, AC1-AC6).
  *
  * Runs the export -> manifest -> validate -> activate -> gc pipeline against a
- * real Postgres (the committed Atlas chain applied to a clean database) with an in-memory object store.
+ * real Postgres — the committed Prisma chain's schema, cloned into the suite
+ * database — with an in-memory object store.
  *   AC1: export contains only public catalog data; auth/user/run-log rows absent.
  *   AC2: manifest records schema version, source run id, hashes, counts, time, compat.
  *   AC3: validation failure leaves current unchanged; success moves previous and activates.

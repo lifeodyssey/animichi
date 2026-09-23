@@ -17,8 +17,8 @@ import {
  *
  * Exercises the durable run protocol (AC1), deterministic discovery (AC2),
  * provenance capture (AC4), bounded raw retention (AC5), and the partial/failed
- * run guarantee that never advances a published pointer (AC6) against a real
- * Neon Postgres with the complete Atlas schema.
+ * run guarantee that never advances a published pointer (AC6) against the
+ * committed Prisma chain's schema, cloned into the suite database.
  */
 
 const POLICY: RunPolicy = {
