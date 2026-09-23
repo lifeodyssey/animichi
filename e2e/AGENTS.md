@@ -18,8 +18,9 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
 specifications first (`lane-port.test.ts` — the port derivation is a specification, not a comment —
 `helpers/neon-auth-origin.test.ts` — the Neon Auth origin is resolved by one rule, not two — and
 `reporters/no-skipped-tests.test.ts` — the no-skip rule's verdict, driven with the facts it reads —
-and `live-login-env.test.ts` — the live lane's own argv, executed so that `.env.test` loading is
-measured rather than grepped),
+`live-login-env.test.ts` — the live lane's own argv, executed so that `.env.test` loading is
+measured rather than grepped — and `fixtures/chat-stream.test.ts` — the recordings the fixture
+serves, held to the session id `responseChunks` always writes (#1903)),
 then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
 `webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the sixteen specs the lane
@@ -208,6 +209,10 @@ fails, and with the exemption inverted seven of its cases fail.
   from `apps/web/web-cwv.config.ts`.
 - `fixtures/map-spike.ts` — canvas pixel reads for the map spike; its ground colours come from
   `apps/web/src/features/map-spike/map-colors.ts`, the same literals `map-style.ts` paints.
+- `fixtures/chat-stream.ts` — the recorded agent streams every chat spec replays. The recordings
+  carry the envelope the deployed edge sends, `session_id` included (#1903), and
+  `RECORDING_SESSION_ID` is the id they assign; `patchSessionId` injects a different one only for a
+  spec that stubs a recovery route by name.
 - `../scripts/e2e-setup.sh` — dependency + browser install; no Supabase/Mailpit preparation.
 - `../test/repo-config/e2e-spec-coverage.test.rb` — the rule that every committed `*.spec.ts` is in
   the lane or named as outside it.
@@ -220,4 +225,5 @@ fails, and with the exemption inverted seven of its cases fail.
   injection). It is not coming back: the Neon flow is an HttpOnly cookie on the Neon Auth origin,
   which is exactly why the live login spec signs in through the browser context's shared cookie
   jar rather than injecting a token. Recover the old fixture from git history only for reference.
-- The remaining `e2e/fixtures/` hold only `chat-stream.ts` and `map-spike.ts`.
+- The remaining `e2e/fixtures/` hold `chat-stream.ts`, its specification `chat-stream.test.ts`, and
+  `map-spike.ts`.
