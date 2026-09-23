@@ -10,13 +10,14 @@ require "open3"
 class OpenCardDeferralsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   REGISTER = "test/repo-config/fixtures/deferred-card-states.json".freeze
-  # A deferral binds an undone action to a card, and each pattern captures the card its own words
-  # name — so "Was Live … until #1078: … deleting them is #1081" contributes #1081 alone, and the
-  # past record beside it stays out. English outside these four shapes is the recall gap, stated
-  # in the card's report: a document that parks work in other words is not seen here.
+  # A deferral binds an undone action to a card, and each pattern captures the card ITS OWN words
+  # name — so "Was Live … until #1078: … deleting them is #1081" contributes #1081 alone and the
+  # past record beside it stays out. Five shapes, each read off a sentence this repository had
+  # written; English outside them is the recall gap the card's report states.
   DEFERRALS = [
-    /\b(?:is|are)\s+(?:issue\s+)?#(\d{3,4})\b/,                                  # "deleting them is #1081"
-    /\btracked\s+(?:as|in|by|under)\s+(?:\[[^\]]*?)?(?:issue\s+)?#(\d{3,4})\b/i, # "tracked as #1081"
+    /\b(?:is|are)\s+(?:issue\s+)?#(\d{3,4})\b/,                                     # "deleting them is #1081"
+    /\btrack(?:ed|s|ing)?\b[^.#]{0,30}?\b(?:as|in|by|under)\s+(?:\[[^\]]*?)?(?:issue\s+)?#(\d{3,4})\b/i,
+    /\bdeferred?\s+to\s+(?:\[[^\]]*?)?(?:issue\s+)?#(\d{3,4})\b/i,                  # "deferred to #1619"
     /\b(?:until|once|after)\s+(?:issue\s+)?#(\d{3,4})\s+(?:lands?|merges?|closes?|ships?)\b/i,
     /\b(?:until|once|after)\s+(?:it|they|this\s+card|that\s+card)\s+(?:lands?|merges?|closes?|ships?)\b[^#]{0,20}#(\d{3,4})\b/i,
   ].freeze
