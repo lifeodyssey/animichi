@@ -116,4 +116,4 @@ for test_case in \
   "$test_case"
 done
 
-echo "PASS: redact-dsn-passwords.test.sh"
+echo "PASS: migrate-through-worker-redaction.test.sh"
