@@ -127,8 +127,9 @@ report_failure() {
 #      its key intact — but that closer is optional, so a value whose end never arrived
 #      still ends where the units stop instead of falling through to the bare branch,
 #      which takes the lone backslash and prints the rest of the secret behind the next
-#      quote (#1905). The escaped branch also stops before a following `;host=`, which
-#      the bare branch eats (#1881 gap 4).
+#      quote (#1905). A closed escaped value also stops before a following `;host=`, which
+#      the bare branch eats (#1881 gap 4). A value whose closer never arrived has no such
+#      boundary and takes it.
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
