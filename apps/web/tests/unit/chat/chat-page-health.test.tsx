@@ -8,9 +8,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackendHealth } from "../../../src/features/chat/use-backend-health";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
-import { healthzDownHandler, healthzOkHandler, healthzUnavailableHandler } from "../../msw/chat-handlers";
+import {
+  CHAT_URL,
+  chatStreamHandler,
+  healthzControlledHandler,
+  healthzDownHandler,
+  healthzOkHandler,
+  healthzUnavailableHandler,
+} from "../../msw/chat-handlers";
+import { chatTurnsAnswered } from "../../msw/chat-answered";
+import { drainInFlightRequests, expectAbandonedRequests } from "../../msw/in-flight-requests";
 import { TEST_ORIGIN } from "../../msw/fixtures";
-import { chatSearch, renderChatPage } from "./_chat-page";
+import { chatNavigation, chatSearch, renderChatPage } from "./_chat-page";
 
 beforeEach(() => {
   setLanguages(["ja"]);
@@ -63,6 +72,36 @@ describe("A2 auto-send health gate", () => {
     renderChatPage(chatSearch({ q: "ハルヒ" }), false);
     await screen.findByRole("alert");
     expect(screen.queryByText("ハルヒ")).toBeNull();
+  });
+
+  /**
+   * #1512 AC1. `useAutoSend` fires once per mounted instance, and its guard is
+   * a ref — a REMOUNT gets a fresh one. What keeps this visit to a single turn
+   * is the gate in front of it: the first instance leaves while `/healthz` is
+   * still unanswered, so it never sent, and the probe answers into the second
+   * one alone. Both mounts share this visit's query cache, exactly as they
+   * share the app's (`src/router.tsx`), which is what makes that the real
+   * ordering rather than a harness artefact.
+   *
+   * A turn here is a POST to the chat endpoint: the AI SDK's `submit-message`.
+   */
+  it("sends ?q= once when the page remounts while the health probe is still pending", async () => {
+    const turns: string[] = [];
+    const probe = healthzControlledHandler();
+    server.use(probe.handler, chatStreamHandler("search", { spy: (request) => turns.push(request.url) }));
+    const visit = chatNavigation(chatSearch({ q: "ハルヒ" }), false);
+
+    visit.mount().unmount();
+    visit.mount();
+    expectAbandonedRequests(1);
+    await drainInFlightRequests();
+    expect(turns).toEqual([]);
+
+    const answered = chatTurnsAnswered(1);
+    probe.release();
+    await answered;
+    await drainInFlightRequests();
+    expect(turns).toEqual([CHAT_URL]);
   });
 });
 

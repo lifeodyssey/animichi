@@ -162,6 +162,27 @@ export const healthzOkHandler = http.get(HEALTHZ_URL, () =>
 
 export const healthzDownHandler = http.get(HEALTHZ_URL, () => HttpResponse.error());
 
+export interface ControlledHealthzProbe {
+  readonly handler: HttpHandler;
+  /** Answer the probe OK; the A5 gate flips to healthy on the next flush. */
+  readonly release: () => void;
+}
+
+/**
+ * A `/healthz` probe the case answers itself, so "the gate is still pending"
+ * is a state an act can be performed INSIDE rather than a window the runner
+ * happens to leave open (#1512). The shape is `chatStreamControlledHandler`'s.
+ */
+export function healthzControlledHandler(): ControlledHealthzProbe {
+  let answer: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { answer = resolve; });
+  const handler = http.get(HEALTHZ_URL, async () => {
+    await held;
+    return HttpResponse.json({ status: "ok" });
+  });
+  return { handler, release: () => { answer(); } };
+}
+
 /** The other shape a broken deploy takes: the route answers, but not 2xx — a
  * half-started host in front of `/healthz` answers 503 rather than dropping the
  * connection, and the A5 gate must read that as down too. */
