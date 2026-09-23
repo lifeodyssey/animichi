@@ -76,6 +76,53 @@ it("returns only the native failure code and closes the control client", async (
   expect(native.close).toHaveBeenCalledOnce();
 });
 
+// #1891 — `RUNNER_FAILED` alone is what staging could read. The failure's own fields beyond the
+// code, with the names the control client's `MigrateFailure` declares, are the operator's only
+// lead, so the 500 keeps them as a `cause` and the log carries the same line.
+it("keeps a reported failure's fields beyond the code in the cause and the log", async () => {
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  native.migrate.mockResolvedValue({ ok: false, failure: {
+    code: "RUNNER_FAILED",
+    summary: "Migration runner failed",
+    why: 'type "restart_marker" does not exist',
+    meta: { migration: "20260923_x" },
+  } });
+  const response = await (await nativeApp(DSN)).migrate();
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({ success: false, exitCode: 1, error: "RUNNER_FAILED",
+    cause: 'type "restart_marker" does not exist — Migration runner failed' });
+  expect(logged.mock.calls.flat().join(" ")).toBe(
+    '[migrator] apply failed: type "restart_marker" does not exist — Migration runner failed');
+  expect(native.close).toHaveBeenCalledOnce();
+});
+
+// The reported path reaches a public repository's log exactly as the thrown one does, so the
+// connection string a driver printed into `why` is replaced before either surface carries it.
+it("redacts the connection string out of a reported failure's cause and log", async () => {
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  native.migrate.mockResolvedValue({ ok: false, failure: {
+    code: "RUNNER_FAILED",
+    summary: "Migration runner failed",
+    why: "connect postgresql://migrator:REDACT_ME_PLACEHOLDER@ep-fixture.neon.tech/neondb failed",
+  } });
+  const response = await (await nativeApp(DSN)).migrate();
+  expect(await response.json()).toEqual({ success: false, exitCode: 1, error: "RUNNER_FAILED",
+    cause: "connect postgresql://[redacted] failed — Migration runner failed" });
+  expect(logged.mock.calls.flat().join(" ")).toBe(
+    "[migrator] apply failed: connect postgresql://[redacted] failed — Migration runner failed");
+});
+
+// The other mutation: a failure that states nothing beyond its code must not grow an empty
+// `cause` — the body keeps exactly the fields it kept before this card, and nothing is logged.
+it("returns a failure stating nothing beyond its code as the code alone", async () => {
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  native.migrate.mockResolvedValue({ ok: false, failure: { code: "RUNNER_FAILED", summary: "", why: undefined, meta: undefined } });
+  const response = await (await nativeApp(DSN)).migrate();
+  expect({ status: response.status, body: await response.json() })
+    .toEqual({ status: 500, body: { success: false, exitCode: 1, error: "RUNNER_FAILED" } });
+  expect(logged).not.toHaveBeenCalled();
+});
+
 // `toEqual`, not `toMatchObject`: a handled outcome states its identity and stops there. A
 // `cause` appearing here would mean the thrown-failure channel had widened to swallow the
 // outcomes that already name themselves, which is the same defect under a newer name (#1868).

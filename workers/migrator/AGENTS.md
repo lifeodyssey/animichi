@@ -71,9 +71,12 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    Object RPC itself failed — so the database state is unread; `migration_unavailable`
    is the narrower fact that the apply ran and threw. Both put the thrown message
    through `src/redacted-cause.ts` first, and log it as well as return it,
-   because the answer itself can be lost on the way out. Every handled outcome
-   keeps its own identity and no cause: `refused`, a native failure code,
-   `prisma_marker_mismatch`, `stale_prisma_bundle`.
+   because the answer itself can be lost on the way out. A failure Prisma
+   REPORTED keeps its stable code and, when the failure stated fields beyond
+   that code (`summary`, `why` of `MigrateFailure`), carries them as a
+   redacted `cause` and logs the same line (#1891). Every other handled
+   outcome keeps its own identity and no cause: `refused`, a code-only native
+   failure, `prisma_marker_mismatch`, `stale_prisma_bundle`.
    Otherwise: returns success plus Prisma's own receipt — `markerHash`,
    `migrationsApplied` and `applied`. A receipt whose marker is not the requested
    identity refuses success (`prisma_marker_mismatch`). That receipt is visible

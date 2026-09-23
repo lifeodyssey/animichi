@@ -73,8 +73,10 @@ interface FailureJson {
 
 /**
  * `result.error` may be a driver message, so only the stable `failureCode` is published.
- * `result.cause` is different in kind: `selected-migration.ts` builds it through
- * `redactedCause`, and only for a failure that threw, so it is publishable as it stands.
+ * `result.cause` is different in kind: it crosses `redactedCause` before this file sees it —
+ * at the control boundary (`prisma-control.ts`) for the fields a reported native failure
+ * stated beyond its code (#1891), and in `selected-migration.ts` for a failure that threw
+ * (#1868) — so it is publishable as it stands.
  */
 function failureBody(result: Extract<SelectedMigration, { kind: "failure" }>): FailureJson {
   if (result.error === undefined) return { success: false, exitCode: result.exitCode };
