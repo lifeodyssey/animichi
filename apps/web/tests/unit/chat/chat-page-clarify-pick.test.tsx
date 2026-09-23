@@ -3,6 +3,7 @@
  */
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { http, HttpResponse } from "msw";
 import type { ChatTurnRequest } from "@animichi/contract";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { chatTurnsAnswered } from "../../msw/chat-answered";
@@ -73,6 +74,17 @@ async function pressAndAwaitTurn(control: HTMLElement): Promise<void> {
   await answered;
 }
 
+/** Reconnects the page makes to a native conversation stream, by pathname —
+ * `resumeStream`'s own endpoint, not a resubmitted turn. */
+function reconnectPaths(): string[] {
+  const seen: string[] = [];
+  server.use(http.get("*/v1/conversations/:sessionId/stream", ({ request }) => {
+    seen.push(new URL(request.url).pathname);
+    return new HttpResponse(null, { status: 204 });
+  }));
+  return seen;
+}
+
 async function openClarify(sent: SentTurn[]) {
   server.use(chatStreamPatchedHandler("clarify", clarifyCandidatesPatch, { spy: recordInto(sent) }));
   const answered = chatTurnsAnswered();
@@ -127,9 +139,12 @@ describe("clarify → pick → results (W1 #1220, MSW seam)", () => {
     await pressAndAwaitTurn(option);
     await screen.findByText(en.errorStates.d16Message);
     expect(screen.queryByText(en.errorStates.d4Message)).toBeNull();
-    // No persisted session in the recordings, so re-reading state degrades to
-    // regenerating the turn — either way a THIRD request leaves the browser.
-    await pressAndAwaitTurn(screen.getByRole("button", { name: en.errorStates.d16Retry }));
-    expect(sent).toHaveLength(3);
+    // The recording assigns a session (every deployed turn does), so the D16
+    // retry re-reads the latest native state instead of replaying the pick the
+    // server just called stale — a third turn never leaves the browser.
+    const reconnects = reconnectPaths();
+    fireEvent.click(screen.getByRole("button", { name: en.errorStates.d16Retry }));
+    await waitFor(() => { expect(reconnects).toEqual(["/v1/conversations/s-fixture/stream"]); });
+    expect(sent).toHaveLength(2);
   });
 });

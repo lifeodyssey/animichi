@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { SSE_HEADERS, chatStreamRecording, patchSessionId } from "./fixtures/chat-stream";
+import { RECORDING_SESSION_ID, SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
@@ -13,7 +13,6 @@ test.use({
 });
 
 const QUERY = "君の名は。 & #";
-const SESSION_ID = "s-1512";
 
 async function openChat(page: Page, query?: string): Promise<void> {
   await stubTurnstileEntry(page);
@@ -64,10 +63,11 @@ test("a plain /chat entry does not invent an auto-send query", { tag: "@browser"
  * auto-send is gated on that being absent. Back then Forward restores the
  * REPLACED entry, so the returning page reads a session and never re-sends.
  *
- * The stub therefore has to assign an id, as the deployed agent always does
- * (`workers/edge/src/agent/views/public-content.ts` takes `sessionId: string`);
- * the raw recordings captured a null one, and a test built on that would be
- * measuring the fixture rather than the page.
+ * The stub serves the recording unpatched: every recording carries the id the
+ * deployed agent always assigns (`workers/edge/src/agent/views/public-content.ts`
+ * takes `sessionId: string` and writes it into the envelope), so the page's
+ * publication into `?session=` is measured off the product's own frame rather
+ * than off an id this spec chose (#1903).
  *
  * `replays` is the witness that the Forward leg really re-entered the page: a
  * page restored whole from the back/forward cache would keep the ref, pass this
@@ -78,9 +78,9 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
   const replays: string[] = [];
   await page.route("**/v1/chat", (route) => {
     bodies.push(route.request().postDataJSON());
-    return route.fulfill({ status: 200, headers: SSE_HEADERS, body: patchSessionId(chatStreamRecording("search"), SESSION_ID) });
+    return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
-  await page.route(`**/v1/conversations/${SESSION_ID}/messages`, (route) => {
+  await page.route(`**/v1/conversations/${RECORDING_SESSION_ID}/messages`, (route) => {
     replays.push(route.request().url());
     return route.fulfill({ json: { messages: [], revision: 1, next_offset: null } });
   });
@@ -89,12 +89,12 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
   await openChat(page, QUERY);
   await solveChallenge(page);
   await expect.poll(() => bodies.length).toBe(1);
-  await expect(page).toHaveURL(new RegExp(`[?&]session=${SESSION_ID}(&|$)`, "u"));
+  await expect(page).toHaveURL(new RegExp(`[?&]session=${RECORDING_SESSION_ID}(&|$)`, "u"));
   expect(replays).toEqual([]);
 
   await page.goBack();
   await page.goForward();
-  await expect(page).toHaveURL(new RegExp(`[?&]session=${SESSION_ID}(&|$)`, "u"));
+  await expect(page).toHaveURL(new RegExp(`[?&]session=${RECORDING_SESSION_ID}(&|$)`, "u"));
   await solveChallenge(page);
   await expect.poll(() => replays.length).toBe(1);
   expect(bodies).toHaveLength(1);

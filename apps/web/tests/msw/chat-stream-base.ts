@@ -32,7 +32,7 @@ export function chatStreamFixture(name: ChatStreamFixture): string {
 }
 
 export interface ChatStreamOptions {
-  /** Patch the recorded final frame's `session_id` (recordings capture null). */
+  /** Patch the recorded final frame's `session_id` (the recordings carry their own). */
   readonly sessionId?: string;
   /** Patch the recorded final frame's Session offer (TURN-4 #955). */
   readonly sessionOffer?: { readonly revision?: number; readonly digest?: string };
