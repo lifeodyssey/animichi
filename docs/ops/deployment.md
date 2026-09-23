@@ -97,8 +97,8 @@ retains its native single pending selection, so a pending selection may be repla
 the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
 commit-order queue or `queue: max` exception.
 
-Before any Pulumi apply or Worker publication, both jobs read actual migration compatibility from
-the existing migrator's authenticated `/preflight`.
+Before any Pulumi apply, both jobs read actual migration compatibility from the migrator's
+authenticated `/preflight`.
 What protects production is that job's own `production` environment approval, above. After
 that preflight, CD retires the legacy migrator container application when
 the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
