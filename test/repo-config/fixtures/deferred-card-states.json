@@ -1,0 +1,64 @@
+{
+  "refreshed": "2026-09-23",
+  "command": "for n in $(ruby -rjson -e 'puts JSON.parse(File.read(ARGV[0]))[\"cards\"].map { |c| c[\"number\"] }' test/repo-config/fixtures/deferred-card-states.json); do gh issue view \"$n\" --repo lifeodyssey/animichi --json number,state,stateReason,closedAt,title; done",
+  "note": "Read by open-card-deferrals.test.rb, which cannot ask GitHub anything: this file is the repository's committed claim about the cards its live documents still park work on. The command above refreshes the states of the cards already listed; the contract names any card it does not list, so a new deferral tells you which number to add.",
+  "cards": [
+    {
+      "number": 1081,
+      "state": "CLOSED",
+      "stateReason": "NOT_PLANNED",
+      "closedAt": "2026-09-21T14:46:46Z",
+      "title": "Cabinet contract: delete migrated GitHub secrets and close #1045"
+    },
+    {
+      "number": 1297,
+      "state": "CLOSED",
+      "stateReason": "COMPLETED",
+      "closedAt": "2026-09-05T14:02:03Z",
+      "title": "W2 follow-up: cross-run tool-return replay vs per-run compaction window"
+    },
+    {
+      "number": 1370,
+      "state": "OPEN",
+      "title": "feat(edge): move edge runtime secrets into secrets store"
+    },
+    {
+      "number": 1523,
+      "state": "OPEN",
+      "title": "ops(infra): renew the staging access service token before 2027-09-08"
+    },
+    {
+      "number": 1593,
+      "state": "OPEN",
+      "title": "arch(repo): adjudicate where platform semantics fall short"
+    },
+    {
+      "number": 1612,
+      "state": "CLOSED",
+      "stateReason": "COMPLETED",
+      "closedAt": "2026-09-19T06:50:27Z",
+      "title": "feat(delivery): establish the orca harness"
+    },
+    {
+      "number": 1791,
+      "state": "CLOSED",
+      "stateReason": "COMPLETED",
+      "closedAt": "2026-09-18T16:48:51Z",
+      "title": "fix(catalog): attribute anitabi content and request it the way their docs say"
+    },
+    {
+      "number": 1792,
+      "state": "CLOSED",
+      "stateReason": "COMPLETED",
+      "closedAt": "2026-09-19T05:33:57Z",
+      "title": "feat(catalog): fetch anitabi through a fixed-address egress service"
+    },
+    {
+      "number": 1824,
+      "state": "CLOSED",
+      "stateReason": "COMPLETED",
+      "closedAt": "2026-09-21T16:02:04Z",
+      "title": "Count the egress ceiling over Fly Redis TCP"
+    }
+  ]
+}
