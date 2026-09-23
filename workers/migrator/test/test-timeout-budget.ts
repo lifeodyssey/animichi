@@ -47,7 +47,7 @@ export const WORKERD_BOOT_BUDGET_MS = 30_000;
 /**
  * Every file in `test/integration/` creates a database of its own on the
  * shared PostgreSQL container (#1663) and then migrates it inside a test body:
- * `CREATE DATABASE … TEMPLATE template1`, an Atlas or Prisma chain apply, and
+ * `CREATE DATABASE … TEMPLATE template0`, an Atlas or Prisma chain apply, and
  * for two of the files an esbuild plus Miniflare boot on top; the first file of
  * a run also pays that container's boot. The published PostGIS image is
  * `linux/amd64`, so on an arm64 host all of that runs under qemu (see

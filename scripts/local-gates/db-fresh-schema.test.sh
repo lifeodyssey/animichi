@@ -7,7 +7,7 @@
 # Docker or the offline image is unavailable — it never silently skips. The
 # pnpm and docker tools are stubbed (scripts/local-gates/stub-env.sh +
 # test-stub.sh); the success path asserts the gate waits for the admin
-# database, creates the pristine target database from template1, and applies
+# database, creates the pristine target database from template0, and applies
 # the chain only to that disposable 127.0.0.1 container (never the image-
 # preinitialised POSTGRES_DB, never shared Neon).
 set -euo pipefail
@@ -104,7 +104,7 @@ assert_fresh_chain() {
   assert_msg "fresh-schema apply: OK"
   assert_has "$GATE_STUB_ROOT/log" "docker run -d -e POSTGRES_PASSWORD=gate -e POSTGRES_DB=postgres"
   assert_has "$GATE_STUB_ROOT/log" "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres"
-  assert_has "$GATE_STUB_ROOT/log" "psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c CREATE DATABASE gate TEMPLATE template1"
+  assert_has "$GATE_STUB_ROOT/log" "psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c CREATE DATABASE gate TEMPLATE template0"
   assert_has "$GATE_STUB_ROOT/log" "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d gate"
 }
 
@@ -114,84 +114,59 @@ assert_chain_applied_to_the_disposable_target_only() {
   assert_lacks "$GATE_STUB_ROOT/log" "-e POSTGRES_DB=gate"
 }
 
-test_success_applies_only_to_pristine_template1_schema() {
+test_success_applies_only_to_pristine_template0_schema() {
   local rc
   rc="$(run_gate)" || true
   [ "$rc" = "0" ] || { echo "FAIL: success path exited $rc" >&2; exit 1; }
   assert_fresh_chain
   assert_chain_applied_to_the_disposable_target_only
-  echo "ok: applies the full chain to the pristine template1 database on the disposable container"
+  echo "ok: applies the full chain to the pristine template0 database on the disposable container"
 }
 
-# PostgreSQL's own refusal when template1 has another session attached (#1874),
-# and a refusal that is NOT that: the gate must reissue the first statement and
-# stop on the second.
-TEMPLATE1_IN_USE='ERROR:  source database "template1" is being accessed by other users'
+# The gate issues its create once and fails closed on any refusal. Since #1890
+# the source is `template0`, which `datallowconn = false` keeps every session
+# out of, so #1874's exclusivity conflict cannot arise and there is no refusal
+# class left that reissuing the statement would clear.
 CREATE_DENIED='ERROR:  permission denied to create database'
 
-# A docker stub that refuses `CREATE DATABASE gate TEMPLATE template1` the way a
-# busy template1 refuses it. It delegates to the shared stub first, so the
-# invocation is recorded exactly as every other one is, and only then replaces
-# the exit status. `clears` frees template1 after one refusal, as a transient
-# background-worker session does; `persists` never frees it.
-make_busy_template1_docker() {
-  local dir="$GATE_STUB_ROOT/$1" lifetime="$2" refusal="$3"
+# A docker stub whose `CREATE DATABASE gate TEMPLATE` refuses. It delegates to
+# the shared stub first, so the invocation is recorded exactly as every other one
+# is, and only then replaces the exit status.
+make_refusing_docker() {
+  local dir="$GATE_STUB_ROOT/create-denied"
   mkdir -p "$dir"
   cat >"$dir/docker" <<STUB
 #!/usr/bin/env bash
 "$GATE_STUB_BIN/docker" "\$@" || exit \$?
 case "\$*" in *'CREATE DATABASE gate TEMPLATE'*) ;; *) exit 0 ;; esac
-[ "$lifetime" = clears ] && [ -e "$dir/refused" ] && exit 0
-: >"$dir/refused"
-printf '%s\n' '$refusal' >&2
+printf '%s\n' '$1' >&2
 exit 1
 STUB
   chmod +x "$dir/docker"
   printf '%s\n' "$dir:$GATE_STUB_BIN:$PATH"
 }
 
-# How many times the gate issued the create — the difference between waiting a
-# busy template1 out and reporting a refusal it cannot wait out.
+# How many times the gate issued the create — one, never a retry loop.
 assert_create_attempts() {
   local seen
-  seen="$(grep -cF -- 'CREATE DATABASE gate TEMPLATE template1' "$GATE_STUB_ROOT/log" || true)"
+  seen="$(grep -cF -- 'CREATE DATABASE gate TEMPLATE template0' "$GATE_STUB_ROOT/log" || true)"
   [ "$seen" = "$1" ] || { echo "FAIL: expected $1 create attempts, saw $seen" >&2; exit 1; }
 }
 
-test_busy_template1_is_waited_out() {
+test_a_refused_create_fails_closed() {
   local rc
-  rc="$(run_with_path "$(make_busy_template1_docker busy-once clears "$TEMPLATE1_IN_USE")")"
-  [ "$rc" = "0" ] || { echo "FAIL: a transient template1 session must not fail the gate" >&2
-    cat "$GATE_STUB_ROOT/stdout" >&2; exit 1; }
-  assert_msg "fresh-schema apply: OK"
-  assert_create_attempts 2
-  echo "ok: a busy template1 is waited out by reissuing the same create"
-}
-
-test_template1_never_free_fails_closed() {
-  local rc
-  rc="$(run_with_path "$(make_busy_template1_docker busy-forever persists "$TEMPLATE1_IN_USE")")"
-  [ "$rc" != "0" ] || { echo "FAIL: a template1 that never comes free must fail closed" >&2; exit 1; }
-  assert_msg "template1 never came free"
-  assert_msg "no other session attached"
-  echo "ok: a template1 that never comes free fails closed, naming the precondition"
-}
-
-test_refusal_beyond_template1_is_not_reissued() {
-  local rc
-  rc="$(run_with_path "$(make_busy_template1_docker create-denied persists "$CREATE_DENIED")")"
-  [ "$rc" != "0" ] || { echo "FAIL: a refusal beyond template1 must fail closed" >&2; exit 1; }
+  rc="$(run_with_path "$(make_refusing_docker "$CREATE_DENIED")")"
+  [ "$rc" != "0" ] || { echo "FAIL: a refused create must fail closed" >&2; exit 1; }
+  assert_msg "failed to create the pristine target database from template0"
   assert_msg "permission denied to create database"
   assert_create_attempts 1
-  echo "ok: a refusal that is not the template1 conflict is reported once, not reissued"
+  echo "ok: a refused create is reported once and fails the gate"
 }
 
 test_docker_not_installed_fails_closed
 test_daemon_down_fails_closed
 test_image_missing_fails_with_build_command
 test_tcp_readiness_fails_closed
-test_success_applies_only_to_pristine_template1_schema
-test_busy_template1_is_waited_out
-test_template1_never_free_fails_closed
-test_refusal_beyond_template1_is_not_reissued
+test_success_applies_only_to_pristine_template0_schema
+test_a_refused_create_fails_closed
 echo "db-fresh-schema.test.sh: all green"

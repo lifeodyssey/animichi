@@ -13,9 +13,9 @@ No object has two migration owners; do not re-declare an object the chain alread
 - `pnpm run test:integration` — Node's test runner, one reused test-postgres container and a
   disposable database of its own. `--test-isolation=none` shares the imported setup and serial
   tests; each test resets that database. Never point these tests at a live Neon database.
-  `test/postgres.ts` creates the shared database from pristine `template1` and migrates it with
+  `test/postgres.ts` creates the shared database from pristine `template0` and migrates it with
   this chain, which builds every object the suites touch; the migration-target ACs create their
-  own `template1` database the same way. Both are created on the cluster `startTestPostgresCluster`
+  own `template0` database the same way. Both are created on the cluster `startTestPostgresCluster`
   opens, which applies no chain of its own (#1783) — one chain per database.
   Node's native coverage enforces 95% lines on `src/` and writes `coverage/lcov.info` for CI.
 

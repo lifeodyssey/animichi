@@ -16,7 +16,7 @@ async function installExtensions(dsn: string): Promise<void> {
   } finally { await client.end(); }
 }
 
-/** The migration target: a pristine `template1` database carrying the extensions Neon preinstalls
+/** The migration target: a pristine `template0` database carrying the extensions Neon preinstalls
  * and nothing else, so the sealed graph is the only owner of every object in it. Named per call
  * and dropped by `stop()`, like every database created on the shared container (#1663). */
 export interface PrismaMigrationTarget {

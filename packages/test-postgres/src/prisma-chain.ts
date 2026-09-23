@@ -2,7 +2,7 @@
  *
  * This is the continuous "the chain applies cleanly" check: every arm that
  * boots this image proves the committed migrations against a database created
- * from pristine `template1`, with zero Neon credentials and zero network. The
+ * from pristine `template0`, with zero Neon credentials and zero network. The
  * chain lives with the contract that owns it — one contract, one migrations
  * directory, one identity (`packages/pi-session-neon/prisma.config.ts`) — and
  * it is applied through the same CLI entrypoint the package's own suites use,

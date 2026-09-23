@@ -4,7 +4,7 @@
  * A clone is schema-identical to a database built by applying the chain:
  * tables, extensions, and prisma_contract.marker (Prisma's applied-chain
  * ledger). Six concurrent clones share no rows and do not take the chain-apply
- * lock. Cloning template1 fails by naming the missing chain object.
+ * lock. Cloning the pristine template fails by naming the missing chain object.
  *
  * test-type: integration (boots or reuses the offline image).
  */
@@ -110,9 +110,9 @@ void test("six concurrent clones each get their own database and do not take the
   }
 });
 
-void test("cloning from template1 fails naming the missing chain object", async () => {
+void test("cloning from the pristine template fails naming the missing chain object", async () => {
   const cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
-  const name = uniqueDatabaseName("template1_clone");
+  const name = uniqueDatabaseName("pristine_clone");
   const dsn = await createCleanDatabase(cluster.adminDsn, name);
   try {
     await assert.rejects(() => assertChainSchema(dsn), { message: "missing object: public.pi_sessions" });

@@ -19,7 +19,7 @@ const EXACT_SET_STEP = "information_schema.role_table_grants";
  * names. The closing step reads schema and sequence privileges instead, so it is not one. */
 const grantSteps = DATA_PLANE_ACCESS.postcheck.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
 
-/** Each test migrates its own database created from pristine `template1` — never the
+/** Each test migrates its own database created from pristine `template0` — never the
  * fixture's shared-suite database. The server is shared and outlives this run (#1663), so the
  * database this test owns is named per call and dropped by the test that created it. */
 async function cleanTarget(suite: string) {

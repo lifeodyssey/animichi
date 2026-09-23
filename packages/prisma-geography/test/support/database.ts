@@ -40,7 +40,7 @@ export async function startDatabaseFixture(): Promise<DatabaseFixture> {
   }
 }
 
-/** The pack's own chain database: pristine `template1`, the extensions the pack's DDL relies on,
+/** The pack's own chain database: pristine `template0`, the extensions the pack's DDL relies on,
  * then `prisma db migrate`. It carries only this pack's chain — never the data plane's, whose
  * marker this pack's chain would meet as a `MIGRATION.MARKER_MISMATCH` (one chain per database,
  * spec §4.7). */
