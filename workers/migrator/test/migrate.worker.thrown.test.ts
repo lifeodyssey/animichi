@@ -36,7 +36,7 @@ async function dispatchThrowing(message: string) {
 async function applyThrowing(dsn: string) {
   const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
     preflight: (connection, metadata) => preflightSelected(connection, metadata, MIGRATIONS),
-    migrate: (connection, metadata) => migrateSelected(connection, metadata, MIGRATIONS),
+    migrate: (connection, passwords, metadata) => migrateSelected(connection, passwords, metadata, MIGRATIONS),
   } });
   return await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: dsn });
 }

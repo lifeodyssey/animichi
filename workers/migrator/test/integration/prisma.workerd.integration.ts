@@ -1,16 +1,24 @@
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import pg from "pg";
-import { hookTimeoutMs, SPIKE_SETUP_BUDGET, startTestPostgresCluster } from "@animichi/test-postgres";
+import { hookTimeoutMs, SPIKE_SETUP_BUDGET } from "@animichi/test-postgres";
 import { issuedToken } from "../migrate.worker.helpers";
 import { requestMetadata, TARGET } from "./prisma-fixture";
 import { buildPrismaWorker } from "./prisma-bundle";
 import { startPrismaWorker } from "./prisma-workerd";
 import { openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-postgres";
-import { grantDatabaseCreate, migratorRole } from "./prisma-role";
+import { grantDatabaseCreate, migratorDsn, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./neon-http-postgres";
+import { roleBootTest, roleBootCluster } from "./role-boot";
+
+/* The deployed bundle against the real data plane (#1868, #1915). Every /migrate the worker
+ * applies provisions the five service roles, and the roles are cluster-global (#1663), so
+ * each case's applies run inside the cluster's apply turn through the `roleBoot` fixture —
+ * which asserts the roles' boot state before every case and restores it afterwards. The
+ * migrator identity itself is per-case too: `migratorRole` writes roles, so it runs inside
+ * the turn in `beforeEach`, keeping every role write of the file in the fixture's discipline. */
 
 /** Cloudflare's documented `blockConcurrencyWhile` cap, which this runtime enforces locally. */
 const CALLBACK_CAP_MS = 30_000;
@@ -18,28 +26,42 @@ const PAST_THE_CALLBACK_CAP_MS = 31_000;
 
 let runtime: Awaited<ReturnType<typeof startPrismaWorker>>;
 let token: string;
-const resources: { runtime?: typeof runtime; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
+let target: PrismaMigrationTarget | undefined;
+let client: pg.Client | undefined;
+const resources: { runtime?: typeof runtime; directory?: string } = {};
+
+/** The worker's data plane, opened by `beforeAll`: hooks own the lifetime, cases own the use. */
+function dataPlane(): { client: pg.Client; dsn: string } {
+  if (client === undefined || target === undefined) throw new Error("the worker's data plane is not open");
+  return { client, dsn: target.dsn };
+}
 
 beforeAll(async () => {
   const directory = resources.directory = await mkdtemp(join(tmpdir(), "native-migrator-worker-"));
   await buildPrismaWorker(directory);
-  const cluster = await startTestPostgresCluster({ budget: SPIKE_SETUP_BUDGET });
-  const target = resources.target = await openPrismaMigrationTarget(cluster.adminDsn, "native_delivery_worker_contract");
-  const client = resources.client = new pg.Client(target.dsn);
+  const cluster = await roleBootCluster();
+  target = await openPrismaMigrationTarget(cluster.adminDsn, "native_delivery_worker_contract");
+  client = new pg.Client(target.dsn);
   await client.connect();
-  const dsn = await migratorRole(client, target.dsn);
-  await grantDatabaseCreate(client, dsn);
   const signed = await issuedToken();
   token = signed.token;
   const started = performance.now();
-  runtime = resources.runtime = await startPrismaWorker(directory, dsn, signed.jwk);
+  runtime = resources.runtime = await startPrismaWorker(directory, migratorDsn(target.dsn), signed.jwk);
   await saveEvidence("native-workerd-startup-timing", { readyMs: performance.now() - started });
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 
+roleBootTest.beforeEach(async ({ roleBoot }) => {
+  const plane = dataPlane();
+  await roleBoot.hold(async () => {
+    await migratorRole(plane.client, plane.dsn);
+    await grantDatabaseCreate(plane.client, plane.dsn);
+  });
+});
+
 afterAll(async () => {
   await resources.runtime?.close();
-  await resources.client?.end();
-  await resources.target?.stop();
+  await client?.end();
+  await target?.stop();
   await rm(resources.directory ?? "/nonexistent-native-worker-test", { recursive: true, force: true });
 });
 
@@ -56,7 +78,7 @@ async function applyReceipt() {
   } };
 }
 
-it("runs authenticated preview and concurrent apply through the deployed entry and fixed DO with a non-superuser role", async () => {
+roleBootTest("runs authenticated preview and concurrent apply through the deployed entry and fixed DO with a non-superuser role", async ({ roleBoot }) => {
   const started = performance.now();
   const health = await runtime.worker.dispatchFetch("https://migrator.test/healthz");
   expect(await health.json()).toMatchObject({ prismaTarget: TARGET });
@@ -68,7 +90,7 @@ it("runs authenticated preview and concurrent apply through the deployed entry a
     compatible: true, prisma: { targetHash: TARGET, markerHash: "empty", usedLiveMarker: true },
   } });
   const previewed = performance.now();
-  const applied = await Promise.all([applyReceipt(), applyReceipt()]);
+  const applied = await roleBoot.hold(() => Promise.all([applyReceipt(), applyReceipt()]));
   expect(applied.map((response) => response.status)).toEqual([200, 200]);
   const bodies = applied.map((response) => response.body);
   expect(bodies.map((body) => body.prisma.markerHash)).toEqual([TARGET, TARGET]);
@@ -91,10 +113,10 @@ it("runs authenticated preview and concurrent apply through the deployed entry a
  * platform cancels this at 30 s and resets the object, and the route answers
  * `500 {"error":"apply_dispatch_failed"}` carrying that reset as its cause; the gate this
  * object uses now has no such bound, so the apply returns its marker. */
-it("applies through a round trip that outlasts the platform's blocked-callback cap", async () => {
+roleBootTest("applies through a round trip that outlasts the platform's blocked-callback cap", async ({ roleBoot }) => {
   runtime.latency.nextRoundTripMs = PAST_THE_CALLBACK_CAP_MS;
   const started = performance.now();
-  const response = await post("migrate");
+  const response = await roleBoot.hold(() => post("migrate"));
   const body: unknown = await response.json();
   const elapsedMs = performance.now() - started;
   // An apply that came back early would satisfy the status assertion against no bound at all.
@@ -105,8 +127,8 @@ it("applies through a round trip that outlasts the platform's blocked-callback c
   await saveEvidence("native-workerd-past-callback-cap", { elapsedMs, body });
 });
 
-it("rejects a requested native target absent from the sealed graph before reading a database", async () => {
-  const response = await post("migrate", { ...requestMetadata, expectedPrismaRef: "f".repeat(64) });
+roleBootTest("rejects a requested native target absent from the sealed graph before reading a database", async ({ roleBoot }) => {
+  const response = await roleBoot.hold(() => post("migrate", { ...requestMetadata, expectedPrismaRef: "f".repeat(64) }));
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({ error: "stale_prisma_bundle", prismaTarget: TARGET });
 });

@@ -79,6 +79,18 @@ case_redacts_a_colon_separated_password() {
   assert_redacts 'password: xxxxxxxx' 'password: ***'
 }
 
+# #1915 — the SQL keyword form the migrator's provisioning statements carry,
+# which no `=` or `:` follows, so rule 2's separator requirement let it through.
+case_redacts_a_sql_role_password() {
+  assert_redacts "ALTER ROLE catalog_svc PASSWORD 'xxxxxxxx'" 'ALTER ROLE catalog_svc PASSWORD ***'
+}
+
+# A doubled quote inside the value is SQL's own escape; the value ends where
+# SQL's string ends, not at the first closing quote of a compound literal.
+case_redacts_a_sql_role_password_with_a_doubled_quote() {
+  assert_redacts "ALTER ROLE catalog_svc PASSWORD 'ab''cdxxxxxxxxef'" 'ALTER ROLE catalog_svc PASSWORD ***'
+}
+
 case_redacts_a_scheme_userinfo_password() {
   assert_redacts 'postgresql://migrator:xxxxxxxx@ep-x.neon.tech/db' \
                  'postgresql://migrator:***@ep-x.neon.tech/db'
@@ -147,6 +159,8 @@ for test_case in \
   case_redacts_a_double_quoted_password \
   case_redacts_a_json_password \
   case_redacts_a_colon_separated_password \
+  case_redacts_a_sql_role_password \
+  case_redacts_a_sql_role_password_with_a_doubled_quote \
   case_redacts_a_scheme_userinfo_password \
   case_redacts_a_scheme_userinfo_secret_with_an_at_sign \
   case_keeps_a_scheme_userinfo_endpoint_past_a_later_at_sign \

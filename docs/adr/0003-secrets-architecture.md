@@ -20,6 +20,22 @@
 > DSN from the Neon role password and writes it into Cloudflare Secrets Store, and Workers read it
 > through a binding. The superseding record for the platform-over-hand-written principle and the
 > resulting identity boundary is `docs/adr/0006-platform-over-handwritten-ci.md`.
+>
+> **Amended 2026-09-23** (#1915; owner decision). The runtime-role half changes. Measured on
+> staging, the three API-created runtime roles all sat in `neon_superuser`: Neon grants that
+> membership to every role its Console, CLI or API creates, and only Neon's own `cloud_admin`
+> can revoke it. So `infra/database-access` no longer declares them as `neon.Role` resources;
+> each gets a `random.RandomPassword` from Pulumi, which composes the DSN as before and
+> additionally writes the password to the Secrets Store, bound to the migrator Worker alone.
+> The roles themselves are created, attributed and re-passworded by the migrator's SQL step on
+> every `/migrate` (`workers/migrator/src/service-roles.ts`) — SQL-created roles receive no
+> membership, which is the property this amendment buys. Role DDL still lives outside the
+> migration chain (`workers/edge/test/migrator-ac3-proof.test.ts`); its owner moved from Pulumi
+> to the migrator Worker (amending the 2026-09-12 database-layer spec's §4.8.5). `migrator`
+> stays a `neon.Role` — the chain needs `neon_superuser`-grade power for `CREATE EXTENSION` —
+> and its DSN remains bound to the migrator only. Neon roles are branch-scoped, not
+> project-scoped as an earlier revision of the cutover runbook said. Rotation of a runtime role
+> now runs through a new `RandomPassword` plus one `/migrate`, not a Neon-API password reset.
 
 The skeleton-refactor campaign exposed three broken assumptions about secrets: (1) GitHub Actions secrets are a values source, not a delivery layer — the `workflow_call.secrets` shadowing bug (#826) cost three deploy cycles; (2) psql out-of-band scripts are not infrastructure (`scripts/staging-roles-login.sh` did `ALTER ROLE ... LOGIN PASSWORD` by hand); (3) the #674 ESC centralisation direction assumed a Pulumi Cloud account, which the repo does not use (self-managed R2 backend).
 

@@ -1,10 +1,11 @@
 /** The five service roles every disposable data plane needs: their creation, and
  * the assertion that names whichever one is absent.
  *
- * The roles are CLUSTER-global, and their DDL belongs to infrastructure: in
- * production Pulumi creates them and the chain only asserts they exist (spec
- * §4.8.5). A disposable container has no Pulumi, so this package owns them for
- * the cluster it boots — the same ownership split as the container itself.
+ * The roles are CLUSTER-global, and their DDL stays outside the migration chain:
+ * since #1915 the migrator Worker creates them by SQL on `/migrate` (spec
+ * §4.8.5, as amended). A disposable container has no migrator Worker, so this
+ * package owns them for the cluster it boots — the same ownership split as the
+ * container itself.
  *
  * They are not optional decoration: the chain's grant matrix prechecks all five
  * (`data-plane-access`), and the role-privilege suites assert them by name. So

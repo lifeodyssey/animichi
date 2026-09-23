@@ -3,6 +3,7 @@ import type { JWK } from "jose";
 import { nativeModules } from "./prisma-bundle";
 import { postgresHttp } from "./prisma-postgres";
 import { GITHUB_OIDC_JWKS_URL } from "../../src/policy";
+import { SERVICE_ROLE_PASSWORDS } from "../service-role-passwords";
 
 /**
  * How long the next Postgres round trip takes to answer (#1868). A migration is slow for one
@@ -29,16 +30,23 @@ export async function startPrismaWorker(directory: string, dsn: string, jwk: JWK
   mock.disableNetConnect();
   const jwksUrl = new URL(GITHUB_OIDC_JWKS_URL);
   mock.get(jwksUrl.origin).intercept({ path: jwksUrl.pathname }).reply(200, { keys: [jwk] }).persist();
+  // The connection string travels in the header and is honored as sent, so the #1915 role
+  // probes authenticate as the runtime roles they claim to be, not as the migrator.
   mock.get(/https:\/\//).intercept({ path: "/sql", method: "POST" }).reply(200, async (options) => {
     await spendLatency(latency);
     const headers = new Headers(options.headers as Record<string, string>);
     const body = await new Response(options.body as BodyInit).text();
-    const response = await postgresHttp(dsn, headers, body);
+    const response = await postgresHttp(headers.get("Neon-Connection-String") ?? dsn, headers, body);
     return response.text();
   }).persist();
   const worker = new Miniflare({ modules: await nativeModules(directory), modulesRoot: directory,
     compatibilityDate: "2026-06-01", compatibilityFlags: ["nodejs_compat"], port: 0, inspectorPort: 0,
-    bindings: { ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: dsn }, fetchMock: mock,
+    bindings: {
+      ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: dsn,
+      CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,
+      USERS_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.usersSvc,
+      AGENT_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.agentSvc,
+    }, fetchMock: mock,
     durableObjects: { MIGRATOR_APPLY_LOCK: { className: "MigratorApplyLock", useSQLite: true } },
   });
   const close = async () => { await worker.dispose(); await mock.close(); };
