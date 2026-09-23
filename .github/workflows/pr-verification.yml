@@ -377,6 +377,7 @@ jobs:
           bundle exec ruby test/repo-config/e2e-no-skip-mutation.test.rb
           bundle exec ruby test/repo-config/install-build-decisions-mutation.test.rb
           bundle exec ruby test/repo-config/install-build-decisions.test.rb
+          bundle exec ruby test/repo-config/integration-lane-selection.test.rb
           bundle exec ruby test/repo-config/lint-scope.test.rb
           bundle exec ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
           bundle exec ruby test/repo-config/no-real-clock-sleep.test.rb
