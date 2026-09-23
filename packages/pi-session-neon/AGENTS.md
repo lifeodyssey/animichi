@@ -10,6 +10,9 @@ No object has two migration owners; do not re-declare an object the chain alread
 
 - `pnpm run lint` — type-aware oxlint, warnings denied.
 - `pnpm run typecheck` — TypeScript 7.
+- `pnpm run test` — the `*.unit.test.ts` files plus `test/contract-types.test.ts`, with no
+  container and no coverage gate. It is where those unit files run; `test:integration` stopped
+  globbing them in #1771, and the retired `test:unit` named exactly this list.
 - `pnpm run test:integration` — Node's test runner, one reused test-postgres container and a
   disposable database of its own. `--test-isolation=none` shares the imported setup and serial
   tests; each test resets that database. Never point these tests at a live Neon database.
@@ -77,6 +80,6 @@ One frozen copy of the shape this chain replaced survives as a TEST FIXTURE
 (`packages/test-postgres/sql/drizzle-era-catalog.sql`). Two test lanes read it: the agent's
 catalog-tool lane (`packages/agent/integration-test/catalog-postgres.ts`) installs it on a database
 of its own, because its `catalog-seed.ts` writes the scalar `points` coordinates the Prisma plane
-generates; and `workers/catalog/test/geocode-migration-parity.integration.test.ts` reads it as text
+generates; and `workers/catalog/test/geocode-migration-parity.node.test.ts` reads it as text
 to pin the table shapes its geocode seed relies on. It is not an authority and nothing applies
 it to a shared or live database; it goes when neither lane needs the pre-Prisma shape any more.
