@@ -3,8 +3,10 @@
 # Behaviour tests for redact_dsn_passwords in migrate-through-worker.sh (#1872, #1881).
 #
 # The orchestration cases live in migrate-through-worker.test.sh and drive the whole script
-# against a `curl` stub; these cases call one pure text transform, so they belong in their
-# own file, one responsibility per file, and both suites stay under the 200-line test cap.
+# against a `curl` stub; these cases call one pure text transform, so they live apart from
+# that suite, one responsibility per file, and every suite stays under the 200-line test cap.
+# The escaped-JSON surface of rule 2 is the second half of this one:
+# migrate-through-worker-redaction-escaped.test.sh.
 
 set -euo pipefail
 
@@ -51,12 +53,14 @@ assert_redacts() {
   rm -rf "$work"
 }
 
-# The four shapes #1872 names, the two rules the function already had, and the pair #1881 adds
-# per class it changed: every rule is exercised here. Removing a rule turns its cases red and
-# only those — rule 1 the three `scheme_userinfo` cases; rule 2 the four quoted/JSON/colon cases
-# plus `case_redacts_a_uri_password_parameter`; rule 3 the other three `redacts` cases. A #1881
-# pair runs one case per direction, so widening a class is as red as dropping it: the at-sign
-# case against the endpoint case, the one-slash case against rule 1's own output.
+# The four shapes #1872 names, the two rules the function already had, and the pair #1881
+# adds per class it changed: every rule is exercised here, and the escaped surface #1887
+# adds to rule 2 has its own file. Removing a rule turns its cases red and only those —
+# rule 1 the three `scheme_userinfo` cases; rule 2 the four quoted/JSON/colon cases plus
+# `case_redacts_a_uri_password_parameter`, the escaped-quote cases going red in
+# migrate-through-worker-redaction-escaped.test.sh; rule 3 the other three `redacts` cases.
+# A #1881 pair runs one case per direction, so widening a class is as red as dropping it:
+# the at-sign case against the endpoint case, the one-slash case against rule 1's own output.
 case_redacts_a_single_quoted_password() {
   assert_redacts "password='xxxxxxxx'" 'password=***'
 }
