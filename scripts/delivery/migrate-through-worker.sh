@@ -122,8 +122,8 @@ report_failure() {
 #      that is neither quote nor backslash, the four backslashes an inner `\\` is
 #      JSON-encoded into, or the three backslashes and quote an inner `\"` becomes.
 #      A lone `\"` matches no unit, so it can only close the value, and a second span
-#      behind it reaches rule 2 with its key intact. The branch adds no `;host=`
-#      eating the bare branch was recorded to do (#1881 gap 4).
+#      behind it reaches rule 2 with its key intact. The escaped branch also stops
+#      before a following `;host=`, which the bare branch eats (#1881 gap 4).
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
