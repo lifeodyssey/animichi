@@ -112,8 +112,7 @@ create_gate_from_template1() {
   report_template1_never_free
 }
 
-# POSTGRES_DB names the ADMIN database (the image pre-initialises it with the
-# postgis/tiger/topology extensions). The target `gate` database is created
+# POSTGRES_DB names the ADMIN database. The target `gate` database is created
 # from pristine template1 below; the chain never touches this admin database.
 cid="$(docker run -d -e POSTGRES_PASSWORD=gate -e POSTGRES_DB=postgres -p 127.0.0.1::5432 "$IMAGE")"
 port="$(docker port "$cid" 5432/tcp | sed 's/.*://')"
