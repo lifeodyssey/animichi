@@ -96,12 +96,32 @@ report_failure() {
 }
 
 # PostgreSQL carries the password in URI user-info (`//user:pw@host`), in a URI
-# parameter (`?password=pw`), and in keyword/value DSNs (`password=pw`). The last
-# two share one rule. Written for BSD and GNU sed alike: no `\b`, no `I` flag.
+# parameter (`?password=pw`), and in keyword/value DSNs (`password=pw`). Three rules
+# cover the shapes a driver prints, and this pass's criterion is "no password" rather
+# than the Worker's "no connection string": the role and the endpoint stay, so the
+# failure stays diagnosable, and only the secret goes.
+#
+#   1. URI user-info: `://user:pw@` becomes `://user:***@`.
+#   2. One `password` key bound to one value, over the five surfaces it is printed on:
+#      `password=pw`, `password: pw`, `password='pw'`, `password="pw"` and
+#      `{"password":"pw"}`. Key and separator are captured and written back unchanged;
+#      the value's own quotes go with the value, as in the Worker's replacement. A quoted
+#      value is matched whole, so `{"password":"pw"}` keeps its closing brace, and a bare
+#      one still stops at a space, an `&` or a quote.
+#   3. The user-info half with no scheme in front of it, which a driver prints on its
+#      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
+#      anywhere in the pair, a dot required inside the host, and a left boundary so a
+#      match cannot start mid-token. The secret's first character may not be `/`: that is
+#      what keeps this rule off rule 1's own output, where `postgresql://user:***@host/db`
+#      would otherwise read as user `postgresql` and secret `//user:***`.
+#
+# Written for BSD and GNU sed alike: no `\b`, no `I` flag, no lookbehind, no `\w` —
+# POSIX ERE only, and no backreference inside a pattern.
 redact_dsn_passwords() {
   sed -E \
-    -e 's#://([^:/@[:space:]]+):[^@[:space:]]+@#://\1:***@#g' \
-    -e 's#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][[:space:]]*=[[:space:]]*)[^[:space:]&"]+#\1***#g' \
+    -e "s#://([^:/@[:space:]]+):[^@[:space:]]+@#://\1:***@#g" \
+    -e "s#(\"?[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]\"?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|[^[:space:]&\"]+)#\1***#g" \
+    -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
     "$1"
 }
 
