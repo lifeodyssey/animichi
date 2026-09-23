@@ -12,8 +12,10 @@
 #     messages go through commitlint (the `commits` job's own command over the
 #     same narrowed range), then the changed files select the workspace packages
 #     (each runs its own lint / typecheck / test / test:integration scripts, the
-#     ones CI runs) plus two buckets: the migration chain and the
-#     documentation hygiene checks. Browser e2e, live Neon and deploys stay
+#     ones CI runs) plus three buckets: the migration chain, the documentation
+#     hygiene checks and CI's repository contracts, which
+#     scripts/local-gates/repository-contracts.sh reads out of the contracts job
+#     rather than restating. Browser e2e, live Neon and deploys stay
 #     in CI; `make check-full` is the manual everything-run.
 #
 # Install: pre-commit install --hook-type pre-commit --hook-type commit-msg
@@ -146,7 +148,7 @@ repos:
         pass_filenames: false
 
       # --- pre-push stage: the affected-package gate (#1371). ---
-      # The changed files pick the packages and the three buckets; each package
+      # The changed files pick the packages and the buckets; each package
       # runs its own lint / typecheck / test / test:integration scripts, which
       # are the ones CI's affected matrix runs, so nothing has to prove the two
       # agree. A changed path that maps to no package, no bucket and no

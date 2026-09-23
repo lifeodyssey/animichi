@@ -191,7 +191,7 @@ wrong repository root and match no project. Upstream issue: <https://github.com/
 Handing selection to pnpm here would be fail-open — a silent no-op gate — which is why the join is
 done against `pnpm ls` output instead.
 
-### The three buckets
+### The four buckets
 
 A package's bucket membership is its routing-table row; the buckets below route paths outside every
 pnpm project, which would otherwise be invisible to the join:
@@ -200,6 +200,7 @@ pnpm project, which would otherwise be invisible to the join:
 |---|---|
 | `packages/pi-session-neon/migrations/**` | `prisma migration check` — artifact integrity and a connected graph, no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
 | `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
+| `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s four delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 36 s serial and 11 s at four (2026-09-19, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. `.npmrc` was deleted with the pnpm 12 settings move (#1672) but stays in the pattern: `test/repo-config/pnpm-workspace-settings.test.rb` refuses a non-auth key there, and a re-added one still selects every package. |
 
 ### docs/specs liveness (#1649)
@@ -214,15 +215,15 @@ the owner is free text (a path, an issue number or a surface name), and the gate
 that it is named. An entry with no owner, outside `docs/specs/`, naming an untracked path, or
 written without the `|` separator fails the gate closed, and the gate's own files are never a
 reference, so an entry cannot justify itself. Those three files — the gate, its behavioral test
-and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate, and
-CI's `docs` job runs the same gate on every pull request.
+and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate (it
+selects the contracts bucket, below), and CI's `docs` job runs the same gate on every pull request.
 
 ### The whitelist, and failing closed
 
 Paths that need no package gate, because another hook or a CI job already owns them:
 
 ```text
-docs/**  .claude/**  .github/**  .semgrep*  scripts/**  test/repo-config/**
+docs/**  .claude/**  .semgrep*
 root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
 Gemfile  Gemfile.lock  .ruby-version  .env.example  .env.test.example
@@ -244,6 +245,13 @@ opinion about an edit to one; a credential pasted into either is caught by the p
 scan, which reads the staged diff and does not route. They are whitelisted by name rather than left
 ungated because the change that needed one was refused by this check — the fix that made four
 documents true had to edit `.env.test.example` (#1813).
+
+`.github/**`, `scripts/**` and `test/repo-config/**` left this list in #1883: CI's `contracts` job
+owned them and no local gate read them — a path whose owner runs elsewhere is what this list is for,
+and the owner did not run on a laptop — so the fix was the bucket above rather than a wider
+exemption. A root config the contracts also read (`.gitleaks.toml`, `codecov.yml`, `Gemfile`) keeps
+its entry: each is a single file with a reader of its own, and routing every config the contracts
+touch would put the whole 74-command job on a push that moved one pin.
 
 **Every** changed path has to be owned by something: a package whose routing row fired, a bucket
 that actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The
@@ -296,12 +304,16 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
   local option only, and not a CI lane either since #1053.
 - **Model-backed evals** (`packages/eval`) — paid, non-deterministic, and not run in CI either.
 - **Deploys and cloud commands** — `wrangler deploy`, mutating `pulumi`, codecov upload, `gh pr`.
-- **The repository tests** (`.github/test/*.test.rb` and `test/repo-config/*.test.rb`) and the gate scripts' own behavioral
-  tests — CI runs them unconditionally, on every pull request, so pre-push does not need a copy:
-  `contracts` runs these plus the delivery suites, and `docs` runs the four docs-hygiene
-  `check-*.test.sh` suites. `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
+- **The repository tests' *delivery* half, and the gate scripts' own behavioral tests** — CI runs
+  them unconditionally, on every pull request, and the `delivery-toolchain` lane owns them:
+  `docs` runs the four docs-hygiene `check-*.test.sh` suites, and the lane runs
+  `.github/scripts/delivery-toolchain-tests.sh`, which enumerates `.github/test/delivery/`,
+  `scripts/local-gates/`, `scripts/delivery/` and `.github/scripts/`.
+  `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
   shell check under `scripts/` and `.github/scripts/` is invoked by its exact path, and that every invoked
   repository script still exists. Deleting a check also requires deleting its CI invocation.
+  The `contracts` job's own 74 tests are no longer in this list: #1883 gave them the pre-push bucket
+  above, and `repository-contracts.sh` reads them out of the job rather than restating them.
 
 ## Prerequisites
 
@@ -321,6 +333,8 @@ plus the pre-commit tools: `shellcheck`,
 ## Files
 
 - `scripts/local-gates/pre-push-affected.sh` — the pre-push gate
+- `scripts/local-gates/repository-contracts.sh` — the `contracts` job's registry, read out of
+  `pr-verification.yml` and run before a push that would break it (#1883)
 - `scripts/local-gates/oxlint-changed.sh` — pre-commit oxlint dispatch (staged)
 - `scripts/local-gates/check-agents-refs.sh` / `check-docs-paths.sh` / `check-root-allowlist.sh` /
   `check-spec-references.sh` — the documentation hygiene checks, shared with CI's `docs` job

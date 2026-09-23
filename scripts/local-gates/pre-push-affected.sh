@@ -10,8 +10,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 # Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`)
 # name CI-side scanners with no local gate; `.gitleaks.toml` is the one whose
-# scanner already ran on this change at pre-commit, and whose contract tests
-# live in `test/repo-config/` like every other CI-only config test;
+# scanner already ran on this change at pre-commit, which reads the staged diff;
 # `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby the `contracts` job
 # runs, and `.github/test/workflow-ruby-toolchain.test.rb` there is their gate;
 # the two root env SHEETS (`.env.example`, `.env.test.example`) are operator
@@ -19,10 +18,18 @@ cd "$(git rev-parse --show-toplevel)"
 # contents, and a credential pasted into one is caught by the pre-commit secret
 # scan, which reads the staged diff and does not route (#1813);
 # `supabase/` is the archived historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.github/|\.semgrep|scripts/|test/repo-config/|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
+NO_PACKAGE='^(docs/|\.claude/|\.semgrep|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
+# The contracts bucket (#1883): the three families CI's `contracts` job owns and
+# no workspace package does — `.github/**` is what every `.github/test/*.test.rb`
+# reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds
+# the two Orca runners that job runs, `delivery-test-naming.test.rb`'s four
+# delivery homes and `pre-push-routing.test.rb`'s subject. The job's own registry
+# is what runs: `repository-contracts.sh` reads it out of `pr-verification.yml`,
+# so CI and this hook read one list rather than two that have to agree.
+CONTRACTS='^(\.github/|scripts/|test/repo-config/)'
 # The spec-reference gate reads these three files, so a change to them has to
-# run the docs bucket even though `scripts/**` needs no package.
+# run the docs bucket even though `scripts/**` selects no package.
 SPEC_REFERENCES='^scripts/local-gates/(check-spec-references(\.test)?\.sh|spec-reference-exceptions\.txt)$'
 # An agent-context document is a documentation change wherever it lives; the
 # nested ones a workspace package owns are covered, `migrations/AGENTS.md` is not.
@@ -147,7 +154,9 @@ while read -r dir name; do
 done <<<"$projects"
 schema=$(grep -cE '^packages/pi-session-neon/migrations/' <<<"$changed" || true)
 docs=$(grep -cE "^(docs/|\.claude/|[^/]+\.md$)|$SPEC_REFERENCES|$AGENT_CONTEXT" <<<"$changed" || true)
-printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none)}" "$schema" "$deps" "$docs"
+contracts=$(grep -cE "$CONTRACTS" <<<"$changed" || true)
+printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s contracts=%s\n' \
+       "${packages:- (none)}" "$schema" "$deps" "$docs" "$contracts"
 
 # Every surviving changed path must be owned by a selected package, a bucket
 # that fired or the whitelist. Checked over the whole diff, so a mixed one
@@ -158,6 +167,7 @@ printf 'pre-push: packages:%s | schema=%s deps=%s docs=%s\n' "${packages:- (none
 [ "$deps" = 0 ] || covered="$covered|$ROOT_MANIFEST"
 [ "$schema" = 0 ] || covered="$covered|^packages/pi-session-neon/migrations/"
 [ "$docs" = 0 ] || covered="$covered|$AGENT_CONTEXT"
+[ "$contracts" = 0 ] || covered="$covered|$CONTRACTS"
 surviving="$changed"
 [ -z "$deleted" ] || surviving="$(grep -vxF -f <(printf '%s\n' "$deleted") <<<"$changed" || true)"
 loose="$(grep -vE "$covered" <<<"$surviving" || true)"
@@ -181,3 +191,4 @@ if [ -n "$packages" ]; then
 fi
 [ "$schema" = 0 ] || pnpm --filter @animichi/pi-session-neon exec prisma migration check
 [ "$docs" = 0 ] || for c in agents-refs docs-paths root-allowlist spec-references; do bash "scripts/local-gates/check-$c.sh"; done
+[ "$contracts" = 0 ] || bash scripts/local-gates/repository-contracts.sh
