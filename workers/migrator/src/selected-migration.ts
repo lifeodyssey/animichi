@@ -2,7 +2,7 @@ import { ATLAS_LEFTOVERS_PRESENT, carriesAtlasLeftovers } from "./atlas-leftover
 import { assertDirectDsn } from "./direct-dsn";
 import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
-import { migratePrisma, previewPrisma, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
+import { migratePrisma, previewPrisma, type NativeFailure, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
 import { redactedCause } from "./redacted-cause";
 
 /**
@@ -27,9 +27,10 @@ export type SelectedMigration = MigrationResult & {
   /** A public native code or a local stable code; never a driver message. */
   failureCode?: string;
   /**
-   * Why a THROWN failure threw, already through `redactedCause` (#1868). Handled outcomes —
-   * `refused`, a native failure code, `prisma_marker_mismatch` — carry their identity in
-   * `failureCode` and leave this absent, so its presence is itself the "something threw" fact.
+   * Why the apply failed, already through `redactedCause`: what a THROWN failure threw (#1868),
+   * or what Prisma REPORTED beyond its failure code (#1891). Outcomes that state nothing beyond
+   * their identity — `refused`, a code-only native failure, `prisma_marker_mismatch` — carry it
+   * in `failureCode` and leave this absent.
    */
   cause?: string;
 };
@@ -59,6 +60,18 @@ function nativeFailure(code: string): SelectedMigration {
 }
 
 /**
+ * Prisma REPORTED this failure rather than throwing: the runner reached a verdict and the
+ * control client handed its fields back as structure (#1891). `cause` crossed `redactedCause`
+ * at the control boundary, so the log line and the returned field carry the same redacted text;
+ * logged as well as returned, because the answer itself can be lost on the way out.
+ */
+function reportedDuringApply(native: NativeFailure<PrismaReceipt>): SelectedMigration {
+  if (native.cause === undefined) return nativeFailure(native.error);
+  console.error(`[migrator] apply failed: ${native.cause}`);
+  return { ...nativeFailure(native.error), cause: native.cause };
+}
+
+/**
  * The apply threw rather than reporting an outcome. The class keeps its public name; what
  * changes is that the one fact an operator needs — what threw — survives the catch (#1868).
  * Logged as well as returned, because the answer itself can be lost on the way out.
@@ -73,7 +86,7 @@ async function applySelected(dsn: string, metadata: SelectedMetadata, directory:
   const preview = await checkSelected(dsn, metadata, directory);
   if (!preview.compatible) return { kind: "refused", reason: preview.error };
   const native = await migratePrisma(dsn, metadata.expectedPrismaRef, directory);
-  if (!native.ok) return nativeFailure(native.error);
+  if (!native.ok) return reportedDuringApply(native);
   if (native.value.markerHash !== metadata.expectedPrismaRef) return nativeFailure("prisma_marker_mismatch");
   return { kind: "success", exitCode: 0, prisma: native.value };
 }
