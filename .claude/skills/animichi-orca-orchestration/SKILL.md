@@ -118,8 +118,8 @@ user-owned repository, so serialization is the lever.
 
 Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
 `~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
-yet (#1840); the in-repo `scripts/orca-headless/` accepts only the retired Codex and Grok
-selections and refuses every writer below. Its
+yet (#1840); the in-repo `scripts/orca-headless/` accepts only the Codex and Grok selections
+the roster no longer uses, and refuses every writer below. Its
 accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
@@ -220,7 +220,7 @@ positive evidence is the `$ <script>` echo pnpm prints before running, and
 first: the six `packages/*` libraries are scoped (`@animichi/contract`, `@animichi/agent`,
 `@animichi/eval`, `@animichi/pi-session-neon`, `@animichi/prisma-geography`,
 `@animichi/test-postgres`); `web`, `catalog`, `users`, `edge-worker`, `migrator`,
-`anitabi-egress`, `animichi-e2e` and `infra` are bare.
+`anitabi-egress`, `animichi-e2e`, `infra` and the root `animichi-cloudflare-worker` are bare.
 
 That correction is itself the lesson: I had put "read the `Scope:` line" into four task briefs
 and into this file before anyone checked whether the line appears on the path that matters.
@@ -242,8 +242,9 @@ reporting `"verdict": "live"`. The second witness exists because the first one l
 
 If you are the coordinator, touch that heartbeat on a schedule you do not have to remember:
 a recurring job in your own session, such as a 15-minute Claude Code `CronCreate` job that
-drains the inbox and touches the file. The launchd automation above runs every 30 minutes
-and only nudges, so it is not that schedule, and intending to remember is not one either.
+drains the inbox and touches the file. The 30-minute scheduled automation above only nudges
+while a coordinator is alive, so it is not that schedule, and intending to remember is not
+one either.
 
 **Repairing a safety mechanism that has never fired is a first deployment, not a fix.** The
 automation's 101 recorded runs contain 100 `skipped_precheck` and exactly one execution —
@@ -325,8 +326,8 @@ Merge when **all three** hold, and not before:
 3. **Every CI check is green** — not "no required check is red". A non-required red is a thing to
    fix or explain, never a thing to step over.
 
-**There is no bot-window wait.** An older rule said to wait ten minutes after a push; it is
-superseded. Condition 1 is about what the bots said, not about how long you waited.
+**There is no bot-window wait** beyond the merge hook's own ten-minute freshness guard. An older
+rule said to wait ten minutes after a push; it is superseded. Condition 1 is about what the bots said, not about how long you waited.
 
 `~/.claude/hooks/check-pr-comments.sh` refuses the CLI merge verb with "the bots have not reviewed
 the final push yet". When the bots are exhausted that condition can never be satisfied, so under
