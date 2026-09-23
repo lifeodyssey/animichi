@@ -44,7 +44,8 @@ export interface FakeUsersPrisma {
 }
 
 /** A test's hook over the statement at `index` (0-based), with every plan the
- * executor has been asked for so far. */
+ * executor has been asked for so far — `queries[index]` included, because the
+ * record precedes the hook, so it is the statement about to execute. */
 type BeforePlan = (index: number, queries: readonly RecordedPlan[]) => void;
 
 export interface FakeUsersPrismaOptions {

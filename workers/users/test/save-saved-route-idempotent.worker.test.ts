@@ -233,8 +233,9 @@ describe("AC2 atomicity: insert and ledger commit are indivisible", () => {
     // transaction the route row would survive it, leaving an orphan the
     // ledger never committed to.
     const store = fakeUsersPrisma([], {
-      beforePlan: (_index, queries) => {
-        if (queries.some((q) => q.kind === "insert" && q.table === "saved_routes")) {
+      beforePlan: (index, queries) => {
+        const statement = queries[index];
+        if (statement?.kind === "update" && statement.table === "saved_route_idempotency") {
           throw new Error("ledger commit unavailable");
         }
       },
