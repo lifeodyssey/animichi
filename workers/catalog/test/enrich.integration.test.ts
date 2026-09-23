@@ -13,8 +13,9 @@ import {
 /**
  * Integration suite for the Enrich stage (card W3-2): raw zone -> enriched catalog -> publish.
  *
- * Uses the complete Atlas schema inherited from `test-base`, then seeds realistic
- * raw payloads before driving enrichWork through Neon Local's HTTP endpoint.
+ * Uses the committed Prisma chain's schema, cloned into the suite database, then
+ * seeds realistic raw payloads through the raw store before driving enrichWork
+ * over the plane seams.
  */
 
 // Realistic raw payloads matching the sources.ts upstream shapes.

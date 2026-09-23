@@ -16,8 +16,9 @@ import {
  * `cluster_version`, no-drift itinerary snapshots over `itinerary_snapshots`, and
  * version GC.
  *
- * Uses the complete Atlas schema inherited by the suite branch, including the
- * partial unique index that forces the flip-then-insert publish order.
+ * Uses the committed Prisma chain's schema, cloned into the suite database,
+ * including the partial unique index (`uq_cluster_version_one_current`) that
+ * forces the flip-then-insert publish order.
  */
 
 let pool: pg.Pool;
