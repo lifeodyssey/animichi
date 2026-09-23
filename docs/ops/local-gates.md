@@ -304,11 +304,12 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
   local option only, and not a CI lane either since #1053.
 - **Model-backed evals** (`packages/eval`) — paid, non-deterministic, and not run in CI either.
 - **Deploys and cloud commands** — `wrangler deploy`, mutating `pulumi`, codecov upload, `gh pr`.
-- **The repository tests' *delivery* half, and the gate scripts' own behavioral tests** — CI runs
-  them unconditionally, on every pull request, and the `delivery-toolchain` lane owns them:
-  `docs` runs the four docs-hygiene `check-*.test.sh` suites, and the lane runs
-  `.github/scripts/delivery-toolchain-tests.sh`, which enumerates `.github/test/delivery/`,
-  `scripts/local-gates/`, `scripts/delivery/` and `.github/scripts/`.
+- **The repository tests' *delivery* half, and the gate scripts' own behavioral tests** — the
+  `delivery-toolchain` lane owns them and runs them only when the plan's `delivery` or `deps`
+  output is true: its runner, `.github/scripts/delivery-toolchain-tests.sh`, enumerates every
+  `scripts/local-gates/*.test.sh` — the four docs-hygiene `check-*.test.sh` suites included —
+  plus `.github/test/delivery/`, `scripts/delivery/` and `.github/scripts/`. The `docs` job runs
+  the four docs-hygiene `check-*.sh` gates themselves.
   `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
   shell check under `scripts/` and `.github/scripts/` is invoked by its exact path, and that every invoked
   repository script still exists. Deleting a check also requires deleting its CI invocation.
@@ -354,8 +355,9 @@ Ruby with the Gemfile's gems installed (`bundle install`) — a push that runs t
   `pre-push-affected-commitlint.test.sh` (which messages a push carries) and
   `pre-push-affected-contracts.test.sh` (which diffs fire the contracts bucket) share
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — those scripts' behavioral tests
-  and the stub harness they share; CI's `delivery-toolchain` job runs the non-docs `*.test.sh`, and its
-  `docs` job runs the four `check-*.test.sh` suites
+  and the stub harness they share; CI's `delivery-toolchain` job runs every
+  `scripts/local-gates/*.test.sh`, the four `check-*.test.sh` included, when the plan's `delivery`
+  or `deps` output is true, and the `docs` job runs the four `check-*.sh` gates themselves
 - `commitlint.config.js` — the commit-message and PR-title rules; their exemption and its boundary
   are driven through this workspace's own CLI by
   `scripts/local-gates/pre-push-affected-commitlint-config.test.sh`
