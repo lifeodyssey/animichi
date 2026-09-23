@@ -64,8 +64,9 @@ export interface SearchOptions {
 
 /**
  * The minimal DB surface `search` depends on. Tests inject a fake; the
- * production one comes from `searchDb(...)`, which spans both seams while the
- * query layer is mid-migration (see that factory).
+ * production one comes from `searchDb(...)`, which takes this request's
+ * `CatalogPrisma` (plus the egress signing key), and every DB read and write
+ * behind it is a plan off that one runtime (see that factory).
  *
  * The miss path is split into two so the handler can return the fast preview
  * before the slow ingest finishes:
