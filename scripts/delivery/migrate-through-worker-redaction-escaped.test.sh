@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SUT: scripts/delivery/migrate-through-worker.sh — redact_dsn_passwords
-# The escaped-JSON surface of rule 2 (#1887, #1897), in its own file so each
+# The escaped-JSON surface of rule 2 (#1887, #1897, #1905), in its own file so each
 # redaction suite stays under the 200-line test cap. Every case here feeds rule 2 a
 # value whose quotes and backslashes arrive JSON-encoded — the two-layer shape a
 # driver echoing a config line takes inside a response body — and asserts the whole
@@ -21,14 +21,18 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # and each case compares the WHOLE line, both directions, with `cmp`, so a stray
 # byte counts.
 #
-# The rule-2 comment in the script carries the layer story: a lone `\"` matches no
-# body unit and so can only close the value, while an inner `\\` arrives as four
-# backslashes and an inner `\"` as three backslashes and a quote. Removing a rule or
-# unit turns its cases red and only those — dropping the escaped branch or the plain
-# character unit turns all five red; dropping the four-backslash unit turns only the
-# backslash-run witness red; dropping the three-backslash unit turns only the
-# quote-in-secret case red; and the pre-tokenizer body `[^"]` turns only the
-# backslash-run witness red.
+# The rule-2 comment in the script carries the layer story: an inner `\\` arrives as
+# four backslashes and an inner `\"` as three backslashes and a quote, while a lone
+# `\"` matches no body unit, so it can only close the value — an optional closer, so a
+# value that never closed ends where the units stop. Removing a rule or unit turns its
+# cases red and only those — dropping the escaped branch or the plain character unit
+# turns all eight red; dropping the four-backslash unit turns only the backslash-run
+# witness red; dropping the three-backslash unit turns only the quote-in-secret case
+# and the truncated case with an inner quote red; the pre-tokenizer body `[^"]` turns
+# only the backslash-run witness red; dropping the key's trailing quote option turns
+# only the escaped-key case red; requiring the closer again turns only the two
+# truncated cases red; and restoring the earlier truncated branch, which stopped at the
+# first raw quote, turns only the truncated case with an inner quote red (#1905).
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
 }
@@ -90,7 +94,34 @@ case_redacts_a_second_password_behind_a_value_ending_in_a_backslash() {
                  '{"cause":"password=*** user=u password=***"}'
 }
 
+# #1905 (F5). A JSON object carried inside a JSON string, so the KEY arrives escaped
+# too: `\"password\"`. Rule 2's optional quote met the backslash and its `[=:]` never
+# matched, so the whole assignment printed. A key quote admits the escaped form, and
+# the value's own escaped quotes go with the value, as in the case above.
+case_redacts_a_password_whose_key_is_escaped_in_a_json_string() {
+  assert_redacts '{"cause":"{\"password\":\"xxxxxxxx\"}"}' '{"cause":"{\"password\":***}"}'
+}
+
+# #1905 (F6). A truncated cause: the value opens escaped and its closer never arrives.
+# The escaped branch's closer is optional, so the branch ends where its body units stop
+# rather than falling through to the bare branch, which took the lone `\` and stopped
+# at the next `"`.
+case_redacts_a_truncated_escaped_password() {
+  assert_redacts '{"cause":"password=\"xxxxxxxx"}' '{"cause":"password=***"}'
+}
+
+# #1905. The same truncation carrying an inner `\"` of its own. A branch that stops at
+# the first raw quote ends inside the value and prints the rest of the secret — which is
+# what the earlier truncated branch did here; the units take that quote as part of the
+# body, so the redaction runs to where the units stop.
+case_redacts_a_truncated_escaped_password_with_an_inner_quote() {
+  assert_redacts '{"cause":"password=\"ab\\\" more text here"}' '{"cause":"password=***"}'
+}
+
 for test_case in \
+  case_redacts_a_password_whose_key_is_escaped_in_a_json_string \
+  case_redacts_a_truncated_escaped_password \
+  case_redacts_a_truncated_escaped_password_with_an_inner_quote \
   case_redacts_an_escaped_quoted_password_in_a_json_string \
   case_redacts_an_escaped_quoted_password_with_spaces_inside \
   case_redacts_an_escaped_quoted_password_whose_secret_holds_a_quote \

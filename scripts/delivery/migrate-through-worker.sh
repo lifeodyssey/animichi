@@ -108,22 +108,27 @@ report_failure() {
 #      the endpoint. A class without the at-sign stops at the first one instead, and the
 #      secret's tail reaches the log (#1881). The price is a raw `/` or `?` in the secret,
 #      which `new URL` rejects as not a URL at all; percent-encoded, it is matched.
-#   2. One `password` key bound to one value, over the six surfaces it is printed on:
+#   2. One `password` key bound to one value, over the surfaces it is printed on:
 #      `password=pw`, `password: pw`, `password='pw'`, `password="pw"`,
-#      `{"password":"pw"}` and the JSON-escaped `password=\"pw\"` (#1887). The escaped
-#      surface is what the JSON encoder makes of a quoted assignment carried inside a
-#      string — a driver echoing a config line in a response body. This pass redacts
-#      whatever body came back, not only the cause `redactedCause` already cleaned, so
-#      an assignment arriving escaped is covered here alone. Key and separator are
-#      captured and written back unchanged; the value's own quotes go with the value,
-#      as in the Worker's replacement. A quoted value is matched whole, so
-#      `{"password":"pw"}` keeps its closing brace, and a bare one still stops at a
-#      space, an `&` or a quote. The escaped branch tokenizes its body: a character
-#      that is neither quote nor backslash, the four backslashes an inner `\\` is
-#      JSON-encoded into, or the three backslashes and quote an inner `\"` becomes.
-#      A lone `\"` matches no unit, so it can only close the value, and a second span
-#      behind it reaches rule 2 with its key intact. The escaped branch also stops
-#      before a following `;host=`, which the bare branch eats (#1881 gap 4).
+#      `{"password":"pw"}`, the JSON-escaped `password=\"pw\"` (#1887) and a JSON
+#      object carried inside a JSON string, `{\"password\":\"pw\"}` (#1905). The
+#      escaped surface is what the JSON encoder makes of a quoted assignment carried
+#      inside a string — a driver echoing a config line in a response body. This pass
+#      redacts whatever body came back, not only the cause `redactedCause` already
+#      cleaned, so an assignment arriving escaped is covered here alone. Key and
+#      separator are captured and written back unchanged, and the quote closing the key
+#      may be plain or escaped; the value's own quotes go with the value, as in the
+#      Worker's replacement. A quoted value is matched whole, so `{"password":"pw"}`
+#      keeps its closing brace, and a bare one still stops at a space, an `&` or a
+#      quote. The escaped branch tokenizes its body: a character that is neither quote
+#      nor backslash, the four backslashes an inner `\\` is JSON-encoded into, or the
+#      three backslashes and quote an inner `\"` becomes. A lone `\"` matches no unit,
+#      so it can only close the value, and a second span behind it reaches rule 2 with
+#      its key intact — but that closer is optional, so a value whose end never arrived
+#      still ends where the units stop instead of falling through to the bare branch,
+#      which takes the lone backslash and prints the rest of the secret behind the next
+#      quote (#1905). The escaped branch also stops before a following `;host=`, which
+#      the bare branch eats (#1881 gap 4).
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
@@ -146,7 +151,7 @@ report_failure() {
 redact_dsn_passwords() {
   sed -E \
     -e "s#://([^:/@[:space:]]+):[^[:space:]/?]+@#://\1:***@#g" \
-    -e "s#(\"?[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]\"?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\\\\\\\\\\\\\|\\\\\\\\\\\\\")*\\\\\"|[^[:space:]&\"]+)#\1***#g" \
+    -e "s#(\"?[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\\\\\\\\\\\\\|\\\\\\\\\\\\\")*(\\\\\")?|[^[:space:]&\"]+)#\1***#g" \
     -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):/?[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
     "$1"
 }
