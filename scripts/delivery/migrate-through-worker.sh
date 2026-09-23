@@ -101,7 +101,13 @@ report_failure() {
 # than the Worker's "no connection string": the role and the endpoint stay, so the
 # failure stays diagnosable, and only the secret goes.
 #
-#   1. URI user-info: `://user:pw@` becomes `://user:***@`.
+#   1. URI user-info: `://user:pw@` becomes `://user:***@`. The secret class admits the
+#      at-sign this rule is hunting and refuses `/` and `?`, so the engine gives characters
+#      back until the last at-sign INSIDE the authority is left standing — the split
+#      `new URL` performs, and the reason a later `?opt=a@b.c` cannot drag the match past
+#      the endpoint. A class without the at-sign stops at the first one instead, and the
+#      secret's tail reaches the log (#1881). The price is a raw `/` or `?` in the secret,
+#      which `new URL` rejects as not a URL at all; percent-encoded, it is matched.
 #   2. One `password` key bound to one value, over the five surfaces it is printed on:
 #      `password=pw`, `password: pw`, `password='pw'`, `password="pw"` and
 #      `{"password":"pw"}`. Key and separator are captured and written back unchanged;
@@ -111,17 +117,27 @@ report_failure() {
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
-#      match cannot start mid-token. The secret's first character may not be `/`: that is
-#      what keeps this rule off rule 1's own output, where `postgresql://user:***@host/db`
-#      would otherwise read as user `postgresql` and secret `//user:***`.
+#      match cannot start mid-token. The secret may open with at most one `/`; two of them
+#      is the `://` of rule 1's own output, and refusing that is what keeps this rule off
+#      it, where `postgresql://user:***@host/db` would otherwise read as user `postgresql`
+#      and secret `//user:***`.
+#
+# A secret split across lines survives this pass, and that is a refusal rather than a
+# limit: `sed` reads one line at a time, and joining them first is POSIX (`:a`/`N`/`$!ba`).
+# Measured, that join closes this gap and lets rule 2's quoted branch run past the line
+# that opened it, eating the diagnostic #1868 restored. The migrator's own thrown cause is
+# already redacted before it gets here, by `redactedCause`, whose `password` pattern
+# uses `\s` and so spans a newline; the two passes are independent, though, so this one
+# is not that one's fallback.
 #
 # Written for BSD and GNU sed alike: no `\b`, no `I` flag, no lookbehind, no `\w` —
-# POSIX ERE only, and no backreference inside a pattern.
+# POSIX ERE only, no backreference inside a pattern, and the `s` delimiter `#` never
+# inside a bracket expression, which a sed is free to read as the end of the command.
 redact_dsn_passwords() {
   sed -E \
-    -e "s#://([^:/@[:space:]]+):[^@[:space:]]+@#://\1:***@#g" \
+    -e "s#://([^:/@[:space:]]+):[^[:space:]/?]+@#://\1:***@#g" \
     -e "s#(\"?[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]\"?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|[^[:space:]&\"]+)#\1***#g" \
-    -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
+    -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):/?[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
     "$1"
 }
 

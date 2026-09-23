@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SUT: scripts/delivery/migrate-through-worker.sh — redact_dsn_passwords
-# Behaviour tests for redact_dsn_passwords in migrate-through-worker.sh (card #1872).
+# Behaviour tests for redact_dsn_passwords in migrate-through-worker.sh (#1872, #1881).
 #
 # The orchestration cases live in migrate-through-worker.test.sh and drive the whole script
 # against a `curl` stub; these cases call one pure text transform, so they belong in their
@@ -30,7 +30,10 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # POSIX ERE operators, `[[:class:]]`, a `g` flag, and `\1` in the REPLACEMENT only (POSIX
 # ERE defines no backreference inside a pattern) — no `\b`, `\w`, `\s`, `\t`, no lookbehind,
 # no `\+`/`\?` BRE escape, no `I`/`M` s-command flag, no GNU-only address or command.
-# `-E` itself is POSIX.
+# `-E` itself is POSIX. A second layer, and the one #1881's class touched: the `s` delimiter
+# `#` stays out of every bracket expression. A sed scans for its delimiter before it compiles
+# the ERE, and POSIX gives only the backslash escape for a literal one — nothing there says a
+# bracket hides it, so `[^...#...]` is a shape two seds may cut in two different places.
 make_redact_driver() {
   { sed -n '/^redact_dsn_passwords()/,/^}/p' "$SCRIPT"; printf 'redact_dsn_passwords "$1"\n'; } > "$1/redact"
 }
@@ -48,11 +51,12 @@ assert_redacts() {
   rm -rf "$work"
 }
 
-# The four shapes the card names, then the two rules the function already had: every rule is
-# exercised here for the first time. Removing a rule turns its cases red and only those —
-# rule 1 `case_redacts_a_scheme_userinfo_password`; rule 2 the four quoted/JSON/colon cases
-# plus `case_redacts_a_uri_password_parameter`; rule 3 `case_redacts_schemeless_userinfo` and
-# `case_redacts_userinfo_whose_secret_contains_an_at_sign`.
+# The four shapes #1872 names, the two rules the function already had, and the pair #1881 adds
+# per class it changed: every rule is exercised here. Removing a rule turns its cases red and
+# only those — rule 1 the three `scheme_userinfo` cases; rule 2 the four quoted/JSON/colon cases
+# plus `case_redacts_a_uri_password_parameter`; rule 3 the other three `redacts` cases. A #1881
+# pair runs one case per direction, so widening a class is as red as dropping it: the at-sign
+# case against the endpoint case, the one-slash case against rule 1's own output.
 case_redacts_a_single_quoted_password() {
   assert_redacts "password='xxxxxxxx'" 'password=***'
 }
@@ -74,6 +78,22 @@ case_redacts_a_scheme_userinfo_password() {
                  'postgresql://migrator:***@ep-x.neon.tech/db'
 }
 
+# Gap 1 (#1881). Rule 1's class refuses `/` and `?` rather than the at-sign, so the match ends
+# at the last at-sign the authority holds — `new URL`'s own split. A class that refuses the
+# at-sign stops at the first one and publishes everything after it.
+case_redacts_a_scheme_userinfo_secret_with_an_at_sign() {
+  assert_redacts 'postgresql://migrator:abcd@efgh@ep-x.neon.tech/db' \
+                 'postgresql://migrator:***@ep-x.neon.tech/db'
+}
+
+# What that class costs, in the direction it is paid: an at-sign PAST the authority must not
+# drag the match with it. Widened to `[^[:space:]]+` the match runs on to `a@b.c`, and the
+# endpoint — the diagnostic #1868 restored — leaves the log with it.
+case_keeps_a_scheme_userinfo_endpoint_past_a_later_at_sign() {
+  assert_redacts 'postgresql://migrator:xxxxxxxx@ep-x.neon.tech/db?opt=a@b.c' \
+                 'postgresql://migrator:***@ep-x.neon.tech/db?opt=a@b.c'
+}
+
 case_redacts_a_uri_password_parameter() {
   assert_redacts 'postgresql://ep-x.neon.tech/db?password=xxxxxxxx' \
                  'postgresql://ep-x.neon.tech/db?password=***'
@@ -89,6 +109,19 @@ case_redacts_schemeless_userinfo() {
 case_redacts_userinfo_whose_secret_contains_an_at_sign() {
   assert_redacts 'migrator:xxxxxxxx@yyyyyyyy@ep-x.neon.tech/db' \
                  'migrator:***@ep-x.neon.tech/db'
+}
+
+# Gap 3 (#1881). One slash may open a schemeless secret; two are the `://` of rule 1's output.
+case_redacts_a_schemeless_secret_opening_with_a_slash() {
+  assert_redacts 'migrator:/xxxxxxxx@ep-x.neon.tech/db' 'migrator:***@ep-x.neon.tech/db'
+}
+
+# That distinction, in the direction it is paid: rule 1 runs first and rule 3 must leave its
+# output alone. Let the secret open with any character and `postgresql` reads as the user and
+# `//migrator:***` as the secret, so a line already safe is rewritten into a different one.
+case_keeps_an_already_redacted_userinfo_untouched() {
+  assert_redacts 'postgresql://migrator:***@ep-x.neon.tech/db' \
+                 'postgresql://migrator:***@ep-x.neon.tech/db'
 }
 
 # The other direction, byte for byte, with a guard line per rule: a passwordless URL, the
@@ -109,9 +142,13 @@ for test_case in \
   case_redacts_a_json_password \
   case_redacts_a_colon_separated_password \
   case_redacts_a_scheme_userinfo_password \
+  case_redacts_a_scheme_userinfo_secret_with_an_at_sign \
+  case_keeps_a_scheme_userinfo_endpoint_past_a_later_at_sign \
   case_redacts_a_uri_password_parameter \
   case_redacts_schemeless_userinfo \
   case_redacts_userinfo_whose_secret_contains_an_at_sign \
+  case_redacts_a_schemeless_secret_opening_with_a_slash \
+  case_keeps_an_already_redacted_userinfo_untouched \
   case_keeps_an_ordinary_failure_body_byte_identical; do
   "$test_case"
 done
