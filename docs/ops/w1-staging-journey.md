@@ -244,7 +244,12 @@ key must not be written into this repo, a test, a PR or a log line.
    design (the `platform` translation payer,
    `workers/edge/src/agent/settlement/usage-charge.ts`) — the caller pays for
    the turn they asked for, the platform for a translation they did not. Those
-   tokens are metered nowhere yet: #1292.
+   tokens are metered now: the translation reports its own usage
+   (`packages/agent/src/translate-anime-title.ts`) and settlement books it under
+   the payer the tool result records — `platform` at the recorded cost when the
+   platform's key paid a caller-keyed translation, `byok` at zero when the
+   caller's did (`usageScope`, `workers/edge/src/agent/settlement/usage-charge.ts`;
+   #1292 closed 2026-09-05).
 5. Send a turn with a deliberately wrong key. Expect `400` and NO run — never a
    turn quietly served on the server key.
 
