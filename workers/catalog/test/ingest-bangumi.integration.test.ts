@@ -16,7 +16,8 @@ import {
  * Integration suite for the IngestBangumi use case: acquire -> fetch -> raw -> enrich ->
  * publish -> completion over the source/store/publisher ports, with singleflight,
  * negative-cache TTLs, crash recovery, and idempotent replay (mirrors the
- * worker-pool component tests against the real Atlas schema on Neon Local).
+ * worker-pool component tests against the committed Prisma chain's schema,
+ * cloned into the suite database).
  */
 
 // Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.integration.test.ts).
