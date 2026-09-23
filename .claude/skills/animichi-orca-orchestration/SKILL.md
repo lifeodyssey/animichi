@@ -330,12 +330,15 @@ Merge when **all three** hold, and not before:
 rule said to wait ten minutes after a push; it is superseded. Condition 1 is about what the bots said, not about how long you waited.
 
 `~/.claude/hooks/check-pr-comments.sh` refuses the CLI merge verb with "the bots have not reviewed
-the final push yet". When the bots are exhausted that condition can never be satisfied, so under
-the owner's standing authorisation fall back to the REST route
-(`gh api -X PUT repos/<owner>/<repo>/pulls/<n>/…` with `merge_method=squash`) and do not come back
-to ask. Prefer the literal CLI form with a written-out number otherwise. The hook parses the
-number off the command line, and when it finds none, as with a variable, it silently checks
-the current branch's PR instead.
+the final push yet". When the bots are exhausted that condition can never be satisfied, so under the
+owner's standing authorization fall back to the REST route (`gh api -X PUT
+repos/<owner>/<repo>/pulls/<n>/merge` with `merge_method=squash`, `sha=<the head you reviewed>` and
+`commit_message=@<the checked body file>`) and do not come back to ask. Without `sha` the endpoint
+merges whatever the head is at request time, and without `commit_message` a bot's late edit to the
+PR body becomes the squash message. If GitHub refuses the `sha`, the head moved: check the merge
+conditions again before retrying. Prefer the literal CLI form with a written-out number otherwise.
+The hook parses the number off the command line, and when it finds none, as with a variable, it
+silently checks the current branch's PR instead.
 
 Note the hook's real scope while you are here: it matches a merge-shaped string **anywhere in a
 bash command**, so it will also block a heredoc that merely quotes one. That is this skill's own
