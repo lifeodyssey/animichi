@@ -4,6 +4,7 @@ import { useChatEntry } from "./conversation-address";
 import { gatedTurnEntry } from "./lib/turn-gate";
 import type { ChatSearch } from "./search";
 import type { ChatSession } from "./use-chat-session";
+import type { ConversationHistory } from "./use-conversation-history";
 
 /**
  * The hero query's conversation identity (#1901). Landing on `/chat?q=`
@@ -59,9 +60,13 @@ export function useHeroSend(chat: ChatSession, hero: HeroSession): (text: string
   }), [sendMessage, status, sessionId]);
 }
 
-/** The query to resend when the reconnect came back 404, else nothing. */
+/** The query to resend when the reconnect came back 404, else nothing. The
+ * legitimate reconnect-404 leaves the chat EMPTY: a 404 from a later turn —
+ * after a successful reconnect streamed its answer in — is that turn's own
+ * failure, never a cue to ask the hero query again. */
 function heroResendQuery(hero: HeroSession, chat: ChatSession): string | undefined {
   if (hero.minted || !hero.entry.q) return undefined;
+  if (chat.messages.length > 0) return undefined;
   if (chat.status !== "error" || chat.lastHttpStatus() !== 404) return undefined;
   return hero.entry.q;
 }
@@ -76,4 +81,19 @@ export function useHeroResend(hero: HeroSession, chat: ChatSession, healthy: boo
     chat.clearError();
     send(query);
   }, [hero, chat, healthy, send]);
+}
+
+/** The remount whose first POST never landed gets a 404 from history as well,
+ * and the resend clears only the chat error. Once the resent turn has settled
+ * the session exists, so pull history in: the A3 gate unlocks and the notice
+ * clears. Once per mount — a resumed session with a genuine 404 and no resend
+ * keeps its empty chat, so its error stays honest. */
+export function useHeroHistoryRefetch(hero: HeroSession, chat: ChatSession, history: ConversationHistory): void {
+  const refetched = useRef(false);
+  useEffect(() => {
+    if (refetched.current || hero.minted || history.status !== "error") return;
+    if (chat.status !== "ready" || chat.messages.length === 0) return;
+    refetched.current = true;
+    history.retry();
+  }, [hero, chat, history]);
 }

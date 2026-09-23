@@ -40,7 +40,7 @@ import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 import { assignedSessionId, usePublishSessionId } from "./conversation-address";
-import { useHeroResend, useHeroSend, useHeroSession, usePublishMintedSession } from "./hero-session";
+import { useHeroHistoryRefetch, useHeroResend, useHeroSend, useHeroSession, usePublishMintedSession } from "./hero-session";
 import type { HeroSession } from "./hero-session";
 
 export interface ChatPageProps {
@@ -146,6 +146,7 @@ function useChatPage(hero: HeroSession) {
   const actions = useLockedActions(useTurnActions(chat), tray.quota.locked);
   const surfaces = usePageSurfaces(actions);
   useHeroSends(hero, chat, health);
+  useHeroHistoryRefetch(hero, chat, history);
   return { config, health, chat, history, actions, auth, ...surfaces, ...tray };
 }
 
