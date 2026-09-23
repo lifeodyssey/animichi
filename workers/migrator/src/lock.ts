@@ -7,7 +7,12 @@ export interface ApplyLock {
   runExclusive<T>(work: () => Promise<T>): Promise<T>;
 }
 
-/** In-process mutex for tests. No wall clock; waiters chain on promises. */
+/**
+ * The apply gate itself: `MigratorApplyLock` holds one of these, and the disposable-PostgreSQL
+ * fixture holds another in place of the Durable Object, so the double and the deployed object
+ * serialize through the same class rather than through two different mechanisms (#1868).
+ * No wall clock; waiters chain on promises, so nothing here bounds how long a migration runs.
+ */
 export class QueueLock implements ApplyLock {
   private tail: Promise<unknown> = Promise.resolve();
 

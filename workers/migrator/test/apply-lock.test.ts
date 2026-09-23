@@ -9,6 +9,13 @@ import { requestMetadata } from "./sealed-migrations";
 // #1124 AC4 — a second concurrent apply waits on the lock (no wall clock) and does not
 // double-apply. The production lock name is fixed, not `migrator-job-*`. With one authority
 // the lock guards `preflight` and `migrate` rather than a per-file apply loop (#1634).
+//
+// This file used to also read `src/apply-lock.ts` and match it for the string
+// "blockConcurrencyWhile". That assertion pinned the construct which reset the object
+// mid-apply and cost staging a release (#1868), and any fix keeping the word would have left
+// it green — a source-grep is not a test of anything. `apply-lock.workerd.test.ts` replaces it
+// with the Durable Object's actual behaviour in a real workerd runtime: applies serialized,
+// and an apply longer than the platform's 30-second callback cap returning rather than reset.
 
 describe("the apply mutex (AC4)", () => {
   it("queues a second migration so each one runs alone", async () => {
@@ -28,12 +35,6 @@ describe("the apply mutex (AC4)", () => {
     productionSelected(namespace);
     expect(calls.names).toEqual([APPLY_LOCK_NAME]);
     expect(APPLY_LOCK_NAME).not.toMatch(/^migrator-job-/);
-  });
-
-  it("MigratorApplyLock serializes with blockConcurrencyWhile", () => {
-    const source = applyLockSource();
-    expect(source).toContain("blockConcurrencyWhile");
-    expect(source).not.toMatch(/migrator-job-/);
   });
 
   it("MigratorApplyLock extends DurableObject so its stub calls are RPC", () => {

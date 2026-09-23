@@ -15,6 +15,7 @@ import {
   DECLARED_BUDGETS_MS,
   PLAIN_NODE_BUDGET_MS,
   WORKERD_BOOT_BUDGET_MS,
+  WORKERD_SLOW_APPLY_BUDGET_MS,
 } from "./test-timeout-budget";
 
 /* Every extension Vite will load a config from, not just `.ts`. A review probe
@@ -62,6 +63,7 @@ it("allows only budgets owned by live suite kinds", () => {
   expect(DECLARED_BUDGETS_MS).toEqual([
     PLAIN_NODE_BUDGET_MS,
     WORKERD_BOOT_BUDGET_MS,
+    WORKERD_SLOW_APPLY_BUDGET_MS,
     CONTAINER_MIGRATION_BUDGET_MS,
   ]);
 });

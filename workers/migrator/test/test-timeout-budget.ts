@@ -68,9 +68,28 @@ export const WORKERD_BOOT_BUDGET_MS = 30_000;
  */
 export const CONTAINER_MIGRATION_BUDGET_MS = 120_000;
 
+/**
+ * `apply-lock.workerd.test.ts` has to spend longer than the platform's own 30-second
+ * `blockConcurrencyWhile` cap inside one apply, because that cap is the boundary under test
+ * (#1868) — a shorter apply would pass against a bound it never reached, which is the exact
+ * shape of proof the card refuses. workerd exposes no knob for the number: the cap is compiled
+ * in (`strings` over every workerd binary in this repository's store finds its message, and a
+ * 35 s callback is cancelled at 30.0 s locally, while the same 35 s outside the callback
+ * returns), so the test pays the wall clock rather than configuring it away.
+ *
+ * Measured at `af1a5cf1d` on the same 10-core arm64 host, two consecutive runs: 32.05 s and
+ * 32.03 s for the long apply, 467 ms and 450 ms for the serialization test, which is the one
+ * that pays the esbuild and the first Miniflare boot — this bundle carries no Prisma
+ * dependency, so both are cheap. 90 s is ~2.8x that 32.05 s worst case, and the margin is
+ * where it belongs: the 32 s is a sleep and does not stretch under load, while the boot around
+ * it does. An apply that never returns still fails its own test rather than the lane.
+ */
+export const WORKERD_SLOW_APPLY_BUDGET_MS = 90_000;
+
 /** Every budget a vitest config in this package may declare. */
 export const DECLARED_BUDGETS_MS: readonly number[] = [
   PLAIN_NODE_BUDGET_MS,
   WORKERD_BOOT_BUDGET_MS,
+  WORKERD_SLOW_APPLY_BUDGET_MS,
   CONTAINER_MIGRATION_BUDGET_MS,
 ];

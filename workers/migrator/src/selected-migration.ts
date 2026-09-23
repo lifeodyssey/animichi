@@ -3,6 +3,7 @@ import { assertDirectDsn } from "./direct-dsn";
 import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
 import { migratePrisma, previewPrisma, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
+import { redactedCause } from "./redacted-cause";
 
 /**
  * The migrator's whole apply path. One authority — the Prisma migration graph — decides what
@@ -25,6 +26,12 @@ export type SelectedMigration = MigrationResult & {
   prisma?: PrismaReceipt;
   /** A public native code or a local stable code; never a driver message. */
   failureCode?: string;
+  /**
+   * Why a THROWN failure threw, already through `redactedCause` (#1868). Handled outcomes —
+   * `refused`, a native failure code, `prisma_marker_mismatch` — carry their identity in
+   * `failureCode` and leave this absent, so its presence is itself the "something threw" fact.
+   */
+  cause?: string;
 };
 export interface SelectedExecutor {
   preflight(dsn: string, metadata: SelectedMetadata): Promise<SelectedPreflight>;
@@ -51,6 +58,17 @@ function nativeFailure(code: string): SelectedMigration {
   return { kind: "failure", exitCode: 1, error: code, failureCode: code };
 }
 
+/**
+ * The apply threw rather than reporting an outcome. The class keeps its public name; what
+ * changes is that the one fact an operator needs — what threw — survives the catch (#1868).
+ * Logged as well as returned, because the answer itself can be lost on the way out.
+ */
+function thrownDuringApply(error: unknown): SelectedMigration {
+  const cause = redactedCause(error);
+  console.error(`[migrator] apply threw: ${cause}`);
+  return { ...nativeFailure("migration_unavailable"), cause };
+}
+
 async function applySelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedMigration> {
   const preview = await checkSelected(dsn, metadata, directory);
   if (!preview.compatible) return { kind: "refused", reason: preview.error };
@@ -63,5 +81,5 @@ async function applySelected(dsn: string, metadata: SelectedMetadata, directory:
 /** Recheck the identity after acquiring the lock; a prior preview is no authority. */
 export async function migrateSelected(dsn: string, metadata: SelectedMetadata, directory = PRISMA_MIGRATIONS_DIR): Promise<SelectedMigration> {
   try { return await applySelected(dsn, metadata, directory); }
-  catch { return nativeFailure("migration_unavailable"); }
+  catch (error) { return thrownDuringApply(error); }
 }

@@ -12,6 +12,10 @@ import { openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-
 import { grantDatabaseCreate, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./neon-http-postgres";
 
+/** Cloudflare's documented `blockConcurrencyWhile` cap, which this runtime enforces locally. */
+const CALLBACK_CAP_MS = 30_000;
+const PAST_THE_CALLBACK_CAP_MS = 31_000;
+
 let runtime: Awaited<ReturnType<typeof startPrismaWorker>>;
 let token: string;
 const resources: { runtime?: typeof runtime; target?: PrismaMigrationTarget; directory?: string; client?: pg.Client } = {};
@@ -79,6 +83,27 @@ it("runs authenticated preview and concurrent apply through the deployed entry a
     replayMs: replayed - migrated, totalMs: replayed - started });
   await saveEvidence("native-workerd-fixed-lock", { applied, replay: replayBody });
 }, SPIKE_SETUP_BUDGET.chainMarginMs);
+
+/* The 2026-09-22 staging failure, against the real data plane (#1868). The apply here is the
+ * deployed bundle's own — real graph, real Prisma control client, real PostgreSQL, real fixed
+ * Durable Object — and only the answer time of one round trip is the test's, because that is
+ * what made staging's apply slow in the first place. Inside `blockConcurrencyWhile` the
+ * platform cancels this at 30 s and resets the object, and the route answers
+ * `500 {"error":"apply_dispatch_failed"}` carrying that reset as its cause; the gate this
+ * object uses now has no such bound, so the apply returns its marker. */
+it("applies through a round trip that outlasts the platform's blocked-callback cap", async () => {
+  runtime.latency.nextRoundTripMs = PAST_THE_CALLBACK_CAP_MS;
+  const started = performance.now();
+  const response = await post("migrate");
+  const body: unknown = await response.json();
+  const elapsedMs = performance.now() - started;
+  // An apply that came back early would satisfy the status assertion against no bound at all.
+  expect(elapsedMs).toBeGreaterThan(CALLBACK_CAP_MS);
+  expect({ status: response.status, body }).toMatchObject({ status: 200, body: {
+    success: true, prisma: { markerHash: TARGET },
+  } });
+  await saveEvidence("native-workerd-past-callback-cap", { elapsedMs, body });
+});
 
 it("rejects a requested native target absent from the sealed graph before reading a database", async () => {
   const response = await post("migrate", { ...requestMetadata, expectedPrismaRef: "f".repeat(64) });
