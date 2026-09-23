@@ -16,7 +16,7 @@ class PackageTestSegmentsTest < Minitest::Test
 
   REQUIRED_SEGMENTS = {
     "workers/edge" => %w[test:node test:chat-answer-part test:bundle-smoke test:ratelimit-namespace],
-    "workers/catalog" => %w[test:worker],
+    "workers/catalog" => %w[test:worker test:node],
     "workers/users" => %w[test:worker],
     "workers/migrator" => ["vitest run"],
     "packages/contract" => ["vitest run", "vet:baseline", "test:openapi-drift"],
@@ -49,6 +49,7 @@ class PackageTestSegmentsTest < Minitest::Test
   DELEGATED_COMMANDS = {
     ["workers/edge", "test:bundle-smoke"] => "bundle-smoke/",
     ["workers/edge", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
+    ["workers/catalog", "test:node"] => "vitest.node.config.ts",
     ["workers/catalog", "test:integration"] => "vitest.integration.config.ts",
     ["workers/users", "test:integration"] => "vitest.integration.config.ts",
     ["packages/contract", "test:openapi-drift"] => "contract-drift.sh",

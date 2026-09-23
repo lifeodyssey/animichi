@@ -6,7 +6,8 @@
  * root wires to SNAPSHOT_BUCKET — and the N/N-1 retention contract is verified
  * end to end: publish twice, add an abandoned snapshot, then gcSnapshots(keep=2)
  * retains exactly the live pointer + the N and N-1 prefixes and sweeps the rest.
- * Runs without Neon, so it also runs in the offline default.
+ * The only real resource is that in-process bucket — no database, hence the plain
+ * Node pool rather than the container lane.
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { Miniflare } from "miniflare";

@@ -6,11 +6,15 @@ until its owning migration card.
 
 - `pnpm run contract:emit` — regenerate `src/contract.json` and `src/contract.d.ts`.
 - `pnpm exec prisma migration plan --name <snake_slug> --json` — plan a native migration after emission.
-- `pnpm run lint` / `pnpm run typecheck` / `pnpm run test` — package static and unit gates.
-- `pnpm run test:integration` — one disposable `@animichi/test-postgres` PostGIS lifecycle, serially:
-  the cluster it opens (no data-plane chain applied, #1783), the pack's own chain database on it (one
-  chain per database), and the pack's own migrations applied there.
-  It enforces 95% line coverage and writes `coverage/lcov.info`. Never point it at live Neon.
+- `pnpm run lint` / `pnpm run typecheck` — package static gates.
+- `pnpm run test` — the `*.unit.test.ts` files, and the coverage gate over `src/geography/**`:
+  95% lines, written to `coverage/lcov.info` for CI. It lives here because this is the lane that
+  earns it — the db files measure 90.08% of those lines on their own and add none the unit files
+  do not already reach (#1771). Needs no container.
+- `pnpm run test:integration` — the `*.db.test.ts` files: one disposable `@animichi/test-postgres`
+  PostGIS lifecycle, serially: the cluster it opens (no data-plane chain applied, #1783), the pack's
+  own chain database on it (one chain per database), and the pack's own migrations applied there.
+  It measures no coverage. Never point it at live Neon.
 
 The public package surface has seven exports. `./control` is the authoring/control descriptor loaded by
 `prisma.config.ts`; `./runtime` is a distinct runtime descriptor loaded by a Postgres client. Do not

@@ -15,8 +15,8 @@
   "scripts": {
     "contract:emit": "prisma contract emit",
     "lint": "oxlint --type-aware --deny-warnings .",
-    "test": "node --test --test-concurrency=1 test/*.unit.test.ts",
-    "test:integration": "mkdir -p coverage && cd ../.. && node --test --test-concurrency=1 --test-isolation=none --test-timeout=600000 --experimental-test-coverage --test-coverage-include='packages/prisma-geography/src/geography/**/*.ts' --test-coverage-lines=95 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=packages/prisma-geography/coverage/lcov.info 'packages/prisma-geography/test/*.db.test.ts' 'packages/prisma-geography/test/*.unit.test.ts'",
+    "test": "mkdir -p coverage && cd ../.. && node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-include='packages/prisma-geography/src/geography/**/*.ts' --test-coverage-lines=95 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=packages/prisma-geography/coverage/lcov.info 'packages/prisma-geography/test/*.unit.test.ts'",
+    "test:integration": "node --test --test-concurrency=1 --test-isolation=none --test-timeout=600000 --test-reporter=spec --test-reporter-destination=stdout 'test/*.db.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

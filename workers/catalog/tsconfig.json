@@ -17,6 +17,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts", "vitest.integration.config.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts", "vitest.integration.config.ts",
+              "vitest.node.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

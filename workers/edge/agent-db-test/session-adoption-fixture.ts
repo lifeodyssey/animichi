@@ -1,16 +1,14 @@
-// Disposable-database fixture for the native adoption route (#1601): lifecycle,
-// seeds, readers and the route driver the adoption suite asserts against.
+// Fixture for the native adoption route (#1601): lifecycle, seeds, readers and
+// the route driver the adoption suite asserts against.
 // Mirrors `settlement-fixture.ts` / `recovery-fixture.ts`: importing this
-// module registers the node:test hooks against the imported database.
-import { after, before, beforeEach } from "node:test";
-import { AGENT_DB_SETUP_BUDGET, startTestPostgresCluster } from "@animichi/test-postgres";
+// module registers the node:test hooks against the lane database (#1771).
+import { before, beforeEach } from "node:test";
 import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import pg from "pg";
 import type { Contract } from "@animichi/pi-session-neon/types";
-import { nativeClient } from "../src/native-client.ts";
 import { handleSessionAdopt, ADOPT_TURN_KEY_PREFIX } from "../src/identity/session-adopt.ts";
-import { startContractDatabase, type ContractDatabase } from "../test/contract-database.ts";
 import { TEST_ANON_SECRET } from "../test/doubles/signed-anonymous-cookie.ts";
+import { laneClient, laneDsn, lanePool } from "./lane-contract-database.ts";
 
 export const ANON_ID = "anon_" + "a".repeat(32);
 export const ACCOUNT_ID = "account-session-owner";
@@ -39,7 +37,6 @@ export interface AdoptionWriteSnapshot {
 export let db: PostgresClient<Contract>;
 let contractDsn: string;
 let pool: pg.Pool;
-const resources: { db?: PostgresClient<Contract>; contract?: ContractDatabase; pool?: pg.Pool } = {};
 
 const MARKER_COLUMNS = {
   session_id: { codecId: "pg/text@1", nullable: true },
@@ -62,11 +59,9 @@ const CONFLICT_TRIGGER_SQL = `CREATE TRIGGER session_adoption_conflict BEFORE IN
   FOR EACH ROW EXECUTE FUNCTION session_adoption_conflict()`;
 
 before(async () => {
-  const cluster = await startTestPostgresCluster({ budget: AGENT_DB_SETUP_BUDGET });
-  const contract = resources.contract = await startContractDatabase(cluster, "native_adoption");
-  contractDsn = contract.dsn;
-  db = resources.db = nativeClient(contractDsn);
-  pool = resources.pool = new pg.Pool({ connectionString: contractDsn });
+  contractDsn = await laneDsn();
+  db = await laneClient();
+  pool = await lanePool();
 });
 
 beforeEach(async () => {
@@ -78,11 +73,6 @@ beforeEach(async () => {
     INSERT INTO turn_reservations (session_id, turn_key, payer, identity_id, revision, status)
     VALUES (${WITH_RESERVATION}, 'pre-adoption', 'anon', ${ANON_ID}, 1, 'completed')
   `.affectedCount().build());
-});
-
-after(async () => {
-  try { await Promise.all([resources.db?.close(), resources.pool?.end()]); }
-  finally { await resources.contract?.stop(); }
 });
 
 async function clearTables(): Promise<void> {
