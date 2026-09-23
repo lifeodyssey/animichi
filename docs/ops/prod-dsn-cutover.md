@@ -11,10 +11,16 @@
   object is an orphaned revision ledger left by the retired Atlas chain on some envs. Nothing
   reads or writes prod today, so the cutover has **zero traffic risk** — the first apply *creates*
   the schema.
-- Prod runtime DSNs today come from **GitHub environment secrets** (`NEON_DATABASE_URL` owner
-  DSN + `CATALOG_DATABASE_URL` / `USERS_DATABASE_URL` / `AGENT_DATABASE_URL`), injected by
-  the production phase in `cd.yml`. This is exactly the P4 target state
-  that staging is being migrated away from (ADR 0003; P4 = #912).
+- **Prod runtime DSNs no longer come from GitHub environment secrets.** P4 (#912) completed on
+  2026-08-09 and its Worker bindings are in the tree: `[[env.production.secrets_store_secrets]]`
+  binds `AGENT_SVC_DATABASE_URL` → `AGENT_SVC_DATABASE_URL_PROD` in `workers/edge/wrangler.toml`,
+  `DATABASE_URL` → `CATALOG_DATABASE_URL_PROD` in `workers/catalog/`, and `DATABASE_URL` →
+  `USERS_DATABASE_URL_PROD` in `workers/users/`. `cd.yml` injects none of them: it contains no
+  `DATABASE_URL` reference and no `${{ secrets.* }}` reference at all. Of the four names this
+  section used to list, only `NEON_DATABASE_URL` is still a `production` environment secret
+  (read-only `gh secret list`, 2026-09-23); `CATALOG_DATABASE_URL`, `USERS_DATABASE_URL` and
+  `AGENT_DATABASE_URL` are absent from every scope. Deleting what is left is the inventory's
+  business in `docs/ops/secrets.md`, not this runbook's.
 - **Roles are Neon-project-scoped, not branch-scoped**; GRANTs are branch/schema-scoped and
   shipped as migrations. Role DDL is Pulumi's since #1636; the GRANT matrix lives in the chain's
   `access.ts`, with each role's grants beside the tables they
