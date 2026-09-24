@@ -9,11 +9,8 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
 - **Orca card delivery** — backend/Infra/CI-CD Ready for Dev → merged PR follows
   `docs/ops/orca-card-delivery.md`: writers from the coordinator skill's roster, invoking `/implement`
   when their Skill tool allows it, different-model Matt review workers, three review rounds maximum,
-  all PR feedback resolved before merge. This scoped owner choice overrides the OpenCode-only/fleet
-  and legacy Codex dispatch routing below.
-- **Legacy Codex routing (outside the Orca flow)** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
-  `/codex:review`; images via `/codex:imagegen`. **Read `.claude/skills/use-codex/SKILL.md` first** —
-  it carries the tool's operating facts.
+  all PR feedback resolved before merge. This scoped owner choice overrides the opencode
+  executor route for those cards.
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).

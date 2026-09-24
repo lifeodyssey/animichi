@@ -12,13 +12,13 @@ conditions, and the failure modes each of them was written to prevent. Read it b
 dispatching anything. The retired `use-opencode` and `fleet-orchestra` skills are superseded
 by it; the `opencode serve` channel they described is no longer how work is dispatched.
 Role definitions live in `.claude/agents/`:
-- planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
+- planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (GLM + DeepSeek, per the owner's 2026-09-24 decision) before owner sign-off.
 - executor — dispatched through the Orca headless launcher; see the coordinator skill above
   for the current roster. Brief-driven; publication stays with the coordinator.
 - reviewer — card-level final review: read the candidate diff vs brief before merge; **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
 **Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Codecov patch ≥95%. Merge requires resolved review threads + acknowledged bot findings. Two kinds of gate, not interchangeable. **Committed** (every contributor, every CI run): the `commitlint` commit-msg hook, the pre-push affected gate (`scripts/local-gates/pre-push-affected.sh`, running the same package scripts as CI's affected matrix), and the native workflow/action tests under `.github/test` plus repository configuration tests under
-`test/repo-config` — CI's `commits`, `affected` and `contracts` lanes mirror those three. **Owner-local**: the hookify rules `block-secrets-in-pr`, `block-local-deploy` and `block-codex-exec-codewrite`, which live beside the tracked files in `.claude/` but are gitignored — enabled and blocking on the owner's machine, absent from a fresh clone and from CI. Never cite one of the three as proof that a repository rule is enforced.
+`test/repo-config` — CI's `commits`, `affected` and `contracts` lanes mirror those three. **Owner-local**: the hookify rules `block-secrets-in-pr` and `block-local-deploy`, which live beside the tracked files in `.claude/` but are gitignored — enabled and blocking on the owner's machine, absent from a fresh clone and from CI. Never cite one of the two as proof that a repository rule is enforced.
 
 ## Escalation path (who decides)
 

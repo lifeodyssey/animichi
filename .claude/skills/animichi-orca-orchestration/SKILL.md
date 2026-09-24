@@ -99,7 +99,7 @@ because an observation is quiet or incomplete. Apply the scope in
 
 ## Dispatch independent work
 
-Maximize safe parallelism without a fixed Codex writer cap. A card may launch
+Maximize safe parallelism without a fixed writer cap. A card may launch
 only when it is independently Ready for Dev, its dependencies are satisfied,
 its worktree and ownership are distinct, and no existing writer owns that
 candidate. Never create duplicate worktrees, Tasks, Dispatches, PRs, or writers.
@@ -118,8 +118,8 @@ user-owned repository, so serialization is the lever.
 
 Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
 `~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
-yet (#1840); the in-repo `scripts/orca-headless/` accepts only the Codex and Grok selections
-the roster no longer uses, and refuses every writer below. Its
+yet (#1840); the in-repo `scripts/orca-headless/` still accepts only the retired Codex and Grok selections,
+and refuses every writer below. Its
 accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
@@ -130,7 +130,7 @@ at launch, which is the point.
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
 | Writer, **visible UI only** | `--provider kimi --model kimi-code/k3-256k-max --effort max` |
-| Reviewer | `--provider claude --model claude-opus-5 --effort high` |
+| Reviewer | The writer's counterpart — GLM and DeepSeek review each other; kimi reviews a candidate that both of them wrote; GLM or DeepSeek reviews a candidate kimi wrote (owner, 2026-09-24 — Claude models no longer review) |
 
 `--runtime-client` has no default and `start` refuses without it: pass
 `/Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js`.
@@ -166,7 +166,9 @@ Every developer or fixer role spec must explicitly require:
 
 Every pre-PR and post-fix review role spec must explicitly require:
 
-- a fresh headless Claude `claude-opus-5` at `high`, reported as blocked rather
+- the writer's counterpart as the reviewer — GLM and DeepSeek review each other; kimi
+  reviews a candidate that both of them wrote; GLM or DeepSeek reviews a candidate kimi
+  wrote (owner, 2026-09-24 — Claude models no longer review), reported as blocked rather
   than as approval if the effective model is anything else;
 - direct invocation and following of Matt `/code-review`;
 - a reviewer model different from every model that wrote the current

@@ -15,7 +15,7 @@ staging against the GOAL contract. You produce evidence and verdicts, never code
 ## Playwright Test Agents pipeline
 
 - Planner: agent explores staging via the accessibility-tree/CLI channel (text models);
-  visual-judgment cases go to the Codex fallback. Exploration output lands in the DRAFT
+  visual-judgment cases go to the coordinator-designated fallback model. Exploration output lands in the DRAFT
   area only.
 - Human review: the exploration plan is read and approved by a person before generation.
 - Generator: the official Generator turns the approved plan into Playwright code.

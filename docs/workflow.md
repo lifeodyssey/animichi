@@ -1,7 +1,8 @@
 # Workflow — Matt 流程与执行编排(每阶段显式触发)
 
 后端、Infra、CI/CD 的已就绪卡片采用 [Orca 交付流程](ops/orca-card-delivery.md)
-(2026-09-12 owner 决定):Codex Sol max 按 `/implement` 实施,不同模型的独立 Matt 评审与修正最多三轮,
+(2026-09-12 owner 决定;写手/评审名册按 2026-09-24 owner 决定更新):GLM 与 DeepSeek 互写互审,
+可见 UI 卡归 kimi,写手按 `/implement` 实施,不同模型的独立 Matt 评审与修正最多三轮,
 创建 PR 后解决全部反馈并走到合并。该范围覆盖下文 Policy C 的执行器和 fleet 派发方式;
 前期拆卡及合并后的 API/E2E/Computer Use 验收不在本阶段内。其他工作保留下文流程。
 
@@ -17,7 +18,7 @@
 | 0. 仓库初始化 | `/setup-matt-pocock-skills` | 每仓一次(tracker=GitHub Issues,label `ready-for-agent`) |
 | 1. 磨想法 | `/grill-with-docs`(有代码库)或 `/grill-me` | **一次一问、每问带推荐、事实自查环境、共识前不动手**;产出沉进 CONTEXT/ADR |
 | 1.5 可运行问题 | `/handoff` → `/prototype` → `/handoff` 回 | 原型答问,不留生产代码 |
-| 2. 成 spec | `/to-spec` | 模板七段;Implementation Decisions 不写实现文件路径;**接缝向 owner 确认**;发 tracker issue + `ready-for-agent`;**spec 双席评审 = Fable + Codex GPT Sol(xhigh,`adversarial-review` 命令)→ 回修 → 复核 → owner 签核** |
+| 2. 成 spec | `/to-spec` | 模板七段;Implementation Decisions 不写实现文件路径;**接缝向 owner 确认**;发 tracker issue + `ready-for-agent`;**spec 双席评审 = GLM + DeepSeek(不同模型;2026-09-24 owner 决定,Claude 模型不再评审)→ 回修 → 复核 → owner 签核** |
 | 3. 拆卡 | `/to-tickets` | 每卡:AC 带 test-type + **blocking edges 写进卡目录 `needs` 文件**;卡=一个 worktree 一个小 PR |
 | 4. 实施 | `/implement`(内驱 `/tdd`) | **执行者=opencode**(serve 通道,ds-max→luna-max;见 use-opencode skill);状态机 `card.sh` 推进:QUEUED→EXECUTING→GATES→REVIEW→PR_OPEN→WAIT_GREEN→TRIAGE→MERGE→CLEANUP→DONE |
 | 5. 评审 | `/code-review` | **卡级终审**:读 `origin/main...HEAD` 候选提交 vs 任务书;**候选提交协议**:gates 后先打本地候选 commit(不 push),评审绑定该 commit,REJECT → 修复 + 新候选提交 → 完整重审,批准后才 push/open PR;变异检验是绿灯唯一效力证明;合并闸的单一来源 → `docs/ops/review-gate.md` |
