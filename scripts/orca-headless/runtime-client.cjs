@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const EXPECTED_VERSION = "1.4.200";
+const EXPECTED_VERSION = "1.4.206";
 
 function clientPath(argv) {
   const index = argv.indexOf("--client");

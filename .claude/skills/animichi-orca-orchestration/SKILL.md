@@ -116,11 +116,11 @@ user-owned repository, so serialization is the lever.
 
 ### The roster (2026-09-22)
 
-Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
-`~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
-yet (#1840); the in-repo `scripts/orca-headless/` still accepts only the retired Codex and Grok selections,
-and refuses every writer below. Its
-accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
+Dispatch through `scripts/orca-headless/orca-headless.rb` on `main` (#1944). The coordinator
+keeps the sibling worktree
+`~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support` at `origin/main`'s copy of the
+launcher, so dispatching from that worktree runs the same launcher. Its accepted selections are a
+hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
 | Role | Selection |

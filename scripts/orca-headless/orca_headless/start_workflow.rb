@@ -32,7 +32,7 @@ module OrcaHeadless
 
     def record_model(context)
       model = ModelCommand.build(context.input)
-      context.store.write("empty.stdin", "") if context.input.provider == "grok"
+      context.store.write("empty.stdin", "") if %w[grok kimi].include?(context.input.provider)
       context.store.write_json("runner-config.json", model_payload(context.input, model))
       model
     end
