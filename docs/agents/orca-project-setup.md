@@ -32,10 +32,9 @@ Use the selected Orca executable to load the installed `orca-cli` and
 | Setup command | `pnpm install` |
 | Setup policy | Run by default; wait for successful setup before task delivery |
 | Nested worker maximum depth | `2` |
-| Coordinator | Codex `gpt-5.6-sol` / `medium` |
-| Development and every fix | Codex `gpt-5.6-sol` / `max`, invoking Matt `/implement` |
-| Independent reviewer | Grok `grok-4.6` / `xhigh`, invoking Matt `/code-review` |
-| Review fallback | Codex `gpt-6-astra` / `xhigh` when Grok allowance or identity is unverified |
+| Coordinator | The dispatching Orca coordinator session |
+| Development and every fix | GLM or DeepSeek (owner roster, 2026-09-24), invoking Matt `/implement` |
+| Independent reviewer | The writer's counterpart — GLM and DeepSeek review each other; Kimi reviews a candidate both wrote, invoking Matt `/code-review` |
 | Worker presentation | Noninteractive execution without visible Chat or TUI panes |
 
 A fresh reviewer and all its review descendants must differ from every model
@@ -74,8 +73,8 @@ changes. Only after that passes, inventory existing Ready for Dev and open-PR
 backend/Infra/CI-CD cards and maximize independent work within dependencies,
 ownership and available resources. Preserve every other active worktree.
 
-1. Keep Orca and the long-lived coordinator session running. Use Sol medium for
-   the coordinator and load the installed Orca skills.
+1. Keep Orca and the long-lived coordinator session running, and load the installed
+   Orca skills.
 2. Select the admitted card and read its current scope, readiness, dependencies,
    ownership and any existing PR. Do not create a second PR for an existing outcome.
 3. Run the [coordinator prompt](orca-coordinator-prompt.md) for that card. A concise
@@ -107,7 +106,7 @@ See [Orca remote servers](https://www.onorca.dev/docs/remote-servers).
 The tested local compatibility path uses the installed RuntimeClient's
 `terminal.create` with `presentation=background`, then the public `task-create`
 and `dispatch --return-preamble` operations. It passes the exact native preamble
-into Codex `exec` or Grok `--prompt-file` with file input/output. No installed-app
+into the selected worker CLI with file input/output. No installed-app
 patch or visible-mode fallback is part of this path.
 
 The runtime parameter is internal and version-specific. Verify compatibility
@@ -129,17 +128,17 @@ out of public issue updates and PR descriptions.
 
 ## Model compatibility and allowance
 
-Orca 1.4.200 rejects Astra `max` in its normal launch catalog even when the local
-Codex CLI supports it. The owner selected temporary **Astra xhigh** for the MVP.
-Do not silently lower other roles' effort or restore max without verifying Orca
-compatibility — a standing rule, not a card's open question. The review gate that carried it,
-[#1614](https://github.com/lifeodyssey/animichi/issues/1614), closed on 2026-09-19; re-verify
+The MVP's temporary **Codex Astra xhigh** selection (Orca 1.4.200 rejected Astra `max`
+even though the local Codex CLI supported it) is history: Codex left the roster on
+2026-09-24, and its review gate,
+[#1614](https://github.com/lifeodyssey/animichi/issues/1614), closed on 2026-09-19. The standing
+rules survive: never silently lower a role's effort, and re-verify model compatibility
 against the Orca version in front of you rather than against that card.
 
-Before Grok admission, verify current remaining allowance, observation time and
-actual `grok-4.6` / `xhigh` identity. `grok usage` is historical session usage,
-not remaining subscription allowance. A stale cache or unsuccessful refresh
-cannot establish availability; use the configured fallback and record why.
+Before admitting any subscription-based worker, verify current remaining allowance,
+observation time and the actual model/effort identity. `grok usage`, for one, is historical
+session usage, not remaining subscription allowance. A stale cache or unsuccessful refresh
+cannot establish availability; record why instead of admitting.
 
 General subscription-based selection, a provider pool and low-allowance Matt
 `/handoff` are deferred to [enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619).

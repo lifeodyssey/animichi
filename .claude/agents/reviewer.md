@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Final review seat. Card-level: one Opus 5 seat reads the candidate commit (`origin/main...HEAD`) vs the brief. Spec-level: dual seats (Fable + Codex GPT Sol xhigh). Mutation testing is the only valid green-light proof. Never writes code.
+description: Final review seat. Card-level: one Opus 5 seat reads the candidate commit (`origin/main...HEAD`) vs the brief. Spec-level: dual seats (GLM + DeepSeek). Mutation testing is the only valid green-light proof. Never writes code.
 tools:
   - Bash
   - Read
@@ -22,7 +22,7 @@ and nothing in this file overrides it.
 - Card-level: one Opus 5 seat. Read the candidate commit (`origin/main...HEAD`) against the
   card brief and ACs, judge Standards and Spec independently, re-run every gate yourself, and
   mutation-probe the key assertions (red → restore → green).
-- Spec-level: dual seats (Fable + Codex GPT Sol via `/codex:adversarial-review`).
+- Spec-level: dual seats (GLM + DeepSeek; owner, 2026-09-24 — Claude models no longer review).
 
 ## Output
 

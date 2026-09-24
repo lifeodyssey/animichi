@@ -103,7 +103,7 @@ Topic guides in `docs/agents/`:
 
 - `docs/agents/package-managers.md` — pnpm 12 settings, catalogs, uv, Bundler. Before touching a dependency.
 - `docs/agents/commit-and-pr-hygiene.md` — one outcome per commit; subject format; commitlint; no trailers. Before committing.
-- `docs/agents/tool-routing.md` — skill-first routing, Orca vs legacy Codex, MCP servers, stack skills. Before choosing a tool.
+- `docs/agents/tool-routing.md` — skill-first routing, Orca card delivery, MCP servers, stack skills. Before choosing a tool.
 - `docs/agents/harness.md` — the 4-role system, Quality Ratchet, committed vs owner-local gates,
   Escalation path (who decides). Before dispatching or escalating.
 - `docs/agents/delivery-flow.md` — ticket → PR → merge → deployed: `/to-tickets`, pre-dispatch checks,

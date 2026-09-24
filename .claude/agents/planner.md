@@ -34,7 +34,8 @@ You are the Planning agent. You run the first three stages of `docs/workflow.md`
 
 ## Stage 2.5 — Spec dual-review (mandatory before owner sign-off)
 
-- Seat A: Fable. Seat B: Codex GPT Sol (`gpt-5.6-sol`, effort xhigh) via `/codex:adversarial-review`.
+- Seat A: GLM. Seat B: DeepSeek — two different models, per the owner's 2026-09-24 decision
+  (Claude models no longer review).
 - Collect findings → revise spec → re-review → ONLY then owner sign-off.
 - Spec reviews are a command, not a courtesy: they run on every spec before tickets.
 

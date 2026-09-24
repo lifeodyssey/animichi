@@ -17,7 +17,7 @@ session writes the brief, dispatches, verifies, and commits. opencode writes the
 ## The card source decides the harness
 
 - **Orca card delivery** — backend, Infra and CI/CD cards that are already Ready for Dev —
-  supersedes the opencode route below: development runs on Codex `gpt-5.6-sol` / `max` under
+  supersedes the opencode route below: development runs on GLM or DeepSeek (owner roster, 2026-09-24) under
   `/implement`, with independent Matt review workers and all PR feedback resolved before merge.
   `docs/ops/orca-card-delivery.md` is the flow and `docs/agents/tool-routing.md` scopes the override. This file
   describes the opencode route for every other card.

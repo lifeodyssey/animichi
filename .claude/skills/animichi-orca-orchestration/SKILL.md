@@ -99,7 +99,7 @@ because an observation is quiet or incomplete. Apply the scope in
 
 ## Dispatch independent work
 
-Maximize safe parallelism without a fixed Codex writer cap. A card may launch
+Maximize safe parallelism without a fixed writer cap. A card may launch
 only when it is independently Ready for Dev, its dependencies are satisfied,
 its worktree and ownership are distinct, and no existing writer owns that
 candidate. Never create duplicate worktrees, Tasks, Dispatches, PRs, or writers.
@@ -118,8 +118,8 @@ user-owned repository, so serialization is the lever.
 
 Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
 `~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
-yet (#1840); the in-repo `scripts/orca-headless/` accepts only the Codex and Grok selections
-the roster no longer uses, and refuses every writer below. Its
+yet (#1840); the in-repo `scripts/orca-headless/` still accepts only the retired Codex and Grok selections,
+and refuses every writer below. Its
 accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
