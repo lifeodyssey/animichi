@@ -3,10 +3,12 @@
 #
 # What approving the line below does: the rebuild drops the whole `prisma_contract` schema, not one
 # row. That is three tables and every row in each — `marker`, `ledger` (with its id sequence) and
-# `contract` — which is everything a Prisma migration writes there. It drops them by name, in the
-# same transaction as `public` and after the backup branch; if the schema holds any other object,
-# or anything outside it depends on one of the three, the drop fails and the whole transaction,
-# `public` included, rolls back. No other schema is reachable from it, `neon_auth` included.
+# `contract` — which is everything a Prisma migration writes there. It drops them by name, in one
+# transaction as `migrator`, the schema's owner, after the backup branch; `public` is rebuilt in a
+# second transaction, as `neondb_owner`, and no transaction spans both. If the schema holds any
+# other object, or anything outside it depends on one of the three, the drop fails and that
+# transaction rolls back, leaving `public` untouched. No other schema is reachable from it,
+# `neon_auth` included.
 #
 # What the guard checks: only the marker rows. It proceeds only when the lines below are every row
 # `prisma_contract.marker` holds, each written exactly as the refusal quotes it — the space and the
