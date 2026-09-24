@@ -1,7 +1,15 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as cloudflare from "@pulumi/cloudflare";
 import * as neon from "@pulumi/neon";
 import * as random from "@pulumi/random";
+import {
+  adoptSecretsStore,
+  storeCatalogAdminToken,
+  storeNeonAuthDeclarations,
+  storeRoleDsnSecret,
+  storeRuntimeRoleCredentials,
+  type RuntimeRoleDefinition,
+  type SecretsStorePlacement,
+} from "./store-secrets.ts";
 export { edgeRuntimeSecretNames } from "./runtime-secrets.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,13 +41,9 @@ export { edgeRuntimeSecretNames } from "./runtime-secrets.ts";
 //     PR2/PR3 declare the wrangler.toml Secrets Store bindings (staging base
 //     names; prod "_PROD"-suffixed names, see secretNameSuffix below).
 //
-//     Store creation note: the account already has Cloudflare's built-in
-//     `default_secrets_store`, and the account plan refuses a second store
-//     (`maximum_stores_exceeded`, HTTP 400 code 1003). This stack therefore
-//     IMPORTS the account's default store (`secretsStoreId` config) instead
-//     of creating one; the store name is only the logical resource name here.
-//     Staging and production SHARE this single store, which is exactly why the
-//     production DSN secrets carry a "_PROD" suffix.
+//     The store itself — the account's built-in `default_secrets_store`, which
+//     the account plan refuses to duplicate — and every secret this program
+//     writes into it live in `store-secrets.ts`.
 //
 //     RETENTION-1 (#940): the staging retention role and its store secret are
 //     retired from this stack — deleting the role resource removes the staging
@@ -77,12 +81,7 @@ const neonProvider = new neon.Provider("neon", {
 //
 // agent_svc DSN (#912 follow-up): the edge Worker binds AGENT_SVC_DATABASE_URL
 // from the Secrets Store and the native agent tier resolves it directly.
-const roleDefs: {
-  name: string;
-  secretName: string;
-  passwordSecretName: string;
-  comment: string;
-}[] = [
+const roleDefs: RuntimeRoleDefinition[] = [
   {
     name: "catalog_svc",
     secretName: "CATALOG_DATABASE_URL",
@@ -126,54 +125,23 @@ const host = neon
     return rw.host;
   });
 
-const store = cloudflare.SecretsStore.get(
-  secretsStoreName,
-  `${accountId}/${secretsStoreId}`,
+// Every access secret below lands in the account's shared Secrets Store; its
+// adoption and its write rule live in `store-secrets.ts`.
+const placement: SecretsStorePlacement = {
+  accountId,
+  storeId: secretsStoreId,
+  nameSuffix: secretNameSuffix,
+  host,
+  databaseName,
+};
+
+adoptSecretsStore(secretsStoreName, placement);
+
+storeRuntimeRoleCredentials(
+  placement,
+  roleDefs,
+  runtimePasswords.map((rolePassword) => rolePassword.result),
 );
-
-/** One secret in the account's shared Secrets Store, scoped to Workers.
- * `logicalName` is Pulumi's state identity, `realName` the name the store holds
- * and wrangler binds; four differ, and passing one string for both renames the
- * store secret — a delete-and-recreate, which is how #1940 lost CATALOG_ADMIN_TOKEN. */
-function storeSecret(
-  logicalName: string,
-  realName: string,
-  value: pulumi.Input<string>,
-  comment: string,
-): void {
-  new cloudflare.SecretsStoreSecret(logicalName, {
-    accountId,
-    storeId: secretsStoreId,
-    name: realName,
-    value,
-    scopes: ["workers"],
-    comment,
-  });
-}
-
-const dsnFor = (name: string, password: pulumi.Output<string>) =>
-  pulumi.interpolate`postgresql://${name}:${password.apply(encodeURIComponent)}@${host}:5432/${databaseName}?sslmode=require`;
-
-// The DSN secret names are the contract the runtime Workers' wrangler.toml
-// binds (#832, #1048); they are unchanged by #1915. The password secrets sit
-// beside them for the migrator alone. Every pair below passes the same string
-// twice — #1941 split the factory's arguments because the four secrets further
-// down (the admin token and the config-gated Auth three) are the ones whose
-// logical name is not their real name.
-roleDefs.forEach((def, i) => {
-  storeSecret(
-    `${def.secretName}${secretNameSuffix}`,
-    `${def.secretName}${secretNameSuffix}`,
-    dsnFor(def.name, runtimePasswords[i].result),
-    def.comment,
-  );
-  storeSecret(
-    `${def.passwordSecretName}${secretNameSuffix}`,
-    `${def.passwordSecretName}${secretNameSuffix}`,
-    runtimePasswords[i].result,
-    `${def.name} password, applied to the role by the migrator's SQL step (#1915); bound to no runtime Worker`,
-  );
-});
 
 // ── The migrator LOGIN (#1050) ──────────────────────────────────────────────
 //
@@ -222,12 +190,7 @@ const migratorRole = new neon.Role(
   { provider: neonProvider },
 );
 
-storeSecret(
-  `${migratorDef.secretName}${secretNameSuffix}`,
-  `${migratorDef.secretName}${secretNameSuffix}`,
-  dsnFor(migratorDef.name, migratorRole.password),
-  migratorDef.comment,
-);
+storeRoleDsnSecret(placement, migratorDef, migratorRole.password);
 
 // ── Catalog admin token (system-health-audit 2026-08-26 §2.4/§3, #1217) ────
 // CATALOG_ADMIN_TOKEN guards POST /catalog/admin/* (full-ingest, canary) but
@@ -240,12 +203,7 @@ const catalogAdminToken = new random.RandomPassword("catalog-admin-token", {
   special: false,
 });
 
-storeSecret(
-  `catalog-admin-token${secretNameSuffix}`,
-  `CATALOG_ADMIN_TOKEN${secretNameSuffix}`,
-  catalogAdminToken.result,
-  "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
-);
+storeCatalogAdminToken(placement, catalogAdminToken.result);
 
 // ── Neon Auth declarations (AUTH-2 #950) ────────────────────────────────────
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
@@ -259,40 +217,16 @@ storeSecret(
 // secret; the email is not.
 //
 // All three are config-gated (optional getters): stacks without the keys apply
-// unchanged — nothing here is created until an operator sets them, so this is
+// unchanged — nothing is created until an operator sets them, so this is
 // declaration, not provisioning.
 //   pulumi config set neonAuthBaseUrl https://<branch>.neonauth.c-2..../neondb/auth
 //   pulumi config set qaNeonUserEmail qa-bot@animichi.test
 //   pulumi config set --secret qaNeonUserPassword <password>
-const authBaseUrl = config.get("neonAuthBaseUrl");
-if (authBaseUrl !== undefined) {
-  storeSecret(
-    "neon-auth-jwks-url",
-    "NEON_AUTH_JWKS_URL",
-    `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
-    "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
-  );
-}
-
-const qaNeonUserEmail = config.get("qaNeonUserEmail");
-if (qaNeonUserEmail !== undefined) {
-  storeSecret(
-    "qa-neon-user-email",
-    "QA_NEON_USER_EMAIL",
-    qaNeonUserEmail,
-    "Neon Auth QA login email (Path A, AUTH-2 #950)",
-  );
-}
-
-const qaNeonUserPassword = config.getSecret("qaNeonUserPassword");
-if (qaNeonUserPassword !== undefined) {
-  storeSecret(
-    "qa-neon-user-password",
-    "QA_NEON_USER_PASSWORD",
-    qaNeonUserPassword,
-    "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
-  );
-}
+storeNeonAuthDeclarations(placement, {
+  baseUrl: config.get("neonAuthBaseUrl"),
+  userEmail: config.get("qaNeonUserEmail"),
+  userPassword: config.getSecret("qaNeonUserPassword"),
+});
 
 // Exported for the wrangler.toml bindings (PR2/PR3) and operators.
 export const secretsStoreNameOut = secretsStoreName;
