@@ -9,10 +9,14 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   credential-free Pulumi program load (`../scripts/local-gates/infra-check.sh`), which is the only
   check that catches a loader/compiler incompatibility `tsc --noEmit` cannot see. It needs the
   Pulumi CLI and touches no cloud credentials.
-- `pnpm run typecheck` — `tsc --noEmit` for the program and for `tsconfig.test.json`. This package
-  has **no** `lint` script yet: type-aware oxlint rejects its `moduleResolution: node10` outright
-  (TypeScript 7 removed that value), so linting it is a change to the Pulumi program's module
-  resolution and its own outcome, not a script alias.
+- `pnpm run typecheck` — `tsc --noEmit` for the program, for `tsconfig.test.json`, and for the
+  `database-access` program (`database-access/typecheck.sh`, #1947): the script materializes
+  that program's release-time-generated Neon SDK (`pulumi install` against a throwaway
+  `file://` backend, then the frozen install that links `file:sdks/neon`) so the typecheck
+  resolves the real generated types, and compiles it with this package's TypeScript 7 — the
+  compiler whose removal of `moduleResolution: node10` is why `database-access/tsconfig.json`
+  now resolves `bundler` like the rest of the package. The package still has **no** `lint`
+  script; adding one is its own outcome, not a script alias.
 - `pulumi preview --stack lifeodyssey/staging` — preview against `Pulumi.staging.yaml`.
 - `pulumi preview --stack lifeodyssey/prod` — preview against `Pulumi.prod.yaml`.
 - `pulumi up --stack lifeodyssey/staging` — apply the staging stack; normal delivery runs this through CI.
