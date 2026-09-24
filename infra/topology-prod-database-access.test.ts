@@ -2,15 +2,18 @@
  *
  * A separate file from the `topology-*.test.ts` files that build a stack,
  * following `topology-neon-auth.test.ts`: nothing here imports a Pulumi
- * program. `infra/database-access` is a SECOND Pulumi program and it cannot be
- * built through the harness at all — its Neon provider is a bridged SDK
- * generated at release time (`pulumi install`) from Pulumi.yaml's pins and
- * deliberately kept out of the repo
- * (`infra/database-access/.gitignore`), so there is no `@pulumi/neon` for a
- * test process to import. What CAN be pinned without it is the pair of
+ * program. `infra/database-access` is a SECOND Pulumi program and `buildStack`
+ * cannot load it at all — its Neon provider is a bridged SDK generated at
+ * release time (`pulumi install`) from Pulumi.yaml's pins and deliberately kept
+ * out of the repo (`infra/database-access/.gitignore`), so there is no
+ * `@pulumi/neon` to import. What CAN be pinned without it is the pair of
  * derivations that decide what the prod stack emits — the role list and the
  * stack-name suffix — read from the program's source and composed here exactly
- * as the program composes them.
+ * as the program composes them, for both stacks. The store secrets' real names,
+ * which need the resources the program actually constructs, are pinned by
+ * loading it under Pulumi mocks instead — see
+ * `topology-database-access-store-secrets.test.ts`, a file of its own because a
+ * process can load the program once.
  *
  * This matters because staging and production share ONE Cloudflare Secrets
  * Store: a suffix that stopped applying would not fail, it would silently make
