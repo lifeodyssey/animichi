@@ -176,12 +176,20 @@ const store = cloudflare.SecretsStore.get(
   `${accountId}/${secretsStoreId}`,
 );
 
-/** One secret in the account's shared Secrets Store, scoped to Workers. */
-function storeSecret(name: string, value: pulumi.Input<string>, comment: string): void {
-  new cloudflare.SecretsStoreSecret(name, {
+/** One secret in the account's shared Secrets Store, scoped to Workers.
+ * `logicalName` is Pulumi's state identity, `realName` the name the store holds
+ * and wrangler binds; four differ, and passing one string for both renames the
+ * store secret — a delete-and-recreate, which is how #1940 lost CATALOG_ADMIN_TOKEN. */
+function storeSecret(
+  logicalName: string,
+  realName: string,
+  value: pulumi.Input<string>,
+  comment: string,
+): void {
+  new cloudflare.SecretsStoreSecret(logicalName, {
     accountId,
     storeId: secretsStoreId,
-    name,
+    name: realName,
     value,
     scopes: ["workers"],
     comment,
@@ -193,21 +201,17 @@ const dsnFor = (role: neon.Role, name: string) =>
 
 const dsnSecrets = roleDefs.flatMap((def, i) => {
   if (def.secretName === undefined) return [];
-  return [
-    {
-      def,
-      name: `${def.secretName}${secretNameSuffix}`,
-      dsn: dsnFor(roles[i], def.name),
-    },
-  ];
+  const name = `${def.secretName}${secretNameSuffix}`;
+  return [{ def, name, dsn: dsnFor(roles[i], def.name) }];
 });
 
-dsnSecrets.forEach(({ name, dsn, def }) => storeSecret(name, dsn, def.comment));
+dsnSecrets.forEach(({ name, dsn, def }) => storeSecret(name, name, dsn, def.comment));
 
 // One store secret per runtime role password, beside its DSN; no wrangler.toml binding names
 // these yet — that is the second commit's half.
 runtimePasswords.forEach(({ role, secretName, password }) =>
   storeSecret(
+    `${secretName}${secretNameSuffix}`,
     `${secretName}${secretNameSuffix}`,
     password.result,
     `${role} runtime-role password (#1915), bound to no runtime Worker`,
@@ -227,6 +231,7 @@ const catalogAdminToken = new random.RandomPassword("catalog-admin-token", {
 
 storeSecret(
   `catalog-admin-token${secretNameSuffix}`,
+  `CATALOG_ADMIN_TOKEN${secretNameSuffix}`,
   catalogAdminToken.result,
   "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
 );
@@ -252,6 +257,7 @@ const authBaseUrl = config.get("neonAuthBaseUrl");
 if (authBaseUrl !== undefined) {
   storeSecret(
     "neon-auth-jwks-url",
+    "NEON_AUTH_JWKS_URL",
     `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
     "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
   );
@@ -259,13 +265,19 @@ if (authBaseUrl !== undefined) {
 
 const qaNeonUserEmail = config.get("qaNeonUserEmail");
 if (qaNeonUserEmail !== undefined) {
-  storeSecret("qa-neon-user-email", qaNeonUserEmail, "Neon Auth QA login email (Path A, AUTH-2 #950)");
+  storeSecret(
+    "qa-neon-user-email",
+    "QA_NEON_USER_EMAIL",
+    qaNeonUserEmail,
+    "Neon Auth QA login email (Path A, AUTH-2 #950)",
+  );
 }
 
 const qaNeonUserPassword = config.getSecret("qaNeonUserPassword");
 if (qaNeonUserPassword !== undefined) {
   storeSecret(
     "qa-neon-user-password",
+    "QA_NEON_USER_PASSWORD",
     qaNeonUserPassword,
     "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
   );
@@ -278,8 +290,6 @@ export const secretNames = roleDefs.flatMap((def) =>
 );
 export const roleNames = roleDefs.map((def) => def.name);
 export const authSecretNames = [
-  "NEON_AUTH_JWKS_URL",
-  "QA_NEON_USER_EMAIL",
-  "QA_NEON_USER_PASSWORD",
+  "NEON_AUTH_JWKS_URL", "QA_NEON_USER_EMAIL", "QA_NEON_USER_PASSWORD",
 ] as const;
 export const catalogAdminTokenSecretName = `CATALOG_ADMIN_TOKEN${secretNameSuffix}`;
