@@ -117,7 +117,7 @@ test("the prod stack targets the production branch of the same Neon project", ()
 test("the production edge Worker binds the exact secret name the prod stack writes", () => {
   // The two halves of the #1314 cutover live in different packages and are
   // joined only by this string; nothing else compares them before a deploy.
-  const edge = repoFile("../workers/edge/wrangler.toml");
+  const edge = repoFile("../workers/api/wrangler.toml");
   const binding = /\[\[env\.production\.secrets_store_secrets\]\]\nbinding = "AGENT_SVC_DATABASE_URL"\nstore_id = "([^"]+)"\nsecret_name = "([^"]+)"/
     .exec(edge);
   assert.ok(binding, "the production edge Worker must bind AGENT_SVC_DATABASE_URL");

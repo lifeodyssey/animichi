@@ -25,9 +25,9 @@ concrete grounds, not on taste:
 1. **A Cloudflare Access service token is not a read credential.** The application fronting
    staging is host-scoped, never path-scoped (`infra/topology-staging-access.test.ts` pins that no
    destination carries a `/`), and behind the door the anonymous tier admits writes with no identity
-   at all: `ANONYMOUS_TIER_KINDS` in `workers/edge/src/gateway/agent-tier-route.ts` reaches `turn`,
+   at all: `ANONYMOUS_TIER_KINDS` in `workers/api/src/gateway/agent-tier-route.ts` reaches `turn`,
    `transcript` and `stream`, and an anonymous turn is a high-cost write
-   (`workers/edge/src/identity/anonymous-flow.ts`). The Turnstile gate, the limiter and the budget
+   (`workers/api/src/identity/anonymous-flow.ts`). The Turnstile gate, the limiter and the budget
    latch behind it are anti-abuse walls, not authorization. Handing a seat that token hands it the
    whole staging surface, which this card's own rule forbids; a read-scoped credential class does not
    exist in the edge today. The token stays where it already is — opened from ESC in the staging job
@@ -57,7 +57,7 @@ holds the slot and the recorder refuses to hold a write-capable identity.
 `evidence.json` travels in the `staging-receipt-<run>-<attempt>` artifact next to `receipt.json`:
 
 - `release` — the selected snapshot's artifact id/digest and source SHA, as the controller received it.
-- `deployed.edge` — a **platform read-back taken at probe time**: the live Worker script's deployment
+- `deployed.api` — a **platform read-back taken at probe time**: the live Worker script's deployment
   id, version id and `sha-<source>` tag, plus the container application names the selected release
   config declares for this environment. The recorder takes this read itself; it does not copy the
   receipt's.
@@ -68,7 +68,7 @@ holds the slot and the recorder refuses to hold a write-capable identity.
 - `smoke` — the receipt's smoke verdict and when it was observed.
 - `probes[]` — one entry per catalog probe: the request (method, path, origin, credential class), the
   expectation, and a transcript of the answer: HTTP status, content type, body length, body SHA-256,
-  `cf-ray`, duration, and a timestamp. Rejection bodies are small constants from `workers/edge/src/`
+  `cf-ray`, duration, and a timestamp. Rejection bodies are small constants from `workers/api/src/`
   and are recorded; a probe left unrecorded under its credential class is recorded as `unobserved`
   with the class named.
 - `observed_at`, `controller_run_id`, `controller_run_attempt`.

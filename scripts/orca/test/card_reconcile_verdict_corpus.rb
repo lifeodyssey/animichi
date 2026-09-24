@@ -62,7 +62,7 @@ module VerdictCorpus
     |---|---|
     | Candidate tip `a6039815f` (#1605 + #1606) | `a6039815f51ec24725b21175ae9063d01c6fd9ca` |
     | Its parent `5abed3b6a` (#1604 photo deletion) | `5abed3b6a32272b6b1e931962be23d07a0b3beca` |
-      - `grep -c` finds none of those five in `workers/edge/wrangler.toml`, at HEAD or at the parent. They were entries in the deleted container env allowlist (`5abed3b6a:workers/edge/src/container/container-env.ts`).
+      - `grep -c` finds none of those five in `workers/api/wrangler.toml`, at HEAD or at the parent. They were entries in the deleted container env allowlist (`5abed3b6a:workers/api/src/container/container-env.ts`).
     ## Verdict: **CHANGES REQUIRED**
   MARKDOWN
 

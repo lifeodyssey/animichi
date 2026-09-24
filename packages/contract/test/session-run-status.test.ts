@@ -15,7 +15,7 @@
  *
  * The reason vocabulary is `runs_failure_reason_check` verbatim
  * (the retired `runs` table's status vocabulary); the edge holds the two
- * sides to each other in `workers/edge/test/agent-runs-schema.test.ts`.
+ * sides to each other in `workers/api/test/agent-runs-schema.test.ts`.
  *
  * test-type: api.
  */

@@ -35,7 +35,7 @@ class PrVerificationToolchainLaneTest < Minitest::Test
   ].freeze
   # The lane's routing table: the toolchain's four roots plus the tests' own
   # directory. `.github/**` also feeds the `workflows` filter's force-add of the
-  # edge-worker lane, which this table leaves untouched.
+  # api lane, which this table leaves untouched.
   DELIVERY_FILTER = [
     ".github/lib/**",
     ".github/scripts/**",

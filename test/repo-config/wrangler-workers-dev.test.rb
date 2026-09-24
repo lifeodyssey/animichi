@@ -1,9 +1,9 @@
-# SUT: the production blocks of workers/edge/wrangler.toml ([env.production]),
+# SUT: the production blocks of workers/api/wrangler.toml ([env.production]),
 # apps/web/wrangler.jsonc (the top level — the same Worker as env.production,
 # `animichi-web` — and env.production itself), workers/users/wrangler.toml
 # ([env.production]), and workers/migrator/wrangler.toml ([env.production]).
 #
-# edge, web, and users must declare `workers_dev = false` and
+# api, web, and users must declare `workers_dev = false` and
 # `preview_urls = false` explicitly. staging keeps `workers_dev = true` on
 # purpose (#1369, behind the Access application).
 #
@@ -15,7 +15,7 @@
 #   # workers.dev host (a public config, not a credential); stateful/private
 #   # Workers keep workers_dev = false (see catalog/users).
 #
-# — so "workers_dev is off in production" is a claim about the edge, web, and
+# — so "workers_dev is off in production" is a claim about the api, web, and
 # users Workers only. The migrator's `workers_dev = true` is intentional and
 # asserted (see test_migrator_production_declares_workers_dev_true_intentionally).
 #
@@ -23,7 +23,7 @@
 # to `routes.length === 0` (wrangler 4.132.0, cli.js `getSubdomainValues`), and both blocks
 # this contract covers declare no routes (routing is Pulumi-side) — so omission means the
 # workers.dev host is OPEN on the next deploy. Before #1524 neither block set the key, and a
-# comment in the edge toml claimed "`workers_dev = false` since #539" while the file declared
+# comment in the api toml claimed "`workers_dev = false` since #539" while the file declared
 # nothing. Measured 2026-09-21, both production hosts answered 404 with a body byte-identical
 # both to a never-registered host and to a deployed Worker whose subdomain is off (`error code:
 # 1042` in all three cases), so the measurement shows the host is closed and not why. Nothing
@@ -43,33 +43,33 @@ require "minitest/autorun"
 
 class WranglerWorkersDevTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  EDGE_TOML = "workers/edge/wrangler.toml"
+  API_TOML = "workers/api/wrangler.toml"
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
 
-  # --- edge ---
+  # --- api ---
 
-  def test_edge_production_declares_the_subdomain_closed
-    section = edge_sections.fetch("env.production")
+  def test_api_production_declares_the_subdomain_closed
+    section = api_sections.fetch("env.production")
     assert_equal "false", section["workers_dev"],
-                 "edge [env.production] must declare workers_dev = false explicitly (#1524); " \
+                 "api [env.production] must declare workers_dev = false explicitly (#1524); " \
                  "unset resolves to routes.length === 0, which is ON for this route-less block"
     assert_equal "false", section["preview_urls"],
-                 "edge [env.production] must declare preview_urls = false explicitly (#1524)"
+                 "api [env.production] must declare preview_urls = false explicitly (#1524)"
   end
 
-  def test_edge_staging_keeps_its_deliberate_workers_dev_true
-    section = edge_sections.fetch("env.staging")
+  def test_api_staging_keeps_its_deliberate_workers_dev_true
+    section = api_sections.fetch("env.staging")
     assert_equal "true", section["workers_dev"],
-                 "edge [env.staging] keeps workers_dev = true (owner 2026-08-27, #1369 Access)"
+                 "api [env.staging] keeps workers_dev = true (owner 2026-08-27, #1369 Access)"
     assert_equal "false", section["preview_urls"],
-                 "edge [env.staging] must declare preview_urls = false explicitly"
+                 "api [env.staging] must declare preview_urls = false explicitly"
   end
 
-  def test_edge_declares_exactly_the_environments_this_contract_names
-    assert_equal %w[env.production env.staging], edge_sections.keys,
-                 "a new edge environment must join this contract, not escape it; " \
+  def test_api_declares_exactly_the_environments_this_contract_names
+    assert_equal %w[env.production env.staging], api_sections.keys,
+                 "a new api environment must join this contract, not escape it; " \
                  "every header that names env.<name> counts — [env.x] directly, " \
                  "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \
                  "tables — so a sub-table-only environment is counted (#1842)"
@@ -177,7 +177,7 @@ class WranglerWorkersDevTest < Minitest::Test
       [env.production]
       workers_dev = false
       [env.preview] # a preview ring, deliberately declared
-      name = "animichi-edge-preview"
+      name = "animichi-api-preview"
       [env.canary.vars] # a sub-table only: TOML's implicit parent declares env.canary
       [[env.qa.ratelimits]] # double-bracketed: still a parent declaration
     TOML
@@ -185,7 +185,7 @@ class WranglerWorkersDevTest < Minitest::Test
     assert_equal %w[env.canary env.preview env.production env.qa], sections.keys.sort,
                  "a trailing comment closes the header, not the declaration (#1854): " \
                  "the bare, sub-table and double-bracketed forms all count with one"
-    assert_equal '"animichi-edge-preview"', sections["env.preview"]["name"],
+    assert_equal '"animichi-api-preview"', sections["env.preview"]["name"],
                  "the commented header still scopes the keys under it (#1854)"
   end
 
@@ -221,7 +221,7 @@ class WranglerWorkersDevTest < Minitest::Test
       [env.production]
       workers_dev = false
       [ env.preview ]
-      name = "animichi-edge-preview"
+      name = "animichi-api-preview"
       [ env.preview.vars ] # note
       foo = "bar"
     TOML
@@ -230,7 +230,7 @@ class WranglerWorkersDevTest < Minitest::Test
                  "whitespace inside the brackets must not hide the declaration (#1854): " \
                  "the scanner normalises the bracketed text once, so this shape and " \
                  "any future spacing variant are covered by construction"
-    assert_equal '"animichi-edge-preview"', sections["env.preview"]["name"],
+    assert_equal '"animichi-api-preview"', sections["env.preview"]["name"],
                  "the normalised header still scopes the keys under it (#1854)"
   end
 
@@ -277,7 +277,7 @@ class WranglerWorkersDevTest < Minitest::Test
     end
 
     deployed = publish_services_deployed_units
-    covered  = %w[edge web users migrator]
+    covered  = %w[api web users migrator]
 
     uncovered_deployed = deployed - covered - DEPLOY_SCRIPT_EXCLUSIONS.keys
     assert_empty uncovered_deployed,
@@ -295,8 +295,8 @@ class WranglerWorkersDevTest < Minitest::Test
 
   private
 
-  def edge_sections
-    @edge_sections ||= parse_toml_env_sections(File.join(ROOT, EDGE_TOML))
+  def api_sections
+    @api_sections ||= parse_toml_env_sections(File.join(ROOT, API_TOML))
   end
 
   def web_config
@@ -327,7 +327,7 @@ class WranglerWorkersDevTest < Minitest::Test
     units.uniq
   end
 
-  # Shared TOML section parser. Structurally mirrors the edge test's header
+  # Shared TOML section parser. Structurally mirrors the api test's header
   # scan. #1524 established the key scoping: a sub-table header ends the
   # environment's own key list, and keys after it belong to the sub-table —
   # they are never attributed to the parent.
@@ -344,7 +344,7 @@ class WranglerWorkersDevTest < Minitest::Test
   # that bare-word form (quoted or dotted quoted env names, whitespace inside
   # the brackets) are not recognized by this parser; no config this contract
   # reads uses them. Two hand-rolled implementations of this one rule exist by
-  # choice (see the edge test's matching scan): each guard lane stays
+  # choice (see the api test's matching scan): each guard lane stays
   # single-runtime, and each carries its own red/green proof of the rule.
   #
   # #1854 closes the header's tail: TOML permits a comment after a header, so

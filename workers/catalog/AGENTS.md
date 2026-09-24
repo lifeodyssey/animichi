@@ -1,7 +1,7 @@
 # workers/catalog — AGENTS.md
 
 TypeScript Cloudflare Worker: the anime **catalog REST API** + the **data platform** (ingest →
-enrich → publish). Owns catalog-domain data; the edge worker's TS agent tier (`workers/edge/src/agent/`)
+enrich → publish). Owns catalog-domain data; the edge worker's TS agent tier (`workers/api/src/agent/`)
 reads it through the oRPC contract.
 Root guide: `../../AGENTS.md`.
 

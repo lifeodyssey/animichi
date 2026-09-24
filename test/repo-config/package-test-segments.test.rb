@@ -15,7 +15,7 @@ class PackageTestSegmentsTest < Minitest::Test
   TSX_LOADED_TEST_RUNNER = %r{\bnode\b(?=[^&|]*--import\s+tsx)(?=[^&|]*--test(?![\w-]))}
 
   REQUIRED_SEGMENTS = {
-    "workers/edge" => %w[test:node test:chat-answer-part test:bundle-smoke test:ratelimit-namespace],
+    "workers/api" => %w[test:node test:chat-answer-part test:bundle-smoke test:ratelimit-namespace],
     "workers/catalog" => %w[test:worker test:node],
     "workers/users" => %w[test:worker],
     "workers/migrator" => ["vitest run"],
@@ -47,8 +47,8 @@ class PackageTestSegmentsTest < Minitest::Test
   }.freeze
 
   DELEGATED_COMMANDS = {
-    ["workers/edge", "test:bundle-smoke"] => "bundle-smoke/",
-    ["workers/edge", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
+    ["workers/api", "test:bundle-smoke"] => "bundle-smoke/",
+    ["workers/api", "test:ratelimit-namespace"] => "check-edge-ratelimit-namespace.sh",
     ["workers/catalog", "test:node"] => "vitest.node.config.ts",
     ["workers/catalog", "test:integration"] => "vitest.integration.config.ts",
     ["workers/users", "test:integration"] => "vitest.integration.config.ts",

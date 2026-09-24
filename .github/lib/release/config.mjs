@@ -1,6 +1,6 @@
 import { experimental_readRawConfig } from 'wrangler';
 
-export const ENTRIES = { catalog: 'index.js', users: 'index.js', edge: 'entry.js', migrator: 'index.js' };
+export const ENTRIES = { catalog: 'index.js', users: 'index.js', api: 'entry.js', migrator: 'index.js' };
 
 export function sourceConfig(unit) {
   const config = unit === 'web' ? 'apps/web/wrangler.jsonc' : `workers/${unit}/wrangler.toml`;
@@ -19,7 +19,7 @@ function ringContainers(config) {
 }
 
 // #1606: a unit is sealed with an image exactly when its source still declares a container.
-// The edge has none, so the retired agent digest must fail here rather than be dropped —
+// The api unit has none, so the retired agent digest must fail here rather than be dropped —
 // that is the regression that would re-create an image no receipt observes.
 function requireUsableContainerImage(unit, image, original) {
   const declaresContainer = ringContainers(original).length > 0;

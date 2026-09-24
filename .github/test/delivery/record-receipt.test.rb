@@ -1,5 +1,5 @@
 # SUT: record-receipt.mjs writes the receipt CD verifies: every `wrangler containers info` read
-# is bounded and retried, and a new snapshot records the edge without a container application.
+# is bounded and retried, and a new snapshot records the api without a container application.
 # frozen_string_literal: true
 require 'minitest/autorun'
 require 'json'
@@ -61,20 +61,20 @@ class ReleaseReceiptRecordTest < Minitest::Test
   # #1606 removed the agent image from the snapshot, so a deployment that still reports an
   # edge container has no selected image identity to be observed against. The receipt must
   # say so instead of polling an expectation the snapshot never stated.
-  def test_an_edge_container_the_snapshot_does_not_name_fails_closed
+  def test_an_api_container_the_snapshot_does_not_name_fails_closed
     container = { 'name' => 'agent-staging', 'class_name' => 'AgentContainer', 'image' => @image }
-    write_wrangler_config('edge', { 'name' => 'edge-staging', 'containers' => [container] })
+    write_wrangler_config('api', { 'name' => 'edge-staging', 'containers' => [container] })
     _output, error, status = record(attempts: CONVERGING_ATTEMPTS, read_timeout: SLOW_ANSWER + 1)
     refute status.success?
     refute File.exist?(File.join(@dir, 'receipt.json'))
     assert_includes error, 'edge-staging declares a container the selected snapshot names no image for'
   end
 
-  def test_a_new_snapshot_records_no_container_application_for_the_edge
+  def test_a_new_snapshot_records_no_container_application_for_the_api
     _output, error, status = record(attempts: CONVERGING_ATTEMPTS, read_timeout: SLOW_ANSWER + 1)
     assert status.success?, error
     workers = JSON.parse(File.read(File.join(@dir, 'receipt.json'))).fetch('workers')
-    assert_empty workers.find { |worker| worker['unit'] == 'edge' }.fetch('containers')
+    assert_empty workers.find { |worker| worker['unit'] == 'api' }.fetch('containers')
     assert_equal ['migration-staging'],
                  workers.find { |worker| worker['unit'] == 'migrator' }.fetch('containers').map { |item| item['name'] }
   end
@@ -123,7 +123,7 @@ class ReleaseReceiptRecordTest < Minitest::Test
 
   def write_wrangler_configs
     %w[catalog users web].each { |unit| write_wrangler_config(unit, { 'name' => "#{unit}-staging" }) }
-    write_wrangler_config('edge', { 'name' => 'edge-staging' })
+    write_wrangler_config('api', { 'name' => 'edge-staging' })
     container = { 'name' => 'migration-staging', 'class_name' => 'MigrationContainer', 'image' => @image }
     write_wrangler_config('migrator', { 'name' => 'migrator-staging', 'containers' => [container] })
   end

@@ -27,18 +27,18 @@ function typescriptSources(directory: string): string[] {
 }
 
 const BUNDLED_SOURCES = [
-  ...typescriptSources("workers/edge/src"),
-  ...typescriptSources("workers/edge/bundle-smoke"),
+  ...typescriptSources("workers/api/src"),
+  ...typescriptSources("workers/api/bundle-smoke"),
 ];
 // Quoted module specifiers only — these files discuss `.lazy` in prose on purpose.
 const LAZY_SUBPATH = /["']@earendil-works\/pi-ai\/[^"']*\.lazy["']/;
-const SMOKE_ENTRY = read("workers/edge/bundle-smoke/pi-kernel.worker.ts");
+const SMOKE_ENTRY = read("workers/api/bundle-smoke/pi-kernel.worker.ts");
 
 interface EdgePackageManifest {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 }
-const EDGE_PACKAGE = JSON.parse(read("workers/edge/package.json")) as EdgePackageManifest;
+const EDGE_PACKAGE = JSON.parse(read("workers/api/package.json")) as EdgePackageManifest;
 
 /** W1-3 (#1252) put the pi kernel in `src/`, so it ships: a devDependency here
  * would be a Worker that fails to bundle its own agent loop. */

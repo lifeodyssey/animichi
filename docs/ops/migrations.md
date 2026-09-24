@@ -9,7 +9,7 @@ separates the Neon data plane from the historical Supabase compatibility archive
 | Surface | Source of truth | Apply mechanism | Boundary |
 |---|---|---|---|
 | Neon catalog, user and native agent data | `packages/pi-session-neon/src/contract.prisma` plus the emitted chain under `packages/pi-session-neon/migrations/` | Prisma 8's programmatic migration API, inside the migrator Worker | The only versioned schema history for Neon. The chain is schema-only; reference/seed data (e.g. the gazetteer at `workers/catalog/data/gazetteer_seed.sql`) is loaded separately and idempotently (`make seed-gazetteer`) |
-| Catalog/users runtime access | the contract this chain generates (`@animichi/pi-session-neon/contract`) | Prisma 8 builder plans on a per-request runtime | No worker keeps a schema of its own since #1633; `workers/edge/test/migration-boundary.test.ts` pins that none grows one back |
+| Catalog/users runtime access | the contract this chain generates (`@animichi/pi-session-neon/contract`) | Prisma 8 builder plans on a per-request runtime | No worker keeps a schema of its own since #1633; `workers/api/test/migration-boundary.test.ts` pins that none grows one back |
 | Supabase auth/legacy compatibility (**HISTORICAL**) | `supabase/migrations/` | **Not applied** — archived/historical only (issue #1000); never a live apply or source surface | The Prisma chain is the single authority; never a source for new Neon catalog or user tables |
 
 The chain is append-only once a migration has reached a shared environment. Do not edit an
@@ -140,7 +140,7 @@ before promoting production. Keep the raw DSN and tokens out of logs and PRs.
 - [`.github/workflows/pr-verification.yml`](../../.github/workflows/pr-verification.yml) — affected PR/static gates
 - [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml) — main-only affected release orchestration
 - [`scripts/delivery/migrate-through-worker.sh`](../../scripts/delivery/migrate-through-worker.sh) — the OIDC handshake CD applies staging migrations through
-- [`workers/edge/test/migration-boundary.test.ts`](../../workers/edge/test/migration-boundary.test.ts) — static boundary guard
+- [`workers/api/test/migration-boundary.test.ts`](../../workers/api/test/migration-boundary.test.ts) — static boundary guard
 - [`docs/specs/2026-09-16-migration-apply-point-eval.md`](../specs/2026-09-16-migration-apply-point-eval.md) —
   why the apply point stays a platform-side executor and not application boot (#1039)
 

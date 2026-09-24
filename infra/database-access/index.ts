@@ -209,7 +209,7 @@ storeCatalogAdminToken(placement, catalogAdminToken.result);
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
 // source since the hard cut). Declaring it here lets the deploy chain source
 // the edge binding from the Secrets Store instead of the checked-in literal in
-// workers/edge/wrangler.toml; it is DERIVED from the branch's Better Auth base
+// workers/api/wrangler.toml; it is DERIVED from the branch's Better Auth base
 // URL so the operator sets one value, never two.
 //
 // The QA login creds provision the password user the E2E suite + local-login

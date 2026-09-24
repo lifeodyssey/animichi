@@ -30,7 +30,7 @@
 > The roles themselves are created, attributed and re-passworded by the migrator's SQL step on
 > every `/migrate` (`workers/migrator/src/service-roles.ts`) — SQL-created roles receive no
 > membership, which is the property this amendment buys. Role DDL still lives outside the
-> migration chain (`workers/edge/test/migrator-ac3-proof.test.ts`); its owner moved from Pulumi
+> migration chain (`workers/api/test/migrator-ac3-proof.test.ts`); its owner moved from Pulumi
 > to the migrator Worker (amending the 2026-09-12 database-layer spec's §4.8.5). `migrator`
 > stays a `neon.Role` — the chain needs `neon_superuser`-grade power for `CREATE EXTENSION` —
 > and its DSN remains bound to the migrator only. Neon roles are branch-scoped, not

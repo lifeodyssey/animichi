@@ -38,7 +38,7 @@ export const PREFIX_SESSION_CWD = 'animichi-eval-prefix';
 /**
  * The production host persists the accepted turn's bounded input under this
  * address before accept; the eval tier mirrors the address because it may not
- * import `workers/edge`.
+ * import `workers/api`.
  */
 export const OPERATION_INPUT_NAMESPACE = 'animichi.operation.input';
 

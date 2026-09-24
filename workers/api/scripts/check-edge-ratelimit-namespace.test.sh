@@ -27,9 +27,9 @@ run_check() {
 
 fixture_wrangler() {
   local repo="$1" body="$2"
-  mkdir -p "${repo}/workers/edge"
+  mkdir -p "${repo}/workers/api"
   printf "%s
-" "${body}" > "${repo}/workers/edge/wrangler.toml"
+" "${body}" > "${repo}/workers/api/wrangler.toml"
 }
 
 # ── Case 1: placeholder present in wrangler.toml -> FAILS CLOSED ──────────
@@ -60,9 +60,9 @@ test_provisioned_namespace_passes() {
 test_absent_binding_passes() {
   local repo out=/tmp/rate-ns-case3.out rc
   repo="$(mktemp -d)"
-  mkdir -p "${repo}/workers/edge"
+  mkdir -p "${repo}/workers/api"
   printf "%s
-" 'name = "RATE_LIMITER"' > "${repo}/workers/edge/wrangler.toml"
+" 'name = "RATE_LIMITER"' > "${repo}/workers/api/wrangler.toml"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   [ "${rc}" -eq 0 ] || fail_test "a binding without the placeholder must pass, got exit ${rc}: $(cat "${out}")"

@@ -46,8 +46,8 @@ module DeployEvidenceHarness
   def start_origin(mode = 'gateway')
     @origin_log = File.join(@dir, 'origin.log')
     @origin = IO.popen({ 'EVIDENCE_FIXTURE_LOG' => @origin_log }, ['node', '--import', 'tsx', ORIGIN, mode], chdir: ROOT, err: File::NULL)
-    @edge_url = "http://127.0.0.1:#{@origin.gets.to_s[/LISTENING (\d+)/, 1]}"
-    @edge_url
+    @api_url = "http://127.0.0.1:#{@origin.gets.to_s[/LISTENING (\d+)/, 1]}"
+    @api_url
   end
 
   def kill_origin
@@ -90,7 +90,7 @@ module DeployEvidenceHarness
 
   def env_for(extra_env)
     { 'PATH' => "#{@dir}:#{ENV.fetch('PATH')}", 'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '1',
-      'EVIDENCE_EDGE_URL' => @edge_url.to_s }.merge(extra_env)
+      'EVIDENCE_API_URL' => @api_url.to_s }.merge(extra_env)
   end
 
   # ── Fixtures ──────────────────────────────────────────────────────────────
@@ -100,10 +100,10 @@ module DeployEvidenceHarness
   end
 
   def write_release
-    FileUtils.mkdir_p(File.join(@dir, 'release/edge'))
+    FileUtils.mkdir_p(File.join(@dir, 'release/api'))
     File.write(File.join(@dir, 'release/release.json'), { 'source_sha' => SOURCE, 'images' => { 'agent' => IMAGE } }.to_json)
     File.write(File.join(@dir, 'selection.json'), selection.to_json)
-    File.write(File.join(@dir, 'release/edge/wrangler.json'), wrangler_config.to_json)
+    File.write(File.join(@dir, 'release/api/wrangler.json'), wrangler_config.to_json)
     write_receipt([])
   end
 
@@ -118,9 +118,9 @@ module DeployEvidenceHarness
   end
 
   def receipt(containers, smoke: 'passed', observed_at: @observed_at)
-    edge = { 'unit' => 'edge', 'script_name' => 'animichi-staging', 'deployment_id' => DEPLOYMENT, 'version_id' => VERSION, 'containers' => containers }
+    api = { 'unit' => 'api', 'script_name' => 'animichi-staging', 'deployment_id' => DEPLOYMENT, 'version_id' => VERSION, 'containers' => containers }
     { 'format' => 1, 'environment' => 'staging', 'selection' => selection, 'smoke' => smoke,
-      'controller_run_id' => '9', 'controller_run_attempt' => '1', 'observed_at' => observed_at, 'workers' => [edge] }
+      'controller_run_id' => '9', 'controller_run_attempt' => '1', 'observed_at' => observed_at, 'workers' => [api] }
   end
 
   def container_observation

@@ -4,7 +4,7 @@ Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../..
 Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
 `migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
 from the retired chain this one replaced, and — as raw SQL rather than contract tables — the
-conversation ledger and the two usage meters `workers/edge/src` still writes
+conversation ledger and the two usage meters `workers/api/src` still writes
 (`conversation-ledger.ts`, `usage-meters.ts`). One authority owns the whole data plane (#1636).
 No object has two migration owners; do not re-declare an object the chain already builds.
 
@@ -72,7 +72,7 @@ package's contract and `migrations/app/` are the whole record of what a database
 unpublished #1539 draft migrations were replaced by that two-node chain. The omissions —
 `points.embedding` and `idx_points_embedding`, `locations.location`, and every agent-domain table
 with no live reader — are authorized by `docs/specs/2026-09-12-prisma8-database-layer-spec.md`
-§4.8.3–§4.8.4 and §4.12, not by #1539. The four `workers/edge/src` still reads — `sessions`,
+§4.8.3–§4.8.4 and §4.12, not by #1539. The four `workers/api/src` still reads — `sessions`,
 `turn_reservations`, `daily_usage`, `anon_daily_message_count` — are built here, carrying every
 column a live statement names and no other.
 

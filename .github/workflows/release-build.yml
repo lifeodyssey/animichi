@@ -58,7 +58,7 @@ jobs:
       # same bundling dry-run in a job that declares no Cloudflare variable at all.
       - name: Bundle Workers and seal the container-free snapshot
         run: |
-          node .github/scripts/release/build-worker.mjs edge
+          node .github/scripts/release/build-worker.mjs api
           node .github/scripts/release/build-worker.mjs migrator
           ruby .github/scripts/release/seal.rb
       - name: Archive the complete snapshot

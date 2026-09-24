@@ -80,11 +80,11 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
   `src/public-catalog.ts` — the ONE anonymous catalog surface: the path matcher and the
   query-parameter allowlist, read by BOTH the edge gateway and the catalog Worker's public
   middleware (#1691), pinned to `catalogContract` by `test/public-catalog.test.ts` ·
-  `test/import-free-modules.test.ts` — the gate over all three. `workers/edge` reads these
+  `test/import-free-modules.test.ts` — the gate over all three. `workers/api` reads these
   documents at RUNTIME, so they are declared apart from the zod modules that give them meaning
   (`agent-contract.ts`, `identity-contract.ts`), which do NOT re-export them: a value import from
   a zod module pulls all 79 of zod's files into the Worker bundle (#1285, measured by
-  `workers/edge/bundle-smoke/entry-bundle.test.ts`). Nothing is generated and nothing is mirrored
+  `workers/api/bundle-smoke/entry-bundle.test.ts`). Nothing is generated and nothing is mirrored
   — each is the one declaration, and the emitters, the edge and the drift tests all read it there.
 - `src/agent-tool-parameters.ts` — the agent's catalog tool parameters, the two web tools' and the
   `respond` answer tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
@@ -94,12 +94,12 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 - `src/access-service-token.ts` — the Cloudflare Access service token every automated
   caller presents at staging (D3 #1369): the two variable names, the two header names,
   and the fail-closed reader that refuses a HALF-declared token. Import-free because its consumers are a Playwright config
-  (`e2e/playwright.config.ts`), a Node lane door (`workers/edge/api-test/lane-origin.ts`)
+  (`e2e/playwright.config.ts`), a Node lane door (`workers/api/api-test/lane-origin.ts`)
   neither of which should load zod to learn two
   header names. `test/access-service-token.test.ts` holds it; the values come from the
   `infra` stack output, never from anything checked in.
 - `src/agent-step-origin.ts` — who asked for a step: native
-  `workers/edge/src/agent/views/selection-response.ts` writes `serverStepOrigin()` onto
+  `workers/api/src/agent/views/selection-response.ts` writes `serverStepOrigin()` onto
   deterministic selection's `tool-input-start` and `tool-input-available` frames.
   `stepOriginOf()` reads that public metadata; the retired Eval transcript shaper is no longer
   a consumer. This import-free module carries the SD-9 frame exception from rewrite spec

@@ -16,7 +16,7 @@
  *     ref == refs/heads/main AND environment == production
  * The disjunction in the production policy is fine — the two branches are
  * independently fully-anchored shapes, not a weak `ref OR environment`.
- * Prior art: the edge worker's verifier (workers/edge/src/identity/auth.ts)
+ * Prior art: the edge worker's verifier (workers/api/src/identity/auth.ts)
  * and @animichi/contract/jwt (EdDSA envelope).
  */
 

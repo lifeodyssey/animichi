@@ -3,7 +3,7 @@
 Date: 2026-07-18
 Status: CURRENT
 Repo: lifeodyssey/animichi
-Stack: TanStack Start + React (`apps/web`), Cloudflare Workers (`workers/edge` with the native Pi agent tier · `catalog` · `users` · `maintenance`)
+Stack: TanStack Start + React (`apps/web`), Cloudflare Workers (`workers/api` with the native Pi agent tier · `catalog` · `users` · `maintenance`)
 
 ## Table of Contents
 

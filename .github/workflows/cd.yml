@@ -188,10 +188,10 @@ jobs:
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
-          # The edge origin the smoke step above probes: #1695 records the
+          # The api origin the smoke step above probes: #1695 records the
           # answer a verification seat cannot ask for, because every staging
           # origin is behind Cloudflare Access.
-          EVIDENCE_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
+          EVIDENCE_API_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
         run: |
           bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging

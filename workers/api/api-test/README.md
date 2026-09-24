@@ -40,7 +40,7 @@ CATALOG_API_ORIGIN=https://staging.animichi.com \
 AGENT_TURN_BEARER="$(cat ~/.animichi/staging-access-token)" \
 CF_ACCESS_CLIENT_ID="$(esc env open lifeodyssey/animichi/staging environmentVariables.CF_ACCESS_CLIENT_ID --format string)" \
 CF_ACCESS_CLIENT_SECRET="$(esc env open lifeodyssey/animichi/staging environmentVariables.CF_ACCESS_CLIENT_SECRET --format string)" \
-pnpm --filter edge-worker run test:catalog-api
+pnpm --filter api run test:catalog-api
 ```
 
 Every variable fails closed: without `CATALOG_API_ORIGIN` the lane refuses to

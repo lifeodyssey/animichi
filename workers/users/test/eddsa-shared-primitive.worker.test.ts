@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import contractJwtSource from "../../../packages/contract/src/jwt.ts?raw";
-import edgeAuthSource from "../../../workers/edge/src/identity/auth.ts?raw";
+import edgeAuthSource from "../../../workers/api/src/identity/auth.ts?raw";
 import usersIndexSource from "../src/index.ts?raw";
 
 /**
- * Neon Auth EdDSA verification used to live twice — `workers/edge/identity/auth.ts`
+ * Neon Auth EdDSA verification used to live twice — `workers/api/identity/auth.ts`
  * (edge `/v1`) and `workers/users/src/auth/jwt.ts` (the users service's own JWKS
  * check) each called `jose.jwtVerify` with a hand-typed `algorithms: ["EdDSA"]`
  * restriction. Two engineers keeping the same cryptographic policy in sync by
@@ -29,7 +29,7 @@ import usersIndexSource from "../src/index.ts?raw";
  */
 export const READS = [
   "packages/contract/src/jwt.ts",
-  "workers/edge/src/identity/auth.ts",
+  "workers/api/src/identity/auth.ts",
   "workers/users/src/index.ts",
 ] as const;
 

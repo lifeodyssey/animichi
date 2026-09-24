@@ -7,7 +7,7 @@
  * comparing anything. One declaration, so an array or a scalar cannot be a
  * record on one side of the pair and not the other.
  *
- * (`workers/edge/src/agent/json-record.ts` is the same narrowing on the other
+ * (`workers/api/src/agent/json-record.ts` is the same narrowing on the other
  * tier; neither package may import the other's.)
  */
 

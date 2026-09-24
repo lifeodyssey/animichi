@@ -188,10 +188,10 @@ test_single_digit_line_suffix() {
 test_test_program_refs_are_fixtures() {
   local repo out=/tmp/docs-path-case12.out rc
   repo="$(mktemp -d)"
-  mkdir -p "${repo}/docs/ops" "${repo}/workers/edge/test"
+  mkdir -p "${repo}/docs/ops" "${repo}/workers/api/test"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf 'const APPROVABLE = [\n  "docs/archive/a..b.png",\n  "docs/archive/A-Z_0.9.gif",\n];\n' \
-    > "${repo}/workers/edge/test/allowlist-corpus.test.ts"
+    > "${repo}/workers/api/test/allowlist-corpus.test.ts"
   printf 'AGENTS.md\nlive ref `docs/ops/deployment.md`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -209,14 +209,14 @@ test_test_program_refs_are_fixtures() {
 test_prose_under_test_dir_still_caught() {
   local repo out=/tmp/docs-path-case13.out rc
   repo="$(mktemp -d)"
-  mkdir -p "${repo}/workers/edge/test"
-  printf 'the runbook moved to `docs/ops/gone.md`\n' > "${repo}/workers/edge/test/notes.md"
+  mkdir -p "${repo}/workers/api/test"
+  printf 'the runbook moved to `docs/ops/gone.md`\n' > "${repo}/workers/api/test/notes.md"
   printf 'const APPROVABLE = ["docs/archive/a..b.png"];\n' \
-    > "${repo}/workers/edge/test/allowlist-corpus.test.ts"
+    > "${repo}/workers/api/test/allowlist-corpus.test.ts"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   [ "${rc}" -ne 0 ] || fail_test "a broken docs/ ref in prose under a test/ dir must fail, got exit 0"
-  grep -q 'workers/edge/test/notes.md:1: broken docs/ reference `docs/ops/gone.md`' "${out}" \
+  grep -q 'workers/api/test/notes.md:1: broken docs/ reference `docs/ops/gone.md`' "${out}" \
     || fail_test "prose under a test/ dir must still be reported: $(cat "${out}")"
   if grep -q 'allowlist-corpus.test.ts' "${out}"; then
     fail_test "a test program's docs/ strings are inputs, not references: $(cat "${out}")"

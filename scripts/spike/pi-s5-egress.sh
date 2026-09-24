@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # scripts/spike/pi-s5-egress.sh — W0-S5 (#1248) red-line matrix for the deployed
-# pi probe Worker (workers/edge/spike/pi).
+# pi probe Worker (workers/api/spike/pi).
 #
 # Every row of the 8/29 note's condition 6 is a request to the deployed Worker,
 # because the questions are about a real workerd isolate behind Cloudflare's own
 # outbound proxy: which refusals are the application's `EgressPolicy` and which
 # are the platform's. The unit suite proves the policy over doubles
-# (workers/edge/test/byok-egress-*.test.ts); this script is the deployed run.
+# (workers/api/test/byok-egress-*.test.ts); this script is the deployed run.
 #
 # Cases:
 #   matrix    the BYOK decision table — provider allowlist, non-empty key with

@@ -1,11 +1,11 @@
 /**
- * The modules `workers/edge` reads at RUNTIME must stay free of runtime
+ * The modules `workers/api` reads at RUNTIME must stay free of runtime
  * imports (issue #1285).
  *
  * The edge Worker is bundled: a single value import from a module that imports
  * zod drags all 79 of zod's files into every isolate it starts, which is what
  * `AGENT_PATHS` and `DEFAULT_IDENTITY_POLICY` did before they were extracted
- * into their own modules. `workers/edge/bundle-smoke/entry-bundle.test.ts`
+ * into their own modules. `workers/api/bundle-smoke/entry-bundle.test.ts`
  * measures the built artifact; this gate fails one package earlier, on the
  * line that would cause it, and says which module lost the property.
  *
@@ -37,7 +37,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Every contract module `workers/edge/src` takes a VALUE from. `jwt.ts` and
+ * Every contract module `workers/api/src` takes a VALUE from. `jwt.ts` and
  * `oidc-github.ts` are the deliberate exceptions: they import jose, which the
  * Worker's own identity code loads anyway, so no bundle grows for them.
  */

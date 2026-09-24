@@ -22,14 +22,14 @@ require_file docs/iterations/refactor-skeleton-2026-08/README.md
 for f in \
   workers/catalog/CONTEXT.md \
   workers/users/CONTEXT.md \
-  workers/edge/CONTEXT.md \
+  workers/api/CONTEXT.md \
   apps/web/CONTEXT.md \
   packages/contract/CONTEXT.md
 do
   require_file "$f"
 done
 
-require_grep workers/edge/CONTEXT.md 'no pilgrimage domain|Does not own|Gateway'
+require_grep workers/api/CONTEXT.md 'no pilgrimage domain|Does not own|Gateway'
 require_grep apps/web/CONTEXT.md 'no.*src/domain|Does not own|no.*domain'
 
 require_file docs/specs/2026-08-06-monorepo-target-layout.md

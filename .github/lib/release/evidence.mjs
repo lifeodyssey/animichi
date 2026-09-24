@@ -156,10 +156,10 @@ export function buildEvidence(input) {
 export const EVIDENCE_FORMAT = 1;
 
 /** The environment variable a probe's origin URL arrives in, per origin name.
- * Only the edge origin is declared, because every probe the catalog can make
- * observes the edge Worker; a probe of an undeclared origin fails here rather
+ * Only the api origin is declared, because every probe the catalog can make
+ * observes the api Worker; a probe of an undeclared origin fails here rather
  * than observing nothing and reading as a pass. */
-const ORIGIN_VARIABLES = { edge: "EVIDENCE_EDGE_URL" };
+const ORIGIN_VARIABLES = { api: "EVIDENCE_API_URL" };
 
 export function originUrl(environment, name) {
   const declared = ORIGIN_VARIABLES[name];

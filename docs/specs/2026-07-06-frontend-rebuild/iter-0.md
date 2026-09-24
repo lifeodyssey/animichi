@@ -63,7 +63,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 ---
 
-### S0.3 Deployment-chain fix + edge-worker CI wiring (backfilled from SD-6/X14)
+### S0.3 Deployment-chain fix + api CI wiring (backfilled from SD-6/X14)
 
 **User story**: As the Coordinator, I want the deploy pipeline to build and publish `apps/web` (instead of the already-deleted Next.js frontend), so that tag-based deploys keep working after the rebuild; I also want root `worker/`'s existing test suite to actually run in CI, instead of merely passing locally without ever being gated on.
 

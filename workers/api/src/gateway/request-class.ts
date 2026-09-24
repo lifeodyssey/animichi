@@ -37,7 +37,7 @@ function landingClass(method: string, pathname: string): RequestClass | null {
   // The container's JSON service banner at `/` is RETIRED (#1596): the edge
   // answered it by waking the container, and nothing consumed it — the smoke
   // probes `/healthz`, and `AGENT_PATHS` no longer advertises `/`.
-  // `workers/edge/test/operation-reachability.test.ts` enforces the other
+  // `workers/api/test/operation-reachability.test.ts` enforces the other
   // half: an advertised operation the edge 404s is a phantom surface, so the
   // retirement had to be a removal from the inventory, not a 404 behind it.
   if (pathname.startsWith("/tiles/")) return { kind: "landing", asset: "tiles" };

@@ -3,7 +3,7 @@ import { tableOid } from './table-oid.ts';
 
 // A conversation and the turns reserved against it. Both tables came from the retired chain's
 // agent domain; the Python agent that owned the rest of that
-// domain retired with #1607, but `workers/edge/src` still reads and writes these two through
+// domain retired with #1607, but `workers/api/src` still reads and writes these two through
 // `db.raw.sql` (admission/session-owner.ts, identity/session-adoption-store.ts,
 // agent/views/conversation-list.ts). The data-plane contract does not declare them (spec
 // §4.12) and `daily_usage`'s NUMERIC(14,6) has no PSL spelling at all (usage-meters.ts), so
@@ -34,7 +34,7 @@ const SESSIONS_INDEXES = {
 
 // `turn_reservations_session_revision` is load-bearing BY NAME: the adoption statement writes
 // `ON CONFLICT ON CONSTRAINT turn_reservations_session_revision`
-// (workers/edge/src/identity/session-adoption-store.ts:43), so renaming it breaks adoption.
+// (workers/api/src/identity/session-adoption-store.ts:43), so renaming it breaks adoption.
 const TURN_RESERVATIONS_TABLE = `CREATE TABLE public.turn_reservations (
     id uuid NOT NULL DEFAULT uuidv7(),
     session_id text,

@@ -24,7 +24,7 @@ Tell the agent an anime title or a location in natural language. It finds real-w
 ## How It Works
 
 ```
-User text  →  native Pi agent (workers/edge/src/agent/)
+User text  →  native Pi agent (workers/api/src/agent/)
                  ├── resolve_anime  → catalog Worker title resolve; Bangumi ingest on miss
                  ├── search_bangumi → catalog points for resolved bangumi_id
                  ├── search_nearby  → catalog geo retrieval (PostGIS on Neon)
@@ -116,10 +116,10 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/users/` — Cloudflare Worker: user-domain data service (`/v1/users/*`)
 - `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
 - `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
-- `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
+- `workers/api/` — Cloudflare Worker entrypoint for auth and `/v1` routing
 - `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Makefile`, `package.json` — root tooling entrypoints; `workers/edge/wrangler.toml` (edge Worker config) lives beside its code
+- `Makefile`, `package.json` — root tooling entrypoints; `workers/api/wrangler.toml` (edge Worker config) lives beside its code
 
 ## Docs
 

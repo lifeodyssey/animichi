@@ -38,7 +38,7 @@ const SERVICE_ROLE_PASSWORDS = ["CATALOG_SVC_PASSWORD", "USERS_SVC_PASSWORD", "A
 const MIGRATOR_ONLY_SECRETS = [MIGRATOR_SECRET, ...SERVICE_ROLE_PASSWORDS];
 const migratorSecretRegex = new RegExp(escapeRegExp(MIGRATOR_SECRET));
 
-for (const worker of ["catalog", "users", "edge"] as const) {
+for (const worker of ["catalog", "users", "api"] as const) {
   for (const secret of MIGRATOR_ONLY_SECRETS) {
     void test(`no ${worker} wrangler.toml binding references ${secret}`, () => {
       assert.doesNotMatch(read(`workers/${worker}/wrangler.toml`), new RegExp(escapeRegExp(secret)),

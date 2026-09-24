@@ -141,7 +141,7 @@ overrides:
   "@types/pg": "8.23.1"
   lodash: ">=4.18.1 <5"
   # `vite` is an optional peer of the `@prisma/orm-*` family, and pnpm keys each
-  # copy of a package by its resolved peers. `workers/edge` never declares vite,
+  # copy of a package by its resolved peers. `workers/api` never declares vite,
   # so its graph kept an older auto-installed one and got its own
   # `@prisma/orm-postgres`; `param()` from `@animichi/pi-session-neon`'s copy is
   # then a foreign value to the edge runtime's `sql` (RAW_SQL_UNSUPPORTED_

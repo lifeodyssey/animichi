@@ -7,14 +7,14 @@
  * `plan_route`'s pacing enum are the catalog's own request constraints, already
  * declared once in `src/contract.ts` / `src/models.ts`. This script is the only
  * conversion in the repo: it runs `z.toJSONSchema` over `src/agent-tool-parameters.ts`
- * and writes `src/agent-tool-schemas.ts`, the JSON Schema `workers/edge` hands to
+ * and writes `src/agent-tool-schemas.ts`, the JSON Schema `workers/api` hands to
  * pi as a tool's `parameters`. The edge never re-declares a constraint and never
  * loads zod; `test/agent-tool-schemas.test.ts` fails on committed drift, exactly
  * as the OpenAPI documents next door do.
  *
  * It emits one thing that is not a tool schema, for the same reason: the intent
  * vocabulary of `ChatResponseDataPart`, read off the discriminated union itself
- * (#1283). `workers/edge` builds that part and cannot load zod to learn which
+ * (#1283). `workers/api` builds that part and cannot load zod to learn which
  * intents exist, so the alternative is a hand-kept list in the Worker — the
  * second copy this seam exists to prevent.
  *
@@ -43,7 +43,7 @@ const BANNER = `/**
  * \`chat-data-parts.ts\`. See \`scripts/emit-tool-schemas.ts\` for why this is the
  * repo's only zod↔JSON-Schema conversion (spec §二).
  *
- * This module imports no value, so \`workers/edge\` can load it under node:test.
+ * This module imports no value, so \`workers/api\` can load it under node:test.
  */
 
 import type { CatalogToolName, WebToolName } from "./agent-tool-parameters.js";
@@ -113,7 +113,7 @@ function webSchemaTable(): string {
  * The answer tool's own name and schema — the answer, not a catalog request.
  *
  * The NAME rides the generated module rather than being imported from
- * `agent-tool-parameters.ts` because that module loads zod, and `workers/edge`
+ * `agent-tool-parameters.ts` because that module loads zod, and `workers/api`
  * names the tool in three places (its definition, the frames that hide it, the
  * system prompt that asks for it). One import-free constant is what keeps those
  * three from becoming three string literals.

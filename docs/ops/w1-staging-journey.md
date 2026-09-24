@@ -15,8 +15,8 @@ new tier; #1582 removed it when native agent routes became unconditional. This
 note explains why older W1 wording may mention a switch; it is not an operator
 step.
 
-The signed-in half is automated instead — `workers/edge/api-test/agent-turn.test.ts`
-(`pnpm --filter edge-worker run test:catalog-api`). The anonymous half cannot be:
+The signed-in half is automated instead — `workers/api/api-test/agent-turn.test.ts`
+(`pnpm --filter api run test:catalog-api`). The anonymous half cannot be:
 its door is behind Turnstile, which is a challenge only a real browser solves.
 
 ## 0 · Preconditions (check these, do not assume them)
@@ -66,7 +66,7 @@ Screenshot **S2b**: the rendered answer card in the page.
 
 > **What to check, not just that text appeared:** the `respond` tool the model
 > ends its turn with is deliberately NOT shown as a tool part (#1283,
-> `workers/edge/src/agent/session/turn-frames.ts`) — an answer is an answer, not
+> `workers/api/src/agent/session/turn-frames.ts`) — an answer is an answer, not
 > a tool call the user watches. A `tool-input-start` with
 > `"toolName":"respond"` in the frame list is a regression, not progress.
 
@@ -82,7 +82,7 @@ Screenshot **S3**: the second turn's frames.
 2. **While the frames are still arriving**, navigate away — switch the tab to
    another site, or close the tab outright. Do not just minimize the window.
 3. Wait 60 seconds. The turn's whole budget is 100s
-   (`TURN_DEADLINE_MS`, `workers/edge/src/agent/intake/turn-intake.ts`), and it
+   (`TURN_DEADLINE_MS`, `workers/api/src/agent/intake/turn-intake.ts`), and it
    keeps running in the Durable Object's `alarm()` handler with nobody connected
    — that independence from the client connection is the architectural claim
    this step exists to falsify.
@@ -121,7 +121,7 @@ assistant message both visible.
 
 The steps above never leave the model loop. This one leaves it deliberately: a
 candidate pick is a DETERMINISTIC turn that skips the model entirely
-(`workers/edge/src/agent/selection/`), so it is the one journey step where a
+(`workers/api/src/agent/selection/`), so it is the one journey step where a
 provider outage would not show up as a failure.
 
 1. In the same window, ask something the catalog cannot resolve to one work,
@@ -162,7 +162,7 @@ Screenshot **S5d**: the second pick's `invalid_selection` refusal.
 ## 3c · The web tool answers with untrusted prose (W2-1, #1287)
 
 `web_search` is the agent's only untrusted INBOUND channel
-(`workers/edge/src/agent/tools/web-search-tool.ts`), so what this step checks is
+(`workers/api/src/agent/tools/web-search-tool.ts`), so what this step checks is
 the wrapper, not that text appeared.
 
 1. In the same window, ask something the catalog cannot answer and the model has
@@ -174,14 +174,14 @@ the wrapper, not that text appeared.
    Prose with no preamble is a regression, not a nicer answer.
 4. A `Search failed for '<query>': <detail>` sentence is the tool DEGRADING, not
    throwing. Read `<detail>` against
-   the table in `workers/edge/api-test/README.md` before concluding anything: a
+   the table in `workers/api/api-test/README.md` before concluding anything: a
    `202` there means DuckDuckGo refused THIS caller, which is a backend swap
    behind the `WebSearcher` port, not a bug in the turn.
 
 Screenshot **S5e**: the `tool-output-available` with the preamble visible.
 
 The same question is automated against the deploy:
-`workers/edge/api-test/web-search-turn.test.ts`.
+`workers/api/api-test/web-search-turn.test.ts`.
 
 ## 3d · A title translation is display prose (W2-1, #1287)
 
@@ -194,7 +194,7 @@ The same question is automated against the deploy:
    the model.
 3. Check the turn never feeds the translation back into `resolve_anime`. The
    prompt line "a translation is display prose, never a resolve input" is ported
-   in `workers/edge/src/agent/session/turn-instructions.ts`; a `resolve_anime`
+   in `workers/api/src/agent/session/turn-instructions.ts`; a `resolve_anime`
    call whose argument is the translated string is the regression this step
    exists to catch.
 
@@ -206,14 +206,14 @@ Screenshot **S5f**: the translate tool's output part.
    `らき☆すたの聖地を1日でゆっくり回りたい`. Accept whatever route comes back.
 2. Send five or six more short turns in the same conversation — enough to push
    the first turn's tool returns out of the newest-8 window
-   (`KEEP_RECENT_MESSAGES`, `workers/edge/src/agent/session/context-compaction.ts`).
+   (`KEEP_RECENT_MESSAGES`, `workers/api/src/agent/session/context-compaction.ts`).
 3. Ask a question only the earlier turn can answer, e.g.
    `さっきのペースの希望、覚えてる？`. The pacing constraint must still be there:
-   it lives in the fact ledger (`workers/edge/src/agent/memory/fact-ledger.ts`),
+   it lives in the fact ledger (`workers/api/src/agent/memory/fact-ledger.ts`),
    not in the transcript.
 4. Ask for one of the earlier spots by name. The literal string survives in the
    retained-entity ledger even after compaction shrank the tool return that held
-   it (`workers/edge/src/agent/memory/retained-entity-ledger.ts`).
+   it (`workers/api/src/agent/memory/retained-entity-ledger.ts`).
 
 Screenshot **S5g**: the recall answer next to the first turn in the transcript.
 
@@ -227,28 +227,28 @@ Screenshot **S5g**: the recall answer next to the first turn in the transcript.
 
 ## 3f · BYOK: the caller's own key (W2-3, #1289)
 
-The invalid-key half is automated (`workers/edge/api-test/byok-probe.test.ts`).
+The invalid-key half is automated (`workers/api/api-test/byok-probe.test.ts`).
 The valid-key half is manual on purpose: it needs a real provider key, and a real
 key must not be written into this repo, a test, a PR or a log line.
 
 1. **Signed in** — the probe is login-gated: an anonymous caller gets `403`
-   (`byokRequiresLogin`, `workers/edge/src/gateway/agent-turn-responses.ts`) — `POST /v1/byok/probe` with your own key in `X-BYOK-Provider` and
+   (`byokRequiresLogin`, `workers/api/src/gateway/agent-turn-responses.ts`) — `POST /v1/byok/probe` with your own key in `X-BYOK-Provider` and
    `X-BYOK-Key`. Expect `200` naming the model and its `vision` support.
 2. Repeat with `X-BYOK-Provider: openai-compatible` and `X-BYOK-Base-Url`
    pointed at a third-party OpenAI-compatible gateway. Expect the native egress
    refusal: that family reaches `api.openai.com` and nothing else. The current
    route policy selects the native host unconditionally, and the allowlist is
-   the source of truth (`workers/edge/src/agent/egress/provider-allowlist.ts`).
+   the source of truth (`workers/api/src/agent/egress/provider-allowlist.ts`).
 3. Send a chat turn carrying the same headers. It must complete on YOUR key.
 4. In that turn, ask for a title translation. It runs on the SERVER key by
    design (the `platform` translation payer,
-   `workers/edge/src/agent/settlement/usage-charge.ts`) — the caller pays for
+   `workers/api/src/agent/settlement/usage-charge.ts`) — the caller pays for
    the turn they asked for, the platform for a translation they did not. Those
    tokens are metered now: the translation reports its own usage
    (`packages/agent/src/translate-anime-title.ts`) and settlement books it under
    the payer the tool result records — `platform` at the recorded cost when the
    platform's key paid a caller-keyed translation, `byok` at zero when the
-   caller's did (`usageScope`, `workers/edge/src/agent/settlement/usage-charge.ts`;
+   caller's did (`usageScope`, `workers/api/src/agent/settlement/usage-charge.ts`;
    #1292 closed 2026-09-05).
 5. Send a turn with a deliberately wrong key. Expect `400` and NO run — never a
    turn quietly served on the server key.

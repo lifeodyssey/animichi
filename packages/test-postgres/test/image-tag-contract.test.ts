@@ -36,7 +36,7 @@ const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8")
 const IMAGE_DECLARATION = "packages/test-postgres/postgres-image.env";
 const FRESH_SCHEMA_GATE = "scripts/local-gates/db-fresh-schema.sh";
 const CATALOG_FIXTURE = "workers/catalog/test/integration-db-global.ts";
-const EDGE_DIR = "workers/edge";
+const EDGE_DIR = "workers/api";
 
 /** Every edge lane file that boots the shared postgres recipe, discovered from
  * the `*-test` lane directories rather than listed by hand. */

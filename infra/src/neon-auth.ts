@@ -1,6 +1,6 @@
 // Neon Auth staging declarations (AUTH-2 #950).
 //
-// The edge Worker (`workers/edge/src/identity/auth.ts`) verifies staging JWTs
+// The edge Worker (`workers/api/src/identity/auth.ts`) verifies staging JWTs
 // against exactly one source of truth: the branch's JWKS URL. This module
 // declares where that URL comes from and the QA login the E2E suite and local
 // login script use. The same derivation is pinned against the checked runtime
@@ -18,7 +18,7 @@ export function jwksUrlFromAuthBaseUrl(baseUrl: string): string {
 }
 
 /** Derive the issuer/audience (the Neon Auth host origin) from a JWKS URL — the mirror
- * of the edge's own `issuerFromJwksUrl` in `workers/edge/src/identity/auth.ts`. */
+ * of the edge's own `issuerFromJwksUrl` in `workers/api/src/identity/auth.ts`. */
 export function issuerFromJwksUrl(jwksUrl: string): string {
   return new URL(jwksUrl).origin;
 }

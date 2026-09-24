@@ -33,7 +33,7 @@ class GitleaksConfigTest < Minitest::Test
   DRIFTED = "the inventoried default rules are bound to the pinned gitleaks version, so a pin move must re-derive them"
   INVENTORY = "the inventory must be the pinned release's rule IDs, not a subset of them"
 
-  SCANNED = [".", ".env", "workers/edge/src/entry.ts"].freeze
+  SCANNED = [".", ".env", "workers/api/src/entry.ts"].freeze
 
   PROBE_BODY = "QWERTYUIOPASDFGHJKLZXCVBNM0123456789"
 

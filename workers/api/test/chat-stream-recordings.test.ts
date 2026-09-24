@@ -1,7 +1,7 @@
 /**
  * #1918: a served recording must describe an envelope the product sends.
  *
- * `responseChunks` (`workers/edge/src/agent/views/public-content.ts`) is the
+ * `responseChunks` (`workers/api/src/agent/views/public-content.ts`) is the
  * only writer of the chat final envelope. The recordings the browser suite
  * and the MSW handlers serve are read here as the same bytes those replayers
  * read, and their final envelope may carry no member the writer does not

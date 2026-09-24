@@ -3,7 +3,7 @@
  *
  * One table covers every Worker that carries a runtime binding, and one loop
  * asserts it for all of them, deliberately. This file used to read
- * `workers/edge/wrangler.toml` and nothing else, so a runtime secret could be
+ * `workers/api/wrangler.toml` and nothing else, so a runtime secret could be
  * provisioned by the Pulumi program while the Worker that needs it declared no
  * binding at all — the state `INGEST_SIGNING_KEY` (#1792) arrived in, with
  * catalog's anitabi egress fail-closed behind it. A copy of this file for the
@@ -29,7 +29,7 @@ const STORE_ID = "66c9bb0faef644b4a0671bb7d90d98bd";
 /** Every Worker that carries runtime bindings, under the name a failure has to
  * say out loud. */
 const WORKERS = [
-  { worker: "edge", wrangler: "../workers/edge/wrangler.toml" },
+  { worker: "edge", wrangler: "../workers/api/wrangler.toml" },
   { worker: "catalog", wrangler: "../workers/catalog/wrangler.toml" },
 ] as const;
 
@@ -133,7 +133,7 @@ for (const { environment, stack, suffix, anonymousAccess } of ENVIRONMENTS) {
     assert.deepEqual(document.environment, [`animichi/${stack}`]);
     // Edge-only: the anonymous-access flag gates the edge Worker's two identity
     // secrets, and the ESC environment is where the deploy reads it from.
-    const edge = parse(wranglerSource("../workers/edge/wrangler.toml")) as {
+    const edge = parse(wranglerSource("../workers/api/wrangler.toml")) as {
       env: Record<string, { vars: { ANON_ACCESS_ENABLED: string } }>;
     };
     assert.equal(document.config["animichi-neon-secrets:anonymousAccessEnabled"], anonymousAccess);

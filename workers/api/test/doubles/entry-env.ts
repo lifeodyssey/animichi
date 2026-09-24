@@ -4,7 +4,7 @@
  * for the WORKER's entry surface — an execution context, a CATALOG binding, an
  * always-allow guard — not container plumbing, so it belongs under
  * `test/doubles/` (production code never imports test fixtures,
- * `workers/edge/AGENTS.md`). The one helper that was container plumbing,
+ * `workers/api/AGENTS.md`). The one helper that was container plumbing,
  * `envWithContainer`, was deleted with the container rather than moved.
  */
 import type { WorkerExecutionContext } from "../../src/env.ts";

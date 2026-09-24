@@ -150,13 +150,13 @@ function bindingFailures(evidence, receipt, source) {
 }
 
 function identityFailures(evidence, receipt) {
-  const edge = receipt.workers?.find((worker) => worker.unit === 'edge') ?? {};
-  const observed = evidence.deployed?.edge ?? {};
-  const version = `the receipt names edge version ${edge.version_id ?? 'nothing'}, this transcript names ${observed.version_id ?? 'nothing'}`;
-  const deployment = `the receipt names edge deployment ${edge.deployment_id ?? 'nothing'}, this transcript names ${observed.deployment_id ?? 'nothing'}`;
+  const api = receipt.workers?.find((worker) => worker.unit === 'api') ?? {};
+  const observed = evidence.deployed?.api ?? {};
+  const version = `the receipt names api version ${api.version_id ?? 'nothing'}, this transcript names ${observed.version_id ?? 'nothing'}`;
+  const deployment = `the receipt names api deployment ${api.deployment_id ?? 'nothing'}, this transcript names ${observed.deployment_id ?? 'nothing'}`;
   const mismatched = [
-    [edge.version_id === observed.version_id, version],
-    [edge.deployment_id === observed.deployment_id, deployment],
+    [api.version_id === observed.version_id, version],
+    [api.deployment_id === observed.deployment_id, deployment],
   ].filter(([equal]) => !equal).map(([, detail]) => `the receipt does not match what was deployed: ${detail}`);
   return mismatched;
 }
@@ -226,7 +226,7 @@ function report(source, evidence, receipt, verdicts, cardLines, failures) {
   // satisfied, so a stale or substituted artifact cannot read as a green check.
   const bound = failures.length === 0;
   console.log(`deploy evidence: ${source.artifact === null ? source.directory : `${source.artifact} (run ${source.run_id})`}`);
-  console.log(`platform read-back: ${evidence.deployed?.edge?.script_name ?? 'nothing'} version ${evidence.deployed?.edge?.version_id ?? 'nothing'} tag ${evidence.deployed?.edge?.tag ?? 'nothing'}`);
+  console.log(`platform read-back: ${evidence.deployed?.api?.script_name ?? 'nothing'} version ${evidence.deployed?.api?.version_id ?? 'nothing'} tag ${evidence.deployed?.api?.tag ?? 'nothing'}`);
   console.log(`receipt smoke: ${receipt.smoke} observed at ${receipt.observed_at}`);
   for (const line of failures) console.log(`FAIL ${line}`);
   for (const line of cardLines) console.log(line);

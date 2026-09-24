@@ -12,7 +12,7 @@
  * THE LIST CANNOT DRIFT FROM THE CONTRACT, and the type system is what stops it
  * rather than a comment. `CatalogToolName | WebToolName` is where the six model
  * tools are declared (`@animichi/contract/agent-tool-parameters`), and
- * `workers/edge/src/agent/host/operation-tool-settings.ts` assembles the
+ * `workers/api/src/agent/host/operation-tool-settings.ts` assembles the
  * deployed tool set from those same declarations — so keying an exhaustive `Record` on that
  * union makes `typecheck` red the day a seventh tool is declared and not listed
  * here, and red again if one is removed.

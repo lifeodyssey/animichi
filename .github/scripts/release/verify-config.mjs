@@ -8,13 +8,13 @@ import { sealedConfig } from '../../lib/release/config.mjs';
 const manifest = JSON.parse(readFileSync('release/release.json', 'utf8'));
 const scratch = mkdtempSync(`${tmpdir()}/release-config-`);
 try {
-  for (const unit of ['catalog', 'users', 'edge', 'migrator', 'web']) {
+  for (const unit of ['catalog', 'users', 'api', 'migrator', 'web']) {
     const source = unit === 'web' ? 'apps/web/wrangler.jsonc' : `workers/${unit}/wrangler.toml`;
     const config = `${scratch}/${source.split('/').at(-1)}`;
     writeFileSync(config, execFileSync('git', ['show', `${manifest.source_sha}:${source}`]));
     const original = experimental_readRawConfig({ config }).rawConfig;
     // #1606: a unit is verified against the image identity the snapshot names for it —
-    // the edge names none, and no unit is aliased to another's image.
+    // the api unit names none, and no unit is aliased to another's image.
     const image = manifest.images[unit] ?? '';
     const actual = JSON.parse(readFileSync(`release/${unit}/wrangler.json`, 'utf8'));
     if (!isDeepStrictEqual(actual, sealedConfig(unit, image, original))) throw new Error(`${unit} config is outside the selected source closure`);

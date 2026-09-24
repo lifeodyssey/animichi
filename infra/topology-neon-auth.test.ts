@@ -56,7 +56,7 @@ test("env var names match the edge worker binding and the QA login contract", ()
 test("issuer derivation matches the edge copy", () => {
   const url = "https://branch.neonauth.region.neon.tech/neondb/auth/.well-known/jwks.json";
   const fromInfra = issuerFromJwksUrl(url);
-  // The edge's derivation is identical by contract (workers/edge/src/identity/auth.ts);
+  // The edge's derivation is identical by contract (workers/api/src/identity/auth.ts);
   // import it here would couple infra to the worker package, so assert the
   // invariant structurally instead: use only the JWT issuer's host origin.
   assert.equal(fromInfra, "https://branch.neonauth.region.neon.tech");

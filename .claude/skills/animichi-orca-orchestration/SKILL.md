@@ -110,7 +110,7 @@ Serialize cards that edit the same hot files. Before admitting a card, compare
 the files its scope names with every card already In Dev or unmerged; if both
 touch a shared registry or inventory (for example
 `packages/contract/src/agent-paths.ts`, `approved-breaking-changes.ts`, the
-generated OpenAPI documents, `workers/edge/test/route-inventory.test.ts`), hold
+generated OpenAPI documents, `workers/api/test/route-inventory.test.ts`), hold
 the second card until the first merges. GitHub merge queue is unavailable on this
 user-owned repository, so serialization is the lever.
 
@@ -222,7 +222,7 @@ positive evidence is the `$ <script>` echo pnpm prints before running, and
 `pnpm --filter <name> exec pwd` returning the package's directory. Name the package correctly
 first: the six `packages/*` libraries are scoped (`@animichi/contract`, `@animichi/agent`,
 `@animichi/eval`, `@animichi/pi-session-neon`, `@animichi/prisma-geography`,
-`@animichi/test-postgres`); `web`, `catalog`, `users`, `edge-worker`, `migrator`,
+`@animichi/test-postgres`); `web`, `catalog`, `users`, `api`, `migrator`,
 `anitabi-egress`, `animichi-e2e`, `infra` and the root `animichi-cloudflare-worker` are bare.
 
 That correction is itself the lesson: I had put "read the `Scope:` line" into four task briefs

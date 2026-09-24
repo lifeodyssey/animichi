@@ -1,6 +1,6 @@
 # Agent tier and eval — what the specs do not say
 
-Read before touching `workers/edge/src/agent/`, `packages/agent/` or `packages/eval/`. The target
+Read before touching `workers/api/src/agent/`, `packages/agent/` or `packages/eval/`. The target
 architecture is `docs/specs/2026-09-09-agent-on-pi-harness-spec.md`; the runnable eval is
 `packages/eval/NATIVE.md`. This file keeps the owner's reasoning and the traps those documents do
 not record.

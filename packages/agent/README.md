@@ -17,7 +17,7 @@ selectedRouteMessage("en", 2); // Created a route with 2 selected stops.
 ## Current public modules
 
 These retain-domain files from #1536 moved without changing their behavior. The old paths
-below are relative to `workers/edge/src/agent/`; no forwarding modules remain there.
+below are relative to `workers/api/src/agent/`; no forwarding modules remain there.
 
 | Old path | Current source | Responsibility |
 |---|---|---|
@@ -101,7 +101,7 @@ below. The table records each current consumer boundary and its owning card. Sev
 already run without platform dependencies; their owners can relocate the plain rules when
 replacing those consumers.
 
-| Path under `workers/edge/src/agent/` | Current boundary / owner |
+| Path under `workers/api/src/agent/` | Current boundary / owner |
 |---|---|
 | `byok/byok-family.ts` | Browser/provider vocabulary still coupled to old credential construction; #1547 |
 | `egress/egress-decision.ts` | Current guard's error class; native transport policy in #1547 |
@@ -121,7 +121,7 @@ replacing those consumers.
 | `tools/web-result-trust.ts` | Current WebResult carrier; #1547 |
 
 Future Node eval consumers import this public package. The existing `packages/eval` dependency
-on `edge-worker` still has API-test readers and is removed by their owning migration, not by
+on `api` still has API-test readers and is removed by their owning migration, not by
 this extraction. Node eval, conformance and test infrastructure must never become production
 imports of this package or enter the Worker artifact.
 

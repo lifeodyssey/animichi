@@ -1,7 +1,7 @@
 /**
  * Anitabi display contract: attribution, licence, image size, and identity.
  *
- * Import-free so `workers/edge` can read it at runtime without pulling zod
+ * Import-free so `workers/api` can read it at runtime without pulling zod
  * (#1285). Keep it that way — `test/import-free-modules.test.ts` holds it.
  *
  * Landmark screenshots are CC BY-NC-SA 4.0. The upstream docs require the

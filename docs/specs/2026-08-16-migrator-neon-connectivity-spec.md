@@ -815,7 +815,7 @@ Requirements if Option 2 is opened:
    implementation card, not silently wrapped in `transaction()`.
 8. **Tests (when opened).** HTTP-seam apply of a fixture chain against a
    fake `neon()` / recorded SQL; hash + ledger write assertions;
-   isolation test (`workers/edge/test/migrator-role-isolation.test.ts`)
+   isolation test (`workers/api/test/migrator-role-isolation.test.ts`)
    still forbids runtime workers from binding the migrator DSN.
 
 Option 2 does **not** put a DSN in GitHub, does not merge the doorbell,
@@ -963,7 +963,7 @@ the migrator.
 | Topic | Rule |
 |---|---|
 | DSN | Secrets Store only. Injected at `start()` as `MIGRATOR_DATABASE_URL`. Not in GitHub Secrets, not in wrangler vars, not in logs, not in 504 JSON |
-| Isolation | `workers/edge/test/migrator-role-isolation.test.ts` remains the machine check: no runtime worker binds `MIGRATOR_DATABASE_URL` |
+| Isolation | `workers/api/test/migrator-role-isolation.test.ts` remains the machine check: no runtime worker binds `MIGRATOR_DATABASE_URL` |
 | Capability | Apply committed chain only. Entrypoint / Option 2 Worker have no DROP, no ad-hoc SQL, no down-migration |
 | Pooler | Reject `-pooler` so a mistaken DSN cannot silently run DDL through PgBouncer |
 | Log redaction | Entrypoint never prints `$DSN` / `$SCOPE`. Atlas is not passed a URL via a line we `echo`. Worker errors use `Error.message` only (`#1091`) — keep that, and never interpolate the DSN into a message |
@@ -1081,7 +1081,7 @@ blocked on staging evidence.
   `src/runner.ts`, `src/create-app.ts`, `src/ledger.ts`,
   `src/migration.ts`, `wrangler.toml`, `AGENTS.md`)
 - Catalog neon-http: `.worktrees/1074-split-infra/workers/catalog/src/db/client.ts`
-- Isolation contract: `.worktrees/1074-split-infra/workers/edge/test/migrator-role-isolation.test.ts`
+- Isolation contract: `.worktrees/1074-split-infra/workers/api/test/migrator-role-isolation.test.ts`
 - Neon chain: `migrations/neon/` + `docs/ops/migrations.md`
 - Cloudflare outbound: <https://developers.cloudflare.com/containers/platform-details/outbound-traffic/>
 - Cloudflare Container class (`sleepAfter` default `"10m"`,
@@ -1205,7 +1205,7 @@ opened only after Option 1 is falsified on live staging.
     **after** staging proof (same PR or an immediately following
     delete PR)
   - `workers/migrator/test/http-apply.test.ts`
-  - existing `workers/edge/test/migrator-role-isolation.test.ts`
+  - existing `workers/api/test/migrator-role-isolation.test.ts`
     (must stay green)
 - **Depends on:** PR 1 + PR 2 merged and a live staging `POST /migrate`
   that still cannot open a Postgres session (falsification table).

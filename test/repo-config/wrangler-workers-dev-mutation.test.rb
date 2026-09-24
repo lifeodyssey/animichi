@@ -16,7 +16,7 @@ require "tmpdir"
 class WranglerWorkersDevMutationTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   CONTRACT = "test/repo-config/wrangler-workers-dev.test.rb"
-  EDGE_TOML = "workers/edge/wrangler.toml"
+  API_TOML = "workers/api/wrangler.toml"
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
@@ -24,7 +24,7 @@ class WranglerWorkersDevMutationTest < Minitest::Test
 
   def with_tree
     Dir.mktmpdir("wrangler-workers-dev-mutation-") do |root|
-      [CONTRACT, EDGE_TOML, WEB_JSONC, USERS_TOML, MIGRATOR_TOML, DEPLOY_SCRIPT].each do |relative|
+      [CONTRACT, API_TOML, WEB_JSONC, USERS_TOML, MIGRATOR_TOML, DEPLOY_SCRIPT].each do |relative|
         FileUtils.mkdir_p(File.join(root, File.dirname(relative)))
         FileUtils.cp(File.join(ROOT, relative), File.join(root, relative))
       end
@@ -78,21 +78,21 @@ class WranglerWorkersDevMutationTest < Minitest::Test
     end
   end
 
-  # --- edge ---
+  # --- api ---
 
-  def test_rejects_edge_production_workers_dev_deleted
+  def test_rejects_api_production_workers_dev_deleted
     with_tree do |root|
-      rewrite_between(root, EDGE_TOML, "\n[env.production]\n", "\n[env.staging]\n", "workers_dev = false\n",
-                      "edge production workers_dev")
-      reject_tree(root, "edge [env.production] workers_dev deleted", "workers_dev = false explicitly")
+      rewrite_between(root, API_TOML, "\n[env.production]\n", "\n[env.staging]\n", "workers_dev = false\n",
+                      "api production workers_dev")
+      reject_tree(root, "api [env.production] workers_dev deleted", "workers_dev = false explicitly")
     end
   end
 
-  def test_rejects_edge_production_preview_urls_deleted
+  def test_rejects_api_production_preview_urls_deleted
     with_tree do |root|
-      rewrite_between(root, EDGE_TOML, "\n[env.production]\n", "\n[env.staging]\n", "preview_urls = false\n",
-                      "edge production preview_urls")
-      reject_tree(root, "edge [env.production] preview_urls deleted", "preview_urls = false explicitly")
+      rewrite_between(root, API_TOML, "\n[env.production]\n", "\n[env.staging]\n", "preview_urls = false\n",
+                      "api production preview_urls")
+      reject_tree(root, "api [env.production] preview_urls deleted", "preview_urls = false explicitly")
     end
   end
 
@@ -125,14 +125,14 @@ class WranglerWorkersDevMutationTest < Minitest::Test
     end
   end
 
-  def test_rejects_edge_staging_workers_dev_flipped_off
+  def test_rejects_api_staging_workers_dev_flipped_off
     with_tree do |root|
-      path = File.join(root, EDGE_TOML)
+      path = File.join(root, API_TOML)
       source = File.read(path)
       changed = source.sub("\nworkers_dev = true\n", "\nworkers_dev = false\n")
-      refute_equal source, changed, "mutation needle missing: edge staging workers_dev = true"
+      refute_equal source, changed, "mutation needle missing: api staging workers_dev = true"
       File.write(path, changed)
-      reject_tree(root, "edge staging workers_dev flipped off", "keeps workers_dev = true")
+      reject_tree(root, "api staging workers_dev flipped off", "keeps workers_dev = true")
     end
   end
 
@@ -206,8 +206,8 @@ class WranglerWorkersDevMutationTest < Minitest::Test
       # without updating CONTRACT_ONLY_UNITS — the missing_from_script
       # assertion must fire.
       changed = source.sub(
-        "covered  = %w[edge web users migrator]",
-        "covered  = %w[edge web users migrator payments]"
+        "covered  = %w[api web users migrator]",
+        "covered  = %w[api web users migrator payments]"
       )
       refute_equal source, changed, "mutation needle missing: sut_covered_units"
       File.write(path, changed)

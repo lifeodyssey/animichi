@@ -67,20 +67,20 @@ class ReleaseReceiptTest < Minitest::Test
   end
 
   # #1606: the edge has no container to observe and the snapshot names no image for it.
-  # Reinstating the edge container expectation (`return 1 if unit == 'edge'`) turns this red.
-  def test_accepts_an_edge_worker_that_owns_no_container
-    edge = @receipt['workers'].find { |worker| worker['unit'] == 'edge' }
-    assert_empty edge['containers']
+  # Reinstating the edge container expectation (`return 1 if unit == 'api'`) turns this red.
+  def test_accepts_an_api_worker_that_owns_no_container
+    api = @receipt['workers'].find { |worker| worker['unit'] == 'api' }
+    assert_empty api['containers']
     assert validate
   end
 
-  def test_refuses_an_edge_container_observation_the_snapshot_does_not_name
-    @receipt['workers'].find { |worker| worker['unit'] == 'edge' }['containers'] << { 'application_id' => 'agent' }
+  def test_refuses_an_api_container_observation_the_snapshot_does_not_name
+    @receipt['workers'].find { |worker| worker['unit'] == 'api' }['containers'] << { 'application_id' => 'agent' }
     assert_raises(ArgumentError) { validate }
   end
 
   # #1606: no snapshot names an image since the container retirements (#1589, #1605), so a
-  # migrator that still reports a container is refused exactly like the edge's — the image
+  # migrator that still reports a container is refused exactly like the api's — the image
   # identity that used to excuse it is gone.
   def test_refuses_a_container_observation_the_snapshot_does_not_name
     @images['migrator'] = 'migrator@digest'

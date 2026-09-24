@@ -42,7 +42,7 @@ const RETIRED_PATHS = ["/v1/search/preview?q=test", "/v1/bangumi/485/guide", "/v
 function edgeHealthz() {
   return {
     name: "edgeHealthz",
-    origin: "edge",
+    origin: "api",
     method: "GET",
     path: "/healthz",
     credential: "access",
@@ -60,7 +60,7 @@ function slug(path) {
 function retiredProbe(path) {
   return {
     name: `retired${slug(path)}`,
-    origin: "edge",
+    origin: "api",
     method: "GET",
     path,
     credential: "identity",
@@ -79,7 +79,7 @@ function retiredProbe(path) {
 function retiredDiagnostic(path) {
   return {
     name: `retired${slug(path)}Unauthenticated`,
-    origin: "edge",
+    origin: "api",
     method: "GET",
     path,
     credential: "access",
@@ -94,7 +94,7 @@ function retiredDiagnostic(path) {
 function conversationIndex() {
   return {
     name: "conversationsAuthenticated",
-    origin: "edge",
+    origin: "api",
     method: "GET",
     path: "/v1/conversations",
     credential: "identity",
@@ -107,7 +107,7 @@ function conversationIndex() {
 function conversationRefusal() {
   return {
     name: "conversationsUnauthenticated",
-    origin: "edge",
+    origin: "api",
     method: "GET",
     path: "/v1/conversations",
     credential: "access",

@@ -282,6 +282,6 @@ main() {
   echo "staging reset complete; backup=$BACKUP_NAME"
 }
 
-# Sourced, it only defines the functions above, which is how workers/edge/test drives them one
+# Sourced, it only defines the functions above, which is how workers/api/test drives them one
 # at a time.
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || main "$@"

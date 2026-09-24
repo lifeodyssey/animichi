@@ -12,7 +12,7 @@ pattern won.
 | TS/TSX directories | kebab-case | multi-word dirs: kebab wins (bubble-map, route-detail, map-spike) |
 | React components / providers | `PascalCase.tsx` | 82 component PascalCase (91 incl. 9 stories) vs 7 non-conforming `.tsx` (6 component/provider + 1 hook — all in the audit inventory) |
 | Hooks | `use-foo-bar.ts(x)` (kebab) | kebab hooks 28 vs camel hooks 7 |
-| Test files | `kebab-case.test.ts(x)` | kebab 300 vs camel-base 27 (21 `workers/edge` + 6 `byokStorage*` in web) |
+| Test files | `kebab-case.test.ts(x)` | kebab 300 vs camel-base 27 (21 `workers/api` + 6 `byokStorage*` in web) |
 | Story files | `ComponentName.stories.tsx` | 9/9 PascalCase base |
 | Other TS modules | kebab-case | multi-word non-test `.ts` modules: kebab 79 vs camel 40 |
 | Python modules / functions / vars | snake_case | 396 snake, 0 uppercase, 0 dash |

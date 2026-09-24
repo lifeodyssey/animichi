@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # scripts/spike/pi-s1-measure.sh — W0-S1 (#1244) measurement harness for the
-# deployed pi probe Worker (workers/edge/spike/pi).
+# deployed pi probe Worker (workers/api/spike/pi).
 #
 # It answers the three S1 acceptance criteria against a REAL deployment: one
 # real round trip per provider, the three abort break points, and the cold and

@@ -84,7 +84,7 @@ assert.equal(schema.prisma.markerHash, prismaRef);
 assert.equal(schema.prisma.usedLiveMarker, true);
 assert.deepEqual(schema.prisma.migrations, []);
 const applications = wrangler('containers', 'list', '--json');
-const workers = ['migrator', 'catalog', 'users', 'edge', 'web'].map((unit) => observeWorker(unit, environment, manifest, applications));
+const workers = ['migrator', 'catalog', 'users', 'api', 'web'].map((unit) => observeWorker(unit, environment, manifest, applications));
 const selection = JSON.parse(readFileSync('selection.json', 'utf8'));
 const receipt = { format: 1, environment, selection, controller_run_id: process.env.GITHUB_RUN_ID, controller_run_attempt: process.env.GITHUB_RUN_ATTEMPT,
   workers, schema, images: manifest.images, smoke: 'passed', observed_at: new Date().toISOString() };

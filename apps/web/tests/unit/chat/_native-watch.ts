@@ -2,8 +2,8 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/contex
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { respond } from "../../../../../packages/agent/src/tools";
 import { fixture, harnessFor } from "../../../../../packages/agent/test/native-tool-fixture";
-import { nativeWatchResponse } from "../../../../../workers/edge/src/agent/views/watch-response";
-import { SecretScrub } from "../../../../../workers/edge/src/agent/egress/secret-scrub";
+import { nativeWatchResponse } from "../../../../../workers/api/src/agent/views/watch-response";
+import { SecretScrub } from "../../../../../workers/api/src/agent/egress/secret-scrub";
 
 export async function preparedNativeWatch(message = "Native recovered answer", sessionId = "session-native") {
   const resources = await fixture(() => Promise.reject(new Error("No catalog call expected")));

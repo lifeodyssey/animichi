@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # scripts/spike/pi-s2-compat.sh — W0-S2 (#1245) compat switch matrix for the
-# deployed pi probe Worker (workers/edge/spike/pi).
+# deployed pi probe Worker (workers/api/spike/pi).
 #
 # One measured turn per switch value against the REAL mimo gateway, so the
 # dialect table in spec §四 is evidence rather than a reading of pi's source.
@@ -50,9 +50,9 @@ CASE_INDEX=0
 MAX_SECONDS=300
 
 # The source of truth for these names is
-# `workers/edge/spike/pi/src/compat-switch.ts`; the Worker rejects any name it
+# `workers/api/spike/pi/src/compat-switch.ts`; the Worker rejects any name it
 # does not know with a 400. The two lists cannot drift silently: the matrix test
-# (`workers/edge/test/pi-spike-compat-matrix.test.ts`) imports the TS constants
+# (`workers/api/test/pi-spike-compat-matrix.test.ts`) imports the TS constants
 # and asserts the exact request bodies this script sends.
 BOOLEAN_SWITCHES=(
   supportsStore

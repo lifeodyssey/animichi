@@ -3,7 +3,7 @@ set -euo pipefail
 
 # scripts/spike/pi-s4-durable.sh — W0-S4 (#1247) measurement harness for the
 # deployed pi probe Worker's Durable Object state machine
-# (workers/edge/spike/pi, class DurableTurnSession).
+# (workers/api/spike/pi, class DurableTurnSession).
 #
 # It answers the S4 acceptance criteria against a REAL deployment, because the
 # questions are all about a real alarm handler, a real eviction/retry and real

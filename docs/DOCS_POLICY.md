@@ -53,7 +53,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 6. Put operational docs under `docs/ops/` and iteration artifacts under `docs/iterations/`.
 7. Docs images >1MB: never commit. They live in the private `docs-assets` R2 bucket (binding
    `DOCS_ASSETS`; staging uses `docs-assets-staging`) and are served only through the edge `/img`
-   proxy (`workers/edge/src/proxy/image-proxy.ts` → `docs-assets.ts`), which is also the gate:
+   proxy (`workers/api/src/proxy/image-proxy.ts` → `docs-assets.ts`), which is also the gate:
    only `archive/**` keys with a raster-image extension (`png`, `jpg`, `jpeg`, `webp`, `gif`) reach
    the bucket, every path segment matches `^[A-Za-z0-9_][A-Za-z0-9._-]*$`, and a key is at most 256
    characters. **Canonical URL `https://animichi.com/img/docs/<key>`; the object key is the asset's
@@ -85,16 +85,16 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 |---|---|---|
 | **Why** the architecture is shaped this way | `docs/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
 | Database layer: ORM, migrations, spatial | `docs/specs/2026-09-12-prisma8-database-layer-spec.md` | Owner-signed 2026-09-13: Prisma 8 owns schema **and** query layer; Atlas and Drizzle retire; PostGIS stays. Spatial predicates via a private geography extension pack (debt: #1620). Supersedes the Atlas half of `docs/specs/2026-08-16-migrator-neon-connectivity-spec.md`. The Atlas chain and its gates were deleted in #1636 |
-| **Current target** architecture (agent runtime and eval) | `docs/specs/2026-09-09-agent-on-pi-harness-spec.md` | Native Pi harness and Cloudflare Agents inside `workers/edge`, Neon business authority and native Logfire evals. The 2026-09-01 spec retains its unmodified functional-parity criteria only where not superseded. **Supersedes SD-4 of `docs/specs/2026-07-06-frontend-rebuild-spec.md`**; that spec remains canonical for the web rebuild |
+| **Current target** architecture (agent runtime and eval) | `docs/specs/2026-09-09-agent-on-pi-harness-spec.md` | Native Pi harness and Cloudflare Agents inside `workers/api`, Neon business authority and native Logfire evals. The 2026-09-01 spec retains its unmodified functional-parity criteria only where not superseded. **Supersedes SD-4 of `docs/specs/2026-07-06-frontend-rebuild-spec.md`**; that spec remains canonical for the web rebuild |
 | Current runtime reference | `docs/ARCHITECTURE.md` | Native chat source, remaining services and deployment evidence boundary |
-| Agent entry | `workers/edge/src/gateway/agent-turn.ts` → `workers/edge/src/agent/host/session-agent.ts` | Authenticated native Pi host |
+| Agent entry | `workers/api/src/gateway/agent-turn.ts` → `workers/api/src/agent/host/session-agent.ts` | Authenticated native Pi host |
 | Agent shared types | Public Pi Session/AgentLane/results and `packages/agent/src/` domain schemas | No custom execution envelope |
 | Agent tools | `packages/agent/src/harness.ts` + `tools.ts` | Seven native tools shared by serving and Eval |
 | Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC service over Neon, `/v1/users/*`; no token verification of its own — it trusts the edge-forwarded identity (AUTH-2 #950) |
-| Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
-| Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
+| Edge worker / auth / routing | `workers/api/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
+| Deploy wiring | `workers/api/wrangler.toml` + `workers/api/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data (data plane) | **Neon Postgres**; one Prisma 8 chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1626, #1636). Since #1633 every catalog/users query is a builder plan over the contract that chain generates, run on a per-request runtime | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
 | DB — private geography extension | `packages/prisma-geography/` + `packages/prisma-geography/AGENTS.md` | Prisma 8 control/runtime extension for `geography(Point,4326)` and metre/KNN operations; no consumer migration in #1623 |
 | DB — auth | **Neon Auth (Better Auth)** integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950) | `docs/ops/auth-migration-neon.md` runbook |

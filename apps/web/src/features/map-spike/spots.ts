@@ -34,7 +34,7 @@ export const STATIC_BOUNDS: Bounds = {
 
 export const STATIC_SIZE: Size = { width: 1000, height: 620 };
 
-// Same-origin tile endpoints; the edge Worker proxies them from the R2 map-tiles bucket (workers/edge/src/proxy/tiles.ts).
+// Same-origin tile endpoints; the edge Worker proxies them from the R2 map-tiles bucket (workers/api/src/proxy/tiles.ts).
 export const TILE_PMTILES_URL = "/tiles/japan.pmtiles";
 export const TILE_ZXY_URL = "/tiles/{z}/{x}/{y}.mvt";
 

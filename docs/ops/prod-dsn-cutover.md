@@ -13,7 +13,7 @@
   the schema.
 - **Prod runtime DSNs no longer come from GitHub environment secrets.** P4 (#912) completed on
   2026-08-09 and its Worker bindings are in the tree: `[[env.production.secrets_store_secrets]]`
-  binds `AGENT_SVC_DATABASE_URL` → `AGENT_SVC_DATABASE_URL_PROD` in `workers/edge/wrangler.toml`,
+  binds `AGENT_SVC_DATABASE_URL` → `AGENT_SVC_DATABASE_URL_PROD` in `workers/api/wrangler.toml`,
   `DATABASE_URL` → `CATALOG_DATABASE_URL_PROD` in `workers/catalog/`, and `DATABASE_URL` →
   `USERS_DATABASE_URL_PROD` in `workers/users/`. `cd.yml` injects none of them: it contains no
   `DATABASE_URL` reference and no `${{ secrets.* }}` reference at all. Of the four names this
@@ -47,7 +47,7 @@
 ## Agent DSN mechanism (native Worker tier)
 
 The native agent tier runs inside the edge Worker, so the Worker binds the DSN itself:
-`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml` maps the binding name
+`[[env.<env>.secrets_store_secrets]]` in `workers/api/wrangler.toml` maps the binding name
 `AGENT_SVC_DATABASE_URL` onto a store secret, and the native host resolves it through the existing
 `readStoreOrString` helper. The DSN travels: **Pulumi store secret → edge Worker
 `[[env.<env>.secrets_store_secrets]]` binding → native host → Prisma/Neon**; there is no

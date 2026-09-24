@@ -39,8 +39,8 @@ function wrangler(...args) {
 /** The platform's own read-back of what is live, taken NOW and not read from
  * the receipt: the verifier holds the two against each other, so a receipt that
  * names a version the platform no longer serves is a mismatch, not a copy. */
-function deployedEdge(sourceSha, declared) {
-  const config = unstable_readConfig({ config: 'release/edge/wrangler.json', env: environment });
+function deployedApi(sourceSha, declared) {
+  const config = unstable_readConfig({ config: 'release/api/wrangler.json', env: environment });
   const deployments = wrangler('deployments', 'list', '--name', config.name, '--json').sort((a, b) => b.created_on.localeCompare(a.created_on));
   const version = wrangler('versions', 'view', deployments[0].versions[0].version_id, '--name', config.name, '--json');
   // `deploymentIdentity` is the receipt's own assertion (release serves all
@@ -57,7 +57,7 @@ function containersBeforeSmoke() {
 }
 
 function declaredContainers() {
-  const config = unstable_readConfig({ config: 'release/edge/wrangler.json', env: environment });
+  const config = unstable_readConfig({ config: 'release/api/wrangler.json', env: environment });
   return (config.containers ?? []).map((container) => container.name);
 }
 
@@ -170,7 +170,7 @@ publish(buildEvidence({
   controller_run_id: process.env.GITHUB_RUN_ID,
   controller_run_attempt: process.env.GITHUB_RUN_ATTEMPT,
   release: selection,
-  deployed: { edge: deployedEdge(release.source_sha, declaredContainers()) },
+  deployed: { api: deployedApi(release.source_sha, declaredContainers()) },
   platform: { container_applications: readContainerApplications(), before_smoke: containersBeforeSmoke() },
   smoke: { verdict: receipt.smoke, observed_at: receipt.observed_at },
   probes,

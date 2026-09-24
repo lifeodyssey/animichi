@@ -40,7 +40,7 @@ class PrVerificationBrowserTest < Minitest::Test
   def test_native_runtime_changes_select_the_browser_lane
     paths = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "paths" }
     filters = Psych.safe_load(paths.dig("with", "filters"), aliases: true)
-    %w[workers/edge/** packages/agent/** packages/pi-session-neon/** packages/test-postgres/**].each do |path|
+    %w[workers/api/** packages/agent/** packages/pi-session-neon/** packages/test-postgres/**].each do |path|
       assert_includes filters.fetch("e2e"), path
     end
   end

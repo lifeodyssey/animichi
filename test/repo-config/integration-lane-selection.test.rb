@@ -6,7 +6,7 @@
 # lane selects reaches for the database.
 #
 # The second property's domain is the lanes that select by glob from a directory they share with
-# files that need no database — the place a mis-scoped glob can quietly swallow one. `workers/edge`
+# files that need no database — the place a mis-scoped glob can quietly swallow one. `workers/api`
 # selects four directories that exist only for one database arm each, so a file there needing no
 # database is a misplaced file rather than a mis-scoped glob: a different defect, and not this
 # subject. The marker is a direct import or call, so a file reaching the database only through a

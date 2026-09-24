@@ -103,7 +103,7 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
 
 Capability boundary: NO destructive path — no schema drop, no arbitrary SQL,
 no down-migration. The migrator DSN is Secrets Store only (non-resident);
-`workers/edge/test/migrator-role-isolation.test.ts` asserts it is not bound
+`workers/api/test/migrator-role-isolation.test.ts` asserts it is not bound
 by any runtime worker.
 
 ## Read-only compatibility preflight (#1575, #1634)

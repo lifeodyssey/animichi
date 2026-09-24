@@ -12,7 +12,7 @@ import type { Env } from "./create-app";
  * shape, foreign memberships are revoked, and a runtime password is rewritten only when a
  * probe session proves the bound password no longer lets the role in — so a second run
  * issues no ALTER and leaves `pg_authid` byte-for-byte as it found it. Role DDL still lives
- * outside the chain (`workers/edge/test/migrator-ac3-proof.test.ts`); what changed with
+ * outside the chain (`workers/api/test/migrator-ac3-proof.test.ts`); what changed with
  * #1915 is its owner.
  */
 

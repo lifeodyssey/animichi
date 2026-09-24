@@ -26,7 +26,7 @@ import { AGENT_DB_SETUP_BUDGET, hookTimeoutMs, SPIKE_SETUP_BUDGET } from "../src
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8");
 
-const EDGE_DIR = "workers/edge";
+const EDGE_DIR = "workers/api";
 
 /** Every edge lane file that boots the shared postgres recipe, discovered from
  * the `*-test` lane directories rather than listed by hand. */

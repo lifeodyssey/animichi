@@ -7,7 +7,7 @@
  *
  * One deliberate difference from Python: there is no development bypass. That
  * branch existed because a local FastAPI run had no `/img/` proxy in front of
- * it; the edge Worker always serves one (`workers/edge/src/proxy/image-proxy.ts`), so the
+ * it; the edge Worker always serves one (`workers/api/src/proxy/image-proxy.ts`), so the
  * rewrite is unconditional and no environment can silently skip it.
  */
 

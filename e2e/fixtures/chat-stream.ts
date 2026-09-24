@@ -10,7 +10,7 @@ import { join } from "node:path";
  *
  * The recordings describe the envelope the deployed edge sends, `session_id`
  * included (#1903): `responseChunks` in
- * `workers/edge/src/agent/views/public-content.ts` always writes one.
+ * `workers/api/src/agent/views/public-content.ts` always writes one.
  */
 const FIXTURE_DIR = join(__dirname, "..", "..", "packages", "contract", "fixtures", "chat-stream");
 

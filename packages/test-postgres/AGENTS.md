@@ -26,7 +26,7 @@ disposable container has no Pulumi to create them (#1625).
 
 `test` stays Docker-free on purpose (the #1473 rule): the container contracts live in
 `test:integration`, alongside the arms that boot it in their own gates —
-`pnpm --filter catalog run test:integration` and `pnpm --filter edge-worker run test:agent-db`.
+`pnpm --filter catalog run test:integration` and `pnpm --filter api run test:agent-db`.
 
 ## The API
 
@@ -133,7 +133,7 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
 
 ## Pitfalls
 
-- **Node's type stripping, not a bundler.** `workers/edge`'s lane loads this package through
+- **Node's type stripping, not a bundler.** `workers/api`'s lane loads this package through
   `node --test`, which strips types rather than compiling them: no constructor parameter properties,
   no enums, no namespaces, and intra-package imports carry the `.ts` extension.
 - **The startup wait never swallows a failure that is not a startup symptom.** It retries `57P03`,

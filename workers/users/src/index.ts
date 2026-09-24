@@ -48,7 +48,7 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
  * The internal-identity boundary (AUTH-2 #950): the users service trusts ONLY
  * the edge's verified identity, which arrives over the USERS service binding
  * as `X-User-Id` (the edge stripped `Authorization` and any caller-supplied
- * identity headers first — see workers/edge/gateway/forward.ts forwardUsers).
+ * identity headers first — see workers/api/gateway/forward.ts forwardUsers).
  *
  * A request that still carries `Authorization` is raw bearer access: it did not
  * come from the edge (which deletes the header), so the token is unverified and

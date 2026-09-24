@@ -365,4 +365,4 @@ Ruby with the Gemfile's gems installed (`bundle install`) — a push that runs t
 - This document — the contract
 
 The TypeScript `@animichi/agent` domain library participates in this matrix. Its `workspace:*`
-dependency from `edge-worker` makes domain changes select the real edge consumer as well.
+dependency from `api` makes domain changes select the real edge consumer as well.

@@ -53,7 +53,7 @@ void test("reset SQL drops public, and prisma_contract only when told to", () =>
 // probes workers.dev because the zone front door bot-challenges GitHub-runner
 // IPs. Production must never re-open it.
 void test("workers_dev is open for staging only, and closed in production by declaration", () => {
-  const toml = read("workers/edge/wrangler.toml");
+  const toml = read("workers/api/wrangler.toml");
   // Line-anchored anchors: the config's own comments quote the section names in
   // prose (#1524), so a bare indexOf would slice from a comment mention; the production
   // slice ends at the first [env.production.<sub-table, which ends the env's own keys.
@@ -114,7 +114,7 @@ const declaredEnvironments = (toml: string): string[] =>
     .sort();
 
 void test("the edge declares exactly the environments this contract names", () => {
-  assert.deepEqual(declaredEnvironments(read("workers/edge/wrangler.toml")),
+  assert.deepEqual(declaredEnvironments(read("workers/api/wrangler.toml")),
     ["env.production", "env.staging"].sort(),
     "a new edge environment must join this contract, not escape it; every header " +
     "that names env.<name> counts — [env.x] directly, [env.x.<sub>] and " +

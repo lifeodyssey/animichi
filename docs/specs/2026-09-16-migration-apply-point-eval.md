@@ -123,10 +123,10 @@ its own connection*, and evaluate that, which is what this document does.
 
 | Surface | Process model | Boot/lifecycle today | Would own the chain under app-boot? |
 |---|---|---|---|
-| `apps/agent` (FastAPI, Cloudflare Container) | One container, `max_instances = 3` (`workers/edge/wrangler.toml:161`) | Yes — `CMD ["python","-m","animichi.interfaces.fastapi_service"]` (`apps/agent/Dockerfile:74`) → `main()` → `uvicorn.run` (`apps/agent/src/animichi/interfaces/fastapi_service.py:287`); the natural seam is the FastAPI lifespan (`:118-160`), which already sequences `create_database_lifecycle` at `:131` | **Yes, by fiat** — and it is *only* the agent's tables + catalog + users tables that would ride along |
+| `apps/agent` (FastAPI, Cloudflare Container) | One container, `max_instances = 3` (`workers/api/wrangler.toml:161`) | Yes — `CMD ["python","-m","animichi.interfaces.fastapi_service"]` (`apps/agent/Dockerfile:74`) → `main()` → `uvicorn.run` (`apps/agent/src/animichi/interfaces/fastapi_service.py:287`); the natural seam is the FastAPI lifespan (`:118-160`), which already sequences `create_database_lifecycle` at `:131` | **Yes, by fiat** — and it is *only* the agent's tables + catalog + users tables that would ride along |
 | `workers/catalog` | Cloudflare Worker | **None.** No init phase, no start hook | No |
 | `workers/users` | Cloudflare Worker | **None** | No |
-| `workers/edge` | Cloudflare Worker + Durable Objects | **None for the Worker.** A DO has a per-instance constructor and `bootstrapNativeSession` (`workers/edge/src/agent/host/native-bootstrap.ts:27-40`) runs on it — but that is one boot **per DO instance**, not one per deployment, and it connects as `agent_svc` | No |
+| `workers/api` | Cloudflare Worker + Durable Objects | **None for the Worker.** A DO has a per-instance constructor and `bootstrapNativeSession` (`workers/api/src/agent/host/native-bootstrap.ts:27-40`) runs on it — but that is one boot **per DO instance**, not one per deployment, and it connects as `agent_svc` | No |
 | `workers/migrator` | Cloudflare Worker + one fixed DO lock | **None.** It is driven by an authenticated HTTP request: `POST /migrate` (`workers/migrator/AGENTS.md:62`; the caller's side is `scripts/delivery/migrate-through-worker.sh:54-73`) | It *is* the chain owner today |
 
 ### 2.2 Who applies the Workers' tables, said plainly
@@ -136,7 +136,7 @@ This is the question the card insists must not be left implied.
 - **Under app-boot (option B):** the chain has no owner of its own for `workers/catalog` and
   `workers/users`. Those Workers cannot apply it — they have no boot — so the apply would happen
   because the *agent container* happens to boot. That is a coupling, not a mechanism: if the
-  container never starts (bad image, OOM — `workers/edge/wrangler.toml:337` already records an OOM
+  container never starts (bad image, OOM — `workers/api/wrangler.toml:337` already records an OOM
   risk at the smaller instance type), catalog and users drift under the old schema with nothing
   red. The predecessor evaluation identified this and answered it with "keep an env-gated,
   idempotent CI backstop apply" — which reinstates exactly the CI database credential the exercise
@@ -160,7 +160,7 @@ The card proposes "pinned atlas 0.30.0 binary baked into the image (checksum-ver
 - Atlas enters CI only as `ariga/setup-atlas@2f3c785c…` in `.github/workflows/pr-verification.yml:159,445,497` and
   `.github/workflows/release-build.yml:56`, for the static `atlas migrate validate` lane.
 - `.github/workflows/cd.yml` must contain **no** Atlas invocation and **no** `ariga/setup-atlas` at
-  all — machine-pinned by `workers/edge/test/migration-boundary.test.ts:75-80`.
+  all — machine-pinned by `workers/api/test/migration-boundary.test.ts:75-80`.
 - The container has never carried a migration tool: `apps/agent/src/animichi/interfaces/fastapi_service.py:151-152`
   states "Schema changes are never applied by the application. Neon catalog/user migrations run
   through Atlas from `migrations/neon`".
@@ -193,7 +193,7 @@ Three arrangements, compared on where a DDL-capable credential lives.
 | Blast radius of a compromised app replica | Full DDL on the data plane | Full DDL during the boot window | No DDL — the runtime role has none |
 | New secrets concentrated where | None new, but `agent_svc` widens to DDL | A second DSN (`BOOT_MIGRATOR_DATABASE_URL`) in `CONTAINER_ENV_KEYS` | None new |
 | What CI keeps | Decided by Q5 | Decided by Q5 | No `*DATABASE*` name at all (`.github/test/cd-credentials.test.rb:63`) |
-| Machine guard it must defeat | — | `workers/edge/test/migrator-role-isolation.test.ts:33-40` (the migrator DSN must not appear in the container allowlists) and `migrations/AGENTS.md:83` ("**Never** app runtime") | None to defeat; the guards *are* the design |
+| Machine guard it must defeat | — | `workers/api/test/migrator-role-isolation.test.ts:33-40` (the migrator DSN must not appear in the container allowlists) and `migrations/AGENTS.md:83` ("**Never** app runtime") | None to defeat; the guards *are* the design |
 
 Elaboration:
 
@@ -206,9 +206,9 @@ Elaboration:
   (`docs/specs/2026-08-16-migration-executor-spec.md:97`); minimization is *behavioral* by three
   rules, the second of which is non-resident — "The migrator DSN is Secrets Store only"
   (`workers/migrator/AGENTS.md:99`). B reverses rule 2 for the one workload in the repo that serves
-  anonymous internet traffic. `workers/edge/test/migrator-role-isolation.test.ts:10-13`
+  anonymous internet traffic. `workers/api/test/migrator-role-isolation.test.ts:10-13`
   calls the property out by name and asserts it over `CONTAINER_ENV_KEYS`,
-  `CONTAINER_REQUIRED_KEYS` and every runtime `wrangler.toml`; `workers/edge/test/migrator-role-isolation.test.ts:50-59`
+  `CONTAINER_REQUIRED_KEYS` and every runtime `wrangler.toml`; `workers/api/test/migrator-role-isolation.test.ts:50-59`
   adds that each deployed migrator environment binds **its own** Secrets Store DSN, so staging and
   production cannot be confused for one another. Env-gating the boot DSN (`RUN_MIGRATIONS_ON_START`)
   does not restore the property: the value is still in the container's secret surface and in the
@@ -222,7 +222,7 @@ Elaboration:
 | Property | Evidence |
 |---|---|
 | CI proves identity, holds no credential | `:47-52` mints a GitHub OIDC token with `audience=animichi:github-actions:migrator`, over TLS only (`:34-38`) |
-| The Worker holds the DSN | `workers/migrator/AGENTS.md:98-100`; `MIGRATOR_DATABASE_URL` from Secrets Store, rejected by every runtime `wrangler.toml` (`workers/edge/test/migrator-role-isolation.test.ts:40-48`) |
+| The Worker holds the DSN | `workers/migrator/AGENTS.md:98-100`; `MIGRATOR_DATABASE_URL` from Secrets Store, rejected by every runtime `wrangler.toml` (`workers/api/test/migrator-role-isolation.test.ts:40-48`) |
 | Exactly what the release packaged is applied | `:40-43` derives the sealed head from the release's own filenames; the Worker answers `409 stale_bundle` to a head its carried chain cannot reach (`workers/migrator/AGENTS.md:59-74`) |
 | One writer | A fixed-name Durable Object mutex serializes apply (`workers/migrator/AGENTS.md:40-42`) |
 | No destructive path | `workers/migrator/AGENTS.md:98-100` — "NO destructive path — no schema drop, no arbitrary SQL, no down-migration" |
@@ -305,7 +305,7 @@ Options, and the verdict on each:
 
 | Option | Verdict |
 |---|---|
-| Operator script holding only the control-plane `NEON_API_KEY` (today, `reset-staging-baseline.sh`) | **Keep.** Only the operator path destroys; the routine path cannot reach it; it authenticates through `neonctl psql` and holds no DSN; the guard tests are test-pinned (`workers/edge/test/staging-baseline-reset.test.ts`). |
+| Operator script holding only the control-plane `NEON_API_KEY` (today, `reset-staging-baseline.sh`) | **Keep.** Only the operator path destroys; the routine path cannot reach it; it authenticates through `neonctl psql` and holds no DSN; the guard tests are test-pinned (`workers/api/test/staging-baseline-reset.test.ts`). |
 | One-shot CI job with a break-glass DSN | **Rejected.** It re-introduces a database credential into CI and spends a `neon_superuser`-grade one — for a once-ever action. |
 | Neon console owner action | **Viable fallback** for the physical DROP (branch reset / restore), but it loses the in-repo identity rails and the audit trail in the script. Use only if the script cannot reach the branch. |
 | Env-gated app-boot clean (`RUN_MIGRATIONS_ON_START=clean`) | **Rejected outright.** A destructive verb inside a serving process that any future deploy can trigger is the worst possible placement (`docs/archive/specs/2026-08-15-embedded-migration-eval.md:85` reached this first). |
@@ -335,7 +335,7 @@ Ordered, with what each step is and is not:
    deleted per `docs/specs/2026-09-12-prisma8-database-layer-spec.md:669-682` — the ordering property survives,
    the Atlas half does not.
 3. **CI workflows — keep the OIDC handshake.** `scripts/delivery/migrate-through-worker.sh` remains
-   the only apply trigger; `workers/edge/test/migration-boundary.test.ts:54-73` keeps every
+   the only apply trigger; `workers/api/test/migration-boundary.test.ts:54-73` keeps every
    environment on its own `id-token: write` job and keeps `NEON_DATABASE_URL` out of `cd.yml`.
 4. **Roles and grants — one direction only.** No new boot role. `migrator` stays non-resident and
    single-purpose (`workers/migrator/AGENTS.md:98-100`); `agent_svc`/`catalog_svc`/`users_svc`
@@ -371,7 +371,7 @@ Ordered, with what each step is and is not:
 | A stale migrator bundle could apply a chain the release did not package | `409 stale_bundle` + head-bounded apply + `bundleHead` polling (`workers/migrator/AGENTS.md:59-74`) | `workers/migrator/test/migrate.worker.handshake.test.ts`, `workers/migrator/test/migrate.worker.bound.test.ts` |
 | "The chain applied" is mistaken for "the schema is right" | Already materialised once; `verify-catalog-schema.sh` exists for it (`workers/migrator/AGENTS.md:92-96`) | `.github/workflows/cd.yml:147-149` |
 | Forward-only means a bad migration is a forward fix | Unchanged by either option; PITR/HITL path is `docs/ops/neon-backup-rpo.md` | — |
-| The role matrix's migrator role is `neon_superuser`-grade | Disclosed, and minimization is behavioral: single-purpose, non-resident, rotatable (`docs/specs/2026-08-16-migration-executor-spec.md:97`) | `workers/edge/test/migrator-role-isolation.test.ts` |
+| The role matrix's migrator role is `neon_superuser`-grade | Disclosed, and minimization is behavioral: single-purpose, non-resident, rotatable (`docs/specs/2026-08-16-migration-executor-spec.md:97`) | `workers/api/test/migrator-role-isolation.test.ts` |
 | Docs drift around the reset (`docs/ops/secrets.md:183`) | Stale doc, correct workflow | `.github/test/cd-credentials.test.rb`, `.github/test/cd-stage.test.rb` |
 
 ### 6.3 Rollback story

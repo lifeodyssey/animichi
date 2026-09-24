@@ -33,7 +33,7 @@ interface Consumer {
 
 const CONSUMERS: Consumer[] = [
   { directory: "workers/catalog", testOnlyPath: "workers/catalog/test/" },
-  { directory: "workers/edge", testOnlyPath: "workers/edge/agent-db-test/" },
+  { directory: "workers/api", testOnlyPath: "workers/api/agent-db-test/" },
 ];
 
 interface PackageManifest {

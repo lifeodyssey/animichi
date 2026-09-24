@@ -28,7 +28,7 @@ module ReleaseReceipt
   # #1606: no release unit carries a container any more (#1589 the migrator, #1605 the edge),
   # so every observed Worker must report none.
   def validate_workers(workers)
-    ReleaseSelection.require_value(workers.map { |worker| worker['unit'] }.sort == %w[catalog edge migrator users web], 'incomplete Worker observations')
+    ReleaseSelection.require_value(workers.map { |worker| worker['unit'] }.sort == %w[api catalog migrator users web], 'incomplete Worker observations')
     workers.each do |worker|
       ReleaseSelection.require_value(worker.fetch('version_id').match?(UUID) && worker.fetch('deployment_id').match?(UUID), 'invalid observed platform identity')
       ReleaseSelection.require_value(worker.fetch('script_name').is_a?(String), 'missing script-scoped identity')

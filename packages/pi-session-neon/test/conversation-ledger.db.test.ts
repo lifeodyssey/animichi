@@ -11,7 +11,7 @@ const PAST = "2001-02-03T04:05:06Z";
 
 // The production adoption statement's conflict target is a constraint NAME, so the name — not
 // just the column pair — is what this suite has to prove
-// (workers/edge/src/identity/session-adoption-store.ts).
+// (workers/api/src/identity/session-adoption-store.ts).
 const ADOPT_REVISION_CONFLICT = `INSERT INTO turn_reservations (session_id, turn_key, payer, revision, status)
   VALUES ($1, $2, 'anon', $3, 'completed')
   ON CONFLICT ON CONSTRAINT turn_reservations_session_revision DO NOTHING

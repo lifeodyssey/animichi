@@ -2,7 +2,7 @@
 # "root wrangler.toml" must not come back.
 #
 # #1649 corrected the phrase in infra/src/staging-access.ts: staging's ANON_ACCESS_ENABLED lives in
-# workers/edge/wrangler.toml's [env.staging.vars], and there has been no root wrangler.toml since
+# workers/api/wrangler.toml's [env.staging.vars], and there has been no root wrangler.toml since
 # bb18f68ae moved the deployment files into their owner packages. This pins the class rather than
 # the sentence — a path claim that points nowhere is how the next reader is sent to a file that does
 # not exist, and the docs-path gate cannot see it because it checks docs/ tokens only. The scan is

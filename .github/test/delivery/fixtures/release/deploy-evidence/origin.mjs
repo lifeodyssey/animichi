@@ -2,7 +2,7 @@
  * A staging-shaped origin for the deploy-evidence tests (#1695).
  *
  * It is not a mock of the gateway: it is the release's OWN gateway code
- * (`workers/edge/src/app.ts`, the same module `wrangler deploy` ships) served
+ * (`workers/api/src/app.ts`, the same module `wrangler deploy` ships) served
  * over a real socket, so every transcript the recorder writes in these tests is
  * the answer the shipped code gives to a real HTTP request. The environment it
  * is served with declares NO container binding, which is exactly the state
@@ -30,7 +30,7 @@
  */
 import { appendFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { createWorkerApp } from '../../../../../../workers/edge/src/app.ts';
+import { createWorkerApp } from '../../../../../../workers/api/src/app.ts';
 
 const mode = process.argv[2] ?? 'gateway';
 const log = process.env.EVIDENCE_FIXTURE_LOG ?? '';

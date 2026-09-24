@@ -50,7 +50,7 @@ class PostDeployEvidenceMutationTest < Minitest::Test
     out, _err, status = verify('--card', '1596', '--ac', 'AC5')
     refute status.success?, 'a receipt that does not match the deployment must not verify'
     assert_includes out, 'the receipt does not match what was deployed'
-    assert_includes out, "the receipt names edge version #{OTHER_VERSION}, this transcript names #{VERSION}"
+    assert_includes out, "the receipt names api version #{OTHER_VERSION}, this transcript names #{VERSION}"
     assert_includes out, 'NOT SATISFIED — unbound'
     restore(receipt)
     out, err, status = verify('--card', '1596', '--ac', 'AC5')

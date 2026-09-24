@@ -106,7 +106,7 @@ describe("A2 auto-send health gate", () => {
 });
 
 // #1596: the warm-up hook existed only to wake the agent container, and the
-// edge answers `/healthz` itself now (`workers/edge/src/gateway/request.ts`),
+// edge answers `/healthz` itself now (`workers/api/src/gateway/request.ts`),
 // so the chat page's own-origin probe would only waste a request — the real
 // backend probe goes to `TEST_ORIGIN`. This is the network-log half of the
 // card's browser AC, at the unit seam; the deployed-origin recording is

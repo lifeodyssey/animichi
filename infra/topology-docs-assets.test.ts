@@ -26,8 +26,8 @@ import { parse, TomlDate, type TomlTable, type TomlValue } from "smol-toml";
 import { buildStack, ofType } from "./testing/harness.ts";
 
 const R2_BUCKET = "cloudflare:index/r2Bucket:R2Bucket";
-const EDGE_WRANGLER = "../workers/edge/wrangler.toml";
-const EDGE_ENV = "../workers/edge/src/env.ts";
+const EDGE_WRANGLER = "../workers/api/wrangler.toml";
+const EDGE_ENV = "../workers/api/src/env.ts";
 
 interface R2Binding {
   readonly binding: string;

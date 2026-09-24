@@ -6,7 +6,7 @@ The accepted agent target is [the native Pi harness spec](specs/2026-09-09-agent
 
 ## Request and execution
 
-`workers/edge/src/entry.ts` composes the Hono gateway and exports `SessionAgent` under the
+`workers/api/src/entry.ts` composes the Hono gateway and exports `SessionAgent` under the
 deployed `AgentSession` class name. The gateway verifies identity, applies rate limits and
 Turnstile, and sends chat to the native host. There is no chat route flag or container fallback.
 
@@ -18,13 +18,13 @@ operation lifecycle, tool replay, transcript, compaction and usage ledger.
 
 | Responsibility | Source |
 |---|---|
-| Session host and native startup | `workers/edge/src/agent/host/` |
-| Client-key admission, ownership and quota reservation | `workers/edge/src/agent/admission/` |
-| Bounded durable intent/obligation discovery | `workers/edge/src/agent/recovery/scan.ts` |
-| Result and usage settlement | `workers/edge/src/agent/settlement/native-settlement.ts` |
+| Session host and native startup | `workers/api/src/agent/host/` |
+| Client-key admission, ownership and quota reservation | `workers/api/src/agent/admission/` |
+| Bounded durable intent/obligation discovery | `workers/api/src/agent/recovery/scan.ts` |
+| Result and usage settlement | `workers/api/src/agent/settlement/native-settlement.ts` |
 | Native storage and Prisma business schema | `packages/pi-session-neon/` |
 | Shared production/Eval composition | `packages/agent/src/harness.ts` |
-| Committed history and AI SDK SSE projection | `workers/edge/src/agent/views/` |
+| Committed history and AI SDK SSE projection | `workers/api/src/agent/views/` |
 
 The old run machine, lease queue, SessionEnvelope, hand-written tool runtime and SQL
 runs/messages/run_steps history reader are deleted. There is no compatibility converter,
@@ -55,7 +55,7 @@ again. There is no Supabase verifier or API-key identity path. The published rou
 and policy defaults live in `packages/contract/src/agent-paths.ts` and `identity-policy.ts`.
 
 Anonymous identity is an HMAC-protected cookie, implemented in
-`workers/edge/src/identity/auth.ts` and `workers/edge/src/identity/anonymous-id.ts`.
+`workers/api/src/identity/auth.ts` and `workers/api/src/identity/anonymous-id.ts`.
 `ANON_ACCESS_ENABLED` and a non-empty `ANON_ID_SECRET` explicitly enable access;
 there is no minimum-history threshold. Verified forwarded identity uses
 `X-User-Type: anonymous` and `X-User-Id: anon_<hex>`. These headers never override
@@ -63,7 +63,7 @@ the gateway's verified native chat identity. Turnstile and rate limits remain at
 
 Native admission holds the owning session and atomically reserves the client's message quota.
 `ANON_DAILY_COST_BUDGET_USD` is enforced before admission, drive and tool execution by
-`workers/edge/src/agent/host/native-authority.ts`, reading `daily_usage`; the gateway maps
+`workers/api/src/agent/host/native-authority.ts`, reading `daily_usage`; the gateway maps
 `anonymous_budget_exhausted` to the public `anon_budget_exhausted` guidance response.
 Settlement records immutable native costs and refunds the original UTC reservation when
 appropriate. Missing native evidence remains pending. Recorded zero cost cannot distinguish

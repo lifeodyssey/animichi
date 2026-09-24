@@ -166,7 +166,7 @@ Related API surface (in `@neon/sdk`, mostly unwrapped by CLI): `updateNeonAuthEm
 
 Status: **hard cut, committed 2026-08-11** (`0ed18d1c` + `6addec65`). The dual-issuer era is over.
 
-**What the edge verifies today:** the edge Worker (`workers/edge/src/identity/auth.ts`) verifies
+**What the edge verifies today:** the edge Worker (`workers/api/src/identity/auth.ts`) verifies
 Neon Auth EdDSA JWTs against **one** source of truth — `NEON_AUTH_JWKS_URL` — and nothing else.
 The `NEON_AUTH_ENABLED` activation flag and the split `NEON_AUTH_ISSUER` var are deleted;
 issuer/audience are **derived from the JWKS URL** (`issuerFromJwksUrl`, the same derivation the
@@ -199,7 +199,7 @@ unchanged until an operator sets `neonAuthBaseUrl` / `qaNeonUser*`.
 **Production:** `NEON_AUTH_JWKS_URL` is **not set for the edge Worker** (wrangler vars leave it
 empty) — the production edge fails closed on any bearer until its Neon Auth branch is provisioned.
 Provisioning the prod Neon Auth branch and setting the JWKS is an owner-sequenced step (tests in
-`workers/edge/test/auth-config.test.ts` pin the unset state). CI still uploads a
+`workers/api/test/auth-config.test.ts` pin the unset state). CI still uploads a
 `NEON_AUTH_JWKS_URL` secret to the **users** Worker (staging + prod); that upload is now a dead
 binding — users trusts only the edge-forwarded identity and no longer reads it (AUTH-2 #950), so it
 can be dropped from `worker_secrets` at the next deploy-touch.

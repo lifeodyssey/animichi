@@ -4,7 +4,7 @@ import { tableOid } from './table-oid.ts';
 // The two daily meters the agent tier keeps: what the platform spent per scope, and how many
 // messages one anonymous identity has reserved today. The retired chain created them and later
 // widened the scope vocabulary to four (#1292);
-// `workers/edge/src/agent/{admission/reserve-quota,admission/void-unaccepted,
+// `workers/api/src/agent/{admission/reserve-quota,admission/void-unaccepted,
 // settlement/settlement-accounting,host/native-authority}.ts` still read and write both.
 //
 // They stay out of the data-plane contract for two reasons, not one. Spec §4.12 keeps the

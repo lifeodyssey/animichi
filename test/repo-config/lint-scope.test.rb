@@ -32,7 +32,7 @@ class LintScopeTest < Minitest::Test
     "packages/test-postgres" => OXLINT_WHOLE_PACKAGE,
     "workers/catalog" => "tsx scripts/oxlint/check-no-inline-config.ts && " \
                          "tsx scripts/check-worker-entry-exports.ts && #{OXLINT_WHOLE_PACKAGE}",
-    "workers/edge" => OXLINT_WHOLE_PACKAGE,
+    "workers/api" => OXLINT_WHOLE_PACKAGE,
     "workers/migrator" => OXLINT_WHOLE_PACKAGE,
     "workers/users" => OXLINT_WHOLE_PACKAGE
   }.freeze

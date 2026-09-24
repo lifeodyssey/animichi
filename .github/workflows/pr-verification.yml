@@ -127,7 +127,7 @@ jobs:
             e2e:
               - 'e2e/**'
               - 'packages/contract/**'
-              - 'workers/edge/**'
+              - 'workers/api/**'
               - 'packages/agent/**'
               - 'packages/pi-session-neon/**'
               - 'packages/test-postgres/**'
@@ -158,9 +158,9 @@ jobs:
             # `scripts/delivery`, `scripts/local-gates` — plus the directory the
             # moved Ruby suites sit in. Overlapping `workflows` on
             # `.github/lib/**` and `.github/scripts/**` is deliberate: a change
-            # there reaches both the edge suite's workflow-text guards and the
+            # there reaches both the api suite's workflow-text guards and the
             # toolchain's own tests. The `workflows` filter's force-add of
-            # `edge-worker` is untouched by this table.
+            # `api` is untouched by this table.
             delivery:
               - '.github/lib/**'
               - '.github/scripts/**'
@@ -188,13 +188,13 @@ jobs:
           fi
           packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "animichi-e2e"]' <<< "$projects")"
           # `.github/**` lands in the root project, which is subtracted — so a
-          # workflow-only change selects nothing. `edge-worker`'s suite is where
+          # workflow-only change selects nothing. `api`'s suite is where
           # the tests that read deployment workflow text live, and some of them
           # extract shipped shell blocks and RUN them (the migrator DSN
           # redaction). Add it back explicitly, or a cd.yml rewrite ships with
           # those guards never run.
           if [ "$WORKFLOWS_CHANGED" = true ]; then
-            packages="$(jq -c '. + ["edge-worker"] | unique' <<< "$packages")"
+            packages="$(jq -c '. + ["api"] | unique' <<< "$packages")"
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
           echo "Affected packages: $packages" >> "$GITHUB_STEP_SUMMARY"
@@ -237,7 +237,7 @@ jobs:
       # which this builder sources rather than naming a copy of — the shape the
       # `e2e` job's builder already uses.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography", "users"]'), matrix.package) }}
+        if: ${{ contains(fromJSON('["catalog", "api", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography", "users"]'), matrix.package) }}
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env
@@ -388,6 +388,7 @@ jobs:
           bundle exec ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           bundle exec ruby test/repo-config/pnpm-workspace-settings.test.rb
           bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
+          bundle exec ruby test/repo-config/retired-edge-code-refs.test.rb
           bundle exec ruby test/repo-config/retired-migration-authority-refs.test.rb
           bundle exec ruby test/repo-config/retired-python-agent-refs.test.rb
           bundle exec ruby test/repo-config/wrangler-path-claims.test.rb

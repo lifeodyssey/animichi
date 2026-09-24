@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "edge-worker",
+  "name": "api",
   "private": true,
   "scripts": {
     "lint": "pnpm run lint:oxlint",

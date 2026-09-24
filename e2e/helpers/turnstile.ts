@@ -4,7 +4,7 @@ import { stubTurnstileSdk } from "./turnstile-sdk";
 export { stubTurnstileSdk };
 
 /** The callback the app publishes on the page's global object. Named here
- *  rather than reached through `window` because `workers/edge`'s node-hosted
+ *  rather than reached through `window` because `workers/api`'s node-hosted
  *  browser lane type-checks without DOM globals — the same reason
  *  `turnstile-sdk.ts` exists — and `window` and `globalThis` are one object in
  *  a document, so the callback is reached exactly as before. */

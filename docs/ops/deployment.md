@@ -217,10 +217,10 @@ Browser
 ```
 
 The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
-(`workers/edge/src/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
+(`workers/api/src/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
 (`workers/catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`), and the
 native agent tier reaches the catalog through that same binding
-(`workers/edge/src/agent/host/native-bootstrap.ts`). Deploy order: catalog Worker first (so
+(`workers/api/src/agent/host/native-bootstrap.ts`). Deploy order: catalog Worker first (so
 `service = "catalog"` resolves), then the main Worker.
 
 Catalog and users Workers query Neon as Prisma 8 builder plans over the contract the migration
@@ -244,7 +244,7 @@ forwarded to the `USERS` service binding with that same identity.
 
 ## Auth Flow
 
-Worker auth is implemented in `workers/edge/src/identity/auth.ts`:
+Worker auth is implemented in `workers/api/src/identity/auth.ts`:
 
 - JWT flow: `authenticate()` verifies the token signature locally against the branch's Neon Auth JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request round-trip to the auth origin. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source; issuer/audience are derived from it (EdDSA), and the injected `X-User-Id` is the token `sub`.
 - Production JWKS is unset — the production edge Worker fails closed on any bearer until its Neon Auth branch is provisioned.
@@ -265,7 +265,7 @@ Required at deploy time:
 
 - `NEON_AUTH_JWKS_URL` (staging; production unset — fails closed until its Neon Auth branch is provisioned)
 - `AGENT_SVC_DATABASE_URL` — the `agent_svc` role Neon DSN, bound from the Cloudflare Secrets
-  Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
+  Store (`[[env.<env>.secrets_store_secrets]]` in `workers/api/wrangler.toml`) and resolved by
   the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
   `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.6-flash` model — the runtime is MiMo-only (owner decision
@@ -287,7 +287,7 @@ besides the bindings above:
   the public catalog read) answer 403 `showcase_denied` before any binding is touched, while
   `/healthz`, `/img/*`, `/tiles/*` stay reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only
   the literal `"false"` opens the backend — unset/empty/malformed values fail closed (deny) with a
-  one-per-isolate warning. Pinned by `workers/edge/test/showcase.test.ts`. CD's `smoke` job is
+  one-per-isolate warning. Pinned by `workers/api/test/showcase.test.ts`. CD's `smoke` job is
   automatic but does not probe this: it asks staging for `/healthz` and the SSR shell, both of which
   stay reachable in showcase mode by design. Production's 403 is the owner's own check after a
   promotion.
@@ -653,7 +653,7 @@ policy or token is built there.
 Every automated caller sends the pair when both variables are set, and refuses when exactly one
 is: the CD smoke probe (`.github/scripts/staging-smoke-check.sh`), the Playwright suite
 (`e2e/playwright.config.ts`, `use.extraHTTPHeaders`), the staging lanes
-(`workers/edge/api-test/lane-origin.ts`). The retired HTTP Eval launcher no longer uses this door;
+(`workers/api/api-test/lane-origin.ts`). The retired HTTP Eval launcher no longer uses this door;
 the native Eval task runs in process. The names and the refusal live once, in
 `packages/contract/src/access-service-token.ts`. Access answers a
 request carrying one header exactly as it answers one carrying neither — a 302 to the login page
@@ -669,7 +669,7 @@ headers answering 302 or 403.
 **What this replaced.** A WAF custom rule blocking traffic without an allowlisted source IP, the
 `animichi_staging` cookie or the `x-staging-key` header, plus a hand-written OIDC exchange in the
 edge Worker. Both are deleted (#1369): `infra/src/staging.ts`'s ruleset,
-`workers/edge/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, `e2e/global-setup.ts`, the
+`workers/api/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, `e2e/global-setup.ts`, the
 `stagingGate*` / `stagingAllowedIps` stack config and the `STAGING_GATE_TOKEN` GitHub secret. A
 WAF rule can only see hostnames on the zone, and its credential was a static string that had to
 stay in sync across a stack config and a GitHub secret. `infra/src/staging.ts` keeps only
@@ -718,7 +718,7 @@ Planned env design:
 - `CLOUDFLARE_AI_GATEWAY_URL` as an optional edge Worker var
 
 Important: this is a documentation target only right now. Before enabling it, the native model
-composition (`workers/edge/src/agent/host/native-models.ts`) must support a provider base-URL
+composition (`workers/api/src/agent/host/native-models.ts`) must support a provider base-URL
 override through configuration rather than assuming the provider default.
 
 ## Rollback
@@ -739,7 +739,7 @@ workflow and no agent runs it — `CD` only ever moves forward (spec §二).
 | web (SSR) | `animichi-web-staging` | `animichi-web` |
 
 The names are `[env.<stage>].name` in `workers/catalog/wrangler.toml`, `workers/users/wrangler.toml`,
-`workers/migrator/wrangler.toml`, `workers/edge/wrangler.toml` and `apps/web/wrangler.jsonc`.
+`workers/migrator/wrangler.toml`, `workers/api/wrangler.toml` and `apps/web/wrangler.jsonc`.
 `wrangler rollback` addresses the deployed Worker by name, so always pass `--name` rather than
 relying on a config file and `--env`.
 

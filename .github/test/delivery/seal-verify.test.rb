@@ -16,8 +16,8 @@ module ReleaseConsumerFixture
   PRISMA_FILES = { 'src/contract.json' => '{"storageHash":"native-B"}',
                    'migrations/app/A/ops.json' => 'catalog A schema -- 宇治の聖地',
                    'migrations/app/B/ops.json' => 'native B operations' }.freeze
-  BUILT_FILES = %w[catalog/bundle/index.js users/bundle/index.js edge/bundle/entry.js migrator/bundle/index.js
-                   catalog/wrangler.json users/wrangler.json edge/wrangler.json migrator/wrangler.json web/wrangler.json
+  BUILT_FILES = %w[catalog/bundle/index.js users/bundle/index.js api/bundle/entry.js migrator/bundle/index.js
+                   catalog/wrangler.json users/wrangler.json api/wrangler.json migrator/wrangler.json web/wrangler.json
                    web/.output/server/index.mjs web/.output/public/app.js
                    foundation/infra/database-access/sdks/neon/bin/index.js].freeze
 

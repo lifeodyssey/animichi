@@ -34,8 +34,8 @@
 
 ### P2 — Edge ownership
 
-- Root `package.json` purification: runtime deps (hono/jose/…) + `test:worker` → `workers/edge/package.json`; root keeps orchestration.
-- `workers/edge/AGENTS.md` (the only package without one) + root AGENTS.md layout row.
+- Root `package.json` purification: runtime deps (hono/jose/…) + `test:worker` → `workers/api/package.json`; root keeps orchestration.
+- `workers/api/AGENTS.md` (the only package without one) + root AGENTS.md layout row.
 - Edge `src/` layout: remaining flat files → `src/` + `test/`; update the four file-pins (`auth.ts`, `turnstile.ts`, `containerEnv.ts`, `migrationBoundary.test.ts`) with mutation probes; READS + read-set sync; `node --test` green under the new layout.
 - Acceptance: staging deploy green with `/healthz` + smoke.
 

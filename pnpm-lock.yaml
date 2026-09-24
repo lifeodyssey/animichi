@@ -823,7 +823,7 @@ importers:
         specifier: 'catalog:'
         version: 4.132.0(@cloudflare/workers-types@5.20260916.1)(@types/node@26.6.1)
 
-  workers/edge:
+  workers/api:
     dependencies:
       '@animichi/agent':
         specifier: workspace:*

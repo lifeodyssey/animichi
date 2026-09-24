@@ -67,8 +67,8 @@
 
 | 现状 | 去向 |
 |---|---|
-| 根上 edge 运行时 deps | `workers/edge/package.json` |
-| 根 `wrangler.toml` | `workers/edge/` |
+| 根上 edge 运行时 deps | `workers/api/package.json` |
+| 根 `wrangler.toml` | `workers/api/` |
 | 根 `Dockerfile` | `apps/agent/` |
 | 根 `db/` | `migrations/neon/` |
 | 根 `supabase/` | `migrations/supabase/` |

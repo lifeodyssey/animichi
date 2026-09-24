@@ -2,7 +2,7 @@
  * #1903: the recordings the browser suite serves must describe the envelope the
  * product sends.
  *
- * `responseChunks` (`workers/edge/src/agent/views/public-content.ts`) takes
+ * `responseChunks` (`workers/api/src/agent/views/public-content.ts`) takes
  * `sessionId: string` and writes it into the response part, so a deployed turn
  * always assigns one. A recording that carries none — as these did until #1903
  * — makes every spec built on it measure the fixture instead of the page, and

@@ -32,7 +32,7 @@
 # all three cases), so the measurement shows the host is closed and not why.
 # Nothing in this config guaranteed it.
 #
-# Deploy: always run `wrangler deploy -c workers/edge/wrangler.toml` from the
+# Deploy: always run `wrangler deploy -c workers/api/wrangler.toml` from the
 # monorepo root, so `main = "src/entry.ts"` resolves against this config file
 # while the deploy itself happens at the repo root.
 #
@@ -306,7 +306,7 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # secret NAMES are what separate the two environments' credentials while the
 # BINDING name stays identical (one binding name for both environments is what
 # lets the native agent tier read the DSN by the same key either way).
-# Pinned by workers/edge/test/agent-database-binding.test.ts against
+# Pinned by workers/api/test/agent-database-binding.test.ts against
 # infra/topology-prod-database-access.test.ts, which reads the name off the
 # Pulumi program itself.
 #
@@ -465,7 +465,7 @@ ANON_ACCESS_ENABLED = "true"
 # AUTH-2 #950 hard cut (committed 2026-08-11): edge verifies Neon Auth (Better
 # Auth) JWTs against this branch JWKS ONLY — the dual-issuer flag, the split
 # issuer var, and the Supabase verifier are deleted. issuer/audience are
-# derived from this URL (workers/edge/src/identity/auth.ts). The value is a
+# derived from this URL (workers/api/src/identity/auth.ts). The value is a
 # staging branch's public URL. It is derived from apps/web's staging Neon Auth
 # SDK endpoint and pinned by auth-config.test.ts so the browser and edge cannot
 # silently target different branches; infra/src/neon-auth.ts mirrors the same derivation.

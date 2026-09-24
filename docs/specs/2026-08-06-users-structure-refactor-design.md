@@ -476,7 +476,7 @@ U-S1（纯规则） → U-S2（SavedRouteRepo） → U-S3（SessionSummary） �
 
 | 系统 | 为何 out |
 |---|---|
-| **workers/edge** | 仅透传 `Authorization` 与 path；path 字符串跟 G1 contract，无 Users domain |
+| **workers/api** | 仅透传 `Authorization` 与 path；path 字符串跟 G1 contract，无 Users domain |
 | **apps/web** | 客户端改 import/path；非 users 结构 |
 | **apps/agent** | Conversation 写权威已 LOCKED；本重构 **不** 把消息写入 Users，也 **不** 在 Agent 加 SavedRoute CRUD（G4） |
 | **workers/catalog** | 无 FK、无 Itinerary 内嵌 |

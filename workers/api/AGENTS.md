@@ -1,4 +1,4 @@
-# workers/edge — AGENTS.md
+# workers/api — AGENTS.md
 
 TypeScript Cloudflare Worker (Hono): the **request gateway**. Owns
 identity/rate-limit/turnstile enforcement, routing + forwarding to Catalog / Users, the native
@@ -12,7 +12,7 @@ Native tools, facts and deterministic selection rules are consumed through `@ani
 (`../../packages/agent/README.md`). Native SDK objects remain the execution authority; the
 retired run engine and envelope paths have no forwarding modules.
 
-## Commands (from `workers/edge/`)
+## Commands (from `workers/api/`)
 
 - pnpm. `pnpm test` — the edge's whole deterministic gate set, in one command (#1358): the
   node:test suite under `test/*.test.ts` (doubles in `test/doubles/`), then `test:chat-answer-part`
@@ -21,7 +21,7 @@ retired run engine and envelope paths have no forwarding modules.
   `test:bundle-smoke`, then `test:ratelimit-namespace`
   (`scripts/check-edge-ratelimit-namespace.sh` and its behavioral test, which moved here from
   `.github/scripts/`). From the repo root the same command is `pnpm run test:worker` (forwards to
-  `pnpm --filter edge-worker test`; `make test-worker` likewise).
+  `pnpm --filter api test`; `make test-worker` likewise).
 - `pnpm run test:bundle-smoke` builds artifacts through the official Wrangler dry-run CLI and
   executes them in workerd. Entry tests reject esbuild, Node-only eval/conformance leakage,
   and exercise the native tools' request and response validation. The old zero-Zod rule was
@@ -46,7 +46,7 @@ retired run engine and envelope paths have no forwarding modules.
 - `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 from the workspace catalog; the isolated
   linker means the package declares it itself).
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
-- Deploy is CI-only: `wrangler deploy -c workers/edge/wrangler.toml` from the repo root
+- Deploy is CI-only: `wrangler deploy -c workers/api/wrangler.toml` from the repo root
   (hook `block-local-deploy`). Never deploy locally.
 
 ## Native agent layout (2026-09-10 hard cut)

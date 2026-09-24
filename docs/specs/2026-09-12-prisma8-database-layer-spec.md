@@ -18,7 +18,7 @@
   （`.worktrees/card-1540/node_modules/@prisma/orm-postgres@8.0.0-rc.9`），不是文档。
 - 取代：`docs/DOCS_POLICY.md:84`（"DB — catalog/user data … Drizzle raw-SQL query-only over
   neon-http；Atlas migrations in `migrations/neon/`"）、`migrations/AGENTS.md` 全文的 Atlas 前提、
-  `.claude/rules/migrations.md` 全文、`workers/edge/test/migration-boundary.test.ts:21-27`
+  `.claude/rules/migrations.md` 全文、`workers/api/test/migration-boundary.test.ts:21-27`
   （"Atlas files are the only Neon migration authority"）。本 spec 不取代
   `docs/adr/0006-platform-over-handwritten-ci.md`——它的决策 6 是本 spec 的**约束**，不是被改的东西。
 
@@ -71,7 +71,7 @@ Atlas 不能在 Worker 里跑——它是一个 Go 二进制，Worker 既不能 
 
 **Drizzle 那半边的理由不是成本，是重复。** 它只被两个包依赖
 （`workers/catalog/package.json:24`、`workers/users/package.json:20`，都是 `drizzle-orm@^0.45.2`，没有
-`drizzle-kit`），而 Prisma 8 **已经在仓库里跑生产代码**：`workers/edge/src/agent/host/native-bootstrap.ts:28`
+`drizzle-kit`），而 Prisma 8 **已经在仓库里跑生产代码**：`workers/api/src/agent/host/native-bootstrap.ts:28`
 在 Durable Object 里 `postgres<Contract>({ contractJson, url })`，`packages/pi-session-neon/` 有完整的
 Prisma 8 contract、迁移链与快照。留着 Drizzle 等于为同一个 Neon 维护两套类型映射、两套护栏、两套测试替身。
 
@@ -89,13 +89,13 @@ Prisma 8 contract、迁移链与快照。留着 Drizzle 等于为同一个 Neon 
 | 面 | 位置 | 状态 |
 |---|---|---|
 | contract + 链 | `packages/pi-session-neon/src/contract.prisma`、`migrations/app/`（两个迁移）、`migrations/snapshots/`（两个快照） | 已合入 |
-| 运行时 | `workers/edge/src/agent/host/native-bootstrap.ts:2,28`（`@prisma/orm-postgres/runtime`，DO 内一个 Pool） | 已合入 |
+| 运行时 | `workers/api/src/agent/host/native-bootstrap.ts:2,28`（`@prisma/orm-postgres/runtime`，DO 内一个 Pool） | 已合入 |
 | 迁移执行 | `workers/migrator/src/prisma-control.ts:19-44`（`executeMigrateShowPlan` 预览 + `ControlClient.migrate` 应用） | 已合入 |
 | 发布标识 | `workers/migrator/src/prisma-target.ts:4` `PRISMA_TARGET = contract.storage.storageHash`，经 `create-app.ts:81` 在 `/healthz` 回显为 `prismaTarget` | 已合入 |
 | pnpm patch | `packages/pi-session-neon/patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch` | 已合入；`PRISMA-8-VALIDATION.md:78-81` 记了它的必要性与去掉后的红 |
 
 版本钉法：`@prisma/orm-postgres@8.0.0-rc.9`（`packages/pi-session-neon/package.json:23`、
-`workers/edge/package.json:30`、`workers/migrator/package.json:21`）+ CLI `prisma@8.0.0-rc.13`
+`workers/api/package.json:30`、`workers/migrator/package.json:21`）+ CLI `prisma@8.0.0-rc.13`
 （`packages/pi-session-neon/package.json:37`）。**Prisma 8 没有 stable**（npm `latest` = `8.0.0-rc.14`），
 选它的理由不是版本成熟度，是 §一 那条：只有它有能在 Worker 里跑的程序化迁移入口。Prisma 7 另有独立的
 否决理由——它**没有任何能承载发布握手的 schema 身份的产物**：`prisma generate` 的 client hash 对迁移链是瞎的
@@ -149,7 +149,7 @@ Prisma 8 contract、迁移链与快照。留着 Drizzle 等于为同一个 Neon 
 | `workers/catalog/src` 全部 `.ts` | **10,152 行 / 99 文件** | 其中 `drizzle-orm` importer **26 个文件**；这 26 个 + `src/application/README.md` 合计 3,034 行 |
 | `workers/catalog/test` 提到 drizzle | 31 文件 / 3,315 行 | 含 spike（真 PostgreSQL）与 worker-pool（假替身）两类 |
 | `workers/users/src` 全部 `.ts` | **1,237 行 / 15 文件** | `drizzle-orm` importer 5 个文件 + 2 个测试，合计 980 行 |
-| `workers/edge` | 1 个测试 | `test/migration-boundary.test.ts:29-41`，守「Drizzle schema 不得成为迁移执行器」 |
+| `workers/api` | 1 个测试 | `test/migration-boundary.test.ts:29-41`，守「Drizzle schema 不得成为迁移执行器」 |
 | 其它 | `apps/web` **零** | `git grep -n drizzle origin/main -- apps/web` 无命中；`drizzle-orm` 只出现在两个 `package.json` |
 
 brief 给的「10,166 行 / 31 文件 touching drizzle-orm」与「1,237 行」：后者精确等于
@@ -278,7 +278,7 @@ JGD2011 / EPSG:6691 的 `utm_knn` 在 100k 行 / 东京 / 50 km 上是 **39.07 m
 - **production（`br-cold-term-aor1v6gl`，`infra/database-access/Pulumi.prod.yaml:28`）从来没被迁移过**，
   而且是被设计挡住的：`migrations/neon/STAGING_ONLY_BASELINE` 仍在 `origin/main` 上，
   `infra/database-access/production-baseline-guard.sh:15-18` 在遇到这个 marker 时 exit 1，
-  `.github/workflows/cd.yml` 在生产迁移步之前跑它（`workers/edge/test/migration-boundary.test.ts:75`
+  `.github/workflows/cd.yml` 在生产迁移步之前跑它（`workers/api/test/migration-boundary.test.ts:75`
   钉住 `release/migrations/STAGING_ONLY_BASELINE` 出现在 `cd.yml` 里）。owner 记录的实测：
   `public` schema **0 张表**，无 PostGIS 扩展。
 - **staging（`br-gentle-king-aowjem8v`，`Pulumi.staging.yaml:3`）零业务行**。owner 记录：只有 PostGIS 自己的
@@ -341,9 +341,9 @@ Prisma 断言在 `:38-42`（`targetHash` / `markerHash` 等于契约、`usedLive
 `:95` 调 `applyAtlasChain(dsn)`，后者（`src/atlas-chain.ts:18-27`）execFile 一个 `atlas migrate apply
 --dir migrations/neon --revisions-schema public`。9 个消费点：
 `packages/agent/integration-test/catalog-postgres.ts:14`、`packages/pi-session-neon/test/postgres.ts:21`、
-`workers/catalog/test/spike-db-global.ts:18`、`workers/edge/admission-test/postgres.ts:20`、
-`workers/edge/agent-db-test/recovery-fixture.ts:17`、`.../settlement-fixture.ts:16`、
-`workers/edge/host-integration-test/postgres.ts:15`、`workers/edge/selection-test/postgres.ts:18`、
+`workers/catalog/test/spike-db-global.ts:18`、`workers/api/admission-test/postgres.ts:20`、
+`workers/api/agent-db-test/recovery-fixture.ts:17`、`.../settlement-fixture.ts:16`、
+`workers/api/host-integration-test/postgres.ts:15`、`workers/api/selection-test/postgres.ts:18`、
 `workers/migrator/test/integration/preflight.postgres.ts:40` 与 `prisma.integration.ts:17`。
 
 **geo-spike 就是靠这条链拿到 PostGIS 扩展的**：它的迁移
@@ -384,7 +384,7 @@ git show origin/main:$f | grep -c 'def test_'; done` 求和）。**brief 给的�
 - `.github/test/pr-verification-schema.test.rb` — `SCHEMA_SEGMENTS`（`:10-14`，三条 Atlas 命令按序）、
   `ATLAS_ACTION` / `ATLAS_VERSION`（`:16-17`）、`SCHEMA_FORBIDDEN`（`:15`，`atlas migrate apply`）。
   4 个用例里 3 个直接 Atlas 形状。
-- `workers/edge/test/migration-boundary.test.ts` — 6 个用例里 4 个必改：`:21-27`（Atlas 是唯一权威）、
+- `workers/api/test/migration-boundary.test.ts` — 6 个用例里 4 个必改：`:21-27`（Atlas 是唯一权威）、
   `:29-41`（Drizzle schema 不得成为迁移执行器）、`:71-76`（`ariga/setup-atlas` 不得出现在 `cd.yml`、
   `STAGING_ONLY_BASELINE` 必须出现）、`:81-86`（`bundleHead` 握手）。
 
@@ -444,7 +444,7 @@ owner 已裁定删除而不是改嫁（#1621）。这里只记**面有多大**�
 fixture：`workers/migrator/test/{prisma-fixture.ts:17,migrate.worker.helpers.ts:95,preflight-fixtures.ts:14}`）：
 `.github/test/cd-migrations.test.rb:11-12`、`release-migration-request.test.rb:70,75,78`、
 `release-schema-gate.test.rb:67,69`、`release-source-closure.test.rb:35,98`、
-`workers/edge/test/migration-boundary.test.ts:75`、`workers/edge/test/staging-baseline-reset.test.ts:102-103`、
+`workers/api/test/migration-boundary.test.ts:75`、`workers/api/test/staging-baseline-reset.test.ts:102-103`、
 `workers/migrator/test/migrate.worker.prisma.test.ts:35`、`migrate.worker.selected.test.ts:40`、
 `preflight.worker.metadata.test.ts:17,76`、`selected-request.workerd.test.ts:35`、
 `preflight.cases.ts:24`、`integration/preflight.integration.ts:110`。
@@ -454,7 +454,7 @@ fixture：`workers/migrator/test/{prisma-fixture.ts:17,migrate.worker.helpers.ts
 范围不重叠。
 
 **文档面**：`docs/ops/deployment.md:366,370,409`、`workers/migrator/AGENTS.md:54,95`、
-`workers/edge/AGENTS.md:104`、`.github/workflows/pr-verification.yml:115`（注释）。
+`workers/api/AGENTS.md:104`、`.github/workflows/pr-verification.yml:115`（注释）。
 
 ## 三、目标 / 非目标
 
@@ -815,7 +815,7 @@ Neon 自己的 `cloud_admin` 能收回，应用侧收不回；所以一个泄漏
 - Pulumi 保留**凭证**职责：每个运行时角色一个 `random.RandomPassword`，DSN 的拼装与写入
   Secrets Store 不变（secret 名不变），密码本身也写进 Store 并**只绑定 migrator**。
 - `migrator` 仍是 `neon.Role`：链需要 `neon_superuser` 级做 `CREATE EXTENSION`。
-- 角色 DDL 仍在链外（`workers/edge/test/migrator-ac3-proof.test.ts` 原样成立），但所有者从
+- 角色 DDL 仍在链外（`workers/api/test/migrator-ac3-proof.test.ts` 原样成立），但所有者从
   Pulumi 移到 migrator Worker；§五表第 5 行据此修正。
 
 #### 4.8.6 semgrep 与依赖规则的重指向是实现任务
@@ -892,7 +892,7 @@ specifier。`src/domain/` 与 `src/application/` 都不得 import 它们——
 
 > **2026-09-15 修正（本裁定的适用范围，不是推翻它）。** 下面的理由是「唯一的消费者是 Python」。
 > 对其中**四张不成立**：`sessions`、`turn_reservations`、`daily_usage`、`anon_daily_message_count`
-> 的消费者是 `workers/edge/src` 的 agent 层，它用 `db.raw.sql` 读写它们（外加
+> 的消费者是 `workers/api/src` 的 agent 层，它用 `db.raw.sql` 读写它们（外加
 > `trg_sessions_updated_at`）。裁定按字面保留——它们**不进 contract**——但链必须**建**它们，
 > 否则第一次真实迁移产出的数据库跑不动自己的运行时。它们以 `rawSql` 进链，理由见 §七 的
 > 2026-09-15 修订。`messages`、`runs`、`run_steps`、`request_log`、`feedback`、`turn_outbox_events`、
@@ -921,7 +921,7 @@ agent 域的 12 张（`20260826000004_agent.sql` 的 10 张 + `20260902000000_ag
   `oldTables` 非空。`oldTables` 来自 `test/postgres.ts:21,23`，即 Atlas 链建好的库。
   Atlas 退役之后这条断言**没有被测对象**，它随 fixture 一起退役（§4.7）。
 
-`sessions` 是 agent 域里唯一确定还活着的表（`workers/edge/src/agent/admission/session-owner.ts:5,14,25`
+`sessions` 是 agent 域里唯一确定还活着的表（`workers/api/src/agent/admission/session-owner.ts:5,14,25`
 读写它），它已经属于 `packages/pi-session-neon` 那条链的范围，不属于数据平面 contract——
 这也是 §4.1 选一条链之后自然落位的。
 
@@ -1101,7 +1101,7 @@ owner 于 2026-09-15 裁定：生产的迁移权威**现在**切到 Prisma 链�
 **这次 PR 的范围**（每条一个 commit，顺序即依赖）：
 
 1. **链漏掉的存活对象。** #1626 按 §4.12 不声明 agent 域的表，但其中四张**不是死的**：
-   `workers/edge/src` 仍以 `db.raw.sql` 读写 `sessions`、`turn_reservations`、`daily_usage`、
+   `workers/api/src` 仍以 `db.raw.sql` 读写 `sessions`、`turn_reservations`、`daily_usage`、
    `anon_daily_message_count`（外加 `trg_sessions_updated_at`）。§4.12 的**理由**是「唯一的消费者是
    Python，#1607 之后就没有消费者」——这条理由对这四张不成立，所以链必须建它们。
    它们以 `rawSql` 而非 contract 表进入：§4.12 的裁定按字面保留，而且 `daily_usage.cost_usd` 是
@@ -1182,7 +1182,7 @@ contract 声明 catalog 16 + users 3 张表（§4.12），内容按 §4.8.1–4.
 | `.github/workflows/pr-verification.yml:168,424,476,480`、`release-build.yml:54,58` | 删 Atlas 步 |
 | `.github/workflows/cd.yml:114,246` | 整步删除（§4.6） |
 | `.github/test/` 的 11 个文件（§2.9） | 改断言 |
-| `workers/edge/test/migration-boundary.test.ts` 的 4 个用例 | 改写为 Prisma 权威边界 |
+| `workers/api/test/migration-boundary.test.ts` 的 4 个用例 | 改写为 Prisma 权威边界 |
 
 ---
 
@@ -1213,7 +1213,7 @@ contract 声明 catalog 16 + users 3 张表（§4.12），内容按 §4.8.1–4.
 > fixture**（`packages/test-postgres/sql/drizzle-era-catalog.sql`）：它不是权威——没有 checksum、
 > 没有账本、没有 CLI、碰不到任何真实数据库——随 W3 一起删。#1606 / Card J 与 W5（#1637）不变。
 理由：W1–W3 与 #1317 战役**零文件重叠**（它们改 `workers/catalog`、`workers/users`、
-`packages/`，战役改 `workers/edge` 的 gateway 与 `apps/agent`），可以并行；
+`packages/`，战役改 `workers/api` 的 gateway 与 `apps/agent`），可以并行；
 W4 与 #1606 都改 `.github/lib/release/` 与 `.github/test/`，必须串行，且每一次都要
 「Land each one through a full `Release build → CD / staging` cycle before starting the other」
 （同该文 §7）。
@@ -1301,7 +1301,7 @@ W4 与 #1606 都改 `.github/lib/release/` 与 `.github/test/`，必须串行，
 | `docs/ops/migrations.md` | 作者/应用边界、expand/contract、`atlas migrate hash` 的位置；三个 README 指向它（`migration-boundary.test.ts:88-92` 钉住） |
 | `docs/ARCHITECTURE.md` | 数据平面的运行时参考 |
 | `.claude/rules/infra.md:8-9` | **No Hyperdrive 的决定不变**（§4.2），但它给的理由变假了：「the catalog reaches Neon over `@neondatabase/serverless` (neon-http)」。改成 Prisma 的 per-request `pg` 客户端 |
-| `docs/ops/deployment.md:366,370,409` · `workers/migrator/AGENTS.md:54,95` · `workers/edge/AGENTS.md:104` | `stagingOnlyBaseline` / baseline 闸门的三处描述（§2.11 文档面）；deployment.md 另有 #1621 AC5 要求的改法 |
+| `docs/ops/deployment.md:366,370,409` · `workers/migrator/AGENTS.md:54,95` · `workers/api/AGENTS.md:104` | `stagingOnlyBaseline` / baseline 闸门的三处描述（§2.11 文档面）；deployment.md 另有 #1621 AC5 要求的改法 |
 | `workers/catalog/src/application/README.md:12-14` | 依赖规则的自述点名 `drizzle`，随 §4.10 重指向 |
 | `docs/adr/` | 新 ADR（编号待 0008 合入后定，见 §八） |
 

@@ -15,7 +15,7 @@
  * whole setup must allow.
  *
  * The two arms differ in exactly one number, and deliberately:
- * `workers/catalog`'s spike suite probes 30 × 1 s (#1324); `workers/edge`'s
+ * `workers/catalog`'s spike suite probes 30 × 1 s (#1324); `workers/api`'s
  * agent-db lane keeps 60 × 1 s (#1318) because its first session can queue
  * behind the shared container's creation, by another lane or another worktree.
  * Do not harmonise them.

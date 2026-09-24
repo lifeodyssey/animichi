@@ -9,7 +9,7 @@ class CdPostDeployEvidenceTest < Minitest::Test
   SEAT_FILE = File.join(ROOT, '.github/workflows/verify-deploy-evidence.yml')
   RECORDER = 'node .github/scripts/release/record-evidence.mjs staging'
   VERIFIER = 'node .github/scripts/release/verify-evidence.mjs'
-  SMOKE_EDGE = 'https://animichi-staging.zhenjiazhou0127.workers.dev'
+  SMOKE_API = 'https://animichi-staging.zhenjiazhou0127.workers.dev'
   ESC_KEYS = %w[CLOUDFLARE_API_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET].freeze
 
   def setup
@@ -46,8 +46,8 @@ class CdPostDeployEvidenceTest < Minitest::Test
   # host is not evidence about the release that was deployed.
   def test_the_recorded_origin_is_the_one_the_smoke_probes
     record = step('stage', 'Record observed deployment identities')
-    assert_equal SMOKE_EDGE, record.dig('env', 'EVIDENCE_EDGE_URL')
-    assert_includes step('stage', 'Smoke the release').fetch('run').to_s, SMOKE_EDGE
+    assert_equal SMOKE_API, record.dig('env', 'EVIDENCE_API_URL')
+    assert_includes step('stage', 'Smoke the release').fetch('run').to_s, SMOKE_API
   end
 
   def test_the_receipt_artifact_carries_both_documents

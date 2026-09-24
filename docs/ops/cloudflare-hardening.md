@@ -18,7 +18,7 @@ For the full deployment topology, auth flow, and env-var boundaries see `deploym
 Browser / API client
   │
   ▼
-Cloudflare Edge (Worker: workers/edge/src/entry.ts)
+Cloudflare Edge (Worker: workers/api/src/entry.ts)
   ├─ page HTML ──────────────────────────────────▶ apps/web Worker (TanStack Start; not this Worker)
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy → Anitabi CDN (cached)
   ├─ /tiles/* ───────────────────────────────────▶ private R2 tile proxy
@@ -55,21 +55,21 @@ Worker trusts only that header.
 
 | Variable | Boundary | Notes |
 |---|---|---|
-| `NEON_AUTH_JWKS_URL` | Worker-only | Branch JWKS — the edge's ONLY identity source (AUTH-2 #950). issuer/audience are derived from it in `workers/edge/src/identity/auth.ts`; production is unset (fails closed) until its Neon Auth branch is provisioned |
+| `NEON_AUTH_JWKS_URL` | Worker-only | Branch JWKS — the edge's ONLY identity source (AUTH-2 #950). issuer/audience are derived from it in `workers/api/src/identity/auth.ts`; production is unset (fails closed) until its Neon Auth branch is provisioned |
 | `AGENT_SVC_DATABASE_URL` | Worker-only (Secrets Store) | `agent_svc` role Neon DSN for the native agent tier |
 | `MIMO_API_KEY` | Worker-only (Secrets Store) | Primary `mimo-v2.6-flash` provider credential |
 | `TURNSTILE_SECRET` · `ANON_ID_SECRET` | Worker-only (Secrets Store) | Anonymous-access gate and anonymous-cookie seed |
-| `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not edge-Worker secrets |
+| `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not api Worker secrets |
 | `VITE_NEON_AUTH_BASE_URL` | `apps/web` build-time only | Better Auth client origin (login UI + JWT exchange) |
 
-The full binding and var surface is `workers/edge/wrangler.toml` per environment, typed by
-`workers/edge/src/env.ts`.
+The full binding and var surface is `workers/api/wrangler.toml` per environment, typed by
+`workers/api/src/env.ts`.
 
 ## Current Trust Boundary
 
 - Browser clients hit `apps/web`; API clients hit the edge Worker hostname
 - Worker-only auth secrets stay at the edge: `NEON_AUTH_JWKS_URL`; the edge JWT path verifies against the branch's public JWKS, so no Supabase/anon key is involved
-- Every edge binding is declared per environment in `workers/edge/wrangler.toml` and resolved through `workers/edge/src/env.ts`
+- Every edge binding is declared per environment in `workers/api/wrangler.toml` and resolved through `workers/api/src/env.ts`
 - Agent auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 
 ## 1. `/v1/*` Rate Limit Rule
@@ -143,7 +143,7 @@ Planned env design:
 
 - `CLOUDFLARE_AI_GATEWAY_URL` as an optional edge Worker var
 
-Before enabling it, the native model composition (`workers/edge/src/agent/host/native-models.ts`)
+Before enabling it, the native model composition (`workers/api/src/agent/host/native-models.ts`)
 must support a provider base-URL override through configuration. Until that exists, keep AI Gateway
 disabled and treat this section as a forward path only.
 
@@ -180,9 +180,9 @@ After manual dashboard changes:
 ## 6. Egress Network Policy (BYOK red lines — #1248)
 
 A caller-supplied BYOK `base_url` is decided at the Worker edge before any provider client is
-constructed. `workers/edge/src/agent/byok/byok-headers.ts` runs
+constructed. `workers/api/src/agent/byok/byok-headers.ts` runs
 `BYOK_EGRESS_POLICY.decide({ provider, baseUrl, key })`
-(`workers/edge/src/agent/egress/egress-policy.ts`) and refuses the credential with
+(`workers/api/src/agent/egress/egress-policy.ts`) and refuses the credential with
 `egress_blocked` when the destination fails. Two independent conditions must both hold:
 
 1. **Exact-host allowlist** — `provider-allowlist.ts` enumerates the hosts each provider family may
@@ -196,8 +196,8 @@ constructed. `workers/edge/src/agent/byok/byok-headers.ts` runs
 
 The decision is a pure function of `(provider, baseUrl, key)` with no I/O, clock or bindings, so
 every red line is assertable under `node --test` without a network:
-`workers/edge/test/byok-egress-policy.test.ts` (the two conditions and each refusal reason) and
-`workers/edge/test/byok-egress-addresses.test.ts` (the address classes). A configured credential is
+`workers/api/test/byok-egress-policy.test.ts` (the two conditions and each refusal reason) and
+`workers/api/test/byok-egress-addresses.test.ts` (the address classes). A configured credential is
 probed over the same policy (`byok-probe.ts`), additionally bounded by a fixed wall-clock deadline
 and a 64 KiB response cap.
 

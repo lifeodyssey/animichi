@@ -9,7 +9,7 @@ module ReleaseSnapshot
   # `migrator/bundle/contract.json` is the identity the handshake compares against.
   REQUIRED_FILES = %w[
     catalog/bundle/index.js catalog/wrangler.json users/bundle/index.js users/wrangler.json
-    edge/bundle/entry.js edge/wrangler.json migrator/bundle/index.js migrator/wrangler.json
+    api/bundle/entry.js api/wrangler.json migrator/bundle/index.js migrator/wrangler.json
     migrator/bundle/contract.json
     web/.output/server/index.mjs web/wrangler.json
     foundation/infra/Pulumi.yaml foundation/infra/database-access/Pulumi.yaml

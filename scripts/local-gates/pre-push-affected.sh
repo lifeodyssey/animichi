@@ -53,7 +53,7 @@ packages/pi-session-neon package
 packages/prisma-geography package
 packages/test-postgres package
 workers/catalog package
-workers/edge package
+workers/api package
 workers/migrator package
 workers/users package
 '

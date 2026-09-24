@@ -2,7 +2,7 @@
 
 - Status: **ACCEPTED**（owner 2026-08-06 — Gateway 一次到位；**无**巡礼 domain；**不含实现**）
 - Date: 2026-08-06
-- Package: `workers/edge`（今日大量文件平铺；运行时 deps 仍在**根** `package.json` / `wrangler.toml`）
+- Package: `workers/api`（今日大量文件平铺；运行时 deps 仍在**根** `package.json` / `wrangler.toml`）
 - Tier: **Gateway**（monorepo §4.3 LOCKED）
 - Parents: monorepo-target-layout · greenfield-language-and-data-plane · CONTEXT.md
 - Scope: **已有代码** 真结构 + package-ize + greenfield path；**无** 巡礼产品 enabler
@@ -25,7 +25,7 @@
 
 ## 1. 目标（一次最好）
 
-1. **Package-ize 一次到位**：edge 运行时依赖、wrangler、测试入口全部在 `workers/edge`；根只编排。
+1. **Package-ize 一次到位**：edge 运行时依赖、wrangler、测试入口全部在 `workers/api`；根只编排。
 2. **目录一次到位**：按关切进 `src/`，测试进 `test/`（或 `__tests__`），禁止再扁平堆根。
 3. **策略可单测**：path allowlist / public catalog / rate-limit 范围 = **纯函数**，零 CF 绑定。
 4. **Greenfield path 一次对齐**：`/catalog/itinerary`、`/v1/users/saved-routes` 等随 contract 改（与 G1 同波或紧后）。
@@ -35,7 +35,7 @@
 
 ## 2. 现状 inventory（实盘）
 
-### 2.1 生产模块（`workers/edge/*.ts`，排除 `*.test.ts`）
+### 2.1 生产模块（`workers/api/*.ts`，排除 `*.test.ts`）
 
 | 模块 | 角色 |
 |---|---|
@@ -71,7 +71,7 @@
 ## 3. 目标树（一次最好 · 无 `domain/`）
 
 ```text
-workers/edge/
+workers/api/
   package.json              # 运行时 deps 全部在此（自根迁入）
   wrangler.toml             # 自根迁入；entry = src/entry.ts
   tsconfig.json
@@ -123,9 +123,9 @@ entities/Point.ts
 
 | 今日 | 目标 |
 |---|---|
-| `workers/edge/entry.ts` | `src/entry.ts` |
-| `workers/edge/app.ts` | `src/app.ts` |
-| `workers/edge/env.ts` · `entry-env.ts` | `src/env.ts`（合并若重复） |
+| `workers/api/entry.ts` | `src/entry.ts` |
+| `workers/api/app.ts` | `src/app.ts` |
+| `workers/api/env.ts` · `entry-env.ts` | `src/env.ts`（合并若重复） |
 | `auth.ts` | `src/identity/auth.ts` |
 | `anonymous-flow.ts` · `anonymous-id.ts` | `src/identity/` |
 | `turnstile.ts` | `src/identity/turnstile.ts` |
@@ -138,9 +138,9 @@ entities/Point.ts
 | `container-env.ts` | `src/container/container-env.ts` |
 | `*-doubles.ts` | `test/doubles/` |
 | `*.test.ts`（包根） | `test/*.test.ts` |
-| 根 `package.json` edge runtime deps | `workers/edge/package.json` |
-| 根 `wrangler.toml` | `workers/edge/wrangler.toml` |
-| 根 `pnpm test:worker` 路径 | `pnpm --filter edge-worker test`（或等价） |
+| 根 `package.json` edge runtime deps | `workers/api/package.json` |
+| 根 `wrangler.toml` | `workers/api/wrangler.toml` |
+| 根 `pnpm test:worker` 路径 | `pnpm --filter api test`（或等价） |
 
 **化简（同列车，非半吊子）：**
 
@@ -191,7 +191,7 @@ entities/Point.ts
 | 切片 | 内容 | 完成判据 |
 |---|---|---|
 | **E0** | 本文 ACCEPTED | 文档 |
-| **E1** | Package-ize：deps + wrangler + CI scripts 迁入 `workers/edge`；根变编排 | deploy/test 绿；根无 hono 业务 deps |
+| **E1** | Package-ize：deps + wrangler + CI scripts 迁入 `workers/api`；根变编排 | deploy/test 绿；根无 hono 业务 deps |
 | **E2** | `src/` + `test/` 搬家（上表）；更新 imports | typecheck + `test:worker` 绿 |
 | **E3** | path 工具合并 + policy 常量收敛 | 限流/公网测不回归 |
 | **E4** | Greenfield path 字符串（与 contract G1 同波） | allowlist 测更新 |
@@ -216,7 +216,7 @@ entities/Point.ts
 
 ## 9. 验收（实现后）
 
-- [ ] 无 `workers/edge/src/domain`
+- [ ] 无 `workers/api/src/domain`
 - [ ] 根 `package.json` 无 edge 运行时业务依赖
 - [ ] 生产 ts 均在 `src/**`；测试在 `test/**`
 - [ ] policy 纯函数可在 node:test 无 binding 跑

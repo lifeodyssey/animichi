@@ -24,7 +24,7 @@
 ## 仕組み
 
 ```
-ユーザー入力 → ネイティブ Pi エージェント（workers/edge/src/agent/）
+ユーザー入力 → ネイティブ Pi エージェント（workers/api/src/agent/）
                  ├── resolve_anime  → catalog Worker のタイトル解決; ミス時は Bangumi 取り込み
                  ├── search_bangumi → 解決済み bangumi_id の catalog ポイント
                  ├── search_nearby  → catalog 地理検索（Neon 上の PostGIS）
@@ -113,10 +113,10 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/users/` — ユーザー領域データ Worker（`/v1/users/*`）
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
-- `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
+- `workers/api/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
 - `supabase/` — 旧版互換マイグレーションと Supabase プロジェクト資産（auth は Neon Auth へ移行済み、AUTH-2 #950）
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Makefile`、`package.json` — ルートに残すツール入口。`workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
+- `Makefile`、`package.json` — ルートに残すツール入口。`workers/api/wrangler.toml`（edge Worker 設定）はコードの隣に配置
 
 ## ドキュメント
 
