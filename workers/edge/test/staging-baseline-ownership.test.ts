@@ -45,7 +45,7 @@ void test("a marker beside the Atlas ledger refuses, quoting both signals and th
   assert.match(outcome.stderr, /^refusing reset: a Prisma app marker stands beside the Atlas ledger/);
   assert.match(outcome.stderr, /space=app updated_at=2026-09-12T06:49:00Z; 10 Atlas revisions, 42 tables in public/);
   assert.match(outcome.stderr, /refuses this database as atlas_leftovers_present/);
-  assert.match(outcome.stderr, /name each marker row above in \/nonexistent\/approved-marker; the rebuild then drops the whole prisma_contract\nschema \(marker, ledger, contract\) with public, in one transaction, after its backup branch\.\n$/);
+  assert.match(outcome.stderr, /name each marker row above in \/nonexistent\/approved-marker; the rebuild then drops the whole prisma_contract\nschema \(marker, ledger, contract\) in one transaction of its own, as migrator, the schema's\nowner, after its backup branch; public is rebuilt in a second transaction, as neondb_owner\.\n$/);
   assert.doesNotMatch(outcome.stderr, /drop the/i);
 });
 

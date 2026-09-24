@@ -129,16 +129,20 @@ staging_psql() { echo "CALL psql $*" >&2; }
 ${stubs}
 main`).stderr.split("\n").filter((line) => line.startsWith("CALL "));
 
+// #1949: the reset is two transactions, one per role — the marker schema's drop as its owner
+// `migrator`, then the rebuild of `public` as `neondb_owner` — so the call log pins both halves.
 void test("the backup branch is taken before the reset that clears the marker schema", () => {
   const calls = neonCalls(`stranded_on_atlas() { DROP_MARKER_SCHEMA=true; }\nbackup_exists() { return 1; }`);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.match(calls[0] ?? "", /^CALL neonctl --yes neonctl@3\.6\.0 branches create /);
-  assert.match(calls[1] ?? "", /^CALL psql neondb_owner -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=true -f \S+\/reset-staging-baseline\.sql$/);
+  assert.match(calls[1] ?? "", /^CALL psql migrator -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=true -v public_reset=false -f \S+\/reset-staging-baseline\.sql$/);
+  assert.match(calls[2] ?? "", /^CALL psql neondb_owner -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=false -v public_reset=true -f \S+\/reset-staging-baseline\.sql$/);
 });
 
 void test("without an approved marker the reset leaves the marker schema alone", () => {
   const calls = neonCalls(`stranded_on_atlas() { :; }\nbackup_exists() { return 1; }`);
-  assert.match(calls[1] ?? "", / -v drop_marker_schema=false -f /);
+  assert.equal(calls.length, 2);
+  assert.match(calls[1] ?? "", /^CALL psql neondb_owner -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=false -v public_reset=true -f \S+\/reset-staging-baseline\.sql$/);
 });
 
 // A retried run reuses the backup branch; one older than the marker schema's last write, in any of

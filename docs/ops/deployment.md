@@ -404,10 +404,14 @@ by hand. The owner's dated decision that it is stale is a committed record,
 `infra/database-access/reset-staging-baseline.approved-marker`, naming every row exactly as the
 refusal prints it. It approves the whole `prisma_contract` schema, not one row: with it the rebuild
 takes the backup branch and then drops that schema's three tables (`marker`, `ledger`, `contract`)
-by name and the schema itself, without `CASCADE`, in the same transaction as `public`; any other
-object in or depending on the schema rolls the whole transaction back, and a reused backup older
-than the schema's last write refuses. Every
-later run is a named no-op. The migrator
+by name and the schema itself, without `CASCADE`, in one transaction as `migrator`, their owner —
+the chain created them as itself, and `neondb_owner` is no member of it (#1949) — and rebuilds
+`public` in a second transaction as `neondb_owner`; any other object in or depending on the schema
+rolls the migrator's transaction back, and a reused backup older than the schema's last write
+refuses. If the owner's transaction fails after the migrator's has committed, the next run
+finishes the rebuild: with no marker schema left, it takes the leftovers path, whose reset is the
+owner's transaction alone. Every
+later run against a completed reset is a named no-op. The migrator
 refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
 `/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
 inside the apply; the preflight step's log then points back at the rebuild step's own account. Production has no such step: a missing, empty or native-baseline production
