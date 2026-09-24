@@ -138,12 +138,17 @@ report_failure() {
 #      rest of the secret behind the next quote (#1905). A closed escaped value also stops
 #      before a following `;host=`, which the bare branch eats (#1881 gap 4). A value
 #      whose closer never arrived has no such boundary and takes it.
-#      Where two of the line's `\"` could close the value, the reading that leaves no
+#      Where two of the line's quotes could close the value, the reading that leaves no
 #      secret visible wins: a nested `password` assignment's own opener is a body unit
 #      too, so the value runs over it and the second secret is swallowed with the first
 #      instead of printed behind it (#1912). Without that unit the body stops one
 #      character short of the nested opener, the optional closer takes that opener as its
-#      own, and the second value reaches the log whole.
+#      own, and the second value reaches the log whole. The opener the unit reads is the
+#      escaped `\"` or, as a second alternative, a plain `"` (#1923): a nested value that
+#      opens with a raw quote has no escaped opener to read, so the alternative takes the
+#      raw one. That quote is the one ending the JSON string, so a line of this shape
+#      gives up the structure #1909 keeps — the price of ranking no secret visible above
+#      it, and one only a `password` key in front of the quote can pay.
 #   3. The user-info half with no scheme in front of it, which a driver prints on its
 #      own: `user:pw@host.tld/db`. Three gates keep it off ordinary prose — no whitespace
 #      anywhere in the pair, a dot required inside the host, and a left boundary so a
@@ -171,7 +176,7 @@ report_failure() {
 redact_dsn_passwords() {
   sed -E \
     -e "s#://([^:/@[:space:]]+):[^[:space:]/?]+@#://\1:***@#g" \
-    -e "s#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\[^\"\\\\]|\\\\\\\\([^\"\\\\]|\\\\.)|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*\\\\\")*(\\\\\\\\)?(\\\\\")?|[^[:space:]&\"]+)#\1***#g" \
+    -e "s#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*)(\"[^\"]*\"|'[^']*'|\\\\\"([^\"\\\\]|\\\\[^\"\\\\]|\\\\\\\\([^\"\\\\]|\\\\.)|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*\\\\\"|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd](\"|\\\\\")?[[:space:]]*[=:][[:space:]]*\")*(\\\\\\\\)?(\\\\\")?|[^[:space:]&\"]+)#\1***#g" \
     -e "s#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][[:space:]]*)('([^']|'')*'|\"[^\"]*\")#\1***#g" \
     -e "s#(^|[^[:alnum:]_:/@])([[:alnum:]_.-]+):/?[^[:space:]/][^[:space:]]*@([[:alnum:]_.-]+\.[[:alnum:]_.-]+)#\1\2:***@\3#g" \
     "$1"

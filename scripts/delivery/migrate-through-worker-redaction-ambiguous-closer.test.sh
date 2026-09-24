@@ -2,7 +2,7 @@
 # SUT: scripts/delivery/migrate-through-worker.sh — redact_dsn_passwords
 # Rule 2's ambiguous-closer surface (#1912), in its own file so each redaction suite stays
 # under the 200-line test cap. Every line here holds two `password` keys, and the second
-# key's own opener is a second `\"` that could close the first value: where the first value
+# key's own opener is a second quote that could close the first value: where the first value
 # never closed, the reading the rule took either printed the second secret or swallowed it
 # whole. The escaped surface without that second key is
 # migrate-through-worker-redaction-escaped.test.sh; the unescaped surfaces live in
@@ -23,19 +23,20 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # need to stay legible and `LEAKME` for the secret the line must not print; and each case
 # compares the WHOLE line, both directions, with `cmp`, so a stray byte counts.
 #
-# The rule-2 comment in the script carries the policy: where two of the line's `\"` could
+# The rule-2 comment in the script carries the policy: where two of the line's quotes could
 # close the value, the reading that leaves no secret visible wins. The closer is optional,
 # so the body runs to the farther quote; the nested `password` key's opener is a body unit
 # for the same reason, so the second secret falls inside the first value's redaction
 # instead of printing behind it.
 #
 # The unit's ledger, measured case by case with each case in its own process. Dropping the
-# unit turns nine cases red — the five unterminated ones and the four branch witnesses
+# unit turns ten cases red — the six unterminated ones and the four branch witnesses
 # below — and leaves the three closed ones green. Dropping the unit's spaces, its colon,
-# its plain key quote or its escaped quote turns exactly its own witness red. Replacing the
-# key with a bare `[=:][[:space:]]*\"` turns the two quoted-key witnesses red: without the
-# key text the body stops at the `"` or the `\"` that follows `password`, the value ends there,
-# and the secret prints behind it.
+# its plain key quote or its escaped quote turns exactly its own witness red. Dropping the
+# unit's raw-quote alternative (#1923) turns exactly the nested-value case below red.
+# Replacing the key with a bare `[=:][[:space:]]*\"` turns the two quoted-key witnesses red:
+# without the key text the body stops at the `"` or the `\"` that follows `password`, the value
+# ends there, and the secret prints behind it.
 # No mutation of the unit moves a case in the escaped suite or the main redaction suite;
 # the escaped branch's own mutations do move cases here, and that file's header counts its
 # own cases.
@@ -90,6 +91,16 @@ case_redacts_a_json_escape_inside_a_word_before_a_second_key() {
   assert_redacts '{"cause":"password=\"ab\/cd user=u password=\"LEAKME\""}' '{"cause":"password=***"}'
 }
 
+# #1923. The nested value opens with a plain `"` where #1912's rows open with `\"`. The
+# escaped body has no unit for a raw quote, so it stops at the `"`, the optional closer
+# takes it, and the second secret prints behind the redaction. The unit's raw-quote
+# alternative reads the nested opener as a body unit, and the second value goes with the
+# first. The quote it reads is the one that ends the JSON string, so this line gives up
+# #1909's structure — the accepted cost of ranking no secret visible first.
+case_redacts_a_nested_value_opening_with_a_raw_quote() {
+  assert_redacts '{"cause":"password=\"ab\n cd user=u password="LEAKME""}' '{"cause":"password=***""}'
+}
+
 # The direction the unit must not pay for: a first value that DOES close keeps everything
 # behind it, and the second key is redacted under its own key by the rule's `g` flag. The
 # nested opener here sits past a closer the body already took, so the unit never fires and
@@ -138,6 +149,7 @@ for test_case in \
   case_redacts_a_json_escape_before_a_second_key \
   case_redacts_an_inner_escape_before_a_second_key \
   case_redacts_a_json_escape_inside_a_word_before_a_second_key \
+  case_redacts_a_nested_value_opening_with_a_raw_quote \
   case_keeps_the_second_key_when_the_first_value_closes_after_an_inner_escape \
   case_keeps_the_second_key_when_the_first_value_closes_after_a_json_escape \
   case_keeps_the_second_key_when_the_first_value_closes_before_a_json_key \
