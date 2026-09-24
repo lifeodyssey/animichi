@@ -33,7 +33,7 @@ Use the selected Orca executable to load the installed `orca-cli` and
 | Setup policy | Run by default; wait for successful setup before task delivery |
 | Nested worker maximum depth | `2` |
 | Coordinator | The dispatching Orca coordinator session |
-| Development and every fix | GLM or DeepSeek (owner roster, 2026-09-24), invoking Matt `/implement` |
+| Development and every fix | GLM or DeepSeek (owner roster, 2026-09-24); Kimi writes visible UI; each invokes Matt `/implement` |
 | Independent reviewer | The writer's counterpart — GLM and DeepSeek review each other; Kimi reviews a candidate both wrote, invoking Matt `/code-review` |
 | Worker presentation | Noninteractive execution without visible Chat or TUI panes |
 

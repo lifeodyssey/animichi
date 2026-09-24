@@ -16,9 +16,9 @@ Validate that execution path before admitting a card; do not launch visible
 workers or silently replace Orca Run/Task/Dispatch with another supervisor.
 If this runtime cannot provide it, report the capability gap before dispatch.
 
-Developers and fixers run GLM or DeepSeek (owner roster, 2026-09-24); the coordinator
-is this session. GLM and DeepSeek review each other's candidates; a candidate both
-wrote is reviewed by Kimi. Do not silently lower effort.
+Developers and fixers run GLM or DeepSeek (owner roster, 2026-09-24); Kimi writes visible UI;
+the coordinator is this session. GLM and DeepSeek review each other's candidates; a candidate
+both wrote is reviewed by Kimi. Do not silently lower effort.
 Every development or fix prompt MUST invoke and follow Matt /implement, including
 local-review fixes, PR-comment fixes and CI repairs. Every review or re-review
 prompt MUST invoke and follow Matt /code-review. Read the actual installed skill;

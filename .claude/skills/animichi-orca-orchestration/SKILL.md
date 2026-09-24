@@ -130,7 +130,7 @@ at launch, which is the point.
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
 | Writer, **visible UI only** | `--provider kimi --model kimi-code/k3-256k-max --effort max` |
-| Reviewer | `--provider claude --model claude-opus-5 --effort high` |
+| Reviewer | The writer's counterpart — GLM and DeepSeek review each other; kimi reviews a candidate that both of them wrote (owner, 2026-09-24 — Claude models no longer review) |
 
 `--runtime-client` has no default and `start` refuses without it: pass
 `/Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js`.
@@ -166,8 +166,10 @@ Every developer or fixer role spec must explicitly require:
 
 Every pre-PR and post-fix review role spec must explicitly require:
 
-- a fresh headless Claude `claude-opus-5` at `high`, reported as blocked rather
-  than as approval if the effective model is anything else;
+- the writer's counterpart as the reviewer — GLM and DeepSeek review each other; kimi
+  reviews a candidate that both of them wrote (owner, 2026-09-24 — Claude models no longer
+  review), reported as blocked rather than as approval if the effective model is anything
+  else;
 - direct invocation and following of Matt `/code-review`;
 - a reviewer model different from every model that wrote the current
   candidate, including fixes, and no candidate edits by the reviewer.
