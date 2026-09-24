@@ -13,16 +13,7 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
   and legacy Codex dispatch routing below.
 - **Legacy Codex routing (outside the Orca flow)** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
   `/codex:review`; images via `/codex:imagegen`. **Read `.claude/skills/use-codex/SKILL.md` first** —
-  short, and skipping it costs whole dispatches. Four facts it exists for: **never run the raw CLI
-  concurrently or in a loop** (403/429 is connection contention, not a rate limit — retrying burns
-  quota; the owner-local `guard-codex.sh` enforces it and `block-codex-exec-codewrite` blocks raw code edits);
-  **Codex cannot commit** — its sandbox refuses every write under `.git`, worktree or clone alike, so
-  ask for changes left in the working tree and integrate them into the current semantic outcome;
-  **its sandbox has no network**, so build the environment and verify the gates yourself first;
-  and **the forwarder returns before Codex finishes**, so arm a `Monitor` keyed on the job log going
-  quiet and read the report from the job log
-  rather than the return value. Expect sound judgement and a broken process — inspect and integrate
-  its output, then re-run every gate yourself.
+  it carries the tool's operating facts.
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).
