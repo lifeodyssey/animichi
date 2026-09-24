@@ -309,10 +309,12 @@ the production Worker, so a `wrangler deploy` without `--env` would otherwise pu
 with no `APP_ENV` and silently deindex the site.
 
 The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
-`DEFAULT_AGENT_MODEL`, `FALLBACK_AGENT_MODEL`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
+`LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
 `ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
 gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
-separate work. Do not treat them as live configuration.
+separate work. Do not treat them as live configuration. (The Python-era `DEFAULT_AGENT_MODEL` and
+`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables are
+a separate inventory, pinned by `.github/test/workflow-variables.test.rb`.)
 
 ## Cloudflare Workers Path
 

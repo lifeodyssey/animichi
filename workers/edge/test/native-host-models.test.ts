@@ -8,6 +8,18 @@ function completion() {
   return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, { headers: { "content-type": "text/event-stream" } });
 }
 
+void test("a native turn asks Xiaomi for the published V2.6 Flash id at its catalog rates", async () => {
+  const requests: Request[] = [];
+  const native = await nativeHostModels("server-key", (input) => { requests.push(new Request(input)); return Promise.resolve(completion()); });
+  const result = await native.models.completeSimple(native.model, prompt);
+  assert.equal(result.stopReason, "stop");
+  const sent = requests[0];
+  assert.ok(sent);
+  const wire = JSON.parse(await sent.text()) as { model: string };
+  assert.equal(wire.model, "mimo-v2.6-flash");
+  assert.deepEqual(native.model.cost, { input: 0.14, output: 0.28, cacheRead: 0.0028, cacheWrite: 0 });
+});
+
 void test("default bootstrap uses the official Xiaomi model, price and isolated server credential", async () => {
   const requests: Request[] = [];
   const native = await nativeHostModels("server-key", (input) => { requests.push(new Request(input)); return Promise.resolve(completion()); });

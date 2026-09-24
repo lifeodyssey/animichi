@@ -30,8 +30,7 @@ export const PYTHON_BASELINE_LAYER = 'agent_l4_trajectory';
  * x-opencode-session and cannot be routed efficiently" — to every request from
  * every key, and nothing in the Python agent's model construction sends that
  * header, so no Python run can be made against it today. The direct endpoint
- * is the same `mimo-v2.5` and is what staging's own `DEFAULT_AGENT_MODEL`
- * names (`workers/edge/wrangler.toml`), so the record now shares an endpoint
+ * serves the same `mimo-v2.5`, so the record shares an endpoint
  * with the turns it is compared against rather than only a model name. */
 export const PYTHON_BASELINE_MODEL = 'openai:mimo-v2.5@https://api.xiaomimimo.com/v1';
 

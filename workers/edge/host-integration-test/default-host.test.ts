@@ -26,6 +26,8 @@ void test("production chat tier boots the default SessionAgent, executes its nat
   assert.equal(requests.length, 1, JSON.stringify(diagnostic.rows));
   assert.equal(requests[0]?.headers.get("authorization"), "Bearer server-private-key");
   assert.equal(new URL(requests[0].url).hostname, "api.xiaomimimo.com");
+  const modelRequest = JSON.parse(await requests[0].text()) as { model: string };
+  assert.equal(modelRequest.model, "mimo-v2.6-flash");
   const admission = await pool.query<{ state: string; last_usage_seq: number; settled_at: Date }>("SELECT a.state,s.last_usage_seq,s.settled_at FROM agent_admissions a JOIN agent_settlements s USING(operation_id) WHERE operation_id=$1", [operationId]);
   assert.equal(admission.rows[0]?.state, "settled");
   assert.ok(admission.rows[0].last_usage_seq > 0);
