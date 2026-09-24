@@ -42,7 +42,7 @@ class HeadlessClaudeSelectionTest < Minitest::Test
   end
 
   def test_refuses_another_providers_model_for_claude
-    assert_refused("claude", "gpt-5.6-sol", "max")
+    assert_refused("claude", "opencode-go/deepseek-v4.1-flash", "max")
   end
 
   def test_refuses_an_unknown_provider_instead_of_falling_back_to_pi

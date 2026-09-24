@@ -45,10 +45,10 @@ class HeadlessPiSelectionTest < Minitest::Test
   end
 
   def test_refuses_another_providers_model_for_pi
-    assert_refused("pi", "gpt-5.6-sol", "max")
+    assert_refused("pi", "claude-opus-5", "max")
   end
 
-  def test_refuses_an_unknown_provider_instead_of_falling_back_to_grok
+  def test_refuses_an_unknown_provider
     input = OrcaHeadless::StartInput.new(nil, nil, nil, nil, nil, "unknown")
     assert_raises(OrcaHeadless::InputError) { OrcaHeadless::ModelCommand.build(input) }
   end
