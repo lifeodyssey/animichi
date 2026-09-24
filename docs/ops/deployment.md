@@ -268,7 +268,7 @@ Required at deploy time:
   Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
   the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
   `docs/ops/prod-dsn-cutover.md`.
-- `MIMO_API_KEY` for the primary `mimo-v2.5` model — the runtime is MiMo-only (owner decision
+- `MIMO_API_KEY` for the primary `mimo-v2.6-flash` model — the runtime is MiMo-only (owner decision
   2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
 
 The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved
