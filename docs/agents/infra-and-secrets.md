@@ -43,9 +43,10 @@ replacement irreversible.
 5. When something goes red, align timelines first: when did the first red run start, and what was
    the last human change before it.
 
-Script the discipline instead of remembering it: values arrive as arguments, the first step is the
-read-only verification, no verification means no write, the write reads stdin
-(`printf '%s' "$v" | <tool> set NAME`), and the script reads back timestamps at the end.
+Script the discipline instead of remembering it: values arrive on stdin or from a hidden prompt,
+never as arguments, the first step is the read-only verification, no verification means no write,
+the write reads stdin (`printf '%s' "$v" | <tool> set NAME`), and the script reads back timestamps
+at the end.
 
 ## Non-interactive CLIs write to production by default (2026-07-26)
 
@@ -62,9 +63,9 @@ happens anyway, report it and leave the object; deletion is destructive and the 
   surfaced downstream as a generic "Connection error" and failed a whole nightly run. Use
   `printf '%s' "$v" | tr -d '\r\n' | pulumi env set … --secret --file -`, then verify without
   printing: `pulumi env open … | jq '.environmentVariables.K | test("\\s")'` (2026-09-08).
-- Turnstile keys are distinguishable by length (site key 24 characters, secret 35). Where a key's
-  format has structure, assert it at the reading point so a private-key-as-public misconfiguration
-  fails at build time.
+- This project's Turnstile keys have been distinguishable by length (observed: site key 24
+  characters, secret 35) — an observation, not a format rule. Where a key's format has structure,
+  assert it at the reading point so a private-key-as-public misconfiguration fails at build time.
 
 ## Pulumi Cloud OIDC facts (2026-09-05)
 

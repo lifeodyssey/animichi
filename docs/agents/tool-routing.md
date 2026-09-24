@@ -20,7 +20,7 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
   ask for changes left in the working tree and integrate them into the current semantic outcome;
   **its sandbox has no network**, so build the environment and verify the gates yourself first;
   and **the forwarder returns before Codex finishes**, so arm a `Monitor` keyed on the job log going
-  quiet and read the report from `~/.claude/plugins/data/codex-openai-codex/state/*/jobs/*.log`
+  quiet and read the report from the job log
   rather than the return value. Expect sound judgement and a broken process — inspect and integrate
   its output, then re-run every gate yourself.
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
@@ -38,11 +38,9 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
 
 - **Stack skills — invoke the Skill tool when the task matches** (docs fallback = context7 for any lib without a skill: Hono, oRPC, Prisma 8, TanStack Start):
 
-  These are user-scope installations on this machine, not CI dependencies. If a plugin skill is
-  missing, install it with `claude plugin install <plugin>@<marketplace>` (for example
+  If a plugin skill is missing, install it with `claude plugin install <plugin>@<marketplace>` (for example
   `logfire@pydantic-skills`, `pulumi@pulumi-agent-skills`,
-  `better-auth@better-auth-agent-skills`, `cloudflare@cloudflare`); `neon`, `neon-postgres`,
-  `ai-sdk` are single-name local/user skills here.
+  `better-auth@better-auth-agent-skills`, `cloudflare@cloudflare`).
 
   | Skill | Reach for it when |
   |---|---|

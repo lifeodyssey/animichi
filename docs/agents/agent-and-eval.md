@@ -82,10 +82,12 @@ An attribute set the late way silently vanished across a multi-case run.
 SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rationale behind it:
 
 1. Typed return schemas are the defence that comes free. Attack text inside a `bangumi_id` field
-   cannot be read as an instruction; the field's semantics pin it as data. Tools whose results are
-   typed (`resolve_anime`, `search_bangumi`, `search_nearby`, `plan_route`) are covered by their
-   schemas, not because they are "internal and trusted": their data comes from external
-   providers.
+   cannot be read as an instruction; the field's semantics pin it as data. The pin is structural,
+   not total: a schema holds ids and coordinates as data, while its string fields (titles, names,
+   cities) still carry provider text that can hold instructions. Typed tools (`resolve_anime`,
+   `search_bangumi`, `search_nearby`, `plan_route`) therefore shrink the injection surface rather
+   than close it, and their results stay untrusted — not because they are "internal and trusted":
+   their data comes from external providers.
 2. The real risk surface is the free-text tools: `web_search` (title, body, href) and
    `translate_anime_title` (LLM-generated text). Both are still native tools
    (`packages/agent/src/harness.ts`, `packages/agent/src/web-search.ts`).

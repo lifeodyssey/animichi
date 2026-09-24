@@ -104,9 +104,10 @@ Topic guides in `docs/agents/`:
 - `docs/agents/package-managers.md` — pnpm 12 settings, catalogs, uv, Bundler. Before touching a dependency.
 - `docs/agents/commit-and-pr-hygiene.md` — one outcome per commit; subject format; commitlint; no trailers. Before committing.
 - `docs/agents/tool-routing.md` — skill-first routing, Orca vs legacy Codex, MCP servers, stack skills. Before choosing a tool.
-- `docs/agents/harness.md` — the 4-role system, Quality Ratchet, committed vs owner-local gates, 升级路径(谁来拍板). Before dispatching or escalating.
+- `docs/agents/harness.md` — the 4-role system, Quality Ratchet, committed vs owner-local gates,
+  Escalation path (who decides). Before dispatching or escalating.
 - `docs/agents/delivery-flow.md` — ticket → PR → merge → deployed: `/to-tickets`, pre-dispatch checks,
-  one story = one PR, stacked PRs, review rounds, PR 合并前的检查, CD observation. When moving a card.
+  one story = one PR, stacked PRs, review rounds, Checks before a PR merges, CD observation. When moving a card.
 - `docs/agents/review-and-verification.md` — the false greens recorded here and what caught each: mutation
   scope, fake boundaries, stale text, writer tampering. Before reviewing or accepting work.
 - `docs/agents/worktrees-and-local-gates.md` — base reset, one worktree per agent, commit and push

@@ -172,8 +172,9 @@ requires a reasoned disposition confirmed by the reviewer; unresolved disagreeme
 goes to the PO. Do not manufacture zero findings by deleting or relabelling them.
 
 Count round 1 as the initial review, with at most two further complete reviews
-on corrected candidates. Every correction reruns affected gates and review
-against the new candidate, including evidence that prior findings closed.
+on corrected candidates. Every correction reruns affected gates and — outside
+the post-PR exemptions below — review against the new candidate, including
+evidence that prior findings closed.
 All required reports must pass on the current SHA, with the behavioral mutation proof
 required by [review discipline](review-gate.md).
 
@@ -181,9 +182,11 @@ At most three automatic review rounds are allowed per card; opening a PR does
 not reset the counter. These post-PR changes do not consume a round and are not
 re-reviewed (owner, 2026-09-18): fixes for bot findings (fix, reply inline,
 resolve), CI-environment fixes (a Ruby version), commit or PR body wording, and
-restack conflict resolution reported hunk by hunk. Any other post-PR code change
-needs a fresh review within that budget. If the third round fails, or later changes would
-need a fourth, preserve all evidence and return the card to HUMAN. Do not create
+restack conflict resolution reported hunk by hunk. The list waives a review-seat
+round only; it does not waive the coordinator's own verification of a code change
+before merge. Any other post-PR code change needs a fresh review within that
+budget. If the third round fails, or later changes would need a fourth, preserve
+all evidence and return the card to HUMAN. Do not create
 another Run/card to evade the limit. Infrastructure/dispatch failures are recorded
 as attempt failures, not fabricated review verdicts; Orca's own retry limit also
 applies independently.
@@ -219,7 +222,8 @@ evidence, never zero findings or merge permission. Query required CI/checks sepa
 Wait up to 60 seconds between observations; no webhook receiver or daemon is required.
 Top-level comments lack a universal resolved flag: inspect findings and replies. A successful inventory is not merge approval.
 
-Fix true findings, rerun checks, and obtain fresh local review after code changes. Respond
+Fix true findings, rerun checks, and obtain fresh local review after code changes
+outside the exemption list above. Respond
 with the actual resolution; resolve inline threads only after their issue is addressed.
 Account for top-level bot findings and preserve the audit history; resolving all comments
 never means deleting them or posting a blanket acknowledgement without inspection.

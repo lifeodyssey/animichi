@@ -95,9 +95,9 @@ round four.
   verify each finding independently before acting on it or dismissing it.
 - Poll threads before dispatching a CodeQL rerun; otherwise the loop reruns CodeQL against
   unhandled threads. Only a `neutral` CodeQL conclusion needs the rerun.
-- The merge hook named in PR 合并前的检查 below matches a merge-shaped string anywhere in a
-  command. The merge command is its own literal line, with no variables, and a heredoc that quotes
-  one is written with a file tool instead.
+- The merge hook named in Checks before a PR merges below matches a merge-shaped string
+  anywhere in a command. The merge command is its own literal line, with no variables, and
+  a heredoc that quotes one is written with a file tool instead.
 - Generating text that contains backticks: a quoted heredoc (`<<'EOF'`) or a Python string. An
   unquoted heredoc executed the backticks as commands and pasted source into three PR comments
   (2026-09-06). `cat` the script before running it.
@@ -107,15 +107,19 @@ round four.
 - With several PRs open, merge the most-refreshed one first (the one repeatedly updated to `main`);
   every merge re-queues the rest.
 
-## PR 合并前的检查(单一来源)
+## Checks before a PR merges (single source)
 
-合并质量的**单一来源**是 `docs/ops/review-gate.md`:native `required_review_thread_resolution`(行级
-线程必须 resolve 才能合成)+ `PR Verification`/`Security` 两条 required checks + 全局 hook
-`~/.claude/hooks/check-pr-comments.sh`(在 `gh pr merge` 前强制两路评论纪律:线程清零 + qodo/Sonar
-顶层发现逐条由人类 ack;还拒绝 bots 尚未发声的抢跑合并)。2026-08-31 起退役:Review Gate 聚合状态、
-LLM trusted review 席位、verdict/marker 工件——它们把每次合并耦合到共享模型配额上,配额一空所有 PR
-同时红灯且无本地出路。评审纪律(Standards∥Spec、变异红绿证明、fresh-head)保留为 `docs/workflow.md`
-stage 5 的流程要求,不再是合并阻塞状态。
+The **single source** for merge quality is `docs/ops/review-gate.md`: the native
+`required_review_thread_resolution` (line-level threads must be resolved before a merge) plus the
+two required checks `PR Verification`/`Security` plus the global hook
+`~/.claude/hooks/check-pr-comments.sh` (before `gh pr merge` it enforces the two-way comment
+discipline: threads at zero + each qodo/Sonar top-level finding acknowledged by a human; it also
+rejects the jump-ahead merge made before the bots have spoken). Retired since 2026-08-31: the
+Review Gate aggregate status, the LLM trusted-review seat and the verdict/marker artifacts — they
+coupled every merge to a shared model quota; when the quota emptied, every PR went red at once
+with no local way out. Review discipline (Standards∥Spec, mutation red-green proof, fresh-head)
+stays as a process requirement of `docs/workflow.md` stage 5 and is no longer a merge-blocking
+status.
 
 ## Merged is not deployed; deployed is not serving (2026-08-25, three times in one day)
 

@@ -59,8 +59,11 @@ repositories inherited it; the gate now unsets `GIT_*` at its entry) and
 disk on 2026-09-16, and stale directories misled the lane inventory. Done means the branch's PR
 is MERGED (`gh pr view --json state`) or the card is closed; `git merge-base --is-ancestor` is
 never true after a squash merge. Three checks before removal: `git status --porcelain` empty, no
-runner in that directory, no unpushed commits (`git rev-list origin/main..HEAD` empty, or the PR
-merged). Then `git worktree remove <path>` and `git branch -D <branch>`; GitHub deleted the remote
+runner in that directory, no unpushed commits — either `HEAD` equals the merged PR's head SHA
+(`gh pr view <n> --json headRefOid`) or there are no commits beyond the upstream
+(`git rev-list origin/<branch>..HEAD` empty; an ancestry test against `main` is always
+false after a squash merge and is not the test). Then `git worktree remove <path>` and
+`git branch -D <branch>`; GitHub deleted the remote
 branch at merge. Worktrees that are not the pipeline's (the owner's own, the main checkout) are
 not touched. The e2e lane derives its port per checkout (`E2E_EMITTED_WORKER_PORT` in
 `e2e/AGENTS.md`), so removing a worktree no longer disturbs a running browser lane.

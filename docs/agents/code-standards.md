@@ -50,9 +50,6 @@ The rule, its forbidden shortcuts and the two incidents behind it are in
 
 ## `pnpm exec`, never a bare `npx <bin>`
 
-`npx lhci` in a worktree without an install pulled a registry package named `lhci`, a typosquat
-(the real bin ships in `@lhci/cli`); it was harmless that day, one `console.log`. npx falls back to
-installing any package of that name (2026-08-05). Repository tools run as
-`pnpm --filter <pkg> exec <bin>`, which resolves workspace dependencies only. After a rebase or
-checkout, `pnpm install --frozen-lockfile` before using any bin. If npx reports installing an
-unexpected package, stop and inspect `~/.npm/_npx`.
+Repository tools run as `pnpm --filter <pkg> exec <bin>`, which resolves workspace dependencies
+only — never a bare `npx <bin>`. After a rebase or checkout, `pnpm install --frozen-lockfile`
+before using any bin.

@@ -20,12 +20,16 @@ Role definitions live in `.claude/agents/`:
 **Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Codecov patch ≥95%. Merge requires resolved review threads + acknowledged bot findings. Two kinds of gate, not interchangeable. **Committed** (every contributor, every CI run): the `commitlint` commit-msg hook, the pre-push affected gate (`scripts/local-gates/pre-push-affected.sh`, running the same package scripts as CI's affected matrix), and the native workflow/action tests under `.github/test` plus repository configuration tests under
 `test/repo-config` — CI's `commits`, `affected` and `contracts` lanes mirror those three. **Owner-local**: the hookify rules `block-secrets-in-pr`, `block-local-deploy` and `block-codex-exec-codewrite`, which live beside the tracked files in `.claude/` but are gitignored — enabled and blocking on the owner's machine, absent from a fresh clone and from CI. Never cite one of the three as proof that a repository rule is enforced.
 
-## 升级路径(谁来拍板)
+## Escalation path (who decides)
 
-1. **能按原则判的自己定** —— TDD/DDD/SOLID/clean code/KISS/设计模式/官方 best practice 能裁决的问题,
-   不问任何人,直接执行并在产出里写明理由。「我不确定」不是升级的理由。
-2. **本来要问 owner 的,先问 Fable 5.1**(`advisor` 席位,读得到完整会话上下文)。带着具体选项和代价去问,
-   不要抛开放式问题。只有当 Fable 5.1 也认为必须由 owner 拍板时,才停下来等 owner。
-3. **只有这五类必须等 owner**:花钱 · 生产/staging 动作 · 密钥 · 范围与优先级 · 明文规则的豁免。
+1. **What the principles can decide, decide yourself** — a question TDD/DDD/SOLID/clean code/KISS/
+   design patterns/official best practice can settle is executed directly, without asking anyone,
+   with the reason written into the output. "I am not sure" is not a reason to escalate.
+2. **What would have gone to the owner goes to Fable 5.1 first** (the `advisor` seat, which can
+   read the full session context). Ask with concrete options and their costs, never as an
+   open-ended question. Only when Fable 5.1 also judges that the owner must decide do you stop and
+   wait for the owner.
+3. **Only these five categories must wait for the owner**: spending money · production/staging
+   actions · secrets · scope and priorities · exemptions from written rules.
 
-等人回答之前,先把不依赖那个答案的部分全部做完。
+Before waiting on anyone's answer, finish every part that does not depend on that answer.
