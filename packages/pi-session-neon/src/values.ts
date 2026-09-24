@@ -1,4 +1,4 @@
-import { resolveListReadOptions, value, type ListElement, type ListReadOptions, type StoredValue,
+import { list, resolveListReadOptions, value, type ListElement, type ListReadOptions, type StoredValue,
   type Value, type ValueList } from "@earendil-works/pi-agent-core/harness/session";
 import type { SessionDatabase, SessionReader } from "./database.ts";
 
@@ -25,4 +25,15 @@ export async function readList<T>(db: SessionReader, sessionId: string, address:
 export async function readAllValues(db: SessionReader, sessionId: string): Promise<StoredValue<unknown>[]> {
   const rows = await db.orm.public.PiScalarValue.where({ sessionId }).orderBy((row) => row.seq.asc()).all();
   return rows.map((row) => ({ address: value(row.namespace, row.key), seq: row.seq, value: row.value }));
+}
+
+export interface StoredListValue {
+  address: ValueList<unknown>;
+  value: unknown;
+  seq: number;
+}
+
+export async function readAllListValues(db: SessionReader, sessionId: string): Promise<StoredListValue[]> {
+  const rows = await db.orm.public.PiListValue.where({ sessionId }).orderBy((row) => row.seq.asc()).all();
+  return rows.map((row) => ({ address: list(row.namespace, row.key), seq: row.seq, value: row.value }));
 }
