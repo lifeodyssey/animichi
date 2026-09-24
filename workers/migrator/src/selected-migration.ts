@@ -5,6 +5,7 @@ import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
 import { migratePrisma, previewPrisma, type NativeFailure, type NativeResult, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
 import { redactedCause } from "./redacted-cause";
 import { provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
+import { logStepEntry } from "./step-log";
 
 /**
  * The migrator's whole apply path. One authority — the Prisma migration graph — decides what
@@ -45,8 +46,12 @@ export interface SelectedExecutor {
  * apply threw, and the message prefix says WHERE. The prefix is composed after `redactedCause`
  * because a driver message can carry the DSN's password; the prefixed line is what both the
  * one log line and the route's `cause` field carry.
+ *
+ * The entry line comes first (#1958), so a sub-step that only goes quiet names itself too: a
+ * slow call throws nothing for this prefix to carry.
  */
 async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
+  logStepEntry(step);
   try { return await work(); }
   catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
 }
@@ -77,6 +82,7 @@ function nativeFailure(code: string): SelectedMigration {
  * runtime roles' passwords.
  */
 async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Promise<SelectedMigration | undefined> {
+  logStepEntry("provisionServiceRoles");
   try {
     await provisionServiceRoles(dsn, passwords);
     return undefined;

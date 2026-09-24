@@ -1,5 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import type { Env } from "./create-app";
+import { neonDeadline } from "./neon-deadline";
+import { logStepEntry } from "./step-log";
 
 /**
  * #1915 — the five data-plane service roles are provisioned by SQL, never by the Neon API.
@@ -143,14 +145,20 @@ const setPasswordStatement = (role: string, password: string): string =>
  * secrets in the store depend on. A probe is three round trips per `/migrate`, and it is the
  * only check that survives both a drifted password and a drifted verifier: no catalog read
  * (`pg_authid` is not for this role to read) and no marker stored beside the role.
+ *
+ * The probe logs its own entry line (#1958) because its catch is what would otherwise hide a
+ * stall: a deadline abort reads as "this password did not work", exactly like the `28P01`
+ * that arrives before the step sets one, so the statements below restate the password and the
+ * batch's own deadline is what fails if the stall persists.
  */
 async function authenticates(baseDsn: string, role: string, password: string): Promise<boolean> {
   const url = new URL(baseDsn);
   url.username = role;
   url.password = password;
   const sql = neon(url.toString());
+  logStepEntry(`authenticates ${role}`);
   try {
-    await sql.query("SELECT 1");
+    await sql.query("SELECT 1", [], neonDeadline());
     return true;
   } catch {
     return false;
@@ -179,7 +187,7 @@ export async function provisionServiceRoles(dsn: string, passwords: RuntimeRoleP
     ENSURE_ROLES_EXIST, REVOKE_MEMBERSHIPS, ASSERT_MEMBERSHIPS_REVOKED, RESET_ROLE_ATTRIBUTES,
     ...await stalePasswordStatements(dsn, passwords),
   ];
-  await sql.transaction<false, false>(statements.map((statement) => sql.query(statement)));
+  await sql.transaction<false, false>(statements.map((statement) => sql.query(statement)), neonDeadline());
 }
 
 async function resolveSecret(value: string | SecretsStoreSecret | undefined): Promise<string | undefined> {
