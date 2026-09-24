@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { QueueLock } from "./lock";
 import { migrateSelected, preflightSelected, type SelectedMetadata, type SelectedMigration, type SelectedPreflight } from "./selected-migration";
+import type { RuntimeRolePasswords } from "./service-roles";
 
 /**
  * Fixed-name Durable Object mutex for HTTP apply. One-shot container instance names cannot
@@ -28,7 +29,7 @@ export class MigratorApplyLock extends DurableObject {
     return this.#applies.runExclusive(() => preflightSelected(dsn, metadata));
   }
 
-  migrate(dsn: string, metadata: SelectedMetadata): Promise<SelectedMigration> {
-    return this.#applies.runExclusive(() => migrateSelected(dsn, metadata));
+  migrate(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata): Promise<SelectedMigration> {
+    return this.#applies.runExclusive(() => migrateSelected(dsn, passwords, metadata));
   }
 }

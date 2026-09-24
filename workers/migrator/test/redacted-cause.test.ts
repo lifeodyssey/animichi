@@ -55,6 +55,16 @@ const CREDENTIAL_SHAPES = [
     redacted: "auth failed, password: [redacted]",
   },
   {
+    shape: "the SQL keyword form #1915's provisioning statements carry",
+    thrown: `context: ALTER ROLE catalog_svc PASSWORD '${PLACEHOLDER}' failed`,
+    redacted: "context: ALTER ROLE catalog_svc PASSWORD [redacted] failed",
+  },
+  {
+    shape: "an SQL literal whose doubled quote is an escaped one",
+    thrown: `context: ALTER ROLE x PASSWORD 'a''${PLACEHOLDER}''b' rejected`,
+    redacted: "context: ALTER ROLE x PASSWORD [redacted] rejected",
+  },
+  {
     shape: "a URI parameter, stopping at the ampersand",
     thrown: `?password=${PLACEHOLDER}&sslmode=require rejected`,
     redacted: "?password=[redacted]&sslmode=require rejected",

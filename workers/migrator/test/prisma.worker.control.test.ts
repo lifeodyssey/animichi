@@ -10,11 +10,19 @@ const ledger = vi.hoisted(() => ({ stranded: vi.fn() }));
 vi.mock("../src/atlas-leftovers", async (original) => ({
   ...await original<typeof import("../src/atlas-leftovers")>(), carriesAtlasLeftovers: ledger.stranded,
 }));
+// #1915 — these tests judge the Prisma control boundary; the provisioning step beside it has
+// its own suites, and its Neon HTTP batch would otherwise leave the mocked boundary.
+const roles = vi.hoisted(() => ({ provision: vi.fn() }));
+vi.mock("../src/service-roles", async (original) => ({
+  ...await original<typeof import("../src/service-roles")>(),
+  provisionServiceRoles: roles.provision,
+}));
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
   vi.resetAllMocks();
+  roles.provision.mockResolvedValue(undefined);
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map([["app", TARGET]]), usedLiveMarker: true } });
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
   ledger.stranded.mockResolvedValue(false);

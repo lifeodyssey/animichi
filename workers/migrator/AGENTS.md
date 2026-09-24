@@ -46,8 +46,9 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    identity against the graph it carries and then calls Prisma's control client,
    which owns graph traversal, per-migration transactions, its advisory lock and
    the marker. The migrator no longer carries an apply loop, a revision ledger,
-   a checksum parser, a statement splitter or a SQL client of its own; one
-   authority owns the database. A `-pooler` DSN is still rejected before any
+   a checksum parser or a statement splitter; the Prisma control client owns the
+   migration chain, and the Worker's own SQL is the single #1915 service-roles
+   step that runs ahead of it (`src/service-roles.ts`). A `-pooler` DSN is still rejected before any
    connection (`src/direct-dsn.ts`), because Neon schema DDL needs the direct
    host. SQL is never taken from the request body (OIDC + a required
    `{expectedPrismaRef}` key set only, compared exactly).
@@ -76,7 +77,9 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    that code (`summary`, `why` of `MigrateFailure`), carries them as a
    redacted `cause` and logs the same line (#1891). Every other handled
    outcome keeps its own identity and no cause: `refused`, a code-only native
-   failure, `prisma_marker_mismatch`, `stale_prisma_bundle`.
+   failure, `prisma_marker_mismatch`, `stale_prisma_bundle`. The one #1915
+   addition to the caused side is `service_role_provisioning_failed`, which
+   carries the step's redacted cause like the thrown failures above.
    Otherwise: returns success plus Prisma's own receipt — `markerHash`,
    `migrationsApplied` and `applied`. A receipt whose marker is not the requested
    identity refuses success (`prisma_marker_mismatch`). That receipt is visible

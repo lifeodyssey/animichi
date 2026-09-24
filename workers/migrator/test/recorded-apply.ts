@@ -43,7 +43,7 @@ export function forgetApplyCrossings(): void {
   crossings = [];
 }
 
-export async function migrateSelected(dsn: string, _metadata: SelectedMetadata): Promise<SelectedMigration> {
+export async function migrateSelected(dsn: string, _passwords: unknown, _metadata: SelectedMetadata): Promise<SelectedMigration> {
   const { label, durationMs } = parseApplySpec(dsn);
   crossings.push(`${label}:start`);
   await takes(durationMs);

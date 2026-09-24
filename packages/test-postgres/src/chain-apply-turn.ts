@@ -29,17 +29,18 @@ export class ChainApplyTurn {
     this.#adminDsn = adminDsn;
   }
 
-  /** Run `apply` as the cluster's only chain applier, releasing the turn after.
+  /** Run `apply` as the cluster's only chain applier, releasing the turn after
+   * and passing `apply`'s own value through.
    *
    * Released in `finally` by ending the session that holds it — a SESSION-level
    * advisory lock dies with its session, so a caller that fails, or is killed,
    * cannot strand the cluster behind a lock nobody is left to unlock. */
-  async hold(apply: () => Promise<void>): Promise<void> {
+  async hold<Result>(apply: () => Promise<Result>): Promise<Result> {
     const turn = new pg.Client(this.#adminDsn);
     await turn.connect();
     try {
       await turn.query("select pg_advisory_lock($1)", [CHAIN_APPLY_LOCK_KEY]);
-      await apply();
+      return await apply();
     } finally {
       await turn.end();
     }

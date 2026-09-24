@@ -28,8 +28,20 @@ export const policy: GitHubOidcPolicy = {
   trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
 };
 
+/** #1915 — the three bound runtime-role passwords every /migrate now resolves from the
+ * Secrets Store; the Env keys the fixtures stand in are these names' SCREAMING forms. */
+import { SERVICE_ROLE_PASSWORDS } from "./service-role-passwords";
+
+export { SERVICE_ROLE_PASSWORDS };
+
 export function testEnv(): MigratorEnv {
-  return { ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: DSN };
+  return {
+    ENVIRONMENT: "staging",
+    MIGRATOR_DATABASE_URL: DSN,
+    CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,
+    USERS_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.usersSvc,
+    AGENT_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.agentSvc,
+  };
 }
 
 // #1365 — the production deployment differs from staging by exactly this var
@@ -40,6 +52,9 @@ export function productionEnv(): MigratorEnv {
     ENVIRONMENT: "production",
     MIGRATOR_OIDC_POLICY: "production",
     MIGRATOR_DATABASE_URL: DSN,
+    CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,
+    USERS_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.usersSvc,
+    AGENT_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.agentSvc,
   };
 }
 

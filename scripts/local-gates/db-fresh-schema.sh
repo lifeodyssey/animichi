@@ -117,8 +117,9 @@ create_gate_from_template0 || exit 1
 wait_for_tcp gate
 
 # The five data-plane service roles are cluster-global, and the chain's grant matrix PRECHECKS
-# them rather than creating them (spec §4.8.5 gives role DDL to Pulumi, and a throwaway
-# container has no Pulumi). `packages/test-postgres` does the same for every suite.
+# them rather than creating them (spec §4.8.5 puts role DDL outside the chain — the migrator's
+# SQL step owns it since #1915 — and a throwaway container has no migrator Worker).
+# `packages/test-postgres` does the same for every suite.
 for role in agent_svc catalog_svc jobs_svc readonly users_svc; do
   docker exec "$cid" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
     -c "CREATE ROLE \"$role\" NOLOGIN" >/dev/null

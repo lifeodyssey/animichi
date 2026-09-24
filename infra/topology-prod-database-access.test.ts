@@ -81,6 +81,22 @@ test("the agent_svc role is declared for every stack, not gated to staging", () 
   assert.doesNotMatch(roleList, /getStack\(\)/, "the role list must not branch on the stack");
 });
 
+test("the three runtime roles are SQL-provisioned: no neon.Role, one password each", () => {
+  // #1915 — Neon grants `neon_superuser` to every role its API creates, so the
+  // runtime roles must never come back as `neon.Role` resources. The one
+  // Neon-API role left in the program is `migrator`, which the chain needs at
+  // that grade for `CREATE EXTENSION`.
+  const runtimeRegion = databaseAccess.slice(
+    databaseAccess.indexOf("const roleDefs"),
+    databaseAccess.indexOf("const migratorRole"),
+  );
+  assert.doesNotMatch(runtimeRegion, /new neon\.Role/, "runtime roles must not be neon.Role resources");
+  assert.match(runtimeRegion,
+    /roleDefs\.map\(\(def\) =>\s*new random\.RandomPassword\(def\.name/,
+    "each declared runtime role gets its own generated password");
+  assert.match(databaseAccess, /new neon\.Role\(\s*migratorDef\.name/);
+});
+
 for (const role of ["catalog_svc", "users_svc", "agent_svc"] as const) {
   test(`the ${role} runtime password reaches the store under the stack-suffixed name`, () => {
     assert.equal(passwordSecretName(role, "prod"), `${role.toUpperCase()}_PASSWORD_PROD`);
@@ -89,9 +105,10 @@ for (const role of ["catalog_svc", "users_svc", "agent_svc"] as const) {
 }
 
 test("the prod stack targets the production branch of the same Neon project", () => {
-  // Roles are project-scoped and the store is account-scoped, so the branch id
-  // is the ONLY thing separating the two stacks' composed DSNs. Equal branch
-  // ids would publish the staging endpoint under the production secret name.
+  // Neon roles belong to a BRANCH (amended by #1915) and the store is
+  // account-scoped, so the branch id is the ONLY thing separating the two
+  // stacks' composed DSNs. Equal branch ids would publish the staging endpoint
+  // under the production secret name.
   assert.notEqual(stackConfig("prod", "neonBranchId"), stackConfig("staging", "neonBranchId"));
   assert.equal(stackConfig("prod", "neonProjectId"), stackConfig("staging", "neonProjectId"));
   assert.equal(stackConfig("prod", "secretsStoreId"), stackConfig("staging", "secretsStoreId"));

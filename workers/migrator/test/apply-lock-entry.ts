@@ -14,6 +14,7 @@ import { MigratorApplyLock } from "../src/apply-lock";
 import { APPLY_LOCK_NAME } from "../src/lock";
 import type { SelectedMetadata, SelectedMigration } from "../src/selected-migration";
 import { applyCrossings, forgetApplyCrossings } from "./recorded-apply";
+import { SERVICE_ROLE_PASSWORDS } from "./service-role-passwords";
 
 export { MigratorApplyLock };
 
@@ -22,7 +23,7 @@ interface ApplyLockEnv {
 }
 
 interface ApplyStub {
-  migrate(dsn: string, metadata: SelectedMetadata): Promise<SelectedMigration>;
+  migrate(dsn: string, passwords: unknown, metadata: SelectedMetadata): Promise<SelectedMigration>;
 }
 
 /** Whatever the RPC did — an outcome, or the message the platform ended it with. */
@@ -51,7 +52,7 @@ async function runApplies(request: Request, env: ApplyLockEnv): Promise<Response
   const stub = fixedStub(env);
   forgetApplyCrossings();
   const startedAt = Date.now();
-  const issued = specs.map((spec) => stub.migrate(spec, METADATA)
+  const issued = specs.map((spec) => stub.migrate(spec, SERVICE_ROLE_PASSWORDS, METADATA)
     .then((outcome): ApplyReport => ({ settled: true, outcome }), report));
   const applies = await Promise.all(issued);
   return Response.json({ crossings: applyCrossings(), elapsedMs: Date.now() - startedAt, applies } satisfies ApplyRunReport);

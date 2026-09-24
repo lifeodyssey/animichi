@@ -75,19 +75,19 @@ export function awaitSessions(dsn: string, deadline: SetupDeadline): Promise<voi
  * `.withReuse()` keys the container on the hash of Docker's create options —
  * image, environment, exposed ports, labels — and on neither the wait strategy
  * nor the startup timeout below. Every arm reaches the same container, and a
- * new image tag or a testcontainers upgrade reaches a new one. */
-function bootContainer(deadline: SetupDeadline): Promise<StartedTestContainer> {
-  return new GenericContainer(OFFLINE_POSTGRES_IMAGE)
-    .withReuse()
+ * new image tag or a testcontainers upgrade reaches a new one. `shared` false
+ * boots a container of one's own instead, which no other suite ever reaches. */
+function bootContainer(deadline: SetupDeadline, shared: boolean): Promise<StartedTestContainer> {
+  const boot = new GenericContainer(OFFLINE_POSTGRES_IMAGE)
     .withEnvironment({ POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: POSTGRES_USER })
     .withExposedPorts(POSTGRES_PORT)
     .withWaitStrategy(acceptsSessionsWait())
-    .withStartupTimeout(deadline.remainingMs())
-    .start();
+    .withStartupTimeout(deadline.remainingMs());
+  return (shared ? boot.withReuse() : boot).start();
 }
 
 /** The admin database the image pre-initialises — never a migration target. */
-function adminDsn(container: StartedTestContainer): string {
+function adminDsnOf(container: StartedTestContainer): string {
   const host = `${container.getHost()}:${String(container.getMappedPort(POSTGRES_PORT))}`;
   return `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${host}/${POSTGRES_USER}`;
 }
@@ -113,9 +113,42 @@ async function provisionServiceRoles(admin: string): Promise<void> {
   });
 }
 
+/** A cluster the caller owns: a container shared with nobody, and none of the
+ * service roles on it. The shared cluster's boot creates the five roles itself,
+ * so "starting with no service roles" can never be observed there (#1915) —
+ * this is the from-nothing starting point a proof of that claim boots.
+ *
+ * Nothing provisions anything: a service role that exists on this cluster
+ * afterwards is one the caller's own code created, which is the fact such a
+ * proof reads. */
+export interface OwnedPostgresCluster extends TestPostgresCluster {
+  /** Stop the container. The caller booted it alone, so the caller ends it; a
+   * crash before `stop` leaves it to testcontainers' reaper instead. */
+  stop(): Promise<void>;
+}
+
+/** Release the container nobody has a handle to yet, then rethrow what stopped the boot: the
+ * readiness failure is what the caller must see, not a stop failure stacked on it. */
+async function stopAfterFailedStart(container: StartedTestContainer, error: unknown): Promise<never> {
+  await container.stop().catch(() => undefined);
+  throw error;
+}
+
+export async function startOwnedPostgresCluster(request: TestPostgresClusterRequest): Promise<OwnedPostgresCluster> {
+  const deadline = new SetupDeadline(request.budget);
+  const container = await bootContainer(deadline, false);
+  const adminDsn = adminDsnOf(container);
+  try {
+    await awaitSessions(adminDsn, deadline);
+  } catch (error) {
+    return stopAfterFailedStart(container, error);
+  }
+  return { adminDsn, stop: async () => { await container.stop(); } };
+}
+
 /** The cluster on a deadline the caller may go on spending (`startTestPostgres`). */
 export async function openCluster(deadline: SetupDeadline): Promise<TestPostgresCluster> {
-  const admin = adminDsn(await bootContainer(deadline));
+  const admin = adminDsnOf(await bootContainer(deadline, true));
   await awaitSessions(admin, deadline);
   await provisionServiceRoles(admin);
   return { adminDsn: admin };
