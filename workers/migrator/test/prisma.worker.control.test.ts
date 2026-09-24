@@ -150,8 +150,8 @@ it("names a thrown connection failure without its connection string, and still c
   const response = await (await nativeApp(DSN)).migrate();
   expect(response.status).toBe(500);
   expect(await response.json()).toEqual({ success: false, exitCode: 1,
-    error: "migration_unavailable", cause: "refused postgresql://[redacted]" });
-  expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply threw: refused postgresql://[redacted]");
+    error: "migration_unavailable", cause: "migratePrisma: refused postgresql://[redacted]" });
+  expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply threw: migratePrisma: refused postgresql://[redacted]");
   expect(native.close).toHaveBeenCalledOnce();
 });
 

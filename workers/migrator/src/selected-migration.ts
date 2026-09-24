@@ -28,10 +28,10 @@ export type SelectedMigration = MigrationResult & {
   /** A public native code or a local stable code; never a driver message. */
   failureCode?: string;
   /**
-   * Why the apply failed, already through `redactedCause`: what a THROWN failure threw (#1868),
-   * or what Prisma REPORTED beyond its failure code (#1891). Outcomes that state nothing beyond
-   * their identity — `refused`, a code-only native failure, `prisma_marker_mismatch` — carry it
-   * in `failureCode` and leave this absent.
+   * Why the apply failed, already through `redactedCause`: what a THROWN failure threw, prefixed
+   * with the sub-step that threw it (#1868, #1915), or what Prisma REPORTED beyond its failure
+   * code (#1891). Outcomes that state nothing beyond their identity — `refused`, a code-only
+   * native failure, `prisma_marker_mismatch` — carry it in `failureCode` and leave this absent.
    */
   cause?: string;
 };
@@ -40,13 +40,23 @@ export interface SelectedExecutor {
   migrate(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata): Promise<SelectedMigration>;
 }
 
+/**
+ * One sub-step's failure, attributed (#1915): the stable `migration_unavailable` code says the
+ * apply threw, and the message prefix says WHERE. The prefix is composed after `redactedCause`
+ * because a driver message can carry the DSN's password; the prefixed line is what both the
+ * one log line and the route's `cause` field carry.
+ */
+async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
+  try { return await work(); }
+  catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
+}
+
 async function checkSelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedPreflight> {
-  assertDirectDsn(dsn);
-  if (!await hasPrismaSnapshot(metadata.expectedPrismaRef, directory)) {
-    return { compatible: false, error: "stale_prisma_bundle" };
-  }
-  if (await carriesAtlasLeftovers(dsn)) return { compatible: false, error: ATLAS_LEFTOVERS_PRESENT };
-  const native = await previewPrisma(dsn, metadata.expectedPrismaRef, directory);
+  await named("assertDirectDsn", () => { assertDirectDsn(dsn); });
+  const bundled = await named("hasPrismaSnapshot", () => hasPrismaSnapshot(metadata.expectedPrismaRef, directory));
+  if (!bundled) return { compatible: false, error: "stale_prisma_bundle" };
+  if (await named("carriesAtlasLeftovers", () => carriesAtlasLeftovers(dsn))) return { compatible: false, error: ATLAS_LEFTOVERS_PRESENT };
+  const native = await named("previewPrisma", () => previewPrisma(dsn, metadata.expectedPrismaRef, directory));
   return native.ok ? { compatible: true, prisma: native.value } : { compatible: false, error: native.error };
 }
 
@@ -111,7 +121,7 @@ async function applySelected(dsn: string, passwords: RuntimeRolePasswords, metad
   if (!preview.compatible) return { kind: "refused", reason: preview.error };
   const provisioning = await provisionRoles(dsn, passwords);
   if (provisioning !== undefined) return provisioning;
-  return receiptOf(await migratePrisma(dsn, metadata.expectedPrismaRef, directory), metadata.expectedPrismaRef);
+  return receiptOf(await named("migratePrisma", () => migratePrisma(dsn, metadata.expectedPrismaRef, directory)), metadata.expectedPrismaRef);
 }
 
 /** Recheck the identity after acquiring the lock; a prior preview is no authority. */
