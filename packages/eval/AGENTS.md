@@ -18,7 +18,7 @@ of becoming fabricated zero spend, and a provider outage's zeroed usage row does
 a priced call. The task closes its harness and repository after success,
 failure or cancellation; cleanup uses the native Context without the cancelled AbortSignal.
 
-The task and tests use public Pi/Chord 0.85.1 and Logfire 0.22.9 APIs. Production composition
+The task and tests use public Pi/Chord 0.87.1 and Logfire 0.22.9 APIs. Production composition
 tests execute the real seven-tool harness with deterministic HTTP/provider fixtures. Tests
 cover fresh attempts, model and paid-tool usage, rejected/failed/aborted/suspended outcomes,
 native cancellation and resource closure. `src/native/native-run.ts` is the documented
@@ -40,8 +40,9 @@ reference and the application scalars the case needs) and `expected_next_action`
 refuses a case whose declared source is missing — never a prompt that silently drops its
 prefix. `src/native/prefix-replay.ts` copies the frozen bytes into a scratch
 `JsonlSessionRepo`, opens and `fork({ scope: "tree" })` them; the application scalars are
-the tree fork's, because a branch fork drops every non-`pi.*` value, and list elements are
-the SDK's documented tree-fork gap — no copier is added. `src/native/prefix-task.ts`
+the tree fork's, because a branch fork drops every non-`pi.*` value, and since pi 0.87.1 the
+JSONL tree fork carries list elements too — production's Neon fork still drops them, so no
+state may depend on list-preserving fork. `src/native/prefix-task.ts`
 runs the production harness on a tree fork for corpora whose suffix is a model call, and
 `src/native/expected-action.ts` judges that suffix against `expected_next_action` using the
 native `after_tool` observations and the committed `animichi.selection` domain entry. `src/native/prefix-cases.ts` derives the

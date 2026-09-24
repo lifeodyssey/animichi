@@ -7,10 +7,10 @@ import { NeonSessionRepo, NeonStorage } from "@animichi/pi-session-neon";
 import { build } from "esbuild";
 import { contractClient } from "./contract-client.ts";
 
-void test("the resolved public SDK package is exactly 0.85.1", async () => {
+void test("the resolved public SDK package is exactly 0.87.1", async () => {
   const metadata: unknown = JSON.parse(await readFile(new URL(import.meta.resolve("@earendil-works/pi-agent-core/package.json")), "utf8"));
   assert(metadata !== null && typeof metadata === "object" && "version" in metadata);
-  assert.equal(metadata.version, "0.85.1");
+  assert.equal(metadata.version, "0.87.1");
 });
 
 void test("the native Storage seals admission without opening a database connection", async () => {

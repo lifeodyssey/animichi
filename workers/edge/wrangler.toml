@@ -450,10 +450,6 @@ bucket_name = "docs-assets-staging"
 # three stay distinct and why the entry is still declared with no reader.
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
-# The Go transport can outlive the edge request without raising, so fallback
-# never gets a chance to run. Use the proven direct endpoint first in staging.
-DEFAULT_AGENT_MODEL = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
-FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"

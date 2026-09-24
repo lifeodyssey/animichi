@@ -19,8 +19,10 @@ void test("the native result commit retains actual effective arguments after SDK
   getOrThrow(await lane.drive({ operationId: "witness-operation" }, context));
   const entries = await lane.findEntries({ type: "message" }, context);
   const result = entries.find((entry) => entry.type === "message" && entry.message.role === "toolResult");
-  assert.ok(result?.type === "message" && result.message.role === "toolResult" && result.message.details);
-  assert.deepEqual(Reflect.get(result.message.details, "execution"), { operationId: "witness-operation", toolCallId: result.message.toolCallId, args: { title: "Effective title" } });
+  assert.ok(result?.type === "message" && result.message.role === "toolResult");
+  const details = result.message.details;
+  assert.ok(details !== undefined && typeof details === "object" && details !== null && !Array.isArray(details));
+  assert.deepEqual(Reflect.get(details, "execution"), { operationId: "witness-operation", toolCallId: result.message.toolCallId, args: { title: "Effective title" } });
   assert.equal((await session.scanValues(operationToolArgsPrefix("witness-operation"), context)).length, 0);
   const modelRequest = entries.find((entry) => entry.type === "message" && entry.message.role === "assistant" && entry.message.content.some((part) => part.type === "toolCall"));
   assert.match(JSON.stringify(modelRequest), /Model title/);

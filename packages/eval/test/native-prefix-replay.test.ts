@@ -52,7 +52,8 @@ void test('a branch-scope fork silently drops the required application scalar an
   });
 });
 
-void test('the 0.85.1 tree fork does not copy list elements, and no copier pretends otherwise', async () => {
+// Contract: this pins the JSONL backend's tree fork, which since 0.87.1 carries list elements — production's Neon fork does not carry list elements.
+void test('the 0.87.1 tree fork carries recorded list elements', async () => {
   await withRecordedCorpus(async (replay, corpus) => {
     const source = await replay.openSource(caseNamed(corpus, CASE), BACKGROUND_CONTEXT);
     const address = list<string>('animichi.test.list');
@@ -61,7 +62,8 @@ void test('the 0.85.1 tree fork does not copy list elements, and no copier prete
     try {
       assert.deepEqual((await source.session.readList(address, undefined, BACKGROUND_CONTEXT)).map((entry) => entry.value),
         ['recorded list element']);
-      assert.deepEqual(await fork.readList(address, undefined, BACKGROUND_CONTEXT), []);
+      assert.deepEqual((await fork.readList(address, undefined, BACKGROUND_CONTEXT)).map((entry) => entry.value),
+        ['recorded list element']);
     } finally {
       await fork.close(BACKGROUND_CONTEXT);
       await source.session.close(BACKGROUND_CONTEXT);

@@ -268,7 +268,7 @@ Required at deploy time:
   Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
   the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
   `docs/ops/prod-dsn-cutover.md`.
-- `MIMO_API_KEY` for the primary `mimo-v2.5` model — the runtime is MiMo-only (owner decision
+- `MIMO_API_KEY` for the primary `mimo-v2.6-flash` model — the runtime is MiMo-only (owner decision
   2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
 
 The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved
@@ -309,10 +309,12 @@ the production Worker, so a `wrangler deploy` without `--env` would otherwise pu
 with no `APP_ENV` and silently deindex the site.
 
 The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
-`DEFAULT_AGENT_MODEL`, `FALLBACK_AGENT_MODEL`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
+`LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
 `ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
 gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
-separate work. Do not treat them as live configuration.
+separate work. Do not treat them as live configuration. (The Python-era `DEFAULT_AGENT_MODEL` and
+`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables are
+a separate inventory, pinned by `.github/test/workflow-variables.test.rb`.)
 
 ## Cloudflare Workers Path
 

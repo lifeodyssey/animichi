@@ -17,7 +17,7 @@ export function scriptedPorts(responses: FauxResponseStep[], catalog: ReturnType
 }
 
 export function recordingProvenance(): RecordingProvenance {
-  return { sdk: '0.85.1', provider: 'faux', model: 'faux-model', prompt: promptIdentity(), tools: PROBE_TOOLS,
+  return { sdk: '0.87.1', provider: 'faux', model: 'faux-model', prompt: promptIdentity(), tools: PROBE_TOOLS,
     commit: 'tested-commit', catalog: 'deterministic-case-fixture', recorded_at: '2026-09-17T00:00:00.000Z' };
 }
 
@@ -48,7 +48,7 @@ export function corpusManifest(overrides: Record<string, unknown> = {}): Record<
       },
       metadata: {
         recording: {
-          sdk: '0.85.1', provider: 'faux', model: 'faux-model', prompt: promptIdentity(),
+          sdk: '0.87.1', provider: 'faux', model: 'faux-model', prompt: promptIdentity(),
           tools: PROBE_TOOLS, commit: 'tested-commit', boundary: 'pending_anime_ambiguity',
           catalog: 'deterministic-case-fixture', recorded_at: '2026-09-17T00:00:00.000Z',
         },
