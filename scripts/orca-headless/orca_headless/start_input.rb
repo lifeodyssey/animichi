@@ -12,9 +12,7 @@ module OrcaHeadless
 
   module StartInputParser
     FLAGS = %i[workspace coordinator run title spec_file provider model effort state_dir runtime_client].freeze
-    MODELS = [["codex", "gpt-5.6-sol", "max"], ["codex", "gpt-6-astra", "xhigh"],
-              ["grok", "grok-4.6", "xhigh"],
-              ["pi", "opencode-go/deepseek-v4.1-flash", "max"],
+    MODELS = [["pi", "opencode-go/deepseek-v4.1-flash", "max"],
               ["pi", "bigmodel/glm-5.3-flash", "max"],
               ["pi", "opencode-go/mimo-v2.5-pro", "max"],
               ["pi", "opencode-go/mimo-v2.5", "max"],

@@ -7,28 +7,11 @@ module OrcaHeadless
     module_function
 
     def build(input)
-      return codex(input) if input.provider == "codex"
-      return grok(input) if input.provider == "grok"
       return pi(input) if input.provider == "pi"
       return claude(input) if input.provider == "claude"
       return kimi(input) if input.provider == "kimi"
 
       raise InputError, "unsupported provider: #{input.provider}"
-    end
-
-    def codex(input)
-      result = File.join(input.state_dir, "result.md")
-      argv = [input.agent, "exec", "--model", input.model, "-c",
-              "model_reasoning_effort=\"#{input.effort}\"", "--approve-for-me",
-              "--json", "--output-last-message", result, "-"]
-      plan(input, argv, "prompt.txt")
-    end
-
-    def grok(input)
-      prompt = File.join(input.state_dir, "prompt.txt")
-      argv = [input.agent, "--model", input.model, "--reasoning-effort", input.effort,
-              "--prompt-file", prompt, "--output-format", "streaming-messages-json"]
-      plan(input, argv, "empty.stdin")
     end
 
     # Print mode with non-TTY stdio keeps pi out of its TUI and Chat UI; --approve trusts
@@ -74,7 +57,7 @@ module OrcaHeadless
       plan(input, argv, "empty.stdin", "output.txt")
     end
 
-    def plan(input, argv, stdin_name, stdout_name = "events.jsonl")
+    def plan(input, argv, stdin_name, stdout_name)
       ModelPlan.new(argv, File.join(input.state_dir, stdin_name),
                     File.join(input.state_dir, stdout_name),
                     File.join(input.state_dir, "stderr.log"))

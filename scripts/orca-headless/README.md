@@ -15,17 +15,17 @@ ruby scripts/orca-headless/orca-headless.rb start \
   --run run_native_run \
   --title "Implement issue" \
   --spec-file /absolute/role-spec.md \
-  --provider codex \
-  --model gpt-5.6-sol \
+  --provider pi \
+  --model bigmodel/glm-5.3-flash \
   --effort max \
   --state-dir /absolute/private/attempt-directory \
   --runtime-client /Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js
 ```
 
-The accepted fixed selections are `codex/gpt-5.6-sol/max`, `codex/gpt-6-astra/xhigh`,
-`grok/grok-4.6/xhigh`, `pi/opencode-go/deepseek-v4.1-flash/max`, `pi/bigmodel/glm-5.3-flash/max`,
-`pi/opencode-go/mimo-v2.5-pro/max`, `pi/opencode-go/mimo-v2.5/max`, `claude/claude-opus-5/max`,
-and `kimi/kimi-code/k3-256k-max/max`.
+The accepted fixed selections are `pi/opencode-go/deepseek-v4.1-flash/max`,
+`pi/bigmodel/glm-5.3-flash/max`, `pi/opencode-go/mimo-v2.5-pro/max`,
+`pi/opencode-go/mimo-v2.5/max`, `claude/claude-opus-5/max`, and
+`kimi/kimi-code/k3-256k-max/max`.
 Selection is explicit; the launcher has no router, provider pool, quota policy, scheduler, review
 algorithm, or retry loop.
 Role specs must tell the worker to invoke Matt `/implement` or `/code-review` as appropriate.
@@ -36,8 +36,7 @@ the recorded model is the provider-qualified id `opencode-go/deepseek-v4.1-flash
 carries the complete fixed selection. The coordinator verifies effective provider/model/effort from
 the provider session separately before admitting developer or reviewer evidence.
 
-Codex runs `codex exec` with `--approve-for-me` and the user's normal configuration and
-permissions. Grok runs with `--prompt-file`. Pi runs `pi --print` with
+Pi runs `pi --print` with
 `--model opencode-go/deepseek-v4.1-flash`, `--thinking max`, and `--approve`; print mode with
 non-TTY stdio keeps pi out of its TUI and Chat UI, and `--approve` trusts project-local files for
 that one run so a trust prompt cannot block the worker. Claude runs `claude --print` with
@@ -52,8 +51,8 @@ Orca creates the Dispatch. Model stdin, stdout, and stderr are files, never an a
 Pi reads that pinned prompt file on stdin as its initial message and trims surrounding whitespace
 while merging it, and claude reads the same file on stdin unchanged, so the private file stays the
 byte-exact record of what each was asked to run.
-Codex and Grok stream structured events into the `events.jsonl` stdout receipt; pi's and claude's
-`--print` responses are plain text and land in `output.txt`.
+Pi, claude, and kimi all write plain text into the `output.txt` stdout receipt; no provider
+streams structured events.
 
 The state directory must not already exist. It is created as mode `0700`; receipts, the preamble,
 and logs are mode `0600`. Receipt publication is atomic no-replace, removes its pending file, and

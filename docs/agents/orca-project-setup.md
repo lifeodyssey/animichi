@@ -106,8 +106,8 @@ See [Orca remote servers](https://www.onorca.dev/docs/remote-servers).
 The tested local compatibility path uses the installed RuntimeClient's
 `terminal.create` with `presentation=background`, then the public `task-create`
 and `dispatch --return-preamble` operations. It passes the exact native preamble
-into the selected worker CLI's input — Codex `exec`, Grok `--prompt-file`, the pi and
-claude prompt files on stdin, or kimi's prompt argument — with file input/output.
+into the selected worker CLI's input — the pi and claude prompt files on stdin, or kimi's
+prompt argument — with file input/output.
 No installed-app patch or visible-mode fallback is part of this path.
 
 The runtime parameter is internal and version-specific. Verify compatibility
