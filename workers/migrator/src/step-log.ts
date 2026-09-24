@@ -1,3 +1,5 @@
+import { redactedCause } from "./redacted-cause";
+
 /**
  * #1958 — one line per sub-step, emitted when the sub-step STARTS.
  *
@@ -13,4 +15,23 @@
  */
 export function logStepEntry(step: string): void {
   console.log(`[migrator] step: ${step}`);
+}
+
+/**
+ * One sub-step's failure, attributed (#1915): the stable `migration_unavailable` code says the
+ * apply threw, and the message prefix says WHERE. The prefix is composed after `redactedCause`
+ * because a driver message can carry the DSN's password; the prefixed line is what both the
+ * one log line and the route's `cause` field carry.
+ *
+ * The entry line comes first (#1958), so a sub-step that only goes quiet names itself too: a
+ * slow call throws nothing for this prefix to carry.
+ *
+ * Here, not in the apply path, because the provisioning step's login probes name themselves
+ * with it too (#1958): `service-roles.ts` wraps each probe, so a deadline abort leaves it as
+ * `authenticates <role>: …` instead of being re-read as a stale password.
+ */
+export async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
+  logStepEntry(step);
+  try { return await work(); }
+  catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
 }

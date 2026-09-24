@@ -4,8 +4,8 @@ import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
 import { migratePrisma, previewPrisma, type NativeFailure, type NativeResult, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
 import { redactedCause } from "./redacted-cause";
-import { provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
-import { logStepEntry } from "./step-log";
+import { probeTimedOut, provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
+import { logStepEntry, named } from "./step-log";
 
 /**
  * The migrator's whole apply path. One authority — the Prisma migration graph — decides what
@@ -41,21 +41,6 @@ export interface SelectedExecutor {
   migrate(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata): Promise<SelectedMigration>;
 }
 
-/**
- * One sub-step's failure, attributed (#1915): the stable `migration_unavailable` code says the
- * apply threw, and the message prefix says WHERE. The prefix is composed after `redactedCause`
- * because a driver message can carry the DSN's password; the prefixed line is what both the
- * one log line and the route's `cause` field carry.
- *
- * The entry line comes first (#1958), so a sub-step that only goes quiet names itself too: a
- * slow call throws nothing for this prefix to carry.
- */
-async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
-  logStepEntry(step);
-  try { return await work(); }
-  catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
-}
-
 async function checkSelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedPreflight> {
   await named("assertDirectDsn", () => { assertDirectDsn(dsn); });
   const bundled = await named("hasPrismaSnapshot", () => hasPrismaSnapshot(metadata.expectedPrismaRef, directory));
@@ -80,6 +65,11 @@ function nativeFailure(code: string): SelectedMigration {
  * precheck can assume them. A failure here is its own verdict: the chain must not run, and
  * the cause crossed `redactedCause` first because the statements it may quote carry the
  * runtime roles' passwords.
+ *
+ * The one failure that is NOT a verdict (#1958): a login probe that hit its deadline already
+ * left `authenticates` named, and it must reach `migrateSelected`'s catch as
+ * `migration_unavailable`. Swallowing it here would restate the password it stalled on and then
+ * spend the batch's own deadline, which is the failure this step exists to name.
  */
 async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Promise<SelectedMigration | undefined> {
   logStepEntry("provisionServiceRoles");
@@ -87,6 +77,7 @@ async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Pro
     await provisionServiceRoles(dsn, passwords);
     return undefined;
   } catch (error) {
+    if (probeTimedOut(error)) throw error;
     const cause = redactedCause(error);
     console.error(`[migrator] service role provisioning failed: ${cause}`);
     return { ...nativeFailure("service_role_provisioning_failed"), cause };

@@ -5,7 +5,7 @@ import { readMissingCatalogTables } from "../src/catalog-tables";
 import { provisionServiceRoles } from "../src/service-roles";
 import { migrateSelected, preflightSelected } from "../src/selected-migration";
 import { makeApp, post, SERVICE_ROLE_PASSWORDS, testEnv } from "./migrate.worker.helpers";
-import { MIGRATIONS } from "./sealed-migrations";
+import { MIGRATIONS, TARGET } from "./sealed-migrations";
 
 /* #1958 — every Neon HTTP call in the apply path has a deadline, and it belongs to THAT call.
  *
@@ -26,6 +26,16 @@ const DIRECT_DSN = `postgresql://migrator:${PLACEHOLDER}@ep-fixture.neon.tech/ne
 /** Short enough for the unit arm's 5 s budget. The value the call sites pass is asserted
  * separately, so shrinking the wait never shrinks the deadline under test. */
 const STALL_MS = 25;
+
+/** The preview the apply needs before it reaches provisioning; the deadline cases own the
+ * calls after it, and a real Prisma preview or chain apply would leave this machine for a
+ * fixture host. */
+const prisma = vi.hoisted(() => ({ preview: vi.fn(), migrate: vi.fn() }));
+vi.mock("../src/prisma-control", async (original) => ({
+  ...await original<typeof import("../src/prisma-control")>(),
+  previewPrisma: prisma.preview,
+  migratePrisma: prisma.migrate,
+}));
 
 /** The real `AbortSignal.timeout`, recording every delay and shrinking only the wait. */
 function recordDeadlines(): number[] {
@@ -58,6 +68,35 @@ function queryResult(query: string): { fields: { name: string }[]; rows: unknown
   return query.includes("to_regclass") ? { fields: [{ name: "ledger" }], rows: [[null]] } : { fields: [], rows: [] };
 }
 
+/** The same answers as `serveNeonHttp`, except the login probe whose connection names `role`
+ * never answers: it rejects with its own signal's reason when the deadline fires, which is the
+ * `AbortSignal.timeout` rejection the driver embeds. Every raw body is kept, so a case can prove
+ * no password statement went out. */
+function serveNeonHttpStallingLogin(stalled: { signal?: AbortSignal | null }, role: string): string[] {
+  const bodies: string[] = [];
+  vi.stubGlobal("fetch", (_input: unknown, options?: RequestInit) => {
+    const raw = options?.body;
+    if (typeof raw !== "string") return Promise.reject(new Error("unexpected neon body"));
+    bodies.push(raw);
+    const body = JSON.parse(raw) as { query?: string; queries?: { query: string }[] };
+    if (body.query === "SELECT 1" && connectionRole(options) === role) {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = options?.signal;
+        stalled.signal = signal;
+        signal?.addEventListener("abort", () => { reject(abortReason(signal)); });
+      });
+    }
+    if (body.queries !== undefined) return Promise.resolve(Response.json({ results: body.queries.map(({ query }) => queryResult(query)) }));
+    return Promise.resolve(Response.json(queryResult(body.query ?? "")));
+  });
+  return bodies;
+}
+
+function connectionRole(options: RequestInit | undefined): string | undefined {
+  const connection = new Headers(options?.headers).get("Neon-Connection-String");
+  return connection === null ? undefined : new URL(connection).username;
+}
+
 /** The reason the driver's own abort hands back: `AbortSignal.timeout`'s DOMException, which
  * the driver embeds in the error the route reports. */
 function abortReason(signal: AbortSignal): Error {
@@ -65,7 +104,13 @@ function abortReason(signal: AbortSignal): Error {
   return reason instanceof Error ? reason : new Error("the call was aborted at its deadline");
 }
 
-beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-03-01T00:00:00.000Z") }); });
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-03-01T00:00:00.000Z") });
+  prisma.preview.mockReset().mockResolvedValue({ ok: true, value: {
+    targetHash: TARGET, markerHash: TARGET, migrations: [], usedLiveMarker: false,
+  } });
+  prisma.migrate.mockReset().mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
+});
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it("bounds a call inside the CD preflight's own 60 s curl, and above the platform's own cap", () => {
@@ -115,4 +160,24 @@ it("answers migration_unavailable naming the sub-step whose call hit its deadlin
   expect(delays).toEqual([NEON_CALL_DEADLINE_MS]);
   expect(stalled.signal?.aborted).toBe(true);
   expect(logged.mock.calls).toEqual([[expect.stringMatching(/^\[migrator\] apply threw: carriesAtlasLeftovers: /)]]);
+});
+
+it("names the login probe whose call hit its deadline, and sends no password statement", async () => {
+  const delays = recordDeadlines();
+  const stalled: { signal?: AbortSignal | null } = {};
+  const bodies = serveNeonHttpStallingLogin(stalled, "catalog_svc");
+  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
+    preflight: (dsn, metadata) => preflightSelected(dsn, metadata, MIGRATIONS),
+    migrate: (dsn, passwords, metadata) => migrateSelected(dsn, passwords, metadata, MIGRATIONS),
+  } });
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: DIRECT_DSN });
+  const body = await response.json() as { error?: string; cause?: string };
+  expect({ status: response.status, error: body.error }).toEqual({ status: 500, error: "migration_unavailable" });
+  expect(body.cause).toMatch(/^authenticates catalog_svc: /);
+  expect(bodies.some((raw) => raw.includes("ALTER ROLE"))).toBe(false);
+  expect(stalled.signal?.aborted).toBe(true);
+  expect(delays).toEqual(Array.from({ length: 4 }, () => NEON_CALL_DEADLINE_MS));
+  expect(logged.mock.calls).toEqual([[expect.stringMatching(/^\[migrator\] apply threw: authenticates catalog_svc: /)]]);
 });
