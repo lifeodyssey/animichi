@@ -36,10 +36,22 @@ const databaseAccess = repoFile("./database-access/index.ts");
 function storeSecretName(role: string, stack: string): string {
   const base = new RegExp(`\\{\\s*name: "${role}",\\s*secretName: "([^"]+)",`).exec(databaseAccess);
   assert.ok(base, `database-access must declare the ${role} role with a store secret`);
+  return `${base[1]}${suffixFor(stack)}`;
+}
+
+/** The store-secret name the program writes for `role`'s password on `stack`. */
+function passwordSecretName(role: string, stack: string): string {
+  const base = new RegExp(`\\{\\s*name: "${role}",\\s*secretName: "[^"]+",\\s*passwordSecretName: "([^"]+)",`)
+    .exec(databaseAccess);
+  assert.ok(base, `database-access must declare the ${role} role with a bound password secret`);
+  return `${base[1]}${suffixFor(stack)}`;
+}
+
+function suffixFor(stack: string): string {
   const suffix = /const secretNameSuffix = pulumi\.getStack\(\) === "(\w+)" \? "([^"]*)" : "([^"]*)";/
     .exec(databaseAccess);
   assert.ok(suffix, "database-access must derive its store-secret suffix from the stack name");
-  return `${base[1]}${stack === suffix[1] ? suffix[2] : suffix[3]}`;
+  return stack === suffix[1] ? (suffix[2] ?? "") : (suffix[3] ?? "");
 }
 
 function stackConfig(stack: string, key: string): string {
@@ -60,11 +72,18 @@ test("the agent_svc role is declared for every stack, not gated to staging", () 
   // itself is what would leave production without a data-plane identity.
   const roleList = databaseAccess.slice(
     databaseAccess.indexOf("const roleDefs"),
-    databaseAccess.indexOf("const roles ="),
+    databaseAccess.indexOf("const runtimePasswords"),
   );
   assert.match(roleList, /name: "agent_svc"/);
   assert.doesNotMatch(roleList, /getStack\(\)/, "the role list must not branch on the stack");
 });
+
+for (const role of ["catalog_svc", "users_svc", "agent_svc"] as const) {
+  test(`the ${role} runtime password reaches the store under the stack-suffixed name`, () => {
+    assert.equal(passwordSecretName(role, "prod"), `${role.toUpperCase()}_PASSWORD_PROD`);
+    assert.equal(passwordSecretName(role, "staging"), `${role.toUpperCase()}_PASSWORD`);
+  });
+}
 
 test("the prod stack targets the production branch of the same Neon project", () => {
   // Roles are project-scoped and the store is account-scoped, so the branch id

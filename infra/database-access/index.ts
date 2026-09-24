@@ -80,20 +80,23 @@ const neonProvider = new neon.Provider("neon", {
 //
 // agent_svc DSN (#912 follow-up): the edge Worker binds AGENT_SVC_DATABASE_URL
 // from the Secrets Store and the native agent tier resolves it directly.
-const roleDefs: { name: string; secretName?: string; comment: string }[] = [
+const roleDefs: { name: string; secretName?: string; passwordSecretName?: string; comment: string }[] = [
   {
     name: "catalog_svc",
     secretName: "CATALOG_DATABASE_URL",
+    passwordSecretName: "CATALOG_SVC_PASSWORD",
     comment: "catalog Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "users_svc",
     secretName: "USERS_DATABASE_URL",
+    passwordSecretName: "USERS_SVC_PASSWORD",
     comment: "users Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "agent_svc",
     secretName: "AGENT_SVC_DATABASE_URL",
+    passwordSecretName: "AGENT_SVC_PASSWORD",
     comment:
       "agent data-plane role DSN (edge Worker Secrets Store binding, read by the native agent tier)",
   },
@@ -142,6 +145,21 @@ const roles = roleDefs.map(
     ),
 );
 
+// #1915, step 1 of 2: each runtime role gains a RandomPassword, stored in the Secrets Store
+// ahead of the Worker binding that will name it. The roles stay `neon.Role` resources and the
+// DSN secrets keep deriving from `role.password` here; the second commit moves the DSNs onto
+// these passwords and binds them to the migrator Worker, whose deploy must find the secrets
+// already in the store.
+const runtimePasswords = roleDefs.flatMap((def) =>
+  def.passwordSecretName === undefined ? [] : [{
+    role: def.name,
+    secretName: def.passwordSecretName,
+    password: new random.RandomPassword(def.name, {
+      length: 40, special: false, minUpper: 1, minLower: 1, minNumeric: 1,
+    }),
+  }],
+);
+
 const host = neon
   .getBranchEndpointsOutput({ projectId, branchId }, { provider: neonProvider })
   .apply((result) => {
@@ -158,6 +176,18 @@ const store = cloudflare.SecretsStore.get(
   `${accountId}/${secretsStoreId}`,
 );
 
+/** One secret in the account's shared Secrets Store, scoped to Workers. */
+function storeSecret(name: string, value: pulumi.Input<string>, comment: string): void {
+  new cloudflare.SecretsStoreSecret(name, {
+    accountId,
+    storeId: secretsStoreId,
+    name,
+    value,
+    scopes: ["workers"],
+    comment,
+  });
+}
+
 const dsnFor = (role: neon.Role, name: string) =>
   pulumi.interpolate`postgresql://${name}:${role.password.apply(encodeURIComponent)}@${host}:5432/${databaseName}?sslmode=require`;
 
@@ -172,16 +202,17 @@ const dsnSecrets = roleDefs.flatMap((def, i) => {
   ];
 });
 
-dsnSecrets.forEach(({ def, name, dsn }) => {
-  new cloudflare.SecretsStoreSecret(name, {
-    accountId,
-    storeId: secretsStoreId,
-    name,
-    value: dsn,
-    scopes: ["workers"],
-    comment: def.comment,
-  });
-});
+dsnSecrets.forEach(({ name, dsn, def }) => storeSecret(name, dsn, def.comment));
+
+// One store secret per runtime role password, beside its DSN; no wrangler.toml binding names
+// these yet — that is the second commit's half.
+runtimePasswords.forEach(({ role, secretName, password }) =>
+  storeSecret(
+    `${secretName}${secretNameSuffix}`,
+    password.result,
+    `${role} runtime-role password (#1915), bound to no runtime Worker`,
+  ),
+);
 
 // ── Catalog admin token (system-health-audit 2026-08-26 §2.4/§3, #1217) ────
 // CATALOG_ADMIN_TOKEN guards POST /catalog/admin/* (full-ingest, canary) but
@@ -194,14 +225,11 @@ const catalogAdminToken = new random.RandomPassword("catalog-admin-token", {
   special: false,
 });
 
-new cloudflare.SecretsStoreSecret(`catalog-admin-token${secretNameSuffix}`, {
-  accountId,
-  storeId: secretsStoreId,
-  name: `CATALOG_ADMIN_TOKEN${secretNameSuffix}`,
-  value: catalogAdminToken.result,
-  scopes: ["workers"],
-  comment: "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
-});
+storeSecret(
+  `catalog-admin-token${secretNameSuffix}`,
+  catalogAdminToken.result,
+  "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
+);
 
 // ── Neon Auth declarations (AUTH-2 #950) ────────────────────────────────────
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
@@ -222,38 +250,25 @@ new cloudflare.SecretsStoreSecret(`catalog-admin-token${secretNameSuffix}`, {
 //   pulumi config set --secret qaNeonUserPassword <password>
 const authBaseUrl = config.get("neonAuthBaseUrl");
 if (authBaseUrl !== undefined) {
-  new cloudflare.SecretsStoreSecret("neon-auth-jwks-url", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "NEON_AUTH_JWKS_URL",
-    value: `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
-    scopes: ["workers"],
-    comment: "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
-  });
+  storeSecret(
+    "neon-auth-jwks-url",
+    `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
+    "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
+  );
 }
 
 const qaNeonUserEmail = config.get("qaNeonUserEmail");
 if (qaNeonUserEmail !== undefined) {
-  new cloudflare.SecretsStoreSecret("qa-neon-user-email", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "QA_NEON_USER_EMAIL",
-    value: qaNeonUserEmail,
-    scopes: ["workers"],
-    comment: "Neon Auth QA login email (Path A, AUTH-2 #950)",
-  });
+  storeSecret("qa-neon-user-email", qaNeonUserEmail, "Neon Auth QA login email (Path A, AUTH-2 #950)");
 }
 
 const qaNeonUserPassword = config.getSecret("qaNeonUserPassword");
 if (qaNeonUserPassword !== undefined) {
-  new cloudflare.SecretsStoreSecret("qa-neon-user-password", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "QA_NEON_USER_PASSWORD",
-    value: qaNeonUserPassword,
-    scopes: ["workers"],
-    comment: "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
-  });
+  storeSecret(
+    "qa-neon-user-password",
+    qaNeonUserPassword,
+    "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
+  );
 }
 
 // Exported for the wrangler.toml bindings (PR2/PR3) and operators.

@@ -285,8 +285,9 @@ pins both names.
 #912 PR2 moved the per-component Neon DSNs out of GitHub secrets and into the **Cloudflare
 Secrets Store** (the account's default store, id `66c9bb0faef644b4a0671bb7d90d98bd`; a second
 store is refused by the account plan, `maximum_stores_exceeded`). Values are managed by the
-`infra/database-access` Pulumi stack (staging branch roles + composed DSNs; see its `index.ts` for
-the role→secret mapping and the bootstrap/rotation runbook). Runtime credentials are additionally
+`infra/database-access` Pulumi stack (per-component DSNs and, since #1915, one password secret per
+runtime role; see its `index.ts` for the role→secret mapping). The second #1915 commit moves role
+creation itself to the migrator Worker's `/migrate` SQL step. Runtime credentials are additionally
 declared in `runtime-secrets.ts`; the active base names and their `_PROD` counterparts follow the
 cutover gates above. The established database bindings are:
 
@@ -298,6 +299,14 @@ cutover gates above. The established database bindings are:
 | `USERS_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/users/src/index.ts` |
 | `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → the native host/gateway (`workers/edge/src/agent/host/native-bootstrap.ts`, `workers/edge/src/gateway/native-history.ts`, `workers/edge/src/gateway/native-stream.ts`) reads Neon directly |
 | `AGENT_SVC_DATABASE_URL_PROD` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.production.secrets_store_secrets]]` → the same native host/gateway consumers (W4-1, #1314) |
+| `CATALOG_SVC_PASSWORD` / `CATALOG_SVC_PASSWORD_PROD` | `CATALOG_SVC_PASSWORD` | `workers/migrator/wrangler.toml` `[[env.*.secrets_store_secrets]]` → `workers/migrator/src/service-roles.ts` (#1915) |
+| `USERS_SVC_PASSWORD` / `USERS_SVC_PASSWORD_PROD` | `USERS_SVC_PASSWORD` | `workers/migrator/wrangler.toml` `[[env.*.secrets_store_secrets]]` → `workers/migrator/src/service-roles.ts` (#1915) |
+| `AGENT_SVC_PASSWORD` / `AGENT_SVC_PASSWORD_PROD` | `AGENT_SVC_PASSWORD` | `workers/migrator/wrangler.toml` `[[env.*.secrets_store_secrets]]` → `workers/migrator/src/service-roles.ts` (#1915) |
+
+The three #1915 runtime-role password secrets follow the same staging/`_PROD` split and bind to
+the migrator Worker alone — never a runtime Worker; those bindings land with the card's second
+commit, and `workers/migrator/src/service-roles.ts` applies each password to its role on
+`/migrate`.
 
 Bindings are declared per environment in `wrangler.toml` (`secrets_store_secrets` is
 non-inheritable) and are applied automatically by `wrangler deploy` — no CI secret upload step
