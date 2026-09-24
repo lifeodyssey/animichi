@@ -24,6 +24,7 @@
     "topology-prod.test.ts",
     "topology-prod-database-access.test.ts",
     "topology-database-access-store-secrets.test.ts",
+    "topology-database-access-store-secrets-prod.test.ts",
     "topology-staging.test.ts",
     "topology-staging-access.test.ts",
     "topology-staging-allowlist.test.ts",

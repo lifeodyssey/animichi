@@ -3,7 +3,8 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && pnpm run typecheck:database-access",
+    "typecheck:database-access": "bash database-access/typecheck.sh",
     "test": "node --test topology-*.test.ts && pnpm run test:program-load",
     "test:program-load": "bash ../scripts/local-gates/infra-check.sh"
   },
