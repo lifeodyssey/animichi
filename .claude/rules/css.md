@@ -8,8 +8,8 @@ paths:
 Relocated from the root context file — scoped here so it only loads when editing frontend UI.
 
 - Read `apps/web/AGENTS.md` before any design or UI work — it is the design-system source of truth.
-- Animal Island UI reference: `docs/design/animal-island-ref/` (color / typography / interaction /
-  component specs) — read before component-redesign work.
+- Design authority is `apps/web/AGENTS.md` — read it before component-redesign work;
+  `docs/design/animal-island-ref/` is superseded.
 - Tokens live in `apps/web/src/styles/globals.css :root`; registered in `@theme inline` for Tailwind utilities.
 - Use semantic Tailwind classes (`bg-primary`, `text-foreground`, `border-border`) — never `bg-[var(--color-*)]`.
 - Never use `style={{ }}` for values with Tailwind equivalents (color, spacing, font, radius, opacity).

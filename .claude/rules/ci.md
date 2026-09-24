@@ -66,6 +66,13 @@ revision rather than mutable checkout state.
 - **Pin third-party actions to full commit SHAs**, with version comments; pin Docker actions by
   digest. Full-strength zizmor owns action-pinning and permission audits. Its test retains the
   pedantic persona, scanner version and annotation settings. Local action manifests must exist.
+  An annotated tag's ref object is the tag, not the commit: resolve the pin with
+  `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`, or zizmor's `ref-version-mismatch` fires.
+- **Some failures surface only when GitHub compiles the workflow.** A reusable workflow's job
+  cannot request more permissions than its caller grants (actionlint does not compare a called
+  workflow's permissions with its caller's), and the `secrets` context is not allowed in a step or
+  job `if:`. Nothing runs on a bare branch push here; a draft PR is what makes GitHub compile a
+  structural workflow change. Diagnosis: `docs/agents/ci-and-github-mechanics.md`.
 - **No failure suppression.** `workflow-execution.test.rb` rejects `continue-on-error` in workflows.
   Every runner job has a timeout. PR supersession cancels old PR runs; deployment queues do not.
 - **Least privilege and environment-bound identity.** The workflow default is `contents: read`,
