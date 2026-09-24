@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getOrThrow } from "@earendil-works/pi-agent-core";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/pi-agent-core/harness/context";
-import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
+import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type JsonObject } from "@earendil-works/pi-ai";
 import { createPilgrimageHarness } from "@animichi/agent/harness";
 import { fixture } from "./native-tool-fixture.ts";
 
 const title = "The complete catalog title ".repeat(15);
-const cases = [
+const cases: readonly { name: string; args: JsonObject; result: object; summary: string }[] = [
   { name: "resolve_anime", args: { title: "Requested title" }, result: { outcome: "resolved", match: { bangumi_id: "1", title } }, summary: `[resolve_anime: resolved to ${title} (id=1)]` },
   { name: "respond", args: { kind: "qa", message: "The complete user-facing answer. ".repeat(20) }, result: {}, summary: "[respond: completed]" },
 ];
