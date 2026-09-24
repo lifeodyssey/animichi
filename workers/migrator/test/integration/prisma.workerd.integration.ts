@@ -12,6 +12,7 @@ import { openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-
 import { grantDatabaseCreate, migratorDsn, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./neon-http-postgres";
 import { roleBootTest, roleBootCluster } from "./role-boot";
+import { settleTeardown } from "./teardown";
 
 /* The deployed bundle against the real data plane (#1868, #1915). Every /migrate the worker
  * applies provisions the five service roles, and the roles are cluster-global (#1663), so
@@ -59,10 +60,12 @@ roleBootTest.beforeEach(async ({ roleBoot }) => {
 });
 
 afterAll(async () => {
-  await resources.runtime?.close();
-  await client?.end();
-  await target?.stop();
-  await rm(resources.directory ?? "/nonexistent-native-worker-test", { recursive: true, force: true });
+  await settleTeardown([
+    async () => resources.runtime?.close(),
+    async () => client?.end(),
+    async () => target?.stop(),
+    async () => rm(resources.directory ?? "/nonexistent-native-worker-test", { recursive: true, force: true }),
+  ]);
 });
 
 function post(path: string, body = requestMetadata) {

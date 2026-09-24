@@ -72,9 +72,14 @@ async function provision(logins: readonly string[]): Promise<readonly string[]> 
 const roleDsn = (role: string, password: string): string =>
   `postgresql://${role}:${password}@ep-x.neon.tech/neondb`;
 
-const allLogins = Object.entries({
-  agent_svc: PASSWORDS.agentSvc, catalog_svc: PASSWORDS.catalogSvc, users_svc: PASSWORDS.usersSvc,
-}).map(([role, password]) => roleDsn(role, password));
+/** One bound login per runtime role, addressable by name so a case can drift exactly one. */
+const LOGINS = {
+  agent_svc: roleDsn("agent_svc", PASSWORDS.agentSvc),
+  catalog_svc: roleDsn("catalog_svc", PASSWORDS.catalogSvc),
+  users_svc: roleDsn("users_svc", PASSWORDS.usersSvc),
+} as const;
+
+const allLogins = Object.values(LOGINS);
 
 describe("the statements every run sends", () => {
   it("creates the five roles check-then-create, with jobs_svc and readonly NOLOGIN", async () => {
@@ -84,11 +89,12 @@ describe("the statements every run sends", () => {
     const reset = statements.find((statement) => statement.includes("rolbypassrls"));
     expect(reset).toContain("NOSUPERUSER");
     expect(reset).toContain("desired_login := role_name IN ('agent_svc', 'catalog_svc', 'users_svc')");
+    expect(statements.some((statement) => statement.includes("RAISE EXCEPTION"))).toBe(true);
   });
 
   it("escapes a bound password as one SQL literal", async () => {
     const statements = await provisionWithPassword("abc''def'ghi");
-    expect(statements).toContain("ALTER ROLE catalog_svc PASSWORD 'abc''''def''ghi'");
+    expect(statements).toContain("ALTER ROLE catalog_svc PASSWORD 'abc''''def''ghi' VALID UNTIL 'infinity'");
   });
 });
 
@@ -107,7 +113,7 @@ describe("the login probe", () => {
   it("re-sets exactly the role the bound password does not let in", async () => {
     const drifted = allLogins.slice(1);
     const statements = await provision(drifted);
-    expect(statements).toContain(`ALTER ROLE agent_svc PASSWORD '${PASSWORDS.agentSvc}'`);
+    expect(statements).toContain(`ALTER ROLE agent_svc PASSWORD '${PASSWORDS.agentSvc}' VALID UNTIL 'infinity'`);
     expect(statements.some((statement) => statement.includes("users_svc PASSWORD"))).toBe(false);
     expect(statements.some((statement) => statement.includes("catalog_svc PASSWORD"))).toBe(false);
   });
@@ -126,19 +132,21 @@ describe("the login probe", () => {
 });
 
 describe("a forced failure whose statement carried the password", () => {
-  // The proof #1915 asks for: a driver echo that hands back the failing ALTER
-  // whole reaches the operator only through `redactedCause`, and the pass on
-  // the CD side owns the same shape (`migrate-through-worker-redaction.test.sh`).
+  // The proof #1915 asks for: the failing statement is the one that carries a bound password,
+  // and a driver or DO-block CONTEXT echo of it reaches the operator only through
+  // `redactedCause`; the pass on the CD side owns the same shape
+  // (`migrate-through-worker-redaction.test.sh`).
   it("yields a cause with no password byte once redacted", async () => {
-    const echo = `syntax error in "ALTER ROLE catalog_svc PASSWORD 's3cret-probe-value'" near line 1`;
-    serveNeonHttp(allLogins, echo);
+    const emitted = `ALTER ROLE catalog_svc PASSWORD '${PASSWORDS.catalogSvc}' VALID UNTIL 'infinity'`;
+    const batches = serveNeonHttp([LOGINS.agent_svc, LOGINS.users_svc], `syntax error in "${emitted}" near line 1`);
     const thrown = await provisionServiceRoles(BASE_DSN, PASSWORDS).then(
       () => undefined,
       (error: unknown) => error,
     );
     expect(thrown).toBeInstanceOf(Error);
+    expect(batches.at(-1)?.statements).toContain(emitted);
     const cause = redactedCause(thrown);
-    expect(cause).not.toContain("s3cret-probe-value");
+    expect(cause).not.toContain(PASSWORDS.catalogSvc);
     expect(cause).toContain("PASSWORD [redacted]");
   });
 });

@@ -5,6 +5,8 @@ import { FIXED_NOW } from "../migrate.worker.helpers";
 import { SERVICE_ROLE_PASSWORDS } from "../service-role-passwords";
 import { provisionServiceRoles } from "../../src/service-roles";
 import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTarget } from "./prisma-postgres";
+import { migratorDsn, migratorRole } from "./prisma-role";
+import { settleTeardown } from "./teardown";
 import {
   QUOTED_SERVICE_ROLES, roleBootTest, roleBootCluster, serviceRoleMembershipCount,
 } from "./role-boot";
@@ -21,6 +23,10 @@ import {
 
 const NO_PRIVILEGES = Object.fromEntries(["agent_svc", "catalog_svc", "jobs_svc", "readonly", "users_svc"].flatMap((role) =>
   ["rolsuper", "rolcreaterole", "rolcreatedb", "rolbypassrls"].map((flag) => [`${role}.${flag}`, false])));
+
+/** The arm's own probe role and the grantor a foreign membership is recorded against. */
+const PROBE = "membership_probe";
+const PROBE_GRANTOR = "membership_probe_grantor";
 
 let caseTarget: PrismaMigrationTarget | undefined;
 let caseNumber = 0;
@@ -48,26 +54,45 @@ roleBootTest.beforeEach(async ({ roleBoot }) => {
   servePrismaPostgres(caseTarget.dsn);
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterEach(async () => {
-  await admin?.end();
-  await caseTarget?.stop();
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
+  try {
+    await settleTeardown([async () => admin?.end(), async () => caseTarget?.stop()]);
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
 });
 
-/** Remove the probe role and every edge touching it, present or not: the membership case's
- * setup and its `finally` both run this, so no run of the file leaves the role behind. The
- * probe is this arm's own creation, so its cleanup is this arm's, not the fixture's. */
+/** Remove the probe role and every edge touching it, present or not: each membership case's
+ * `finally` runs this, so no run of the file leaves the role behind. The probe is this arm's
+ * own creation, so its cleanup is this arm's, not the fixture's. */
 async function dropMembershipProbe(client: pg.Client): Promise<void> {
   await client.query(`DO $plain$ DECLARE edge record; BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'membership_probe') THEN RETURN; END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PROBE}') THEN RETURN; END IF;
     FOR edge IN SELECT g.rolname AS granted, m.rolname AS member FROM pg_auth_members a
       JOIN pg_roles g ON g.oid = a.roleid JOIN pg_roles m ON m.oid = a.member
-     WHERE g.rolname = 'membership_probe' OR m.rolname = 'membership_probe'
+     WHERE g.rolname = '${PROBE}' OR m.rolname = '${PROBE}'
     LOOP
       EXECUTE format('REVOKE %I FROM %I', edge.granted, edge.member);
     END LOOP;
-    EXECUTE 'DROP ROLE membership_probe';
+    EXECUTE 'DROP ROLE ${PROBE}';
   END $plain$`);
+}
+
+/** A membership whose recorded grantor is not the role the step's SQL runs as. PostgreSQL 16+
+ * removes on REVOKE only the edges the revoking role granted, so this edge survives the step's
+ * loop — the fact its fail-closed check reads. `GRANTED BY` records the foreign grantor without
+ * a second session, and the grantor's ADMIN OPTION is what lets cleanup reach the edge after
+ * the check has refused provisioning. */
+async function grantForeignMembership(client: pg.Client): Promise<void> {
+  await client.query(`CREATE ROLE ${PROBE} NOLOGIN; CREATE ROLE ${PROBE_GRANTOR} NOLOGIN`);
+  await client.query(`GRANT ${PROBE} TO ${PROBE_GRANTOR} WITH ADMIN OPTION`);
+  await client.query(`GRANT ${PROBE} TO catalog_svc GRANTED BY ${PROBE_GRANTOR}`);
+}
+
+async function dropForeignMembership(client: pg.Client): Promise<void> {
+  await client.query(`REVOKE ADMIN OPTION FOR ${PROBE} FROM ${PROBE_GRANTOR} CASCADE`);
+  await client.query(`DROP ROLE IF EXISTS ${PROBE_GRANTOR}`);
+  await dropMembershipProbe(client);
 }
 
 async function roleFacts(): Promise<{ rolname: string; rolcanlogin: boolean }[]> {
@@ -87,14 +112,48 @@ async function privilegeFlags(): Promise<Record<string, boolean>> {
 roleBootTest("revokes a membership that arrives from outside the step", async ({ roleBoot }) => {
   await roleBoot.hold(async () => {
     await dropMembershipProbe(adminSession());
-    await adminSession().query("CREATE ROLE membership_probe NOLOGIN");
-    await adminSession().query("GRANT membership_probe TO catalog_svc");
+    await adminSession().query(`CREATE ROLE ${PROBE} NOLOGIN`);
+    await adminSession().query(`GRANT ${PROBE} TO catalog_svc`);
   });
   try {
     await roleBoot.hold(() => provisionServiceRoles(targetDsn(), SERVICE_ROLE_PASSWORDS));
     expect(await serviceRoleMembershipCount(adminSession())).toBe(0);
   } finally {
     await roleBoot.hold(async () => { await dropMembershipProbe(adminSession()); });
+  }
+});
+
+roleBootTest("refuses to provision while a membership its authority did not grant remains", async ({ roleBoot }) => {
+  await roleBoot.hold(() => grantForeignMembership(adminSession()));
+  try {
+    const refused = await roleBoot.hold(() => provisionServiceRoles(targetDsn(), SERVICE_ROLE_PASSWORDS)
+      .then(() => undefined, (error: unknown) => error));
+    const message = String(refused);
+    expect(message).toContain("catalog_svc");
+    expect(message).toContain(PROBE);
+    expect(message).toContain(PROBE_GRANTOR);
+    expect(message).toContain("cannot revoke");
+    expect(await serviceRoleMembershipCount(adminSession())).toBe(1);
+  } finally {
+    await roleBoot.hold(() => dropForeignMembership(adminSession()));
+  }
+});
+
+roleBootTest("revokes a membership the migrator's own authority granted", async ({ roleBoot }) => {
+  await roleBoot.hold(async () => {
+    await migratorRole(adminSession(), targetDsn());
+    await adminSession().query(`CREATE ROLE ${PROBE} NOLOGIN`);
+    await adminSession().query(`GRANT ${PROBE} TO neon_superuser WITH ADMIN OPTION`);
+    await adminSession().query(`GRANT ${PROBE} TO catalog_svc GRANTED BY neon_superuser`);
+  });
+  try {
+    await roleBoot.hold(() => provisionServiceRoles(migratorDsn(targetDsn()), SERVICE_ROLE_PASSWORDS));
+    expect(await serviceRoleMembershipCount(adminSession())).toBe(0);
+  } finally {
+    await roleBoot.hold(async () => {
+      await adminSession().query(`REVOKE ADMIN OPTION FOR ${PROBE} FROM neon_superuser CASCADE`);
+      await dropMembershipProbe(adminSession());
+    });
   }
 });
 

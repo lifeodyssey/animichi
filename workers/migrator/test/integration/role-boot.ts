@@ -73,7 +73,9 @@ async function assertBootState(adminDsn: string): Promise<void> {
 }
 
 /** The boot state again: memberships revoked, attributes and the login bit back to the boot
- * matrix, passwords dropped. A write, so it runs inside the turn. */
+ * matrix, passwords dropped, expiry normalised to "never" (PostgreSQL's `VALID UNTIL` takes a
+ * timestamp, not NULL, so a boot row and a restored row both read as no expiry). A write, so
+ * it runs inside the turn. */
 async function restoreBootState(adminDsn: string): Promise<void> {
   const client = new pg.Client(adminDsn);
   await client.connect();
@@ -86,7 +88,7 @@ async function restoreBootState(adminDsn: string): Promise<void> {
                    WHERE member.rolname IN (${QUOTED_SERVICE_ROLES})
       LOOP EXECUTE format('REVOKE %I FROM %I', edge.granted_role, edge.member_role); END LOOP;
       FOREACH role_name IN ARRAY ARRAY[${QUOTED_SERVICE_ROLES}]::text[] LOOP
-        EXECUTE format('ALTER ROLE %I WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION PASSWORD NULL', role_name);
+        EXECUTE format('ALTER ROLE %I WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION PASSWORD NULL VALID UNTIL ''infinity''', role_name);
       END LOOP;
     END $plain$`);
   } finally {

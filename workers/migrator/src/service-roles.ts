@@ -50,8 +50,12 @@ BEGIN
 END $$`;
 
 /** The staging defect this card removes was a membership, not an attribute: the API-created
- * roles sat in `neon_superuser`. Whatever any other hand granted to the five is revoked by
- * name on every run, so the guarantee does not depend on how the roles arrived. */
+ * roles sat in `neon_superuser`. This loop revokes every edge touching the five by name, but
+ * PostgreSQL 16+ records each membership's grantor, and a REVOKE removes only the edges the
+ * revoking role granted. The migrator holds its ADMIN OPTION on the five through
+ * `neon_superuser`, so it revokes as that group: an edge granted by any other hand — staging's
+ * came from `cloud_admin` — survives this loop with a warning. The check below turns a
+ * survivor into a failure, which is what keeps the chain off the database. */
 const REVOKE_MEMBERSHIPS = `DO $$
 DECLARE
   edge record;
@@ -66,6 +70,29 @@ BEGIN
     EXECUTE format('REVOKE %I FROM %I', edge.granted_role, edge.member_role);
   END LOOP;
 END $$`;
+
+/** The fail-closed half, in the same transaction as the revokes above: an edge the revoking
+ * role did not grant is still there, so raising rolls the whole step back — the chain after it
+ * never runs against a service role that carries a membership. The message names the member,
+ * the role it is a member of and the grantor that must revoke it, because none of the three is
+ * something the migrator can act on. */
+const ASSERT_MEMBERSHIPS_REVOKED = `DO $plain$
+DECLARE
+  edge record;
+BEGIN
+  FOR edge IN
+    SELECT granted.rolname AS granted_role, member.rolname AS member_role, grantor.rolname AS grantor_role
+      FROM pg_auth_members membership
+      JOIN pg_roles granted ON granted.oid = membership.roleid
+      JOIN pg_roles member ON member.oid = membership.member
+      JOIN pg_roles grantor ON grantor.oid = membership.grantor
+     WHERE member.rolname IN (${ROLE_NAME_LIST})
+  LOOP
+    RAISE EXCEPTION
+      'role % is still a member of role % after REVOKE; it was granted by %, and % cannot revoke a membership it did not grant',
+      edge.member_role, edge.granted_role, edge.grantor_role, current_user;
+  END LOOP;
+END $plain$`;
 
 /**
  * Reset the five roles' attribute matrix, but state only what differs: PostgreSQL 18 lets a
@@ -103,11 +130,13 @@ END
 $plain$`;
 
 /** `ALTER ROLE … PASSWORD` takes an SQL literal, not a bind parameter, so the value is
- * doubled-quote escaped; RandomPassword emits no quotes, this is the belt for those braces. */
+ * doubled-quote escaped; RandomPassword emits no quotes, this is the belt for those braces.
+ * `VALID UNTIL 'infinity'` rides along: an expiry a foreign hand moved into the past would
+ * otherwise leave the role unable to log in with the password this step just repaired. */
 const sqlLiteral = (value: string): string => value.replaceAll("'", "''");
 
 const setPasswordStatement = (role: string, password: string): string =>
-  `ALTER ROLE ${role} PASSWORD '${sqlLiteral(password)}'`;
+  `ALTER ROLE ${role} PASSWORD '${sqlLiteral(password)}' VALID UNTIL 'infinity'`;
 
 /**
  * True when `role` can open a session with `password` right now — the one fact the DSN
@@ -147,7 +176,7 @@ async function stalePasswordStatements(baseDsn: string, passwords: RuntimeRolePa
 export async function provisionServiceRoles(dsn: string, passwords: RuntimeRolePasswords): Promise<void> {
   const sql = neon(dsn);
   const statements = [
-    ENSURE_ROLES_EXIST, REVOKE_MEMBERSHIPS, RESET_ROLE_ATTRIBUTES,
+    ENSURE_ROLES_EXIST, REVOKE_MEMBERSHIPS, ASSERT_MEMBERSHIPS_REVOKED, RESET_ROLE_ATTRIBUTES,
     ...await stalePasswordStatements(dsn, passwords),
   ];
   await sql.transaction<false, false>(statements.map((statement) => sql.query(statement)));

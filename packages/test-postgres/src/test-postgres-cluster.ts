@@ -127,11 +127,22 @@ export interface OwnedPostgresCluster extends TestPostgresCluster {
   stop(): Promise<void>;
 }
 
+/** Release the container nobody has a handle to yet, then rethrow what stopped the boot: the
+ * readiness failure is what the caller must see, not a stop failure stacked on it. */
+async function stopAfterFailedStart(container: StartedTestContainer, error: unknown): Promise<never> {
+  await container.stop().catch(() => undefined);
+  throw error;
+}
+
 export async function startOwnedPostgresCluster(request: TestPostgresClusterRequest): Promise<OwnedPostgresCluster> {
   const deadline = new SetupDeadline(request.budget);
   const container = await bootContainer(deadline, false);
   const adminDsn = adminDsnOf(container);
-  await awaitSessions(adminDsn, deadline);
+  try {
+    await awaitSessions(adminDsn, deadline);
+  } catch (error) {
+    return stopAfterFailedStart(container, error);
+  }
   return { adminDsn, stop: async () => { await container.stop(); } };
 }
 

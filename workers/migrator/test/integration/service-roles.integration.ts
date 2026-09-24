@@ -4,6 +4,7 @@ import { hookTimeoutMs, SERVICE_ROLES, SPIKE_SETUP_BUDGET } from "@animichi/test
 import { FIXED_NOW } from "../migrate.worker.helpers";
 import { SERVICE_ROLE_PASSWORDS } from "../service-role-passwords";
 import { provisionServiceRoles } from "../../src/service-roles";
+import { settleTeardown } from "./teardown";
 import { APP_MIGRATION_COUNT, nativeApp, TARGET } from "./prisma-fixture";
 import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTarget } from "./prisma-postgres";
 import { QUOTED_SERVICE_ROLES, roleBootTest, roleBootCluster, serviceRoleMembershipCount } from "./role-boot";
@@ -46,10 +47,12 @@ roleBootTest.beforeEach(async ({ roleBoot }) => {
   servePrismaPostgres(caseTarget.dsn);
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 afterEach(async () => {
-  await admin?.end();
-  await caseTarget?.stop();
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
+  try {
+    await settleTeardown([async () => admin?.end(), async () => caseTarget?.stop()]);
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
 });
 
 async function roleFacts(): Promise<{ rolname: string; rolcanlogin: boolean; rolpassword: string | null }[]> {
@@ -93,6 +96,14 @@ roleBootTest("changes no compared pg_authid column on a second run with the same
   await roleBoot.hold(() => provisionServiceRoles(targetDsn(), SERVICE_ROLE_PASSWORDS));
   expect(await roleFacts()).toEqual(before);
   expect(await serviceRoleMembershipCount(adminSession())).toBe(0);
+});
+
+roleBootTest("restores a login whose bound password had arrived expired", async ({ roleBoot }) => {
+  await roleBoot.hold(() => adminSession().query(
+    `ALTER ROLE catalog_svc WITH LOGIN PASSWORD '${SERVICE_ROLE_PASSWORDS.catalogSvc}' VALID UNTIL 'yesterday'`));
+  expect(await loginSucceeds(targetDsn(), "catalog_svc", SERVICE_ROLE_PASSWORDS.catalogSvc)).toBe(false);
+  await roleBoot.hold(() => provisionServiceRoles(targetDsn(), SERVICE_ROLE_PASSWORDS));
+  expect(await loginSucceeds(targetDsn(), "catalog_svc", SERVICE_ROLE_PASSWORDS.catalogSvc)).toBe(true);
 });
 
 roleBootTest("applies a changed bound password and retires the old one", async ({ roleBoot }) => {

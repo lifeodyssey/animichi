@@ -182,14 +182,18 @@ roleDefs.forEach((def, i) => {
 // `migrator` stays a Neon-API role — the one role left on this provider: the
 // chain needs `neon_superuser`-grade power for `CREATE EXTENSION`
 // (spec §4.8.5), and Neon grants that grade only through its API. The secret is
-// deliberately NEVER bound by any runtime Worker or container env allowlist —
-// it exists for the migration executor alone, and that isolation is
-// machine-asserted (migrator-role-isolation contract test).
+// a Secrets Store binding the migrator Worker resolves at apply time
+// (`MIGRATOR_DATABASE_URL` in workers/migrator/wrangler.toml, both
+// environments), and the restriction is against a *runtime* Worker binding: no
+// catalog/users/edge Worker's environment carries it, which is what the
+// migrator-role-isolation contract test asserts. (An earlier revision said the
+// value was accessible only to the migration container; the container retired
+// with the wrangler v3 tag and the binding is the live shape, #1915.)
 //
 // Minimization is behavioral, three rules:
 //  (1) single-purpose — it is never a runtime DSN for any service;
-//  (2) non-resident — injected only into the migration container for the
-//      seconds it runs, present in no Worker's standing environment;
+//  (2) non-resident — a Secrets Store binding the migrator Worker resolves for
+//      the seconds of an apply, present in no runtime Worker's environment;
 //  (3) independently rotatable — a Neon role password unentangled from every
 //      runtime credential (rotation path per ADR 0003).
 //

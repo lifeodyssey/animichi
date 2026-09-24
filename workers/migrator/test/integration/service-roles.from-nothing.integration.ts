@@ -9,6 +9,7 @@ import {
 } from "@animichi/test-postgres";
 import { APP_MIGRATION_COUNT, nativeApp, TARGET } from "./prisma-fixture";
 import { openPrismaMigrationTarget, servePrismaPostgres, type PrismaMigrationTarget } from "./prisma-postgres";
+import { settleTeardown } from "./teardown";
 import { QUOTED_SERVICE_ROLES } from "./role-boot";
 
 /* AC1/AC2's from-nothing proof, on a container of its own. The shared cluster's boot creates
@@ -52,9 +53,7 @@ beforeAll(async () => {
 }, hookTimeoutMs(SPIKE_SETUP_BUDGET));
 
 afterAll(async () => {
-  await admin?.end();
-  await target?.stop();
-  await cluster?.stop();
+  await settleTeardown([async () => admin?.end(), async () => target?.stop(), async () => cluster?.stop()]);
 });
 
 it("creates all five service roles from nothing, and the chain's precheck passes on them", async () => {
