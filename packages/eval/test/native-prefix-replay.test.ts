@@ -52,7 +52,8 @@ void test('a branch-scope fork silently drops the required application scalar an
   });
 });
 
-void test('the 0.87.1 tree fork carries recorded list elements, and no copier drops them', async () => {
+// Contract: this pins the JSONL backend's tree fork, which since 0.87.1 carries list elements — production's Neon fork does not carry list elements.
+void test('the 0.87.1 tree fork carries recorded list elements', async () => {
   await withRecordedCorpus(async (replay, corpus) => {
     const source = await replay.openSource(caseNamed(corpus, CASE), BACKGROUND_CONTEXT);
     const address = list<string>('animichi.test.list');

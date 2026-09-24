@@ -58,7 +58,7 @@ void test('every intended boundary has its own frozen source with the provenance
     assert.deepEqual(corpus.cases.map((entry) => entry.name), canonical.map((entry) => entry.id));
     for (const entry of corpus.cases) {
       const recording = entry.metadata.recording;
-      assert.deepEqual([recording.sdk, recording.model, recording.commit], ['0.85.1', 'faux-model', 'tested-commit']);
+      assert.deepEqual([recording.sdk, recording.model, recording.commit], ['0.87.1', 'faux-model', 'tested-commit']);
       assert.equal(recording.boundary, entry.inputs.prefix.boundary);
       assert.equal(entry.inputs.prefix.session_id, entry.name);
       const source = await replay.openSource(entry, BACKGROUND_CONTEXT);

@@ -1,4 +1,4 @@
-// The npm aliases isolate this 0.85.1 spike from the production 0.84.4 runtime.
+// The npm aliases pin this 0.87.1 spike to exact published packages, independent of production's catalog resolution.
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { AgentHarness, MemorySessionRepo } from "pi-agent-core-smoke";
 import { createModels, fauxProvider } from "pi-ai-smoke";
