@@ -84,6 +84,8 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
     replays.push(route.request().url());
     return route.fulfill({ json: { messages: [], revision: 1, next_offset: null } });
   });
+  await page.route(`**/v1/conversations/${RECORDING_SESSION_ID}/stream`, (route) =>
+    route.fulfill({ status: 204 }));
 
   await page.goto("/");
   await openChat(page, QUERY);
@@ -98,4 +100,44 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
   await solveChallenge(page);
   await expect.poll(() => replays.length).toBe(1);
   expect(bodies).toHaveLength(1);
+});
+
+/**
+ * #1901 AC4: the window the card exists for. The hero answer has NOT landed
+ * when the visitor goes Back and Forward — the POST's response is still held.
+ * The page minted the conversation id before sending, so the address already
+ * carries `?session=`, and the Forward leg reattaches with the reconnect GET
+ * instead of asking again: exactly one request body to `/v1/chat`, and the
+ * answer appears from the reconnected stream.
+ */
+test("Back then Forward before the answer lands reattaches to the same answer", { tag: "@browser" }, async ({ page }) => {
+  const bodies: unknown[] = [];
+  const reconnects: string[] = [];
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/v1/chat", async (route) => {
+    bodies.push(route.request().postDataJSON());
+    await held;
+    return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
+  });
+  await page.route("**/v1/conversations/*/stream", (route) => {
+    reconnects.push(route.request().url());
+    return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
+  });
+  await page.route("**/v1/conversations/*/messages", (route) =>
+    route.fulfill({ json: { messages: [], revision: 1, next_offset: null } }));
+
+  await page.goto("/");
+  await openChat(page, QUERY);
+  await solveChallenge(page);
+  await expect.poll(() => bodies.length).toBe(1);
+  await expect(page).toHaveURL(/[?&]session=[0-9a-f-]{36}(&|$)/u);
+
+  await page.goBack();
+  await page.goForward();
+  await solveChallenge(page);
+  await expect.poll(() => reconnects.length).toBe(1);
+  expect(bodies).toHaveLength(1);
+  await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。").first()).toBeVisible();
+  release();
 });

@@ -3,6 +3,7 @@
  */
 import { renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackendHealth } from "../../../src/features/chat/use-backend-health";
@@ -75,20 +76,28 @@ describe("A2 auto-send health gate", () => {
   });
 
   /**
-   * #1512 AC1. `useAutoSend` fires once per mounted instance, and its guard is
-   * a ref — a REMOUNT gets a fresh one. What keeps this visit to a single turn
-   * is the gate in front of it: the first instance leaves while `/healthz` is
-   * still unanswered, so it never sent, and the probe answers into the second
-   * one alone. Both mounts share this visit's query cache, exactly as they
-   * share the app's (`src/router.tsx`), which is what makes that the real
-   * ordering rather than a harness artefact.
+   * #1512 AC1, re-mechanised by #1901. The first mount mints the session id
+   * into the address bar while the probe is still pending, so the REMOUNT
+   * reads `?session=` back and reconnects instead of auto-sending. The
+   * reconnect's 404 — nothing ever reached the edge — is what sends the hero
+   * query, and it waits on the same health gate the first send did. One POST
+   * across both mounts, exactly as before.
+   *
+   * Both mounts share this visit's query cache, exactly as they share the
+   * app's (`src/router.tsx`), which is what makes that the real ordering
+   * rather than a harness artefact.
    *
    * A turn here is a POST to the chat endpoint: the AI SDK's `submit-message`.
    */
   it("sends ?q= once when the page remounts while the health probe is still pending", async () => {
     const turns: string[] = [];
     const probe = healthzControlledHandler();
-    server.use(probe.handler, chatStreamHandler("search", { spy: (request) => turns.push(request.url) }));
+    server.use(
+      probe.handler,
+      chatStreamHandler("search", { spy: (request) => turns.push(request.url) }),
+      http.get("*/v1/conversations/:sessionId/stream", () => new HttpResponse(null, { status: 404 })),
+      http.get("*/v1/conversations/:sessionId/messages", () => new HttpResponse(null, { status: 404 })),
+    );
     const visit = chatNavigation(chatSearch({ q: "ハルヒ" }), false);
 
     visit.mount().unmount();

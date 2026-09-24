@@ -5,6 +5,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/contex
 import type { Env } from "../env.ts";
 import { ownsConversation } from "../agent/admission/session-owner.ts";
 import { conversationNotFound } from "./agent-turn-responses.ts";
+import { canonicalConversationId } from "./conversation-id.ts";
 
 /** Authorize and discover existing native work before waking its host. This route never admits work. */
 export async function nativeStreamResponse(env: Env, request: Request, identityId: string, sessionId: string): Promise<Response> {
@@ -29,7 +30,7 @@ export async function nativeStreamResponse(env: Env, request: Request, identityI
 }
 
 function validStreamLookup(sessionId: string, requested: string | null) {
-  return /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(sessionId)
+  return canonicalConversationId(sessionId)
     && (requested === null || (requested.length > 0 && requested.length <= 200));
 }
 

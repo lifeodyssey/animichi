@@ -11,6 +11,7 @@ const ANON: { userId: string; userType: string } = {
   userId: "anon_0123456789abcdef0123456789abcdef",
   userType: "anonymous",
 };
+const SESSION = "01992000-0000-7000-8000-000000001546";
 const BODY = JSON.stringify({ messages: [{ role: "user", parts: [{ type: "text", text: "秩父へ" }] }] });
 
 function chatRequest(headers: Record<string, string> = {}): Request {
@@ -23,10 +24,10 @@ async function body(response: Response): Promise<Record<string, unknown>> {
 
 void test("the submission carries the named conversation, the dedupe key and the anonymous payer", async () => {
   const submission = await submissionOf(
-    chatRequest({ "x-session-id": "s-7", "x-turn-id": "t-9" }), ANON, "ja",
+    chatRequest({ "x-session-id": SESSION, "x-turn-id": "t-9" }), ANON, "ja",
   );
   assert.deepEqual(submission, {
-    sessionId: "s-7",
+    sessionId: SESSION,
     identityId: ANON.userId,
     payer: "anon",
     clientMessageId: "t-9",
@@ -53,6 +54,17 @@ void test("a signed-in submission is billed to the member payer, never the anony
 void test("an oversized session id is refused rather than written as a primary key", async () => {
   await assert.rejects(
     submissionOf(chatRequest({ "x-session-id": "s".repeat(201) }), ANON, "ja"),
+    (error: unknown) => error instanceof ChatEnvelopeError && error.refusal === "invalid_body",
+  );
+});
+
+// #1901 AC5: the page mints the id before it sends, and the reconnect GET
+// accepts only the canonical UUID shape — so the POST refuses any other shape
+// with the same refusal a bad header key gets, instead of creating a
+// conversation its own reconnect route cannot read.
+void test("a session id that is not a canonical UUID is refused like a bad header key", async () => {
+  await assert.rejects(
+    submissionOf(chatRequest({ "x-session-id": "s-7" }), ANON, "ja"),
     (error: unknown) => error instanceof ChatEnvelopeError && error.refusal === "invalid_body",
   );
 });
