@@ -2,7 +2,7 @@
 
 module OrcaHeadless
   module ResponseVerifier
-    EXPECTED_VERSION = "1.4.200".freeze
+    EXPECTED_VERSION = "1.4.206".freeze
     REQUIRED_CAPABILITIES = ["terminal.create-idempotency.v2", "orchestration.contract.v1"].freeze
     module_function
 
