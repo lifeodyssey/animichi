@@ -43,12 +43,12 @@ may mirror the latest progress; it is not a threaded review record.
 ## Current workers and future pool
 This flow supersedes OpenCode-only Policy C. The roster (owner, 2026-09-24):
 GLM and DeepSeek write and review each other; Kimi writes visible UI and reviews
-a candidate that both wrote.
+a candidate that both wrote; GLM or DeepSeek reviews a candidate Kimi wrote.
 
 | Role | Current launch | Ownership |
 |---|---|---|
 | Developer / fixer | Fresh GLM or DeepSeek session | Use `/implement` in the assigned worktree; leave Git publication to the coordinator |
-| Reviewer | The writer's counterpart — DeepSeek reviews a GLM candidate, GLM reviews a DeepSeek candidate; Kimi reviews a candidate both wrote | Use Matt `/code-review` as required in the prompt; return findings and evidence |
+| Reviewer | The writer's counterpart — DeepSeek reviews a GLM candidate, GLM reviews a DeepSeek candidate; Kimi reviews a candidate both wrote; GLM or DeepSeek reviews a Kimi candidate | Use Matt `/code-review` as required in the prompt; return findings and evidence |
 | Coordinator | The dispatching Orca coordinator session | Admission, dispatch, evidence, candidate commits, PR feedback, merge, and recovery |
 
 The reviewer's effective model must differ from the models that wrote the current

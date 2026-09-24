@@ -66,9 +66,9 @@ splitting kept the pipeline blocked.
 ## Review before the PR opens (owner, 2026-09-24)
 
 GLM and DeepSeek review each other's work; kimi reviews a candidate that both of them wrote;
-no Claude model reviews (owner, 2026-09-24). A PR opens only after a review seat on a model
-different from every model that wrote the candidate has approved its head, and the body
-carries `Review: APPROVE at <sha>`.
+GLM or DeepSeek reviews a candidate kimi wrote; no Claude model reviews (owner, 2026-09-24).
+A PR opens only after a review seat on a model different from every model that wrote the
+candidate has approved its head, and the body carries `Review: APPROVE at <sha>`.
 
 ## Review rounds: what does and does not consume one (owner, 2026-09-18)
 
