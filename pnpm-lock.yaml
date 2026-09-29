@@ -294,7 +294,8 @@ overrides:
   nanoid: 3.3.18
   testcontainers>undici: 8.10.2
   miniflare>undici: 7.29.1
-  jsdom>undici: 7.29.1
+  jsdom@29>undici: 7.29.1
+  jsdom@30>undici: 8.10.2
   '@ai-sdk/provider-utils>undici': 7.29.1
   alchemy>undici: 7.29.1
   node-gyp>undici: 6.28.1
@@ -18780,7 +18781,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.2
-      undici: 7.29.1
+      undici: 8.10.2
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
