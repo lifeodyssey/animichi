@@ -36,7 +36,9 @@ export {
   clusterAdminDsn,
   POSTGRES_PASSWORD,
   POSTGRES_USER,
+  startOwnedPostgresCluster,
   startTestPostgresCluster,
+  type OwnedPostgresCluster,
   type TestPostgresCluster,
   type TestPostgresClusterRequest,
 } from "./test-postgres-cluster.ts";

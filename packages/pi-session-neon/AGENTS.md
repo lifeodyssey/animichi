@@ -36,7 +36,7 @@ loader reads exactly one contract source file (a directory path fails `CONTRACT.
 / `EISDIR`) and its 315 non-comment lines cannot be formatted under the cap. No other path is
 exempt: every other handwritten file in the package remains subject to that cap.
 
-The contract stores published Pi 0.85.1 `Entry`, `UsageRow` and `SessionMetadata` directly.
+The contract stores published Pi 0.87.1 `Entry`, `UsageRow` and `SessionMetadata` directly.
 Do not create a custom Session, transcript converter, TurnStore or operation state machine.
 The public entry exports `NeonStorage` and `NeonSessionRepo`, accepting native
 `PostgresClient<Contract>`; the caller owns its lifecycle. All ten public conformance factories

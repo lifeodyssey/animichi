@@ -1,13 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
-import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxToolCall, type JsonObject } from "@earendil-works/pi-ai";
 import { respond, searchBangumi, searchNearby, projectPilgrimage } from "@animichi/agent/tools";
 import { fixture, harnessFor } from "./native-tool-fixture.ts";
 
 const point = { id: "1", name: "Station", bangumi_id: "1", screenshot_url: "https://image.anitabi.cn/a.jpg", latitude: 35, longitude: 139, city: "Uji" };
 
-for (const scenario of [{ name: "search_nearby", args: {}, tools: [searchNearby, respond] }, { name: "search_bangumi", args: { bangumi_id: "1" }, tools: [searchBangumi, respond] }]) {
+interface ToolScenario { name: string; args: JsonObject; tools: Parameters<typeof harnessFor>[2] }
+const scenarios: readonly ToolScenario[] = [{ name: "search_nearby", args: {}, tools: [searchNearby, respond] }, { name: "search_bangumi", args: { bangumi_id: "1" }, tools: [searchBangumi, respond] }];
+
+for (const scenario of scenarios) {
   void test(`a ${scenario.name} response preserves actual points and localized display data`, async () => {
     const { repo, session, toolContext } = await fixture(() => Promise.resolve(Response.json({ rows: [point], synced_at: "today", partial: false })));
     toolContext.origin = { lat: 35, lng: 139 };

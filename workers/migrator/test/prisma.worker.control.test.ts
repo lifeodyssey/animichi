@@ -10,11 +10,19 @@ const ledger = vi.hoisted(() => ({ stranded: vi.fn() }));
 vi.mock("../src/atlas-leftovers", async (original) => ({
   ...await original<typeof import("../src/atlas-leftovers")>(), carriesAtlasLeftovers: ledger.stranded,
 }));
+// #1915 — these tests judge the Prisma control boundary; the provisioning step beside it has
+// its own suites, and its Neon HTTP batch would otherwise leave the mocked boundary.
+const roles = vi.hoisted(() => ({ provision: vi.fn() }));
+vi.mock("../src/service-roles", async (original) => ({
+  ...await original<typeof import("../src/service-roles")>(),
+  provisionServiceRoles: roles.provision,
+}));
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW });
   vi.resetAllMocks();
+  roles.provision.mockResolvedValue(undefined);
   native.show.mockResolvedValue({ ok: true, value: { migrations: [], renderMarkerHashBySpace: new Map([["app", TARGET]]), usedLiveMarker: true } });
   native.migrate.mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
   ledger.stranded.mockResolvedValue(false);
@@ -142,8 +150,8 @@ it("names a thrown connection failure without its connection string, and still c
   const response = await (await nativeApp(DSN)).migrate();
   expect(response.status).toBe(500);
   expect(await response.json()).toEqual({ success: false, exitCode: 1,
-    error: "migration_unavailable", cause: "refused postgresql://[redacted]" });
-  expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply threw: refused postgresql://[redacted]");
+    error: "migration_unavailable", cause: "migratePrisma: refused postgresql://[redacted]" });
+  expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply threw: migratePrisma: refused postgresql://[redacted]");
   expect(native.close).toHaveBeenCalledOnce();
 });
 

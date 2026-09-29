@@ -2,8 +2,9 @@ import { ATLAS_LEFTOVERS_PRESENT, carriesAtlasLeftovers } from "./atlas-leftover
 import { assertDirectDsn } from "./direct-dsn";
 import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
-import { migratePrisma, previewPrisma, type NativeFailure, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
+import { migratePrisma, previewPrisma, type NativeFailure, type NativeResult, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
 import { redactedCause } from "./redacted-cause";
+import { provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
 
 /**
  * The migrator's whole apply path. One authority — the Prisma migration graph — decides what
@@ -27,25 +28,35 @@ export type SelectedMigration = MigrationResult & {
   /** A public native code or a local stable code; never a driver message. */
   failureCode?: string;
   /**
-   * Why the apply failed, already through `redactedCause`: what a THROWN failure threw (#1868),
-   * or what Prisma REPORTED beyond its failure code (#1891). Outcomes that state nothing beyond
-   * their identity — `refused`, a code-only native failure, `prisma_marker_mismatch` — carry it
-   * in `failureCode` and leave this absent.
+   * Why the apply failed, already through `redactedCause`: what a THROWN failure threw, prefixed
+   * with the sub-step that threw it (#1868, #1915), or what Prisma REPORTED beyond its failure
+   * code (#1891). Outcomes that state nothing beyond their identity — `refused`, a code-only
+   * native failure, `prisma_marker_mismatch` — carry it in `failureCode` and leave this absent.
    */
   cause?: string;
 };
 export interface SelectedExecutor {
   preflight(dsn: string, metadata: SelectedMetadata): Promise<SelectedPreflight>;
-  migrate(dsn: string, metadata: SelectedMetadata): Promise<SelectedMigration>;
+  migrate(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata): Promise<SelectedMigration>;
+}
+
+/**
+ * One sub-step's failure, attributed (#1915): the stable `migration_unavailable` code says the
+ * apply threw, and the message prefix says WHERE. The prefix is composed after `redactedCause`
+ * because a driver message can carry the DSN's password; the prefixed line is what both the
+ * one log line and the route's `cause` field carry.
+ */
+async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
+  try { return await work(); }
+  catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
 }
 
 async function checkSelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedPreflight> {
-  assertDirectDsn(dsn);
-  if (!await hasPrismaSnapshot(metadata.expectedPrismaRef, directory)) {
-    return { compatible: false, error: "stale_prisma_bundle" };
-  }
-  if (await carriesAtlasLeftovers(dsn)) return { compatible: false, error: ATLAS_LEFTOVERS_PRESENT };
-  const native = await previewPrisma(dsn, metadata.expectedPrismaRef, directory);
+  await named("assertDirectDsn", () => { assertDirectDsn(dsn); });
+  const bundled = await named("hasPrismaSnapshot", () => hasPrismaSnapshot(metadata.expectedPrismaRef, directory));
+  if (!bundled) return { compatible: false, error: "stale_prisma_bundle" };
+  if (await named("carriesAtlasLeftovers", () => carriesAtlasLeftovers(dsn))) return { compatible: false, error: ATLAS_LEFTOVERS_PRESENT };
+  const native = await named("previewPrisma", () => previewPrisma(dsn, metadata.expectedPrismaRef, directory));
   return native.ok ? { compatible: true, prisma: native.value } : { compatible: false, error: native.error };
 }
 
@@ -57,6 +68,23 @@ export async function preflightSelected(dsn: string, metadata: SelectedMetadata,
 
 function nativeFailure(code: string): SelectedMigration {
   return { kind: "failure", exitCode: 1, error: code, failureCode: code };
+}
+
+/**
+ * #1915 — the service roles are this Worker's to provision, by SQL, before the chain's
+ * precheck can assume them. A failure here is its own verdict: the chain must not run, and
+ * the cause crossed `redactedCause` first because the statements it may quote carry the
+ * runtime roles' passwords.
+ */
+async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Promise<SelectedMigration | undefined> {
+  try {
+    await provisionServiceRoles(dsn, passwords);
+    return undefined;
+  } catch (error) {
+    const cause = redactedCause(error);
+    console.error(`[migrator] service role provisioning failed: ${cause}`);
+    return { ...nativeFailure("service_role_provisioning_failed"), cause };
+  }
 }
 
 /**
@@ -82,17 +110,22 @@ function thrownDuringApply(error: unknown): SelectedMigration {
   return { ...nativeFailure("migration_unavailable"), cause };
 }
 
-async function applySelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedMigration> {
-  const preview = await checkSelected(dsn, metadata, directory);
-  if (!preview.compatible) return { kind: "refused", reason: preview.error };
-  const native = await migratePrisma(dsn, metadata.expectedPrismaRef, directory);
+function receiptOf(native: NativeResult<PrismaReceipt>, expectedRef: string): SelectedMigration {
   if (!native.ok) return reportedDuringApply(native);
-  if (native.value.markerHash !== metadata.expectedPrismaRef) return nativeFailure("prisma_marker_mismatch");
+  if (native.value.markerHash !== expectedRef) return nativeFailure("prisma_marker_mismatch");
   return { kind: "success", exitCode: 0, prisma: native.value };
 }
 
+async function applySelected(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata, directory: string): Promise<SelectedMigration> {
+  const preview = await checkSelected(dsn, metadata, directory);
+  if (!preview.compatible) return { kind: "refused", reason: preview.error };
+  const provisioning = await provisionRoles(dsn, passwords);
+  if (provisioning !== undefined) return provisioning;
+  return receiptOf(await named("migratePrisma", () => migratePrisma(dsn, metadata.expectedPrismaRef, directory)), metadata.expectedPrismaRef);
+}
+
 /** Recheck the identity after acquiring the lock; a prior preview is no authority. */
-export async function migrateSelected(dsn: string, metadata: SelectedMetadata, directory = PRISMA_MIGRATIONS_DIR): Promise<SelectedMigration> {
-  try { return await applySelected(dsn, metadata, directory); }
+export async function migrateSelected(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata, directory = PRISMA_MIGRATIONS_DIR): Promise<SelectedMigration> {
+  try { return await applySelected(dsn, passwords, metadata, directory); }
   catch (error) { return thrownDuringApply(error); }
 }

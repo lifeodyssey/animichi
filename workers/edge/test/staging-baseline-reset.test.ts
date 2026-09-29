@@ -25,11 +25,15 @@ void test("staging reset is branch-backed and production-safe", () => {
   assert.doesNotMatch(sh, /neonctl@latest/);
 });
 
-// audit §2.6: the reset SQL's three statements ran without a transaction wrapper — a
-// mid-script failure could leave the schema dropped but not yet recreated/granted.
-void test("the reset SQL runs as a single transaction", () => {
+// audit §2.6: the reset SQL ran without a transaction wrapper — a mid-script failure could
+// leave the schema dropped but not yet recreated/granted. #1949 splits the reset into one
+// transaction per role: the marker schema's drop as `migrator`, its owner (the chain created
+// the schema as itself and `neondb_owner` is no member of it), then `public` as `neondb_owner`.
+void test("each role's half of the reset runs as a single transaction", () => {
   const sh = read("infra/database-access/reset-staging-baseline.sh");
-  assert.match(sh, /staging_psql "\$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema="\$DROP_MARKER_SCHEMA" -f "\$RESET_SQL"/);
+  assert.match(sh, /MARKER_DROP_ROLE="migrator"/);
+  assert.match(sh, /staging_psql "\$MARKER_DROP_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=true -v public_reset=false -f "\$RESET_SQL"/);
+  assert.match(sh, /staging_psql "\$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=false -v public_reset=true -f "\$RESET_SQL"/);
 });
 
 // #1781: the marker schema is a second target, only when the owner's record names its marker, and

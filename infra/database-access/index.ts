@@ -1,48 +1,49 @@
 import * as pulumi from "@pulumi/pulumi";
-import * as cloudflare from "@pulumi/cloudflare";
 import * as neon from "@pulumi/neon";
 import * as random from "@pulumi/random";
+import {
+  adoptSecretsStore,
+  storeCatalogAdminToken,
+  storeNeonAuthDeclarations,
+  storeRoleDsnSecret,
+  storeRuntimeRoleCredentials,
+  type RuntimeRoleDefinition,
+  type SecretsStorePlacement,
+} from "./store-secrets.ts";
 export { edgeRuntimeSecretNames } from "./runtime-secrets.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Database access provisioning — ADR 0003 / #912 PR1.
+// Database access provisioning — ADR 0003 / #912 PR1, amended by #1915.
 // Pulumi.yaml retains the original project name as a persisted state identity;
 // changing it requires an explicit cross-project stack migration.
 //
 // Manages, for one Neon branch (the branch is stack config: staging =
 // Pulumi.staging.yaml, production = Pulumi.prod.yaml):
-//   - Neon service roles. The pre-existing roles were created by the SQL
-//     the retired Atlas role migration as
-//     NOLOGIN roles WITHOUT a control-plane-stored password:
-//       * reveal_password returns an empty password for them (200, len 0),
-//       * reset_password refuses them (422 ROLE_PASSWORD_NOT_AVAILABLE), and
-//       * the bridged provider has no password input (password is computed).
-//     So the password can only be provisioned by CREATING the role via the
-//     Neon API (auto-generated + stored password, LOGIN) — i.e. this stack
-//     creates the roles, it does not import them. One-time bootstrap:
-//       1. DELETE the SQL-created role via the Neon API (per branch; the
-//          roles have no live consumers — the deploy chain still
-//          falls back to the owner DSN until the Secrets Store binding lands).
-//       2. `pulumi up` — the role is created here with a Neon-generated
-//          password that the provider can always read back (reveal_password).
-//       3. Re-run the idempotent migration chain against the branch
-//          (role DDL left the chain with #1636; this is a no-op once the role
-//          exists; the per-context migrations restore the role's GRANTs, which
-//          die with the role and now sit beside the tables they apply to).
-//     Rollback: re-run the migrations to recreate the NOLOGIN roles and point
-//     the deploy chain back at the owner DSN; the store/secrets are additive.
+//   - Credentials for the data-plane service roles. Since #1915 the three
+//     runtime roles (`catalog_svc`, `users_svc`, `agent_svc`) are NOT
+//     `neon.Role` resources: Neon grants `neon_superuser` to every role its
+//     Console, CLI or API creates, and only Neon's own `cloud_admin` can revoke
+//     that membership, so an API-created runtime DSN read and wrote every
+//     table. This stack therefore provisions only what a credential needs —
+//     each role's `random.RandomPassword`, the DSN composed from it, and the
+//     password itself — and the migrator Worker creates the roles BY SQL on
+//     every `/migrate`, before the chain
+//     (`workers/migrator/src/service-roles.ts`; SQL-created roles receive no
+//     membership). Staging note: its API-created roles die with the
+//     `neon.Role` resources this stack used to hold — deleting the resource
+//     deletes the role and the chain's grants die with it — and the first
+//     post-merge `/migrate` recreates them SQL-side (rollout in the PR of
+//     #1915). Production holds no roles yet and simply starts right.
 //   - A Cloudflare Secrets Store holding one secret per component DSN,
-//     composed from the role password + branch endpoint host. PR2/PR3 declare
-//     the wrangler.toml Secrets Store bindings (staging base names; prod
-//     "_PROD"-suffixed names, see secretNameSuffix below).
+//     composed from the role password + branch endpoint host, plus one secret
+//     per runtime role password (bound to the migrator Worker alone; the
+//     isolation is machine-asserted by `migrator-role-isolation.test.ts`).
+//     PR2/PR3 declare the wrangler.toml Secrets Store bindings (staging base
+//     names; prod "_PROD"-suffixed names, see secretNameSuffix below).
 //
-//     Store creation note: the account already has Cloudflare's built-in
-//     `default_secrets_store`, and the account plan refuses a second store
-//     (`maximum_stores_exceeded`, HTTP 400 code 1003). This stack therefore
-//     IMPORTS the account's default store (`secretsStoreId` config) instead
-//     of creating one; the store name is only the logical resource name here.
-//     Staging and production SHARE this single store, which is exactly why the
-//     production DSN secrets carry a "_PROD" suffix.
+//     The store itself — the account's built-in `default_secrets_store`, which
+//     the account plan refuses to duplicate — and every secret this program
+//     writes into it live in `store-secrets.ts`.
 //
 //     RETENTION-1 (#940): the staging retention role and its store secret are
 //     retired from this stack — deleting the role resource removes the staging
@@ -80,66 +81,37 @@ const neonProvider = new neon.Provider("neon", {
 //
 // agent_svc DSN (#912 follow-up): the edge Worker binds AGENT_SVC_DATABASE_URL
 // from the Secrets Store and the native agent tier resolves it directly.
-const roleDefs: { name: string; secretName?: string; comment: string }[] = [
+const roleDefs: RuntimeRoleDefinition[] = [
   {
     name: "catalog_svc",
     secretName: "CATALOG_DATABASE_URL",
+    passwordSecretName: "CATALOG_SVC_PASSWORD",
     comment: "catalog Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "users_svc",
     secretName: "USERS_DATABASE_URL",
+    passwordSecretName: "USERS_SVC_PASSWORD",
     comment: "users Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "agent_svc",
     secretName: "AGENT_SVC_DATABASE_URL",
+    passwordSecretName: "AGENT_SVC_PASSWORD",
     comment:
       "agent data-plane role DSN (edge Worker Secrets Store binding, read by the native agent tier)",
   },
-  // #1050 — dedicated migrator role (Migration Executor, spec §"Database identity").
-  //
-  // Provisions the `migrator` LOGIN role via the same Neon-API path as the
-  // runtime roles and writes its DSN to the store once as MIGRATOR_DATABASE_URL.
-  // The secret is deliberately NEVER bound by any runtime Worker or container
-  // env allowlist — it exists for the migration-executor container only, and
-  // that isolation is machine-asserted (migrator-role-isolation contract test).
-  //
-  // Ceiling (spec): the migration chain needs CREATE EXTENSION / CREATE ROLE /
-  // blanket GRANTs, so on Neon this role is necessarily neon_superuser-grade;
-  // numeric narrowing is limited. Minimization is behavioral, three rules:
-  //  (1) single-purpose — it is never a runtime DSN for any service;
-  //  (2) non-resident — injected only into the migration container for the
-  //      seconds it runs, present in no Worker's standing environment;
-  //  (3) independently rotatable — a Neon role password unentangled from every
-  //      runtime credential (rotation path per ADR 0003).
-  //
-  // Roles are PROJECT-scoped in Neon, so creating `migrator` here also makes it
-  // available on every branch (production `main` compute included); GRANTs and
-  // ownership are branch-scoped and shipped in the Prisma chain's baseline
-  // (packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts).
-  // The DSN here composes against THIS branch's
-  // read-write endpoint, so each stack writes its own: staging publishes
-  // MIGRATOR_DATABASE_URL against the staging branch and the prod stack
-  // (Pulumi.prod.yaml, #1048) publishes MIGRATOR_DATABASE_URL_PROD against the
-  // main-branch endpoint — the two names workers/migrator/wrangler.toml binds
-  // per environment (#1365). Both come from this one roleDefs entry; there is
-  // no production-only path that could drift from the staging one.
-  {
-    name: "migrator",
-    secretName: "MIGRATOR_DATABASE_URL",
-    comment:
-      "dedicated migration-executor role DSN (#1050): single-purpose, non-resident, independently rotatable; bound to NO runtime worker or container (isolation asserted by contract test)",
-  },
 ];
 
-const roles = roleDefs.map(
-  (def) =>
-    new neon.Role(
-      def.name,
-      { projectId, branchId, name: def.name },
-      { provider: neonProvider },
-    ),
+// Since #1915, THIS stack decides the three runtime roles' passwords: generated
+// here, never hand-typed, applied to the roles by the migrator's SQL step. Neon roles belong to a BRANCH (an earlier revision of
+// this file and of docs/ops/prod-dsn-cutover.md said project-scoped), and the
+// two stacks target different branches, so each stack provisions its own
+// branch's credentials and no second stack can collide with it.
+const runtimePasswords = roleDefs.map((def) =>
+  new random.RandomPassword(def.name, {
+    length: 40, special: false, minUpper: 1, minLower: 1, minNumeric: 1,
+  }),
 );
 
 const host = neon
@@ -153,35 +125,72 @@ const host = neon
     return rw.host;
   });
 
-const store = cloudflare.SecretsStore.get(
-  secretsStoreName,
-  `${accountId}/${secretsStoreId}`,
+// Every access secret below lands in the account's shared Secrets Store; its
+// adoption and its write rule live in `store-secrets.ts`.
+const placement: SecretsStorePlacement = {
+  accountId,
+  storeId: secretsStoreId,
+  nameSuffix: secretNameSuffix,
+  host,
+  databaseName,
+};
+
+adoptSecretsStore(secretsStoreName, placement);
+
+storeRuntimeRoleCredentials(
+  placement,
+  roleDefs,
+  runtimePasswords.map((rolePassword) => rolePassword.result),
 );
 
-const dsnFor = (role: neon.Role, name: string) =>
-  pulumi.interpolate`postgresql://${name}:${role.password.apply(encodeURIComponent)}@${host}:5432/${databaseName}?sslmode=require`;
+// ── The migrator LOGIN (#1050) ──────────────────────────────────────────────
+//
+// #1050 — dedicated migrator role (Migration Executor, spec §"Database identity").
+//
+// `migrator` stays a Neon-API role — the one role left on this provider: the
+// chain needs `neon_superuser`-grade power for `CREATE EXTENSION`
+// (spec §4.8.5), and Neon grants that grade only through its API. The secret is
+// a Secrets Store binding the migrator Worker resolves at apply time
+// (`MIGRATOR_DATABASE_URL` in workers/migrator/wrangler.toml, both
+// environments), and the restriction is against a *runtime* Worker binding: no
+// catalog/users/edge Worker's environment carries it, which is what the
+// migrator-role-isolation contract test asserts. (An earlier revision said the
+// value was accessible only to the migration container; the container retired
+// with the wrangler v3 tag and the binding is the live shape, #1915.)
+//
+// Minimization is behavioral, three rules:
+//  (1) single-purpose — it is never a runtime DSN for any service;
+//  (2) non-resident — a Secrets Store binding the migrator Worker resolves for
+//      the seconds of an apply, present in no runtime Worker's environment;
+//  (3) independently rotatable — a Neon role password unentangled from every
+//      runtime credential (rotation path per ADR 0003).
+//
+// Roles are BRANCH-scoped in Neon (amended by #1915 — an earlier revision said
+// project-scoped), so this stack provisions the `migrator` of THIS branch only;
+// the staging and production stacks target different branches and each owns
+// its own. GRANTs and ownership are branch-scoped too and shipped in the
+// Prisma chain's baseline
+// (packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts).
+// The DSN here composes against THIS branch's
+// read-write endpoint, so each stack writes its own: staging publishes
+// MIGRATOR_DATABASE_URL against the staging branch and the prod stack
+// (Pulumi.prod.yaml, #1048) publishes MIGRATOR_DATABASE_URL_PROD against the
+// main-branch endpoint — the two names workers/migrator/wrangler.toml binds
+// per environment (#1365). Both come from this one block; there is
+// no production-only path that could drift from the staging one.
+const migratorDef = {
+  name: "migrator",
+  secretName: "MIGRATOR_DATABASE_URL",
+  comment: "dedicated migration-executor role DSN (#1050): single-purpose, non-resident, independently rotatable; bound to NO runtime worker or container (isolation asserted by contract test)",
+} as const;
 
-const dsnSecrets = roleDefs.flatMap((def, i) => {
-  if (def.secretName === undefined) return [];
-  return [
-    {
-      def,
-      name: `${def.secretName}${secretNameSuffix}`,
-      dsn: dsnFor(roles[i], def.name),
-    },
-  ];
-});
+const migratorRole = new neon.Role(
+  migratorDef.name,
+  { projectId, branchId, name: migratorDef.name },
+  { provider: neonProvider },
+);
 
-dsnSecrets.forEach(({ def, name, dsn }) => {
-  new cloudflare.SecretsStoreSecret(name, {
-    accountId,
-    storeId: secretsStoreId,
-    name,
-    value: dsn,
-    scopes: ["workers"],
-    comment: def.comment,
-  });
-});
+storeRoleDsnSecret(placement, migratorDef, migratorRole.password);
 
 // ── Catalog admin token (system-health-audit 2026-08-26 §2.4/§3, #1217) ────
 // CATALOG_ADMIN_TOKEN guards POST /catalog/admin/* (full-ingest, canary) but
@@ -194,14 +203,7 @@ const catalogAdminToken = new random.RandomPassword("catalog-admin-token", {
   special: false,
 });
 
-new cloudflare.SecretsStoreSecret(`catalog-admin-token${secretNameSuffix}`, {
-  accountId,
-  storeId: secretsStoreId,
-  name: `CATALOG_ADMIN_TOKEN${secretNameSuffix}`,
-  value: catalogAdminToken.result,
-  scopes: ["workers"],
-  comment: "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
-});
+storeCatalogAdminToken(placement, catalogAdminToken.result);
 
 // ── Neon Auth declarations (AUTH-2 #950) ────────────────────────────────────
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
@@ -215,56 +217,28 @@ new cloudflare.SecretsStoreSecret(`catalog-admin-token${secretNameSuffix}`, {
 // secret; the email is not.
 //
 // All three are config-gated (optional getters): stacks without the keys apply
-// unchanged — nothing here is created until an operator sets them, so this is
+// unchanged — nothing is created until an operator sets them, so this is
 // declaration, not provisioning.
 //   pulumi config set neonAuthBaseUrl https://<branch>.neonauth.c-2..../neondb/auth
 //   pulumi config set qaNeonUserEmail qa-bot@animichi.test
 //   pulumi config set --secret qaNeonUserPassword <password>
-const authBaseUrl = config.get("neonAuthBaseUrl");
-if (authBaseUrl !== undefined) {
-  new cloudflare.SecretsStoreSecret("neon-auth-jwks-url", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "NEON_AUTH_JWKS_URL",
-    value: `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
-    scopes: ["workers"],
-    comment: "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
-  });
-}
-
-const qaNeonUserEmail = config.get("qaNeonUserEmail");
-if (qaNeonUserEmail !== undefined) {
-  new cloudflare.SecretsStoreSecret("qa-neon-user-email", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "QA_NEON_USER_EMAIL",
-    value: qaNeonUserEmail,
-    scopes: ["workers"],
-    comment: "Neon Auth QA login email (Path A, AUTH-2 #950)",
-  });
-}
-
-const qaNeonUserPassword = config.getSecret("qaNeonUserPassword");
-if (qaNeonUserPassword !== undefined) {
-  new cloudflare.SecretsStoreSecret("qa-neon-user-password", {
-    accountId,
-    storeId: secretsStoreId,
-    name: "QA_NEON_USER_PASSWORD",
-    value: qaNeonUserPassword,
-    scopes: ["workers"],
-    comment: "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
-  });
-}
+storeNeonAuthDeclarations(placement, {
+  baseUrl: config.get("neonAuthBaseUrl"),
+  userEmail: config.get("qaNeonUserEmail"),
+  userPassword: config.getSecret("qaNeonUserPassword"),
+});
 
 // Exported for the wrangler.toml bindings (PR2/PR3) and operators.
 export const secretsStoreNameOut = secretsStoreName;
-export const secretNames = roleDefs.flatMap((def) =>
-  def.secretName === undefined ? [] : [`${def.secretName}${secretNameSuffix}`],
+export const secretNames = [
+  ...roleDefs.map((def) => def.secretName),
+  "MIGRATOR_DATABASE_URL",
+].map((name) => `${name}${secretNameSuffix}`);
+export const runtimePasswordSecretNames = roleDefs.map(
+  (def) => `${def.passwordSecretName}${secretNameSuffix}`,
 );
-export const roleNames = roleDefs.map((def) => def.name);
+export const roleNames = [...roleDefs.map((def) => def.name), "migrator"];
 export const authSecretNames = [
-  "NEON_AUTH_JWKS_URL",
-  "QA_NEON_USER_EMAIL",
-  "QA_NEON_USER_PASSWORD",
+  "NEON_AUTH_JWKS_URL", "QA_NEON_USER_EMAIL", "QA_NEON_USER_PASSWORD",
 ] as const;
 export const catalogAdminTokenSecretName = `CATALOG_ADMIN_TOKEN${secretNameSuffix}`;

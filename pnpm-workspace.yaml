@@ -56,9 +56,9 @@ catalogMode: strict
 catalog:
   "@cloudflare/vitest-pool-workers": "^0.22.0"
   "@cloudflare/workers-types": "5.20260916.1"
-  "@earendil-works/chord": "0.85.1"
-  "@earendil-works/pi-agent-core": "0.85.1"
-  "@earendil-works/pi-ai": "0.85.1"
+  "@earendil-works/chord": "0.87.1"
+  "@earendil-works/pi-agent-core": "0.87.1"
+  "@earendil-works/pi-ai": "0.87.1"
   "@modelcontextprotocol/sdk": "1.30.0"
   "@neondatabase/serverless": "^1.1.0"
   "@orpc/client": "1.15.1"

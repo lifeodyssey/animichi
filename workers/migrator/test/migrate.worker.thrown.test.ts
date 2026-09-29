@@ -36,7 +36,7 @@ async function dispatchThrowing(message: string) {
 async function applyThrowing(dsn: string) {
   const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
     preflight: (connection, metadata) => preflightSelected(connection, metadata, MIGRATIONS),
-    migrate: (connection, metadata) => migrateSelected(connection, metadata, MIGRATIONS),
+    migrate: (connection, passwords, metadata) => migrateSelected(connection, passwords, metadata, MIGRATIONS),
   } });
   return await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: dsn });
 }
@@ -47,7 +47,7 @@ describe("a migrate request that throws", () => {
     const dispatched = await (await dispatchThrowing("durable object reset")).json();
     const applied = await (await applyThrowing(POOLED_DSN)).json();
     expect(dispatched).toEqual({ success: false, error: "apply_dispatch_failed", cause: "durable object reset" });
-    expect(applied).toEqual({ success: false, exitCode: 1, error: "migration_unavailable", cause: "pooled endpoint rejected" });
+    expect(applied).toEqual({ success: false, exitCode: 1, error: "migration_unavailable", cause: "assertDirectDsn: pooled endpoint rejected" });
   });
 
   it("carries the platform's own reset message out of the dispatch that swallowed it", async () => {

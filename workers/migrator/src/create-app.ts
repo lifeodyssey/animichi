@@ -9,6 +9,7 @@ import { registerCatalogSchema } from "./catalog-schema";
 import { registerPreflight } from "./preflight";
 import { resolveDsn } from "./database-url";
 import { hasPrismaSnapshot, PRISMA_TARGET } from "./prisma-target";
+import { resolveRuntimePasswords } from "./service-roles";
 import { MAX_PREFLIGHT_BYTES, parsePreflightMetadata, type PreflightMetadata } from "./preflight-metadata";
 import type { SelectedExecutor, SelectedMigration } from "./selected-migration";
 import { selectedExecutor } from "./selected-executor";
@@ -23,6 +24,10 @@ import { redactedCause } from "./redacted-cause";
 export interface Env {
   ENVIRONMENT?: string;
   MIGRATOR_DATABASE_URL?: string | SecretsStoreSecret;
+  /** #1915 — the three runtime role passwords, applied by SQL before the chain. */
+  CATALOG_SVC_PASSWORD?: string | SecretsStoreSecret;
+  USERS_SVC_PASSWORD?: string | SecretsStoreSecret;
+  AGENT_SVC_PASSWORD?: string | SecretsStoreSecret;
   /** Fixed-name mutex for HTTP apply. Required on the production default path. */
   MIGRATOR_APPLY_LOCK?: DurableObjectNamespace;
   /** Selects the OIDC claims allowlist; only "production" opens that door. */
@@ -133,7 +138,9 @@ async function handleMigrate(c: Context<{ Bindings: Env }>, deps: MigratorDeps):
   try {
     const dsn = await resolveDsn(c.env);
     if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
-    return outcomeResponse(await selectedExecutor(c.env, deps).migrate(dsn, guard.metadata));
+    const passwords = await resolveRuntimePasswords(c.env);
+    if (passwords === undefined) return c.json({ error: "service role passwords not configured" }, 503);
+    return outcomeResponse(await selectedExecutor(c.env, deps).migrate(dsn, passwords, guard.metadata));
   } catch (error) {
     return dispatchFailure(c, error);
   }

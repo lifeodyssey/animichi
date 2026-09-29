@@ -41,36 +41,37 @@ and PR comments for post-publication feedback. A workspace's short Orca comment
 may mirror the latest progress; it is not a threaded review record.
 
 ## Current workers and future pool
-This flow supersedes OpenCode-only Policy C: use Codex `gpt-5.6-sol` / `max` for development.
+This flow supersedes OpenCode-only Policy C. The roster (owner, 2026-09-24):
+GLM and DeepSeek write and review each other; Kimi writes visible UI and reviews
+a candidate that both wrote; GLM or DeepSeek reviews a candidate Kimi wrote.
 
 | Role | Current launch | Ownership |
 |---|---|---|
-| Developer / fixer | Fresh Codex Sol max session | Use `/implement` in the assigned worktree; leave Git publication to the coordinator |
-| Reviewer | Fresh Grok 4.6 xhigh; fallback Codex Astra xhigh | Use Matt `/code-review` as required in the prompt; return findings and evidence |
-| Coordinator | Codex Sol medium | Admission, dispatch, evidence, candidate commits, PR feedback, merge, and recovery |
+| Developer / fixer | Fresh GLM or DeepSeek session | Use `/implement` in the assigned worktree; leave Git publication to the coordinator |
+| Reviewer | The writer's counterpart — DeepSeek reviews a GLM candidate, GLM reviews a DeepSeek candidate; Kimi reviews a candidate both wrote; GLM or DeepSeek reviews a Kimi candidate | Use Matt `/code-review` as required in the prompt; return findings and evidence |
+| Coordinator | The dispatching Orca coordinator session | Admission, dispatch, evidence, candidate commits, PR feedback, merge, and recovery |
 
 The reviewer's effective model must differ from the models that wrote the current
 candidate, including fixes. A new session, CLI, account, or reasoning effort does
 not make the same model independent. Record effective provider/model identities;
 unknown identity or an unverified alias cannot satisfy this gate. Development and
-fixes use Codex `gpt-5.6-sol` / `max`; the coordinator uses `gpt-5.6-sol` / `medium`.
-Prefer Grok CLI `grok-4.6` / `xhigh` for review when current allowance is verified;
-otherwise use Codex `gpt-6-astra` / `xhigh` and record why. Review descendants must
-preserve model independence. Verify Grok model/effort and supervised launch before
-admission; an installed CLI or historical usage does not prove available quota.
+fixes use GLM or DeepSeek; the coordinator runs in its own dispatching session.
+Review descendants must preserve model independence. Verify the effective
+model/effort identity and supervised launch before admission; an installed CLI or
+historical usage does not prove available quota.
 
 Reviewers receive frozen inputs and diff, not developer conversations. Each fix
 and review uses a fresh session; reviewers return findings and fixers own edits.
 
 Future requirement, recorded but not implemented: maintain a configurable worker
-pool including Codex, Grok, ZCode, DeepSeek-backed workers, Kimi Code, Pi, and
+pool including Grok, ZCode, DeepSeek-backed workers, Kimi Code, Pi, and
 OpenCode. CLI and model/provider are separate dimensions; DeepSeek does not imply
 a particular CLI. A pool entry must declare CLI, model, effort, role/Profile,
 configuration version, execution host, availability, concurrency, and capabilities.
 The owner's full model/role matrix is recorded in [worker pool #1617](https://github.com/lifeodyssey/animichi/issues/1617).
 General quota routing and low-allowance Matt `/handoff` remain in
-[enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619). The Grok-first
-review preference above is a narrow owner override, not a completed worker pool.
+[enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619). The writer/counterpart
+review roster above is a narrow owner decision (2026-09-24), not a completed worker pool.
 Selection must respect role compatibility, resource limits, and authorization;
 record the effective selection and never silently fall back to another provider.
 
@@ -172,15 +173,21 @@ requires a reasoned disposition confirmed by the reviewer; unresolved disagreeme
 goes to the PO. Do not manufacture zero findings by deleting or relabelling them.
 
 Count round 1 as the initial review, with at most two further complete reviews
-on corrected candidates. Every correction reruns affected gates and review
-against the new candidate, including evidence that prior findings closed.
+on corrected candidates. Every correction reruns affected gates and — outside
+the post-PR exemptions below — review against the new candidate, including
+evidence that prior findings closed.
 All required reports must pass on the current SHA, with the behavioral mutation proof
 required by [review discipline](review-gate.md).
 
 At most three automatic review rounds are allowed per card; opening a PR does
-not reset the counter. Post-PR code fixes also invalidate the old review and need
-a fresh review within that budget. If the third round fails, or later changes would
-need a fourth, preserve all evidence and return the card to HUMAN. Do not create
+not reset the counter. These post-PR changes do not consume a round and are not
+re-reviewed (owner, 2026-09-18): fixes for bot findings (fix, reply inline,
+resolve), CI-environment fixes (a Ruby version), commit or PR body wording, and
+restack conflict resolution reported hunk by hunk. The list waives a review-seat
+round only; it does not waive the coordinator's own verification of a code change
+before merge. Any other post-PR code change needs a fresh review within that
+budget. If the third round fails, or later changes would need a fourth, preserve
+all evidence and return the card to HUMAN. Do not create
 another Run/card to evade the limit. Infrastructure/dispatch failures are recorded
 as attempt failures, not fabricated review verdicts; Orca's own retry limit also
 applies independently.
@@ -216,17 +223,19 @@ evidence, never zero findings or merge permission. Query required CI/checks sepa
 Wait up to 60 seconds between observations; no webhook receiver or daemon is required.
 Top-level comments lack a universal resolved flag: inspect findings and replies. A successful inventory is not merge approval.
 
-Fix true findings, rerun checks, and obtain fresh local review after code changes. Respond
+Fix true findings, rerun checks, and obtain fresh local review after code changes
+outside the exemption list above. Respond
 with the actual resolution; resolve inline threads only after their issue is addressed.
 Account for top-level bot findings and preserve the audit history; resolving all comments
 never means deleting them or posting a blanket acknowledgement without inspection.
 
 [Review gate](review-gate.md) remains the single source for merge requirements. Re-query
 live rules and satisfy required CI, thread resolution, maintainer acknowledgement, patch
-coverage, and required GitHub approvals. The owner-local comment hook is not automatically
-installed in a Codex/Orca path. Run it with the actual planned merge command supplied as
+coverage, and required GitHub approvals. The owner-local comment hook is not automatically installed in a worker path. Run it with
+the actual planned merge command supplied as
 `tool_input.command` JSON and capture its exit status; empty input does no checking. If the
-hook is unavailable or rejects, stop and diagnose it; never infer that Codex inherited Claude's hook enforcement.
+hook is unavailable or rejects, stop and diagnose it; never infer that a worker inherited the
+owner's hook enforcement.
 
 Use the exact reviewed PR head when requesting squash merge:
 

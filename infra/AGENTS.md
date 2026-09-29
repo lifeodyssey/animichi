@@ -9,10 +9,14 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   credential-free Pulumi program load (`../scripts/local-gates/infra-check.sh`), which is the only
   check that catches a loader/compiler incompatibility `tsc --noEmit` cannot see. It needs the
   Pulumi CLI and touches no cloud credentials.
-- `pnpm run typecheck` — `tsc --noEmit` for the program and for `tsconfig.test.json`. This package
-  has **no** `lint` script yet: type-aware oxlint rejects its `moduleResolution: node10` outright
-  (TypeScript 7 removed that value), so linting it is a change to the Pulumi program's module
-  resolution and its own outcome, not a script alias.
+- `pnpm run typecheck` — `tsc --noEmit` for the program, for `tsconfig.test.json`, and for the
+  `database-access` program (`database-access/typecheck.sh`, #1947): the script materializes
+  that program's release-time-generated Neon SDK (`pulumi install` against a throwaway
+  `file://` backend, then the frozen install that links `file:sdks/neon`) so the typecheck
+  resolves the real generated types, and compiles it with this package's TypeScript 7 — the
+  compiler whose removal of `moduleResolution: node10` is why `database-access/tsconfig.json`
+  now resolves `bundler` like the rest of the package. The package still has **no** `lint`
+  script; adding one is its own outcome, not a script alias.
 - `pulumi preview --stack lifeodyssey/staging` — preview against `Pulumi.staging.yaml`.
 - `pulumi preview --stack lifeodyssey/prod` — preview against `Pulumi.prod.yaml`.
 - `pulumi up --stack lifeodyssey/staging` — apply the staging stack; normal delivery runs this through CI.
@@ -39,7 +43,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 ## Key files + entrypoints
 
 - `index.ts` — the R2 buckets (catalog media, map tiles, docs assets, catalog snapshots), flag-gated web Custom Domains, edge routes, www redirect, the staging per-host WAF config override, exported catalog DB secret, and the Neon Auth staging declarations (JWKS/issuer derivation + QA login, AUTH-2 #950).
-- `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration. Its Neon provider SDK is generated at release time and gitignored, so the complete program needs that generated dependency; `topology-prod-database-access.test.ts` pins the prod stack's role/secret derivations from the source. `runtime-secrets.ts` uses the installed native Cloudflare SDK and has isolated resource-graph tests; five shared runtime ESC config keys are required (the keys whose authority lives outside this program — `INGEST_SIGNING_KEY` is one because the anitabi egress service in Fly verifies what catalog signs, not because a provider could not have minted it). `anonymousAccessEnabled` additionally provisions the environment's Turnstile secret and durable identity seed, but neither is ESC config any more: the staging stack adopts the account's single `cloudflare.TurnstileWidget` through its import identity, any other stack reads it through the `getTurnstileWidget` data source, and the identity seed is a `random.RandomPassword` — the flag must still match the Worker. The widget's public site key is not a secret: it stays committed in `apps/web/wrangler.jsonc` as the adopted widget's own site key. Staging's first Store cutover permits the owner-authorized identity reset documented in the secrets runbook.
+- `database-access/` — the migrator role, per-service DSNs, runtime-role passwords, and Auth access material (the three runtime roles' DDL moved to the migrator's SQL step in #1915). Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration. Its Neon provider SDK is generated at release time and gitignored, so the complete program needs that generated dependency; `topology-prod-database-access.test.ts` pins the prod stack's role/secret derivations from the source. `runtime-secrets.ts` uses the installed native Cloudflare SDK and has isolated resource-graph tests; five shared runtime ESC config keys are required (the keys whose authority lives outside this program — `INGEST_SIGNING_KEY` is one because the anitabi egress service in Fly verifies what catalog signs, not because a provider could not have minted it). `anonymousAccessEnabled` additionally provisions the environment's Turnstile secret and durable identity seed, but neither is ESC config any more: the staging stack adopts the account's single `cloudflare.TurnstileWidget` through its import identity, any other stack reads it through the `getTurnstileWidget` data source, and the identity seed is a `random.RandomPassword` — the flag must still match the Worker. The widget's public site key is not a secret: it stays committed in `apps/web/wrangler.jsonc` as the adopted widget's own site key. Staging's first Store cutover permits the owner-authorized identity reset documented in the secrets runbook.
 - `src/web-routes.ts` — the edge Worker's zone route table (the hostname plus `/v1/*`,
   `/catalog/public/*`, `/img/*`, `/tiles/*`, `/healthz`), the legacy-domain redirects and the www
   redirect. `topology-edge-route-coverage.test.ts` cross-checks every path `apps/web` resolves

@@ -8,7 +8,7 @@ import type { ByokCredentialParts } from "../byok/byok-credential.ts";
 /** Published model metadata owns pricing and dialect; credentials never consult ambient environment. */
 export async function nativeHostModels(key: string | undefined, fetch: typeof globalThis.fetch = globalThis.fetch) {
   const provider = xiaomiProvider();
-  const model = provider.getModels().find((candidate) => candidate.id === "mimo-v2.5");
+  const model = provider.getModels().find((candidate) => candidate.id === "mimo-v2.6-flash");
   if (!model) throw new Error("The published Xiaomi model is unavailable");
   const models = key?.trim() ? await createOperationModels(model, key, fetch)
     : createModels({ credentials: new InMemoryCredentialStore(), authContext: { env: () => Promise.resolve(undefined), fileExists: () => Promise.resolve(false) } });

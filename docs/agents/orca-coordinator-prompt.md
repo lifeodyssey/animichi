@@ -1,7 +1,6 @@
 # Orca MVP coordinator prompt
 
-Paste the following into a fresh Codex coordinator session in Orca. Recommended
-coordinator model: `gpt-5.6-sol`, effort `medium`. Replace the issue placeholder
+Paste the following into a fresh coordinator session in Orca. Replace the issue placeholder
 with the admitted card. This is a prompt template, not an Orca configuration schema
 or an unattended scheduler. Use the
 [headless launcher](../../scripts/orca-headless/README.md) for worker execution.
@@ -17,11 +16,10 @@ Validate that execution path before admitting a card; do not launch visible
 workers or silently replace Orca Run/Task/Dispatch with another supervisor.
 If this runtime cannot provide it, report the capability gap before dispatch.
 
-Use Codex gpt-5.6-sol / max for developers and fixers; the coordinator is
-Codex gpt-5.6-sol / medium. Prefer Grok CLI grok-4.6 / xhigh for independent
-review when its current allowance and effective model/effort are verified.
-When allowance is insufficient/unknown or launch compatibility is unverified,
-use Codex gpt-6-astra / xhigh and record the reason. Do not silently lower effort.
+Developers and fixers run GLM or DeepSeek (owner roster, 2026-09-24); Kimi writes visible UI;
+the coordinator is this session. GLM and DeepSeek review each other's candidates; a candidate
+both wrote is reviewed by Kimi; a candidate kimi wrote is reviewed by GLM or DeepSeek. Do not
+silently lower effort.
 Every development or fix prompt MUST invoke and follow Matt /implement, including
 local-review fixes, PR-comment fixes and CI repairs. Every review or re-review
 prompt MUST invoke and follow Matt /code-review. Read the actual installed skill;

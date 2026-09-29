@@ -57,7 +57,7 @@ Worker trusts only that header.
 |---|---|---|
 | `NEON_AUTH_JWKS_URL` | Worker-only | Branch JWKS — the edge's ONLY identity source (AUTH-2 #950). issuer/audience are derived from it in `workers/edge/src/identity/auth.ts`; production is unset (fails closed) until its Neon Auth branch is provisioned |
 | `AGENT_SVC_DATABASE_URL` | Worker-only (Secrets Store) | `agent_svc` role Neon DSN for the native agent tier |
-| `MIMO_API_KEY` | Worker-only (Secrets Store) | Primary `mimo-v2.5` provider credential |
+| `MIMO_API_KEY` | Worker-only (Secrets Store) | Primary `mimo-v2.6-flash` provider credential |
 | `TURNSTILE_SECRET` · `ANON_ID_SECRET` | Worker-only (Secrets Store) | Anonymous-access gate and anonymous-cookie seed |
 | `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not edge-Worker secrets |
 | `VITE_NEON_AUTH_BASE_URL` | `apps/web` build-time only | Better Auth client origin (login UI + JWT exchange) |

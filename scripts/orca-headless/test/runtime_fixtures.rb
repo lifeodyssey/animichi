@@ -8,12 +8,12 @@ module RuntimeFixtures
   PREAMBLE = "native preamble\ncafé ' \" $PATH\n".freeze
 
   def compatibility_response
-    status = { "ok" => true, "result" => { "appVersion" => "1.4.200",
+    status = { "ok" => true, "result" => { "appVersion" => "1.4.206",
       "runtimeId" => RUNTIME_ID, "graphStatus" => "ready",
       "capabilities" => ["terminal.create-idempotency.v2", "orchestration.contract.v1"] },
       "_meta" => { "runtimeId" => RUNTIME_ID } }
-    { "ok" => true, "result" => { "expectedVersion" => "1.4.200",
-      "installedVersion" => "1.4.200", "status" => status } }
+    { "ok" => true, "result" => { "expectedVersion" => "1.4.206",
+      "installedVersion" => "1.4.206", "status" => status } }
   end
 
   def terminal_response

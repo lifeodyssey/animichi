@@ -9,7 +9,8 @@ import { URL, fileURLToPath } from "node:url";
 // This is the machine-checkable half of "runtime roles unchanged": applying the committed chain
 // to ANY disposable branch must leave the runtime role matrix exactly as it found it. The chain
 // that used to be read here was Atlas's, and it CREATED those roles; the Prisma chain does not
-// (spec §4.8.5 gives role DDL to Pulumi), which makes the claim narrower and stronger:
+// (spec §4.8.5, as #1915 amended it, puts role DDL in the migrator's SQL step, outside the
+// chain), which makes the claim narrower and stronger:
 //   - the chain never creates, drops, reassigns or alters a runtime role — it PRECHECKS them;
 //   - every runtime role is still granted by the chain, so a role that vanished from the matrix
 //     would be a role the data plane silently stopped serving;
@@ -39,7 +40,7 @@ void test("the chain never creates or mutates a runtime role", () => {
   const offenders = [...chain.matchAll(mutation)]
     .map((match) => chain.slice(Math.max(0, match.index - 120), match.index + 120))
     .filter((window) => RUNTIME_ROLES.some((role) => new RegExp(`\\b${role}\\b`, "i").test(window)));
-  assert.deepEqual(offenders, [], "role DDL belongs to Pulumi (spec §4.8.5); the chain only prechecks");
+  assert.deepEqual(offenders, [], "role DDL belongs to the migrator's SQL step, outside the chain (spec §4.8.5 as amended by #1915); the chain only prechecks");
 });
 
 void test("the chain prechecks every runtime role and grants to each of them", () => {

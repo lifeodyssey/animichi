@@ -2,15 +2,18 @@
  *
  * A separate file from the `topology-*.test.ts` files that build a stack,
  * following `topology-neon-auth.test.ts`: nothing here imports a Pulumi
- * program. `infra/database-access` is a SECOND Pulumi program and it cannot be
- * built through the harness at all — its Neon provider is a bridged SDK
- * generated at release time (`pulumi install`) from Pulumi.yaml's pins and
- * deliberately kept out of the repo
- * (`infra/database-access/.gitignore`), so there is no `@pulumi/neon` for a
- * test process to import. What CAN be pinned without it is the pair of
+ * program. `infra/database-access` is a SECOND Pulumi program and `buildStack`
+ * cannot load it at all — its Neon provider is a bridged SDK generated at
+ * release time (`pulumi install`) from Pulumi.yaml's pins and deliberately kept
+ * out of the repo (`infra/database-access/.gitignore`), so there is no
+ * `@pulumi/neon` to import. What CAN be pinned without it is the pair of
  * derivations that decide what the prod stack emits — the role list and the
  * stack-name suffix — read from the program's source and composed here exactly
- * as the program composes them.
+ * as the program composes them, for both stacks. The store secrets' real names,
+ * which need the resources the program actually constructs, are pinned by
+ * loading it under Pulumi mocks instead — see
+ * `topology-database-access-store-secrets.test.ts`, a file of its own because a
+ * process can load the program once.
  *
  * This matters because staging and production share ONE Cloudflare Secrets
  * Store: a suffix that stopped applying would not fail, it would silently make
@@ -36,10 +39,22 @@ const databaseAccess = repoFile("./database-access/index.ts");
 function storeSecretName(role: string, stack: string): string {
   const base = new RegExp(`\\{\\s*name: "${role}",\\s*secretName: "([^"]+)",`).exec(databaseAccess);
   assert.ok(base, `database-access must declare the ${role} role with a store secret`);
+  return `${base[1]}${suffixFor(stack)}`;
+}
+
+/** The store-secret name the program writes for `role`'s password on `stack`. */
+function passwordSecretName(role: string, stack: string): string {
+  const base = new RegExp(`\\{\\s*name: "${role}",\\s*secretName: "[^"]+",\\s*passwordSecretName: "([^"]+)",`)
+    .exec(databaseAccess);
+  assert.ok(base, `database-access must declare the ${role} role with a bound password secret`);
+  return `${base[1]}${suffixFor(stack)}`;
+}
+
+function suffixFor(stack: string): string {
   const suffix = /const secretNameSuffix = pulumi\.getStack\(\) === "(\w+)" \? "([^"]*)" : "([^"]*)";/
     .exec(databaseAccess);
   assert.ok(suffix, "database-access must derive its store-secret suffix from the stack name");
-  return `${base[1]}${stack === suffix[1] ? suffix[2] : suffix[3]}`;
+  return stack === suffix[1] ? (suffix[2] ?? "") : (suffix[3] ?? "");
 }
 
 function stackConfig(stack: string, key: string): string {
@@ -60,16 +75,40 @@ test("the agent_svc role is declared for every stack, not gated to staging", () 
   // itself is what would leave production without a data-plane identity.
   const roleList = databaseAccess.slice(
     databaseAccess.indexOf("const roleDefs"),
-    databaseAccess.indexOf("const roles ="),
+    databaseAccess.indexOf("const runtimePasswords"),
   );
   assert.match(roleList, /name: "agent_svc"/);
   assert.doesNotMatch(roleList, /getStack\(\)/, "the role list must not branch on the stack");
 });
 
+test("the three runtime roles are SQL-provisioned: no neon.Role, one password each", () => {
+  // #1915 — Neon grants `neon_superuser` to every role its API creates, so the
+  // runtime roles must never come back as `neon.Role` resources. The one
+  // Neon-API role left in the program is `migrator`, which the chain needs at
+  // that grade for `CREATE EXTENSION`.
+  const runtimeRegion = databaseAccess.slice(
+    databaseAccess.indexOf("const roleDefs"),
+    databaseAccess.indexOf("const migratorRole"),
+  );
+  assert.doesNotMatch(runtimeRegion, /new neon\.Role/, "runtime roles must not be neon.Role resources");
+  assert.match(runtimeRegion,
+    /roleDefs\.map\(\(def\) =>\s*new random\.RandomPassword\(def\.name/,
+    "each declared runtime role gets its own generated password");
+  assert.match(databaseAccess, /new neon\.Role\(\s*migratorDef\.name/);
+});
+
+for (const role of ["catalog_svc", "users_svc", "agent_svc"] as const) {
+  test(`the ${role} runtime password reaches the store under the stack-suffixed name`, () => {
+    assert.equal(passwordSecretName(role, "prod"), `${role.toUpperCase()}_PASSWORD_PROD`);
+    assert.equal(passwordSecretName(role, "staging"), `${role.toUpperCase()}_PASSWORD`);
+  });
+}
+
 test("the prod stack targets the production branch of the same Neon project", () => {
-  // Roles are project-scoped and the store is account-scoped, so the branch id
-  // is the ONLY thing separating the two stacks' composed DSNs. Equal branch
-  // ids would publish the staging endpoint under the production secret name.
+  // Neon roles belong to a BRANCH (amended by #1915) and the store is
+  // account-scoped, so the branch id is the ONLY thing separating the two
+  // stacks' composed DSNs. Equal branch ids would publish the staging endpoint
+  // under the production secret name.
   assert.notEqual(stackConfig("prod", "neonBranchId"), stackConfig("staging", "neonBranchId"));
   assert.equal(stackConfig("prod", "neonProjectId"), stackConfig("staging", "neonProjectId"));
   assert.equal(stackConfig("prod", "secretsStoreId"), stackConfig("staging", "secretsStoreId"));

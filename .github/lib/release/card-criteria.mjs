@@ -14,7 +14,7 @@
  * retyped turns the check red instead of being proved by the wrong probe.
  */
 
-/** The test types the repository gates acceptance criteria by (root AGENTS.md). */
+/** The test types the repository gates acceptance criteria by (docs/agents/harness.md). */
 const TEST_TYPES = ["unit", "integration", "eval", "browser", "api"];
 
 const CHECKLIST_LINE = /^\s*-\s*\[([ xX])\]\s*(.*)$/;

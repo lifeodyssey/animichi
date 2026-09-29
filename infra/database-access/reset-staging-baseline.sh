@@ -20,7 +20,8 @@ APPROVED_MARKER="$ROOT/infra/database-access/reset-staging-baseline.approved-mar
 # for. A marker beside the ledger is neither (#1781): the migrator refuses to migrate while the
 # ledger stands, so no CD migration wrote that marker, and nothing here may decide which is stale.
 # Only the owner's record of that exact marker may, and then the reset drops the whole schema —
-# its three tables, named in reset-staging-baseline.sql — with `public`.
+# its three tables, named in reset-staging-baseline.sql — as `migrator`, and rebuilds `public`
+# without it.
 MARKER_SCHEMA="prisma_contract"
 ATLAS_LEDGER="public.atlas_schema_revisions"
 DROP_MARKER_SCHEMA=false
@@ -29,9 +30,16 @@ DROP_MARKER_SCHEMA=false
 MARKER_IDENTITY="'$MARKER_SCHEMA.marker space=' || space || ' updated_at=' || replace(to_char(
   updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US'), '.000000', '') || 'Z'"
 BACKUP_NAME="staging-before-prisma-baseline"
-# The role that performs the drop is the one that reads what it would drop. Neon gives every
-# role it creates `neon_superuser`, which reads all tables whoever owns them.
+# The role that reads staging's state and rebuilds `public`. Neon gives every role it creates
+# `neon_superuser`, which reads all tables whoever owns them — and, staging proved on 2026-09-24
+# (#1949), no power to drop what it does not own.
 OWNER_ROLE="neondb_owner"
+# The marker schema and its three tables belong to `migrator` — the Prisma chain created them as
+# itself (#1915) — and `neondb_owner` is no member of `migrator`, so the drop the owner's record
+# approves runs as the schema's owner: `migrator` is a Neon-API role, so neonctl reaches it as it
+# reaches the owner. Two transactions, one per role, never a shared seat: granting `neondb_owner`
+# membership in `migrator` would widen back the roles #1915 narrowed.
+MARKER_DROP_ROLE="migrator"
 PROJECT_ID=""
 BRANCH_ID=""
 
@@ -146,7 +154,8 @@ refuse_marker_beside_ledger() {
     "The migrator refuses this database as atlas_leftovers_present, and never migrates it, while" \
     "$ATLAS_LEDGER stands, so no CD migration wrote this marker. If the owner decides it is stale," \
     "name each marker row above in $APPROVED_MARKER; the rebuild then drops the whole $MARKER_SCHEMA" \
-    "schema (marker, ledger, contract) with public, in one transaction, after its backup branch."
+    "schema (marker, ledger, contract) in one transaction of its own, as migrator, the schema's" \
+    "owner, after its backup branch; public is rebuilt in a second transaction, as neondb_owner."
 }
 
 # The record is read, never interpreted: one marker row per line, in the rendering the refusal
@@ -246,11 +255,20 @@ ensure_backup() {
     --parent "$BRANCH_ID" --name "$BACKUP_NAME" --no-compute --output json >/dev/null
 }
 
+# Two transactions, one per role (#1949): the marker schema's drop runs as its owner, then the
+# owner-role step rebuilds `public` without it. -1 keeps each a single transaction (audit §2.6) —
+# a mid-step failure leaves nothing half-done within the step. A failure between the steps
+# strands a half-reset — no marker schema, `public` untouched — and a re-run finishes that: the
+# markers' absence reroutes the run through stranded_on_atlas to the leftovers path, whose reset
+# is the owner's step alone, and that step is idempotent (`DROP SCHEMA IF EXISTS`). The migrator's
+# step runs only when the marker schema was just confirmed present, so it never meets its own
+# work done, and the reused backup's staleness check rides `DROP_MARKER_SCHEMA`, false on that
+# re-run because the marker it would have to restore is already gone.
 reset_schema() {
-  # -1: run the reset SQL's three statements as a single transaction (audit §2.6) — a
-  # mid-script failure must not leave the schema dropped but not yet recreated/granted. A stale
-  # marker schema the owner's record names goes in that same transaction, after the backup (#1781).
-  staging_psql "$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema="$DROP_MARKER_SCHEMA" -f "$RESET_SQL"
+  if [[ "$DROP_MARKER_SCHEMA" == true ]]; then
+    staging_psql "$MARKER_DROP_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=true -v public_reset=false -f "$RESET_SQL"
+  fi
+  staging_psql "$OWNER_ROLE" -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=false -v public_reset=true -f "$RESET_SQL"
 }
 
 main() {

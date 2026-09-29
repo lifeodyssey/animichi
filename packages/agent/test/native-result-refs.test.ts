@@ -1,16 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
+import type { JsonObject } from "@earendil-works/pi-ai";
 import { readSearchResult, planRoute } from "@animichi/agent/tools";
 import { executeTool, fixture } from "./native-tool-fixture.ts";
 
 const point = { id: "1", name: "Station", bangumi_id: "1", screenshot_url: "", latitude: 35, longitude: 139 };
 
-for (const scenario of [
+const rejectedScenarios: readonly { name: string; toolName: string; isError: boolean; details: JsonObject }[] = [
   { name: "malformed details", toolName: "search_bangumi", isError: false, details: { rows: [] } },
   { name: "failed result", toolName: "search_bangumi", isError: true, details: { kind: "bangumi", anime_id: "1", rows: [point], partial: false } },
   { name: "unrelated tool", toolName: "web_search", isError: false, details: { kind: "bangumi", anime_id: "1", rows: [point], partial: false } },
-]) {
+];
+
+for (const scenario of rejectedScenarios) {
   void test(`route refs reject ${scenario.name}`, async () => {
     const { repo, session } = await fixture(() => { throw new Error("No catalog"); });
     const branch = await session.createBranch("main", null, BACKGROUND_CONTEXT);

@@ -145,9 +145,8 @@ expect "committed directory" "is not a regular file" "$OUT"
 expect_ran_nothing "committed directory"
 ok "a registry line naming a committed directory stops the push"
 
-# 7. A committed symlink is a blob, so a check that asks `git cat-file -t`
-#    clears it; `bash` on a link to a directory then fails at exit 126, after
-#    the lines above it have run. `git ls-tree` reports the link's own mode,
+# 7. A committed symlink to a directory is a blob, so a check that asks `git
+#    cat-file -t` clears it. `git ls-tree` reports the link's own mode,
 #    `120000`, and the fixture's link points at its own committed `.github`.
 new_repo "$(contracts_workflow $'bash probe-two.sh\nbash probe-link')"
 ln -s .github "$REPO/probe-link"
@@ -187,6 +186,35 @@ run_runner
 expect_status "missing job" 1 "$STATUS"
 expect "missing job" "has no contracts job" "$OUT"
 ok "a workflow with no contracts job stops the push"
+
+# 10. A `./`-prefixed registry path names the tree path the prefix spells: the
+#     classifier returns the tree's name, the mode check reads the entry under
+#     that name, and the line runs (#1924 (F3)).
+new_repo "$(contracts_workflow $'bash ./probe-two.sh')"
+run_runner
+expect_status "dot-slash path" 0 "$STATUS"
+expect "dot-slash path" "contracts — 1 commands" "$OUT"
+expect "dot-slash path" "shell probe" "$RAN"
+refute "dot-slash path" "is not a regular file" "$OUT"
+ok "a registry path with a single leading ./ (./x.sh) is accepted and runs"
+
+# 11. A trailing slash on a directory with a single committed entry is the shape
+#     the name comparison exists for: `git ls-tree` answers one line, and that
+#     line names the child, not `solo/`. Absent the comparison the child's mode
+#     would stand in for the directory and the line would clear the regular-file
+#     check, only for `bash solo/` to fail at exit 126 after the lines above it
+#     had run.
+new_repo "$(contracts_workflow $'bash probe-two.sh\nbash solo/')"
+mkdir -p "$REPO/solo"
+printf '#!/usr/bin/env bash\nprintf "solo probe\\n" >> "$RECORD"\n' >"$REPO/solo/only.sh"
+git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner add -A
+git -C "$REPO" -c user.email=runner@test.invalid -c user.name=runner commit -qm 'chore(repo): commit a single-entry directory'
+run_runner
+expect_status "single-entry directory" 1 "$STATUS"
+expect "single-entry directory" "bash solo/" "$OUT"
+expect "single-entry directory" "is not a regular file" "$OUT"
+expect_ran_nothing "single-entry directory"
+ok "a trailing-slash directory whose one-line listing names a child stops the push"
 
 [ "$failures" = 0 ] || { printf '%s case(s) failed\n' "$failures" >&2; exit 1; }
 printf '%s: all green\n' "$(basename "$0")"

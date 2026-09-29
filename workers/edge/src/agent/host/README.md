@@ -1,6 +1,6 @@
 # Native session host
 
-`SessionAgent` extends `agents@0.22.0` and owns one Pi `0.85.1` Session/Harness per
+`SessionAgent` extends `agents@0.22.0` and owns one Pi `0.87.1` Session/Harness per
 incarnation. The deployed `AgentSession` export and `/v1/chat` production tier now use this
 class directly. The old turn engine is not a fallback.
 

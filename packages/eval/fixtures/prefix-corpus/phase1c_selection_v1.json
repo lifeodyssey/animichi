@@ -20,7 +20,7 @@
       },
       "metadata": {
         "recording": {
-          "sdk": "0.85.1",
+          "sdk": "0.87.1",
           "provider": "faux",
           "model": "faux-model",
           "prompt": "sha256:71f39cd29661",
@@ -118,7 +118,7 @@
       },
       "metadata": {
         "recording": {
-          "sdk": "0.85.1",
+          "sdk": "0.87.1",
           "provider": "faux",
           "model": "faux-model",
           "prompt": "sha256:71f39cd29661",
@@ -217,7 +217,7 @@
       },
       "metadata": {
         "recording": {
-          "sdk": "0.85.1",
+          "sdk": "0.87.1",
           "provider": "faux",
           "model": "faux-model",
           "prompt": "sha256:71f39cd29661",
@@ -316,7 +316,7 @@
       },
       "metadata": {
         "recording": {
-          "sdk": "0.85.1",
+          "sdk": "0.87.1",
           "provider": "faux",
           "model": "faux-model",
           "prompt": "sha256:71f39cd29661",
@@ -414,7 +414,7 @@
       },
       "metadata": {
         "recording": {
-          "sdk": "0.85.1",
+          "sdk": "0.87.1",
           "provider": "faux",
           "model": "faux-model",
           "prompt": "sha256:71f39cd29661",

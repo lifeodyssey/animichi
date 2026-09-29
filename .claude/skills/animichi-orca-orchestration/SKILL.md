@@ -99,7 +99,7 @@ because an observation is quiet or incomplete. Apply the scope in
 
 ## Dispatch independent work
 
-Maximize safe parallelism without a fixed Codex writer cap. A card may launch
+Maximize safe parallelism without a fixed writer cap. A card may launch
 only when it is independently Ready for Dev, its dependencies are satisfied,
 its worktree and ownership are distinct, and no existing writer owns that
 candidate. Never create duplicate worktrees, Tasks, Dispatches, PRs, or writers.
@@ -116,11 +116,11 @@ user-owned repository, so serialization is the lever.
 
 ### The roster (2026-09-22)
 
-Dispatch through `scripts/orca-headless/orca-headless.rb` in the sibling worktree
-`~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support`. That copy is not on `main`
-yet (#1840); the in-repo `scripts/orca-headless/` accepts only the Codex and Grok selections
-the roster no longer uses, and refuses every writer below. Its
-accepted selections are a hard-coded whitelist, not a router: an unlisted pair is refused
+Dispatch through `scripts/orca-headless/orca-headless.rb` on `main` (#1944). The coordinator
+keeps the sibling worktree
+`~/orca/workspaces/Seichijunrei-agent/orca-pi-headless-support` at `origin/main`'s copy of the
+launcher, so dispatching from that worktree runs the same launcher. Its accepted selections are a
+hard-coded whitelist, not a router: an unlisted pair is refused
 at launch, which is the point.
 
 | Role | Selection |
@@ -130,7 +130,7 @@ at launch, which is the point.
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5-pro --effort max` |
 | Writer, **paused** | `--provider pi --model opencode-go/mimo-v2.5 --effort max` |
 | Writer, **visible UI only** | `--provider kimi --model kimi-code/k3-256k-max --effort max` |
-| Reviewer | `--provider claude --model claude-opus-5 --effort high` |
+| Reviewer | The writer's counterpart — GLM and DeepSeek review each other; kimi reviews a candidate that both of them wrote; GLM or DeepSeek reviews a candidate kimi wrote (owner, 2026-09-24 — Claude models no longer review) |
 
 `--runtime-client` has no default and `start` refuses without it: pass
 `/Applications/Orca.app/Contents/Resources/app.asar.unpacked/out/cli/runtime/client.js`.
@@ -166,15 +166,18 @@ Every developer or fixer role spec must explicitly require:
 
 Every pre-PR and post-fix review role spec must explicitly require:
 
-- a fresh headless Claude `claude-opus-5` at `high`, reported as blocked rather
+- the writer's counterpart as the reviewer — GLM and DeepSeek review each other; kimi
+  reviews a candidate that both of them wrote; GLM or DeepSeek reviews a candidate kimi
+  wrote (owner, 2026-09-24 — Claude models no longer review), reported as blocked rather
   than as approval if the effective model is anything else;
 - direct invocation and following of Matt `/code-review`;
 - a reviewer model different from every model that wrote the current
   candidate, including fixes, and no candidate edits by the reviewer.
 
 Reviews use the Standards and Spec axes. Count the initial review as round one;
-allow at most three complete review rounds for the card, including post-PR
-fixes. Do not evade the limit with a new Run, card, or PR; unresolved findings,
+allow at most three complete review rounds for the card; the post-PR changes
+that do not consume one are listed in `docs/ops/orca-card-delivery.md`
+(owner, 2026-09-18). Do not evade the limit with a new Run, card, or PR; unresolved findings,
 model-identity uncertainty, or missing evidence is a human gate.
 
 ## What would have to happen for this check to go red?
@@ -320,9 +323,12 @@ Merge when **all three** hold, and not before:
    `reviewThreads(isResolved:false)` and top-level issue comments (qodo summaries, SonarCloud,
    codecov). A bot that left **nothing** does not block — absence is not a pending item, and
    waiting for it is waiting for something that may never come.
-2. **An Orca review seat has APPROVED the current head**, on a model different from every model
-   that wrote the candidate, fixes included. The coordinator reading the diff is a coordinator's
-   check, not a review; it does not satisfy this.
+2. **The last APPROVE from an Orca review seat covers the current head**, on a model different from
+   every model that wrote the candidate, fixes included: the PR opened at an approved head
+   (`Review: APPROVE at <sha>` in the body; owner, 2026-09-24), and every push since is a change
+   `docs/ops/orca-card-delivery.md` exempts from re-review (owner, 2026-09-18); any other change
+   needs a fresh APPROVE. The coordinator reading the diff is a coordinator's check, not a review;
+   it does not satisfy this.
 3. **Every CI check is green** — not "no required check is red". A non-required red is a thing to
    fix or explain, never a thing to step over.
 
@@ -354,7 +360,8 @@ git diff <new-base>..<rebased-head>  | git hash-object --stdin
 ```
 
 Equal hashes mean the reviewed delta is byte-identical and the verdict still covers it. Unequal
-means it genuinely changed and needs a fresh seat.
+means it genuinely changed and needs a fresh seat, with the one exception the runbook's list
+makes: restack conflict resolution reported hunk by hunk needs no fresh seat (owner, 2026-09-18).
 
 ### Launcher facts that cost a lane each
 

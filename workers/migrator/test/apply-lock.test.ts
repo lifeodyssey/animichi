@@ -49,20 +49,20 @@ describe("the apply mutex (AC4)", () => {
 describe("the production apply hop", () => {
   it("hands the complete selected metadata to the lock", async () => {
     const { namespace, calls } = makeLockNamespace();
-    await productionSelected(namespace).migrate("dsn", requestMetadata);
-    expect(calls.migrations).toEqual([["dsn", requestMetadata]]);
+    await productionSelected(namespace).migrate("dsn", { catalogSvc: "c", usersSvc: "u", agentSvc: "a" }, requestMetadata);
+    expect(calls.migrations).toEqual([["dsn", { catalogSvc: "c", usersSvc: "u", agentSvc: "a" }, requestMetadata]]);
   });
 });
 
 /** What the lock namespace was asked for: the resolved name, then every migrate RPC. */
 interface LockCalls {
   names: string[];
-  migrations: [string, SelectedMetadata][];
+  migrations: [string, unknown, SelectedMetadata][];
 }
 
 function makeLockNamespace(): { namespace: DurableObjectNamespace; calls: LockCalls } {
   const calls: LockCalls = { names: [], migrations: [] };
-  const migrate = (...args: [string, SelectedMetadata]): Promise<SelectedMigration> => {
+  const migrate = (...args: [string, unknown, SelectedMetadata]): Promise<SelectedMigration> => {
     calls.migrations.push(args);
     return Promise.resolve({ kind: "success", exitCode: 0 });
   };

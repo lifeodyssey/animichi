@@ -23,6 +23,7 @@ import type {
   AssistantMessageEvent,
   AssistantMessageEventStream,
   Context,
+  JsonObject,
   Model,
   SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
@@ -121,7 +122,7 @@ class ScriptedProviderStream {
 /** One tool call a scripted turn issues. */
 export interface ScriptedToolCall {
   readonly name: string;
-  readonly arguments: Record<string, unknown>;
+  readonly arguments: JsonObject;
 }
 
 const DOUBLE_SPOT_CALL: ScriptedToolCall = { name: "lookup_spot", arguments: { title: "Hyouka" } };

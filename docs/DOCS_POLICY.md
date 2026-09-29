@@ -12,8 +12,9 @@ stable boundaries, current entry points, and active plans only.
 | Document | Purpose |
 |----------|---------|
 | `README.md` | Repo entry point and current usage |
-| `AGENTS.md` | Canonical root guide — identity, monorepo layout, cross-stack guardrails, tool routing |
+| `AGENTS.md` | Canonical root guide and index — identity, monorepo layout, core commands, cross-stack guardrails, the owner's testing rules, the rule for recording new knowledge, and one line per `docs/agents/*.md` and `.claude/rules/*.md` |
 | `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
+| `docs/agents/*.md` | Shared agent knowledge every tool reads: package managers, commit and PR hygiene, tool routing, the harness and escalation path, delivery flow with the merge checks, review and verification, worktrees and local gates, CI and GitHub mechanics, code standards, database, infra and secrets, agent and eval, frontend, owner decisions, and the issue-tracker, triage-label, domain and Orca guides |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Prisma 8) + data-platform conventions |
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Prisma 8) conventions |
 | `packages/agent/AGENTS.md` | Platform-independent TypeScript agent domain library conventions |
@@ -104,12 +105,12 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Eval | `packages/eval/src/native/` + `packages/eval/AGENTS.md` + `packages/eval/NATIVE.md` | Native task/observations and the documented in-process CLI; statistical oracles and exported source fixtures remain preserved; native assertions and suite migration are separate work |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md`, `docs/ops/post-deploy-evidence.md` | deployment.md = CD runbook; post-deploy-evidence.md = how a criterion whose evidence is a deployed observation is recorded and judged (#1695) |
-| Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
+| Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords (`migrator` via Pulumi `neon.Role`; the three runtime roles by the migrator's SQL step since #1915); supersedes the ESC-first plan of #674 |
 | CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md`, amended by `docs/adr/0007-selected-release-artifacts.md` | Native platform capabilities and OIDC audiences; explicit immutable artifact selection and whole-environment locks |
 | Platform-over-hand-written, repo-wide | `docs/adr/0008-platform-over-handwritten.md` | Extends ADR 0006 decision 1 past the delivery lane; A/B/C buckets, the B adjudication log is #1593, evidence in `docs/iterations/production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md` |
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-file routing (`--staged` pre-commit / merge-base pre-push); `commitlint.config.js` as the one commit-msg/PR-title validator; the pre-push gate `scripts/local-gates/pre-push-affected.sh` (a routing table per workspace package + the path buckets + a fail-closed whitelist); PR CI routes by pnpm's `--filter "...[<ref>]"`, which pre-push cannot use (pnpm/pnpm#12626); `make check-full` is the manual everything-run; browser e2e/live-Neon/evals/deploys stay in CI |
 | Review gate (merge quality enforcement) | `docs/ops/review-gate.md` | native thread resolution + required checks + the two-way comment hook; the LLM status machinery retired 2026-08-31 |
-| Orca card delivery (backend, Infra, CI/CD) | `docs/ops/orca-card-delivery.md` | Ready for Dev through squash merge; Codex Sol max with /implement, different-model Matt review, three-round limit, PR feedback resolution; future worker-pool requirement |
+| Orca card delivery (backend, Infra, CI/CD) | `docs/ops/orca-card-delivery.md` | Ready for Dev through squash merge; GLM/DeepSeek writers with /implement (2026-09-24 roster), different-model Matt review, three-round limit, PR feedback resolution; future worker-pool requirement |
 | Orca coordinator launch prompt | `docs/agents/orca-coordinator-prompt.md` | Paste-ready single-card MVP prompt; defers operating policy to `docs/ops/orca-card-delivery.md` |
 | Orca project setup and UI entry | `docs/agents/orca-project-setup.md` | Project settings, GitHub board mapping, headless launcher and coordinator entry points |
 | Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |

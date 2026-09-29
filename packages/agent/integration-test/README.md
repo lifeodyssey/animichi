@@ -7,7 +7,7 @@ Wrangler is the existing root dependency; the Worker reads the production catalo
 compatibility date and flags. No deployed account, paid model or live Neon branch is needed.
 
 The path is the shared `createPilgrimageHarness` with all seven tools and the official Pi
-0.85.1 faux provider, a native `MemorySessionRepo`, the actual typed oRPC client, actual
+0.87.1 faux provider, a native `MemorySessionRepo`, the actual typed oRPC client, actual
 `wrangler dev` HTTP, unchanged Catalog handlers over the Prisma data plane, and disposable
 PostgreSQL from `@animichi/test-postgres`. The Worker's own reads open a real TCP connection
 through `@prisma/orm-postgres/serverless`; the Neon HTTP proxy described below serves this

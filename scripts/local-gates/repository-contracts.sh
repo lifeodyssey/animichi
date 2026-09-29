@@ -18,7 +18,11 @@
 # entry in `git ls-tree HEAD` reports `100644` or `100755` — not the `040000` of
 # a tree, and not the `120000` of a symlink. A check that asks only whether some
 # object of that name exists clears the last two, and `bash` then fails on a
-# directory or a symlink to one at exit 126, after the earlier lines have run.
+# directory at exit 126, after the earlier lines have run. Every symlink is
+# refused, whichever way it points: a link's blob holds a target path, not a
+# script, and the target — a directory, a file outside this repository, or
+# nothing at all — is what a run of the line would execute, which is not this
+# check's to classify.
 # CI checks out that tree, so a line naming a path that exists only in this
 # working tree runs here and is missing there — a contract that passes by
 # absence one step later.
@@ -50,7 +54,9 @@ registry() { ruby -ryaml -e "$READ_JOB" "$WORKFLOW" "$JOB"; }
 
 # The one path a registry line names, or a refusal. `bundle exec ruby x.rb` and
 # `bash x.sh` are the whole grammar, and the path carries no whitespace, so a
-# line cannot smuggle a second command past the classifier.
+# line cannot smuggle a second command past the classifier. The name returned is
+# the tree's: `./x.sh` spells the tree path `x.sh`, and `git ls-tree` answers by
+# the name without the prefix, so the leading `./` comes off here.
 target_of() {
   local path="${1##* }"
   case "$1" in
@@ -60,7 +66,7 @@ target_of() {
   case "$path" in
     "" | *[!A-Za-z0-9._/-]*) return 1 ;;
   esac
-  printf '%s\n' "$path"
+  printf '%s\n' "${path#./}"
 }
 
 # The mode of the entry `git ls-tree` reports for a path at HEAD, or nothing
@@ -70,7 +76,6 @@ target_of() {
 mode_of() {
   local entry
   entry="$(git ls-tree HEAD -- "$1" 2>/dev/null)" || return 0
-  case "$entry" in "" | *$'\n'*) return 0 ;; esac
   [ "${entry##*$'\t'}" = "$1" ] || return 0
   printf '%s\n' "${entry%% *}"
 }
@@ -95,9 +100,8 @@ while IFS= read -r command; do
   target="$(target_of "$command")" || refuse "the contracts job runs a command this gate cannot classify: $command"
   # `HEAD` and not `git ls-files`: the index holds a file that is staged and not
   # yet committed, which is the same fail-open one step narrower. The mode and
-  # not `git cat-file -t`: `-t` answers `blob` for a committed symlink too, so a
-  # line naming a symlink to a directory cleared this check and only failed
-  # inside `bash` at exit 126, after the lines above it had run.
+  # not `git cat-file -t`: `-t` answers `blob` for a committed symlink too, so
+  # the mode decides; every symlink is refused (see the header).
   case "$(mode_of "$target")" in
     100644 | 100755) ;;
     *) refuse "the contracts job runs a path that is not a regular file committed at HEAD: $command" ;;

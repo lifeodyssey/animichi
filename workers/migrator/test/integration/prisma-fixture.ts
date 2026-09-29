@@ -11,7 +11,7 @@ export async function nativeApp(dsn: string, directory = MIGRATIONS) {
   const { app, token } = await makeApp({ migrationsDir: directory,
     selected: {
       preflight: (connection, metadata) => lock.runExclusive(() => preflightSelected(connection, metadata, directory)),
-      migrate: (connection, metadata) => lock.runExclusive(() => migrateSelected(connection, metadata, directory)),
+      migrate: (connection, passwords, metadata) => lock.runExclusive(() => migrateSelected(connection, passwords, metadata, directory)),
     },
   });
   const env = { ...testEnv(), MIGRATOR_DATABASE_URL: dsn };

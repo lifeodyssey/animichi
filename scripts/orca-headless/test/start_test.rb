@@ -149,44 +149,6 @@ class HeadlessStartIdentityTest < Minitest::Test
     assert_equal PTY_ID, launch.dig("terminal", "ptyId")
     assert_equal INCARNATION, launch.dig("terminal", "incarnationId")
     values = launch.values_at("provider", "model", "effort")
-    assert_equal ["codex", "gpt-5.6-sol", "max"], values
-  end
-end
-
-class HeadlessModelCommandTest < Minitest::Test
-  include HeadlessFixture
-  include RuntimeFixtures
-
-  def test_codex_uses_approve_for_me_without_a_sandbox_bypass
-    invoke(start_args, FakeCommandRunner.new(successful_start_results))
-    argv = runner_argv
-    assert_includes argv, "--approve-for-me"
-    refute_includes argv, "--dangerously-bypass-approvals-and-sandbox"
-    assert_equal "-", argv.last
-  end
-
-  def test_grok_uses_prompt_file_without_bypass_flags
-    args = start_args("grok", "grok-4.6", "xhigh")
-    code, = invoke(args, FakeCommandRunner.new(successful_start_results))
-    assert_equal 0, code
-    assert_grok_command(runner_argv)
-  end
-
-  private
-
-  def runner_argv
-    config = JSON.parse(File.read(File.join(@state, "runner-config.json")))
-    config.fetch("argv")
-  end
-
-  def assert_grok_command(argv)
-    assert_includes argv, "--prompt-file"
-    refute_includes argv, "--dangerously-skip-permissions"
-    assert_equal File.join(File.realpath(@state), "empty.stdin"), runner_stdin
-  end
-
-  def runner_stdin
-    config = JSON.parse(File.read(File.join(@state, "runner-config.json")))
-    config.fetch("stdin")
+    assert_equal ["claude", "claude-opus-5", "max"], values
   end
 end

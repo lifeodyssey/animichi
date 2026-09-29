@@ -50,25 +50,36 @@ async function batch(client: pg.Client, statements: Batch, headers: Headers) {
   return { results };
 }
 
-/** Replace only Neon HTTP transport; pg executes the SDK's payload unchanged. */
+/** Replace only Neon HTTP transport; pg executes the SDK's payload unchanged. The connection
+ * string travels in the header and is honored as sent, so the #1915 role-provisioning probes
+ * — which authenticate as a runtime role, not as the migrator — reach PostgreSQL as who they
+ * claim to be; that is the whole fact a probe exists to test. */
 export function servePrismaPostgres(dsn: string): void {
   vi.stubGlobal("fetch", async (_input: unknown, options?: RequestInit) => {
     const headers = new Headers(options?.headers);
-    expect(headers.get("Neon-Connection-String")).toBe(dsn);
-    return postgresHttp(dsn, headers, options?.body as string);
+    const connection = headers.get("Neon-Connection-String");
+    expect(connection).toEqual(expect.any(String));
+    return postgresHttp(connection ?? dsn, headers, options?.body as string);
   });
 }
 
 export async function postgresHttp(dsn: string, headers: Headers, body: string): Promise<Response> {
   const statement = JSON.parse(body) as Query | Batch;
   const client = new pg.Client(dsn);
-  await client.connect();
   try {
-    const result = "queries" in statement ? await batch(client, statement, headers) : await query(client, statement);
-    return Response.json(result);
+    await client.connect();
+    return Response.json("queries" in statement ? await batch(client, statement, headers) : await query(client, statement));
   } catch (error) {
-    await client.query("ROLLBACK");
-    if (error instanceof pg.DatabaseError) return Response.json({ code: error.code, message: error.message }, { status: 400 });
+    // #1915: the role-provisioning probes authenticate as the runtime roles, so a connect
+    // failure is a NORMAL answer here (28P01 until the step sets the password) — report it as
+    // the protocol error it is, and never let a rollback on a connection that never opened
+    // replace the answer, or the caller's fetch would hang instead of failing.
+    if (error instanceof pg.DatabaseError) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      return Response.json({ code: error.code, message: error.message }, { status: 400 });
+    }
     throw error;
-  } finally { await client.end(); }
+  } finally {
+    await client.end().catch(() => undefined);
+  }
 }

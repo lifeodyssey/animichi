@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { issuedToken, joseEnv, makeApp, post, productionEnv, testEnv } from "./migrate.worker.helpers";
+import { issuedToken, joseEnv, makeApp, post, productionEnv, SERVICE_ROLE_PASSWORDS, testEnv } from "./migrate.worker.helpers";
 import { requestMetadata } from "./sealed-migrations";
 import { recordingExecutor } from "./selected-executor-double";
 import type { SelectedMetadata, SelectedMigration } from "../src/selected-migration";
@@ -59,13 +59,25 @@ describe("selected metadata at the public HTTP boundary", () => {
   });
 
   it("forwards the complete parsed selection through the default DO binding", async () => {
-    const migrate = vi.fn<(dsn: string, metadata: SelectedMetadata) => Promise<SelectedMigration>>()
+    const migrate = vi.fn<(dsn: string, passwords: unknown, metadata: SelectedMetadata) => Promise<SelectedMigration>>()
       .mockResolvedValue({ kind: "success", exitCode: 0 });
     const namespace = { idFromName: () => "fixed-id", get: () => ({ migrate }) } as unknown as DurableObjectNamespace;
     const { app, token } = await makeApp({ selected: undefined });
     const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_APPLY_LOCK: namespace });
     expect(response.status).toBe(200);
-    expect(migrate).toHaveBeenCalledWith("postgresql://fake:migrator@db.test/neondb", requestMetadata);
+    expect(migrate).toHaveBeenCalledWith("postgresql://fake:migrator@db.test/neondb", SERVICE_ROLE_PASSWORDS, requestMetadata);
+  });
+
+  // #1915 — the three runtime passwords are as required as the DSN: a Worker without them
+  // would provision roles that cannot authenticate the DSN secrets already in the store.
+  it("refuses an apply whose bound role passwords are not configured", async () => {
+    const executor = recordingExecutor();
+    const { app, token } = await makeApp({ selected: executor.selected });
+    const env = { ...testEnv(), AGENT_SVC_PASSWORD: undefined };
+    const response = await app.request(post({}, token), undefined, env);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "service role passwords not configured" });
+    expect(executor.calls).toEqual([]);
   });
 
   it("never reaches the executor for a body the parser refuses", async () => {

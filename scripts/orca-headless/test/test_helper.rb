@@ -55,7 +55,7 @@ module HeadlessFixture
     FileUtils.mkdir_p(@workspace)
     FileUtils.mkdir_p(File.dirname(@runtime_client))
     FileUtils.mkdir_p(@bin)
-    %w[node orca codex grok].each { |name| write_executable(name) }
+    %w[node orca claude pi kimi].each { |name| write_executable(name) }
     @resolver = OrcaHeadless::ExecutableResolver.new(@bin)
     File.write(@runtime_client, "module.exports = {};")
     File.write(@spec, "Implement safely.\n")
@@ -65,7 +65,7 @@ module HeadlessFixture
     FileUtils.remove_entry(@root)
   end
 
-  def start_args(provider = "codex", model = "gpt-5.6-sol", effort = "max")
+  def start_args(provider = "claude", model = "claude-opus-5", effort = "max")
     ["start", "--workspace", @workspace, "--coordinator", "term_coordinator1",
      "--run", "run_example1", "--title", "Headless test", "--spec-file", @spec,
      "--provider", provider, "--model", model, "--effort", effort,
@@ -83,6 +83,10 @@ module HeadlessFixture
     options[:process_observer] = process_observer if process_observer
     code = OrcaHeadless::CLI.run(argv, **options)
     [code, out.string, err.string]
+  end
+
+  def runner_config
+    JSON.parse(File.binread(File.join(File.realpath(@state), "runner-config.json")))
   end
 
   def write_executable(name)

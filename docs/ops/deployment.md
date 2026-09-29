@@ -268,7 +268,7 @@ Required at deploy time:
   Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
   the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
   `docs/ops/prod-dsn-cutover.md`.
-- `MIMO_API_KEY` for the primary `mimo-v2.5` model — the runtime is MiMo-only (owner decision
+- `MIMO_API_KEY` for the primary `mimo-v2.6-flash` model — the runtime is MiMo-only (owner decision
   2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
 
 The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved
@@ -309,10 +309,12 @@ the production Worker, so a `wrangler deploy` without `--env` would otherwise pu
 with no `APP_ENV` and silently deindex the site.
 
 The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
-`DEFAULT_AGENT_MODEL`, `FALLBACK_AGENT_MODEL`, `LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
+`LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
 `ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
 gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
-separate work. Do not treat them as live configuration.
+separate work. Do not treat them as live configuration. (The Python-era `DEFAULT_AGENT_MODEL` and
+`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables are
+a separate inventory, pinned by `.github/test/workflow-variables.test.rb`.)
 
 ## Cloudflare Workers Path
 
@@ -402,10 +404,14 @@ by hand. The owner's dated decision that it is stale is a committed record,
 `infra/database-access/reset-staging-baseline.approved-marker`, naming every row exactly as the
 refusal prints it. It approves the whole `prisma_contract` schema, not one row: with it the rebuild
 takes the backup branch and then drops that schema's three tables (`marker`, `ledger`, `contract`)
-by name and the schema itself, without `CASCADE`, in the same transaction as `public`; any other
-object in or depending on the schema rolls the whole transaction back, and a reused backup older
-than the schema's last write refuses. Every
-later run is a named no-op. The migrator
+by name and the schema itself, without `CASCADE`, in one transaction as `migrator`, their owner —
+the chain created them as itself, and `neondb_owner` is no member of it (#1949) — and rebuilds
+`public` in a second transaction as `neondb_owner`; any other object in or depending on the schema
+rolls the migrator's transaction back, and a reused backup older than the schema's last write
+refuses. If the owner's transaction fails after the migrator's has committed, the next run
+finishes the rebuild: with no marker schema left, it takes the leftovers path, whose reset is the
+owner's transaction alone. Every
+later run against a completed reset is a named no-op. The migrator
 refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
 `/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
 inside the apply; the preflight step's log then points back at the rebuild step's own account. Production has no such step: a missing, empty or native-baseline production

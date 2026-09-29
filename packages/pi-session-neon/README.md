@@ -42,9 +42,10 @@ uniqueness; ordinary checks prevent indexed fields diverging from the native JSO
 Native Pi validation owns visible parent references. Usage's optional `entryId` is not a foreign
 key, matching upstream.
 
-Native lists are supported. Pi 0.85.1's fork copies entries and scalars, **not lists**; domain state
-and frozen-prefix correctness must not depend on list-preserving fork. No list-copy implementation
-or conversion layer is introduced here.
+Native lists are supported. The Neon fork copies entries and scalars, **not lists** — unchanged
+by pi 0.87.1, whose fork change teaches only the in-memory and JSONL backends to carry list
+elements; domain state and frozen-prefix correctness must not depend on list-preserving fork.
+No list-copy implementation or conversion layer is introduced here.
 
 `test/business-transactions.ts` contains executable SQL examples showing reservation replay and
 atomic settlement of cursor, daily cost and refund. Production writers still need the actual

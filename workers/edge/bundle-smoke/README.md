@@ -4,11 +4,11 @@ Run `pnpm --filter edge-worker run test:bundle-smoke` from the repository root.
 `pnpm --filter edge-worker test` and the existing affected edge lane include it.
 
 `pi-harness.test.ts` proves S1 (#1537) against the published
-`@earendil-works/pi-agent-core@0.85.1` and `@earendil-works/chord@0.85.1`.
+`@earendil-works/pi-agent-core@0.87.1` and `@earendil-works/chord@0.87.1`.
 The `pi-agent-core-smoke` and `pi-ai-smoke` npm aliases are test dependencies:
-they install the same official 0.85.1 packages used by production.
+they install the same official 0.87.1 packages used by production.
 The frozen workspace lock also fixes core's chord, pi-ai and telemetry dependencies
-at 0.85.1. Tests never download packages or resolve a version at runtime.
+at 0.87.1. Tests never download packages or resolve a version at runtime.
 
 Wrangler's CLI builds the fixture with `deploy --dry-run --metafile`; its official
 `createTestHarness` then executes **that same emitted artifact** in local workerd.
@@ -33,12 +33,14 @@ cloud bindings or production deployment wiring.
 
 Measured on 2026-09-09 with Wrangler 4.114.0, Node 26.8.1, and base
 `fd73fbd532ef4d151a027ab8c93e9f2ea9304dab`. All size builds use the fixture's
-edge compatibility settings, without minification; gzip uses level 6.
+edge compatibility settings, without minification; gzip uses level 6. Both
+fixtures now install 0.87.1; the parenthesised versions are what they
+installed when measured.
 
 | Smoke artifact | Bytes | Gzip bytes |
 |---|---:|---:|
-| Existing `pi-kernel.worker.ts` (0.84.4) | 562,121 | 98,770 |
-| New `pi-harness.worker.ts` (0.85.1) | 1,237,291 | 196,610 |
+| Existing `pi-kernel.worker.ts` (0.84.4 at measurement) | 562,121 | 98,770 |
+| New `pi-harness.worker.ts` (0.85.1 at measurement) | 1,237,291 | 196,610 |
 | Increase against existing smoke baseline | 675,170 | 97,840 |
 
 Both entries were built directly with the official Wrangler CLI. The baseline
@@ -56,12 +58,12 @@ A separate comparison retains the new harness alongside the complete edge:
 The size-only entry imports and re-exports the existing edge, adds the fixture as
 the named `harnessSmoke` export, and preserves the edge default export. It retains
 both SDK versions, so this measures coexistence rather than predicting the later
-runtime replacement. Neither artifact contains an esbuild marker. The standalone
-0.85.1 fixture reports 1,208.29 KiB / gzip 192.00 KiB from Wrangler.
+runtime replacement. Neither artifact contains an esbuild marker. The standalone fixture reported
+1,208.29 KiB / gzip 192.00 KiB from Wrangler at 0.85.1.
 
 ## Mutation evidence
 
-- Restoring the old 0.84.4 fixture makes the runtime assertion fail with HTTP 500:
+- Restoring the old kernel fixture makes the runtime assertion fail with HTTP 500:
   `HarnessNotImplemented: AgentHarness.lanes is not implemented yet`.
 - Adding `export { bundleFacets } from "@earendil-works/chord/bundler"` makes the
   artifact assertion fail on `node_modules/esbuild/lib/main.js`.

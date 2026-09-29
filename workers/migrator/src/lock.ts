@@ -1,4 +1,5 @@
 import type { SelectedExecutor, SelectedMetadata, SelectedMigration, SelectedPreflight } from "./selected-migration";
+import type { RuntimeRolePasswords } from "./service-roles";
 
 /** Fixed-name Durable Object mutex (not per-run `migrator-job-*`). */
 export const APPLY_LOCK_NAME = "migrator-apply-lock";
@@ -29,14 +30,18 @@ function swallow(): undefined {
 
 interface SelectedStub {
   preflight(dsn: string, metadata: SelectedMetadata): Promise<SelectedPreflight>;
-  migrate(dsn: string, metadata: SelectedMetadata): Promise<SelectedMigration>;
+  migrate(dsn: string, passwords: RuntimeRolePasswords, metadata: SelectedMetadata): Promise<SelectedMigration>;
 }
 
 /**
  * The selected migration's complete metadata crosses the fixed Durable Object RPC;
- * there is no unbounded apply request on the production path.
+ * there is no unbounded apply request on the production path. The runtime role passwords
+ * cross with it (#1915): the provisioning step they feed runs inside the same gate.
  */
 export function productionSelected(namespace: DurableObjectNamespace): SelectedExecutor {
   const stub = namespace.get(namespace.idFromName(APPLY_LOCK_NAME)) as unknown as SelectedStub;
-  return { preflight: (dsn, metadata) => stub.preflight(dsn, metadata), migrate: (dsn, metadata) => stub.migrate(dsn, metadata) };
+  return {
+    preflight: (dsn, metadata) => stub.preflight(dsn, metadata),
+    migrate: (dsn, passwords, metadata) => stub.migrate(dsn, passwords, metadata),
+  };
 }

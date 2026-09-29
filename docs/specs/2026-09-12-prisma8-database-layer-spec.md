@@ -804,6 +804,20 @@ CD 的顺序本来就支持它：`cd.yml:126-131` 的 Pulumi `Apply database acc
 搬家时要一起补进 Pulumi；测试容器的角色创建归 `packages/test-postgres`（§4.7）。
 `migrations/AGENTS.md:78-86` 的角色矩阵与 `:55-76` 的表所有权表随之重写。
 
+**修订（2026-09-23，#1915，owner 裁定）**：上面的归属被部分推翻。实测发现 staging 的三个运行时
+角色全部是 `neon_superuser` 成员——Neon 对经 Console/CLI/API 创建的角色一律授予该成员资格，且只有
+Neon 自己的 `cloud_admin` 能收回，应用侧收不回；所以一个泄漏的运行时 DSN 能读写每一张表。定案：
+
+- 三个运行时角色（`agent_svc` / `catalog_svc` / `users_svc`）**不再是 `neon.Role`**。它们的角色 DDL
+  归 **migrator Worker 的 SQL 步骤**（`workers/migrator/src/service-roles.ts`）：每次 `/migrate`、
+  链之前、幂等地建齐五个角色、复位属性、撤销成员资格；`jobs_svc` / `readonly` 保持 NOLOGIN 的
+  余数随之解决，不再补进 Pulumi。SQL 建的角色不带任何成员资格，这正是本次修订要买的性质。
+- Pulumi 保留**凭证**职责：每个运行时角色一个 `random.RandomPassword`，DSN 的拼装与写入
+  Secrets Store 不变（secret 名不变），密码本身也写进 Store 并**只绑定 migrator**。
+- `migrator` 仍是 `neon.Role`：链需要 `neon_superuser` 级做 `CREATE EXTENSION`。
+- 角色 DDL 仍在链外（`workers/edge/test/migrator-ac3-proof.test.ts` 原样成立），但所有者从
+  Pulumi 移到 migrator Worker；§五表第 5 行据此修正。
+
 #### 4.8.6 semgrep 与依赖规则的重指向是实现任务
 
 **决定它的原则**：这不是分叉——护栏必须继续守着同一条不变量（「应用代码里没有 SQL」、
@@ -925,7 +939,7 @@ agent 域的 12 张（`20260826000004_agent.sql` 的 10 张 + `20260902000000_ag
 | 2 | 报告哪一种米 | **椭球（spheroid），排序与报告同源** | owner | §4.11 |
 | 3 | 无状态 Worker 的连接形态 | **`./serverless` per-request `connect()` + `await using`；不上 Hyperdrive；不上 DO** | owner | §4.2 |
 | 4 | 一条链还是两条 | **一条——改写现有那条** | owner | §4.1 |
-| 5 | 角色 DDL 归谁 | **Pulumi**；链里只 `precheck` | 授权：单一职责 + ADR 0003 | §4.8.5 |
+| 5 | 角色 DDL 归谁 | **Pulumi**；链里只 `precheck`（2026-09-23 修订：三个运行时角色归 migrator Worker 的 SQL 步骤，密码仍由 Pulumi 生成，见 §4.8.5 修订） | 授权：单一职责 + ADR 0003 | §4.8.5 |
 | 6 | 扩展 DDL 归谁 | **链的第一条迁移** | 授权：链必须能从零重建 | §4.8.2 |
 | 7 | `points.embedding` + HNSW | **删** | 授权：YAGNI | §4.8.3 |
 | 8 | `locations.location` | **删列、留表** | 授权：YAGNI（按列施用） | §4.8.4 |

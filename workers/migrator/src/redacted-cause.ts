@@ -6,10 +6,10 @@
  * message — the Durable Object reset — was sitting in the thrown error. This turns a thrown
  * value into one line CD can print, with the credential shapes below removed first.
  *
- * Those shapes are an inventory, not a guarantee. `SCHEME_DSN`, `KEYWORD_PASSWORD` and
- * `SCHEMELESS_USERINFO` each name the surface they match; a secret written in a shape none of
- * them names survives this function. Widen the inventory when one gets past, and do not read a
- * redacted cause as proof that a message is clean.
+ * Those shapes are an inventory, not a guarantee. `SCHEME_DSN`, `KEYWORD_PASSWORD`,
+ * `SCHEMELESS_USERINFO` and `SQL_PASSWORD` each name the surface they match; a secret written
+ * in a shape none of them names survives this function. Widen the inventory when one gets
+ * past, and do not read a redacted cause as proof that a message is clean.
  *
  * `scripts/delivery/migrate-through-worker.sh` redacts the body again before it logs, and the
  * two passes are independent rather than one being a fallback for the other. The difference
@@ -33,6 +33,15 @@ const SCHEME_DSN = /(?:postgres|postgresql):\/\/\S+/gi;
  * that is what let `password='…'` through, its leading quote matching nothing at all.
  */
 const KEYWORD_PASSWORD = /("?password"?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&}"']+)/gi;
+
+/**
+ * The SQL keyword form, which no separator follows — `ALTER ROLE x PASSWORD 'secret'`. It is
+ * the shape #1915's provisioning statements carry, so a driver or a DO-block CONTEXT that
+ * echoes one hands this pass the password itself. The value reads like an SQL string: quote
+ * to quote, a doubled quote (`''`) an escaped quote inside, so `'a''b'` redacts whole and a
+ * single closing quote still ends the value where SQL itself would.
+ */
+const SQL_PASSWORD = /\b(password\s*)('(?:[^']|'')*'|"[^"]*")/gi;
 
 /**
  * `user:secret@host.tld/db` with the scheme already gone — the userinfo half of a DSN, which a
@@ -59,6 +68,7 @@ const SCHEMELESS_USERINFO = /(?<![\w:/@])[\w.-]+:\S+@[\w.-]+\.[\w.-]+(?:[:/]\S*)
 const CREDENTIAL_PATTERNS: readonly [RegExp, string][] = [
   [SCHEME_DSN, "postgresql://[redacted]"],
   [KEYWORD_PASSWORD, "$1[redacted]"],
+  [SQL_PASSWORD, "$1[redacted]"],
   [SCHEMELESS_USERINFO, "[redacted]"],
 ];
 

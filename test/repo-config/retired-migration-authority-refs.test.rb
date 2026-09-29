@@ -51,6 +51,10 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
     "docs/ops/migrations.md" => "the runbook states which authority was retired and why",
     "infra/database-access/reset-staging-baseline.sh" => "the staging rebuild finds and drops the ledger it names (#1625)",
     "infra/database-access/reset-staging-baseline.test.sh" => "its cutover fixture builds the ledger the rebuild must drop",
+    "infra/database-access/reset-staging-baseline.marker-cases.sh" =>
+      "its recorded-marker cases prove the ledger the rebuild drops is gone",
+    "infra/database-access/reset-staging-baseline.half-reset-cases.sh" =>
+      "its half-reset case proves the ledger the rebuild must drop still stands",
     "workers/migrator/src/atlas-leftovers.ts" => "the migrator refuses a database by the ledger it names (#1625)",
     "workers/migrator/test/integration/prisma.integration.ts" => "one case builds the ledger the migrator must refuse",
   }.freeze
