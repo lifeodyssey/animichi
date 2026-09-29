@@ -1,7 +1,7 @@
 # Delivery flow — ticket to PR to merge to deployed
 
 The operating runbook is `docs/ops/orca-card-delivery.md`; the coordinator manual is
-`.claude/skills/animichi-orca-orchestration/SKILL.md`; the merge rules are
+the `animichi-orca-orchestration` skill in `lifeodyssey/zdev` (`docs/agents/orchestration.md`); the merge rules are
 `docs/ops/review-gate.md`. This file holds the owner decisions and the measured mechanics those
 documents do not carry, in the order the flow runs. Owner-local hooks enforce the intake rules
 below on the owner's machine; like the hookify rules `docs/agents/harness.md` names, they are
@@ -66,7 +66,8 @@ splitting kept the pipeline blocked.
 ## Review before the PR opens (owner, 2026-09-24)
 
 GLM and DeepSeek review each other's work; kimi reviews a candidate that both of them wrote;
-GLM or DeepSeek reviews a candidate kimi wrote; no Claude model reviews (owner, 2026-09-24).
+GLM or DeepSeek reviews a candidate kimi wrote; no Claude model reviews a card (owner, 2026-09-24;
+cross-lane review is separate, see `docs/agents/owner-decisions.md`).
 A PR opens only after a review seat on a model different from every model that wrote the
 candidate has approved its head, and the body carries `Review: APPROVE at <sha>`.
 

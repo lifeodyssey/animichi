@@ -24,8 +24,10 @@ restart ("在做刚刚的那些事情的时候你用了对应的 skill 了吗").
 
 ## Visible-UI cards (owner, 2026-09-21)
 
-The coordinator skill's roster section holds the three rules for a card with a user-visible
-surface in `apps/web`: who writes it, what its PR comment carries, who accepts it.
+A card with a user-visible surface in `apps/web` differs in three ways: kimi writes it; its PR
+comment carries before/after comparison screenshots and screenshots of the flow; and the
+coordinator does not merge it — the owner accepts it. A change inside `apps/web` with no
+user-visible surface (a test helper, a build config) is not a visible-UI card.
 
 ## Cite the installed API, never a remembered major version
 

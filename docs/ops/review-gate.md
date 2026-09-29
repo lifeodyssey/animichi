@@ -41,3 +41,6 @@ fails closed, the ruleset fails closed, CI is never bypassed.
 - Mutation probes remain the only valid green-light proof for behavioural
   claims: break the code (red), restore it, rerun (green), quote all three.
 - One ticket outcome per PR; review findings are folded into the same PR.
+- Merge only when every bot that left a comment or finding is resolved (line-level threads and
+  top-level comments both), the last APPROVE from a review seat covers the current head, and every
+  CI check is green — not "no required check is red". A bot that left nothing does not block.
