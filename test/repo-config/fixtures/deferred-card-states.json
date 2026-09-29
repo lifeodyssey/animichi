@@ -22,11 +22,6 @@
       "number": 1593,
       "state": "OPEN",
       "title": "arch(repo): adjudicate where platform semantics fall short"
-    },
-    {
-      "number": 1619,
-      "state": "OPEN",
-      "title": "feat(delivery): route workers by quota and hand off"
     }
   ]
 }

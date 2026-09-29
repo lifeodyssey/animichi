@@ -120,11 +120,11 @@ Preserve completed child reports plus failed-attempt and native Run-takeover evi
 
 Use Orca workers, not unrelated native subagents or parallel raw Codex CLIs; respect installed skill topology and Orca's nesting limit.
 
-Use the [headless launcher](../../scripts/orca-headless/README.md) with the exact workspace, coordinator, Run,
+Use the headless launcher (`orchestration/scripts/orca-headless/README.md` in `lifeodyssey/zdev`) with the exact workspace, coordinator, Run,
 private role-spec file and a new private attempt directory. Fixed roles do not schedule cards or select models; follow documented start/status/accepted-cleanup and never use interactive `worker-start` as fallback.
 
 Verify model/effort from receipts or the reused terminal's live session. Astra uses `xhigh` on Orca 1.4.200; see
-the [compatibility note](../agents/orca-project-setup.md#model-compatibility-and-allowance). New worktrees need
+the compatibility note (`orchestration/docs/orca-project-setup.md` in `lifeodyssey/zdev`). New worktrees need
 setup; existing ones need a preflight because `worker-start` does not rerun it.
 
 MVP verification uses one pilot candidate writer and one heavy gate suite at a time. After it passes, inventory Ready for
@@ -212,11 +212,11 @@ For every complete inventory, set `PR_NUMBER` to the actual PR number,
 repository, and `OBSERVATION` to a new sequence-plus-stage name such as `02-after-push`:
 
 ```sh
-ruby scripts/orca/pr-feedback.rb --repo lifeodyssey/animichi --pr "$PR_NUMBER" \
+ruby "$ZDEV/orchestration/scripts/orca/pr-feedback.rb" --repo lifeodyssey/animichi --pr "$PR_NUMBER" \
   --output "$CARD_EVIDENCE_DIR/pr-feedback-$OBSERVATION.json"
 ```
 
-The [read-only feedback tool](../../scripts/orca/README.md) writes successful output
+The read-only feedback tool (`orchestration/scripts/orca/README.md` in `lifeodyssey/zdev`) writes successful output
 atomically. Never reuse an observation name or overwrite an earlier inventory. A nonzero
 exit, missing output, or output whose `complete` is not `true` is unavailable or partial
 evidence, never zero findings or merge permission. Query required CI/checks separately.
@@ -274,8 +274,8 @@ is accepted until that behavior has been exercised in a real scoped pilot.
 
 ## Task brief template
 
-Start with the [project setup entry](../agents/orca-project-setup.md) and
-[coordinator prompt](../agents/orca-coordinator-prompt.md). Tasks -> GitHub ->
+Start with the project setup entry and
+coordinator prompt (both in `lifeodyssey/zdev`, `orchestration/docs/`). Tasks -> GitHub ->
 Projects displays business data; Agent Dashboard shows agent activity. Neither
 worker settlement nor an agent's Done indicator advances the business card.
 

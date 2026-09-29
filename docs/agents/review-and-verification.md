@@ -1,9 +1,28 @@
 # Review and verification — the false greens recorded here
 
 Mutation testing is the only green-light proof (`docs/agents/harness.md`,
-`docs/ops/review-gate.md`); the review bar is the coordinator skill's readability-first bar.
+`docs/ops/review-gate.md`); the review bar is the readability-first bar below.
 This file is the catalogue of ways a green lied on this repository, and the technique that caught
 each one.
+
+## Readability-first review bar
+
+Owner decision 2026-09-15, after review loops grew findings (42 → 8 → 20) and
+contract tests grew anti-obfuscation cases no maintainer needs:
+
+- **Must fix:** violations of written repository rules (1-10-50, test-file
+  size, conditional logic in tests, `any`, suppressions, statements the patch
+  made false) and real defects or AC gaps.
+- **Judgement / nit / optional:** fix only when the fix makes the code shorter
+  or plainer. If it would add a file, a test double, an abstraction, test
+  variants or net lines, do not fix it; the fixer records a one-line reason and
+  the reviewer confirms the reason. Such items do not block merge-clean.
+- Fixer briefs default to subtraction: delete or inline first, report the net
+  line delta. Contract tests prove the AC's one or two facts in the shortest
+  readable form and do not defend against adversarial rewrites.
+- Review briefs ask the reviewer to state, per finding, whether the proposed
+  correction adds or removes code, and to apply the two tiers above.
+- Apply this bar to similar choice points without asking the owner.
 
 ## Four ways a test passed for the wrong reason (2026-07-26, four PRs in one day)
 
