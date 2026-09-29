@@ -44,9 +44,10 @@ The orchestration is being redesigned as a state-driven agentic workflow; the de
   is not changed after the card is Ready; a scheduled retrospective compares estimates with the
   actual difficulty instead.
 - Models: the coordinator, the upgrade seat for a blocked card, and the cross-lane code review run
-  Opus 5.5 with Fable as advisor. Very complex cards go to a Sonnet 5.5 writer (the estimate
-  threshold is still to be set). Card-level review stays off Claude models (2026-09-24 decision
-  stands); a card written by Opus or Sonnet is reviewed by GLM or DeepSeek.
+  Opus 5.5 with Fable as advisor. Very complex cards will go to a Sonnet 5.5 writer; it is not in
+  the launcher roster yet and the estimate threshold is still to be set. Card-level review stays
+  off Claude models (2026-09-24 decision stands); a card written by Opus or Sonnet is reviewed by
+  GLM or DeepSeek.
 - Cross-lane code review runs every 12 hours over every in-flight lane's diff. A finding inside one
   lane goes back to that lane; a finding spanning lanes becomes a new issue blocked by those cards
   and is handled after they merge.
