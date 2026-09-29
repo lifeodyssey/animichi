@@ -126,7 +126,7 @@ Topic guides in `docs/agents/`:
 - `docs/agents/issue-tracker.md` — GitHub Issues (`lifeodyssey/animichi`) via `gh`; wayfinding operations. Before touching an issue.
 - `docs/agents/triage-labels.md` — the five triage roles mapped 1:1 to label strings, plus `wayfinder:*`. When labelling.
 - `docs/agents/domain.md` — root `CONTEXT-MAP.md` → per-package `CONTEXT.md`; system ADRs in `docs/adr/`. Before exploring a package.
-- `docs/agents/orca-project-setup.md` · `docs/agents/orca-coordinator-prompt.md` — Orca project settings and prompt. When coordinating a card in Orca.
+- `docs/agents/orchestration.md` — where the Orca coordinator, launcher and reconciler live (private `lifeodyssey/zdev`) and what stays here. When coordinating a card in Orca.
 
 Path-scoped rules in `.claude/rules/` (Claude Code loads each for matching paths; every other
 agent reads them from here):

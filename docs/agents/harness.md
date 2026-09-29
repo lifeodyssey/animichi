@@ -6,7 +6,7 @@ question.
 ## Harness (4-role agent system)
 
 Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine-judgeable triggers).
-**Coordinator skill: `.claude/skills/animichi-orca-orchestration/SKILL.md`** (force-added; `.agents/` is a gitignored mirror) — the operating
+**Coordinator skill: `animichi-orca-orchestration`**, kept in the private `lifeodyssey/zdev` repository and installed as a global skill (`docs/agents/orchestration.md`) — the operating
 manual for one delivery tick: the writer/reviewer roster, the launcher's contract, the merge
 conditions, and the failure modes each of them was written to prevent. Read it before
 dispatching anything. The retired `use-opencode` and `fleet-orchestra` skills are superseded
