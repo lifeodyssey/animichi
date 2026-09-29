@@ -5,6 +5,7 @@ import type { ByokCredentialParts } from "../agent/byok/byok-credential.ts";
 import { SelectionRequest } from "@animichi/agent/selection";
 import { z } from "zod";
 import { ChatEnvelopeError, chatTurnText, type Locale } from "./chat-envelope.ts";
+import { canonicalConversationId } from "./conversation-id.ts";
 import type { TurnIdentity } from "./agent-turn.ts";
 export const MESSAGE_MAX_CHARS = 4_000;
 const HEADER_KEY_MAX_CHARS = 200;
@@ -26,6 +27,21 @@ function boundedHeaderKey(headers: Headers, name: string, max: number, locale: L
   const named = headers.get(name)?.trim() ?? "";
   if (named === "") return null;
   if (named.length > max) throw new ChatEnvelopeError("invalid_body", locale);
+  return named;
+}
+
+/**
+ * The conversation this turn writes to (#1901): the caller's own canonical
+ * UUID when it sends one — the page mints the id before it sends so a remount
+ * can reattach — or a fresh one when it does not. A present id in any other
+ * shape is refused like any bad header key: the reconnect GET accepts only the
+ * canonical shape, so admitting it would create a conversation its own
+ * reconnect route cannot read.
+ */
+function submittedSessionId(headers: Headers, locale: Locale): string {
+  const named = boundedHeaderKey(headers, "x-session-id", HEADER_KEY_MAX_CHARS, locale);
+  if (named === null) return crypto.randomUUID();
+  if (!canonicalConversationId(named)) throw new ChatEnvelopeError("invalid_body", locale);
   return named;
 }
 
@@ -55,7 +71,7 @@ export async function submissionOf(
   const byok = byokCredentialIn(request.headers) ?? undefined;
   const selection = selectionIn(payload, locale);
   return {
-    sessionId: boundedHeaderKey(request.headers, "x-session-id", HEADER_KEY_MAX_CHARS, locale) ?? crypto.randomUUID(),
+    sessionId: submittedSessionId(request.headers, locale),
     identityId: identity.userId,
     payer: payerFor(identity, byok),
     clientMessageId: boundedHeaderKey(request.headers, "x-turn-id", HEADER_KEY_MAX_CHARS, locale) ?? crypto.randomUUID(),

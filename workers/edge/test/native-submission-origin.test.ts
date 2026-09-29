@@ -5,7 +5,7 @@ import { ChatEnvelopeError } from "../src/gateway/chat-envelope.ts";
 
 function submit(fields: object) {
   const request = new Request("https://agent.example/v1/chat", { method: "POST",
-    headers: { "content-type": "application/json", "x-session-id": "origin-session", "x-turn-id": "origin-turn" },
+    headers: { "content-type": "application/json", "x-session-id": "01992000-0000-7000-8000-000000001546", "x-turn-id": "origin-turn" },
     body: JSON.stringify({ messages: [{ role: "user", parts: [{ type: "text", text: "Search nearby" }] }], ...fields }) });
   return submissionOf(request, { userId: "user-1", userType: "authenticated" }, "ja");
 }

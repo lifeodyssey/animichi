@@ -20,7 +20,7 @@ test.use({
 
 const ja = chatDictFor("ja");
 const settings = dictFor("ja").settings;
-const SESSION_ID = "s-1337";
+const SESSION_ID = "01992000-0000-7000-8000-000000001337";
 const FIRST_TURN = "宇治の聖地を2件、徒歩ルートにまとめました。";
 
 const conversation = [
