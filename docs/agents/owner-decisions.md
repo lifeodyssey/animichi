@@ -30,6 +30,27 @@ Paid eval runs are allowed only when every hop of the run (the model under test,
 judge) goes through opencode go ("可以，只要是 opencode go 的随便跑"). If any hop is fixed to
 another paid API, do not run; report back (#1560).
 
+## Delivery workflow redesign (2026-09-29)
+
+The orchestration is being redesigned as a state-driven agentic workflow; the design is
+`orchestration/docs/orchestration-system-design.html` in `lifeodyssey/zdev`
+(`docs/agents/orchestration.md`). Decided so far:
+
+- Card state has one authority, computed from facts; the coordinator is a short session that reads
+  that table each time it is woken and follows it.
+- The tracker moves from GitHub Issues and Project #3 to Linear. Until the migration lands, GitHub
+  Issues stay the working tracker.
+- `/to-tickets` stays automatic and sets each card's estimate when it creates the card. An estimate
+  is not changed after the card is Ready; a scheduled retrospective compares estimates with the
+  actual difficulty instead.
+- Models: the coordinator, the upgrade seat for a blocked card, and the cross-lane code review run
+  Opus 5.5 with Fable as advisor. Very complex cards go to a Sonnet 5.5 writer (the estimate
+  threshold is still to be set). Card-level review stays off Claude models (2026-09-24 decision
+  stands); a card written by Opus or Sonnet is reviewed by GLM or DeepSeek.
+- Cross-lane code review runs every 12 hours over every in-flight lane's diff. A finding inside one
+  lane goes back to that lane; a finding spanning lanes becomes a new issue blocked by those cards
+  and is handled after they merge.
+
 ## Failure-alert drill (2026-09-16)
 
 A deliberate unattended workflow failure in the real repository is allowed, to prove the alert

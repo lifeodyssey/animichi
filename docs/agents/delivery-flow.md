@@ -1,7 +1,7 @@
 # Delivery flow — ticket to PR to merge to deployed
 
 The operating runbook is `docs/ops/orca-card-delivery.md`; the coordinator manual is
-`.claude/skills/animichi-orca-orchestration/SKILL.md`; the merge rules are
+the `animichi-orca-orchestration` skill in `lifeodyssey/zdev` (`docs/agents/orchestration.md`); the merge rules are
 `docs/ops/review-gate.md`. This file holds the owner decisions and the measured mechanics those
 documents do not carry, in the order the flow runs. Owner-local hooks enforce the intake rules
 below on the owner's machine; like the hookify rules `docs/agents/harness.md` names, they are
