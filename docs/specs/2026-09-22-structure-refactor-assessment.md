@@ -98,11 +98,11 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 | S5 Resolve 竖切 | **LANDED** | `application/resolve-bangumi.ts` + `adapters/outbound/{title-alias,bangumi-search}.ts` | — | — |
 | S6 其余读路径 | **LANDED（差一个）** | geocode / nearby / anime-overview 已各有 application 用例。**缺 `application/get-point.ts`**：`api/spots.ts` 113 行且是唯一还带 SQL 的 api 文件 | `src/api/spots.ts` → `src/application/get-point.ts` + outbound repo；改导入方 `src/publish/spot-quality-gate.ts`、`src/router.ts` + 5 个测试 | **FREE**（#1832 已进基线；`router.ts` 是它改过的） |
 | S7 ingest/enrich/publish 归位 | **LIVE** | `src/{ingest,enrich,publish}/` 共 40 余文件仍在 src 顶层，未进 application/adapters | `src/ingest/**`（24 文件）`src/enrich/**`（2）`src/publish/**`（15）`src/import/**`（6）`src/scheduled/**` | **FREE**（#1832 已进基线，它覆盖过这四个目录的大部分） |
-| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 除 `transit/` 子目录外仍有 9 个顶层文件（`#1832` 带进 `json.ts`、`pg-error.ts`）；`src/lib/transit/etl/` 另有 6 文件（`build/coverage/csv/ekidata/index/n02.ts`）仍留在 `lib/`，设计 §2.1 的搬家表对它写作「except `etl/`」，归属由队列第 4 项裁定 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,optional,rows,timing,upstream}.ts`、`src/lib/transit/etl/**` | **FREE**（#1832 已进基线） |
+| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 除 `transit/` 子目录外仍有 9 个顶层文件（`#1832` 带进 `json.ts`、`pg-error.ts`）；`src/lib/transit/etl/` 另有 6 文件（`build/coverage/csv/ekidata/index/n02.ts`）仍留在 `lib/`，设计 §2.1 的搬家表对它写作「except `etl/`」，归属由队列第 4 项裁定 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,json,optional,pg-error,rows,timing,upstream}.ts`、`src/lib/transit/etl/**` | **FREE**（#1832 已进基线） |
 
 > **catalog 的结论**：九个切片（S0–S8）里五个已落地或被有意替代（S0/S1/S3/S5 完整落地，S8 的
 > 「删 `api/`」主项被薄入站层方案有意替代），四项残留（S2/S4/S6/S7）**原先全部落在 #1832 的 diff 面上**；
-> S8 剩下的残项（空壳删除 + `lib/transit/etl/` 的归属）并入队列第 4 项。
+> S8 剩下的残项（空壳删除 + `lib/transit/etl/` 与 `lib/` 顶层七个文件的归属）并入队列第 4 项。
 > #1832 是一次横扫 catalog 的 Prisma 切换（32 个源文件 + 20 余测试）——**它已进基线 `08431b06c`**，
 > 所以这四项现在可以直接从 `origin/main` 开分支（§五队列的计数已按基线树复核过）。
 
@@ -125,7 +125,7 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 | 切片 | 判词 | 证据 |
 |---|---|---|
 | E0 设计 | **LANDED** | — |
-| E1 package-ize（deps/wrangler/CI 脚本迁入） | **LANDED** | 根 `package.json`（`git show 08431b06c:package.json`）的 dependencies 只剩 commitlint/oxlint/tsx/wrangler/yaml 等编排物，**无 hono/jose/containers**；`workers/edge/{package.json,wrangler.toml,tsconfig.json}` 各就位；根脚本 `"test:worker": "pnpm --filter edge-worker test"` 正是设计搬家表最后一行写的目标 |
+| E1 package-ize（deps/wrangler/CI 脚本迁入） | **LANDED** | 根 `package.json`（`git show 08431b06c:package.json`）没有 `dependencies` 段，`devDependencies` 只剩 commitlint/oxlint/tsx/wrangler/yaml 等编排物，**无 hono/jose/containers**；`workers/edge/{package.json,wrangler.toml,tsconfig.json}` 各就位；根脚本 `"test:worker": "pnpm --filter edge-worker test"` 正是设计搬家表最后一行写的目标 |
 | E2 `src/` + `test/` 搬家 | **LANDED** | 生产 ts 全在 `workers/edge/src/**`（`git ls-tree --name-only 08431b06c -- workers/edge/` 顶层无 `.ts`）；测试分在 `test/` 与六个专用测试目录 |
 | E3 path 工具合并 + policy 常量收敛 | **LANDED** | `src/gateway/{routing-policy,rate-policy,request-class,read-key}.ts` 分工到位；设计要合并的 `env.ts`/`entry-env.ts` 现只剩 `src/env.ts` 一份 |
 | E4 greenfield path | **LANDED** | 随 #891 的 contract 改名同波 |
@@ -299,7 +299,7 @@ W3 的 auth 切片有一个真前置——先把 deferred-save 重放依赖从 `
 | 1 | `refactor(catalog): move the pure alias and series kernels into domain` | `lib/{alias,series}.ts` → `domain/model/`（设计 §2.1 点名） | `git ls-tree HEAD -- workers/catalog/src/lib/alias.ts` 空；`test/dependency-rule.worker.test.ts` 绿 |
 | 2 | `refactor(catalog): give the point read its own use case` | `api/spots.ts` → `application/get-point.ts` + outbound repo（S6 残项） | `api/spots.ts` 的 ``grep -cE 'sql`\|SELECT '`` 为 0 |
 | 3 | `refactor(catalog): cut the search read into a use case` | `api/{search,work-points,preview}.ts` → `application/`（S4） | `application/search-points.ts` 存在；`api/search.ts` < 60 行 |
-| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ `lib/transit/etl/**`（6 文件，S8 残项；§2.1 的「except `etl/`」只把它排除在 domain 之外，不等于留在 `lib/`）归位 + 删 `adapters/inbound/.gitkeep` 空壳 | `git ls-tree HEAD -- workers/catalog/src/adapters/inbound` 输出为空（目录已删，不只是删 `.gitkeep`）；`git ls-tree -r HEAD -- workers/catalog/src/lib/transit/etl` 输出为空 |
+| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ `lib/transit/etl/**`（6 文件，S8 残项；§2.1 的「except `etl/`」只把它排除在 domain 之外，不等于留在 `lib/`）归位 + 删 `adapters/inbound/.gitkeep` 空壳 + `lib/{errors,json,optional,pg-error,rows,timing,upstream}.ts` 七文件归位（S8 残项；`errors/upstream` 见设计 §2.3、`rows/optional` 见 §2.4，`json/pg-error` 是设计后的 #1630 新增、`timing` 无设计行，去向由本卡定） | `git ls-tree HEAD -- workers/catalog/src/adapters/inbound` 输出为空（目录已删，不只是删 `.gitkeep`）；`git ls-tree -r HEAD -- workers/catalog/src/lib/transit/etl` 输出为空；`git ls-tree -r HEAD -- workers/catalog/src/lib` 输出为空（本卡收七个文件 + `transit/etl/**`；`alias/series` 已由第 1 项搬走） |
 
 第 4 项规模很大（40 余文件），派工前应先拆；本评估不代拆——那需要它自己的 grilling。
 
