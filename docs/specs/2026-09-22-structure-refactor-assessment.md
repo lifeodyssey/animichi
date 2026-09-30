@@ -1,6 +1,6 @@
 # 2026-08-06 结构设计稿对今日树的裁决 — #829
 
-- Status: Assessment — 只读裁决，不含实现。本文不改任何源码、测试、配置或既有 spec。
+- Status: Assessment — 只读裁决，不含实现；除在 `2026-08-08-repo-closeout-spec.md` 加一行引用外，不改任何源码、测试、配置或既有文档。
 - Date: 2026-09-22 ｜ 修订：2026-09-30（按 card review 修正，见 §九）
 - 基线：`08431b06c`（"ops(edge): pin workers.dev off on the edge and web production blocks (#1837)"）
   ——本车道分支的 base。下文证据命令一律钉在这个 SHA 上（初稿钉的是 `f6ef75126`，比 base 早四张 PR）。
@@ -45,7 +45,7 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 | 3 | HandleUserMessage 作为 application use case，`agents/` 记为框架适配器 | agent | **DEAD（主语消失）+ 意图已在新地址** | `git grep -l "HandleUserMessage\|handle_user_message" 08431b06c` 只命中 `GOAL.md` 与两份 2026-08-06 设计稿，无代码命中。新地址：`workers/edge/src/agent/` 已按 `admission/ host/ intake/ recovery/ selection/ settlement/ views/` 分层，`packages/agent/src/harness.ts` 是框架侧 | — | — |
 | 4 | ownership/claim/status 作纯规则，无库可测 | users | **LANDED** | `workers/users/src/domain/ownership.ts`、`domain/saved-route-status.ts`、`domain/saved-route-idempotency.ts`；票 #834 CLOSED（PR #866） | — | — |
 | 5 | SavedRouteRepo port + 薄 handler | users | **LANDED** | `workers/users/src/adapters/neon-saved-route-repo.ts` + `application/{list,save,save-idempotent,delete}-saved-route*.ts`；设计点名的上帝文件 `src/api/routes.ts` 已不存在（`git ls-tree 08431b06c -- workers/users/src/api` 空）；票 #835 CLOSED（PR #873） | — | — |
-| 6 | listSessions 作为 SessionSummary 只读投影 | users | **DEAD** | `git grep -n "listSessions\|SessionSummary" 08431b06c` 的全部命中都在 `docs/specs/2026-08-06-*.md`，**零代码命中**；会话列表现由 `workers/edge/src/agent/views/conversation-list.ts` 提供 | — | — |
+| 6 | listSessions 作为 SessionSummary 只读投影 | users | **DEAD** | `git grep -n "listSessions\|SessionSummary" 08431b06c` 的全部命中都在 `docs/specs/2026-08-06-*.md` 与 `workers/users/CONTEXT.md:22`（只文档化了类型，无代码实体），**零代码命中**；会话列表现由 `workers/edge/src/agent/views/conversation-list.ts` 提供 | — | — |
 | 7 | edge 按关切分目录，无巡礼 `domain/` | edge | **LANDED** | `workers/edge/src/` 下有 `identity/ gateway/ protect/ proxy/`（各带 README.md）加 `agent/`；`git ls-tree -r 08431b06c -- workers/edge/src/domain` 空。story 列的第五项 `container/` 随容器绑定一并删除（`git log 08431b06c -- apps/agent` 第二条 `646be1564 refactor(edge): remove the container binding and its plumbing (#1737)`） | — | — |
 | 8 | UI→hooks→clients 单向；至少一个 feature 脱离 lib+features 双栖 | web | **LANDED（且升级为机器门禁）** | `apps/web/tests/unit/state-ownership/architecture.test.ts` 头注：「AC1 — import boundaries: route/component → feature → API/platform, never reverse … the #842 map-primitive edges」——依赖方向由测试全树扫描强制，不再是评审约定。双栖已解一组：`git ls-tree -r 08431b06c -- apps/web/src/lib` 无 `chat/` 无 `route-detail/`，而 `features/route-detail/` 有 13 个文件。**残余双栖见 §三 web W3/W5**，属独立 LIVE 项，不推翻本条 AC | — | — |
 | 9 | 包改名 maintenance→jobs，schedule 常量单源 | jobs | **DEAD** | `git ls-tree 08431b06c -- workers/maintenance` 与 `-- workers/jobs` 均空；索引与 target-layout §1.4 自己已标 RETIRED (#1316)「空壳从未落地」 | — | — |
@@ -85,7 +85,7 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 树的实况：`domain/ application/ adapters/outbound/` 都已存在且在用，`api/` 存活下来但**变成了薄入站层**
 ——这是对设计 §8 验收第 1 条（「无长期 `src/api/`」）的一次**有意替代**，不是半途而废：
 `api/geocode.ts` 21 行、`api/nearby.ts` 40 行，各自只接线 `application/*` + `adapters/outbound/*`，
-`grep -cE 'sql`|SELECT |INSERT |UPDATE |\$queryRaw'` 在七个 `api/*.ts` 上的结果是
+``grep -cE 'sql`|SELECT |INSERT |UPDATE |\$queryRaw'`` 在七个 `api/*.ts` 上的结果是
 `geocode 0 · nearby 0 · preview 0 · search 0 · snapshot 0 · spots 1 · work-points 0`——SQL 已经出去了。
 
 | 切片 | 判词 | 证据 | 会碰的文件 | 占用 |
@@ -98,11 +98,11 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 | S5 Resolve 竖切 | **LANDED** | `application/resolve-bangumi.ts` + `adapters/outbound/{title-alias,bangumi-search}.ts` | — | — |
 | S6 其余读路径 | **LANDED（差一个）** | geocode / nearby / anime-overview 已各有 application 用例。**缺 `application/get-point.ts`**：`api/spots.ts` 113 行且是唯一还带 SQL 的 api 文件 | `src/api/spots.ts` → `src/application/get-point.ts` + outbound repo；改导入方 `src/publish/spot-quality-gate.ts`、`src/router.ts` + 5 个测试 | **FREE**（#1832 已进基线；`router.ts` 是它改过的） |
 | S7 ingest/enrich/publish 归位 | **LIVE** | `src/{ingest,enrich,publish}/` 共 40 余文件仍在 src 顶层，未进 application/adapters | `src/ingest/**`（24 文件）`src/enrich/**`（2）`src/publish/**`（15）`src/import/**`（6）`src/scheduled/**` | **FREE**（#1832 已进基线，它覆盖过这四个目录的大部分） |
-| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 仍有 9 文件（`#1832` 带进 `json.ts`、`pg-error.ts`） | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,optional,rows,timing,upstream}.ts` | **FREE**（#1832 已进基线） |
+| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 除 `transit/` 子目录外仍有 9 个顶层文件（`#1832` 带进 `json.ts`、`pg-error.ts`）；`src/lib/transit/etl/` 另有 6 文件（`build/coverage/csv/ekidata/index/n02.ts`）仍留在 `lib/`，设计 §2.1 的搬家表对它写作「except `etl/`」，归属由队列第 4 项裁定 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,optional,rows,timing,upstream}.ts`、`src/lib/transit/etl/**` | **FREE**（#1832 已进基线） |
 
 > **catalog 的结论**：九个切片（S0–S8）里五个已落地或被有意替代（S0/S1/S3/S5 完整落地，S8 的
 > 「删 `api/`」主项被薄入站层方案有意替代），四项残留（S2/S4/S6/S7）**原先全部落在 #1832 的 diff 面上**；
-> S8 剩下的空壳删除残项并入队列第 4 项。
+> S8 剩下的残项（空壳删除 + `lib/transit/etl/` 的归属）并入队列第 4 项。
 > #1832 是一次横扫 catalog 的 Prisma 切换（32 个源文件 + 20 余测试）——**它已进基线 `08431b06c`**，
 > 所以这四项现在可以直接从 `origin/main` 开分支（§五队列的计数已按基线树复核过）。
 
@@ -297,9 +297,9 @@ W3 的 auth 切片有一个真前置——先把 deferred-save 重放依赖从 `
 | 序 | 建议标题 | 内容 | 主要验收 |
 |---|---|---|---|
 | 1 | `refactor(catalog): move the pure alias and series kernels into domain` | `lib/{alias,series}.ts` → `domain/model/`（设计 §2.1 点名） | `git ls-tree HEAD -- workers/catalog/src/lib/alias.ts` 空；`test/dependency-rule.worker.test.ts` 绿 |
-| 2 | `refactor(catalog): give the point read its own use case` | `api/spots.ts` → `application/get-point.ts` + outbound repo（S6 残项） | `api/spots.ts` 的 `grep -cE 'sql\`\|SELECT '` 为 0 |
+| 2 | `refactor(catalog): give the point read its own use case` | `api/spots.ts` → `application/get-point.ts` + outbound repo（S6 残项） | `api/spots.ts` 的 ``grep -cE 'sql`\|SELECT '`` 为 0 |
 | 3 | `refactor(catalog): cut the search read into a use case` | `api/{search,work-points,preview}.ts` → `application/`（S4） | `application/search-points.ts` 存在；`api/search.ts` < 60 行 |
-| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ 删 `adapters/inbound/.gitkeep` 空壳 | `git ls-tree HEAD -- workers/catalog/src/adapters/inbound` 不只含 `.gitkeep` |
+| 4 | `refactor(catalog): settle the data-platform stages into layers` | `ingest/ enrich/ publish/ import/ scheduled/` 归位（S7/S8）+ `lib/transit/etl/**`（6 文件，S8 残项；§2.1 的「except `etl/`」只把它排除在 domain 之外，不等于留在 `lib/`）归位 + 删 `adapters/inbound/.gitkeep` 空壳 | `git ls-tree HEAD -- workers/catalog/src/adapters/inbound` 输出为空（目录已删，不只是删 `.gitkeep`）；`git ls-tree -r HEAD -- workers/catalog/src/lib/transit/etl` 输出为空 |
 
 第 4 项规模很大（40 余文件），派工前应先拆；本评估不代拆——那需要它自己的 grilling。
 
