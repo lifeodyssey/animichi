@@ -27,7 +27,8 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 那四个切片原先被在途的 #1832 压住，而 **#1832 已进本评估的基线**（2026-09-22T02:04Z），
 它们现在可派。
 
-给协调者的一句话：**#829 该关，不该拆。** 可派工的是 web 两张纯搬家卡（#1818 已合入，卡 2 前置消失）
+给协调者的一句话：**#829 该关，不该拆。** 可派工的是 web 两张卡（卡 1 纯搬家；卡 2 会变层，
+其 auth→chat 依赖前置已并入卡内；#1818 已合入，文件面阻塞消失）
 加 catalog 四项队列（#1832 已进基线）。把它当"未拆分的 spec"去派实现者，
 是让人拿 2026-08-06 的图纸去改 2026-09-22 的楼。
 
@@ -38,31 +39,31 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 判词口径：**LANDED** = 树里已成立 · **DEAD** = 目标物已不存在 · **LIVE** = 仍未建且仍想要 ·
 **UNCLEAR** = 判不了。「files it would touch」只对 LIVE 填。
 
-| # | Story（摘要） | 包 | 判词 | 证据 | 会碰的文件 | 占用 |
-|---|---|---|---|---|---|---|
-| 1 | PlanItinerary 切通 domain→application→adapters，handler 不持 SQL | catalog | **LANDED** | `git ls-tree -r 08431b06c -- workers/catalog/src` 列出 `application/plan-itinerary.ts`、`domain/itinerary/plan.ts`、`adapters/outbound/route-points.ts`；票 #838 CLOSED（PR #874） | — | — |
-| 2 | 单一 CatalogReadGateway，删双写路径 | agent | **DEAD（主语消失）+ 意图已在新地址** | `git ls-tree -r 08431b06c -- apps/agent` 空；`git log 08431b06c -- apps/agent` 头一条 `cecfc816a refactor(repo): delete the python agent and its ci lane (#1756)`；`git ls-files '*.py' \| wc -l` = 1（只剩 `scripts/git-squash-daily.py`）。`git grep CatalogReadGateway 08431b06c` 只命中 `GOAL.md`。新地址：`packages/agent/src/catalog-client.ts` 只导出 `createCatalogClient(fetch)`，全文无 POST/PUT/DELETE/upsert/save | — | — |
-| 3 | HandleUserMessage 作为 application use case，`agents/` 记为框架适配器 | agent | **DEAD（主语消失）+ 意图已在新地址** | `git grep -l "HandleUserMessage\|handle_user_message" 08431b06c` 只命中 `GOAL.md` 与两份 2026-08-06 设计稿，无代码命中。新地址：`workers/edge/src/agent/` 已按 `admission/ host/ intake/ recovery/ selection/ settlement/ views/` 分层，`packages/agent/src/harness.ts` 是框架侧 | — | — |
-| 4 | ownership/claim/status 作纯规则，无库可测 | users | **LANDED** | `workers/users/src/domain/ownership.ts`、`domain/saved-route-status.ts`、`domain/saved-route-idempotency.ts`；票 #834 CLOSED（PR #866） | — | — |
-| 5 | SavedRouteRepo port + 薄 handler | users | **LANDED** | `workers/users/src/adapters/neon-saved-route-repo.ts` + `application/{list,save,save-idempotent,delete}-saved-route*.ts`；设计点名的上帝文件 `src/api/routes.ts` 已不存在（`git ls-tree 08431b06c -- workers/users/src/api` 空）；票 #835 CLOSED（PR #873） | — | — |
-| 6 | listSessions 作为 SessionSummary 只读投影 | users | **DEAD** | `git grep -n "listSessions\|SessionSummary" 08431b06c` 的全部命中都在 `docs/specs/2026-08-06-*.md` 与 `workers/users/CONTEXT.md:22`（只文档化了类型，无代码实体），**零代码命中**；会话列表现由 `workers/edge/src/agent/views/conversation-list.ts` 提供 | — | — |
-| 7 | edge 按关切分目录，无巡礼 `domain/` | edge | **LANDED** | `workers/edge/src/` 下有 `identity/ gateway/ protect/ proxy/`（各带 README.md）加 `agent/`；`git ls-tree -r 08431b06c -- workers/edge/src/domain` 空。story 列的第五项 `container/` 随容器绑定一并删除（`git log 08431b06c -- apps/agent` 第二条 `646be1564 refactor(edge): remove the container binding and its plumbing (#1737)`） | — | — |
-| 8 | UI→hooks→clients 单向；至少一个 feature 脱离 lib+features 双栖 | web | **LANDED（且升级为机器门禁）** | `apps/web/tests/unit/state-ownership/architecture.test.ts` 头注：「AC1 — import boundaries: route/component → feature → API/platform, never reverse … the #842 map-primitive edges」——依赖方向由测试全树扫描强制，不再是评审约定。双栖已解一组：`git ls-tree -r 08431b06c -- apps/web/src/lib` 无 `chat/` 无 `route-detail/`，而 `features/route-detail/` 有 13 个文件。**残余双栖见 §三 web W3/W5**，属独立 LIVE 项，不推翻本条 AC | — | — |
-| 9 | 包改名 maintenance→jobs，schedule 常量单源 | jobs | **DEAD** | `git ls-tree 08431b06c -- workers/maintenance` 与 `-- workers/jobs` 均空；索引与 target-layout §1.4 自己已标 RETIRED (#1316)「空壳从未落地」 | — | — |
-| 10 | PATH-DELTA 追踪目标 vs 实际路径 | repo | **LANDED** | `docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md` 存在；票 #833 CLOSED（PR #861）。**但内容已陈旧**，见 §六 | — | — |
-| 11 | CONTEXT-MAP / 包 CONTEXT.md 与有无 domain 对齐 | repo | **LANDED** | `git ls-files \| grep -E 'CONTEXT(-MAP)?\.md$'` → `CONTEXT-MAP.md` + `apps/web`、`packages/agent`、`packages/contract`、`workers/catalog`、`workers/edge`、`workers/users` 六份 | — | — |
-| 12 | 包 CI 步骤进 `.github/actions/` composite，薄化 1–2 个 `pipeline-*` caller | ci | **DEAD（前提消失）** | `git ls-tree 08431b06c -- .github/workflows/` 全部内容是 `cd.yml pr-verification.yml release-build.yml verify-deploy-evidence.yml`——**一个 `pipeline-*` 都不剩**。`.github/actions/` 现为 `hydrate-release` + `setup-workspace`。票 #844 当年 CLOSED（PR #868），其产物随 CI/CD 重设计（ADR 0006/0007）整体替换 | — | — |
-| 13 | 保留 `pipeline-*` 命名因 required check 依赖它 | ci | **DEAD（前提消失）** | 同上：无 `pipeline-*` 工作流。required checks 现为 `PR Verification` / `Security`（AGENTS.md「PR 合并前的检查」段与 `docs/ops/review-gate.md`） | — | — |
-| 14 | ROLE + GRANT 矩阵写进 Atlas migrations，而非 Pulumi 表资源 | db | **DEAD（如其所写）；意图一分为二后落地** | 三段弧线，缺一不可读懂：① **Atlas 退役** — `git grep -i atlas 08431b06c -- .github/workflows/cd.yml` 只剩一行注释里的拒绝码名 `atlas_leftovers_present`，schema apply 已不走 Atlas；`docs/adr/0008-platform-over-handwritten.md` 记 2026-09-12 的原则裁定。② **GRANT 矩阵确实进了迁移链** — `packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts` 持 `MUTABLE_GRANTS`/`SELECT_ONLY_GRANTS`/`APPEND_ONLY_GRANTS`/`AGENT_LEDGER_GRANTS` 并对 `information_schema.role_table_grants` 做精确集断言——**story 的意图成立，只是载体从 Atlas 换成 Prisma**。③ **角色创建反向搬进了 Pulumi** — `infra/database-access/index.ts:138` `new neon.Role(...)`，正是 story 反对的方向；反转理由写在同文件 16–25 行：Neon 控制面只为 API 创建的角色存密码，SQL 创建的角色 `reveal_password` 返回空、`reset_password` 报 422，所以密码只能由 Pulumi 建角色来获得（ADR 0003 / #912） | — | — |
-| 15 | staging 应用这些迁移并接入最小权限 DSN | db | **LANDED** | `infra/database-access/{index.ts,runtime-secrets.ts,Pulumi.staging.yaml}` + 五个 `infra/topology-runtime-secret*.test.ts`；GOAL.md W2 关账（#926/#927/#928/#929/#932，ADR 0003） | — | — |
-| 16 | schema apply 走既有 deploy 的 Atlas migrate 路径 | ops | **DEAD（如其所写）；意图已换载体** | Atlas 已退（同 #14 ①）。现由 `workers/migrator` 把 Prisma 链打进 Worker、在 GitHub OIDC 后面应用（AGENTS.md monorepo layout 段）。story 反对的「独立 Neon migrate 产品」仍未被采用，这一层意图成立 | — | — |
-| 17 | 运行时密钥绑定（谁拿哪条 LOGIN DSN）归 IaC/secrets 面 | infra | **LANDED** | `infra/database-access/runtime-secrets.ts` 导出 `edgeRuntimeSecretNames`（`infra/database-access/index.ts:5` re-export）；`infra/topology-runtime-secret-bindings.test.ts` 等五个拓扑测试守住绑定。载体是 CF Secrets Store 而非 ESC（ADR 0003 取代 #674 的 ESC-first 方案） | — | — |
-| 18 | Train-1 路径搬家先绿，再上 Train-2 竖切 | 流程 | **LANDED（流程已执行完毕）** | GOAL.md §3 的 W0→W6 顺序即此纪律；W0/W1/W3 关账行列出 14 个已合 PR（#861–#880） | — | — |
-| 19 | greenfield 新名只用在本波竖切路径上；全量 rename 留后 | repo | **LANDED 后被自身超越** | W4 直接做了**全量** rename 而非只竖切（GOAL.md W4 关账：#881/#890/#891/#892/#894）。greenfield 文 §2 已被逐行批注 `#890 已落地` / `#891 已落地`。树侧核验：`aliases.bangumi_id`、`cluster_version.bangumi_id`、`itinerary_snapshots`、`series_edges.{from,to}_bangumi_id`、`points.bangumi_id` 全部到位（`packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/catalog-tables.ts`）。**残余 `work_id` 不是欠账**：仅存于 `ingest_jobs`、`raw_anitabi`、`raw_bangumi`、`raw_payload_history`、`catalog_provenance`，前四张被 greenfield §3.1 明文豁免（「`ingest_jobs` / `raw_*` / `media_assets` **保留**（平台表）— 非粉丝语言」），末一张是设计稿之后新建的表。详见 §七第 1 条 | — | — |
-| 20 | 无新用户可见 API 行为；不放宽 coverage/typecheck 门禁 | 评审 | **LANDED** | `apps/web/vitest.config.ts:69` `thresholds: { statements: 98, branches: 95, functions: 98, lines: 99 }`——远在放宽的反方向；AGENTS.md 记 TypeScript 7.0.2 + tsgolint `--deny-warnings` 全包。（观察，按基线全树 `git grep -l`：源码目录 `apps workers packages infra e2e scripts test` 下 `eslint-disable`、`@ts-ignore`、`continue-on-error` 命中均为 0 文件，`ts-expect-error` 2 个 `*.type-test.ts`；其余命中全在 `docs/`、`AGENTS.md`、`.claude/rules/` 这类非代码文本里。AGENTS.md 允许 owner 批准的例外，未逐条核验批准记录，不作本条判词依据） | — | — |
-| 21 | `TODO(refactor-skeleton):` 可搜索标记，而非静默半搬 | repo | **LANDED** | `git grep -c "TODO(refactor-skeleton)" 08431b06c` 命中 5 个代码位：`infra/src/buckets.ts`、`workers/catalog/src/api/{preview,search,spots,work-points}.ts`，另四处是文档（iteration 的 `GOAL.md`/`PATH-DELTA.md`/`RENAME-EXPAND-CONTRACT.md` 与 `docs/specs/2026-08-06-monorepo-target-layout.md`） | — | — |
-| 22 | Pulumi 分段 / src 骨架，无巡礼 domain | infra | **LANDED** | `infra/src/` 十个按关切分的模块（`access-identity-provider.ts buckets.ts config.ts hardening.ts neon-auth.ts outputs.ts staging-access.ts staging.ts web-routes.ts` + README）加独立 `infra/database-access/`；`git ls-tree 08431b06c -- infra/src/domain` 空；票 #843 CLOSED（PR #876） | — | — |
-| 23 | edge/web/jobs/infra 不要空 demo `domain/` | repo | **LANDED**（但有一处同型缺陷，见 §七第 2 条） | `git ls-tree -r 08431b06c -- workers/edge/src/domain apps/web/src/domain infra/src/domain` 三者皆空；jobs 包整体不存在 | — | — |
+| # | Story（摘要） | 包 | 判词 | 证据 | 会碰的文件 |
+|---|---|---|---|---|--- |
+| 1 | PlanItinerary 切通 domain→application→adapters，handler 不持 SQL | catalog | **LANDED** | `git ls-tree -r 08431b06c -- workers/catalog/src` 列出 `application/plan-itinerary.ts`、`domain/itinerary/plan.ts`、`adapters/outbound/route-points.ts`；票 #838 CLOSED（PR #874） | — |
+| 2 | 单一 CatalogReadGateway，删双写路径 | agent | **DEAD（主语消失）+ 意图已在新地址** | `git ls-tree -r 08431b06c -- apps/agent` 空；`git log 08431b06c -- apps/agent` 头一条 `cecfc816a refactor(repo): delete the python agent and its ci lane (#1756)`；`git ls-files '*.py' \| wc -l` = 1（只剩 `scripts/git-squash-daily.py`）。`git grep CatalogReadGateway 08431b06c` 只命中 `GOAL.md`。新地址：`packages/agent/src/catalog-client.ts` 只导出 `createCatalogClient(fetch)`，全文无 POST/PUT/DELETE/upsert/save | — |
+| 3 | HandleUserMessage 作为 application use case，`agents/` 记为框架适配器 | agent | **DEAD（主语消失）+ 意图已在新地址** | `git grep -l "HandleUserMessage\|handle_user_message" 08431b06c` 只命中 `GOAL.md` 与两份 2026-08-06 设计稿，无代码命中。新地址：`workers/edge/src/agent/` 已按 `admission/ host/ intake/ recovery/ selection/ settlement/ views/` 分层，`packages/agent/src/harness.ts` 是框架侧 | — |
+| 4 | ownership/claim/status 作纯规则，无库可测 | users | **LANDED** | `workers/users/src/domain/ownership.ts`、`domain/saved-route-status.ts`、`domain/saved-route-idempotency.ts`；票 #834 CLOSED（PR #866） | — |
+| 5 | SavedRouteRepo port + 薄 handler | users | **LANDED** | `workers/users/src/adapters/neon-saved-route-repo.ts` + `application/{list,save,save-idempotent,delete}-saved-route*.ts`；设计点名的上帝文件 `src/api/routes.ts` 已不存在（`git ls-tree 08431b06c -- workers/users/src/api` 空）；票 #835 CLOSED（PR #873） | — |
+| 6 | listSessions 作为 SessionSummary 只读投影 | users | **DEAD** | `git grep -n "listSessions\|SessionSummary" 08431b06c` 的全部命中都在 `docs/specs/2026-08-06-*.md` 与 `workers/users/CONTEXT.md:22`（只文档化了类型，无代码实体），**零代码命中**；会话列表现由 `workers/edge/src/agent/views/conversation-list.ts` 提供 | — |
+| 7 | edge 按关切分目录，无巡礼 `domain/` | edge | **LANDED** | `workers/edge/src/` 下有 `identity/ gateway/ protect/ proxy/`（各带 README.md）加 `agent/`；`git ls-tree -r 08431b06c -- workers/edge/src/domain` 空。story 列的第五项 `container/` 随容器绑定一并删除（`git log 08431b06c -- apps/agent` 第二条 `646be1564 refactor(edge): remove the container binding and its plumbing (#1737)`） | — |
+| 8 | UI→hooks→clients 单向；至少一个 feature 脱离 lib+features 双栖 | web | **LANDED（且升级为机器门禁）** | `apps/web/tests/unit/state-ownership/architecture.test.ts` 头注：「AC1 — import boundaries: route/component → feature → API/platform, never reverse … the #842 map-primitive edges」——依赖方向由测试全树扫描强制，不再是评审约定。双栖已解一组：`git ls-tree -r 08431b06c -- apps/web/src/lib` 无 `chat/` 无 `route-detail/`，而 `features/route-detail/` 有 13 个文件。**残余双栖见 §三 web W3/W5**，属独立 LIVE 项，不推翻本条 AC | — |
+| 9 | 包改名 maintenance→jobs，schedule 常量单源 | jobs | **DEAD** | `git ls-tree 08431b06c -- workers/maintenance` 与 `-- workers/jobs` 均空；索引与 target-layout §1.4 自己已标 RETIRED (#1316)「空壳从未落地」 | — |
+| 10 | PATH-DELTA 追踪目标 vs 实际路径 | repo | **LANDED** | `docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md` 存在；票 #833 CLOSED（PR #861）。**但内容已陈旧**，见 §六 | — |
+| 11 | CONTEXT-MAP / 包 CONTEXT.md 与有无 domain 对齐 | repo | **LANDED** | `git ls-files \| grep -E 'CONTEXT(-MAP)?\.md$'` → `CONTEXT-MAP.md` + `apps/web`、`packages/agent`、`packages/contract`、`workers/catalog`、`workers/edge`、`workers/users` 六份 | — |
+| 12 | 包 CI 步骤进 `.github/actions/` composite，薄化 1–2 个 `pipeline-*` caller | ci | **DEAD（前提消失）** | `git ls-tree 08431b06c -- .github/workflows/` 全部内容是 `cd.yml pr-verification.yml release-build.yml verify-deploy-evidence.yml`——**一个 `pipeline-*` 都不剩**。`.github/actions/` 现为 `hydrate-release` + `setup-workspace`。票 #844 当年 CLOSED（PR #868），其产物随 CI/CD 重设计（ADR 0006/0007）整体替换 | — |
+| 13 | 保留 `pipeline-*` 命名因 required check 依赖它 | ci | **DEAD（前提消失）** | 同上：无 `pipeline-*` 工作流。required checks 现为 `PR Verification` / `Security`（AGENTS.md「PR 合并前的检查」段与 `docs/ops/review-gate.md`） | — |
+| 14 | ROLE + GRANT 矩阵写进 Atlas migrations，而非 Pulumi 表资源 | db | **DEAD（如其所写）；意图一分为二后落地** | 三段弧线，缺一不可读懂：① **Atlas 退役** — `git grep -i atlas 08431b06c -- .github/workflows/cd.yml` 只剩一行注释里的拒绝码名 `atlas_leftovers_present`，schema apply 已不走 Atlas；`docs/adr/0008-platform-over-handwritten.md` 记 2026-09-12 的原则裁定。② **GRANT 矩阵确实进了迁移链** — `packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/access.ts` 持 `MUTABLE_GRANTS`/`SELECT_ONLY_GRANTS`/`APPEND_ONLY_GRANTS`/`AGENT_LEDGER_GRANTS` 并对 `information_schema.role_table_grants` 做精确集断言——**story 的意图成立，只是载体从 Atlas 换成 Prisma**。③ **角色创建反向搬进了 Pulumi** — `infra/database-access/index.ts:138` `new neon.Role(...)`，正是 story 反对的方向；反转理由写在同文件 16–25 行：Neon 控制面只为 API 创建的角色存密码，SQL 创建的角色 `reveal_password` 返回空、`reset_password` 报 422，所以密码只能由 Pulumi 建角色来获得（ADR 0003 / #912） | — |
+| 15 | staging 应用这些迁移并接入最小权限 DSN | db | **LANDED** | `infra/database-access/{index.ts,runtime-secrets.ts,Pulumi.staging.yaml}` + 五个 `infra/topology-runtime-secret*.test.ts`；GOAL.md W2 关账（#926/#927/#928/#929/#932，ADR 0003） | — |
+| 16 | schema apply 走既有 deploy 的 Atlas migrate 路径 | ops | **DEAD（如其所写）；意图已换载体** | Atlas 已退（同 #14 ①）。现由 `workers/migrator` 把 Prisma 链打进 Worker、在 GitHub OIDC 后面应用（AGENTS.md monorepo layout 段）。story 反对的「独立 Neon migrate 产品」仍未被采用，这一层意图成立 | — |
+| 17 | 运行时密钥绑定（谁拿哪条 LOGIN DSN）归 IaC/secrets 面 | infra | **LANDED** | `infra/database-access/runtime-secrets.ts` 导出 `edgeRuntimeSecretNames`（`infra/database-access/index.ts:5` re-export）；`infra/topology-runtime-secret-bindings.test.ts` 等五个拓扑测试守住绑定。载体是 CF Secrets Store 而非 ESC（ADR 0003 取代 #674 的 ESC-first 方案） | — |
+| 18 | Train-1 路径搬家先绿，再上 Train-2 竖切 | 流程 | **LANDED（流程已执行完毕）** | GOAL.md §3 的 W0→W6 顺序即此纪律；W0/W1/W3 关账行列出 14 个已合 PR（#861–#880） | — |
+| 19 | greenfield 新名只用在本波竖切路径上；全量 rename 留后 | repo | **LANDED 后被自身超越** | W4 直接做了**全量** rename 而非只竖切（GOAL.md W4 关账：#881/#890/#891/#892/#894）。greenfield 文 §2 已被逐行批注 `#890 已落地` / `#891 已落地`。树侧核验：`aliases.bangumi_id`、`cluster_version.bangumi_id`、`itinerary_snapshots`、`series_edges.{from,to}_bangumi_id`、`points.bangumi_id` 全部到位（`packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/catalog-tables.ts`）。**残余 `work_id` 不是欠账**：仅存于 `ingest_jobs`、`raw_anitabi`、`raw_bangumi`、`raw_payload_history`、`catalog_provenance`，前四张被 greenfield §3.1 明文豁免（「`ingest_jobs` / `raw_*` / `media_assets` **保留**（平台表）— 非粉丝语言」），末一张是设计稿之后新建的表。详见 §七第 1 条 | — |
+| 20 | 无新用户可见 API 行为；不放宽 coverage/typecheck 门禁 | 评审 | **LANDED** | `apps/web/vitest.config.ts:69` `thresholds: { statements: 98, branches: 95, functions: 98, lines: 99 }`——远在放宽的反方向；AGENTS.md 记 TypeScript 7.0.2 + tsgolint `--deny-warnings` 全包。（观察，按基线全树 `git grep -l`：源码目录 `apps workers packages infra e2e scripts test` 下 `eslint-disable`、`@ts-ignore`、`continue-on-error` 命中均为 0 文件，`ts-expect-error` 2 个 `*.type-test.ts`；其余命中全在 `docs/`、`AGENTS.md`、`.claude/rules/` 这类非代码文本里。AGENTS.md 允许 owner 批准的例外，未逐条核验批准记录，不作本条判词依据） | — |
+| 21 | `TODO(refactor-skeleton):` 可搜索标记，而非静默半搬 | repo | **LANDED** | `git grep -c "TODO(refactor-skeleton)" 08431b06c` 命中 5 个代码位：`infra/src/buckets.ts`、`workers/catalog/src/api/{preview,search,spots,work-points}.ts`，另四处是文档（iteration 的 `GOAL.md`/`PATH-DELTA.md`/`RENAME-EXPAND-CONTRACT.md` 与 `docs/specs/2026-08-06-monorepo-target-layout.md`） | — |
+| 22 | Pulumi 分段 / src 骨架，无巡礼 domain | infra | **LANDED** | `infra/src/` 十个按关切分的模块（`access-identity-provider.ts buckets.ts config.ts hardening.ts neon-auth.ts outputs.ts staging-access.ts staging.ts web-routes.ts` + README）加独立 `infra/database-access/`；`git ls-tree 08431b06c -- infra/src/domain` 空；票 #843 CLOSED（PR #876） | — |
+| 23 | edge/web/jobs/infra 不要空 demo `domain/` | repo | **LANDED**（但有一处同型缺陷，见 §七第 2 条） | `git ls-tree -r 08431b06c -- workers/edge/src/domain apps/web/src/domain infra/src/domain` 三者皆空；jobs 包整体不存在 | — |
 
 **计数（23 行，逐行可数）：LANDED 15 · DEAD 8 · LIVE 0 · UNCLEAR 0。**
 
@@ -88,17 +89,17 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 ``grep -cE 'sql`|SELECT |INSERT |UPDATE |\$queryRaw'`` 在七个 `api/*.ts` 上的结果是
 `geocode 0 · nearby 0 · preview 0 · search 0 · snapshot 0 · spots 1 · work-points 0`——SQL 已经出去了。
 
-| 切片 | 判词 | 证据 | 会碰的文件 | 占用 |
-|---|---|---|---|---|
-| S0 设计文 | **LANDED** | 文档已 ACCEPTED 并在树内 | — | — |
-| S1 greenfield 语言 | **LANDED** | #891（见 story 19） | — | — |
-| S2 纯 domain 抽出 | **LANDED（差两个模块）** | `domain/{itinerary/plan.ts, clustering/cluster.ts, geo.ts, geocode/collapse.ts, transit/*}` 已就位。设计 §2.1 点名的 `lib/alias.ts`（85 行，纯）与 `lib/series.ts`（100 行，纯）**仍在 `lib/`** | `src/lib/alias.ts` `src/lib/series.ts` → `src/domain/model/`；改导入方 `src/api/search.ts`、`src/application/{geocode-place,resolve-bangumi}.ts`、`src/db/schema.ts`、`src/enrich/enrich.ts`、`src/router.ts`、`src/import/{import-snapshot,switch}.ts`、`src/publish/candidate-export.ts` + 8 个测试 | **FREE**（#1832 已进基线，它改的正是这几个文件） |
-| S3 PlanItinerary 竖切 | **LANDED** | 同 story 1 | — | — |
-| S4 Search + work-points 竖切 | **LIVE** | `application/` 下**没有** `search-points.ts`；`api/search.ts` 仍 187 行，兼用例与入站于一身（`git ls-tree -r 08431b06c -- workers/catalog/src/application` 只列 6 个用例） | `src/api/{search,work-points,preview}.ts` → `src/application/{search-points,list-points-for-bangumi,miss-preview}.ts` + `src/adapters/outbound/` 已有的 `title-alias.ts`/`bangumi-*.ts` | **FREE**（#1832 已进基线；三个文件里两个是它改过的） |
-| S5 Resolve 竖切 | **LANDED** | `application/resolve-bangumi.ts` + `adapters/outbound/{title-alias,bangumi-search}.ts` | — | — |
-| S6 其余读路径 | **LANDED（差一个）** | geocode / nearby / anime-overview 已各有 application 用例。**缺 `application/get-point.ts`**：`api/spots.ts` 113 行且是唯一还带 SQL 的 api 文件 | `src/api/spots.ts` → `src/application/get-point.ts` + outbound repo；改导入方 `src/publish/spot-quality-gate.ts`、`src/router.ts` + 5 个测试 | **FREE**（#1832 已进基线；`router.ts` 是它改过的） |
-| S7 ingest/enrich/publish 归位 | **LIVE** | `src/{ingest,enrich,publish}/` 共 40 余文件仍在 src 顶层，未进 application/adapters | `src/ingest/**`（24 文件）`src/enrich/**`（2）`src/publish/**`（15）`src/import/**`（6）`src/scheduled/**` | **FREE**（#1832 已进基线，它覆盖过这四个目录的大部分） |
-| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 除 `transit/` 子目录外仍有 9 个顶层文件（`#1832` 带进 `json.ts`、`pg-error.ts`）；`src/lib/transit/etl/` 另有 6 文件（`build/coverage/csv/ekidata/index/n02.ts`）仍留在 `lib/`，设计 §2.1 的搬家表对它写作「except `etl/`」，归属由队列第 4 项裁定 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,json,optional,pg-error,rows,timing,upstream}.ts`、`src/lib/transit/etl/**` | **FREE**（#1832 已进基线） |
+| 切片 | 判词 | 证据 | 会碰的文件 |
+|---|---|---|--- |
+| S0 设计文 | **LANDED** | 文档已 ACCEPTED 并在树内 | — |
+| S1 greenfield 语言 | **LANDED** | #891（见 story 19） | — |
+| S2 纯 domain 抽出 | **LANDED（差两个模块）** | `domain/{itinerary/plan.ts, clustering/cluster.ts, geo.ts, geocode/collapse.ts, transit/*}` 已就位。设计 §2.1 点名的 `lib/alias.ts`（85 行，纯）与 `lib/series.ts`（100 行，纯）**仍在 `lib/`** | `src/lib/alias.ts` `src/lib/series.ts` → `src/domain/model/`；改导入方 `src/api/search.ts`、`src/application/{geocode-place,resolve-bangumi}.ts`、`src/db/schema.ts`、`src/enrich/enrich.ts`、`src/router.ts`、`src/import/{import-snapshot,switch}.ts`、`src/publish/candidate-export.ts` + 8 个测试 |
+| S3 PlanItinerary 竖切 | **LANDED** | 同 story 1 | — |
+| S4 Search + work-points 竖切 | **LIVE** | `application/` 下**没有** `search-points.ts`；`api/search.ts` 仍 187 行，兼用例与入站于一身（`git ls-tree -r 08431b06c -- workers/catalog/src/application` 只列 6 个用例） | `src/api/{search,work-points,preview}.ts` → `src/application/{search-points,list-points-for-bangumi,miss-preview}.ts` + `src/adapters/outbound/` 已有的 `title-alias.ts`/`bangumi-*.ts` |
+| S5 Resolve 竖切 | **LANDED** | `application/resolve-bangumi.ts` + `adapters/outbound/{title-alias,bangumi-search}.ts` | — |
+| S6 其余读路径 | **LANDED（差一个）** | geocode / nearby / anime-overview 已各有 application 用例。**缺 `application/get-point.ts`**：`api/spots.ts` 113 行且是唯一还带 SQL 的 api 文件 | `src/api/spots.ts` → `src/application/get-point.ts` + outbound repo；改导入方 `src/publish/spot-quality-gate.ts`、`src/router.ts` + 5 个测试 |
+| S7 ingest/enrich/publish 归位 | **LIVE** | `src/{ingest,enrich,publish}/` 共 40 余文件仍在 src 顶层，未进 application/adapters | `src/ingest/**`（24 文件）`src/enrich/**`（2）`src/publish/**`（15）`src/import/**`（6）`src/scheduled/**` |
+| S8 入站收尾 + 删空壳 | **部分被替代，残项 LIVE** | 设计要删 `api/`；树把 `api/` 留作薄入站层并配了机器门禁 `test/dependency-rule.worker.test.ts`（头注直引本设计的父稿 §3）。**残项**：`src/adapters/inbound/.gitkeep` 是空壳目录；`src/lib/` 除 `transit/` 子目录外仍有 9 个顶层文件（`#1832` 带进 `json.ts`、`pg-error.ts`）；`src/lib/transit/etl/` 另有 6 文件（`build/coverage/csv/ekidata/index/n02.ts`）仍留在 `lib/`，设计 §2.1 的搬家表对它写作「except `etl/`」，归属由队列第 4 项裁定 | `src/adapters/inbound/.gitkeep`、`src/lib/{errors,json,optional,pg-error,rows,timing,upstream}.ts`、`src/lib/transit/etl/**` |
 
 > **catalog 的结论**：九个切片（S0–S8）里五个已落地或被有意替代（S0/S1/S3/S5 完整落地，S8 的
 > 「删 `api/`」主项被薄入站层方案有意替代），四项残留（S2/S4/S6/S7）**原先全部落在 #1832 的 diff 面上**；
@@ -137,15 +138,15 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 
 ### 3.4 Web（`2026-08-06-web-ui-structure-design.md` W0–W6）
 
-| 切片 | 判词 | 证据 | 会碰的文件 | 占用 |
-|---|---|---|---|---|
-| W0 文档 + CONTEXT.md | **LANDED** | `apps/web/CONTEXT.md` 存在并引用本设计 | — | — |
-| W1 钉死 api 层纪律 | **LANDED（机器门禁）** | `apps/web/tests/unit/state-ownership/architecture.test.ts` 全树扫描 import 边界，头注点名 #842 | — | — |
-| W2 `lib/chat` + route-detail → features | **LANDED** | `apps/web/src/lib` 下无 `chat/`、无 `route-detail/`；`components/` 下亦无 `route-detail/`；`features/route-detail/` 13 文件 | — | — |
-| W3 landing/auth/legal 进 features | **LIVE** | `components/{auth,home,legal}/` 与 `components/Splash.tsx` 仍在，而 `features/{auth,splash}` 并存——双栖 | `src/components/{auth,home,legal}/**`、`components/Splash.tsx` → `src/features/{auth,landing,legal}/`；导入方 `src/routes/{__root.tsx,index.tsx,privacy.tsx,auth/callback.tsx}`、`src/features/chat/lib/work-title.ts` + 15 个测试 | **FREE**（#1818 已合入；它改过 `apps/web/src/routes/__root.tsx`，该文件 10–13 行 import 了 `../components/{NotFound,RootError,Splash,theme-bootstrap}`） |
-| W4 maps 三源收敛 | **LANDED（经设计自带的 `_dev` 条款）** | 设计 §3.1 写「若某文件仍是实验且无路由引用 → 删或移 `_dev`，不留三套真源」。树已满足：生产单一源是 `features/bubble-map`（被 `features/chat/components/{RouteTrailMap,SearchMap,SearchResult,PlaceMapMarker}.tsx` 使用）；`features/map-spike` 只被 `routes/_dev/map-spike.tsx` 引用，`features/maplibre` 只被 `routes/_dev/map-canary.tsx` 引用。**不是三套真源，是一套生产 + 两只 `_dev` 金丝雀** | — | — |
-| W5 platform 收 auth/byok/turnstile | **LIVE** | `src/lib/{auth,byok,turnstile}/` 仍在 `lib/` 下；`src/platform/` 只有 `geo.ts` | `src/lib/{auth,byok,turnstile}/**`（11 文件）→ `src/platform/`；导入方约 90 个文件（`src/api/orpc.ts`、`src/components/{auth,settings}/**`、`src/features/{auth,chat}/**`、`src/routes/{index,settings,auth/callback}.tsx`、`src/lib/i18n/locale-storage.ts` + 约 70 个测试） | **FREE** — #1818 在 `apps/web` 只碰 `router.tsx`、`routes/__root.tsx`、`server/csp-*.ts`、`start.ts` 与 csp/startup-smoke 测试；这些文件**都不**导入 `lib/{auth,byok,turnstile}`（已逐一核验）。同包不同文件，而该 PR 已合入 |
-| W6 greenfield 类型/path/MSW | **LANDED** | 随 #890/#891 同波 | — | — |
+| 切片 | 判词 | 证据 | 会碰的文件 |
+|---|---|---|--- |
+| W0 文档 + CONTEXT.md | **LANDED** | `apps/web/CONTEXT.md` 存在并引用本设计 | — |
+| W1 钉死 api 层纪律 | **LANDED（机器门禁）** | `apps/web/tests/unit/state-ownership/architecture.test.ts` 全树扫描 import 边界，头注点名 #842 | — |
+| W2 `lib/chat` + route-detail → features | **LANDED** | `apps/web/src/lib` 下无 `chat/`、无 `route-detail/`；`components/` 下亦无 `route-detail/`；`features/route-detail/` 13 文件 | — |
+| W3 landing/auth/legal 进 features | **LIVE** | `components/{auth,home,legal}/` 与 `components/Splash.tsx` 仍在，而 `features/{auth,splash}` 并存——双栖 | `src/components/{auth,home,legal}/**`、`components/Splash.tsx` → `src/features/{auth,landing,legal}/`；导入方 `src/routes/{__root.tsx,index.tsx,privacy.tsx,auth/callback.tsx}`、`src/features/chat/lib/work-title.ts` + 15 个测试 |
+| W4 maps 三源收敛 | **LANDED（经设计自带的 `_dev` 条款）** | 设计 §3.1 写「若某文件仍是实验且无路由引用 → 删或移 `_dev`，不留三套真源」。树已满足：生产单一源是 `features/bubble-map`（被 `features/chat/components/{RouteTrailMap,SearchMap,SearchResult,PlaceMapMarker}.tsx` 使用）；`features/map-spike` 只被 `routes/_dev/map-spike.tsx` 引用，`features/maplibre` 只被 `routes/_dev/map-canary.tsx` 引用。**不是三套真源，是一套生产 + 两只 `_dev` 金丝雀** | — |
+| W5 platform 收 auth/byok/turnstile | **LIVE** | `src/lib/{auth,byok,turnstile}/` 仍在 `lib/` 下；`src/platform/` 只有 `geo.ts` | `src/lib/{auth,byok,turnstile}/**`（11 文件）→ `src/platform/`；导入方约 90 个文件（`src/api/orpc.ts`、`src/components/{auth,settings}/**`、`src/features/{auth,chat}/**`、`src/routes/{index,settings,auth/callback}.tsx`、`src/lib/i18n/locale-storage.ts` + 约 70 个测试） |
+| W6 greenfield 类型/path/MSW | **LANDED** | 随 #890/#891 同波 | — |
 
 ### 3.5 Agent（`2026-08-06-agent-structure-refactor-design.md` S0–S7）
 
@@ -189,7 +190,7 @@ BLOCKED 的占用面已经变成基线树本身。按合入时间排：
 | **#1835** | ci(repo): lint what each package ships, and pin the scope | 2026-09-22T09:45Z `215e219d7` | 已进基线：根 `package.json` · `packages/contract/**` · `test/repo-config/lint-scope.test.rb` |
 | **#1837** | ops(edge): pin workers.dev off on the edge and web production blocks | 2026-09-22T10:01Z `08431b06c` | 基线本身 |
 | **#1817** | docs(repo): record the orca delivery handoff and its lessons | 2026-09-22T10:38Z `ba1c52da7` | 基线之后；只碰 `docs/iterations/orca-2026-09-19/**`，与 `docs/specs/` 无交集 |
-| **#1818** | feat(web): add a nonce-based CSP to documents | 2026-09-22T12:07Z `c452d6ed0` | 基线之后；持有 `apps/web/src/{router.tsx, routes/__root.tsx, server/csp-*.ts, start.ts}` + csp/startup-smoke 测试 · `e2e/{helpers/turnstile.ts,native-recovery-driver.ts}` · `workers/edge/host-integration-test/session-adoption.browser.ts`——**它一合入，卡 2 的前置即消失** |
+| **#1818** | feat(web): add a nonce-based CSP to documents | 2026-09-22T12:07Z `c452d6ed0` | 基线之后；持有 `apps/web/src/{router.tsx, routes/__root.tsx, server/csp-*.ts, start.ts}` + csp/startup-smoke 测试 · `e2e/{helpers/turnstile.ts,native-recovery-driver.ts}` · `workers/edge/host-integration-test/session-adoption.browser.ts`——**它一合入，卡 2 的文件面阻塞消失；依赖前置见 §五卡 2** |
 | **#1828** | fix(catalog): count the daily run in the egress ceiling | 2026-09-22T14:22Z `e522b70c6` | 基线之后；只碰 `apps/anitabi-egress/**` · `workers/catalog/src/{cron-config,operational-config}.ts` · `test/repo-config/anitabi-egress-*.test.rb` · `docs/ops/{anitabi-egress,secrets}.md` |
 
 四张已进基线的都**不再是占用面**：§三/§五 原先写的 BLOCKED 全部作废。
@@ -265,8 +266,9 @@ another feature's internals」。而 `components/auth/AuthCallback.tsx:4` 与
 `components/auth/use-auth-callback.ts:2-3` 今天都 import `../../features/chat/save/complete-deferred-save`
 ——搬家前是 ui→feature（合法），按 W3 搬进 `features/auth/ui/*` 后即成 `features/auth` →
 `features/chat` 的 feature→feature 边，`crossFeatureViolation` 必拒。**「不需要新增豁免」不成立**：
-W3 的 auth 切片有一个真前置——先把 deferred-save 重放依赖从 `features/chat` 挪到两 feature 共同的
-下层（或反向让 chat 订阅 auth 完成事件），否则这条边只能靠 `MAP_PRIMITIVE_EDGES` 新条目换绿，与验收第 5 条冲突。
+W3 的 auth 切片有一个真前置，且已并入本卡范围——先把 deferred-save 重放依赖从 `features/chat` 挪到
+两 feature 共同的下层（或反向让 chat 订阅 auth 完成事件），否则这条边只能靠 `MAP_PRIMITIVE_EDGES`
+新条目换绿，与验收第 5 条冲突。
 
 **此前的阻塞（已解除）。** `apps/web/src/routes/__root.tsx` 第 10–13 行 import 了
 `../components/{NotFound,RootError,Splash,theme-bootstrap}`，搬 `Splash.tsx` 必须改这个文件——
@@ -278,14 +280,14 @@ W3 的 auth 切片有一个真前置——先把 deferred-save 重放依赖从 `
 3. `git grep -c "components/auth\|components/home\|components/legal\|components/Splash" -- apps/web e2e` 为 0。
 4. `pnpm --filter web test` / `typecheck` / `lint:oxlint --deny-warnings` 全绿。
 5. `apps/web/tests/unit/state-ownership/architecture.test.ts` 绿，**且 `MAP_PRIMITIVE_EDGES` 未新增条目**
-   （`git diff` 对 `apps/web/tests/unit/state-ownership/checker.ts` 为空）。auth→chat 那条边按②的
-   前置先行解除（依赖挪出 `features/chat`），本卡不该需要新豁免；若实现者最终仍需要，
-   PR 说明必须写清是哪条边、为什么——
-   该文件头注已写明「No feature→UI reverse-edge allowlist exists」。
+   （`git diff` 对 `apps/web/tests/unit/state-ownership/checker.ts` 为空）。auth→chat 是本卡唯一需先
+   解的依赖边，按上文「会变层」段的前置把依赖挪出 `features/chat` 后，本卡不新增任何豁免；该文件头注已写明
+   「No feature→UI reverse-edge allowlist exists」。
 6. 不新增 `apps/web/src/domain/`（#829 story 23）。
 7. `apps/web/vitest.config.ts` thresholds 未改。
 
-**前置。** 无。#1818 已在 `origin/main` 上（`c452d6ed0`），直接开分支。
+**前置。** 无外部前置：#1818 已在 `origin/main` 上（`c452d6ed0`），改 `__root.tsx` 不再撞车；
+auth→chat 那条依赖前置已并入本卡范围（见上）。
 
 ---
 
@@ -400,9 +402,7 @@ edge/web 两份的未落项正是 §五两张卡的依据（卡片要引用它�
 - **`bash scripts/local-gates/check-spec-references.sh`** — 适用，绿。
   `checked 46 docs/specs files, all live-referenced`，exit 0。
   该脚本要求 `git ls-files 'docs/specs/'` 里的每个文件被至少一个 archive 之外的活文件按 basename 引用。
-  初稿写的是「本车道只写这一个新文档，因此没有任何文件能引用它，门禁一旦 commit 就会变红」，
-  并把选择留给协调者：(a) 从活文件链过来，或 (b) 在 `spec-reference-exceptions.txt` 写一行豁免。
-  **本车道走的是 (a)，且已完成**：同批的第二次提交在 `docs/specs/2026-08-08-repo-closeout-spec.md`
+  **本文由活文件引用，且已完成**：同批的第二次提交在 `docs/specs/2026-08-08-repo-closeout-spec.md`
   里加了一行指向本文 basename 的引用。变异验证：在一次性 worktree 里删掉那一行 →
   `no live reference — link it from a live file, archive it, or name its canonical owner in scripts/local-gates/spec-reference-exceptions.txt`、
   `1 of 46 docs/specs files have no live reference`、exit 1；还原后复跑回到绿。
@@ -414,4 +414,4 @@ edge/web 两份的未落项正是 §五两张卡的依据（卡片要引用它�
 | 日期 | 变更 |
 |---|---|
 | 2026-09-22 | 初稿：#829 的 23 条 story 与五份包级设计稿对 `f6ef75126`（当时的 `origin/main`）的逐项裁决；in-flight PR 占用图；两张 FREE 卡 + catalog 解锁队列；文档 supersede 建议 |
-| 2026-09-30 | 按 card review 修正：基线改钉到本车道 base `08431b06c`（证据命令同步改 SHA）；#1831/#1832/#1835/#1837 已进基线，§三/§五 的 BLOCKED 全改 FREE；#1818 合入后卡 2 前置消失；§四 改为「已合入表 + 2026-09-30 open-PR 复核」；漂移计数改正（`api/search.ts` 192→187、`catalog/src/lib` 7→9、`src/ingest/**` 23→24、拓扑测试 6→5、脚本行号 17→18、story 21 文档命中 3→4、story 20 抑制计数改为全树实测）；§八 由「一旦 commit 就会变红」改为「已绿 + 变异证据」 |
+| 2026-09-30 | 按 card review 修正：基线改钉到本车道 base `08431b06c`（证据命令同步改 SHA）；#1831/#1832/#1835/#1837 已进基线，§三/§五 的 BLOCKED 全改 FREE；#1818 合入后卡 2 文件面阻塞消失、auth→chat 依赖前置并入卡 2 范围并删掉 AC 5 的例外条款；§四 改为「已合入表 + 2026-09-30 open-PR 复核」；漂移计数改正（`api/search.ts` 192→187、`catalog/src/lib` 7→9、`src/ingest/**` 23→24、拓扑测试 6→5、脚本行号 17→18、story 21 文档命中 3→4、story 20 抑制计数改为全树实测）；§八 由「一旦 commit 就会变红」改为「已绿 + 变异证据」 |
