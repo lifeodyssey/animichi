@@ -133,7 +133,7 @@ W7（prod 最小权限 DSN，#855）与 W8（git 日折叠，#851/#858）在 202
 | E5 AGENTS/CONTEXT 路径 + 删 husk | **LANDED** | `workers/edge/{AGENTS.md,CONTEXT.md,CLAUDE.md}`；四个关切目录各带 README.md |
 
 设计列的 `container/` 目录**不该建**：容器绑定已随 #1737 删除。
-设计未预见的是 `src/agent/`（原生 Pi tier，53 文件）成了本包最大的子树——
+设计未预见的是 `src/agent/`（原生 Pi tier，51 文件）成了本包最大的子树——
 这不是设计的欠账，是设计之后的新事实。
 
 ### 3.4 Web（`2026-08-06-web-ui-structure-design.md` W0–W6）
@@ -168,7 +168,7 @@ settlement/views 分关切）。设计的**意图**（只读 catalog 入口、�
 |---|---|---|
 | 根 edge 运行时 deps → `workers/edge/package.json` | **LANDED** | 见 E1 |
 | 根 `wrangler.toml` → `workers/edge/` | **LANDED** | `git ls-tree 08431b06c -- wrangler.toml` 空；`workers/edge/wrangler.toml` 在 |
-| 根 `Dockerfile` → `apps/agent/` | **DEAD** | `git ls-tree 08431b06c -- Dockerfile` 空；去向 `apps/agent` 亦空。今日唯一 Dockerfile 在 `apps/anitabi-egress/` |
+| 根 `Dockerfile` → `apps/agent/` | **DEAD** | `git ls-tree 08431b06c -- Dockerfile` 空；去向 `apps/agent` 亦空。今日的 Dockerfile 只有两份：`apps/anitabi-egress/` 与 `packages/test-postgres/`，都不属于 agent |
 | 根 `db/` → `migrations/neon/` | **DEAD** | `git ls-tree 08431b06c -- db` 与 `-- migrations` **均空**。取代者：`packages/pi-session-neon/migrations/{app,snapshots}`——AGENTS.md 称其为「the one Prisma 8 chain … the whole migration authority (#1636)」 |
 | 根 `supabase/` → `migrations/supabase/` | **DEAD** | 根 `supabase/` 仍在（`.gitignore README.md config.toml functions migrations templates`），但它已被重新定性为**只读历史**：`gh issue view 1000` = `CLOSED \| refactor: remove Supabase compatibility surface`，AGENTS.md 称 supabase 迁移目录「is an archived historical migration dir (issue #1000), not a live surface」。把只读历史搬进一个活的 `migrations/` 目录已无意义 |
 | 根 `e2e/` → `tests/e2e/` | **DEAD（被超越，但无明文翻案记录）** | `git ls-tree 08431b06c -- tests/e2e` 空，`e2e/` 仍在根。AGENTS.md 的 monorepo layout 表把 `e2e/` 连同 `e2e/AGENTS.md` 列为规范位置，DOCS_POLICY 的 canonical 表同样写 `e2e/AGENTS.md`——当前决定是 `e2e/` 留在根。**但找不到一条显式推翻 §1.2 这一行的记录**，判 DEAD 靠的是 AGENTS.md 的现行表述而非一次裁定 |
