@@ -57,6 +57,17 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 
+# #1784: the refusal alarm is one structured `console.error` record
+# (`event = "ingest.upstream_refused"`, src/ingest/refusal-alarm.ts). Workers
+# Issues turns an error-level log into a grouped issue a notification can be
+# routed from, which is how the owner hears about a refusal without reading a
+# table. Unlike a dashboard toggle, this key survives every `wrangler deploy`
+# and is the reason the source pins wrangler >= 4.134.0. `observability` is
+# inheritable, so this block covers staging and production; the config test in
+# test/wrangler-observability.worker.test.ts refuses an environment override.
+[observability.issues]
+enabled = true
+
 # Per-environment schedules (issues #1016/#1229): production keeps its three
 # ingest crons. Staging imports the daily snapshot and drains durable pending
 # work hourly; development declares none. Keep these strings in sync with

@@ -55,7 +55,7 @@ catalogMode: strict
 # outside the entry, so the drift this consolidates cannot come back through the CLI.
 catalog:
   "@cloudflare/vitest-pool-workers": "^0.22.0"
-  "@cloudflare/workers-types": "5.20260916.1"
+  "@cloudflare/workers-types": "5.20261001.1"
   "@earendil-works/chord": "0.87.1"
   "@earendil-works/pi-agent-core": "0.87.1"
   "@earendil-works/pi-ai": "0.87.1"
@@ -108,7 +108,7 @@ catalog:
   "vite": "^8.3.0"
   # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742
   "vitest": "^4.1.11"
-  "wrangler": "4.132.0"
+  "wrangler": "4.145.0"
   "yaml": "^2.9.1"
   "zod": "4.6.5"
 

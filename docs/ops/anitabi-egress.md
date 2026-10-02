@@ -238,6 +238,75 @@ for a value the service already holds — and the stack's create would fail rath
 The caller's copy is `pulumiConfig.animichi-neon-secrets:INGEST_SIGNING_KEY` in
 `lifeodyssey/animichi/staging` or `…/prod` (`fn::secret`), applied by Pulumi, never by CI.
 
+## Telling the owner when the upstream refuses (#1784)
+
+A refusal must reach a person, not just a table. When the upstream answers 401/403 the ingest
+pipeline parks the job for 24 h and raises **one structured error record per refusal episode**
+(`workers/catalog/src/ingest/refusal-alarm.ts`):
+
+```json
+{"event":"ingest.upstream_refused","upstream":"anitabi","work_id":"276","detail":"…"}
+```
+
+One episode, not one record per refused job and not one per hourly drain pass: the alarm is keyed
+on the source and suppressed while any `upstream_refused` row for it stays live (`hasLiveRefusal`
+in `workers/catalog/src/ingest/jobs.ts`). A transient fault — a 5xx or a timeout — raises nothing; it
+parks as `upstream_fault` and retries on the hourly TTL.
+
+### Declared in code
+
+`workers/catalog/wrangler.toml` persists Workers Logs (`persist = true`, full sampling) and enables
+Workers Issues (`[observability.issues] enabled = true`), which detects the error-level record and
+groups it into an issue. `workers/catalog/test/wrangler-observability.worker.test.ts` pins both.
+`observability.issues` needs **wrangler 4.134.0 or later**, so the workspace pin moved with it. The
+vitest worker pool bundles its own older wrangler (4.124.0, inside `@cloudflare/vitest-pool-workers`),
+which warns that the field is unknown; that is a test-harness artifact, not the deployed config — the
+release build (`wrangler deploy --dry-run`, the workspace's 4.145.0) carries
+`"issues": {"enabled": true}` into the sealed `release/catalog/wrangler.json`.
+
+### The notification itself is a dashboard step
+
+**Cloudflare exposes no API for an Issues automation, so it cannot live in Pulumi or anywhere else
+in Git.** The Alerting API that `cloudflare.NotificationPolicy` wraps lists no Workers/Issues alert
+type (<https://developers.cloudflare.com/api/resources/alerting/subresources/policies/methods/create/>),
+and the Issues documentation configures automations and destinations "in the dashboard or with the
+Cloudflare CLI (cf)" only
+(<https://developers.cloudflare.com/workers/observability/issues/automations/>). The owner does this
+once, against <https://developers.cloudflare.com/workers/observability/issues/>:
+
+1. **Workers & Pages → the catalog Worker → Issues**
+   (<https://dash.cloudflare.com/?to=/:account/workers/services/view/catalog/production/issues>;
+   `catalog-staging` for staging).
+2. **Automations → Add automation**, trigger **Occurrence threshold = 1**, pick or create a
+   destination (email or webhook), and enable it.
+
+An occurrence-threshold automation runs once when an issue's count reaches the threshold, not on
+every later occurrence, so one refusal episode yields one notification — the same shape as the
+source-side dedup. A **recurrence-after-inactivity** automation is the complement, for a refusal
+that lapses and returns.
+
+The automation is per Worker, not per event: Cloudflare documents only those two triggers and no
+event-name filter, so the catalog's other failures — a cron ingest fault, a publish failure, a 5xx
+answer — also produce issues. The structured `event` field is what separates the refusal's issue
+from them in the dashboard; check it on the first notification. If the notification must be keyed
+strictly on `event = "ingest.upstream_refused"`, the platform's **Custom Alerts (beta)** filter a Log
+Explorer query over `logs.workersLogs` on that field — also dashboard-only, with the exact dataset
+scope left to the owner (<https://developers.cloudflare.com/notifications/notification-available/>).
+
+### Proving it after a deploy (the `api` criterion)
+
+The alert cannot be rehearsed locally. On staging, after a release whose catalog ingest meets the
+refusal again:
+
+1. **The event record** — Workers Logs for `catalog-staging`, filtered on
+   `event = "ingest.upstream_refused"`; it carries the refusing `work_id`.
+2. **The delivered notification** — the Worker's Issues page shows the issue and its automation run
+   history at the destination. Link both from the PR or the card.
+
+Production's catalog Worker has never been deployed — its `PROD_SNAPSHOT` binding is still commented
+out in `workers/catalog/wrangler.toml` — so it has no ingest traffic and this proves out on staging.
+The same declaration applies to production when it starts ingesting.
+
 ## If ingest starts failing
 
 Work in this order; the first two are free and rule out most of it.

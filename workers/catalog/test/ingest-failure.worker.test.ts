@@ -240,11 +240,14 @@ describe("the refusal alarm", () => {
     expect(raised).toEqual([]);
   });
 
-  it("raises nothing for a fault", async () => {
+  // Every 5xx is a fault, not a refusal: 503 included. A mutation that emits
+  // the alarm on a 503 (or on every drain pass) turns this red.
+  it.each([500, 503])("raises nothing for a %i fault", async (status) => {
     const raised: UpstreamRefusal[] = [];
 
-    await ingestAgainst(anitabiAnswering(500), parkedStore(), raised);
+    const failure = await ingestAgainst(anitabiAnswering(status), parkedStore(), raised);
 
+    expect(failure.errorCode).toBe("upstream_fault");
     expect(raised).toEqual([]);
   });
 });
