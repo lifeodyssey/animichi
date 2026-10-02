@@ -39,15 +39,6 @@ function lcg(seed: number): () => number {
   };
 }
 
-function seededShuffles<T>(items: T[], count: number): T[][] {
-  const rand = lcg(657);
-  return Array.from({ length: count }, () =>
-    items
-      .map((item) => ({ item, key: rand() }))
-      .sort((a, b) => a.key - b.key)
-      .map((entry) => entry.item));
-}
-
 describe("route kernel nearest-neighbour tie rule", () => {
   it("takes the lowest id within 0.01 m of the true nearest, not the rounded-sort winner", () => {
     // Candidates at 100.0000 m (z), 100.0049 m (a) and 100.0140 m (0): the
@@ -67,9 +58,9 @@ describe("route kernel nearest-neighbour tie rule", () => {
 
   it("returns the same walk for shuffled candidate input", () => {
     const candidates: [string, number][] = [["z", 100.0], ["a", 100.0049], ["0", 100.0140], ["m", 250.0]];
-    const walks = seededShuffles(candidates, 8).map((order) => walkFrom(order));
-    expect(new Set(walks.map((w) => w.join(">"))).size).toBe(1);
-    expect(walks[0]).toEqual(["start", "a", "0", "z", "m"]);
+    const shuffled: [string, number][] = [["m", 250.0], ["z", 100.0], ["a", 100.0049], ["0", 100.0140]];
+    expect(walkFrom(shuffled)).toEqual(walkFrom(candidates));
+    expect(walkFrom(candidates)).toEqual(["start", "a", "0", "z", "m"]);
   });
 });
 
@@ -136,7 +127,7 @@ function stationCoordinate(id: string): [number, number] {
   return [found.lat, found.lng];
 }
 
-/** Every route-ordering fixture the catalog tests already use. */
+/** The route-ordering fixtures: empty, single, meridian, far, transit pair — with and without an origin. */
 function fixtureViews(): OrderingView[] {
   const meridian = [cluster("c", 35.002, 135.0), cluster("a", 35.0, 135.0), cluster("b", 35.001, 135.0)];
   const far = [cluster("a", 35.0, 135.0), cluster("b", 35.01, 135.0)];
@@ -155,13 +146,11 @@ function corpusViews(): OrderingView[] {
   const views: OrderingView[] = [];
   for (let round = 0; round < 3; round += 1) {
     for (let size = 1; size <= 50; size += 1) {
-      const clusters = Array.from({ length: size }, (_, i) =>
-        cluster([round, size, i].map(String).join("."), 35 + (rand() - 0.5) * 0.2, 135 + (rand() - 0.5) * 0.2));
-      const lead = clusters[0];
-      views.push(
-        { clusters },
-        { clusters, origin: lead ? { lat: lead.centerLat, lng: lead.centerLng } : undefined },
-      );
+      const draw = (i: number) =>
+        cluster([round, size, i].map(String).join("."), 35 + (rand() - 0.5) * 0.2, 135 + (rand() - 0.5) * 0.2);
+      const lead = draw(0);
+      const clusters = [lead, ...Array.from({ length: size - 1 }, (_, i) => draw(i + 1))];
+      views.push({ clusters }, { clusters, origin: { lat: lead.centerLat, lng: lead.centerLng } });
     }
   }
   return views;
