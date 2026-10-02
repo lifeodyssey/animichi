@@ -51,10 +51,9 @@ afterEach(() => {
 describe("runtime config Nitro plugin", () => {
   it("publishes the validated RUNTIME_CONFIG binding onto the global", async () => {
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, undefined);
-    const payload = JSON.stringify({ schemaVersion: 1, showcaseMode: "false", featureFlags: {} });
+    const payload = JSON.stringify({ schemaVersion: 1, featureFlags: {} });
     await buildHandler({ env: { RUNTIME_CONFIG: payload } })(home);
-    const published = readGlobal() as { showcaseMode: string; schemaVersion: number };
-    expect(published.showcaseMode).toBe("false");
+    const published = readGlobal() as { schemaVersion: number };
     expect(published.schemaVersion).toBe(1);
   });
 
@@ -63,7 +62,6 @@ describe("runtime config Nitro plugin", () => {
     await buildHandler({ env: {} })(home);
     expect(readGlobal()).toEqual(DEFAULT_RUNTIME_CONFIG);
   });
-
   it("leaves the global untouched when the cloudflare context is absent", async () => {
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, undefined);
     await buildHandler()(home);
@@ -78,11 +76,11 @@ describe("runtime config Nitro plugin", () => {
 
   it("prefers the live globalThis.__env__ binding the module handler sets", async () => {
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, undefined);
-    vi.stubGlobal("__env__", { RUNTIME_CONFIG: JSON.stringify({ schemaVersion: 1, showcaseMode: "true", featureFlags: {} }) });
+    vi.stubGlobal("__env__", { RUNTIME_CONFIG: JSON.stringify({ schemaVersion: 1, cfBeaconToken: "beacon", featureFlags: {} }) });
     // No cloudflare context: the module-handler global is the source.
     await buildHandler()(home);
-    const published = readGlobal() as { showcaseMode: string; schemaVersion: number };
-    expect(published.showcaseMode).toBe("true");
+    const published = readGlobal() as { cfBeaconToken: string; schemaVersion: number };
+    expect(published.cfBeaconToken).toBe("beacon");
     expect(published.schemaVersion).toBe(1);
   });
 

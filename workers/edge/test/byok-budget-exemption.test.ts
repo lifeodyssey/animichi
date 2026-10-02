@@ -35,7 +35,6 @@ const stubCtx = {
 function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {
     EDGE_GUARD: guard,
-    EDGE_SHOWCASE_MODE: "false",
   } as unknown as Env;
 }
 

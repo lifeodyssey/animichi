@@ -23,7 +23,6 @@ export function collectingCtx(settled: Promise<unknown>[]): WorkerExecutionConte
 
 export function envWithCatalog(captured: { req?: Request }) {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     CATALOG: { fetch: (r: Request) => { captured.req = r; return Promise.resolve(new Response("cat")); } },
   } as never;
 }
@@ -38,9 +37,9 @@ export const alwaysAllowGuard = {
   }),
 };
 
-/** The env most gateway cases need: showcase off, the always-allow guard, and
- * nothing downstream. Named for the surface rather than for a binding it no
- * longer carries — `CONTAINER` went with the container (#1605). */
+/** The env most gateway cases need: the always-allow guard, and nothing
+ * downstream. Named for the surface rather than for a binding it no longer
+ * carries — `CONTAINER` went with the container (#1605). */
 export function gatewayEnv(extra: Record<string, unknown> = {}): never {
-  return { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: alwaysAllowGuard, ...extra } as never;
+  return { EDGE_GUARD: alwaysAllowGuard, ...extra } as never;
 }

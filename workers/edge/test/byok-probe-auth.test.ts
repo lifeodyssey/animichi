@@ -26,7 +26,7 @@ void test("an unauthenticated POST /v1/byok/probe is rejected with 401 and reach
     authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     agentTurns: nativeAgentReceiver(calls),
   });
-  const res = await app.request("/v1/byok/probe", PROBE, { EDGE_SHOWCASE_MODE: "false" }, stubCtx);
+  const res = await app.request("/v1/byok/probe", PROBE, {}, stubCtx);
   assert.equal(res.status, 401);
   assert.deepEqual(calls, [], "no receiver may run for an unauthenticated probe");
 });
@@ -38,7 +38,7 @@ void test("an unauthenticated POST /v1/byok/probe is 401 even with anonymous acc
     agentTurns: nativeAgentReceiver(calls),
   });
   const env = {
-    EDGE_SHOWCASE_MODE: "false", ANON_ACCESS_ENABLED: "true",
+    ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000", TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
   };
   const res = await app.request("/v1/byok/probe", { method: "POST" }, env, stubCtx);
