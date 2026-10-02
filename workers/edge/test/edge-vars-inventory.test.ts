@@ -14,7 +14,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 import { parse, TomlDate, type TomlTable, type TomlValue } from "smol-toml";
-import { EDGE_VARS, RUNTIME_KNOBS } from "../src/config/edge-vars.ts";
+import { EDGE_VARS } from "../src/config/edge-var-inventory.ts";
+import { RUNTIME_KNOBS } from "../src/config/edge-vars.ts";
 
 const document = parse(readFileSync(fileURLToPath(new URL("../wrangler.toml", import.meta.url)), "utf8"));
 

@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { EDGE_VARS } from "./edge-var-inventory.ts";
+
 /**
  * Runtime-tunable operational knobs (issue #688). An operator stores a value in
  * the `EDGE_KNOBS` KV namespace and the edge reads it per request through a
@@ -36,18 +38,15 @@ export interface RuntimeKnob<T> {
   fromEnv(raw: string | undefined): T;
 }
 
-/** Identity, exposure and showcase gates stay deployment-coupled: opening the
- * front door, publishing the landing-only production surface, or moving the
- * JWT issuer are all reviewed deploys, never a KV write (AUTH-2 #950, S0-v2
- * C9). The reader refuses these names, so a store value can never answer for
- * one. The inventory classifies them in `edge-vars.ts`. */
-export const DEPLOY_COUPLED_VARS: ReadonlySet<string> = new Set([
-  "ANON_ACCESS_ENABLED",
-  "ANON_ID_SECRET",
-  "TURNSTILE_SECRET",
-  "EDGE_SHOWCASE_MODE",
-  "NEON_AUTH_JWKS_URL",
-]);
+/** Every var the inventory classifies deploy-coupled: identity, exposure and
+ * showcase gates, abuse controls and the retained entries. Opening the front
+ * door, publishing the landing-only production surface, or moving the JWT
+ * issuer are all reviewed deploys, never a KV write (AUTH-2 #950, S0-v2 C9).
+ * Derived from `EDGE_VARS`, so reclassifying a var there changes the refusal
+ * here with no second list to keep in step. */
+export const DEPLOY_COUPLED_VARS: ReadonlySet<string> = new Set(
+  EDGE_VARS.filter((entry) => entry.class === "deploy-coupled").map((entry) => entry.name),
+);
 
 /** Build a knob, refusing a descriptor for a deploy-coupled gate. The refusal
  * happens at construction, so the mistake fails the isolate at import rather

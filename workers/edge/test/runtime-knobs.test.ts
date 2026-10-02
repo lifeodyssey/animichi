@@ -17,6 +17,7 @@ import {
   type KnobStore,
 } from "../src/config/runtime-knobs.ts";
 import { RUNTIME_KNOBS } from "../src/config/edge-vars.ts";
+import { EDGE_VARS } from "../src/config/edge-var-inventory.ts";
 
 const quota = RUNTIME_KNOBS.anonymousDailyMessageQuota;
 const budget = RUNTIME_KNOBS.anonymousDailyCostBudgetUsd;
@@ -90,8 +91,9 @@ void test("a stored 0 disables the quota instead of falling back to the env valu
   assert.equal(await readerAt(clock).read(env, quota), 0);
 });
 
-void test("every deploy-coupled gate is refused at knob construction", () => {
-  for (const name of DEPLOY_COUPLED_VARS) {
+void test("every var the inventory classifies deploy-coupled is refused at knob construction", () => {
+  const coupled = EDGE_VARS.filter((entry) => entry.class === "deploy-coupled").map((entry) => entry.name);
+  for (const name of coupled) {
     assert.throws(
       () => runtimeKnob({ envVar: name, kvKey: `knob:${name}`, parse: Number, fromEnv: () => 0 }),
       new RegExp(`${name} is deploy-coupled`),
