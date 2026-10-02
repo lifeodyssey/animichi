@@ -154,7 +154,7 @@ function rawSeedInserts(tree: Readonly<Record<string, string>>): string[] {
 
 // `?raw` inlines each suite at transform time, so this runs in workerd without
 // touching its sandboxed filesystem — the technique `dependency-rule.worker.test.ts` uses.
-const integrationSuites = import.meta.glob<string>("./*.integration.test.ts", {
+const integrationSuites = import.meta.glob<string>("./**/*.integration.test.ts", {
   query: "?raw",
   eager: true,
   import: "default",
