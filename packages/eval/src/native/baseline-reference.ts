@@ -23,20 +23,24 @@ export interface BaselineReference {
   readonly comparison: BaselineComparison;
 }
 
-/** The two fields a committed baseline artifact may carry its model identity in. */
+/** The fields a committed baseline artifact carries its dataset and model identity in. */
 interface BaselineRecord {
+  readonly dataset?: unknown;
   readonly model?: unknown;
   readonly baseline_model?: unknown;
 }
 
 /**
- * Resolve the named baseline artifact against `runModel`, or answer `null` when no
- * baseline was named — an unnamed baseline is recorded as `null`, never omitted.
- * A missing, unreadable or model-less artifact is a failure, not a silent skip.
+ * Resolve the named baseline artifact against `runModel` on `runDataset`, or answer `null`
+ * when no baseline was named — an unnamed baseline is recorded as `null`, never omitted.
+ * A missing, unreadable, model-less or other-dataset artifact is a failure, not a silent skip.
  */
-export async function resolveBaseline(named: string | undefined, runModel: string): Promise<BaselineReference | null> {
+export async function resolveBaseline(
+  named: string | undefined, runModel: string, runDataset: string,
+): Promise<BaselineReference | null> {
   if (named === undefined) return null;
   const record = await readArtifact(named);
+  requireDataset(record, named, runDataset);
   const model = baselineModel(record, named);
   return { model, artifact: artifactPath(named), comparison: model === runModel ? 'same-model' : 'model-change' };
 }
@@ -49,22 +53,41 @@ async function readArtifact(named: string): Promise<BaselineRecord> {
   } catch (error) {
     throw new Error(`baseline artifact "${named}" does not exist (read as ${path}: ${message(error)})`, { cause: error });
   }
+  return requireObject(parseJson(text, named), named);
+}
+
+function parseJson(text: string, named: string): unknown {
   try {
-    return JSON.parse(text) as BaselineRecord;
+    return JSON.parse(text);
   } catch (error) {
     throw new Error(`baseline artifact "${named}" is not valid JSON: ${message(error)}`, { cause: error });
   }
 }
 
+function requireObject(value: unknown, named: string): BaselineRecord {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`baseline artifact "${named}" is not a JSON object`);
+  }
+  return value;
+}
+
+/** A baseline covers the cases of one dataset; another dataset's scores are no comparison. */
+function requireDataset(record: BaselineRecord, named: string, runDataset: string): void {
+  if (!isNonEmptyString(record.dataset)) throw new Error(`baseline artifact "${named}" names no dataset`);
+  if (record.dataset !== runDataset) {
+    throw new Error(`baseline artifact "${named}" covers dataset "${record.dataset}", not the run's "${runDataset}"`);
+  }
+}
+
 function baselineModel(record: BaselineRecord, named: string): string {
-  const model = [record.model, record.baseline_model].find(isModelString);
+  const model = [record.model, record.baseline_model].find(isNonEmptyString);
   if (model === undefined) {
     throw new Error(`baseline artifact "${named}" names no model (expected "model" or "baseline_model")`);
   }
   return model;
 }
 
-function isModelString(value: unknown): value is string {
+function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
 }
 

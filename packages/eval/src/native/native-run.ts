@@ -137,7 +137,7 @@ export async function runNativeEvaluation(
 async function planAndEvaluate(config: NativeRunConfig, env: NodeJS.ProcessEnv, ports: NativeRunPorts): Promise<NativeRunResult> {
   const loaded = await loadNativeDataset(config.datasetName, config.smoke);
   const model = findModel(ports.provider.getModels(), config.modelId, config.provider);
-  const baseline = await resolveBaseline(config.baselinePath ?? undefined, modelIdentifier(model));
+  const baseline = await resolveBaseline(config.baselinePath ?? undefined, modelIdentifier(model), config.datasetName);
   if (env.EVAL_DRY_RUN === '1') return { loaded, config, baseline, dryRun: true };
   const [key, catalogUrl] = requiredBindings(env, PROVIDER_BINDINGS[config.provider].credentialVar);
   return await evaluateBinding(loaded, config, baseline, model, ports, key, catalogUrl);
