@@ -145,7 +145,8 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
     const router = getRouter();
     await router.navigate({ to: "/auth/callback", search: { next: "/settings#api-key" } });
     render(<RouterProvider router={router} />);
-    expect(await screen.findByText(dictFor("ja").auth.callback_save_failed)).toBeTruthy();
+    await waitFor(() => { expect(router.state.location.pathname).toBe("/settings"); });
+    expect(await screen.findByText(dictFor("ja").auth.callback_save_failed, { selector: "[role=status]" })).toBeTruthy();
     cleanup();
     render(<RouterProvider router={router} />);
     await waitFor(() => { expect(router.state.location.pathname).toBe("/settings"); });

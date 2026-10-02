@@ -60,7 +60,7 @@ function PreferencesSection() {
 
 function ApiKeySection({ auth, baseUrl, chat }: Props) {
   const settings = useDict().settings;
-  return <SettingsSection id="api-key" title={settings.apiKeyTitle} description={settings.apiKeyDescription}><ByokSettings dict={chat} auth={auth} baseUrl={baseUrl} /></SettingsSection>;
+  return <SettingsSection id="api-key" title={settings.apiKeyTitle} description={settings.apiKeyDescription}><SaveFailureNotice /><ByokSettings dict={chat} auth={auth} baseUrl={baseUrl} /></SettingsSection>;
 }
 
 function SettingsContent(props: Props) {
@@ -77,7 +77,6 @@ export function SettingsPage(props: Props) {
   return (
     <main className="settings-page">
       <SettingsHeader session={props.session} />
-      <SaveFailureNotice />
       <SettingsContent {...props} />
     </main>
   );
