@@ -58,8 +58,8 @@ repositories inherited it; the gate now unsets `GIT_*` at its entry) and
 "任务完成了记得要删掉 worktree." The instruction stands for the stale-directory reason, not the one
 originally given: the 2.2 GB per worktree was a `du` artefact. Measured with `df`, a `pnpm install
 --frozen-lockfile --ignore-scripts` on an empty worktree consumes about 46 MB, and the 2026-09-16
-disk-full incident came from the container runtime's virtual disk
-(`~/.colima/_lima/colima/diffdisk`) — leaked anonymous volumes
+disk-full incident came from the container runtime's sparse virtual disk (its path is in the
+machine-local notes) — leaked anonymous volumes
 ([#1798](https://github.com/lifeodyssey/animichi/issues/1798)) plus the images of a retired service
 (21 `public.ecr.aws/supabase/*` images, 17.6 GB). The investigation is recorded on
 [#1778](https://github.com/lifeodyssey/animichi/issues/1778).
