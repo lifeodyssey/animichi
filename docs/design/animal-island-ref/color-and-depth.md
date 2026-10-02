@@ -18,7 +18,7 @@ Three-layer color system: 90% ground (cream/brown), 8% interactive (teal), 2% em
 | primary-active | `#11a89b` | Active press / checked state |
 | primary-bg | `#e6f9f6` | Light background tint |
 
-**Ours:** `--color-primary: #19c8b9`, `--color-primary-hover: #3dd4c6`, `--color-primary-active: #50b9ab`, `--color-primary-soft: #e6f9f6`, `--color-primary-strong: #0e7d72`, `--color-primary-ink: #073f3a`, `--color-primary-fg: #ffffff`. Delta: upstream `primary-active` (`#11a89b`) is upstream-only; our press tone sits one step lighter. The bright teal carries `--color-primary-ink` for text; `--color-primary-fg` (white) sits on the dark grounds — `--color-primary-strong`, the `--color-overlay` scrim (`DoorwaySummary.tsx` compare labels) and the `--color-map-pin-orange` highlighted map pin (`globals.css`, map-spike pin highlight rule).
+**Ours:** `--color-primary: #19c8b9`, `--color-primary-hover: #3dd4c6`, `--color-primary-active: #50b9ab`, `--color-primary-soft: #e6f9f6`, `--color-primary-strong: #0e7d72`, `--color-primary-ink: #073f3a`, `--color-primary-fg: #ffffff`. Delta: upstream `primary-active` (`#11a89b`) is upstream-only; our press tone sits one step lighter. The bright teal carries `--color-primary-ink` for text; `--color-primary-fg` (white) sits on the dark grounds — `--color-primary-strong`, the `--color-overlay` scrim (`DoorwaySummary.tsx` compare labels) and the `--color-map-pin-orange` highlighted map pin (`globals.css`, map-spike pin highlight rule). That is the day palette: the night block (`[data-theme="night"]`, `globals.css`) sets `--color-primary-fg` to the dark ink `#10201d` and leaves those three grounds at their day values, so at night the same usages carry dark text on them.
 
 ### Text (Warm Brown)
 | Token | Value | Usage |
