@@ -75,6 +75,14 @@ describe("per-surface AA table", () => {
     expect(parseContrastRows(reference)).toHaveLength(6);
   });
 
+  it("lists each live text token once, in ramp order", () => {
+    expect(parseContrastRows(reference).filter((row) => row.isToken).map((row) => row.name)).toEqual([
+      "--color-fg",
+      "--color-fg-ink",
+      "--color-muted-fg",
+    ]);
+  });
+
   it("labels every upstream-only tone as upstream-only", () => {
     expect(parseContrastRows(reference).filter((row) => !row.isToken).map((row) => row.name)).toEqual([
       "text-color-muted (upstream-only)",
