@@ -39,9 +39,12 @@ function applyLockBundle(): Promise<string> {
 export async function applyLockRuntime() {
   bundle ??= applyLockBundle();
   const runtime = new Miniflare({
-    modules: [{ type: "ESModule", path: "/bundle/apply-lock-worker.js", contents: await bundle }],
-    modulesRoot: "/bundle", compatibilityDate: "2026-07-01", compatibilityFlags: ["nodejs_compat"],
-    durableObjects: { MIGRATOR_APPLY_LOCK: "MigratorApplyLock" },
+    workers: [{
+      name: "migrator-apply-lock",
+      modules: [{ type: "ESModule", path: "/bundle/apply-lock-worker.js", contents: await bundle }],
+      modulesRoot: "/bundle", compatibilityDate: "2026-07-01", compatibilityFlags: ["nodejs_compat"],
+      durableObjects: { MIGRATOR_APPLY_LOCK: "MigratorApplyLock" },
+    }],
     log: new Log(LogLevel.ERROR), cf: false,
   });
   const applies = async (...specs: readonly string[]): Promise<ApplyRunReport> => {
