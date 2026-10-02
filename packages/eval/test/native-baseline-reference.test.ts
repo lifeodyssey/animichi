@@ -14,7 +14,7 @@ import { model } from './native-model-fixture.ts';
 
 const HELDOUT_BASELINE = 'packages/eval/results/2026-09-07-agent_eval_heldout_v1.json';
 const V2_5_BASELINE_MODEL = 'openai:mimo-v2.5@https://api.xiaomimimo.com/v1';
-const V2_6_RUN_MODEL = 'openai:mimo-v2.6-flash@https://opencode.ai/zen/go/v1';
+const V2_6_RUN_MODEL = 'opencode-go:mimo-v2.6-flash@https://opencode.ai/zen/go/v1';
 const HELDOUT = 'agent_eval_heldout_v1';
 
 void test('an unnamed baseline stays explicitly unnamed instead of looking forgotten', async () => {

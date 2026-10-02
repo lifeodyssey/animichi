@@ -83,7 +83,7 @@ export function experimentMetadata(
   return {
     dataset: config.datasetName,
     model: modelIdentifier(model),
-    baseline: baseline,
+    baseline,
     commit: config.testedCommit,
     repeat: config.repeat,
     sampling: 'iid',
