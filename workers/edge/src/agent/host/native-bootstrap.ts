@@ -25,7 +25,7 @@ export async function bootstrapNativeSession(env: Env, id: string, context: Cont
   if (!url) throw new Error("The native agent database is not configured");
   const db = nativeClient(url);
   try {
-    const server = await nativeHostModels(await readSecret(env.MIMO_API_KEY));
+    const server = await nativeHostModels(await readSecret(env.OPENCODE_API_KEY));
     const repo = new NeonSessionRepo(db);
     const row = await db.orm.public.PiSession.where({ id }).first();
     const created = row ? undefined : await repo.create({ id }, context);

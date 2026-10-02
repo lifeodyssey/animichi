@@ -213,7 +213,7 @@ Browser
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker gateway → native `AgentSession` DO
                                                             ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
                                                             ├─ catalog read path (`CATALOG` service binding)
-                                                            └─ MiMo primary (`MIMO_API_KEY`)
+                                                            └─ OpenCode Go `mimo-v2.6-flash` (`OPENCODE_API_KEY`)
 ```
 
 The hybrid topology runs the edge Worker plus the catalog and users Workers. The main `seichijunrei` Worker
@@ -236,7 +236,7 @@ the agent tier; callers' raw credentials never leave the gateway.
 | Layer | Responsibility | Secrets/config it should see |
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
-| Worker edge | Route match, JWT auth, identity injection, native agent turns | `NEON_AUTH_JWKS_URL`, `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY` |
+| Worker edge | Route match, JWT auth, identity injection, native agent turns | `NEON_AUTH_JWKS_URL`, `AGENT_SVC_DATABASE_URL`, `OPENCODE_API_KEY` |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before routing and the
 native agent tier sees only trusted `X-User-Id` / `X-User-Type` identity. `/v1/users/*` is
@@ -268,8 +268,10 @@ Required at deploy time:
   Store (`[[env.<env>.secrets_store_secrets]]` in `workers/edge/wrangler.toml`) and resolved by
   the native agent host directly. The `SUPABASE_DB_URL` name has no consumer; see
   `docs/ops/prod-dsn-cutover.md`.
-- `MIMO_API_KEY` for the primary `mimo-v2.6-flash` model — the runtime is MiMo-only (owner decision
-  2026-09-15): no DeepSeek secret is required, provisioned, bound, or forwarded
+- `OPENCODE_API_KEY` for the default `mimo-v2.6-flash` turn through OpenCode Go (owner decision
+  2026-10-03, #1974). The runtime is still MiMo-only (owner decision 2026-09-15): no DeepSeek
+  secret is required, provisioned, bound, or forwarded. `MIMO_API_KEY` stays bound and required
+  so rolling back to the previous release still works, but no default-turn path reads it
 
 The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved
 (AUTH-2 #950).

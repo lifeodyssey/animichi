@@ -20,12 +20,12 @@ void test("production chat tier boots the default SessionAgent, executes its nat
   assert.match(wire, /"type":"data-response"/);
   assert.match(wire, /"intent":"greet_user"/);
   assert.equal(wire.match(/\[DONE\]/g)?.length, 1);
-  assert.doesNotMatch(wire, /server-private-key/);
+  assert.doesNotMatch(wire, /server-opencode-key/);
   assert.equal(await settled, true, "Default Env resources must run and settle without a bootstrap subclass");
   const diagnostic = await pool.query("SELECT payload->'message' AS payload FROM pi_records WHERE kind='entry' AND session_id=$1", [SESSION]);
   assert.equal(requests.length, 1, JSON.stringify(diagnostic.rows));
-  assert.equal(requests[0]?.headers.get("authorization"), "Bearer server-private-key");
-  assert.equal(new URL(requests[0].url).hostname, "api.xiaomimimo.com");
+  assert.equal(requests[0]?.headers.get("authorization"), "Bearer server-opencode-key");
+  assert.equal(new URL(requests[0].url).hostname, "opencode.ai");
   const modelRequest = JSON.parse(await requests[0].text()) as { model: string };
   assert.equal(modelRequest.model, "mimo-v2.6-flash");
   const admission = await pool.query<{ state: string; last_usage_seq: number; settled_at: Date }>("SELECT a.state,s.last_usage_seq,s.settled_at FROM agent_admissions a JOIN agent_settlements s USING(operation_id) WHERE operation_id=$1", [operationId]);
@@ -35,7 +35,7 @@ void test("production chat tier boots the default SessionAgent, executes its nat
   assert.equal(Number(quota.rows[0]?.message_count), 1);
   const output = await pool.query<{ payload: { role?: string; toolName?: string; isError?: boolean } }>("SELECT payload->'message' AS payload FROM pi_records WHERE kind='entry' AND session_id=$1", [SESSION]);
   assert.ok(output.rows.some((row) => row.payload.toolName === "respond" && row.payload.isError === false));
-  assert.doesNotMatch(JSON.stringify(output.rows), /server-private-key|Authorization|Bearer/);
+  assert.doesNotMatch(JSON.stringify(output.rows), /server-opencode-key|Authorization|Bearer/);
   const usage = await pool.query<{ cost_usd: string }>("SELECT cost_usd FROM daily_usage WHERE scope='anon'");
   assert.ok(Number(usage.rows[0]?.cost_usd) > 0);
   const historyResponse = await worker.dispatchFetch(`https://host.test/v1/conversations/${SESSION}/messages`);
@@ -80,7 +80,7 @@ void test("a default host cold restart durably refuses lost BYOK credentials and
   assert.deepEqual(rows.rows, [{ state: "settled", rejection_reason: "byok_credentials_lost" }]);
   assert.equal(resources.requests.length, 0);
   const values = await pool.query("SELECT namespace,key,value FROM pi_scalar_values");
-  assert.doesNotMatch(JSON.stringify(values.rows), /private-ephemeral-key|server-private-key/);
+  assert.doesNotMatch(JSON.stringify(values.rows), /private-ephemeral-key|server-opencode-key/);
 });
 
 void test("production selection commits one native server result without accepting a model operation or spending quota", async (context) => {

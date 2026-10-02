@@ -35,7 +35,7 @@ void test("GET resumes a native drive without the original input or a second adm
   assert.match(wire, /"type":"data-response"/);
   assert.match(wire, /Reconnected to the same native turn/);
   assert.equal(wire.match(/\[DONE\]/g)?.length, 1);
-  assert.doesNotMatch(wire, /server-private-key/);
+  assert.doesNotMatch(wire, /server-opencode-key/);
   assert.equal(await settled, true);
   assert.equal(requests.length, 1);
   assert.deepEqual((await pool.query("SELECT state,operation_id FROM agent_admissions")).rows, [{ state: "settled", operation_id: operationId }]);

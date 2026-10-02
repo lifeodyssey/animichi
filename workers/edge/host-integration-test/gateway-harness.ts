@@ -93,7 +93,7 @@ function bindings(): Record<string, string> {
     TURNSTILE_SECRET: "host-integration-turnstile",
     EDGE_SHOWCASE_MODE: "false",
     ANON_DAILY_MESSAGE_QUOTA: "2",
-    MIMO_API_KEY: "host-integration-model",
+    OPENCODE_API_KEY: "host-integration-model",
     NEON_AUTH_JWKS_URL: JWKS_URL,
   };
 }
