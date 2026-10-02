@@ -96,19 +96,26 @@ void test("a stop id the earlier route never published is refused before any cat
   await repo.close(BACKGROUND_CONTEXT);
 });
 
-void test("a stale or unknown route reference is refused before any catalog call", async () => {
-  for (const kind of ["unknown", "non-route"] as const) {
-    const requests: Request[] = [];
-    const { repo, session, toolContext } = await fixture((request) => { requests.push(request); return Promise.resolve(Response.json(itinerary(IDS))); });
-    const branch = await session.createBranch("main", null, BACKGROUND_CONTEXT);
-    const itineraryRef = kind === "unknown" ? "unknown" : await branch.appendMessage({ role: "toolResult", toolCallId: "search",
-      toolName: "search_bangumi", timestamp: 0, isError: false, content: [],
-      details: { kind: "bangumi", anime_id: "123", rows: POINTS, partial: false } }, BACKGROUND_CONTEXT);
-    const { message } = await executeTool(toolContext, "plan_route", { itinerary_ref: itineraryRef, stop_ids: [idAt(0)] }, [planRoute]);
-    assert.deepEqual(message.details, { status: "stale_ref" });
-    assert.equal(requests.length, 0);
-    await repo.close(BACKGROUND_CONTEXT);
-  }
+void test("an unknown route reference is refused before any catalog call", async () => {
+  const requests: Request[] = [];
+  const { repo, toolContext } = await fixture((request) => { requests.push(request); return Promise.resolve(Response.json(itinerary(IDS))); });
+  const { message } = await executeTool(toolContext, "plan_route", { itinerary_ref: "unknown", stop_ids: [idAt(0)] }, [planRoute]);
+  assert.deepEqual(message.details, { status: "stale_ref" });
+  assert.equal(requests.length, 0);
+  await repo.close(BACKGROUND_CONTEXT);
+});
+
+void test("a committed search result used as a route reference is refused before any catalog call", async () => {
+  const requests: Request[] = [];
+  const { repo, session, toolContext } = await fixture((request) => { requests.push(request); return Promise.resolve(Response.json(itinerary(IDS))); });
+  const branch = await session.createBranch("main", null, BACKGROUND_CONTEXT);
+  const itineraryRef = await branch.appendMessage({ role: "toolResult", toolCallId: "search",
+    toolName: "search_bangumi", timestamp: 0, isError: false, content: [],
+    details: { kind: "bangumi", anime_id: "123", rows: POINTS, partial: false } }, BACKGROUND_CONTEXT);
+  const { message } = await executeTool(toolContext, "plan_route", { itinerary_ref: itineraryRef, stop_ids: [idAt(0)] }, [planRoute]);
+  assert.deepEqual(message.details, { status: "stale_ref" });
+  assert.equal(requests.length, 0);
+  await repo.close(BACKGROUND_CONTEXT);
 });
 
 void test("a frozen route summary that lost the ordered ids is refused", async () => {
