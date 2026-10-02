@@ -55,10 +55,21 @@ repositories inherited it; the gate now unsets `GIT_*` at its entry) and
 
 ## Remove the worktree when the PR is merged (owner, 2026-09-17)
 
-"任务完成了记得要删掉 worktree." Sixty-six idle worktrees at 2.2 GB of `node_modules` each filled the
-disk on 2026-09-16, and stale directories misled the lane inventory. Done means the branch's PR
-is MERGED (`gh pr view --json state`) or the card is closed; `git merge-base --is-ancestor` is
-never true after a squash merge. Three checks before removal: `git status --porcelain` empty, no
+"任务完成了记得要删掉 worktree." The instruction stands for the stale-directory reason, not the one
+originally given: the 2.2 GB per worktree was a `du` artefact. Measured with `df`, a `pnpm install
+--frozen-lockfile --ignore-scripts` on an empty worktree consumes about 46 MB, and the 2026-09-16
+disk-full incident came from the container runtime's virtual disk
+(`~/.colima/_lima/colima/diffdisk`) — leaked anonymous volumes
+([#1798](https://github.com/lifeodyssey/animichi/issues/1798)) plus the images of a retired service
+(21 `public.ecr.aws/supabase/*` images, 17.6 GB). The investigation is recorded on
+[#1778](https://github.com/lifeodyssey/animichi/issues/1778).
+
+**Measurement rule:** `du` overstates clone-shared blocks on APFS with a cloning package manager and
+`ls` overstates a sparse file's logical size, so read free space with `df`.
+
+Done means the branch's PR is MERGED (`gh pr view --json state`) or the card is closed;
+`git merge-base --is-ancestor` is never true after a squash merge. Three checks before removal:
+`git status --porcelain` empty, no
 runner in that directory, no unpushed commits — either `HEAD` equals the merged PR's head SHA
 (`gh pr view <n> --json headRefOid`) or there are no commits beyond the upstream
 (`git rev-list origin/<branch>..HEAD` empty; an ancestry test against `main` is always
