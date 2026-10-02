@@ -19,7 +19,7 @@ import { EDGE_VARS } from "./edge-var-inventory.ts";
 
 /** The store surface the reader needs; a Cloudflare `KVNamespace` satisfies it. */
 export interface KnobStore {
-  get(key: string): Promise<string | null>;
+  get(key: string, options: { readonly cacheTtl: number }): Promise<string | null>;
 }
 
 /** The environment surface the reader reads: the knob store binding plus the
@@ -58,10 +58,14 @@ export function runtimeKnob<T>(descriptor: RuntimeKnob<T>): RuntimeKnob<T> {
   return descriptor;
 }
 
-/** The upper bound on how long one isolate serves a cached resolution. KV's own
- * edge cache is 60 s, so a shorter TTL keeps a flip visible sooner than the
- * platform alone would. */
+/** The upper bound on how long one isolate serves a cached resolution. */
 export const KNOB_CACHE_TTL_MS = 30_000;
+
+/** KV's edge cache TTL for a knob read, in seconds: the platform minimum. KV
+ * caches absent keys too and defaults to 60 s, so without it a flip or a delete
+ * could take that long on top of the isolate cache. A change reaches admission
+ * within this plus `KNOB_CACHE_TTL_MS`. */
+export const KNOB_STORE_CACHE_TTL_SECONDS = 30;
 
 export interface KnobReaderOptions {
   readonly now: () => number;
@@ -110,7 +114,7 @@ async function resolveStoredOrEnv<T>(environment: KnobEnvironment, knob: Runtime
 async function storedText(store: KnobStore | undefined, key: string): Promise<string | undefined> {
   if (store === undefined) return undefined;
   try {
-    return (await store.get(key)) ?? undefined;
+    return (await store.get(key, { cacheTtl: KNOB_STORE_CACHE_TTL_SECONDS })) ?? undefined;
   } catch {
     return undefined;
   }

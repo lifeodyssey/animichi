@@ -78,6 +78,19 @@ void test("the cache serves the first resolution for exactly the TTL, then re-re
   assert.equal(await reader.read(env, quota), 40, "at the TTL the store is read again");
 });
 
+void test("the store is read with KV's 30-second minimum edge cache TTL", async () => {
+  const clock = { now: 0 };
+  const reads: unknown[] = [];
+  const env = envWith({
+    get: (_key, options) => {
+      reads.push(options);
+      return Promise.resolve("30");
+    },
+  });
+  await readerAt(clock).read(env, quota);
+  assert.deepEqual(reads, [{ cacheTtl: 30 }]);
+});
+
 void test("the env fallback keeps the budget's unset default and the quota's 0-disables convention", async () => {
   const clock = { now: 0 };
   const env = { ANON_DAILY_MESSAGE_QUOTA: "0" };
