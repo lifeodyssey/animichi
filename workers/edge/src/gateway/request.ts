@@ -62,13 +62,7 @@ export function HandleGatewayRequest(
 ): Promise<Response> {
   const route = classify(request);
   observeEntry(route, request);
-  return observed(route, Date.now(), () => routedResponse(route, env, request, ctx, deps));
-}
-
-function routedResponse(
-  route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
-): Promise<Response> {
-  return dispatch(route, env, request, ctx, deps);
+  return observed(route, Date.now(), () => dispatch(route, env, request, ctx, deps));
 }
 
 /** Every request leaves a completion record, including one whose dispatch threw

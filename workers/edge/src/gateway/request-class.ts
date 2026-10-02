@@ -57,6 +57,3 @@ export function classify(request: Request): RequestClass {
   if (pathname.startsWith("/v1/")) return { kind: "v1", pathname };
   return { kind: "not-found" };
 }
-
-/** The retired root classifies as not-found; `/healthz` stays the landing
- * asset the edge answers itself. */

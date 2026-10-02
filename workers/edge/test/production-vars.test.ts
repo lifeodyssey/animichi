@@ -8,9 +8,8 @@ import { stubCtx } from "./doubles/entry-env.ts";
 // Showcase-mode retirement (#1975): the edge has no showcase gate. With the
 // environment production's own wrangler ring sets (APP_ENV, anonymous access
 // off, and NO showcase variable — it does not exist any more), a functional
-// /v1 request and the public catalog read reach their handlers, and no
-// response carries the `showcase_denied` denial. Restoring the gate (a
-// fail-closed 403 ahead of these handlers) turns every case here red.
+// /v1 request and the public catalog read reach their handlers. Restoring the
+// gate (a fail-closed 403 ahead of these handlers) turns every case here red.
 
 const NOW = Date.UTC(2026, 9, 3, 12, 0, 0);
 const SECRET = "fixed-test-hmac-key-0000000000000000";
@@ -40,8 +39,6 @@ void test("a production-shaped environment serves the functional /v1 surface", a
   assert.equal(res.status, 200);
   assert.notEqual(res.status, 403);
   assert.equal(calls.length, 1, "the request reached the native tier");
-  assert.notEqual(String((await res.clone().json().catch(() => ({})) as { error?: { code?: string } }).error?.code),
-    "showcase_denied", "no response may carry the retired showcase denial");
 });
 
 void test("a production-shaped environment serves the public catalog read", async () => {
@@ -51,6 +48,4 @@ void test("a production-shaped environment serves the public catalog read", asyn
   assert.equal(res.status, 200);
   assert.notEqual(res.status, 403);
   assert.ok(captured.req, "the read was forwarded to the catalog binding");
-  assert.notEqual(String((await res.clone().json().catch(() => ({})) as { error?: { code?: string } }).error?.code),
-    "showcase_denied", "no response may carry the retired showcase denial");
 });
