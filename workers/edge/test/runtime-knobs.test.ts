@@ -53,6 +53,12 @@ void test("a malformed stored value falls back to the env value", async () => {
   assert.equal(await readerAt(clock).read(env, quota), 20);
 });
 
+void test("a malformed stored budget falls back to the env budget", async () => {
+  const clock = { now: 0 };
+  const env = envWith(storeReturning("twenty"));
+  assert.equal(await readerAt(clock).read(env, budget), 5);
+});
+
 void test("a throwing store falls back to the env value", async () => {
   const clock = { now: 0 };
   const env = envWith({ get: () => Promise.reject(new Error("kv unreachable")) });
