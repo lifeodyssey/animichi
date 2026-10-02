@@ -19,7 +19,7 @@ export const planRoute: AgentHarnessTool<PilgrimageToolContext, typeof parameter
   description: "Plan the exact catalog result identified by search_result_ref, or re-route a subset of an earlier route by its itinerary_ref and the stop_ids that route published. Never invent a ref or point.",
   async execute(_id, params, _update, tools, invocation, context) {
     await authorizeInvocation(tools, invocation, context);
-    if (params.itinerary_ref !== undefined) return subsetRoute(params, tools, invocation, context);
+    if (params.itinerary_ref !== undefined) return subsetRoute(params.itinerary_ref, params, tools, invocation, context);
     if (params.search_result_ref === undefined || params.stop_ids !== undefined) return unavailable();
     return fullRoute(params.search_result_ref, params.pacing, tools, invocation, context);
   },
@@ -33,10 +33,10 @@ async function fullRoute(searchRef: string, pacing: Params["pacing"], tools: Pil
   return routeResult(itinerary, searchRef, tools.locale, invocation.invocationId);
 }
 
-async function subsetRoute(params: Params, tools: PilgrimageToolContext, invocation: AgentHarnessToolInvocation, context: Context) {
-  const ref = params.itinerary_ref, requested = params.stop_ids ?? [];
-  const route = ref === undefined ? undefined : await readPublishedRoute(tools.session, tools.branch, ref, context);
-  if (!route || ref === undefined || params.search_result_ref !== undefined || !requested.length) return unavailable();
+async function subsetRoute(ref: string, params: Params, tools: PilgrimageToolContext, invocation: AgentHarnessToolInvocation, context: Context) {
+  const requested = params.stop_ids ?? [];
+  const route = await readPublishedRoute(tools.session, tools.branch, ref, context);
+  if (!route || params.search_result_ref !== undefined || !requested.length) return unavailable();
   if (requested.some((id) => !route.ids.includes(id))) return unavailable();
   const points = route.points.filter((point) => requested.includes(point.id));
   const itinerary = await tools.catalog.planItinerary({ point_ids: points.map((point) => point.id), pacing: params.pacing, origin: tools.origin }, { signal: context.abortSignal });
