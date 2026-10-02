@@ -41,6 +41,7 @@ async function subsetRoute(ref: string, params: Params, tools: PilgrimageToolCon
   const points = route.points.filter((point) => requested.includes(point.id));
   const itinerary = await tools.catalog.planItinerary({ point_ids: points.map((point) => point.id), pacing: params.pacing, origin: tools.origin }, { signal: context.abortSignal });
   if (itinerary.ordered_points.some((point) => !points.some((offered) => offered.id === point.id && offered.latitude === point.latitude && offered.longitude === point.longitude))) throw new Error("Catalog returned an unoffered route point");
+  if (itinerary.ordered_points.length !== points.length) return unavailable();
   return routeResult(itinerary, ref, tools.locale, invocation.invocationId);
 }
 

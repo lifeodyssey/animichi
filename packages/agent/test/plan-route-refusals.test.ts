@@ -113,3 +113,10 @@ void test("plan_route reports an empty route when the catalog plans no stops", a
   const { message } = await planWithSeed(searchSeed, (ref) => ({ search_result_ref: ref }), itinerary([]));
   assert.match(JSON.stringify(message.content), /\\"status\\":\\"empty\\"/);
 });
+
+void test("plan_route refuses a subset route when the catalog drops a requested stop", async () => {
+  const { message, requests } = await planWithSeed(routeSeed, (ref) => ({ itinerary_ref: ref, stop_ids: [IDS[0], IDS[2]] }),
+    itinerary(POINTS.slice(0, 1)));
+  assert.deepEqual(message.details, { status: "stale_ref" });
+  assert.equal(requests.length, 1);
+});
