@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { logfireConfig } from '@pydantic/logfire-node';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { renderReport, type EvaluationReport, type ReportCase } from 'logfire/evals';
+import type { BaselineReference } from './baseline-reference.ts';
 import { plannedCases, type LoadedNativeDataset } from './evaluation-dataset.ts';
 import { recordedPlanCases } from './pass-caret-k-report.ts';
 import type { NativeCaseMetadata, NativeOutput, NativeTaskInput } from './evaluation-types.ts';
@@ -67,15 +68,22 @@ function attributeValue(value: unknown): string {
   return JSON.stringify(value) || String(value);
 }
 
+/** The model identity a report records: provider, id and the origin it is served from. */
+export function modelIdentifier(model: Model<Api>): string {
+  return `${model.provider}:${model.id}@${model.baseUrl}`;
+}
+
 /** The provenance every native report records for this run. */
 export function experimentMetadata(
   loaded: LoadedNativeDataset,
   config: ExperimentProvenance,
   model: Model<Api>,
+  baseline: BaselineReference | null,
 ): Record<string, unknown> {
   return {
     dataset: config.datasetName,
-    model: `${model.provider}:${model.id}@${model.baseUrl}`,
+    model: modelIdentifier(model),
+    baseline: baseline,
     commit: config.testedCommit,
     repeat: config.repeat,
     sampling: 'iid',

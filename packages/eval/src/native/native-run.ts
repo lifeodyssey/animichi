@@ -15,9 +15,10 @@ import { NATIVE_AGENT_OPTIONS } from '@animichi/agent';
 import { createCatalogClient, type PilgrimageToolContext } from '@animichi/agent/tools';
 import { inProcessTask } from './in-process-task.ts';
 import { configuredCatalog } from './catalog-fetch.ts';
+import { resolveBaseline, type BaselineReference } from './baseline-reference.ts';
 import { ExecutionPass } from './execution-evaluator.ts';
 import { loadNativeDataset, type LoadedNativeDataset } from './evaluation-dataset.ts';
-import { addSpendMetadata, experimentMetadata, writeEvaluationReport } from './evaluation-report.ts';
+import { addSpendMetadata, experimentMetadata, modelIdentifier, writeEvaluationReport } from './evaluation-report.ts';
 import { PassCaretK } from './pass-caret-k-report.ts';
 import type { NativeCaseMetadata, NativeOutput, NativeTaskInput } from './evaluation-types.ts';
 import { traceSampleRate } from './trace-sampling.ts';
@@ -32,12 +33,15 @@ export interface NativeRunConfig {
   readonly traceSampling: number;
   readonly testedCommit: string;
   readonly reportPath: string;
+  /** The `EVAL_BASELINE` control: the named baseline artifact, or null when unnamed. */
+  readonly baselinePath: string | null;
 }
 
 export interface NativeRunResult {
   readonly report?: EvaluationReport<NativeTaskInput, NativeOutput, NativeCaseMetadata>;
   readonly loaded: LoadedNativeDataset;
   readonly config: NativeRunConfig;
+  readonly baseline: BaselineReference | null;
   readonly dryRun: boolean;
 }
 
@@ -113,7 +117,8 @@ export function readRunConfig(env: NodeJS.ProcessEnv = process.env): NativeRunCo
   const traceSampling = traceSampleRate(env.EVAL_TRACE_SAMPLE_RATE);
   const testedCommit = nonEmpty(env.EVAL_COMMIT ?? currentCommit(), 'EVAL_COMMIT');
   const reportPath = env.EVAL_REPORT_PATH ?? defaultReportPath(datasetName);
-  return { datasetName, provider, modelId, repeat, maxConcurrency, smoke, traceSampling, testedCommit, reportPath };
+  const baselinePath = env.EVAL_BASELINE === undefined ? null : nonEmpty(env.EVAL_BASELINE, 'EVAL_BASELINE');
+  return { datasetName, provider, modelId, repeat, maxConcurrency, smoke, traceSampling, testedCommit, reportPath, baselinePath };
 }
 
 /** Execute real in-process E1 work, or print the same validated plan in dry-run mode. */
@@ -132,33 +137,35 @@ export async function runNativeEvaluation(
 async function planAndEvaluate(config: NativeRunConfig, env: NodeJS.ProcessEnv, ports: NativeRunPorts): Promise<NativeRunResult> {
   const loaded = await loadNativeDataset(config.datasetName, config.smoke);
   const model = findModel(ports.provider.getModels(), config.modelId, config.provider);
-  if (env.EVAL_DRY_RUN === '1') return { loaded, config, dryRun: true };
+  const baseline = await resolveBaseline(config.baselinePath ?? undefined, modelIdentifier(model));
+  if (env.EVAL_DRY_RUN === '1') return { loaded, config, baseline, dryRun: true };
   const [key, catalogUrl] = requiredBindings(env, PROVIDER_BINDINGS[config.provider].credentialVar);
-  return await evaluateBinding(loaded, config, model, ports, key, catalogUrl);
+  return await evaluateBinding(loaded, config, baseline, model, ports, key, catalogUrl);
 }
 
 async function evaluateBinding(
-  loaded: LoadedNativeDataset, config: NativeRunConfig, model: Model<EvalApi>,
-  ports: NativeRunPorts, key: string, catalogUrl: string,
+  loaded: LoadedNativeDataset, config: NativeRunConfig, baseline: BaselineReference | null,
+  model: Model<EvalApi>, ports: NativeRunPorts, key: string, catalogUrl: string,
 ): Promise<NativeRunResult> {
   const models = await createOperationModels(model, key, ports.providerFetch, PROVIDER_BINDINGS[config.provider].requestHeaders?.());
   try {
     const catalog = configuredCatalog(catalogUrl, ports.catalogFetch);
-    return await writeRunReport(loaded, config, await evaluate(loaded, config, { models, model, catalog }));
+    const report = await evaluate(loaded, config, { models, model, catalog }, baseline);
+    return await writeRunReport(loaded, config, baseline, report);
   } finally {
     await models.logout(model.provider);
   }
 }
 
 async function writeRunReport(
-  loaded: LoadedNativeDataset, config: NativeRunConfig,
+  loaded: LoadedNativeDataset, config: NativeRunConfig, baseline: BaselineReference | null,
   report: EvaluationReport<NativeTaskInput, NativeOutput, NativeCaseMetadata>,
 ): Promise<NativeRunResult> {
   addSpendMetadata(report);
   const rendered = await writeEvaluationReport(report, config.reportPath);
   process.stdout.write(`${rendered}\n`);
   process.stdout.write(`Native EvaluationReport: ${config.reportPath}\n`);
-  return { loaded, config, report, dryRun: false };
+  return { loaded, config, baseline, report, dryRun: false };
 }
 
 /**
@@ -180,10 +187,11 @@ async function evaluate(
   loaded: LoadedNativeDataset,
   config: NativeRunConfig,
   composition: RunComposition,
+  baseline: BaselineReference | null,
 ): Promise<EvaluationReport<NativeTaskInput, NativeOutput, NativeCaseMetadata>> {
   loaded.dataset.addEvaluator(new ExecutionPass());
   loaded.dataset.reportEvaluators.push(new PassCaretK());
-  const metadata = experimentMetadata(loaded, config, composition.model);
+  const metadata = experimentMetadata(loaded, config, composition.model, baseline);
   return loaded.dataset.evaluate(productionAttempt(composition), evaluationOptions(config, metadata));
 }
 
