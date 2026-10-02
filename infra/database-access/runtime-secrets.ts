@@ -10,9 +10,6 @@ const anonymousAccessEnabled = config.requireBoolean("anonymousAccessEnabled");
 
 // MiMo-only runtime (owner decision 2026-09-15): DeepSeek is not a deploy
 // requirement, so no DEEPSEEK_API_KEY is provisioned or required here.
-// The vendor keys whose only consumer was the Python agent were retired with
-// the Python tree (#1607, issue #1750): no source reads them, so nothing here
-// provisions or requires them.
 //
 // The vendor keys are the ones whose authority lives OUTSIDE this program, so
 // the operator sets them as secret stack config (ESC `fn::secret`) and they are

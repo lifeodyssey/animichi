@@ -87,7 +87,7 @@ function deploymentFile(path: string): string {
   return readFileSync(`${ROOT}${path}`, "utf8");
 }
 
-void test("deploy workflows carry the JWKS as a wrangler var, not a GitHub secret (issue #1047)", () => {
+void test("cd.yml does not read the JWKS as a GitHub secret (issue #1047)", () => {
   const paths = [".github/workflows/cd.yml"];
   for (const path of paths) {
     const text = deploymentFile(path);

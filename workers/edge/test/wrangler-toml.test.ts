@@ -15,10 +15,6 @@ import { URL, fileURLToPath } from "node:url";
 // 2. Every observable Worker persists Cloudflare logs and traces with the
 //    same sampling shape.
 //
-// The APP_ENV three-touchpoint check (#498) left with the entry itself:
-// the Python process that read it is deleted (#1605) and the Python-tree
-// removal retired the declaration (issue #1750).
-//
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 
 const WRANGLER_TOML_PATH = fileURLToPath(new URL("../wrangler.toml", import.meta.url));

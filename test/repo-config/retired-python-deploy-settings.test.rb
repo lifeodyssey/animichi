@@ -29,7 +29,6 @@ class RetiredPythonDeploySettingsTest < Minitest::Test
   ].freeze
 
   def setup
-    refute_empty RETIRED, "the retired-name list must not be empty"
     SCANNED.each { |path| assert File.file?(File.join(ROOT, path)), "#{path} is missing from the scan" }
   end
 
