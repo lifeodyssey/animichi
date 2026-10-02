@@ -60,11 +60,15 @@ credential live now:
 repository variable `vars.CLOUDFLARE_ACCOUNT_ID` was created 2026-09-08 and is what the workflows
 read; the GitHub *secret* of the same name is one of the copies awaiting deletion.
 
-The Python-era vendor keys — the zen/go key, the geocoding key and the Logfire
-token — are retired with the Python tree (#1607, issue #1750): the edge Worker
-declares none of them, `runtime-secrets.ts` provisions none of them, and no
-source reads them. Their ESC `pulumiConfig` entries and GitHub copies come out
-after the merge, the coordinator's owner-approved step.
+The Python-era vendor keys `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY` and
+`LOGFIRE_TOKEN` are retired as deploy-time settings with the Python tree (#1607,
+issue #1750): the edge Worker declares none of them, `runtime-secrets.ts`
+provisions none of them, and no deploy reads them. (The eval lane still reads
+`LOGFIRE_TOKEN` from its own ambient environment — `packages/eval/NATIVE.md`.)
+Their ESC `pulumiConfig` entries and GitHub copies come out after the merge, the
+coordinator's owner-approved step. This paragraph, not a "Referenced by nothing"
+row, is their record: each key's last reference was the ESC `pulumiConfig`
+declaration, so the retirement is recorded here rather than as a table row.
 
 ## Three consumption chains
 

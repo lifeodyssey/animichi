@@ -4,16 +4,8 @@ import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 
 // Pins the repository's wrangler.toml env blocks — the config surface the
-// edge worker actually deploys from. Two contracts live here:
-//
-// 1. S0-v2 GOAL C / C9 nail test: the showcase gate's deployed VALUES are
-//    pinned per environment. production MUST be "true" (the landing-only
-//    contract), staging and the root/dev [vars] MUST be "false" (full
-//    functionality). Release promotion consumes this same file, so a drift
-//    here also changes deployed behavior.
-//
-// 2. Every observable Worker persists Cloudflare logs and traces with the
-//    same sampling shape.
+// edge worker actually deploys from: the per-environment showcase gate VALUES
+// (S0-v2 GOAL C / C9), and the shared Cloudflare logs/traces sampling shape.
 //
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 

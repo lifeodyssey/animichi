@@ -8,7 +8,8 @@
 # Those consumers are gone, so a name that comes back is a declaration nothing
 # reads: a secret the program would re-provision into the shared store, or a var
 # the next reader mistakes for live configuration. Both files are scanned whole,
-# so a reintroduction fails wherever it lands.
+# so a reintroduction fails wherever it lands — the runtime-secrets program is
+# scanned deliberately, because issue #1750 names only the wrangler file.
 require "minitest/autorun"
 
 class RetiredPythonDeploySettingsTest < Minitest::Test
