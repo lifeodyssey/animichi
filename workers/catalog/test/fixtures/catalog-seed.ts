@@ -104,13 +104,8 @@ export function contractBangumiId(candidate: string): string {
 export function workSeed(id: string, title: string, fields: WorkSeedFields = {}): WorkSeed {
   const workId = contractBangumiId(id);
   PopularBangumi.parse({
-    bangumi_id: workId,
-    title,
-    title_cn: fields.titleCn ?? null,
-    cover_url: null,
-    city: null,
-    points_count: fields.pointsCount ?? 0,
-    rating: fields.rating ?? null,
+    bangumi_id: workId, title, title_cn: fields.titleCn ?? null, cover_url: null,
+    city: null, points_count: fields.pointsCount ?? 0, rating: fields.rating ?? null,
   });
   return { workId, title, ...fields };
 }
@@ -132,24 +127,9 @@ export function pointSeed(
   longitude: number,
   fields: PointSeedFields = {},
 ): PointSeed {
-  POINT_FIELDS.parse({
-    id,
-    name,
-    bangumi_id: work.workId,
-    episode: fields.episode,
-    time_seconds: fields.timeSeconds,
-    city: fields.city,
-    latitude,
-    longitude,
-  });
-  return {
-    id,
-    workId: work.workId,
-    name,
-    latitude: Latitude.parse(latitude),
-    longitude: Longitude.parse(longitude),
-    ...fields,
-  };
+  const coords = { latitude: Latitude.parse(latitude), longitude: Longitude.parse(longitude) };
+  POINT_FIELDS.parse({ id, name, bangumi_id: work.workId, ...fields, ...coords });
+  return { id, workId: work.workId, name, ...coords, ...fields };
 }
 
 export function aliasSeed(

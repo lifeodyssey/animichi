@@ -63,7 +63,8 @@ async function seedStagingBaseline(): Promise<void> {
   await runSeed(pool, pointInsert([STAGING_POINT]));
   await pool.query("INSERT INTO sessions (id) VALUES (gen_random_uuid()::text)");
   await pool.query(
-    "INSERT INTO saved_routes (user_id, title, point_ids) VALUES ('u1', 'seed', ARRAY['pp1'])",
+    "INSERT INTO saved_routes (user_id, title, point_ids) VALUES ('u1', 'seed', ARRAY[$1])",
+    [PROD_POINT.id],
   );
 }
 
@@ -118,7 +119,7 @@ databaseDescribe("import atomic switch (AC4)", () => {
     expect((await importSnapshot(source.source, query)).status).toBe("imported");
 
     expect(await idsOf("bangumi")).toEqual([PROD_WORK.workId, PROD_SLOW.workId]);
-    expect(await idsOf("points")).toEqual(["pp1"]);
+    expect(await idsOf("points")).toEqual([PROD_POINT.id]);
   });
 
   it("keeps every exported column across the round trip", async () => {
@@ -129,7 +130,8 @@ databaseDescribe("import atomic switch (AC4)", () => {
     const { rows: works } = await pool.query("SELECT title_cn FROM bangumi WHERE id = $1", [PROD_WORK.workId]);
     expect((works as { title_cn: string | null }[])[0]?.title_cn).toBe("幸運星");
     const { rows: points } = await pool.query(
-      "SELECT latitude, longitude, episode, time_seconds FROM points WHERE id = 'pp1'",
+      "SELECT latitude, longitude, episode, time_seconds FROM points WHERE id = $1",
+      [PROD_POINT.id],
     );
     expect(points[0]).toEqual({ latitude: 36.1, longitude: 139.6, episode: 3, time_seconds: 42 });
   });

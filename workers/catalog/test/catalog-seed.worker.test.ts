@@ -139,7 +139,7 @@ const BUILDER_TABLES: readonly string[] = ["bangumi", "points", "aliases", "clus
 const RAW_SEED_INSERT = /\bINSERT\s+INTO\s+([A-Za-z_][A-Za-z0-9_]*)/gi;
 
 /** Every `path: table` in `tree` that hand-writes a builder-covered INSERT. */
-export function rawSeedInserts(tree: Readonly<Record<string, string>>): string[] {
+function rawSeedInserts(tree: Readonly<Record<string, string>>): string[] {
   return Object.entries(tree).flatMap(([path, source]) => {
     const tables = [...source.matchAll(RAW_SEED_INSERT)]
       .map((match) => (match[1] ?? "").toLowerCase())
@@ -156,12 +156,6 @@ const integrationSuites = import.meta.glob<string>("./*.integration.test.ts", {
   import: "default",
 });
 
-function integrationSuiteTrees(): Readonly<Record<string, string>> {
-  const tree: Record<string, string> = {};
-  for (const [path, text] of Object.entries(integrationSuites)) tree[path] = text;
-  return tree;
-}
-
 describe("catalog integration suites seed through the builders", () => {
   it("flags a raw INSERT INTO a builder-covered table", () => {
     expect(rawSeedInserts({
@@ -176,10 +170,10 @@ describe("catalog integration suites seed through the builders", () => {
   });
 
   it("loads the integration suites as text", () => {
-    expect(Object.keys(integrationSuiteTrees())).toContain("./catalog-api.integration.test.ts");
+    expect(Object.keys(integrationSuites)).toContain("./catalog-api.integration.test.ts");
   });
 
   it("keeps every catalog integration suite on the builders", () => {
-    expect(rawSeedInserts(integrationSuiteTrees())).toEqual([]);
+    expect(rawSeedInserts(integrationSuites)).toEqual([]);
   });
 });
