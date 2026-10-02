@@ -2,8 +2,8 @@
  * store secret, in which environment, under which name.
  *
  * One table covers every Worker that carries a runtime binding, and one loop
- * asserts it for all of them, deliberately. This file used to read
- * `workers/api/wrangler.toml` and nothing else, so a runtime secret could be
+ * asserts it for all of them, deliberately. This file used to read one
+ * Worker's wrangler.toml and nothing else, so a runtime secret could be
  * provisioned by the Pulumi program while the Worker that needs it declared no
  * binding at all — the state `INGEST_SIGNING_KEY` (#1792) arrived in, with
  * catalog's anitabi egress fail-closed behind it. A copy of this file for the
@@ -29,7 +29,7 @@ const STORE_ID = "66c9bb0faef644b4a0671bb7d90d98bd";
 /** Every Worker that carries runtime bindings, under the name a failure has to
  * say out loud. */
 const WORKERS = [
-  { worker: "edge", wrangler: "../workers/api/wrangler.toml" },
+  { worker: "api", wrangler: "../workers/api/wrangler.toml" },
   { worker: "catalog", wrangler: "../workers/catalog/wrangler.toml" },
 ] as const;
 
@@ -46,12 +46,12 @@ type Environment = "staging" | "production";
  * Production disables anonymous access, so the two anonymous secrets have no
  * production binder — the stack provisions neither there. */
 const RUNTIME_BINDERS: Record<string, Record<Environment, readonly WorkerName[]>> = {
-  MIMO_API_KEY: { staging: ["edge"], production: ["edge"] },
-  ZEN_GO_API_KEY: { staging: ["edge"], production: ["edge"] },
-  GOOGLE_MAPS_API_KEY: { staging: ["edge"], production: ["edge"] },
-  LOGFIRE_TOKEN: { staging: ["edge"], production: ["edge"] },
-  TURNSTILE_SECRET: { staging: ["edge"], production: [] },
-  ANON_ID_SECRET: { staging: ["edge"], production: [] },
+  MIMO_API_KEY: { staging: ["api"], production: ["api"] },
+  ZEN_GO_API_KEY: { staging: ["api"], production: ["api"] },
+  GOOGLE_MAPS_API_KEY: { staging: ["api"], production: ["api"] },
+  LOGFIRE_TOKEN: { staging: ["api"], production: ["api"] },
+  TURNSTILE_SECRET: { staging: ["api"], production: [] },
+  ANON_ID_SECRET: { staging: ["api"], production: [] },
   INGEST_SIGNING_KEY: { staging: ["catalog"], production: ["catalog"] },
 };
 

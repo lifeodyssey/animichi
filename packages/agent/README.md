@@ -120,10 +120,9 @@ replacing those consumers.
 | `tools/search-result-payload.ts` | Current tool-result carrier; #1547 |
 | `tools/web-result-trust.ts` | Current WebResult carrier; #1547 |
 
-Future Node eval consumers import this public package. The existing `packages/eval` dependency
-on `api` still has API-test readers and is removed by their owning migration, not by
-this extraction. Node eval, conformance and test infrastructure must never become production
-imports of this package or enter the Worker artifact.
+Future Node eval consumers import this public package. Node eval, conformance and test
+infrastructure must never become production imports of this package or enter the Worker
+artifact.
 
 ## Verification
 
