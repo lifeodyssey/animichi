@@ -1,11 +1,12 @@
 # SUT: test/repo-config/retired-python-deploy-settings.test.rb. Every probe
-# copies the contract and the two files it reads into a throwaway tree, plants
+# copies the contract and the three files it reads into a throwaway tree, plants
 # one retired setting back, and runs the copied contract; the committed files
 # are never written to.
 #
 # Each probe plants a different shape — a Secrets Store binding, a plain var,
-# and an entry in the runtime-secrets program's vendor list — because the
-# contract's job is to catch the setting wherever a reintroduction would land.
+# an entry in the runtime-secrets program's vendor list, and a `NAME=` line in
+# the developer sheet — because the contract's job is to catch the setting
+# wherever a reintroduction would land.
 require "fileutils"
 require "minitest/autorun"
 require "open3"
@@ -16,11 +17,12 @@ class RetiredPythonDeploySettingsMutationTest < Minitest::Test
   CONTRACT = "test/repo-config/retired-python-deploy-settings.test.rb"
   WRANGLER = "workers/edge/wrangler.toml"
   RUNTIME_SECRETS = "infra/database-access/runtime-secrets.ts"
+  EXAMPLE = ".env.example"
   CONSEQUENCE = "reintroduce a setting whose only consumer"
 
   def with_tree
     Dir.mktmpdir("retired-python-deploy-settings-") do |root|
-      [CONTRACT, WRANGLER, RUNTIME_SECRETS].each do |relative|
+      [CONTRACT, WRANGLER, RUNTIME_SECRETS, EXAMPLE].each do |relative|
         FileUtils.mkdir_p(File.join(root, File.dirname(relative)))
         FileUtils.cp(File.join(ROOT, relative), File.join(root, relative))
       end
@@ -76,6 +78,13 @@ class RetiredPythonDeploySettingsMutationTest < Minitest::Test
       plant(root, RUNTIME_SECRETS, "  \"MIMO_API_KEY\", \"INGEST_SIGNING_KEY\",",
             "  \"MIMO_API_KEY\", \"LOGFIRE_TOKEN\", \"INGEST_SIGNING_KEY\",")
       reject_tree(root, "a retired provider key reintroduced in the program")
+    end
+  end
+
+  def test_rejects_a_retired_name_assigned_in_the_example_env_sheet
+    with_tree do |root|
+      plant(root, EXAMPLE, "TURNSTILE_SECRET=\n", "TURNSTILE_SECRET=\nAPP_ENV=development\n")
+      reject_tree(root, "a retired name assigned in the developer sheet")
     end
   end
 end

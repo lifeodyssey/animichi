@@ -10,6 +10,10 @@
 # the next reader mistakes for live configuration. Both files are scanned whole,
 # so a reintroduction fails wherever it lands — the runtime-secrets program is
 # scanned deliberately, because issue #1750 names only the wrangler file.
+# The root `.env.example` is checked by assignment only: its prose may name a
+# retired setting to say where it went, but a `NAME=` line hands a developer a
+# variable to fill in, and the consumer scan cannot tell that from a Cloudflare
+# binding of the same name in another app's config.
 require "minitest/autorun"
 
 class RetiredPythonDeploySettingsTest < Minitest::Test
@@ -28,6 +32,8 @@ class RetiredPythonDeploySettingsTest < Minitest::Test
     "workers/edge/wrangler.toml",
     "infra/database-access/runtime-secrets.ts"
   ].freeze
+  EXAMPLE = ".env.example"
+  ASSIGNMENT = /^([A-Z][A-Z0-9_]*)=/
 
   def setup
     SCANNED.each { |path| assert File.file?(File.join(ROOT, path)), "#{path} is missing from the scan" }
@@ -39,6 +45,13 @@ class RetiredPythonDeploySettingsTest < Minitest::Test
                  "these lines reintroduce a setting whose only consumer was the retired Python agent " \
                  "(#1607, issue #1750). Nothing reads it, and a secret it names would be provisioned " \
                  "into the shared store again:\n  #{offenders.join("\n  ")}"
+  end
+
+  def test_the_example_env_sheet_assigns_no_retired_setting
+    assigned = File.read(File.join(ROOT, EXAMPLE)).scan(ASSIGNMENT).flatten & RETIRED
+    assert_empty assigned,
+                 "#{EXAMPLE} assigns #{assigned.join(', ')}: these lines reintroduce a setting whose only " \
+                 "consumer was the retired Python agent (#1607, issue #1750)"
   end
 
   private
