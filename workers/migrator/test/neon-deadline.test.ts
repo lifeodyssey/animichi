@@ -48,6 +48,8 @@ function recordDeadlines(): number[] {
   return delays;
 }
 
+interface NeonBody { readonly query?: string; readonly queries?: { query: string }[] }
+
 interface NeonCall {
   readonly signal: AbortSignal | null | undefined;
 }
@@ -58,7 +60,7 @@ interface NeonCall {
 function serveNeonHttp(calls: NeonCall[]): void {
   vi.stubGlobal("fetch", (_input: unknown, options?: RequestInit) => {
     calls.push({ signal: options?.signal });
-    const body = JSON.parse(options?.body as string) as { query?: string; queries?: { query: string }[] };
+    const body = JSON.parse(options?.body as string) as NeonBody;
     if (body.queries !== undefined) return Promise.resolve(Response.json({ results: body.queries.map(({ query }) => queryResult(query)) }));
     return Promise.resolve(Response.json(queryResult(body.query ?? "")));
   });
@@ -68,18 +70,18 @@ function queryResult(query: string): { fields: { name: string }[]; rows: unknown
   return query.includes("to_regclass") ? { fields: [{ name: "ledger" }], rows: [[null]] } : { fields: [], rows: [] };
 }
 
-/** The same answers as `serveNeonHttp`, except the login probe whose connection names `role`
- * never answers: it rejects with its own signal's reason when the deadline fires, which is the
+/** The same answers as `serveNeonHttp`, except the ONE call `stalls` selects never answers: it
+ * rejects with its own signal's reason when the deadline fires, which is the
  * `AbortSignal.timeout` rejection the driver embeds. Every raw body is kept, so a case can prove
  * no password statement went out. */
-function serveNeonHttpStallingLogin(stalled: { signal?: AbortSignal | null }, role: string): string[] {
+function serveNeonHttpStalling(stalled: { signal?: AbortSignal | null }, stalls: (body: NeonBody, options: RequestInit | undefined) => boolean): string[] {
   const bodies: string[] = [];
   vi.stubGlobal("fetch", (_input: unknown, options?: RequestInit) => {
     const raw = options?.body;
     if (typeof raw !== "string") return Promise.reject(new Error("unexpected neon body"));
     bodies.push(raw);
-    const body = JSON.parse(raw) as { query?: string; queries?: { query: string }[] };
-    if (body.query === "SELECT 1" && connectionRole(options) === role) {
+    const body = JSON.parse(raw) as NeonBody;
+    if (stalls(body, options)) {
       return new Promise<Response>((_resolve, reject) => {
         const signal = options?.signal;
         stalled.signal = signal;
@@ -106,12 +108,20 @@ function abortReason(signal: AbortSignal): Error {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-03-01T00:00:00.000Z") });
-  prisma.preview.mockReset().mockResolvedValue({ ok: true, value: {
-    targetHash: TARGET, markerHash: TARGET, migrations: [], usedLiveMarker: false,
-  } });
+  prisma.preview.mockReset().mockResolvedValue({ ok: true, value: { targetHash: TARGET, markerHash: TARGET, migrations: [], usedLiveMarker: false } });
   prisma.migrate.mockReset().mockResolvedValue({ ok: true, value: { markerHash: TARGET, migrationsApplied: 0, applied: [] } });
 });
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+/** The real apply path behind `/migrate`, plus the error line it logs. */
+async function realApply() {
+  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
+    preflight: (dsn, metadata) => preflightSelected(dsn, metadata, MIGRATIONS),
+    migrate: (dsn, passwords, metadata) => migrateSelected(dsn, passwords, metadata, MIGRATIONS),
+  } });
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  return { app, token, logged: vi.spyOn(console, "error").mockImplementation(() => undefined) };
+}
 
 it("bounds a call inside the CD preflight's own 60 s curl, and above the platform's own cap", () => {
   // `.github/scripts/release/schema-preflight.sh` gives the request `--max-time 60`, so a
@@ -147,12 +157,7 @@ it("answers migration_unavailable naming the sub-step whose call hit its deadlin
     stalled.signal = signal;
     signal?.addEventListener("abort", () => { reject(abortReason(signal)); });
   }));
-  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
-    preflight: (dsn, metadata) => preflightSelected(dsn, metadata, MIGRATIONS),
-    migrate: (dsn, passwords, metadata) => migrateSelected(dsn, passwords, metadata, MIGRATIONS),
-  } });
-  vi.spyOn(console, "log").mockImplementation(() => undefined);
-  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const { app, token, logged } = await realApply();
   const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: DIRECT_DSN });
   const body = await response.json() as { error?: string; cause?: string };
   expect({ status: response.status, error: body.error }).toEqual({ status: 500, error: "migration_unavailable" });
@@ -165,13 +170,8 @@ it("answers migration_unavailable naming the sub-step whose call hit its deadlin
 it("names the login probe whose call hit its deadline, and sends no password statement", async () => {
   const delays = recordDeadlines();
   const stalled: { signal?: AbortSignal | null } = {};
-  const bodies = serveNeonHttpStallingLogin(stalled, "catalog_svc");
-  const { app, token } = await makeApp({ migrationsDir: MIGRATIONS, selected: {
-    preflight: (dsn, metadata) => preflightSelected(dsn, metadata, MIGRATIONS),
-    migrate: (dsn, passwords, metadata) => migrateSelected(dsn, passwords, metadata, MIGRATIONS),
-  } });
-  vi.spyOn(console, "log").mockImplementation(() => undefined);
-  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const bodies = serveNeonHttpStalling(stalled, (body, options) => body.query === "SELECT 1" && connectionRole(options) === "catalog_svc");
+  const { app, token, logged } = await realApply();
   const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: DIRECT_DSN });
   const body = await response.json() as { error?: string; cause?: string };
   expect({ status: response.status, error: body.error }).toEqual({ status: 500, error: "migration_unavailable" });
@@ -180,4 +180,21 @@ it("names the login probe whose call hit its deadline, and sends no password sta
   expect(stalled.signal?.aborted).toBe(true);
   expect(delays).toEqual(Array.from({ length: 4 }, () => NEON_CALL_DEADLINE_MS));
   expect(logged.mock.calls).toEqual([[expect.stringMatching(/^\[migrator\] apply threw: authenticates catalog_svc: /)]]);
+});
+
+it("names the provisioning batch whose call hit its deadline", async () => {
+  const delays = recordDeadlines();
+  const stalled: { signal?: AbortSignal | null } = {};
+  // The batch is the only body carrying more than one statement on the apply path; the ledger
+  // probe's transaction carries one.
+  serveNeonHttpStalling(stalled, (body) => (body.queries?.length ?? 0) > 1);
+  const { app, token, logged } = await realApply();
+  const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_DATABASE_URL: DIRECT_DSN });
+  const body = await response.json() as { error?: string; cause?: string };
+  expect({ status: response.status, error: body.error }).toEqual({ status: 500, error: "migration_unavailable" });
+  expect(body.cause).toMatch(/^provisionServiceRoles: /);
+  expect(stalled.signal?.aborted).toBe(true);
+  // The ledger probe, three login probes and the batch, each its own deadline.
+  expect(delays).toEqual(Array.from({ length: 5 }, () => NEON_CALL_DEADLINE_MS));
+  expect(logged.mock.calls).toEqual([[expect.stringMatching(/^\[migrator\] apply threw: provisionServiceRoles: /)]]);
 });

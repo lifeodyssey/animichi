@@ -4,7 +4,7 @@ import type { PreflightMetadata } from "./preflight-metadata";
 import { hasPrismaSnapshot, PRISMA_MIGRATIONS_DIR } from "./prisma-target";
 import { migratePrisma, previewPrisma, type NativeFailure, type NativeResult, type PrismaPreview, type PrismaReceipt } from "./prisma-control";
 import { redactedCause } from "./redacted-cause";
-import { probeTimedOut, provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
+import { callTimedOut, provisionServiceRoles, type RuntimeRolePasswords } from "./service-roles";
 import { logStepEntry, named } from "./step-log";
 
 /**
@@ -66,10 +66,11 @@ function nativeFailure(code: string): SelectedMigration {
  * the cause crossed `redactedCause` first because the statements it may quote carry the
  * runtime roles' passwords.
  *
- * The one failure that is NOT a verdict (#1958): a login probe that hit its deadline already
- * left `authenticates` named, and it must reach `migrateSelected`'s catch as
- * `migration_unavailable`. Swallowing it here would restate the password it stalled on and then
- * spend the batch's own deadline, which is the failure this step exists to name.
+ * The one failure that is NOT a verdict (#1958): a Neon call that hit its deadline already left
+ * its sub-step named — `authenticates <role>` for a probe, `provisionServiceRoles` for the
+ * batch — and it must reach `migrateSelected`'s catch as `migration_unavailable`. Swallowing it
+ * here would restate the password it stalled on and then spend the batch's own deadline, which
+ * is the failure this step exists to name.
  */
 async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Promise<SelectedMigration | undefined> {
   logStepEntry("provisionServiceRoles");
@@ -77,7 +78,7 @@ async function provisionRoles(dsn: string, passwords: RuntimeRolePasswords): Pro
     await provisionServiceRoles(dsn, passwords);
     return undefined;
   } catch (error) {
-    if (probeTimedOut(error)) throw error;
+    if (callTimedOut(error)) throw error;
     const cause = redactedCause(error);
     console.error(`[migrator] service role provisioning failed: ${cause}`);
     return { ...nativeFailure("service_role_provisioning_failed"), cause };

@@ -1,7 +1,7 @@
 import { NeonDbError, neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type { Env } from "./create-app";
 import { neonDeadline } from "./neon-deadline";
-import { named } from "./step-log";
+import { attributed, named } from "./step-log";
 
 /**
  * #1915 — the five data-plane service roles are provisioned by SQL, never by the Neon API.
@@ -151,11 +151,11 @@ function deadlineAbort(error: unknown): boolean {
   return error instanceof NeonDbError && error.sourceError?.name === "TimeoutError";
 }
 
-/** A probe's deadline as `named` rethrows it: the driver error above is the thrown error's
- * `cause`, because `named` attributes a failure rather than replacing it. `provisionRoles` asks
- * this to let exactly that throw reach `migrateSelected`'s catch; the raw error a timed-out
- * provisioning batch throws is not it, and keeps `provisionRoles`' own verdict. */
-export function probeTimedOut(error: unknown): boolean {
+/** A named deadline failure: the driver error above is the thrown error's `cause`, because
+ * `named` — and `attributed`, for the batch — attributes a failure rather than replacing it.
+ * `provisionRoles` asks this to let exactly that throw reach `migrateSelected`'s catch, so a
+ * timed-out call answers `migration_unavailable` under the sub-step that made it. */
+export function callTimedOut(error: unknown): boolean {
   return error instanceof Error && error.cause !== undefined && deadlineAbort(error.cause);
 }
 
@@ -215,7 +215,7 @@ export async function provisionServiceRoles(dsn: string, passwords: RuntimeRoleP
     ENSURE_ROLES_EXIST, REVOKE_MEMBERSHIPS, ASSERT_MEMBERSHIPS_REVOKED, RESET_ROLE_ATTRIBUTES,
     ...await stalePasswordStatements(dsn, passwords),
   ];
-  await sql.transaction<false, false>(statements.map((statement) => sql.query(statement)), neonDeadline());
+  await attributed("provisionServiceRoles", () => sql.transaction<false, false>(statements.map((statement) => sql.query(statement)), neonDeadline()));
 }
 
 async function resolveSecret(value: string | SecretsStoreSecret | undefined): Promise<string | undefined> {

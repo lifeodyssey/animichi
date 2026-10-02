@@ -32,6 +32,16 @@ export function logStepEntry(step: string): void {
  */
 export async function named<T>(step: string, work: () => T | Promise<T>): Promise<T> {
   logStepEntry(step);
+  return await attributed(step, work);
+}
+
+/**
+ * The attribution half of `named`, without its entry line (#1958). The provisioning step logs
+ * its entry before its login probes start, then names the batch it runs at the end with this,
+ * so a batch that goes quiet leaves as `provisionServiceRoles: …` without a second entry line
+ * for one step.
+ */
+export async function attributed<T>(step: string, work: () => T | Promise<T>): Promise<T> {
   try { return await work(); }
   catch (error) { throw new Error(`${step}: ${redactedCause(error)}`, { cause: error }); }
 }
