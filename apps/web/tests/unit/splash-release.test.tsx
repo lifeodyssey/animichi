@@ -86,14 +86,7 @@ describe("splash hold cascade", () => {
   });
 });
 
-/**
- * The pre-paint classification is the document's FIRST viewport, and only that.
- * TanStack's head pipeline re-appends the head scripts on client transitions,
- * so the browser re-executes this script; without a guard a desktop visitor who
- * narrows the window is reclassified into the mobile hand-off by a later run
- * (#1938). The mark then re-arms the 30s hold and `/` navigates itself to
- * `/chat` with no CTA activation — signatures (a) and (b).
- */
+/** The pre-paint classification is the document's FIRST viewport, and only that. */
 describe("splash viewport classification", () => {
   function runMarkScript(): void {
     window.eval(SPLASH_SCRIPTING_MARK_SCRIPT);
