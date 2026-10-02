@@ -1,4 +1,4 @@
-import { NeonDbError, neon } from "@neondatabase/serverless";
+import { NeonDbError, neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type { Env } from "./create-app";
 import { neonDeadline } from "./neon-deadline";
 import { named } from "./step-log";
@@ -177,15 +177,19 @@ async function authenticates(baseDsn: string, role: string, password: string): P
   url.username = role;
   url.password = password;
   const sql = neon(url.toString());
-  return await named(`authenticates ${role}`, async () => {
-    try {
-      await sql.query("SELECT 1", [], neonDeadline());
-      return true;
-    } catch (error) {
-      if (deadlineAbort(error)) throw error;
-      return false;
-    }
-  });
+  return await named(`authenticates ${role}`, () => loginOpens(sql));
+}
+
+/** True when `SELECT 1` on `sql` opens a session; the deadline abort is rethrown and every other
+ * failure returns false, so a stall is never read as a wrong password. */
+async function loginOpens(sql: NeonQueryFunction<false, false>): Promise<boolean> {
+  try {
+    await sql.query("SELECT 1", [], neonDeadline());
+    return true;
+  } catch (error) {
+    if (deadlineAbort(error)) throw error;
+    return false;
+  }
 }
 
 /**
