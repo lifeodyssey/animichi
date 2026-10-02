@@ -32,7 +32,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -63,7 +63,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -97,7 +97,7 @@ jobs:
         run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
         id: esc
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@57e332b6dfb0d7edcf6cb813ee9a98b9665f12c2 # v3.2.1
         with:
           version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/staging
@@ -236,7 +236,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -283,7 +283,7 @@ jobs:
         id: pulumi-cli
         run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@57e332b6dfb0d7edcf6cb813ee9a98b9665f12c2 # v3.2.1
         with:
           version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/prod
@@ -390,7 +390,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
       - name: Publish the failure alert
         env:
           GH_TOKEN: ${{ github.token }}
