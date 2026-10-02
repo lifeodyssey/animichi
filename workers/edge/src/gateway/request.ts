@@ -5,16 +5,15 @@ import { verifyAnonymousEntry } from "../identity/turnstile-entry.ts";
 import { handleSessionAdopt } from "../identity/session-adopt.ts";
 import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
-import type { ShowcaseMode } from "../proxy/showcase.ts";
 import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { forwardPublicCatalog, forwardUsers } from "./forward.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
-import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
+import { classify, type RequestClass } from "./request-class.ts";
 import {
-  authenticationRejection, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied,
+  authenticationRejection, gatewayRejection, internalError, methodNotAllowed, notFoundResponse,
 } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
 import { turnRoutePolicy } from "./routing-policy.ts";
@@ -24,7 +23,7 @@ import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
 //
 // HandleGatewayRequest is the single request surface of the edge worker:
-// route selection, the showcase gate, identity verification (Neon), the
+// route selection, identity verification (Neon), the
 // anonymous pipeline (mint → Turnstile → limiter → budget), the
 // authenticated limiter, trusted internal-identity construction, and
 // forwarding to Catalog / Users / the native agent tier run here, in that
@@ -55,7 +54,6 @@ function observeEntry(route: RequestClass, request: Request): void {
 }
 
 export interface GatewayDeps extends AgentTierGates {
-  showcaseMode: ShowcaseMode;
   sessionAdoption?: SessionAdoptionStore;
 }
 
@@ -70,9 +68,6 @@ export function HandleGatewayRequest(
 function routedResponse(
   route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
 ): Promise<Response> {
-  if (isFunctionalRoute(route) && deps.showcaseMode.isEnabled(env.EDGE_SHOWCASE_MODE)) {
-    return Promise.resolve(showcaseDenied());
-  }
   return dispatch(route, env, request, ctx, deps);
 }
 

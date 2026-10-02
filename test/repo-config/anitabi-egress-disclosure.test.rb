@@ -285,7 +285,9 @@ class AnitabiEgressDisclosureTest < Minitest::Test
   def tracked_text_files
     out, err, status = Open3.capture3("git", "ls-files", "-z", chdir: ROOT)
     assert_predicate status, :success?, "git ls-files failed: #{err}"
-    out.split("\0").reject { |path| binary?(path) }
+    # A path still in the index may already be deleted from the worktree (a
+    # pending uncommitted removal); it is not text any reader can read.
+    out.split("\0").select { |path| File.file?(File.join(ROOT, path)) }.reject { |path| binary?(path) }
   end
 
   def address_scanned_files

@@ -59,7 +59,7 @@ async function anonymousPage(context: TestContext, baseURL: string): Promise<Pag
 function configureIdentityProvider(origin: string): void {
   Reflect.set(globalThis, RUNTIME_CONFIG_GLOBAL_KEY, {
     schemaVersion: 1, api: {}, neonAuthBaseUrl: origin,
-    turnstileSiteKey: TURNSTILE_SITE_KEY, showcaseMode: "false", featureFlags: {},
+    turnstileSiteKey: TURNSTILE_SITE_KEY, featureFlags: {},
   });
 }
 

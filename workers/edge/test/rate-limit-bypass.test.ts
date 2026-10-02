@@ -19,7 +19,6 @@ const NOW = Date.UTC(2026, 7, 5, 12, 0, 0);
 
 function env(guard: unknown, extra: Record<string, unknown> = {}) {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     EDGE_GUARD: guard,

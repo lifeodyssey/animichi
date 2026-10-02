@@ -282,15 +282,12 @@ besides the bindings above:
 - `APP_ENV` — the deployed environment's own name, from `wrangler.toml`'s per-environment `[vars]`
   block (`development` / `staging` / `production`), NOT a GitHub secret.
 
-- `EDGE_SHOWCASE_MODE` — edge-only `[vars]`, the worker-side half of "prod is a landing-only
-  showcase" (GOAL C): `"true"` (production) makes every functional route (`/v1/*`, `/v1/users/*`,
-  the public catalog read) answer 403 `showcase_denied` before any binding is touched, while
-  `/healthz`, `/img/*`, `/tiles/*` stay reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only
-  the literal `"false"` opens the backend — unset/empty/malformed values fail closed (deny) with a
-  one-per-isolate warning. Pinned by `workers/edge/test/showcase.test.ts`. CD's `smoke` job is
-  automatic but does not probe this: it asks staging for `/healthz` and the SSR shell, both of which
-  stay reachable in showcase mode by design. Production's 403 is the owner's own check after a
-  promotion.
+- `EDGE_SHOWCASE_MODE` — retired (2026-10-03, #1975): showcase mode is gone, no
+  Worker reads a showcase flag, and production's functional routes simply open
+  at the next promotion — the promotion approval is the only gate left on
+  production. The former owner-side check "production answers 403 after a
+  promotion" no longer applies; a promoted production is expected to serve the
+  functional routes it ships.
 - `ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`, `AUTH_RATE_LIMIT` /
   `AUTH_RATE_LIMIT_WINDOW_SECONDS` — the burst windows; the layered rollback procedure is
   `docs/ops/rate-limit-rollback.md`

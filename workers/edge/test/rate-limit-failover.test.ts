@@ -30,7 +30,6 @@ function authedApp(userId = "u1") {
 
 function usersEnv() {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: downGuard(),
     USERS: { fetch: () => Promise.resolve(new Response("users")) },
   } as never;
@@ -40,7 +39,7 @@ function usersEnv() {
 
 void test("a chat turn FAILS CLOSED (503) when the durable limiter is down", async () => {
   const app = authedApp();
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard() } as never;
+  const env = { EDGE_GUARD: downGuard() } as never;
   const res = await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(res.status, 503);
   const body = (await res.json()) as { error: { code: string } };
@@ -49,7 +48,7 @@ void test("a chat turn FAILS CLOSED (503) when the durable limiter is down", asy
 
 void test("a BYOK probe FAILS CLOSED (503) when the durable limiter is down", async () => {
   const app = authedApp();
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard() } as never;
+  const env = { EDGE_GUARD: downGuard() } as never;
   const res = await app.request("/v1/byok/probe", { method: "POST", headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(res.status, 503);
 });
@@ -72,7 +71,6 @@ void test("a users GET mutation-read still succeeds on a limiter outage", async 
 
 function nativeEnv(binding: unknown) {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: allowGuard(),
     RATE_LIMITER: binding,
     CATALOG: { fetch: () => Promise.resolve(new Response("cat")) },
@@ -112,7 +110,7 @@ void test("a denied native damper on a public read returns a typed 429", async (
 
 void test("a public read with no damper binding still succeeds (fail open)", async () => {
   const app = createWorkerApp({});
-  const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: allowGuard(), CATALOG: { fetch: () => Promise.resolve(new Response("cat")) } } as never;
+  const env = { EDGE_GUARD: allowGuard(), CATALOG: { fetch: () => Promise.resolve(new Response("cat")) } } as never;
   const res = await app.request("/catalog/public/anime-overview/123", {}, env, stubCtx);
   assert.equal(res.status, 200);
 });
