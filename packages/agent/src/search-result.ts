@@ -4,6 +4,7 @@ import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import type { Entry, Session } from "@earendil-works/pi-agent-core/harness/session";
 import { z } from "zod";
 import { proxyScreenshots } from "./anitabi-image-proxy.ts";
+import { readCommittedEntry } from "./committed-entry.ts";
 import { localizedCityName } from "./localized-city-name.ts";
 import { readSelectionEntry } from "./selection-entry.ts";
 import { FrozenSummary, ExecutedFacts } from "./tool-context-annotations.ts";
@@ -15,11 +16,10 @@ export const SearchResultDetails = z.object({
   frozenSummary: FrozenSummary.optional(), executedFacts: ExecutedFacts.optional(),
 }).strict();
 
-/** A ref only names a committed result in the current branch, including shared fork ancestry. */
+/** Resolve a search or selection ref to its offered points, or undefined when it is not committed here. */
 export async function readSearchResult(session: Session, branchName: string, ref: string, context: Context) {
-  const entry = await session.getEntry(ref, context);
-  const branch = await session.branch(branchName, context);
-  if (!entry || !branch || !(await branch.findEntries(undefined, context)).some((item) => item.id === ref)) return undefined;
+  const entry = await readCommittedEntry(session, branchName, ref, context);
+  if (!entry) return undefined;
   if (entry.type === "custom") return selectedPoints(entry);
   if (entry.type !== "message" || entry.message.role !== "toolResult" || entry.message.isError) return undefined;
   if (!["search_bangumi", "search_nearby"].includes(entry.message.toolName)) return undefined;
