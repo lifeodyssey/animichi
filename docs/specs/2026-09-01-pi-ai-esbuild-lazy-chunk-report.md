@@ -5,10 +5,10 @@ written to be pasted into an issue as-is. Filing it is the owner's call.
 
 - **Upstream repo**: `github.com/earendil-works/pi`
 - **Proposed title**: `pi-ai: bundling an api/*.lazy subpath emits models.js as an uninitialised __esm chunk (ModelsImpl is not a constructor)`
-- **Our guard while it is open**: `workers/api/bundle-smoke/` — the entrypoint carries the
-  workaround, and `pnpm --filter api run test:bundle-smoke` bundles it and **executes** the
-  artifact in workerd. It is a segment of the `api` package's own `test` script, so it runs
-  in `CI / affected (api)` and, whenever a changed file selects that package, in
+- **Our guard while it is open**: `workers/edge/bundle-smoke/` — the entrypoint carries the
+  workaround, and `pnpm --filter edge-worker run test:bundle-smoke` bundles it and **executes** the
+  artifact in workerd. It is a segment of the `edge-worker` package's own `test` script, so it runs
+  in `CI / affected (edge-worker)` and, whenever a changed file selects that package, in
   `scripts/local-gates/pre-push-affected.sh` (contract: `docs/ops/local-gates.md`).
 
 ---

@@ -31,7 +31,7 @@ file-level names; `rg` sweeps for symbol-level semantic rules.
 
 ## Summary counts
 
-| Tier | apps/web | apps/agent | workers/api | workers/catalog | packages/contract | workers/users | infra | e2e | scripts | db | Total |
+| Tier | apps/web | apps/agent | workers/edge | workers/catalog | packages/contract | workers/users | infra | e2e | scripts | db | Total |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | L1 — files | 47 | 1 | 24 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **72** |
 | L1 — symbols | 8 | 20 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **38** |
@@ -49,16 +49,16 @@ have zero imports and zero path references outside its own package (incl. CI
 workflows and other packages' tests). No violations found in
 `packages/contract` (src), `infra/`, `e2e/`, `scripts/`, `db/` (files); the
 `packages/contract` entry that does exist is an L2 *consumer* of
-`workers/api/costBreaker.ts`.
+`workers/edge/costBreaker.ts`.
 
 Round-2 deltas vs round 1: removed `workers/catalog` L1 symbols
 (`distance_m`/`station_ids`/`point_ids` — wire payload keys, not
-identifiers); moved `workers/api/entry.ts:37` `envVars` and
+identifiers); moved `workers/edge/entry.ts:37` `envVars` and
 `apps/agent/agent/agents/session_state.py:98` `partial` to L3
 (serialization boundary); corrected `catalog_adapter.py:97` (was mis-listed
 as `success: bool`, actually `partial: bool = False`); added the 62
 file renames the round-1 inventory omitted (27 web src modules, 6 web
-tests, 27 workers/api files, 2 web component files — of which 3 edge
+tests, 27 workers/edge files, 2 web component files — of which 3 edge
 files re-tiered to L2 via the path-reference sweep).
 
 ---
@@ -145,16 +145,16 @@ Two invocation sites, both test-only, same package:
 `apps/agent/agent/tests/unit/test_chat_wire_contract.py:139,149` (spawns it
 as a `node --import tsx` CLI path).
 
-### L1 files — workers/api (24)
+### L1 files — workers/edge (24)
 
 #### camelCase modules → kebab (4)
 
 | Path | Current | Proposed |
 |---|---|---|
-| `workers/api/edgeGuard.ts` | edgeGuard | `edge-guard.ts` |
-| `workers/api/guardStore.ts` | guardStore | `guard-store.ts` |
-| `workers/api/rateLimiter.ts` | rateLimiter | `rate-limiter.ts` |
-| `workers/api/catalogPolicy.ts` | catalogPolicy | `catalog-policy.ts` |
+| `workers/edge/edgeGuard.ts` | edgeGuard | `edge-guard.ts` |
+| `workers/edge/guardStore.ts` | guardStore | `guard-store.ts` |
+| `workers/edge/rateLimiter.ts` | rateLimiter | `rate-limiter.ts` |
+| `workers/edge/catalogPolicy.ts` | catalogPolicy | `catalog-policy.ts` |
 
 (Re-exported `EdgeGuard` from `entry.ts` is same-package — no external
 consumer.)
@@ -163,26 +163,26 @@ consumer.)
 
 | Path | Current | Proposed |
 |---|---|---|
-| `workers/api/anonymousIdentity.test.ts` | anonymousIdentity | `anonymous-identity.test.ts` |
-| `workers/api/authConfig.test.ts` | authConfig | `auth-config.test.ts` |
-| `workers/api/authFallthrough.test.ts` | authFallthrough | `auth-fallthrough.test.ts` |
-| `workers/api/authRateLimitScope.test.ts` | authRateLimitScope | `auth-rate-limit-scope.test.ts` |
-| `workers/api/authScheme.test.ts` | authScheme | `auth-scheme.test.ts` |
-| `workers/api/byokBudgetExemption.test.ts` | byokBudgetExemption | `byok-budget-exemption.test.ts` |
-| `workers/api/byokProbeAuth.test.ts` | byokProbeAuth | `byok-probe-auth.test.ts` |
-| `workers/api/catalogOutbound.test.ts` | catalogOutbound | `catalog-outbound.test.ts` |
-| `workers/api/containerEnv.test.ts` | containerEnv | `container-env.test.ts` |
-| `workers/api/containerRetry.test.ts` | containerRetry | `container-retry.test.ts` |
-| `workers/api/costBreaker.test.ts` | costBreaker | `cost-breaker.test.ts` |
-| `workers/api/dependabotWorkflow.test.ts` | dependabotWorkflow | `dependabot-workflow.test.ts` |
-| `workers/api/edgeGuard.test.ts` | edgeGuard | `edge-guard.test.ts` |
-| `workers/api/gatewayFallback.test.ts` | gatewayFallback | `gateway-fallback.test.ts` |
-| `workers/api/photoSearch.test.ts` | photoSearch | `photo-search.test.ts` |
-| `workers/api/rateLimiter.test.ts` | rateLimiter | `rate-limiter.test.ts` |
-| `workers/api/sessionMigration.test.ts` | sessionMigration | `session-migration.test.ts` |
-| `workers/api/testInventory.test.ts` | testInventory | `test-inventory.test.ts` |
-| `workers/api/turnstileArm.test.ts` | turnstileArm | `turnstile-arm.test.ts` |
-| `workers/api/turnstileReplay.test.ts` | turnstileReplay | `turnstile-replay.test.ts` |
+| `workers/edge/anonymousIdentity.test.ts` | anonymousIdentity | `anonymous-identity.test.ts` |
+| `workers/edge/authConfig.test.ts` | authConfig | `auth-config.test.ts` |
+| `workers/edge/authFallthrough.test.ts` | authFallthrough | `auth-fallthrough.test.ts` |
+| `workers/edge/authRateLimitScope.test.ts` | authRateLimitScope | `auth-rate-limit-scope.test.ts` |
+| `workers/edge/authScheme.test.ts` | authScheme | `auth-scheme.test.ts` |
+| `workers/edge/byokBudgetExemption.test.ts` | byokBudgetExemption | `byok-budget-exemption.test.ts` |
+| `workers/edge/byokProbeAuth.test.ts` | byokProbeAuth | `byok-probe-auth.test.ts` |
+| `workers/edge/catalogOutbound.test.ts` | catalogOutbound | `catalog-outbound.test.ts` |
+| `workers/edge/containerEnv.test.ts` | containerEnv | `container-env.test.ts` |
+| `workers/edge/containerRetry.test.ts` | containerRetry | `container-retry.test.ts` |
+| `workers/edge/costBreaker.test.ts` | costBreaker | `cost-breaker.test.ts` |
+| `workers/edge/dependabotWorkflow.test.ts` | dependabotWorkflow | `dependabot-workflow.test.ts` |
+| `workers/edge/edgeGuard.test.ts` | edgeGuard | `edge-guard.test.ts` |
+| `workers/edge/gatewayFallback.test.ts` | gatewayFallback | `gateway-fallback.test.ts` |
+| `workers/edge/photoSearch.test.ts` | photoSearch | `photo-search.test.ts` |
+| `workers/edge/rateLimiter.test.ts` | rateLimiter | `rate-limiter.test.ts` |
+| `workers/edge/sessionMigration.test.ts` | sessionMigration | `session-migration.test.ts` |
+| `workers/edge/testInventory.test.ts` | testInventory | `test-inventory.test.ts` |
+| `workers/edge/turnstileArm.test.ts` | turnstileArm | `turnstile-arm.test.ts` |
+| `workers/edge/turnstileReplay.test.ts` | turnstileReplay | `turnstile-replay.test.ts` |
 
 ### L1 symbols — apps/web (8)
 
@@ -230,20 +230,20 @@ production call-path params (no wire serialization). `session_state.py:98`
 `partial` was removed from this list in round 2 — it is a persisted-model
 field (see L3).
 
-### L1 symbols — workers/api (10)
+### L1 symbols — workers/edge (10)
 
 | Site | Current | Proposed |
 |---|---|---|
-| `workers/api/entry.test.ts:16` | `containerHit` (spy) | `wasContainerHit` |
-| `workers/api/entry.test.ts:37` | `catalogHit` (spy) | `wasCatalogHit` |
-| `workers/api/entry.test.ts:54` | `authCalled` (spy) | `wasAuthCalled` |
-| `workers/api/entry.test.ts:113` | `received` | `hasReceived` |
-| `workers/api/entry.test.ts:243,248,253` | `envVars` (local const) | `environmentVars` |
-| `workers/api/photoSearch.test.ts:41` | `envWith` (helper) | `environmentWith` |
-| `workers/api/entry.test.ts:47` | `envWithCatalog` (helper) | `environmentWithCatalog` |
-| `workers/api/entry.test.ts:141` | `envWithContainer` (helper) | `environmentWithContainer` |
-| `workers/api/containerEnv.test.ts:177` | `envVars` (local const) | `environmentVars` |
-| `workers/api/containerEnv.test.ts:183` | `envWithoutAppEnv` | `environmentWithoutAppEnv` |
+| `workers/edge/entry.test.ts:16` | `containerHit` (spy) | `wasContainerHit` |
+| `workers/edge/entry.test.ts:37` | `catalogHit` (spy) | `wasCatalogHit` |
+| `workers/edge/entry.test.ts:54` | `authCalled` (spy) | `wasAuthCalled` |
+| `workers/edge/entry.test.ts:113` | `received` | `hasReceived` |
+| `workers/edge/entry.test.ts:243,248,253` | `envVars` (local const) | `environmentVars` |
+| `workers/edge/photoSearch.test.ts:41` | `envWith` (helper) | `environmentWith` |
+| `workers/edge/entry.test.ts:47` | `envWithCatalog` (helper) | `environmentWithCatalog` |
+| `workers/edge/entry.test.ts:141` | `envWithContainer` (helper) | `environmentWithContainer` |
+| `workers/edge/containerEnv.test.ts:177` | `envVars` (local const) | `environmentVars` |
+| `workers/edge/containerEnv.test.ts:183` | `envWithoutAppEnv` | `environmentWithoutAppEnv` |
 
 (`entry.ts:37` `this.envVars` was removed from this list in round 2 — it is
 `Container.envVars`, a platform contract property; see L3.)
@@ -254,9 +254,9 @@ field (see L3).
 
 | Item | Site(s) | Why L2 (consumer sweep required) |
 |---|---|---|
-| `costBreaker.ts` → `cost-breaker.ts` | `workers/api/costBreaker.ts` | Imported by path from `packages/contract/test/anon-limits.test.ts:12` (`fileURLToPath`). Sweep: that test + `packages/contract/src/error-registry.ts:23` comment. |
-| `containerEnv.ts` → `container-env.ts` | `workers/api/containerEnv.ts` | Read by path from `apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:13` and `test_secrets_docs_consistency.py:40`; listed in `.github/workflows/ci.yml:99` agent path filter. Sweep: both tests + CI filter + `wrangler.toml` comments (cosmetic). |
-| `migrationBoundary.test.ts` → `migration-boundary.test.ts` | `workers/api/migrationBoundary.test.ts` | Invoked by literal path in `.github/workflows/ci.yml:361` (`node --test workers/api/migrationBoundary.test.ts`) and in the `migrations` path filter (`ci.yml:122`). Sweep: CI workflow. |
+| `costBreaker.ts` → `cost-breaker.ts` | `workers/edge/costBreaker.ts` | Imported by path from `packages/contract/test/anon-limits.test.ts:12` (`fileURLToPath`). Sweep: that test + `packages/contract/src/error-registry.ts:23` comment. |
+| `containerEnv.ts` → `container-env.ts` | `workers/edge/containerEnv.ts` | Read by path from `apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:13` and `test_secrets_docs_consistency.py:40`; listed in `.github/workflows/ci.yml:99` agent path filter. Sweep: both tests + CI filter + `wrangler.toml` comments (cosmetic). |
+| `migrationBoundary.test.ts` → `migration-boundary.test.ts` | `workers/edge/migrationBoundary.test.ts` | Invoked by literal path in `.github/workflows/ci.yml:361` (`node --test workers/edge/migrationBoundary.test.ts`) and in the `migrations` path filter (`ci.yml:122`). Sweep: CI workflow. |
 
 None of these is single-consumer: each has 2-4 documented consumers (see the
 Why L2 column). They are internal cross-package references — L2 by
@@ -277,7 +277,7 @@ contract boundary.
 | `truncated` field | `apps/agent/agent/interfaces/chat_wire.py:102` (`_WireModel`) | SSE wire key consumed by `apps/web` | Keep; wire-format change requires apps/web + e2e sweep. |
 | `partial` field | `apps/agent/agent/agents/tool_outcomes.py:46,52` (`SearchOk`/`SearchEmpty`) | Serialized via `model_dump(mode="json")` in `tool_event_bridge.py:240,274` into the tool-event stream | Verify consumer before touching; likely keep. |
 | `partial` field | `apps/agent/agent/agents/session_state.py:98` (`SearchPayloadState`) | Persisted pydantic field on `_SessionModel` (`extra="forbid"`), round-tripped as `session_state_v2` in `session_facade.py:63-66` / `animichi_runner.py:114` | Rename breaks persisted sessions; versioned-state decision required. Matches `tool_outcomes.py` `partial` tiering. |
-| `envVars` property | `workers/api/entry.ts:37` (`RuntimeContainer.envVars`) | `Container.envVars` from `@cloudflare/containers` — the platform's env-injection contract (what gets injected into the container runtime) | Rename ⇒ container starts with wrong/empty env. Keep. |
+| `envVars` property | `workers/edge/entry.ts:37` (`RuntimeContainer.envVars`) | `Container.envVars` from `@cloudflare/containers` — the platform's env-injection contract (what gets injected into the container runtime) | Rename ⇒ container starts with wrong/empty env. Keep. |
 
 ### Framework/tool names (keep — listed for the record, not violations)
 
@@ -287,7 +287,7 @@ contract boundary.
 | `tmp_path`, `tmp_path_factory` | 113 sites in `apps/agent` tests | pytest built-in fixtures |
 | Migration files | `db/migrations/*.sql` | Atlas-generated timestamp_snake naming |
 | `_dev` route group | `apps/web/src/routes/_dev/` | TanStack pathless route group |
-| `env` prefix keys (`APP_ENV`, …) | `workers/api` container env contract | Cross-worker env contract; sits on the `env` side of the allowlist line |
+| `env` prefix keys (`APP_ENV`, …) | `workers/edge` container env contract | Cross-worker env contract; sits on the `env` side of the allowlist line |
 
 Verified compliant — no change required: `/v1/*` route paths (kebab), env var
 keys (SCREAMING_SNAKE + domain prefix: `SUPABASE_*`, `MIMO_API_KEY`,
@@ -303,9 +303,9 @@ keys (SCREAMING_SNAKE + domain prefix: `SUPABASE_*`, `MIMO_API_KEY`,
 | G1-R1 | apps/web file renames (47) | 27 camelCase modules → kebab, 7 hooks → kebab, 6 component/provider files → PascalCase, 6 byokStorage tests → kebab, `_jpeg-fixtures.ts`; LSP rename, ~180 in-package import sites | L1, mechanical; verify with `apps/web` typecheck + unit suite (`make check` does not exercise TS) |
 | G1-R2 | apps/web boolean guards (8) | `isAlive`/`isLive`/`isActive` (×4)/`isDone`/`wasSettled` | L1, trivial; guards are hot paths — re-run stream tests |
 | G1-R3 | apps/agent naming (21) | 20 Python bool params/abbrevs + `chat-wire-parser.ts` rename (+ `test_chat_wire_contract.py` invocation sites) | L1; 10/20 are eval/test-only; `make test` + `make test-eval` |
-| G1-R4 | workers/api file renames (24) | 4 modules + 20 test files → kebab; in-package LSP rename | L1; `pnpm run test:worker` + `node --test` lane |
-| G1-R5 | workers/api symbol renames (10) | `was*` spies, `hasReceived`, `environment*` helpers/locals | L1; same verification as R4 — can fold into R4 |
-| G1-L2 | workers/api L2 sweep (3) | `cost-breaker.ts` (contract test import), `container-env.ts` (agent path tests + CI filter), `migration-boundary.test.ts` (CI `node --test` path) | L2; sweep is 1-2 files each; run agent + contract + CI lanes |
+| G1-R4 | workers/edge file renames (24) | 4 modules + 20 test files → kebab; in-package LSP rename | L1; `pnpm run test:worker` + `node --test` lane |
+| G1-R5 | workers/edge symbol renames (10) | `was*` spies, `hasReceived`, `environment*` helpers/locals | L1; same verification as R4 — can fold into R4 |
+| G1-L2 | workers/edge L2 sweep (3) | `cost-breaker.ts` (contract test import), `container-env.ts` (agent path tests + CI filter), `migration-boundary.test.ts` (CI `node --test` path) | L2; sweep is 1-2 files each; run agent + contract + CI lanes |
 | G2 | L3 adjudication (5 real) | `success`, `truncated`, `partial` (×2), `envVars` — wire version bump + apps/web sweep + e2e, or documented keep | Owner decision; not a mechanical card |
 
 Order rationale: R1 first (largest surface, unlocks the conventions doc for

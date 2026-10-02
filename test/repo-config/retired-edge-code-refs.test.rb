@@ -11,7 +11,11 @@ class RetiredEdgeCodeRefsTest < Minitest::Test
   # History, not live surfaces — exempt by path family, one stated reason each:
   HISTORY = {
     %r{\Adocs/archive/} => "read-only history (DOCS_POLICY)",
+    %r{\Adocs/specs/\d{4}-\d{2}-\d{2}-} => "a dated spec (and its subfolder) records the design of its day",
     %r{\Adocs/iterations/} => "dated iteration plans and their execution records",
+    %r{\Adocs/adr/} => "accepted decision records are immutable; a new ADR supersedes",
+    %r{\Adocs/naming-audit-} => "a dated audit snapshot",
+    %r{\Adocs/ops/pr-comment-debt-} => "a dated PR-comment ledger",
   }.freeze
   # Files that must spell a retired pattern out to do their own job:
   SPELLERS = {

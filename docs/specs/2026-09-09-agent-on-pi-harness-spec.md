@@ -15,9 +15,9 @@ E-1 的 33 条是独立 held-out 子集，不替代 662 条主集或其它保留
 
 ## 一、动机
 
-**我们把上游已经写成规范的那一层，自己写了一遍。** 核对基线的 `workers/api/src/agent/` 有 **13,449 行**，其中会话树、operation 状态机、崩溃恢复、压缩、事件——都是 `packages/agent/docs/harness.md` 那份**自称 normative specification**（`harness.md:21`）的 1468 行所定义的东西，上游还配了实现与 2105 行 conformance 用例（`/tmp/pi-repo-research.md:166-169`）。
+**我们把上游已经写成规范的那一层，自己写了一遍。** 核对基线的 `workers/edge/src/agent/` 有 **13,449 行**，其中会话树、operation 状态机、崩溃恢复、压缩、事件——都是 `packages/agent/docs/harness.md` 那份**自称 normative specification**（`harness.md:21`）的 1468 行所定义的东西，上游还配了实现与 2105 行 conformance 用例（`/tmp/pi-repo-research.md:166-169`）。
 
-**当初不押注是对的，现在前提没了。** 旧 spec 的非目标写着「不押注 pi 上游未实现的 `AgentHarness`（HEAD 仍抛 `HarnessNotImplemented`）——只用 core Agent 层」（`docs/specs/2026-09-01-agent-ts-rewrite-spec.md:16`），那是对 0.84.4 的正确判断（`AgentHarness.create` 抛 `HarnessNotImplemented("create.restore")`，`/tmp/agent-architecture-map.md:29`）。0.85.1 已实现接受、驱动与恢复：应用直接用公开 `accept` / `drive`，恢复由 `AgentHarness.create` 完成；内部 `restoreLane` 不成为应用接口。我们仍钉在 **0.84.4**（`workers/api/package.json:21-22`）。
+**当初不押注是对的，现在前提没了。** 旧 spec 的非目标写着「不押注 pi 上游未实现的 `AgentHarness`（HEAD 仍抛 `HarnessNotImplemented`）——只用 core Agent 层」（`docs/specs/2026-09-01-agent-ts-rewrite-spec.md:16`），那是对 0.84.4 的正确判断（`AgentHarness.create` 抛 `HarnessNotImplemented("create.restore")`，`/tmp/agent-architecture-map.md:29`）。0.85.1 已实现接受、驱动与恢复：应用直接用公开 `accept` / `drive`，恢复由 `AgentHarness.create` 完成；内部 `restoreLane` 不成为应用接口。我们仍钉在 **0.84.4**（`workers/edge/package.json:21-22`）。
 
 **书的框架说这件事该怎么分。** Agent = Model + Harness，Harness 是「模型边界内环绕模型的运行与治理层，负责构造上下文、暴露工具接口、维护循环和状态」（`book/chapter1.md:25`）；上下文的五个组成部分 = 系统提示词、工具定义、用户消息、模型回复、工具执行结果，其中前两者是静态前缀、后三者是不断增长的轨迹（`book/chapter2.md:56,376`）。pi 的 harness 正是这一层的通用实现，而**轨迹**正是它的 `entries`。我们该留的是**业务**：领域工具、配额、结算、身份、SD-9 帧与宿主单写者约束。
 
@@ -25,9 +25,9 @@ E-1 的 33 条是独立 held-out 子集，不替代 662 条主集或其它保留
 
 ## 二、现状
 
-### 2.1 逐目录判定（从 `git ls-files workers/api/src/agent` 生成）
+### 2.1 逐目录判定（从 `git ls-files workers/edge/src/agent` 生成）
 
-`workers/api/src/agent` 共 **13,449 行 / 115 个文件**（114 个 `.ts` + 1 个 `city-names.json`），其中 `session/` 一个目录就 **5,919 行 / 40 个文件**。判定分三类：**delete**（SDK 已实现或旧承载层不再需要）、**rewrite-domain**（以公开 SDK API 直接实现必要业务）、**retain-domain**（领域行为或数据）。rewrite-domain 不保留旧接口、旧类或兼容层；每项必须说明被删除的封装和实际剩余的业务职责。逐文件清单由 **W0-1** 卡生成并单独评审（**D10**）；本节给的是目录级判定与不可省略的例外。
+`workers/edge/src/agent` 共 **13,449 行 / 115 个文件**（114 个 `.ts` + 1 个 `city-names.json`），其中 `session/` 一个目录就 **5,919 行 / 40 个文件**。判定分三类：**delete**（SDK 已实现或旧承载层不再需要）、**rewrite-domain**（以公开 SDK API 直接实现必要业务）、**retain-domain**（领域行为或数据）。rewrite-domain 不保留旧接口、旧类或兼容层；每项必须说明被删除的封装和实际剩余的业务职责。逐文件清单由 **W0-1** 卡生成并单独评审（**D10**）；本节给的是目录级判定与不可省略的例外。
 
 逐文件与 companion 路径、实际删减理由、公开 SDK 接缝及 successor 卡均集中在 [W0-1 清单](../iterations/production-readiness-2026-08/AGENT-FILE-DISPOSITION.md)。该审计基于已合入的固定历史树；新实现不为保留旧目录或旧接口而迁移代码。
 
@@ -245,7 +245,7 @@ Storage，不能通过私有字段接入写序观察器。业务提交和 DO 持
 3. **D3 — 确定性选择（#1288/#1462）只提交一条关联 custom entry。** `OperationRequest` 没有非模型操作（`agent-harness.d.ts:48-77`）。宿主在 harness 之外执行领域选择，一次 `appendCustomEntry` 保存请求键、领域步骤、完整结果与 server origin，经 `entryProjectors` 供后续上下文读取。互斥、认领与澄清投影按协议七/八，不新增备选提交协议。
    **产品侧保持**：结构化 `candidates` → `ClarifyCard` → 确定性选择通道与 SD-9/data part 不变；过期 `clarification_id` 仍返回 409。W1-8 从原生 entries 与必要 scalar state 的领域投影读取未决澄清，并只消解匹配的 id/revision，不为保留旧 envelope 而新增写入。
 4. **D4 — 外部 SD-9 契约保持。** 使用 AI SDK 原生 UI message writer/response，必要的 HarnessEvent→UIMessageChunk 领域投影为纯函数。按外部帧、顺序、隐私、心跳和重连行为验收，不以保留旧 TurnFrame/SSE 类为验收。
-5. **D5 — Neon backend 是新包还是进 `workers/api`（owner 已定：按推荐）？** 推荐**新包 `packages/pi-session-neon`**：它要跑上游 conformance（Node 侧），而 edge 是 Worker bundle；分开才能让 conformance 在 CI 里独立成 lane。
+5. **D5 — Neon backend 是新包还是进 `workers/edge`（owner 已定：按推荐）？** 推荐**新包 `packages/pi-session-neon`**：它要跑上游 conformance（Node 侧），而 edge 是 Worker bundle；分开才能让 conformance 在 CI 里独立成 lane。
 6. **D6 — 零用户硬切（owner 2026-09-10 明确授权）。** 生产环境没有用户，不需要任何后向兼容。会话读写直接使用原生 SDK entries/values；删除旧 `runs`/`messages`/`run_steps` 读写路径、codec 和版本分流，不保留双写、历史读取兼容层或自动回退。已有 Atlas 迁移历史保持不变；本次代码退役不执行在线删表或清库。
 7. **D7 — eval 使用依赖库现成能力。** 执行、并发、重复、断言、judge 与报告直接走 logfire；session、轨迹和 token 成本走 pi。仅保留 §七列明的领域判据、预算、pass^k、统计和基线政策；删除 staging task 与旧 report/trace/Python wire 转换。
 8. **D8 — spike 失败怎么办（owner 已定：按推荐）？** 推荐把 S1–S4 的任一条红当作**回到 owner**，而不是自动回退——0.84.4 的现状能跑，没有时间压力。
@@ -267,7 +267,7 @@ Storage，不能通过私有字段接入写序观察器。业务提交和 DO 持
 **验收（产品行为与关键故障边界）**
 
 - **W0-2** — [ ] **(integration)** 以 Prisma 8 原生 contract/migration 新增 SDK metadata / entries / values / lists / usage 所需存储，不固定物理表数量；不改已应用的 Atlas 迁移或旧表，旧表退役另需切换证据与评审。[ ] **(integration)** 业务准入/选择共用 `agent_admissions`（原称 `admission_intents`），唯一键为 `(session_id, client_message_id)`，状态仅 `pending｜accepted｜settled｜void`；model 准入预分配 operation ID，selection 不造假 operation。[ ] **(integration)** `agent_open_operations`（原称 `open_operations`）仅为 `operation_id` 主键的辅助恢复索引；`agent_settlements` 独立按 `operation_id` 发现未结义务，以 `settled_at` 守卫账本游标、费用与退款的同一事务。[ ] **(integration)** 预留/退款坐标保存在准入行，复用既有 `anon_daily_message_count` / `daily_usage`；不新增第二套 quota 或 run 状态机。变异：破坏旧表或 ID/parent/request-key/预留行为，相应真实 PostgreSQL 测试红；不以保留某个 trigger 或重复 validator 作为验收。严格 TypeScript 不用 skipLibCheck；迁移验证 artifact B/C 选择、重复执行与不兼容状态拒绝。完整 SDK backend conformance 归 W1-1。
-- **W0-1** — [ ] **(unit)** `git ls-files workers/api/src/agent` 的 **115** 个文件每个都有 delete/rewrite-domain/retain-domain 判定与替代接缝，含目录根下的 `durable-namespace.ts`（13）与 `json-record.ts`（9）；`db/schema.ts`、`migrations/neon/*agent_runs*`、`gateway/agent-turn.ts:24-31` 三处在列；清单单独评审通过后才开 W1。
+- **W0-1** — [ ] **(unit)** `git ls-files workers/edge/src/agent` 的 **115** 个文件每个都有 delete/rewrite-domain/retain-domain 判定与替代接缝，含目录根下的 `durable-namespace.ts`（13）与 `json-record.ts`（9）；`db/schema.ts`、`migrations/neon/*agent_runs*`、`gateway/agent-turn.ts:24-31` 三处在列；清单单独评审通过后才开 W1。
 - **P0-S1** — [ ] **(ci)** `wrangler dev` 下 import 0.85.1 与 chord 并调用一次 `AgentHarness.create`，成功；bundle 体积增量记入卡；**`esbuild` 不在产物里**（`grep` 产物为 0）。[ ] **(unit)** bundle-smoke 常驻。
 - **P0-S3** — [ ] **(integration)** `createStorageConformance` 与 `createSessionRepoConformance` 及另外 8 个套件在 test-postgres 上全绿，**一个 skip 都没有**；跳过任一条即卡红。[ ] **(integration)** 在 ≥3 次工具调用的回合上记录**每回合 `Storage.commit()` 往返次数**、**apac 钉住的 DO → Neon 提交延迟 p50/p95**、**占回合墙钟的比例**；对照预期（≈10–15 次、同区 ~74 ms、20 秒回合的 <5%），超出即开优化卡（连接复用 / 合并业务事务；不得放松「先提交再产生副作用」）。
 - **P0-S4** — [ ] **(integration)** 杀实例后由 SDK 排程重新挂载，用当前 SDK 见证定位 operation，再 `drive({operationId, waitForRetry:false})` 得到完整结果。**判据用 §五 S4 的逐工具矩阵，不是「零重复执行」**：声明 `safe` 的工具每个 `invocationId` **最多一次外部效果**（允许被再次调用）；声明 `never` 的工具得到显式 `interrupted`；三个持久边界各注入一次故障。

@@ -3,7 +3,7 @@
 - Status: Partially superseded — current architecture, harness and eval decisions follow [the native Pi harness specification](2026-09-09-agent-on-pi-harness-spec.md). This document retains the W1/W2 functional-parity criteria and W4 sequence where not superseded. Historical delivery status: W0 closed 2026-09-03（S1–S5 全通过硬条件，kill-switch 未触发，#1249）；W1 in progress — owner 已定方向（2026-09-01 grilling），本文件为简化版权威决策记录；复杂化 spec 由后续更强的模型在此基础上扩展。
 - 决策输入：`docs/specs/2026-09-01-pi-agent-core-research-report.md`（workerd 实测通过）× `docs/iterations/production-readiness-2026-08/PI-AGENT-CORE-RESEARCH.md`（8/29 NO-GO 全量迁移 / GO 限 spike 门——本 spec 保留其门）× `docs/specs/2026-08-17-agent-ts-research-report.md`（#1106）。
 - 战略动机：消灭 Python 容器冷启动（2026-09-01 实测：睡醒唤醒 28–32s、部署后 74s；PR #1239 只是把库的 20s 等待预算放宽到 55s，没有缩短冷启动本身）；异步病根（#729 / #1235 request-parked ingest / turn 生命周期补丁群）根治为"回合活在请求之外、Neon 唯一真相源"；仓库收敛为纯 TS 单流水线。
-- 2026-09-01 二轮 grilling（Q1–Q5，owner 定案）：回合宿主 = DO alarm；断线 = 不续流、回来按会话 ID 拉最终结果；W1/W2 不设自动 eval；eval 只对真实环境测；agent 住进 `workers/api` 不新建 Worker。已并入 §二–§八。
+- 2026-09-01 二轮 grilling（Q1–Q5，owner 定案）：回合宿主 = DO alarm；断线 = 不续流、回来按会话 ID 拉最终结果；W1/W2 不设自动 eval；eval 只对真实环境测；agent 住进 `workers/edge` 不新建 Worker。已并入 §二–§八。
 
 ## 一、目标 / Non-goals
 
@@ -21,7 +21,7 @@
 | 决策点 | 结论 |
 |---|---|
 | 内核 | `@earendil-works/pi-agent-core` + `pi-ai`，钉 exact version，每周跟进 CHANGELOG breaking 段 |
-| 语言/运行时 | 全 TS；agent 作为 DO class **住进 `workers/api`**（今天 Python 容器就挂在 edge 名下，重写只是容器换 DO class，不新建 Worker——每多一个 Worker 就多一份 secret 触点 / cohort 扩散 / 队列阻塞；users 因持有独立最小权限 DB 凭证保留独立，catalog/migrator 因生命周期不同保留独立）；`apps/agent` Python 全删 |
+| 语言/运行时 | 全 TS；agent 作为 DO class **住进 `workers/edge`**（今天 Python 容器就挂在 edge 名下，重写只是容器换 DO class，不新建 Worker——每多一个 Worker 就多一份 secret 触点 / cohort 扩散 / 队列阻塞；users 因持有独立最小权限 DB 凭证保留独立，catalog/migrator 因生命周期不同保留独立）；`apps/agent` Python 全删 |
 | agent loop 承载 | DO，每 session 一个实例；**回合跑在 alarm handler 里**：intake 写 Neon → `setAlarm(now)` → DO 在 alarm 内跑完回合并落库。依据 CF 文档（2026-07-28）：fetch 调用的 wall time 只在调用方保持连接期间无限，断开后关联任务可能被取消；alarm handler 有独立 15 分钟 wall time，与连接无关（现行整回合 deadline 100s，余量 9 倍） |
 | 队列 | 无。`runs` 表（状态+超时）+ DO alarm 扫描回收；"outbox 本质"= message+run 同事务落库 |
 | 断线语义 | 回合在后台跑完；客户端回来**按会话 ID 拉一次最终结果**（现有 `GET /v1/conversations/{id}/messages`，加 run 状态字段），**不续流**——owner 定：续流是加分项不是门槛，砍掉后落库粒度不受"可寻址 delta"约束。连接在时仍按 SD-9 帧实时推 SSE |
@@ -52,7 +52,7 @@
 ## 三、目标架构
 
 ```text
-浏览器 ──SSE（连接在时）──> workers/api
+浏览器 ──SSE（连接在时）──> workers/edge
    │ POST /v1/chat        ├─ 身份/Turnstile（不动）
    │ GET /v1/conversations/:id/messages（回来时拉最终结果）
    ↓                      ├─ intake：dedupe + 单 TX 写 Neon（messages + runs + 配额预留）→ setAlarm(now)
@@ -62,7 +62,7 @@
                           Neon = 唯一真相源 · Logfire = trace（@pydantic/logfire-cf-workers）
 ```
 
-组件职责（全部在 `workers/api` 内，不新建 Worker）：
+组件职责（全部在 `workers/edge` 内，不新建 Worker）：
 - **身份层**：不变。验 Neon Auth JWT / 匿名 Turnstile，受信身份进入 intake。
 - **intake**：按 (session, client_message_id) dedupe；单事务写 messages + runs(running) + 配额预留；事务提交后 `setAlarm(now)` 叫醒该 session 的 DO（快路径）。**兜底必须独立于 session DO**（提交与 `setAlarm` 之间崩溃时该 DO 未被武装，它自己的 alarm 永远不会响）：一个单例 `RunSweeper` DO 以周期 alarm 扫 `runs` 表中 `running` 且租约过期/从未取得租约的行，对其 session DO 重新 `setAlarm(now)`；扫描幂等（重复叫醒无副作用，由 DO 侧租约保证）。这就是 at-least-once 的来源。
 - **AgentSession DO**：alarm handler 内载入转录 → pi Agent（mimo-v2.5 经 `createProvider` custom Model）→ 工具执行 → 若有连接在则按 SD-9 帧推 SSE；结束 = assistant message + usage 结算 + run=succeeded 同一 TX。落库粒度按工具步骤 + 文本段聚合（不需要可寻址 delta）。单写者语义 = turn 租约；admission 沿用现有 `turn_admission` 语义移植（忙时并发回合拒绝/排队）。
@@ -79,7 +79,7 @@
 - **S2**：mimo-v2.5 网关方言定版（compat 开关阵逐项实测：tool calling 往返 / strict / maxTokensField / streaming usage）。
   - 结论：**通过**。19 个直连用例（默认 + 9 个开关各两值）全部完成工具往返且带流式 usage，mimo 直连不需要任何 compat 覆盖；单轮 wall 4–12 s、中位数约 6.5 s。zen 路由无 `ZEN_GO_API_KEY` 未测，W1 用直连，故不阻塞。（附录 B）
 - **S3**：esbuild `.lazy` chunk bug——file upstream issue；我方 CI 加"bundler 产物 smoke 执行"门；先用已验证 workaround。
-  - 结论：**通过**。常驻门 `pnpm --filter api run test:bundle-smoke` 打包 `workers/api/bundle-smoke/pi-kernel.worker.ts` 并在 workerd 内**执行**产物；把入口换回 `api/openai-completions.lazy` 即转红，workaround 因此被机器盯住。（CI 门 #1263 已合并；upstream 报告 `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`）
+  - 结论：**通过**。常驻门 `pnpm --filter edge-worker run test:bundle-smoke` 打包 `workers/edge/bundle-smoke/pi-kernel.worker.ts` 并在 workerd 内**执行**产物；把入口换回 `api/openai-completions.lazy` 即转红，workaround 因此被机器盯住。（CI 门 #1263 已合并；upstream 报告 `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`）
 - **S4**：DO 状态机：并发同 session、eviction/restart、provider/tool 中途故障 → 进行中 turn 必须能恢复到"收尾一致"（不依赖上游 harness）。**硬条件（Q1 定）**：在真部署 DO 的 alarm handler 内跑一个刻意 5 分钟、含 3 次工具调用的回合，期间客户端断开，最终 Neon 里 run=succeeded 且转录完整；同时实测 alarm 内一次回合的 DO 计费 wall-clock。**该 spike 使用独立的 spike-only 回合 deadline（≥ 6 分钟，spike 配置项，不进生产默认值）**——生产的整回合 deadline 仍是 100s（§二），5 分钟只是为了逼近 alarm 的 15 分钟上限做压力验证；恢复用例必须含"工具成功但结果未落库前崩溃"分支（§三 幂等契约）。
   - 结论：**通过**。同 session 的第二个回合被唯一索引 `runs_one_running_per_session` 以 409 直接拒绝；"工具成功、步骤行未落库"崩溃分支重放精确一次（3 个步骤共 4 次工具执行）；刻意 5 分钟、3 次工具调用的回合在客户端断开后仍在 alarm 内跑完，staging Neon 里 run=succeeded 且转录完整，DO 计费 wall-clock 100.9 s。（附录 C）
 - **S5**：BYOK/egress 红线（8/29 note 条件 6 全表：allowlist、非空 key、无 server-key fallback、SSRF 边界、redirect、日志脱敏）。
@@ -97,7 +97,7 @@
 | Wave | 内容 | 出口判据 |
 |---|---|---|
 | W0 | spike S1–S5 + kill-switch 裁决 | 已回填（#1249） |
-| W1 | 核心环路（全部在 `workers/api` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
+| W1 | 核心环路（全部在 `workers/edge` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
 | W2 | parity：web 工具×2、route 工具、BYOK、上下文与记忆（fact_ledger 适配；按 §九 = 跨轮结构化重放 + 写入时冻结的工具返回摘要 + 阈值批量压缩 + `<agent_status>` 状态栏，**不是**每轮滑动窗口再压缩） | 功能对等清单逐项勾（手动验证）+ 同一 session 两轮的系统提示词字节相同 |
 | W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑；**评估装置按 §十**：staging-only 环境初始化（先建机制 + 5 个 `seeded_pending` 用例；把 76 个用例改造成轨迹前缀任务需 owner 确认并同批重做 Python 基线）、取回面发布已结算参数让 `argument_correctness` 恢复两见证人比较，二者在双跑前；终局答复验证器与失败归因 report-only，在双跑后 | 双跑无回归（8/29 note 硬条件 3）；#1380 / #1381 在双跑前合入 |
 | W4 | 删除 `apps/agent` + uv CI 臂 + 容器构建 + `[[containers]]`/`RuntimeContainer`/#1239 等待逻辑；CD/文档里的 `root` 旧名统一为 edge；空壳 jobs Worker 处置（DONE，#1316）；docs/AGENTS.md/coverage floors 更新；launch 链（#1181/#1183/#1184）接上新架构 | repo 无 Python agent 残留 |
@@ -193,7 +193,7 @@
 ## 附录 D · W0-S5 实测（2026-09-03，#1248 / PR #1271）
 
 真部署 spike Worker，`scripts/spike/pi-s5-egress.sh`，02:57–02:58Z，无任何 secret（key 为故意的假值）。策略模块是
-生产代码 `workers/api/src/agent/egress/`（W2 BYOK 卡直接复用）。
+生产代码 `workers/edge/src/agent/egress/`（W2 BYOK 卡直接复用）。
 
 | 红线 | 用例 | 结果 |
 | --- | --- | --- |
@@ -226,7 +226,7 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 
 ### 9.1 转录重放每一轮的工具调用与结果 → #1377
 
-今天 `workers/api/src/agent/session/turn-transcript.ts:17-18` 明说：早先一轮的 tool-call 行「degrades to its plain text」，实现在同文件 `messagesForRow` 的 `turn-transcript.ts:115`。这正是书中实验 2-3（「KV Cache 的原理与约束」）点名的两个反模式叠加：**滑动窗口对话历史**（工具结果滑出窗口后 Agent「忘记已获得的结果」，反复重复同一次调用）与**文本格式化方法**（把结构化 role-content 消息压成纯文本流，模型要额外花注意力推断角色边界，表现为「忽略工具调用结果、重复执行已完成的操作」）。
+今天 `workers/edge/src/agent/session/turn-transcript.ts:17-18` 明说：早先一轮的 tool-call 行「degrades to its plain text」，实现在同文件 `messagesForRow` 的 `turn-transcript.ts:115`。这正是书中实验 2-3（「KV Cache 的原理与约束」）点名的两个反模式叠加：**滑动窗口对话历史**（工具结果滑出窗口后 Agent「忘记已获得的结果」，反复重复同一次调用）与**文本格式化方法**（把结构化 role-content 消息压成纯文本流，模型要额外花注意力推断角色边界，表现为「忽略工具调用结果、重复执行已完成的操作」）。
 
 **定案**：转录重放每一轮的 assistant tool-call 消息及其工具结果，作为**结构化消息**（`assistant` + `toolResult`），不再降级为文本。
 
@@ -304,7 +304,7 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 
 **其二，这 111 处种子在 Python 基线里本来就不生效。** `_seed_tool_state`（`apps/agent/src/animichi/agents/animichi_runner.py:168-181`）只认 `last_location`、`origin_lat/lng`、`session_state_v2`、`current_bangumi_id`/`current_anime_title` 五类，并为 hydrate 出来的 ref 做 `reserve`；**`last_search_data` 根本没有分支**，而且有一条单测把这件事钉死：`test_seed_tool_state_does_not_restore_historical_payload_bags`（`apps/agent/src/animichi/tests/unit/test_animichi_runner.py:95-105`）断言喂进 `last_search_data` 后 `session == SessionState()`。`last_location` 虽被赋值，但 `apps/agent/src` 里除了 `tool_state.py:17` 的字段声明与那三行赋值**没有任何读者**。六个集合的 `context` 键实测只有 `last_search_data` / `last_location` / `origin_lat` / `origin_lng` / `message_history` 五种 —— **没有 `session_state_v2`，也没有 `current_bangumi_id`**。而 `origin_lat/lng` 早就走 wire（`packages/eval/src/case-submissions.ts:61-66`），`message_history` 走重放。
 
-结论：#1309 的问题陈述"TS 复现不了 Python 的种子"是**反的** —— Python 也没有复现它们。真正的缺口只有一处，而且是 5 个用例：`seeded_pending`。它们在 Python 里走的是**另一条任务路径** `selection_task`（`apps/agent/src/animichi/tests/eval/agent_eval_task.py`，#1493 从 `eval_harness.py` 拆出），在进程内直接构造带 `pending_clarification` 的 `SessionState`；HTTP 这一侧，一次选择回合要能校验，session 的 envelope 里必须真的有那个未决澄清（`workers/api/src/agent/session/session-envelope.ts:50-54`）。而且评估器**已经在按种子存在的前提打分**：`packages/eval/src/evaluators/accepted-chains.ts:113-115` 给 `seeded_pending.reason === "place_ambiguity"` 的用例判最小步数 1。
+结论：#1309 的问题陈述"TS 复现不了 Python 的种子"是**反的** —— Python 也没有复现它们。真正的缺口只有一处，而且是 5 个用例：`seeded_pending`。它们在 Python 里走的是**另一条任务路径** `selection_task`（`apps/agent/src/animichi/tests/eval/agent_eval_task.py`，#1493 从 `eval_harness.py` 拆出），在进程内直接构造带 `pending_clarification` 的 `SessionState`；HTTP 这一侧，一次选择回合要能校验，session 的 envelope 里必须真的有那个未决澄清（`workers/edge/src/agent/session/session-envelope.ts:50-54`）。而且评估器**已经在按种子存在的前提打分**：`packages/eval/src/evaluators/accepted-chains.ts:113-115` 给 `seeded_pending.reason === "place_ambiguity"` 的用例判最小步数 1。
 
 **定案（#1309 选项 b，塑形为环境初始化而非模型可见的头部）**：建一个 **staging-only 的初始化过程**，把冻结前缀 —— 先前的 user 轮、工具调用、工具返回、session envelope —— 经**产品自己的 store 代码**写进目标 session。依据是书「评估环境 · 五个组成要素」对环境状态的两条要求（「真实性要求状态变化符合业务逻辑，可控性要求每次运行前都能回到同一起点」）以及 τ²-bench 用 `initialization_actions` **调用产品自己的函数**建立初始状态；书「端到端回归任务与轨迹前缀回归任务」把这类用例定义为「把已有的上下文、对话、工具返回和环境状态冻结下来，只要求 Agent 执行下一步」，并称「对于需要高可靠性的生产级 Agent，构建轨迹前缀回归任务集往往比端到端回归任务集更重要」。
 
@@ -318,7 +318,7 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 
 - **必须在该 session 的 DO 内执行。** envelope 不在 Neon 列里，而在 Durable Object 自己的存储中，键为 `"envelope"`（`durable-envelope-store.ts:4-17,44`），且 §三 让 session 的 DO 做唯一写者。转录与 `run_steps` 经 `NeonTurnStore`（`neon-turn-store.ts:105-121,179-209`），envelope 经 `DurableEnvelopeStore`；不得另写一份 SQL。
 - **前缀 run 必须写成终态。** `runs_one_running_per_session` 是唯一索引（`neon-turn-records.ts:35-36`），留在 `running` 的前缀 run 会让被测回合被 409 拒绝。`result` 与 `finished_at` 同在（`run_steps_settled_check`，`migrations/neon/20260902000000_agent_runs.sql:106`），工具返回的 `minted` 与结果同写（`turn-store.ts:45-55`）。
-- **生产上不存在，且鉴权不止于挂载开关。** 挂载判据 `APP_ENV === "staging"`（`workers/api/wrangler.toml:100,265,457`），fail closed。但 `APP_ENV` 只是挂载开关，**不是授权**：staging 的周界是 Cloudflare Access（#1369 已落地，`infra/src/staging-access.ts`；人走 identity policy，自动化带 service token）。因此 —— **这条会改状态的路径必须等 Access 应用实际生效后才部署**（Access 是最终一致，见 `docs/ops/deployment.md`「Staging access」）；处理器本身还要校验调用者对目标 session 的**归属**，与取回面同一条判据（`conversation-retrieval.ts:79-82`），不得只靠周界。
+- **生产上不存在，且鉴权不止于挂载开关。** 挂载判据 `APP_ENV === "staging"`（`workers/edge/wrangler.toml:100,265,457`），fail closed。但 `APP_ENV` 只是挂载开关，**不是授权**：staging 的周界是 Cloudflare Access（#1369 已落地，`infra/src/staging-access.ts`；人走 identity policy，自动化带 service token）。因此 —— **这条会改状态的路径必须等 Access 应用实际生效后才部署**（Access 是最终一致，见 `docs/ops/deployment.md`「Staging access」）；处理器本身还要校验调用者对目标 session 的**归属**，与取回面同一条判据（`conversation-retrieval.ts:79-82`），不得只靠周界。
 - **harness 侧的调用点是 `CaseLifecycle.setup()`**：`logfire@0.22.5` 的 `CaseLifecycle` 声明 `setup()`（任务之前）、`prepareContext()`（任务之后、评估器之前）、`teardown()`（`node_modules/logfire/dist/index-Dd6NCwQg.d.ts:241-253`），经 `Dataset.evaluate({ lifecycle })` 传**类**而非实例。评估器一个都不改。
 
 **留给 owner 的两处（本卡不得自行拍板）**：(1) 上面的第二档做不做、做则同批重做 Python 基线；(2) `minted-refs.ts:1-9` 写明 ref 的寿命只到本 run 结束，前缀 run 铸的 ref 在被测回合里是 `stale_ref` —— 要么接受（可接受动作集合里不含"引用上一轮的 ref"），要么让 session 的 ref 注册表从先前各 run 的 `run_steps.result.minted` 复活，而后者是**改产品行为**，需单开卡。
@@ -334,14 +334,14 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 **定案（#1311 选项 b）**：从 `run_steps` 把**已结算参数**发布到取回面 `GET /v1/conversations/{id}/messages`，`TranscriptStep`（`packages/eval/src/turn-transcript.ts:71-75`）增 `params`，评估器按 Python 比 `args` vs `params`。**直播流不动**。
 
 - **契约非目标在此处明确修订**：§一 Non-goals 的"不改 `packages/contract` 的 zod 契约"自 W1-5 起就已有一次**可加**例外（`GetSessionHistoryResponse` 加 `run`，`packages/contract/src/agent-contract.ts:246-262`）。本节把口径写死：**取回面 payload 只允许可加式增补**（nullable/optional，旧 payload 仍要 parse），**SD-9 帧 surface 与其余 zod 契约一行不动**。（SD-9 帧 surface 这一半在 10.2.1 让出一个同款的可加式例外，#1462。）
-- **两个见证人今天不在同一条路径上**：SSE 是尽力而为的直播（§三 交接契约、`turn-frames.ts:29-30`），断线即无；取回面今天只发布 `intent`/`success`，会把持久化的 tool-call 信封剥掉（`workers/api/src/agent/retrieval/transcript-message.ts:53-67`）。对**评估**够用 —— 任务始终握着流并与转录一起成型（`staging-turn-task.ts:119-126`）；对**断线后的复核**不够。是否把 raw 参数也一并持久发布（一个同时带 raw / settled / status / step 身份的取回形状），是一处比裁决更大的接缝，**留给 owner**；本卡按裁决只发 settled 参数。
+- **两个见证人今天不在同一条路径上**：SSE 是尽力而为的直播（§三 交接契约、`turn-frames.ts:29-30`），断线即无；取回面今天只发布 `intent`/`success`，会把持久化的 tool-call 信封剥掉（`workers/edge/src/agent/retrieval/transcript-message.ts:53-67`）。对**评估**够用 —— 任务始终握着流并与转录一起成型（`staging-turn-task.ts:119-126`）；对**断线后的复核**不够。是否把 raw 参数也一并持久发布（一个同时带 raw / settled / status / step 身份的取回形状），是一处比裁决更大的接缝，**留给 owner**；本卡按裁决只发 settled 参数。
 - 授权面不放宽：`run_steps` 不授权给 `readonly` 角色，因为「a tool's input and result carry the visitor's own query text」（`migrations/neon/20260902000000_agent_runs.sql:10-12`）。发布对象是该 session 的 owner 本人（`conversation-retrieval.ts:79-82`），数据库授权一行不改。
 
 ### 10.2.1 服务端发起的步骤不参与 `argument_correctness` → #1462
 
 10.2 让这条指标有了第二见证人；这一节决定**哪些调用值得比**。
 
-`serverStepOpened`（`workers/api/src/agent/session/turn-frames.ts`）为确定性绕过开步——`plan_selected`、`plan_multi`、地点选择那次半径 `search_nearby`（`selection/turn-selection.ts:105,119,133`）——`input` 是 `{}`，因为**没有模型参数可填**；结算下来的 `run_steps.input` 带的却是访客真正的请求（`{"candidate_ids": […]}` / `{"point_ids", "origin"}`）。两个见证人于是**按构造永不相等**，每一个成功的绕过回合 `argument_correctness` 都读 0.0：`D3_multi_success_two`、`D3_multi_partial_success`、`D3_place_selection_radius`、`K1_ja_001`、`K1_en_002`（#1454 结算时发现）。
+`serverStepOpened`（`workers/edge/src/agent/session/turn-frames.ts`）为确定性绕过开步——`plan_selected`、`plan_multi`、地点选择那次半径 `search_nearby`（`selection/turn-selection.ts:105,119,133`）——`input` 是 `{}`，因为**没有模型参数可填**；结算下来的 `run_steps.input` 带的却是访客真正的请求（`{"candidate_ids": […]}` / `{"point_ids", "origin"}`）。两个见证人于是**按构造永不相等**，每一个成功的绕过回合 `argument_correctness` 都读 0.0：`D3_multi_success_two`、`D3_multi_partial_success`、`D3_place_selection_radius`、`K1_ja_001`、`K1_en_002`（#1454 结算时发现）。
 
 Python 从来不给这些步骤打分——`official_evaluators.py:77-81` 的循环条件是 `item.is_success and item.model_initiated`，而 `selection.py:212`、`selected_route.py:120,168`、`step_recording.py:21` 都把绕过步骤记成 `model_initiated=False`。已提交的 Python 基线就是这条规则的实证：662 例里 15 个 `K1`/`K3` 用例**根本没有 `argument_correctness` 这个键**。
 
@@ -360,7 +360,7 @@ Python 从来不给这些步骤打分——`official_evaluators.py:77-81` 的循
 
 **定案**：新增一个**确定性**验证器（不是 LLM 判官）。散文是自由文本，所以它的**覆盖面必须先被界死** —— 只判以下三类可判定的断言，其余一律记未测量：
 
-1. **作品名**：散文中出现的作品名，须等于某个工具返回里的 `anime_title`（`workers/api/src/agent/tools/catalog-tool-outcomes.ts` 的 outcome `details`，随 `tool-output-available` 上线）。
+1. **作品名**：散文中出现的作品名，须等于某个工具返回里的 `anime_title`（`workers/edge/src/agent/tools/catalog-tool-outcomes.ts` 的 outcome `details`，随 `tool-output-available` 上线）。
 2. **计数**：散文中的条数，须与 `row_count` / `data` 行数一致。
 3. **地名**：**仅当**本次答复带 `data.results` / `data.itinerary` 时才判（行由 stored payload 投影而来，`turn-answer-part.ts:137-146,199-212`）；纯散文答复的 `data` 是 `{}`（同文件 212 行），没有行可对照，地名一律记未测量而不是记错。
 

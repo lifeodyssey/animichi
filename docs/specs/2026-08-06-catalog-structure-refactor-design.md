@@ -457,7 +457,7 @@ Use this as the template for Search (harder: waitUntil + ingest).
 
 ### 6.1 Other packages / surfaces
 
-- `workers/api`, `apps/web`, `workers/users`, `workers/maintenance`, monorepo root layout
+- `workers/edge`, `apps/web`, `workers/users`, `workers/maintenance`, monorepo root layout
 - Agent Python catalog client (except note that contract rename forces follow-up **outside** this structure doc’s catalog PRs)
 - New public HTTP products not already in `catalogContract`
 

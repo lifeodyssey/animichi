@@ -149,7 +149,7 @@
 
 - monorepo P0-P3 已落地:`apps/agent`(Python FastAPI + pydantic-ai)、`workers/catalog`(TS, Hono+oRPC+Drizzle+Neon)、`packages/contract`(`@seichijunrei/contract`, oRPC + zod 4)、`infra/`(Pulumi prod+staging)、pnpm-workspace、reusable CI workflows(`_python-ci.yml`/`_ts-ci.yml`/`_web-ci.yml`/`_deploy-component.yml` 等 10 个)。
 - main 的 `frontend/` 仍是旧 Next.js 16 + @opennextjs/cloudflare + animal-island-ui-tailwind@^0.8.4 + Supabase/AI SDK/Mapbox,无 TanStack。
-- `pnpm-workspace.yaml` 注释已预留:`frontend # 留原地,Wave 4 → apps/web`、`worker # 留原地,Wave 4 → workers/api`。
+- `pnpm-workspace.yaml` 注释已预留:`frontend # 留原地,Wave 4 → apps/web`、`worker # 留原地,Wave 4 → workers/edge`。
 
 ### B3. TanStack spike 下落
 

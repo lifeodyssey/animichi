@@ -60,7 +60,7 @@ each relying party, and each one owns two things: an `aud` that is only its own,
 |---|---|---|
 | Pulumi Cloud | `urn:pulumi:org:lifeodyssey` | Pulumi Cloud's issuer policy. `pulumi/auth-actions` exchanges the job's OIDC identity for a **personal** token (`requested-token-type: urn:pulumi:token-type:access_token:personal`, `scope: user:lifeodyssey`, `.github/workflows/cd.yml:295-300`) — `lifeodyssey` is an individual-edition organization and Pulumi Cloud rejects organization tokens for non-enterprise organizations. The policy is being pinned from `sub: repo:lifeodyssey/animichi:*` to the two environment subjects `repo:lifeodyssey/animichi:environment:staging` and `…:environment:production` (D1, #1367), with both GitHub environments' deployment branches restricted to `main`. |
 | migrator Worker | `animichi:github-actions:migrator` (`workers/migrator/src/policy.ts:21`) | The Worker verifies the token itself: staging requires `ref == refs/heads/main`, `environment == staging` and `job_workflow_ref == lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/main`. Production uses a separate `PRODUCTION_OIDC_POLICY` with only production shapes (C3, #1365): `workers/migrator/src/policy.ts` declares both allowlists and `policyFor` picks between them on the `MIGRATOR_OIDC_POLICY` var, so production migrations go the same way staging does — `scripts/delivery/migrate-through-worker.sh production` (`cd.yml:716`), with no database credential in CI at all. It must never be appended to the staging allowlist, because `refAnchored` is a `some()` over `refAllow` and one mixed allowlist would let a staging-minted token through the production door (MED-2). |
-| staging | none — **staging 不自验** | The door is Cloudflare Access, a platform access layer: people log in through an identity policy, CI and local automation present a service token (decision 13). The hand-written staging-gate verifier (`aud = animichi:github-actions:staging-gate`, `workers/api/src/staging-gate/policy.ts:26`) is deleted with D3 (#1369). |
+| staging | none — **staging 不自验** | The door is Cloudflare Access, a platform access layer: people log in through an identity policy, CI and local automation present a service token (decision 13). The hand-written staging-gate verifier (`aud = animichi:github-actions:staging-gate`, `workers/edge/src/staging-gate/policy.ts:26`) is deleted with D3 (#1369). |
 
 Owner's rule behind that third row: **门交给平台的访问层；只有平台没有原生机制的地方才自验 OIDC** —
 give the door to the platform's access layer, and self-verify OIDC only where the platform has no
@@ -98,7 +98,7 @@ People are not on this line at all: people go through Access's identity policy.
 - Pulumi Cloud's issuer policy, the two GitHub environments' deployment-branch rules and the ESC
   environments are the authorisation surface to audit; D1 (#1367) pastes the policy text into its
   card as acceptance evidence.
-- `workers/api/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, the WAF ruleset and the
+- `workers/edge/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, the WAF ruleset and the
   `stagingGate*` keys go away with D3 (#1369); the staging-gate `aud` retires with them. It returns
   in middleware form only if the Access design fails its open question §七 N4 (§六 item 4).
 - New hand-written CI machinery needs a reason that names the platform gap it fills; "the platform

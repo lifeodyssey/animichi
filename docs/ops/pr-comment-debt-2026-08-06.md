@@ -92,11 +92,11 @@
 | 493 | .github/workflows/_post-deploy-test.yml:93 | qodo | 无条件解析 root/web 两个 URL | OBSOLETE-FIXED | 工作流改名 reusable-post-deploy-test.yml;main :123-135 按环境经 resolve-worker-url.sh 解析(root/web 分开) | — |
 | 495 | docs/iterations/iter5/progress.md:34 | qodo | "wired by #447 (see below)" 悬空引用,无下文 | OBSOLETE-FIXED | #576 (514f374f) 补 #447 章节 | — |
 | 501 | .github/workflows/_deploy-component.yml:130 | qodo | LOGFIRE_TOKEN && \|\| 链缺省回落旧 secret,staging/prod 痕迹混合 | OBSOLETE-FIXED | 工作流改名 reusable-deploy-component.yml;main :176/:186/:599 按环境注入 secret 并做 hash8 前缀校验,无回落链 | — |
-| 501 | worker/containerEnv.test.ts | github-advanced-security | CodeQL:反斜杠转义不完整 | OBSOLETE-FIXED | 文件移至 workers/api/container-env.test.ts(#652+#811 重命名);main :213 escapeRegExp 转义反斜杠,:244-246 有 CodeQL js/incomplete-sanitization 回归测试 | — |
+| 501 | worker/containerEnv.test.ts | github-advanced-security | CodeQL:反斜杠转义不完整 | OBSOLETE-FIXED | 文件移至 workers/edge/container-env.test.ts(#652+#811 重命名);main :213 escapeRegExp 转义反斜杠,:244-246 有 CodeQL js/incomplete-sanitization 回归测试 | — |
 | 501 | apps/agent/agent/config/settings.py:254 | coderabbit | CORS 文档与放宽后的校验不一致 | OBSOLETE-FIXED | main :179 字段描述 "Set to actual domain in production"、:186 校验 docstring "Reject wildcard CORS in production",与实际校验一致 | — |
 | 501 | apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:89 | coderabbit | 测试函数超 10 行 | OBSOLETE-FIXED | #576 抽 _required_deploy_keys() | — |
 | 501 | docs/ops/deployment.md | coderabbit | 应 provision 具体 staging CORS origin 再写文档 | OBSOLETE-FIXED | main wrangler.toml:280-286 已 provision 真实 staging origin(注释引 #527/#528) | — |
-| 501 | worker/containerEnv.test.ts:219 | coderabbit | appEnvInBlock 超函数限长 | OBSOLETE-FIXED | 文件移至 workers/api/container-env.test.ts;main :216-230 恰 10 条可执行语句(注释不计) | — |
+| 501 | worker/containerEnv.test.ts:219 | coderabbit | appEnvInBlock 超函数限长 | OBSOLETE-FIXED | 文件移至 workers/edge/container-env.test.ts;main :216-230 恰 10 条可执行语句(注释不计) | — |
 | 513 | apps/agent/agent/config/settings.py:283 | qodo | validate_required_env 超 10 行 | STILL-VALID | main settings.py:231-245 仍 15 行(P4 风格) | C5b |
 | 513 | apps/agent/agent/tests/unit/test_purge_cron_settings.py:20/27 | qodo | filterwarnings 压制无批准注释,违禁 | OBSOLETE-FIXED | #576 删除该 pytestmark | — |
 | 513 | apps/agent/agent/config/settings.py | qodo | get_db_only_settings 内部构造 Settings 污染 get_settings 缓存 | OBSOLETE-FIXED | 7c8abe6f(#508 rework)独立 PurgeCronSettings | — |
@@ -254,7 +254,7 @@
   均保留。重基期间 rebase 的 cleanup=strip 把首个提交的 `#759` 开头主题行当注释剥离,
   已用 commit-tree 恢复原始主题(台账提交 e13e41c2)。判定证据路径随重基同步:main 侧
   自 038a10a8 以来仅发生路径级迁移(H1 #651 `apps/agent/agent/*` →
-  `apps/agent/src/animichi/*`、#652 `worker/` → `workers/api/`、G2b #811
+  `apps/agent/src/animichi/*`、#652 `worker/` → `workers/edge/`、G2b #811
   camelCase → kebab-case),不影响任何判定结论;唯一失效证据路径
-  `workers/api/containerEnv.test.ts` 已更新为 `container-env.test.ts`(#501×2)。
+  `workers/edge/containerEnv.test.ts` 已更新为 `container-env.test.ts`(#501×2)。
   本台账另受 .gitignore 与台账文件自身提交保护;工作树无残留临时目录。
