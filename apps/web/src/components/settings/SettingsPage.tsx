@@ -5,6 +5,7 @@ import type { ChatDict } from "../../features/chat/i18n";
 import { ByokSettings } from "../../features/chat/components/ByokSettings";
 import { useDict } from "../../i18n/LocaleProvider";
 import { AppPreferences } from "./AppPreferences";
+import { SaveFailureNotice } from "./SaveFailureNotice";
 
 type Props = Readonly<{
   auth: AuthStatus;
@@ -73,5 +74,11 @@ function SettingsContent(props: Props) {
 
 /** Dedicated, URL-addressable settings surface; never a modal or drawer. */
 export function SettingsPage(props: Props) {
-  return <main className="settings-page"><SettingsHeader session={props.session} /><SettingsContent {...props} /></main>;
+  return (
+    <main className="settings-page">
+      <SettingsHeader session={props.session} />
+      <SaveFailureNotice />
+      <SettingsContent {...props} />
+    </main>
+  );
 }

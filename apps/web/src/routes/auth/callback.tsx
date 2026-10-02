@@ -4,6 +4,7 @@ import { AuthCallback } from "../../components/auth/AuthCallback";
 import { returnTargetNamesSession } from "../../features/chat/ChatReturnTarget";
 import { LocaleProvider } from "../../i18n/LocaleProvider";
 import { carriesSetupIntent, sanitizeReturnTarget } from "../../lib/auth/return-target";
+import { armSaveFailureNotice } from "../../lib/auth/save-failure-notice";
 
 /**
  * `next` rides the magic-link callback URL because the link may open in a
@@ -36,10 +37,11 @@ export const Route = createFileRoute("/auth/callback")({
   component: AuthCallbackRoute,
 });
 
-function useGoToTarget(next: string | undefined): () => void {
+function useGoToTarget(next: string | undefined): (notice?: "save-failed") => void {
   const navigate = useNavigate();
   const target = sanitizeReturnTarget(next);
-  return useCallback(() => {
+  return useCallback((notice) => {
+    if (notice === "save-failed") armSaveFailureNotice();
     void navigate({ href: target });
   }, [navigate, target]);
 }

@@ -56,7 +56,10 @@ function AdoptionFailure({ auth, session }: FailureProps) {
 }
 
 export interface AuthCallbackProps {
-  readonly onDone: () => void;
+  /** Called once the callback is done. `notice` is `"save-failed"` when the
+   * visitor is being sent to the return target with a failed deferred save
+   * behind them, so the destination can surface it (#482 residual 2). */
+  readonly onDone: (notice?: "save-failed") => void;
   /** #480 P1-2 ruling: when the login carried a BYOK deep-link (`next`), a
    * failed create-on-login replay must NOT strand the visitor here — the
    * intent is restored to storage for a later login, and navigation to the
@@ -75,9 +78,9 @@ function shouldNavigate(state: AuthCallbackState, hasReturnIntent: boolean): boo
   return state === "done" || (state === "save-failed" && hasReturnIntent);
 }
 
-function useDoneEffect(state: AuthCallbackState, onDone: () => void, hasReturnIntent: boolean): void {
+function useDoneEffect(state: AuthCallbackState, onDone: (notice?: "save-failed") => void, hasReturnIntent: boolean): void {
   useEffect(() => {
-    if (shouldNavigate(state, hasReturnIntent)) onDone();
+    if (shouldNavigate(state, hasReturnIntent)) onDone(state === "save-failed" ? "save-failed" : undefined);
   }, [state, onDone, hasReturnIntent]);
 }
 
