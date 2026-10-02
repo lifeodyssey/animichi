@@ -110,14 +110,16 @@ export function workSeed(id: string, title: string, fields: WorkSeedFields = {})
   return { workId, title, ...fields };
 }
 
-const POINT_FIELDS = Point.omit({ screenshot_url: true });
+const POINT_FIELDS = Point.omit({ screenshot_url: true })
+  .extend({ image: Point.shape.screenshot_url.optional() });
 
 /**
  * One point seed.
  *
  * The coordinates go through `Latitude` / `Longitude`, and the scene columns
- * through the shared `Point` model; `image` is the chain's nullable counterpart
- * of that model's required `screenshot_url`, so it is omitted from the parse.
+ * through the shared `Point` model under their contract keys; `image` is the
+ * chain's nullable counterpart of that model's required `screenshot_url`, so it
+ * is parsed with `screenshot_url`'s schema as an optional field.
  */
 export function pointSeed(
   id: string,
@@ -128,7 +130,8 @@ export function pointSeed(
   fields: PointSeedFields = {},
 ): PointSeed {
   const coords = { latitude: Latitude.parse(latitude), longitude: Longitude.parse(longitude) };
-  POINT_FIELDS.parse({ id, name, bangumi_id: work.workId, ...fields, ...coords });
+  const { timeSeconds, ...scene } = fields;
+  POINT_FIELDS.parse({ id, name, bangumi_id: work.workId, time_seconds: timeSeconds, ...scene, ...coords });
   return { id, workId: work.workId, name, ...coords, ...fields };
 }
 

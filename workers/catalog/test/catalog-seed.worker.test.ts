@@ -46,6 +46,10 @@ describe("catalog seed fixtures are contract-derived", () => {
     expect(() => pointSeed("p", beta, "Bad", 36, 181)).toThrow();
   });
 
+  it("rejects a fractional scene time the contract types as an integer", () => {
+    expect(() => pointSeed("p", beta, "Bad", 36, 139, { timeSeconds: 1.5 })).toThrow();
+  });
+
   it("rejects a negative points_count on an expected candidate", () => {
     expect(() => candidateOf(beta, -1)).toThrow();
   });
