@@ -6,16 +6,18 @@ import { URL, fileURLToPath } from "node:url";
 // Pins the repository's wrangler.toml env blocks — the config surface the
 // edge worker actually deploys from. Two contracts live here:
 //
-// 1. APP_ENV three-touchpoint check (feedback_env_var_three_touchpoints):
-//    each of the three environment blocks must set its own APP_ENV value,
-//    and they must not all collapse to the same (formerly hardcoded)
-//    "production" (issue #498).
-//
-// 2. S0-v2 GOAL C / C9 nail test: the showcase gate's deployed VALUES are
+// 1. S0-v2 GOAL C / C9 nail test: the showcase gate's deployed VALUES are
 //    pinned per environment. production MUST be "true" (the landing-only
 //    contract), staging and the root/dev [vars] MUST be "false" (full
 //    functionality). Release promotion consumes this same file, so a drift
 //    here also changes deployed behavior.
+//
+// 2. Every observable Worker persists Cloudflare logs and traces with the
+//    same sampling shape.
+//
+// The APP_ENV three-touchpoint check (#498) left with the entry itself:
+// the Python process that read it is deleted (#1605) and the Python-tree
+// removal retired the declaration (issue #1750).
 //
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 
@@ -58,10 +60,6 @@ function valueInBlock(header: string, key: string): string {
   const value = match[1];
   assert.ok(value, `"${header}" must set ${key}`);
   return value;
-}
-
-function appEnvInBlock(header: string): string {
-  return valueInBlock(header, "APP_ENV");
 }
 
 function booleanInBlock(header: string, key: string, source: string): boolean {
@@ -109,18 +107,6 @@ for (const [worker, relativePath] of observableWorkerConfigs) {
   });
 }
 
-void test("wrangler.toml [vars] (default, wrangler dev) sets APP_ENV to development", () => {
-  assert.equal(appEnvInBlock("[vars]"), "development");
-});
-
-void test("wrangler.toml [env.production.vars] sets APP_ENV to production", () => {
-  assert.equal(appEnvInBlock("[env.production.vars]"), "production");
-});
-
-void test("wrangler.toml [env.staging.vars] sets APP_ENV to staging (the whole point of issue #498)", () => {
-  assert.equal(appEnvInBlock("[env.staging.vars]"), "staging");
-});
-
 void test("wrangler.toml EDGE_SHOWCASE_MODE is true in production and false in staging/dev", () => {
   assert.equal(valueInBlock("[env.production.vars]", "EDGE_SHOWCASE_MODE"), "true");
   assert.equal(valueInBlock("[env.staging.vars]", "EDGE_SHOWCASE_MODE"), "false");
@@ -141,15 +127,6 @@ void test("escapeRegExp escapes a literal backslash, not just the bracket/dot me
   const regex = new RegExp(`^${escaped}$`);
   assert.equal(regex.test(literalWithBackslash), true);
   assert.equal(regex.test("xx"), false);
-});
-
-void test("wrangler.toml's three APP_ENV values are pairwise distinct, not all defaulted to one value", () => {
-  const values = new Set([
-    appEnvInBlock("[vars]"),
-    appEnvInBlock("[env.production.vars]"),
-    appEnvInBlock("[env.staging.vars]"),
-  ]);
-  assert.equal(values.size, 3, "development/production/staging must each be distinct");
 });
 
 // Placement pinning retired with the container (#1605): the APAC constraint
