@@ -86,7 +86,8 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 | Variable | Purpose |
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc role DSN — the required agent data-plane connection (#912), bound on the edge Worker and read by the native agent tier |
-| `MIMO_API_KEY` | Primary model provider key |
+| `OPENCODE_API_KEY` | Default model provider key — every non-BYOK turn answers on OpenCode Go (#1974) |
+| `MIMO_API_KEY` | Direct MiMo credential retained for rollback only; no default-turn path reads it (#1974) |
 
 **Worker edge:** `NEON_AUTH_JWKS_URL` (the edge's ONLY identity source — AUTH-2 #950; verifies
 Neon Auth EdDSA JWTs against the branch JWKS; production stays unset/fails closed until its branch
