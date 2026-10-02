@@ -20,6 +20,7 @@ import {
   pointSeed,
   workInsert,
   workSeed,
+  type SeedStatement,
 } from "./fixtures/catalog-seed";
 
 /**
@@ -279,7 +280,7 @@ async function seedGazetteer(): Promise<void> {
   await pool.query("ANALYZE location_aliases");
 }
 
-async function run(statement: { text: string; values: readonly (string | number)[] }): Promise<void> {
+async function run(statement: SeedStatement): Promise<void> {
   await pool.query(statement.text, [...statement.values]);
 }
 
