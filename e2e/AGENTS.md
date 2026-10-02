@@ -23,8 +23,9 @@ measured rather than grepped — and `fixtures/chat-stream.test.ts` — the reco
 serves, held to the session id `responseChunks` always writes (#1903)),
 then builds `apps/web`, serves
 the emitted Worker with `wrangler dev` on **this checkout's own port** itself (`playwright.config.ts`
-`webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the sixteen specs the lane
-owns — `web-404`, `web-maplibre-canary`, `web-chat-anonymous`, `web-chat-clarify-pick`,
+`webServer`, opt-in through `E2E_SERVE_EMITTED_WORKER=1`) and runs the seventeen specs the lane
+owns — `web-404`, `web-maplibre-canary`, `web-map-spike`, `web-chat-anonymous`,
+`web-chat-clarify-pick`,
 `web-chat-error-states`, `web-chat-save-login-wall`, `web-chat-selection`,
 `web-chat-settings-return`, `web-hero-query`, `web-state-ownership`, `web-a11y-axe`,
 `web-a11y-keyboard`, `web-a11y-states`, `web-cwv`, `web-runtime-config`, `web-splash` — with
@@ -35,14 +36,15 @@ script the gate runs, and pins that `--grep-invert` too: every other spec is nam
 tables in `test/repo-config/e2e_lane_exclusions.rb`, which the contract reads — `EXEMPT` for the
 deliberate ones (the opt-in `visual` project, the MCP `seed` scaffold, the credentialed Neon
 login, whose own lane is `pnpm --filter animichi-e2e run test:login`) and `KNOWN_FAILING` for
-those whose assertions do not hold yet (`web-map-spike` — #1570 — the last of five that #1702
-found never running; #1721, #1722, #1723 and #1724 repaired theirs into the lane), each with its
+those whose assertions do not hold yet, each with its
 failing
 case, line, and the card that owns its repair in the `#N owns the repair` clause the contract
 matches. A `KNOWN_FAILING` reason without that clause fails the contract, so parking a broken
 spec out of the lane always names a repair card; whether that card exists or is still open is not
-checked, because that means calling GitHub and this contract stays offline. Naming it in a table
-is what keeps an unrun spec visible instead of reading as green.
+checked, because that means calling GitHub and this contract stays offline. The table is empty
+today: #1702 found five specs that never ran, and #1721, #1722, #1723, #1724 and #1570 each
+repaired one into the lane. Naming a spec in a table is what keeps the next unrun spec visible
+instead of reading as green.
 After the emitted-Worker specifications, the same `test` command runs the native browser lane
 (`edge-worker test:native-browser`). It starts disposable Postgres, bundles the actual native
 SessionAgent with Wrangler, and serves the real web app through Vite’s same-origin proxy.
