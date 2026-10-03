@@ -246,7 +246,7 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 2. **确定性 summariser 保留**：`tool-return-summary.ts:81-85`（含 `tool-return-summary.ts:31-35` 逐字保留 `ordered_candidates` 的分支）不变。理由与书「压缩策略的设计原则」的「语义完整性」一致，也与 `tool-return-summary.ts:6-13` 已写下的理由一致：序数追问（「第二个」）只能对着逐字保留的候选 id 解析。
 3. **删除「最新 8 条」的每轮/每请求再压缩**：`KEEP_RECENT_MESSAGES` 及基于它的 `compactToolReturns` cutoff（`context-compaction.ts:177-180`）退役。当前 run 的结果本来就是新写入的，按 (1) 已在写入时定稿。
 4. **阈值批量压缩**作为唯一的动态压缩路径，且默认不触发。常量 `CONTEXT_COMPACTION_TRIGGER_TOKENS = 102_400`（= 128k 窗口的 80%），取自书「压缩与 KV Cache：看似矛盾，实则互补」的「最好在上下文接近阈值时批量压缩，而不是每轮都压」与实验 2-10 策略六的阈值触发 + 批量压缩 + 防重复标记三机制。**按现有量级它不会触发**：`context-compaction.ts:26` 记录的实测是本层构建的 3 轮转录 `estimateContextTokens = {tokens:870}`，离 102,400 差两个数量级。它存在是为了给「某个 session 真的逼近窗口」留一条不撞窗的出路，不是日常路径。
-5. 实体救援（`context-compaction.ts:119-133` → `retained-entity-ledger.ts`）键在实体是否存在，而不是摘要是否定稿：每次成功的 `resolve_anime` / `search_nearby` 写入时，只要带实体参数就救援一次；`TOOL_RETURN_MAX_CHARS` 只决定是否冻结摘要，短返回同样救援，否则摘要压缩时模型会改写逐字实体（#510，2026-10-02 修正）。`retained-entity-ledger.ts:20-25` 现有的「dedup 是因为每轮重新压缩同一段历史」的自述前提随之失效，dedup 保留但理由改为 alarm 重试的幂等。
+5. 实体救援（`executed-tool-facts.ts:9-15` → `committed-tool-facts.ts:10-23` 的有界投影 → `agent-status.ts:20-26` 的渲染）键在实体是否存在，而不是摘要是否定稿：每次成功的 `resolve_anime` / `search_nearby` 写入时，只要带实体参数就救援一次；`tool-summary-text.ts:7` 的 `TOOL_RETURN_MAX_CHARS` 只决定是否冻结摘要，短返回同样救援，否则摘要压缩时模型会改写逐字实体（#510，2026-10-02 修正）。`committed-tool-facts.ts:25-28` 的去重保留：同一实体重复写入时移到尾部，不驱逐更早的实体。
 
 ### 9.3 `SessionEnvelope` 渲染为 `<agent_status>` 用户消息 → #1379
 

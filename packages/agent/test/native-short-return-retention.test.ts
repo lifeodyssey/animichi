@@ -6,6 +6,7 @@ import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type Fa
 import type { Session } from "@earendil-works/pi-agent-core/harness/session";
 import type { PilgrimageToolContext } from "@animichi/agent/tools";
 import { createPilgrimageHarness } from "@animichi/agent/harness";
+import { z } from "zod";
 import { fixture } from "./native-tool-fixture.ts";
 
 const compaction = { enabled: false, reserveTokens: 1024, keepRecentTokens: 1 };
@@ -15,7 +16,7 @@ function statusText(messages: readonly AgentMessage[]) {
     && message.content.startsWith("<agent_status>\n") ? [message.content] : []).join("\n");
 }
 
-async function composed(options: { session: Session; toolContext: PilgrimageToolContext }, responses: FauxResponseStep[], captured: string[]) {
+async function statusCapturingHarness(options: { session: Session; toolContext: PilgrimageToolContext }, responses: FauxResponseStep[], captured: string[]) {
   const provider = fauxProvider();
   provider.setResponses(responses);
   const models = createModels();
@@ -37,14 +38,12 @@ function assertShort(result: { details?: unknown } | undefined) {
 
 void test("short resolve returns keep every earlier title in the status context after a native compaction", async () => {
   const titles: [string, string, string] = ["First short title", "Second short title", "Third short title"];
-  let resolutions = 0;
-  const { repo, session, toolContext } = await fixture(() => {
-    const title = resolutions === 0 ? titles[0] : resolutions === 1 ? titles[1] : titles[2];
-    resolutions += 1;
-    return Promise.resolve(Response.json({ outcome: "resolved", match: { bangumi_id: String(resolutions), title } }));
+  const { repo, session, toolContext } = await fixture(async (request) => {
+    const { query } = z.object({ query: z.string() }).parse(await request.json());
+    return Response.json({ outcome: "resolved", match: { bangumi_id: query, title: query } });
   });
   const captured: string[] = [];
-  const harness = await composed({ session, toolContext }, [
+  const harness = await statusCapturingHarness({ session, toolContext }, [
     fauxAssistantMessage(fauxToolCall("resolve_anime", { title: titles[0] }), { stopReason: "toolUse" }), fauxAssistantMessage("One."),
     fauxAssistantMessage(fauxToolCall("resolve_anime", { title: titles[1] }), { stopReason: "toolUse" }), fauxAssistantMessage("Two."),
     fauxAssistantMessage(fauxToolCall("resolve_anime", { title: titles[2] }), { stopReason: "toolUse" }), fauxAssistantMessage("Three."),
@@ -71,7 +70,7 @@ void test("short nearby returns keep the lookup location in the status context a
   ];
   const { repo, session, toolContext } = await fixture(() => Promise.resolve(Response.json({ candidates })));
   const captured: string[] = [];
-  const harness = await composed({ session, toolContext }, [
+  const harness = await statusCapturingHarness({ session, toolContext }, [
     fauxAssistantMessage(fauxToolCall("search_nearby", { location: "The real location" }), { stopReason: "toolUse" }), fauxAssistantMessage("Which place?"),
     fauxAssistantMessage("A compact summary."), fauxAssistantMessage("A refined compact summary."), fauxAssistantMessage("After."),
   ], captured);
@@ -89,7 +88,7 @@ void test("short nearby returns keep the lookup location in the status context a
 void test("a successful return without an entity argument retains nothing", async () => {
   const { repo, session, toolContext } = await fixture(() => Promise.resolve(Response.json({})));
   const captured: string[] = [];
-  const harness = await composed({ session, toolContext }, [
+  const harness = await statusCapturingHarness({ session, toolContext }, [
     fauxAssistantMessage(fauxToolCall("respond", { kind: "qa", message: "Just an answer." }), { stopReason: "toolUse" }),
   ], captured);
   try {
@@ -105,7 +104,7 @@ void test("a successful return without an entity argument retains nothing", asyn
 void test("a failed lookup retains nothing", async () => {
   const { repo, session, toolContext } = await fixture(() => Promise.reject(new Error("Catalog failure")));
   const captured: string[] = [];
-  const harness = await composed({ session, toolContext }, [
+  const harness = await statusCapturingHarness({ session, toolContext }, [
     fauxAssistantMessage(fauxToolCall("resolve_anime", { title: "Lost title" }), { stopReason: "toolUse" }), fauxAssistantMessage("Unavailable."),
   ], captured);
   try {
