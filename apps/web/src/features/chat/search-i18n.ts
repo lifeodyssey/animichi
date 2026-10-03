@@ -12,6 +12,9 @@ export interface ChatSearchDict {
   readonly spotCount: string;
   readonly areaFallback: string;
   readonly mapLabel: string;
+  readonly viewSwitch: string;
+  readonly photoView: string;
+  readonly mapView: string;
   readonly backToOverview: string;
   readonly trayMinimum: string;
   readonly traySelected: string;
@@ -33,6 +36,9 @@ export const jaSearch: ChatSearchDict = {
   spotCount: "{count}件",
   areaFallback: "エリア{n}",
   mapLabel: "聖地マップ",
+  viewSwitch: "表示をきりかえ",
+  photoView: "写真",
+  mapView: "地図",
   backToOverview: "← 全体に戻る",
   trayMinimum: "あと1件選んでください",
   traySelected: "{count}件選択中",
@@ -54,6 +60,9 @@ export const zhSearch: ChatSearchDict = {
   spotCount: "{count} 处",
   areaFallback: "区域{n}",
   mapLabel: "圣地地图",
+  viewSwitch: "切换浏览方式",
+  photoView: "照片",
+  mapView: "地图",
   backToOverview: "← 返回全部区域",
   trayMinimum: "再选 1 处即可规划",
   traySelected: "已选 {count} 处",
@@ -75,6 +84,9 @@ export const enSearch: ChatSearchDict = {
   spotCount: "{count} spots",
   areaFallback: "Area {n}",
   mapLabel: "Spot map",
+  viewSwitch: "Switch view",
+  photoView: "Photos",
+  mapView: "Map",
   backToOverview: "← Back to all areas",
   trayMinimum: "Choose 1 more spot",
   traySelected: "{count} selected",

@@ -19,6 +19,11 @@ describe("selection edits", () => {
     expect(restoreSelected([another], { place, index: 0 }).places).toEqual([place, another]);
   });
 
+  it("appends an undone whole-place removal onto an externally edited place", () => {
+    const edited: SelectedPlace = { ...another, city: "宇治市", viewpoints: [] };
+    expect(restoreSelected([edited], { place: another, index: 0 }).places).toEqual([{ ...edited, viewpoints: another.viewpoints }]);
+  });
+
   it("merges an undone viewpoint into current external selection without duplicates", () => {
     const updated = { ...place, viewpoints: [viewpoint, ...another.viewpoints] };
     expect(restoreSelected([updated], { place, index: 0, viewpointIndex: 0 }).places).toEqual([updated]);
