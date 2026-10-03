@@ -76,3 +76,16 @@ plan. On 2026-09-05 both issuer-policy API routes answered 404 on this organisat
 was read and changed in the console; treat that as an observation on this plan, not as "no API
 exists", and check Pulumi's current API reference first. The console must hold a policy with token
 type Personal and user `lifeodyssey`, or the CI login stays red.
+
+## Identity for machine and agent callers (research, 2026-10-03)
+
+The edge accepts only human Neon Auth JWTs and anonymous Turnstile identities; CI, an MCP client, an
+A2A peer or a user-brought agent has no credential class today. Eval identity is out of scope: the
+eval's system under test is the agent, not the gateway (owner, 2026-09-09).
+`docs/specs/2026-10-03-agent-auth-research.md` records how A2A, MCP, the Claude and ChatGPT
+connectors and the identity vendors authenticate such callers, the principal kinds the sources
+distinguish (human, service, agent acting for a user) and where they disagree, an inferred
+extensibility pattern (one verification seam, an issuer registry, one internal identity), our
+constraints, four unranked candidate directions and the open owner questions. See it when a new
+credential, identity class or Access change comes up; its §6 questions are open until a decision
+lands in `docs/agents/owner-decisions.md`.
