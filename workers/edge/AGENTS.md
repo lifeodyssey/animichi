@@ -101,6 +101,13 @@ retired run engine and envelope paths have no forwarding modules.
   `SecretsStoreSecret.get()` bindings or plain local strings for the identity and Turnstile gates.
   Resolve before use; do not cache values across TS turns. Store rotation is visible on the next
   read, not the next process start.
+- `src/config/runtime-knobs.ts` resolves the runtime-tunable operational knobs from the
+  `EDGE_KNOBS` KV binding per request through a short in-isolate cache, falling back to the env
+  var when the key is absent, malformed or the store is unreachable. `src/config/edge-vars.ts`
+  is the inventory that classifies every edge var; the reader refuses the deploy-coupled
+  identity, exposure and showcase gates at construction, so the store can never open a door.
+  Pulumi declares the namespace (`infra/src/knobs.ts`); its wrangler binding is the stacked
+  follow-up after the first apply.
 - The native BYOK egress guard (`src/agent/egress/`) is the Worker-side egress policy, and it is a
   separate mechanism from the retired container `DENIED_EGRESS_HOSTS` glob list: it guards what
   this Worker's own agent tools may call, not an external process's network namespace.

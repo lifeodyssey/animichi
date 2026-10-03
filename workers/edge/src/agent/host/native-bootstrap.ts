@@ -8,15 +8,10 @@ import type { Env } from "../../env.ts";
 import { nativeHostModels } from "./native-models.ts";
 import { requireToolAuthority } from "./native-authority.ts";
 import { NATIVE_AGENT_OPTIONS } from "@animichi/agent";
+import { edgeKnobs, RUNTIME_KNOBS } from "../../config/edge-vars.ts";
 
 async function readSecret(value: { get(): Promise<string> } | string | undefined) {
   return typeof value === "string" ? value : await value?.get();
-}
-
-export function anonymousDailyBudget(value: string | undefined) {
-  const budget = value === undefined ? 5 : Number(value);
-  if (!Number.isFinite(budget) || budget < 0) throw new Error("Anonymous daily budget is invalid");
-  return budget;
 }
 
 /** One DO incarnation owns these direct native resources; no module-global socket or alternate store. */
@@ -31,13 +26,16 @@ export async function bootstrapNativeSession(env: Env, id: string, context: Cont
     const created = row ? undefined : await repo.create({ id }, context);
     const metadata = created?.metadata ?? row?.metadata as unknown as SessionMetadata;
     await created?.close(context);
-    const budget = anonymousDailyBudget(env.ANON_DAILY_COST_BUDGET_USD);
+    // A resolver, not a captured number: the knob store may change the ceiling
+    // while this DO incarnation is alive, so every admission and tool call reads
+    // it through the isolate cache instead of the bootstrap value (#688).
+    const budgetFor = () => edgeKnobs.read(env, RUNTIME_KNOBS.anonymousDailyCostBudgetUsd);
     const compose = (session: Session) => ({ models: server.models, model: server.model, ...NATIVE_AGENT_OPTIONS,
       toolContext: (toolsContext: Context) => ({ session, branch: "main", ...requireOperationTools(toolsContext),
         catalog: createCatalogClient((request) => env.CATALOG.fetch(request)),
-        assertAuthorized: (operationId: string, toolsContext: Context) => requireToolAuthority(db, id, operationId, budget, toolsContext),
-        reserveToolUsage: (_invocationId: string, toolsContext: Context, operationId: string) => requireToolAuthority(db, id, operationId, budget, toolsContext) }) });
-    return { db, repo, metadata, compose, server, budget };
+        assertAuthorized: async (operationId: string, toolsContext: Context) => requireToolAuthority(db, id, operationId, await budgetFor(), toolsContext),
+        reserveToolUsage: async (_invocationId: string, toolsContext: Context, operationId: string) => requireToolAuthority(db, id, operationId, await budgetFor(), toolsContext) }) });
+    return { db, repo, metadata, compose, server, budgetFor };
   } catch (error) { await db.close(); throw error; }
 }
 export type NativeSessionResources = Awaited<ReturnType<typeof bootstrapNativeSession>>;
