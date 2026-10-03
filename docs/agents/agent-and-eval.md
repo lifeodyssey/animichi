@@ -124,3 +124,12 @@ Every prefix-instability source audited, with its location and disposition:
 
 Not measured here: the production cache hit rate and each provider's caching semantics. They need
 production telemetry access and stay with the owner.
+
+## Observability and eval research (2026-10-03)
+
+The owner asked whether the whole observability and evaluation design was wrong ("我感觉是我们一整个
+可观测性和评测设计的有问题"). `docs/specs/2026-10-03-observability-eval-research.md` records what pi
+itself provides and recommends, the consensus of mature projects on both topics, the thirteen gaps
+between that consensus and this repository, four candidate directions and the nine owner questions
+they raise. Read it before proposing observability or eval work; its §6 questions are open until a
+decision lands in `docs/agents/owner-decisions.md`.
