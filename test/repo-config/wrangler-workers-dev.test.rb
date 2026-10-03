@@ -67,8 +67,27 @@ class WranglerWorkersDevTest < Minitest::Test
                  "api [env.staging] must declare preview_urls = false explicitly"
   end
 
+  def test_api_api_staging_keeps_its_deliberate_workers_dev_true
+    section = api_sections.fetch("env.api-staging")
+    assert_equal "true", section["workers_dev"],
+                 "api [env.api-staging] keeps workers_dev = true (#1929: the mirror script's own host, " \
+                 "behind the same #1369 Access application)"
+    assert_equal "false", section["preview_urls"],
+                 "api [env.api-staging] must declare preview_urls = false explicitly"
+  end
+
+  def test_api_api_production_declares_the_subdomain_closed
+    section = api_sections.fetch("env.api-production")
+    assert_equal "false", section["workers_dev"],
+                 "api [env.api-production] must declare workers_dev = false explicitly (#1929 inherits " \
+                 "the #1524 posture: production has no Access application); unset resolves to " \
+                 "routes.length === 0, which is ON for this route-less block"
+    assert_equal "false", section["preview_urls"],
+                 "api [env.api-production] must declare preview_urls = false explicitly"
+  end
+
   def test_api_declares_exactly_the_environments_this_contract_names
-    assert_equal %w[env.production env.staging], api_sections.keys,
+    assert_equal %w[env.api-production env.api-staging env.production env.staging], api_sections.keys.sort,
                  "a new api environment must join this contract, not escape it; " \
                  "every header that names env.<name> counts — [env.x] directly, " \
                  "[env.x.<sub>] and [[env.x.<sub>]] through TOML's implicit parent " \

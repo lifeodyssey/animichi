@@ -181,7 +181,12 @@ jobs:
         env:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
-        run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev https://animichi-web-staging.zhenjiazhou0127.workers.dev
+        # The api surface is probed on the #1929 mirror script's own workers.dev
+        # host — the script CD now publishes beside the old one — while the web
+        # probe stays on the SSR worker's own origin (on workers.dev each
+        # worker answers for itself only). Both hosts sit behind the same
+        # Cloudflare Access application, so the probe presents the CI token.
+        run: bash .github/scripts/staging-smoke-check.sh https://animichi-api-staging.zhenjiazhou0127.workers.dev https://animichi-web-staging.zhenjiazhou0127.workers.dev
       - name: Record observed deployment identities
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
@@ -190,8 +195,10 @@ jobs:
           CONTAINER_READ_TIMEOUT: "30"
           # The api origin the smoke step above probes: #1695 records the
           # answer a verification seat cannot ask for, because every staging
-          # origin is behind Cloudflare Access.
-          EVIDENCE_API_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
+          # origin is behind Cloudflare Access. #1929 moves the recorded api
+          # origin to the mirror script's own host — the probe must observe
+          # the origin the smoke named.
+          EVIDENCE_API_URL: https://animichi-api-staging.zhenjiazhou0127.workers.dev
         run: |
           bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging

@@ -8,7 +8,7 @@ const read = (relative: string): string =>
 
 const WRANGLER = read("../wrangler.toml");
 const ENTRY = read("../src/entry.ts");
-const ENVIRONMENTS = ["", "env.production.", "env.staging."] as const;
+const ENVIRONMENTS = ["", "env.production.", "env.staging.", "env.api-production.", "env.api-staging."] as const;
 
 /** Every class name any environment binds a Durable Object to. */
 function boundClasses(): string[] {
@@ -31,6 +31,8 @@ void test("retired RunSweeper has no active namespace binding", () => {
 });
 
 void test("AgentSession is bound in every environment, once each", () => {
+  // #1929: the mirror rings (`animichi-api-staging` / `animichi-api`) bind the
+  // same two classes as the rings they mirror.
   const bindings = [...WRANGLER.matchAll(/name = "AGENT_SESSION"\nclass_name = "AgentSession"/g)];
   assert.equal(bindings.length, ENVIRONMENTS.length);
 });

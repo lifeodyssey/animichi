@@ -115,11 +115,12 @@ const declaredEnvironments = (toml: string): string[] =>
 
 void test("the edge declares exactly the environments this contract names", () => {
   assert.deepEqual(declaredEnvironments(read("workers/api/wrangler.toml")),
-    ["env.production", "env.staging"].sort(),
+    ["env.api-production", "env.api-staging", "env.production", "env.staging"].sort(),
     "a new edge environment must join this contract, not escape it; every header " +
     "that names env.<name> counts — [env.x] directly, [env.x.<sub>] and " +
     "[[env.x.<sub>]] through TOML's implicit parent tables — so a sub-table-only " +
-    "environment is counted (#1842)");
+    "environment is counted (#1842; the #1929 mirror rings joined in api-production " +
+    "and api-staging)");
 });
 
 // The header's tail is a comment when the line IS a header: the bare,

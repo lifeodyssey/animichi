@@ -52,8 +52,9 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   does not declare fails there, which is how #1691 shipped a `/catalog/public/*` route the record
   had always assumed.
 - `src/staging-access.ts` — the whole staging front door (D3 #1369): one
-  `ZeroTrustAccessApplication` over `stagingDomain` plus the two `animichi-*-staging`
-  workers.dev origins, a `non_identity` (Service Auth) policy carrying the
+  `ZeroTrustAccessApplication` over `stagingDomain` plus the three `animichi-*-staging`
+  workers.dev origins (the #1929 mirror script's host among them, covered before
+  CD first publishes that script), a `non_identity` (Service Auth) policy carrying the
   `animichi-staging-ci` service token, an `allow` policy built from the
   `stagingAccessAllowedEmails` stack config, the account's `onetimepin`
   identity provider that policy's humans sign in through (an **account-level** object this stack

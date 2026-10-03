@@ -169,7 +169,10 @@ The environment-scoped CD job performs retirement in this order:
 3. Deploy the selected migrator bundle and its `deleted_classes` migration, then wait for the native
    graph and continue the normal database and service chain.
 4. Publish the selected services — the edge bundle among them — so the edge's class deletion is
-   deployed only after its application is gone.
+   deployed only after its application is gone. The #1929 mirror scripts
+   (`animichi-api-staging` / `animichi-api`) publish beside the old edge in the same step; they
+   declare no container and no migration chain, and the retirement step above deletes only the
+   pinned OLD script's application by name, so the step is a no-op against the mirrors.
 
 This order is deliberate. Cloudflare's
 [legacy Durable Object migration guide](https://developers.cloudflare.com/durable-objects/reference/durable-object-class-migrations-legacy/)
@@ -605,11 +608,13 @@ before a request reaches the Worker.
 staging stack, and reads — never declares — the account's identity provider:
 
 - one `ZeroTrustAccessApplication` (`type: "self_hosted"`, `sessionDuration: "24h"`,
-  `appLauncherVisible: false`) whose `destinations` are the three hostnames staging answers on:
-  `staging.animichi.com` and the `animichi-staging` / `animichi-web-staging` workers.dev
-  origins. All three, because CD's smoke probe deliberately uses the workers.dev origins —
-  GitHub-runner IPs get a managed challenge at the zone front door — and a staging surface CI
-  can reach that Access cannot see is the hole (#539) this closes;
+  `appLauncherVisible: false`) whose `destinations` are the four hostnames staging answers on:
+  `staging.animichi.com` and the `animichi-staging` / `animichi-api-staging` /
+  `animichi-web-staging` workers.dev origins. All four, because CD's smoke probe deliberately uses
+  the workers.dev origins — GitHub-runner IPs get a managed challenge at the zone front door — and
+  a staging surface CI can reach that Access cannot see is the hole (#539) this closes;
+  `animichi-api-staging` joined with #1929, and CD applies the topology before it first publishes
+  that script, so the door exists before the script behind it does;
 - a `non_identity` (**Service Auth**) policy including the service token, first in precedence.
   Service Auth is the only decision that answers a service token; under a plain `allow` the CD
   probe is redirected to an identity provider and reads the login page as a broken deploy;
@@ -736,12 +741,20 @@ workflow and no agent runs it — `CD` only ever moves forward (spec §二).
 | users | `users-staging` | `users` |
 | migrator | `migrator-staging` | added by #1365 (`workers/migrator/wrangler.toml` has no `[env.production]` before it) |
 | edge | `animichi-staging` | `animichi` |
+| edge (#1929 mirror) | `animichi-api-staging` | `animichi-api` |
 | web (SSR) | `animichi-web-staging` | `animichi-web` |
 
 The names are `[env.<stage>].name` in `workers/catalog/wrangler.toml`, `workers/users/wrangler.toml`,
 `workers/migrator/wrangler.toml`, `workers/api/wrangler.toml` and `apps/web/wrangler.jsonc`.
 `wrangler rollback` addresses the deployed Worker by name, so always pass `--name` rather than
 relying on a config file and `--env`.
+
+The #1929 mirror rows are the same API code deployed as its own scripts: the old scripts keep the
+zone routes, the mirror serves its own workers.dev host (staging behind Access; production's host
+stays closed and the script serves nothing until a reviewed route cutover). Each mirror declares
+the declarative `exports` lifecycle — only the live `EdgeGuard` and `AgentSession` classes, no
+`migrations` chain, which a brand-new Worker could not replay — and every binding, var and secret
+name the old ring carries, because per-script secrets do not follow a rename.
 
 ### 1. Find the version
 
@@ -795,8 +808,9 @@ never verify a rollback with `versions list` alone.
 
 Then check health on a route that actually exists for that Worker:
 
-- edge: `https://animichi-staging.zhenjiazhou0127.workers.dev/healthz` — the same URL `CD`'s
-  `staging smoke` step probes.
+- edge: `https://animichi-api-staging.zhenjiazhou0127.workers.dev/healthz` — the same URL `CD`'s
+  `staging smoke` step probes (#1929: the mirror script's own host; the old `animichi-staging`
+  host answers too, behind the same Access application).
 - web: `https://animichi-web-staging.zhenjiazhou0127.workers.dev/` — the SSR shell, that step's
   second probe.
 - migrator: `GET $MIGRATOR_STAGING_URL/healthz` (the workflow variable of that name). It answers

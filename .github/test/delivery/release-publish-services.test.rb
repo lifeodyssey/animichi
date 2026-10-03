@@ -26,12 +26,35 @@ class ReleasePublishServicesTest < Minitest::Test
     Open3.capture3(env, "bash", SCRIPT, environment)
   end
 
+  def deploy_call(config, env)
+    ["exec", "wrangler", "deploy", "--no-bundle", "--config", "release/#{config}/wrangler.json", "--env", env, "--tag", "sha-#{SHA}"]
+  end
+
   def test_staging_publishes_every_sealed_service_with_the_selected_source_tag
     _out, error, status = publish("staging")
     assert status.success?, error
-    expected = %w[catalog users api web].map do |unit|
-      ["exec", "wrangler", "deploy", "--no-bundle", "--config", "release/#{unit}/wrangler.json", "--env", "staging", "--tag", "sha-#{SHA}"]
-    end
+    # #1929: the api unit additionally deploys its own workers.dev mirror ring
+    # from the same sealed config — `animichi-api-staging` on staging.
+    expected = [
+      deploy_call("catalog", "staging"),
+      deploy_call("users", "staging"),
+      deploy_call("api", "staging"),
+      deploy_call("api", "api-staging"),
+      deploy_call("web", "staging"),
+    ]
+    assert_equal expected, File.readlines(@calls).map { |line| JSON.parse(line) }
+  end
+
+  def test_production_publishes_the_api_mirror_ring_once_a_promotion_is_approved
+    _out, error, status = publish("production")
+    assert status.success?, error
+    expected = [
+      deploy_call("catalog", "production"),
+      deploy_call("users", "production"),
+      deploy_call("api", "production"),
+      deploy_call("api", "api-production"),
+      deploy_call("web", "production"),
+    ]
     assert_equal expected, File.readlines(@calls).map { |line| JSON.parse(line) }
   end
 

@@ -54,7 +54,7 @@ const SESSION_DURATION = "24h";
 const COMPLETE_ADDRESS = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 /**
- * The two origins that are NOT on the zone, and so were never behind the WAF
+ * The origins that are NOT on the zone, and so were never behind the WAF
  * rule this replaces.
  *
  * These are the literal hostnames `cd.yml`'s smoke job probes (pinned there by
@@ -62,9 +62,17 @@ const COMPLETE_ADDRESS = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
  * than the zone hostname because GitHub-runner IPs get a managed challenge at
  * the zone front door. A staging surface CI can reach and Access cannot see is
  * the hole #539 opened; listing them here is what closes it.
+ *
+ * `animichi-api-staging` is the #1929 mirror script's own host, and it is
+ * deliberately covered BEFORE that script first serves: CD applies this
+ * topology in the same run it publishes the mirror, so the door exists before
+ * the script behind it does. The token that secures all of them keeps its
+ * name — `animichi-staging-ci` is what CI presents, and a rename would break
+ * every caller's credentials.
  */
 const WORKERS_DEV_HOSTS = [
   "animichi-staging.zhenjiazhou0127.workers.dev",
+  "animichi-api-staging.zhenjiazhou0127.workers.dev",
   "animichi-web-staging.zhenjiazhou0127.workers.dev",
 ];
 
