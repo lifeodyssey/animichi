@@ -62,3 +62,57 @@ describe("sanitizeReturnTarget — T14 attack vectors (T8-AC6)", () => {
     expect(sanitizeReturnTarget("/chat /evil")).toBe("/");
   });
 });
+
+/**
+ * #482 residual 1: a dot segment that only appears after percent-decoding slips
+ * the raw `..` check — `/.%2e//evil.test` splits to `["", ".%2e", "", "evil.test"]`
+ * and `new URL()` normalises the decoded `..` back to the rejected `//` shape.
+ * The guard therefore checks the raw value AND its once-decoded form.
+ */
+describe("sanitizeReturnTarget — percent-encoded dot segments (#482)", () => {
+  it.each([
+    "/.%2e//evil.test",
+    "/.%2E//evil.test",
+    "/%2e%2e//evil.test",
+    "/%2E%2E//evil.test",
+    "/a/%2e%2e/b",
+    "/.%2e/evil.test",
+    "/%2e./evil.test",
+    "/..%2f//evil.test",
+  ])("falls back to / when %j hides a dot segment behind percent-encoding", (vector) => {
+    expect(sanitizeReturnTarget(vector)).toBe("/");
+  });
+
+  it("rejects a value whose decode reveals a protocol-relative or backslash shape", () => {
+    expect(sanitizeReturnTarget("/%2f%2fevil.test")).toBe("/");
+    expect(sanitizeReturnTarget("/%5cevil.test")).toBe("/");
+  });
+
+  it("rejects a malformed percent sequence instead of throwing", () => {
+    expect(sanitizeReturnTarget("/%")).toBe("/");
+    expect(sanitizeReturnTarget("/%zz")).toBe("/");
+  });
+
+  it("keeps a percent-encoded path that decodes to something safe", () => {
+    expect(sanitizeReturnTarget("/caf%C3%A9")).toBe("/caf%C3%A9");
+    expect(sanitizeReturnTarget("/chat?q=hello%20world")).toBe("/chat?q=hello%20world");
+  });
+});
+
+/**
+ * #482 residual 3: `hasUnsafeChar` covered C0 + DEL only, while the module
+ * header claimed "no raw whitespace or control characters". C1 controls
+ * (U+0080-U+009F, including NEL) and the Unicode line/paragraph separators
+ * U+2028/U+2029 must fall back, and the header must say what the check does.
+ */
+describe("sanitizeReturnTarget — C1 controls and Unicode separators (#482)", () => {
+  it.each([
+    "/settings\u0085#api-key",
+    "/settings\u0080#api-key",
+    "/settings\u009f#api-key",
+    "/settings\u2028",
+    "/settings\u2029",
+  ])("falls back to / for the non-ASCII control/separator in %j", (vector) => {
+    expect(sanitizeReturnTarget(vector)).toBe("/");
+  });
+});

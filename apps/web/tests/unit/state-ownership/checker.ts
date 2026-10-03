@@ -82,6 +82,7 @@ export const SHARED_UI_FEATURE = "features/auth/ui";
  */
 export const STORAGE_ADAPTERS: readonly string[] = [
   "lib/byok/byok-storage.ts",
+  "lib/auth/save-failure-notice.ts",
   "features/chat/lib/draft-storage.ts",
   "features/chat/save/deferred-save.ts",
   "features/config/lib/theme-storage.ts",
