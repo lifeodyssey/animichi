@@ -32,7 +32,7 @@ class WorkflowVariablesTest < Minitest::Test
   # VITE_TURNSTILE_SITE_KEY) are deliberately absent: a job not bound to that
   # `environment:` reads them as empty, which is the failure this check exists for.
   DEFINED = %w[CLOUDFLARE_ACCOUNT_ID DEFAULT_AGENT_MODEL DOORBELL_STAGING_URL
-               FALLBACK_AGENT_MODEL MIGRATOR_STAGING_URL OPENAI_COMPAT_BASE_URL].freeze
+               FALLBACK_AGENT_MODEL MIGRATOR_STAGING_URL].freeze
 
   def load_document(relative)
     Psych.safe_load(File.read(File.join(ROOT, relative)), aliases: true)

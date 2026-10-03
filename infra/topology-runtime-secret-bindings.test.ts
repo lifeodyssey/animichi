@@ -47,9 +47,6 @@ type Environment = "staging" | "production";
  * production binder — the stack provisions neither there. */
 const RUNTIME_BINDERS: Record<string, Record<Environment, readonly WorkerName[]>> = {
   MIMO_API_KEY: { staging: ["edge"], production: ["edge"] },
-  ZEN_GO_API_KEY: { staging: ["edge"], production: ["edge"] },
-  GOOGLE_MAPS_API_KEY: { staging: ["edge"], production: ["edge"] },
-  LOGFIRE_TOKEN: { staging: ["edge"], production: ["edge"] },
   TURNSTILE_SECRET: { staging: ["edge"], production: [] },
   ANON_ID_SECRET: { staging: ["edge"], production: [] },
   INGEST_SIGNING_KEY: { staging: ["catalog"], production: ["catalog"] },

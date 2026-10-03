@@ -92,7 +92,7 @@ make db-status         # 適用パスと未適用の一覧
 
 **Web（`apps/web`）:** `VITE_NEON_AUTH_BASE_URL`（Better Auth クライアントのログイン元 + JWT 交換）— [`apps/web/.env.example`](apps/web/.env.example)。
 
-**オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
+**オプション：** [`.env.example`](.env.example) を参照。eval レーンの ambient 変数は [`packages/eval/NATIVE.md`](packages/eval/NATIVE.md)。
 
 既定値は [`.env.example`](.env.example) を参照してください。
 

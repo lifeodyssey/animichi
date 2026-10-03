@@ -87,19 +87,11 @@ function deploymentFile(path: string): string {
   return readFileSync(`${ROOT}${path}`, "utf8");
 }
 
-void test("CORS_ALLOWED_ORIGIN is a wrangler var for staging and production (issue #1047)", () => {
-  const staging = blockFor("[env.staging.vars]");
-  const prod = blockFor("[env.production.vars]");
-  assert.equal(hasAssignment(staging, "CORS_ALLOWED_ORIGIN", "https://animichi-web-staging.zhenjiazhou0127.workers.dev"), true, "staging CORS is a wrangler var");
-  assert.equal(hasAssignment(prod, "CORS_ALLOWED_ORIGIN", "https://animichi.com"), true, "production CORS is a wrangler var");
-});
-
-void test("deploy workflows carry neither value as a GitHub secret (issue #1047)", () => {
+void test("cd.yml does not read the JWKS as a GitHub secret (issue #1047)", () => {
   const paths = [".github/workflows/cd.yml"];
   for (const path of paths) {
     const text = deploymentFile(path);
     assert.equal(text.includes("secrets.NEON_AUTH_JWKS_URL"), false, `${path} must not reference secrets.NEON_AUTH_JWKS_URL`);
-    assert.equal(text.includes("secrets.CORS_ALLOWED_ORIGIN"), false, `${path} must not reference secrets.CORS_ALLOWED_ORIGIN`);
   }
 });
 

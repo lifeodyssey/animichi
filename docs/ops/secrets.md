@@ -60,10 +60,15 @@ credential live now:
 repository variable `vars.CLOUDFLARE_ACCOUNT_ID` was created 2026-09-08 and is what the workflows
 read; the GitHub *secret* of the same name is one of the copies awaiting deletion.
 
-`ZEN_GO_API_KEY`'s one remaining declaration is the edge runtime's secret-marked `pulumiConfig`
-reference to its ESC value; the nightly eval that read it under `environmentVariables` was deleted
-with the Python agent (#1607). Provision the reference explicitly; adding the stack import alone
-does not create it.
+The Python-era vendor keys `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY` and
+`LOGFIRE_TOKEN` are retired as deploy-time settings with the Python tree (#1607,
+issue #1750): the edge Worker declares none of them, `runtime-secrets.ts`
+provisions none of them, and no deploy reads them. (The eval lane still reads
+`LOGFIRE_TOKEN` from its own ambient environment — `packages/eval/NATIVE.md`.)
+Their ESC `pulumiConfig` entries and GitHub copies come out after the merge, the
+coordinator's owner-approved step. This paragraph, not a "Referenced by nothing"
+row, is their record: each key's last reference was the ESC `pulumiConfig`
+declaration, so the retirement is recorded here rather than as a table row.
 
 ## Three consumption chains
 
@@ -73,10 +78,9 @@ A secret reaching a shared environment takes one of three shapes:
    the last upload step (`sync-edge-runtime-secrets.sh` piping a JSON object into `wrangler secret
    bulk`, and the `edge-runtime-secrets.py` allowlist it fed): no workflow uploads a runtime secret
    any more, and `cloudflare/wrangler-action`'s `secrets:` input is deliberately unused.
-   The shared names — `MIMO_API_KEY`, `ZEN_GO_API_KEY`,
-   `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN` — are declared
-   by `infra/database-access/runtime-secrets.ts` as native `cloudflare.SecretsStoreSecret`
-   resources. The stack imports `animichi/staging` or `animichi/prod`, and every project-qualified
+   The one shared name left — `MIMO_API_KEY` — is declared
+   by `infra/database-access/runtime-secrets.ts` as a native `cloudflare.SecretsStoreSecret`
+   resource. The stack imports `animichi/staging` or `animichi/prod`, and every project-qualified
    `animichi-neon-secrets:<NAME>` config key is required and secret-marked. Missing or blank
    values fail the program; no resource is silently omitted. Staging uses the base secret names;
    production uses `_PROD` names in the shared store. `INGEST_SIGNING_KEY` is declared by the same
@@ -123,9 +127,10 @@ A secret reaching a shared environment takes one of three shapes:
    2. `workers/edge/src/env.ts` — declare it on `Env` when the Worker reads it.
    3. `deployment.md`'s environment tables (not this file — nothing secret-shaped happened).
 
-`CORS_ALLOWED_ORIGIN` has completed the chain-1 → chain-3 migration for both environments
-(#1047): the value is a checked-in `[env.*.vars]` wrangler var (staging and production alike),
-so it no longer has a Live row here — see its "Referenced by nothing" row below.
+`CORS_ALLOWED_ORIGIN` reached the checked-in `[env.*.vars]` shape with #1047 and then lost its
+last consumer with #1605 (it carried the deleted Python service's allowlist); issue #1750 retired
+the var, so the name is gone from the edge Worker config and has no Live row here — see its
+"Referenced by nothing" row below.
 
 ## Runtime cutover gates (#1370)
 
@@ -133,21 +138,21 @@ These declarations are a candidate, not proof of applied platform changes. Verif
 secret-marked inputs separately for each environment before merging the foundation, then
 complete these gates:
 
-1. Provision the five shared nonempty `animichi-neon-secrets:<NAME>` vendor keys
-   (`MIMO_API_KEY`, `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`, `INGEST_SIGNING_KEY`)
+1. Provision the two shared nonempty `animichi-neon-secrets:<NAME>` vendor keys
+   (`MIMO_API_KEY`, `INGEST_SIGNING_KEY`)
    as `fn::secret` from owner-approved sources; they are the only runtime secrets ESC still
    carries. Anonymous access needs no ESC value: the adopted widget supplies `TURNSTILE_SECRET`
    and the program generates `ANON_ID_SECRET` (#1676). The first apply rotates the staging
    identity seed — an owner-authorized reset, not a continuity-preserving migration. Preserve the
    eval export. Never log or check in values.
-2. Preview staging: seven worker-scoped runtime resources (five owner-set keys, Turnstile,
-   identity); production currently has five. The staging preview must also show the widget as an **import**
+2. Preview staging: four worker-scoped runtime resources (two owner-set keys, Turnstile,
+   identity); production has two. The staging preview must also show the widget as an **import**
    (`cloudflare:index/turnstileWidget:TurnstileWidget` with import id `<account_id>/<sitekey>`),
    never a create or replace — a replaced widget changes the site key committed in
    `apps/web/wrangler.jsonc`. Confirm the enablement flag matches the Worker, expected names, concealed
    values, and existing database/access resources unchanged. Missing config blocks the release.
 3. CD applies foundation before the matching edge artifact; production requires its approval.
-4. Pass staging health/front-door smoke and anonymous chat. Verify all seven staging binding
+4. Pass staging health/front-door smoke and anonymous chat. Verify all four staging binding
    names/ids before removing legacy Worker copies; retain metadata-only removal evidence.
 5. Record the authorized staging MiMo invalid-key → failed turn → restored-key → successful
    turn check. Unit doubles cannot prove platform propagation or rotation.
@@ -160,10 +165,7 @@ rotation evidence.
 
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
-| `ZEN_GO_API_KEY` | ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight |
-| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent | Exact edge core payload → Worker binding → native host model credentials | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
-| `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding for the retired Python agent (#1607) | Exact edge core payload → Worker binding (retained declaration; no consumer) | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure in a local run |
-| `LOGFIRE_TOKEN` | ESC `pulumiConfig`, one project per environment (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
+| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent | Exact edge core payload → Worker binding → native host model credentials | Missing or blank blocks edge staging, production, and rollback at preflight |
 | `INGEST_SIGNING_KEY` | ESC `pulumiConfig`, one ESC key per environment (base / `_PROD` in the shared store), owner-set | **HMAC signing key for the anitabi egress service** (`apps/anitabi-egress`, Fly). The service verifies what the caller signs and the key never crosses the wire, so the same value must exist in Fly — which Pulumi does not manage | Owner-set ESC `animichi-neon-secrets:INGEST_SIGNING_KEY` (`fn::secret`) → native `cloudflare.SecretsStoreSecret` → `workers/catalog/wrangler.toml` binding → `workers/catalog/src/ingest/anitabi-egress.ts` (`.get()`; absent or empty resolves to `undefined` and the fetchers refuse — nothing shape-checks the key) | Missing or blank blocks staging, production, and rollback at preflight, exactly like the vendor keys above — the same required, non-empty stack config. A value Fly does not hold is a 401 on every anitabi fetch — ingest reaches no points at all — so rotate Fly first (the service accepts a current and a previous key, then drops the old one), ESC and the apply after. One Fly app serves both environments, so both ESC values move with that pair |
 | `CEILING_STORE_URL` | `fly secrets` on `animichi-anitabi-egress` only — owner-set, and outside the Pulumi/ESC plane entirely, which is the same asymmetry the row above records for this key's Fly copy (#1812) | **The address of the external counter the egress rate ceiling spends from** (#1810, #1824): the **Private URL** of the Redis `fly redis create` provisions — a `redis` address with the store's own password inside it — holding one integer per clock hour. It is the ONE name for that counter: #1824 retired the separate `CEILING_STORE_TOKEN` along with the HTTPS REST adapter that read it, because a Private URL is the only value the store hands out. No product data, no data-plane credential | Provisioned by the operator (`fly redis create`, primary region `nrt`), then `fly secrets set CEILING_STORE_URL="<the Private URL>" --app animichi-anitabi-egress`; read by `apps/anitabi-egress/src/egress-config.ts`, dialed by `start-egress-server.ts`, spoken to by `redis-tcp-ceiling-store.ts`. Never read by a Worker | **Missing, unreadable, or not a `redis` address → the service refuses every request with `configuration`**, because a ceiling it cannot count is not one: anitabi ingest stops entirely rather than running uncounted. Rotate it alone — nothing else holds the value, so no ordering applies, and a fresh store simply starts a fresh hour's count. A password the store rejects (`NOAUTH`/`WRONGPASS`) is refused, which the service turns into a `ceiling` refusal rather than an upstream one |
 
@@ -190,11 +192,11 @@ and `release-build` environments held no secrets at all, and the `dependabot` sc
 | `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked | gone |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first | gone |
 | `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/edge/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first | gone |
-| `OPENAI_COMPAT_API_KEY` | Read only by the retired Python agent's settings (deleted in #1607) and listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605); **no workflow ever passed it** | No code reads it any more: remove its `workers/edge/wrangler.toml` declaration, then `gh secret delete OPENAI_COMPAT_API_KEY` | gone |
+| `OPENAI_COMPAT_API_KEY` | Read only by the retired Python agent's settings (deleted in #1607) and listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605); **no workflow ever passed it**, and no Worker declares it since issue #1750 | `gh secret delete OPENAI_COMPAT_API_KEY` — no code reads it any more | gone |
 | `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets | gone (both names) |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or edge Worker var references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a server secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to the Worker's declared vars | gone |
 | `GEMINI_API_KEY` | Was Live (this table, above) until #656 (2026-08-04): photo-search recognition moved to the main agent's multimodal input instead of the standalone `GeminiVisionProvider`, and #1604 (2026-09-16) deleted that surface with the `photo_vision` module — so nothing in the edge Worker's declared vars and bindings, `wrangler.toml`, or any workflow reads this name anymore | `gh secret delete GEMINI_API_KEY` — no dependency to check first, the code path it fed no longer exists | gone |
-| `CORS_ALLOWED_ORIGIN` | Was Live (this table, above) until #1047 (2026-08-15): demoted to a checked-in **wrangler var** — `[env.*.vars].CORS_ALLOWED_ORIGIN` in `workers/edge/wrangler.toml` (asserted by `workers/edge/test/auth-config.test.ts`); no workflow forwards `${{ secrets.CORS_ALLOWED_ORIGIN }}` anymore, so any residual GitHub secret (repo-level or `production` environment) is a dead binding | `gh secret delete CORS_ALLOWED_ORIGIN` (repo) and `--env production` if present — the value now lives in the checked-in wrangler vars | `production` only — the repository copy is gone |
+| `CORS_ALLOWED_ORIGIN` | Was Live (this table, above) until #1047 (2026-08-15): demoted to a checked-in **wrangler var** — `[env.*.vars].CORS_ALLOWED_ORIGIN` in `workers/edge/wrangler.toml`. That var had no consumer after #1605 (it reached the deleted Python service only through the container allowlist) and issue #1750 retired it, so the name is gone from the edge Worker config as well; no workflow ever forwarded `${{ secrets.CORS_ALLOWED_ORIGIN }}` | `gh secret delete CORS_ALLOWED_ORIGIN` (repo) and `--env production` if present — nothing in the repository reads the name | `production` only — the repository copy is gone |
 | `NEON_AUTH_JWKS_URL` | Was Live (this table, above) until #1047: the edge's only identity source is now provisioned as a Cloudflare Secrets Store entry (name constant `NEON_AUTH_JWKS_VAR` in `infra/src/neon-auth.ts`, value written by the infra/database-access stack `index.ts`) with the checked-in wrangler var as the dev/placeholder path — no workflow references `${{ secrets.NEON_AUTH_JWKS_URL }}` anymore | `gh secret delete NEON_AUTH_JWKS_URL --env staging` and `--env production` if present — the value now lives in the Cloudflare Secrets Store / wrangler vars | `staging` · `production` |
 | `CLOUDFLARE_PULUMI_API_TOKEN` | Was Live (this table, above) until #1078: the Pulumi-plane Cloudflare token now reaches `pulumi up` from the `animichi/staging` / `animichi/prod` Pulumi ESC environments, injected by `pulumi/esc-action` under the ESC key `CLOUDFLARE_API_TOKEN` after the OIDC login. No workflow, action, or script reads `${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}` any more | Deleting all three copies is #1367's own owner step. The condition this row used to name is met: #1078 (closed 2026-09-05) moved the Pulumi-plane token onto ESC and a CD run has proved that path | repository · `staging` · `production` |
 | `NEON_API_KEY` | Was Live (this table, above) until #1078: the Neon provisioning key for `animichi-neon-secrets` now comes from the same two ESC environments under the same-named ESC key. Its one workflow reference is the `stage` job's staging rebuild (`infra/database-access/reset-staging-baseline.sh`, #1625), where `neonctl` spends it; that step reads it from the ESC step's own output (`steps.esc.outputs.NEON_API_KEY`), not from the export list, and `promote-production` never reads it. A `pulumi up` never reads the name, because both programs construct the Neon provider from the `neonApiKey` stack config (`infra/database-access/index.ts`). `cd-credentials.test.rb` keeps every ESC export list inside the Pulumi plane plus staging's Access pair and pins that exactly that one step holds this name | Same as the row above: deleting the repository copy is #1367's owner step, and the ESC path it waited on landed in #1078 | repository only |
@@ -208,10 +210,10 @@ and `release-build` environments held no secrets at all, and the `dependabot` sc
 | `SUPABASE_SERVICE_ROLE_KEY` | Retired Supabase service-role credential. No source, workflow, release manifest, or runtime reads it | `gh secret delete SUPABASE_SERVICE_ROLE_KEY` | repository |
 
 Deleting is a per-row decision, not a batch one: `GCP_SA_KEY` needs an external check before
-deletion, the one remaining broken chain (`OPENAI_COMPAT_API_KEY`) needs a keep-or-retire
-decision (not a delete) — `ZETA_API_KEY`'s retirement was already decided in #684 (MiMo-only) —
-Mapbox needs a provider-side revocation check, and only `CLAUDE_CODE_OAUTH_TOKEN` is safe to
-delete immediately.
+deletion, `ZETA_API_KEY`'s retirement was already decided in #684 (MiMo-only), Mapbox needs a
+provider-side revocation check, and only `CLAUDE_CODE_OAUTH_TOKEN` is safe to delete immediately.
+`OPENAI_COMPAT_API_KEY` is retired rather than kept-or-deleted: no Worker declares it since
+issue #1750.
 
 ## Staging access: the Cloudflare Access service token (D3 #1369)
 

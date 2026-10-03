@@ -13,8 +13,7 @@ const anonymousAccessEnabled = config.requireBoolean("anonymousAccessEnabled");
 //
 // The vendor keys are the ones whose authority lives OUTSIDE this program, so
 // the operator sets them as secret stack config (ESC `fn::secret`) and they are
-// never generated. "No provider can mint them" was true of the first four and
-// is not the category: INGEST_SIGNING_KEY (#1792) is a value this program could
+// never generated. INGEST_SIGNING_KEY (#1792) is a value this program could
 // mint and must not, because the egress service in Fly — which Pulumi does not
 // manage — holds the copy that counts and verifies what catalog signs.
 // Generating one would make Pulumi a second authority for a value another
@@ -23,8 +22,7 @@ const anonymousAccessEnabled = config.requireBoolean("anonymousAccessEnabled");
 // The two anonymous-access secrets are not config (#1676): TURNSTILE_SECRET is
 // the adopted widget's own secret and ANON_ID_SECRET is generated.
 const vendorNames = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
-  "INGEST_SIGNING_KEY",
+  "MIMO_API_KEY", "INGEST_SIGNING_KEY",
 ];
 
 // ── The account's single Turnstile widget (#1676) ──────────────────────────
