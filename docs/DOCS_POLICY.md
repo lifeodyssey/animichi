@@ -114,6 +114,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Orchestration mechanism (coordinator skill, launcher, reconciler, prompts, setup) | `docs/agents/orchestration.md` → private `lifeodyssey/zdev` | Moved out 2026-09-29; this repository keeps the rules a card must satisfy |
 | Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
 | Repo-wide audit findings (latest) | `docs/specs/2026-09-05-repo-smell-audit.md` | Seven-report smell audit; §4 is the still-open ledger of its predecessor `docs/specs/2026-08-26-system-health-audit.md`, §7 the campaign split |
+| Agent API shape research (2026-10) | `docs/specs/2026-10-04-agent-api-design-research.md` | How Anthropic, the AI platforms, mature vertical agent products and the published guidance shape agent APIs; a consensus table over eleven design questions; the comparison with our /v1 and the proposed split; decisions land in `docs/agents/owner-decisions.md` |
 | Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
 | Iteration specs (live) | `docs/specs/` — 平层只放非 superseded spec(不维护名单;以 superseded 标注与 archive 位为准) | superseded spec 一律入 `docs/archive/specs/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/archive/plans/` | 平层不再新增 plan(iter6 A6/#640) |
