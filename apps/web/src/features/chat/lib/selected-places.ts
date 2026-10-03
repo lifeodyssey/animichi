@@ -1,4 +1,5 @@
-import type { SceneViewpoint } from "./scene-group";
+import type { SceneFrame, SceneViewpoint } from "./scene-group";
+import type { SearchSpot } from "./spot-clusters";
 
 /** Caller-grouped stopping places containing only selected viewpoints. */
 export interface SelectedPlace {
@@ -18,6 +19,29 @@ export interface SelectionEdit {
   readonly places: readonly SelectedPlace[];
   readonly removed: RemovedSelection | null;
   readonly focusId: string | null;
+}
+
+/** Browsing gives one spot id one place with at most one captured frame; the
+ * review list reuses the stable spot id as the place identity (issue #1641). */
+export function toSelectedPlace(spot: SearchSpot): SelectedPlace {
+  const frames: readonly SceneFrame[] = spot.screenshotUrl === undefined ? [] : [{ id: `${spot.id}-frame`, url: spot.screenshotUrl }];
+  const viewpoint: SceneViewpoint = { id: `${spot.id}-scene`, frames };
+  return { id: spot.id, name: spot.name, city: spot.city, viewpoints: [viewpoint] };
+}
+
+/** Review list in the caller's spot order; membership keys on the id, never the index. */
+export function selectedPlacesFromSpots(spots: readonly SearchSpot[], selected: ReadonlySet<string>): readonly SelectedPlace[] {
+  return spots.filter((spot) => selected.has(spot.id)).map(toSelectedPlace);
+}
+
+/** Place ids to flip so `current` becomes `next`; undo re-adds, so both directions flow. */
+export function placeIdToggles(current: readonly SelectedPlace[], next: readonly SelectedPlace[]): readonly string[] {
+  const kept = new Set(next.map((place) => place.id));
+  const known = new Set(current.map((place) => place.id));
+  return [
+    ...current.filter((place) => !kept.has(place.id)).map((place) => place.id),
+    ...next.filter((place) => !known.has(place.id)).map((place) => place.id),
+  ];
 }
 
 function neighborId(places: readonly SelectedPlace[], index: number): string | null {
