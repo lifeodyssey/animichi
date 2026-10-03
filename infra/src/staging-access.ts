@@ -57,10 +57,10 @@ const COMPLETE_ADDRESS = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
  * The origins that are NOT on the zone, and so were never behind the WAF
  * rule this replaces.
  *
- * These are the literal hostnames `cd.yml`'s smoke job probes (pinned there by
- * `.github/test/cd-stage-smoke.test.rb`), and CD probes them rather
- * than the zone hostname because GitHub-runner IPs get a managed challenge at
- * the zone front door. A staging surface CI can reach and Access cannot see is
+ * These are the origins Access must cover, two of which the `cd.yml` smoke
+ * job probes (pinned by `.github/test/cd-stage-smoke.test.rb`) rather than
+ * the zone hostname, because GitHub-runner IPs get a managed challenge at the
+ * zone front door. A staging surface CI can reach and Access cannot see is
  * the hole #539 opened; listing them here is what closes it.
  *
  * `animichi-api-staging` is the #1929 mirror script's own host, and it is

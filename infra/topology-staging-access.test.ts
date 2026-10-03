@@ -66,22 +66,6 @@ test("the application secures the zone hostname AND all three workers.dev origin
   assert.deepEqual([...new Set(destinations.map((destination) => destination.type))], ["public"]);
 });
 
-test("the mirror script's host is a destination, and the service token keeps its name", () => {
-  // #1929: `animichi-api-staging` is reached by CD with the SAME service token
-  // the zone host and the old script's host take. The token's Cloudflare-side
-  // name is what the staging ESC environment exports and every automated
-  // caller presents; renaming it rotates CI's credentials while everything
-  // stays green, so it is pinned again right beside the new host it secures.
-  const app = only(built, APPLICATION);
-  const uris = (app.inputs.destinations as { uri: string }[]).map((d) => d.uri);
-  assert.ok(
-    uris.includes("animichi-api-staging.zhenjiazhou0127.workers.dev"),
-    `the mirror host must be an Access destination, got ${uris.join(", ")}`,
-  );
-  const token = only(built, SERVICE_TOKEN);
-  assert.equal(token.inputs.name, "animichi-staging-ci");
-});
-
 test("the primary domain is itself one of the destinations, and none is path-scoped", () => {
   // Two measured rules from the N4b live probe (2026-09-08). First, the API
   // refuses an application whose `domain` is absent from `destinations` —
