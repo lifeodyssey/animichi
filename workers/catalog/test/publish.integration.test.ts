@@ -10,6 +10,7 @@ import {
   truncateCatalogPool,
   type PlaneSeams,
 } from "./integration-db";
+import { clusterVersionInsert, clusterVersionSeed, runSeed, workSeed } from "./fixtures/catalog-seed";
 
 /**
  * Integration suite for the Publish stage (card W3-1): atomic version switch over
@@ -24,6 +25,9 @@ import {
 let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
+
+/** The work already at int4's ceiling, seeded through the cluster-version builder. */
+const OVERFLOW_WORK = workSeed("910001", "Overflow");
 
 async function currentVersions(workId: string): Promise<number[]> {
   const rows = (
@@ -81,11 +85,9 @@ databaseDescribe("publishVersion atomic version switch over cluster_version", ()
     // at int4's ceiling makes the SECOND statement of the publish fail — after
     // the flip, before the insert. Inside one transaction the flip is discarded;
     // without one the work would be left with no current row at all.
-    await pool.query(
-      "INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('overflow', 2147483647, true)",
-    );
-    await expect(publishVersion(query, "overflow")).rejects.toThrow();
-    expect(await currentVersions("overflow")).toEqual([2147483647]);
+    await runSeed(pool, clusterVersionInsert([clusterVersionSeed(OVERFLOW_WORK, 2147483647, true)]));
+    await expect(publishVersion(query, OVERFLOW_WORK.workId)).rejects.toThrow();
+    expect(await currentVersions(OVERFLOW_WORK.workId)).toEqual([2147483647]);
   });
 });
 
