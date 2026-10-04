@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import test, { type TestContext } from "node:test";
-import { pool } from "./postgres.ts";
+import { pool, dsn, IDENTITY } from "./postgres.ts";
 import { businessWorker, submission } from "./worker.ts";
+import { nativeClient } from "../src/native-client.ts";
+import { readNativeHistory } from "../src/agent/views/history.ts";
 
 /**
  * The production budget is 100 s; the lane shortens it so the bound is verified without waiting it out,
@@ -50,4 +52,11 @@ void test("an abandoned client turn settles inside its budget instead of waiting
   assert.deepEqual(await terminalStatuses(turn.operation_id), ["aborted"]);
   const requests = await worker.dispatchFetch("https://host.test/provider-report", { method: "POST", body: JSON.stringify(submission) });
   assert.deepEqual(await requests.json(), { requests: 1 }, "The budget boundary must stop the turn before a second model request");
+  const db = nativeClient(dsn);
+  try {
+    const history = await readNativeHistory(db, submission.sessionId, IDENTITY, { offset: 0, limit: 100 });
+    assert.ok(history, "the deadline turn's session must stay readable");
+    assert.deepEqual({ status: history.run?.status, reason: history.run?.reason }, { status: "failed", reason: "deadline_exceeded" });
+    assert.ok((history.model_calls?.length ?? 0) > 0, "the deadline turn's usage rows must be returned, not dropped");
+  } finally { await db.close(); }
 });

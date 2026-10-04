@@ -31,8 +31,8 @@ async function curatedTitle(tools: PilgrimageToolContext, title: string, languag
   return translated === "" ? undefined : translated;
 }
 
-function translationResult(original: string, translated: string, source: "catalog" | "llm" | "untranslated", payer?: "platform" | "byok") {
-  const details = { original, translated, source, confidence: { catalog: 1, llm: 0.6, untranslated: 0 }[source], ...(payer ? { payer } : {}) };
+function translationResult(original: string, translated: string, source: "catalog" | "llm" | "untranslated", payer?: "platform" | "byok", identity?: { provider: string; model: string }) {
+  const details = { original, translated, source, confidence: { catalog: 1, llm: 0.6, untranslated: 0 }[source], ...(payer ? { payer } : {}), ...identity };
   return { content: [{ type: "text" as const, text: JSON.stringify(details) }], details };
 }
 
@@ -43,7 +43,8 @@ async function modelTranslation(tools: PilgrimageToolContext, title: string, lan
     messages: [{ role: "user", content: `Translate into ${language}:\n${JSON.stringify(title)}`, timestamp: 0 }] }, { signal });
   signal?.throwIfAborted();
   const translated = translatedText(response);
-  const result = translationResult(title, translated ?? title, translated ? "llm" : "untranslated", payer);
+  const identity = { provider: response.provider, model: response.model };
+  const result = translationResult(title, translated ?? title, translated ? "llm" : "untranslated", payer, identity);
   return { ...result, usage: response.usage };
 }
 

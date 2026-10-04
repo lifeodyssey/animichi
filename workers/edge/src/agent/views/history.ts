@@ -1,15 +1,13 @@
 import { historySteps } from "./history-steps.ts";
 import { historyOperations } from "./history-operations.ts";
-import { ChatResponseDataPart } from "@animichi/contract";
-import type { GetSessionHistoryResponse, SessionHistoryMessage, SessionRunStatus } from "@animichi/contract/session-history-contract";
+import type { GetSessionHistoryResponse, SessionRunStatus } from "@animichi/contract/session-history-contract";
 import { RunFailureReason } from "@animichi/contract/session-history-contract";
 import { NeonStorage } from "@animichi/pi-session-neon";
-import { branchTip, laneState, operationResult, type Entry, type Storage, type Session } from "@earendil-works/pi-agent-core/harness/session";
+import { branchTip, laneState, operationResult, type Session, type Storage, type UsageRow } from "@earendil-works/pi-agent-core/harness/session";
 import { BACKGROUND_CONTEXT, type Context } from "@earendil-works/pi-agent-core/harness/context";
-import { readSelectionEntry } from "@animichi/agent/selection-entry";
 import type { AdmissionDatabase } from "../admission/types.ts";
 import { SecretScrub } from "../egress/secret-scrub.ts";
-import { domainPayload, messageText } from "./public-content.ts";
+import { projectHistory } from "./history-record.ts";
 
 export interface HistoryPage { offset: number; limit: number }
 const scrub = new SecretScrub();
@@ -42,11 +40,17 @@ export async function readHistoryStorage(storage: Storage | Session, page: Histo
   const tip = await storage.getValue(branchTip("main"), context);
   const entries = tip?.value ? await storage.scanBranch({ start: tip.value, order: "oldestFirst" }, context) : [];
   const operations = await historyOperations(storage, entries, context);
-  const all = entries.flatMap((entry) => historyMessage(entry).map((message) => ({ entry,
-    message: { ...message, ...(operations.has(entry.id) ? { operation_id: operations.get(entry.id) } : {}) } })));
+  const record = projectHistory(entries, await usageRows(storage, context), operations, scrub);
+  const visible = record.messages.slice(page.offset, page.offset + page.limit);
   const next = page.offset + page.limit;
-  return { messages: all.slice(page.offset, next).map((item) => item.message), revision: entries.at(-1)?.seq ?? 0,
-    next_offset: all.length > next && next <= 1000 ? next : null, run: await historyRun(storage, context), steps: historySteps(entries, all.slice(page.offset, next).map((item) => item.entry)) };
+  return { messages: visible.map((item) => item.message), revision: entries.at(-1)?.seq ?? 0,
+    next_offset: record.messages.length > next && next <= 1000 ? next : null, run: await historyRun(storage, context),
+    steps: historySteps(entries, visible.map((item) => item.entry)), tool_results: record.toolResults, model_calls: record.modelCalls };
+}
+
+/** A `Session` capability has no usage scan; only a full `Storage` records per-call usage. */
+async function usageRows(storage: Storage | Session, context: Context): Promise<readonly UsageRow[]> {
+  return "scanUsage" in storage ? await storage.scanUsage({ order: "asc" }, context) : [];
 }
 
 async function historyRun(storage: Storage | Session, context: Context): Promise<SessionRunStatus | null> {
@@ -57,30 +61,4 @@ async function historyRun(storage: Storage | Session, context: Context): Promise
   if (!result) return { run_id: id, status: "running" };
   if (result.status === "completed") return { run_id: id, status: "succeeded" };
   return { run_id: id, status: "failed", reason: result.status === "aborted" ? "cancelled" : "internal_error" };
-}
-
-function publicAnswer(details: unknown, timestamp: number): SessionHistoryMessage[] {
-  const parsed = ChatResponseDataPart.safeParse(domainPayload(details));
-  if (!parsed.success) return [];
-  return [{ role: "assistant", content: scrub.text(parsed.data.message ?? ""),
-    response_data: { intent: parsed.data.intent, success: parsed.data.success ?? true }, created_at: new Date(timestamp).toISOString() }];
-}
-
-function historyMessage(entry: Entry): SessionHistoryMessage[] {
-  if (entry.type === "custom") {
-    try { const selected = readSelectionEntry(entry); return selected ? publicAnswer(selected.result.response, entry.timestamp) : []; }
-    catch { return []; }
-  }
-  if (entry.type !== "message") return [];
-  const message = entry.message;
-  if (message.role === "toolResult") return message.toolName === "respond" && !message.isError ? publicAnswer(message.details, entry.timestamp) : [];
-  if (message.role !== "user" && message.role !== "assistant") return [];
-  return proseMessage(message, entry.timestamp);
-}
-
-function proseMessage(message: Extract<import("@earendil-works/pi-agent-core").AgentMessage, { role: "user" | "assistant" }>, timestamp: number): SessionHistoryMessage[] {
-  const calls = message.role === "assistant" ? message.content.filter((part) => part.type === "toolCall") : [];
-  const text = scrub.text(messageText(message));
-  const content = calls.length ? JSON.stringify({ content: text, tool_calls: calls.map((call) => ({ id: call.id, type: "function", function: { name: call.name, arguments: scrub.text(JSON.stringify(call.arguments)) } })) }) : text;
-  return content ? [{ role: message.role, content, created_at: new Date(timestamp).toISOString(), response_data: null }] : [];
 }

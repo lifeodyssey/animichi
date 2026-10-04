@@ -27,7 +27,7 @@ for (const answer of [fauxAssistantMessage(""), fauxAssistantMessage("Failure", 
     provider.setResponses([answer]);
     toolContext.translation = { models, model: provider.getModel(), payer: "byok" };
     const { message } = await executeTool(toolContext, "translate_anime_title", { title: "Title", target_language: "ja" }, [translateAnimeTitle]);
-    assert.deepEqual(message.details, { original: "Title", translated: "Title", source: "untranslated", confidence: 0, payer: "byok" });
+    assert.deepEqual(message.details, { original: "Title", translated: "Title", source: "untranslated", confidence: 0, payer: "byok", provider: "faux", model: "faux-1" });
     assert.ok(message.usage);
     await repo.close(BACKGROUND_CONTEXT);
   });

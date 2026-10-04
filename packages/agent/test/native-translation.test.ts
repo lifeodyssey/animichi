@@ -34,7 +34,7 @@ void test("translation uses native model completion and attributes its exact sup
   const result = entries.find((entry) => entry.type === "message" && entry.message.role === "toolResult");
   assert.ok(result?.type === "message" && result.message.role === "toolResult");
   assert.deepEqual(result.message.usage, { input: 10, output: 2, cacheRead: 0, cacheWrite: 0, reasoning: 0, totalTokens: 12, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } });
-  assert.deepEqual(result.message.details, { original: "君の名は。", translated: "Your Name", source: "llm", confidence: 0.6, payer: "platform" });
+  assert.deepEqual(result.message.details, { original: "君の名は。", translated: "Your Name", source: "llm", confidence: 0.6, payer: "platform", provider: "openai", model: "translate" });
   assert.equal(calls, 1);
   await harness.close(BACKGROUND_CONTEXT);
   await repo.close(BACKGROUND_CONTEXT);

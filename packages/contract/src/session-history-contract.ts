@@ -90,6 +90,65 @@ export const SessionHistoryStep = z.object({
 export type SessionHistoryStep = z.infer<typeof SessionHistoryStep>;
 
 /**
+ * One model call's token and cost accounting (ticket 4 of #1996, #2004).
+ *
+ * The stream's `data-usage` part stays session-cumulative; this shape is the
+ * history read's PER-CALL view of the same `usage` rows pi persists. The field
+ * names are snake_case like every other history field, and `cache_write1h` and
+ * `reasoning` are deliberately absent: the record the browser and the auditor
+ * need is input/output/cache read/cache write/total and the four-way cost.
+ */
+export const SessionUsage = z.object({
+  input: z.number(),
+  output: z.number(),
+  cache_read: z.number(),
+  cache_write: z.number(),
+  total_tokens: z.number(),
+  cost: z.object({
+    input: z.number(),
+    output: z.number(),
+    cache_read: z.number(),
+    cache_write: z.number(),
+    total: z.number(),
+  }),
+});
+export type SessionUsage = z.infer<typeof SessionUsage>;
+
+/**
+ * One model call of one turn: who answered and what it cost (ticket 4, #2004).
+ *
+ * `provider` and `model` are read from the assistant entry the call committed.
+ * A `translate_anime_title` catalog miss spends a supplemental model call whose
+ * usage row hangs on the tool result; that call's identity lives in the tool
+ * result's own details, and the read model reads it from there so no usage row
+ * is ever returned without the model that produced it.
+ */
+export const SessionModelCall = z.object({
+  provider: z.string(),
+  model: z.string(),
+  usage: SessionUsage,
+});
+export type SessionModelCall = z.infer<typeof SessionModelCall>;
+
+/**
+ * One tool's recorded result (ticket 4, #2004). Every tool is returned, not
+ * only `respond`.
+ *
+ * `result` is JSON TEXT for the same reason `SessionHistoryStep.params` is: a
+ * tool's details are arbitrary JSON, and a schema-less object would emit a
+ * `dict[str, object]` into the generated boundary models this repo does not
+ * allow. `respond`'s full data — the whole `ChatResponseDataPart`, not only the
+ * `intent`/`success` the transcript carries — is read out of this text.
+ */
+export const SessionToolResult = z.object({
+  tool_call_id: z.string(),
+  tool_name: z.string(),
+  is_error: z.boolean(),
+  result: z.string(),
+});
+export type SessionToolResult = z.infer<typeof SessionToolResult>;
+
+/**
  * The `GET /v1/conversations/{id}/messages` payload (SESSION-1 #959).
  *
  * `run` is additive (W1-5 #1254): `null` when the session has never opened a
@@ -105,6 +164,12 @@ export type SessionHistoryStep = z.infer<typeof SessionHistoryStep>;
  * pairing a call with its settled params never has to guess which run answered
  * it. Same two absent shapes — null from the Python route, missing from every
  * payload recorded before it existed.
+ *
+ * `tool_results` and `model_calls` are additive on those same terms (ticket 4
+ * of #1996, #2004): the complete per-turn record the transcript alone cannot
+ * carry. They are whole-session arrays, not page-scoped, because an auditor
+ * reads the turn, not the page. `messages` keeps every field it had, so the web
+ * app's history view is untouched.
  */
 export const GetSessionHistoryResponse = z.object({
   messages: z.array(SessionHistoryMessage),
@@ -112,6 +177,8 @@ export const GetSessionHistoryResponse = z.object({
   next_offset: z.number().int().nonnegative().nullable(),
   run: SessionRunStatus.nullable().optional(),
   steps: z.array(SessionHistoryStep).nullable().optional(),
+  tool_results: z.array(SessionToolResult).nullable().optional(),
+  model_calls: z.array(SessionModelCall).nullable().optional(),
 });
 export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
 
