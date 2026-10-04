@@ -1,4 +1,5 @@
 import type { AuthFailure } from "../identity/auth.ts";
+import { classify } from "./request-class.ts";
 
 /**
  * The ONE envelope every edge rejection answers in (EG-05, issue #1343):
@@ -34,13 +35,19 @@ export function credentialsRequired(): Response {
  * #441 itself only surfaced through anomalous anonymous spend. Its inverse — a
  * 401 storm from a mis-issued or mis-refreshed token — must not be equally
  * invisible, so every `invalid` verdict is counted at the edge. The token, the
- * header and the identity are deliberately absent from the record. */
-function logInvalidCredential(pathname: string): void {
-  console.warn(JSON.stringify({ event: "edge_auth_invalid_credential", path: pathname }));
+ * header and the identity are deliberately absent from the record, and so is
+ * the path (#2002): it carries a session id, so the record names the route
+ * class and the failure reason instead. */
+function logInvalidCredential(request: Request): void {
+  console.warn(JSON.stringify({
+    event: "edge_auth_invalid_credential",
+    class: classify(request).kind,
+    reason: "invalid",
+  }));
 }
 
-export function unauthorized(pathname: string): Response {
-  logInvalidCredential(pathname);
+export function unauthorized(request: Request): Response {
+  logInvalidCredential(request);
   return credentialsRequired();
 }
 
@@ -56,10 +63,16 @@ const VERIFICATION_RETRY_AFTER_SECONDS = 30;
 /** Structured, credential-free record of a credential we could not check
  * (issue #452). Its 401 sibling counts a 401 storm; this one exists so that the
  * other thing which produces one — the JWKS being unreachable — is not read as
- * the same event. `detail` says which acquisition failure it was, and no token,
- * header or identity is anywhere near it. */
-function logVerificationUnavailable(pathname: string, detail: string): void {
-  console.warn(JSON.stringify({ event: "edge_auth_verification_unavailable", path: pathname, detail }));
+ * the same event. `detail` says which acquisition failure it was, the class and
+ * reason say where it happened, and no path (it carries a session id, #2002),
+ * token, header or identity is anywhere near it. */
+function logVerificationUnavailable(request: Request, detail: string): void {
+  console.warn(JSON.stringify({
+    event: "edge_auth_verification_unavailable",
+    class: classify(request).kind,
+    reason: "unverifiable",
+    detail,
+  }));
 }
 
 /** The credential could not be CHECKED (issue #452): the key set the verdict
@@ -69,8 +82,8 @@ function logVerificationUnavailable(pathname: string, detail: string): void {
  * `WWW-Authenticate` challenge goes out: the credential was never shown to be
  * bad. Built beside `rateLimitedResponse` rather than through `gatewayRejection`
  * for the same reason — it extends the envelope with a header, not a field. */
-export function verificationUnavailable(pathname: string, detail: string): Response {
-  logVerificationUnavailable(pathname, detail);
+export function verificationUnavailable(request: Request, detail: string): Response {
+  logVerificationUnavailable(request, detail);
   const error = { code: "verification_unavailable", message: VERIFICATION_UNAVAILABLE_MESSAGE };
   return new Response(JSON.stringify({ error }), {
     status: 503,
@@ -84,9 +97,8 @@ export function verificationUnavailable(pathname: string, detail: string): Respo
  * re-authenticates. Shared by the gateway's three credential sites and the agent
  * tier's ladder so the three reasons cannot drift apart between them. */
 export function authenticationRejection(request: Request, auth: AuthFailure): Response {
-  const { pathname } = new URL(request.url);
-  if (auth.reason === "unverifiable") return verificationUnavailable(pathname, auth.detail);
-  return auth.reason === "invalid" ? unauthorized(pathname) : credentialsRequired();
+  if (auth.reason === "unverifiable") return verificationUnavailable(request, auth.detail);
+  return auth.reason === "invalid" ? unauthorized(request) : credentialsRequired();
 }
 
 /** Showcase-mode denial (S0-v2 GOAL C / C9): in showcase mode the edge

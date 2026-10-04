@@ -146,7 +146,8 @@ void test("an invalid credential is recorded so a 401 storm is visible", async (
   }
   const records = warnings.map((line) => JSON.parse(line) as { event: string; path?: string });
   const record = records.find((entry) => entry.event === "edge_auth_invalid_credential");
-  assert.deepEqual(record, { event: "edge_auth_invalid_credential", path: "/v1/chat" });
+  assert.deepEqual(record, { event: "edge_auth_invalid_credential", class: "v1", reason: "invalid" });
+  assert.equal(Object.hasOwn(record, "path"), false, "a path carries a session id and must not be logged");
 });
 
 void test("an absent credential reaches the native tier with anonymous identity", async () => {

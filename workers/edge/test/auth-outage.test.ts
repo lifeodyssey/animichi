@@ -181,7 +181,10 @@ void test("an outage is recorded so it is not read as a 401 storm", async () => 
   }
   const records = warnings.map((line) => JSON.parse(line) as { event: string });
   const outage = records.find((entry) => entry.event === "edge_auth_verification_unavailable");
-  assert.deepEqual(outage, { event: "edge_auth_verification_unavailable", path: "/v1/chat", detail: "status 500" });
+  assert.deepEqual(outage, {
+    event: "edge_auth_verification_unavailable", class: "v1", reason: "unverifiable", detail: "status 500",
+  });
+  assert.equal(Object.hasOwn(outage, "path"), false, "a path carries a session id and must not be logged");
   assert.equal(
     records.find((entry) => entry.event === "edge_auth_invalid_credential"), undefined,
     "an outage must not be counted as a rejected credential",
