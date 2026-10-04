@@ -6,7 +6,7 @@ class CdStageSmokeTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CD_FILE = File.join(ROOT, ".github", "workflows", "cd.yml")
   SMOKE_PROBE = "bash .github/scripts/staging-smoke-check.sh"
-  SMOKE_SURFACES = ["https://animichi-staging.zhenjiazhou0127.workers.dev",
+  SMOKE_SURFACES = ["https://animichi-api-staging.zhenjiazhou0127.workers.dev",
                     "https://animichi-web-staging.zhenjiazhou0127.workers.dev"].freeze
   SMOKE_ESCAPES = ["|| true", "set +e", %w[continue on error].join("-")].freeze
   DEFAULT_SUCCESS = ["${{ success() }}", "success()"].freeze

@@ -9,7 +9,7 @@ class CdPostDeployEvidenceTest < Minitest::Test
   SEAT_FILE = File.join(ROOT, '.github/workflows/verify-deploy-evidence.yml')
   RECORDER = 'node .github/scripts/release/record-evidence.mjs staging'
   VERIFIER = 'node .github/scripts/release/verify-evidence.mjs'
-  SMOKE_API = 'https://animichi-staging.zhenjiazhou0127.workers.dev'
+  SMOKE_API = 'https://animichi-api-staging.zhenjiazhou0127.workers.dev'
   ESC_KEYS = %w[CLOUDFLARE_API_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET].freeze
 
   def setup

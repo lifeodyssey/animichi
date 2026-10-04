@@ -47,16 +47,20 @@ test("staging mints the one Access service token CI presents at the front door",
   assert.equal(token.inputs.duration, "8760h");
 });
 
-test("the application secures the zone hostname AND both workers.dev origins", () => {
+test("the application secures the zone hostname AND all three workers.dev origins", () => {
   // The load-bearing assertion of this card. #539 is exactly this list going
-  // short: a WAF rule could only ever see the zone hostname, so the two origins
+  // short: a WAF rule could only ever see the zone hostname, so the origins
   // CD actually smoke-tests answered anybody. Dropping one here leaves a green
-  // apply, a green smoke and an open staging.
+  // apply, a green smoke and an open staging. #1929 adds the mirror script's
+  // own host, and the order matters: CD applies the topology in the same run
+  // it first publishes `animichi-api-staging`, so the door exists before the
+  // script behind it serves.
   const app = only(built, APPLICATION);
   const destinations = app.inputs.destinations as { type: string; uri: string }[];
   assert.deepEqual(destinations.map((destination) => destination.uri), [
     "staging.animichi.com",
     "animichi-staging.zhenjiazhou0127.workers.dev",
+    "animichi-api-staging.zhenjiazhou0127.workers.dev",
     "animichi-web-staging.zhenjiazhou0127.workers.dev",
   ]);
   assert.deepEqual([...new Set(destinations.map((destination) => destination.type))], ["public"]);

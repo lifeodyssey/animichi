@@ -632,3 +632,206 @@ name = "RATE_LIMITER"
 # namespace_id share one global counter (intentional cross-Worker sharing).
 namespace_id = "100001"
 simple = { limit = 60, period = 60 }
+
+# ── #1929: the API also runs as its own script beside the old one ───────────
+# The two rings below deploy the SAME entry as separate Workers: the old
+# `animichi-staging` / `animichi` scripts keep the zone routes (Pulumi owns
+# them), while `animichi-api-staging` / `animichi-api` serve their own
+# workers.dev hosts. Staging's host sits behind the same Cloudflare Access
+# application (#1369): `infra/src/staging-access.ts` names the host among its
+# destinations, and CD applies the topology before publishing the services, so
+# the door exists before the script behind it does (#539).
+#
+# Per-script secrets do not follow a rename and a brand-new Worker replays no
+# history, so every binding, var and secret the old rings carry is declared
+# again below under the same binding names — a missing one would start the new
+# script without a credential the old one held. The Durable Object lifecycle
+# uses the declarative `exports` form: the new scripts never exported
+# `RuntimeContainer` or `RunSweeper`, so the v1–v6 migration chain must not be
+# replayed, and `exports` is mutually exclusive with `migrations` — the empty
+# `migrations = []` below stops the ring from inheriting the top-level chain
+# (wrangler merges rings over the top level; an undeclared array inherits).
+# The form is one-way for these scripts; the old rings keep their chain.
+
+[env.api-staging]
+name = "animichi-api-staging"
+# Same posture as [env.staging]: the workers.dev host is on (owner decision
+# 2026-08-27, behind Access since #1369) and per-version preview URLs stay
+# closed — a preview URL is a hostname nobody added to any Access application.
+workers_dev = true
+preview_urls = false
+# See the #1929 note above: a brand-new Worker cannot replay v1–v6, and the
+# declarative `exports` form refuses to coexist with any migration.
+migrations = []
+
+[env.api-staging.exports]
+EdgeGuard = { type = "durable-object", storage = "sqlite" }
+AgentSession = { type = "durable-object", storage = "sqlite" }
+
+[[env.api-staging.services]]
+binding = "CATALOG"
+service = "catalog-staging"
+
+[[env.api-staging.services]]
+binding = "USERS"
+service = "users-staging"
+
+[[env.api-staging.r2_buckets]]
+binding = "MAP_TILES"
+bucket_name = "map-tiles-staging"
+
+[[env.api-staging.r2_buckets]]
+binding = "DOCS_ASSETS"
+bucket_name = "docs-assets-staging"
+
+[[env.api-staging.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
+[[env.api-staging.durable_objects.bindings]]
+name = "AGENT_SESSION"
+class_name = "AgentSession"
+
+[env.api-staging.vars]
+APP_ENV = "staging"
+CATALOG_API_URL = "http://catalog.internal"
+EDGE_SHOWCASE_MODE = "false"
+CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
+ANON_ACCESS_ENABLED = "true"
+# Same branch JWKS as [env.staging.vars]: browser and edge cannot silently
+# target different branches, and neither can the old script and this one.
+NEON_AUTH_JWKS_URL = "https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+ANON_DAILY_COST_BUDGET_USD = "5.0"
+ANON_DAILY_MESSAGE_QUOTA = "20"
+AUTH_RATE_LIMIT = "60"
+AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "MIMO_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "MIMO_API_KEY"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "ZEN_GO_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "ZEN_GO_API_KEY"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "GOOGLE_MAPS_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "GOOGLE_MAPS_API_KEY"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "LOGFIRE_TOKEN"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "LOGFIRE_TOKEN"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "TURNSTILE_SECRET"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "TURNSTILE_SECRET"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "ANON_ID_SECRET"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "ANON_ID_SECRET"
+
+[[env.api-staging.secrets_store_secrets]]
+binding = "AGENT_SVC_DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "AGENT_SVC_DATABASE_URL"
+
+[[env.api-staging.ratelimits]]
+name = "RATE_LIMITER"
+# Distinct from every other binding on the account (100001–100005), so this
+# script's counters stay its own: sharing a namespace_id would share one
+# global counter across the two scripts (see the [[ratelimits]] note above).
+namespace_id = "100004"
+simple = { limit = 60, period = 60 }
+
+[env.api-production]
+name = "animichi-api"
+# Same posture as [env.production] (#1524): no workers.dev host — production
+# has no Access application, so an open subdomain host would be the public
+# exposure #539/#1524 closed — and no preview URLs. The script serves nothing
+# until a reviewed route cutover points zone traffic at it.
+workers_dev = false
+preview_urls = false
+migrations = []
+
+[env.api-production.exports]
+EdgeGuard = { type = "durable-object", storage = "sqlite" }
+AgentSession = { type = "durable-object", storage = "sqlite" }
+
+[[env.api-production.services]]
+binding = "CATALOG"
+service = "catalog"
+
+[[env.api-production.services]]
+binding = "USERS"
+service = "users"
+
+[[env.api-production.r2_buckets]]
+binding = "MAP_TILES"
+bucket_name = "map-tiles"
+
+[[env.api-production.r2_buckets]]
+binding = "DOCS_ASSETS"
+bucket_name = "docs-assets"
+
+[[env.api-production.durable_objects.bindings]]
+name = "EDGE_GUARD"
+class_name = "EdgeGuard"
+
+[[env.api-production.durable_objects.bindings]]
+name = "AGENT_SESSION"
+class_name = "AgentSession"
+
+[env.api-production.vars]
+APP_ENV = "production"
+CATALOG_API_URL = "http://catalog.internal"
+EDGE_SHOWCASE_MODE = "true"
+CORS_ALLOWED_ORIGIN = "https://animichi.com"
+ANON_ACCESS_ENABLED = "false"
+ANON_RATE_LIMIT = "20"
+ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+ANON_DAILY_COST_BUDGET_USD = "5.0"
+ANON_DAILY_MESSAGE_QUOTA = "20"
+AUTH_RATE_LIMIT = "60"
+AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
+
+# Same shared Secrets Store as [env.production], under the same "_PROD" names
+# (W4-1 #1314): the account plan refuses a second store, so the secret NAMES
+# separate the environments while the binding names stay identical.
+[[env.api-production.secrets_store_secrets]]
+binding = "MIMO_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "MIMO_API_KEY_PROD"
+
+[[env.api-production.secrets_store_secrets]]
+binding = "ZEN_GO_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "ZEN_GO_API_KEY_PROD"
+
+[[env.api-production.secrets_store_secrets]]
+binding = "GOOGLE_MAPS_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "GOOGLE_MAPS_API_KEY_PROD"
+
+[[env.api-production.secrets_store_secrets]]
+binding = "LOGFIRE_TOKEN"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "LOGFIRE_TOKEN_PROD"
+
+[[env.api-production.secrets_store_secrets]]
+binding = "AGENT_SVC_DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "AGENT_SVC_DATABASE_URL_PROD"
+
+[[env.api-production.ratelimits]]
+name = "RATE_LIMITER"
+# Distinct from every other binding on the account (100001–100005).
+namespace_id = "100005"
+simple = { limit = 60, period = 60 }
