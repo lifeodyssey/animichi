@@ -57,6 +57,7 @@ export const MAP_PRIMITIVE_EDGES: readonly string[] = [
   "features/chat/components/SearchMap.tsx -> features/bubble-map/bubble-geometry",
   "features/chat/components/SearchMap.tsx -> features/bubble-map/bubble-map-controller",
   "features/chat/components/SearchResult.tsx -> features/bubble-map/bubble-map-controller",
+  "features/chat/components/SelectionJourney.tsx -> features/bubble-map/bubble-map-controller",
   "features/bubble-map/bubble-map-controller.ts -> features/map-spike/map-style",
   "features/bubble-map/bubble-map-controller.ts -> features/maplibre/maplibre-adapter",
   "features/map-spike/map-controller.ts -> features/maplibre/maplibre-adapter",

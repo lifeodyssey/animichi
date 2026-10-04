@@ -5,7 +5,6 @@ import type { LocatedSpot, SpotCluster } from "../lib/spot-clusters";
 import { bubbleRadius, circlesMaxCount } from "../../bubble-map/bubble-geometry";
 import type { BubblePlacement, PointPlacement } from "../../bubble-map/bubble-geometry";
 import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubble-map-controller";
-import { attachBasemap } from "../../bubble-map/bubble-map-controller";
 import { clusterName, spotCountBadge } from "../search-copy";
 import type { ChatDict } from "../i18n";
 import { MapFallback } from "./ErrorStates/MapFallback";
@@ -13,9 +12,6 @@ import { useAutoFocus } from "./use-auto-focus";
 
 /** Injectable mount so tests (and D7 simulations) never touch WebGL. */
 export type AttachBasemap = (options: MountBasemapOptions) => () => void;
-
-/** Chat's shared default mount, re-exported so chat surfaces need no cross-feature import. */
-export { attachBasemap };
 
 export interface Basemap {
   readonly ref: RefObject<HTMLDivElement | null>;

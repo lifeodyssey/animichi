@@ -90,7 +90,9 @@ export const ReviewList: Story = {
     await userEvent.click(canvas.getByRole("button", { name: copy.summary.review }));
     await expect(canvas.getByRole("heading", { name: copy.list.title })).toBeTruthy();
     await userEvent.click(canvas.getByRole("button", { name: `${copy.list.removePlace}: ${LONG}` }));
-    await expectCount(canvasElement, copy.list.removed.replace("{name}", ""));
+    // Review view exposes two role="status" nodes (header count + undo banner);
+    // assert the undo banner by its exact message instead of the ambiguous role.
+    await expect(canvas.getByText(copy.list.removed.replace("{name}", LONG))).toBeTruthy();
   },
 };
 
