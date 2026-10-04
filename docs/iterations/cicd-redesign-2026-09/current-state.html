@@ -406,7 +406,7 @@
       <div class="arr">+</div>
       <div class="box grow" title="~/.claude/hooks/check-pr-comments.sh（2026-10-04 重写，原行号已失效） docs/ops/review-gate.md （cicd-map.md §5.9）">
         <span class="badge">⑤</span>
-        <div class="t">全局 hook <code>~/.claude/hooks/check-pr-comments.sh</code>（user-scope，不在仓库里）</div>
+        <div class="t">全局 hook <code>~/.claude/hooks/check-pr-comments.sh</code>（user-scope，不在仓库里；下列是 2026-10-04 重写前的规则，现行规则见 <code>docs/ops/review-gate.md</code>）</div>
         <ul>
           <li><code>PreToolUse</code> 拦截任何含 <code>gh pr merge</code> 的 Bash 调用，用 Python <code>shlex</code> 解析真实 argv（URL / 任意顺序的 flag 都能认出 PR 号），不满足条件即 <code>exit 2</code></li>
           <li><b>600 秒防抢跑窗口</b>：PR 年龄 &lt; 600s 时，必须已有 <code>qodo</code>/<code>coderabbit</code>/<code>sonar</code> 的 review 或评论</li>
@@ -415,7 +415,7 @@
           <li><b>findings ACK</b>：OWNER/MEMBER/COLLABORATOR 的顶层评论含 <code>线程判定</code>/<code>findings triaged</code>/<code>评论判定</code>/<code>toplevel triaged</code> 才算认领，且<b>时间戳必须新于最新 bot 活动</b>（<code>ACK_FRESH</code>，堵死 stale-ACK 绕过）；无新鲜 ACK 时再查 qodo <code>Bugs (N)</code>/<code>Rule violations (N)</code>（N≥1）与 SonarCloud <code>Quality Gate Failed</code>，命中则逐条列出待办并阻断</li>
           <li>任何 GitHub API 读取失败一律 fail-closed</li>
         </ul>
-        <span class="cite">check-pr-comments.sh:43-97,116-158,160-216,218-256,258-320,322-352 · docs/ops/review-gate.md:18-20</span>
+        <span class="cite">check-pr-comments.sh（2026-10-04 重写前的版本） · docs/ops/review-gate.md</span>
       </div>
     </div>
   </div>
