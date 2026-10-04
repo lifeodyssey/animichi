@@ -95,3 +95,32 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
    tool-result-parsing literature agree). The TS tier delimits web-search results
    (`packages/agent/src/web-search-results.ts`) and has no detection layer; a new free-text tool
    brings its own guard.
+
+## Model request prefix stability (#546, 2026-10-02)
+
+Chapter 2's KV-cache discipline above is now machine-checked. The prefix is the leading system
+message's prompt plus its tool declarations, in the order `createPilgrimageHarness` advertises
+them. `packages/agent/src/native-request-prefix.ts` replays the transcript a provider actually
+received (`requestPrefixOf`), serializes it (`serializePrefix`), and names every drift
+(`prefixDrift`, `assertPrefixStable`); `assertPrefixPinned` compares a sent prefix to the production
+advertisement. The guard runs in `packages/agent/test/native-request-prefix.test.ts` (timestamp,
+session id, request id, tool reorder and declaration mutations) and
+`packages/agent/test/native-prefix-drift.test.ts` (two turns of one session; two sessions under
+different mocked clocks, locales and ids).
+
+Every prefix-instability source audited, with its location and disposition:
+
+| Source | Location | Disposition |
+| --- | --- | --- |
+| System prompt | `packages/agent/src/native-configuration.ts:2` | Fixed: a constant with no clock, session or request value; `assertPrefixPinned` fails when it moves. |
+| Advertised tool order | `packages/agent/src/native-tools.ts:16` and `packages/agent/src/harness.ts:15` | Fixed: one tuple literal, never object-key or set iteration; `NATIVE_TOOL_ORDER` is the order the harness advertises. |
+| Eval tool-order provenance | `packages/eval/src/native/prefix-cases.ts` (`productionToolNames`) | Fixed: reads `NATIVE_TOOL_ORDER`, so recorded provenance cannot drift from the harness. |
+| `transform_context` tail | `packages/agent/src/native-context-hooks.ts:12-16` | Declined as prefix drift: the hook returns only `messages`; the appended `agent_status` user message and the frozen-summary substitution of prior tool results come after the stable transcript. The two-turn test asserts append-only growth and a summary equal to the tool result's declared `frozenSummary`. |
+| Per-operation tool settings | `workers/edge/src/agent/host/operation-tool-settings.ts:28-36` | Declined: the operation scalar changes `PilgrimageToolContext` (`locale`, `origin`, translation models), never the advertised tool list or prompt. |
+| Per-session composition | `workers/edge/src/agent/host/native-bootstrap.ts:35` | Declined: `compose` supplies models and tool context; the prompt and the tools come from the shared `NATIVE_AGENT_OPTIONS` and `createPilgrimageHarness`. |
+| BYOK model swap | `workers/edge/src/agent/host/native-models.ts` (`nativeByokModels`) | Declined: a BYOK credential changes the model and transport, not the request prefix. |
+| Translation sub-request | `packages/agent/src/translate-anime-title.ts:42` | Declined: its own short system prompt belongs to a separate `completeSimple` call, not the main transcript prefix. |
+| Entry timestamps and ids | system-message construction | Declined: the leading system message carries `timestamp: 0`; entry, tool-result and operation ids live after the prefix, and the guard allows only appended messages or a declared frozen summary. |
+
+Not measured here: the production cache hit rate and each provider's caching semantics. They need
+production telemetry access and stay with the owner.
