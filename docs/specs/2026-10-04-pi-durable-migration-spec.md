@@ -22,7 +22,8 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 4. 它依赖 pi-ai ^1.0.2，harness 依赖 pi-ai 0.99。同一个包里两份 pi-ai，`Model`、`AssistantMessage` 这些类型就对不上，
    所以迁移很可能没法一个包一个包地合进 main。
 5. 我们的 session 存储今天被几条路径不经 harness 直接读：历史、重连流、结算；eval 的进程内任务直接用 harness 的
-   内存 repo。换存储会牵动这些读。
+   内存 repo，prefix 数据集的录制和回放经 `NodeExecutionEnv` 用 harness 的 `JsonlSessionRepo`，冻结的 prefix 语料
+   就是这种 JSONL 会话（header 带 harness 的 `storageVersion`）。换存储会牵动这些读。
 
 ## 方案
 
@@ -124,7 +125,8 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 1. 存储：owner 选定的路线（Neon 后端和它的一致性套件，或 `PiHarness` 的 SQLite 加同步到 Neon 的记录）；历史、重连流、
    结算的读路径换到新的记录形状；`agents` 升到含 `PiHarness` 的版本。
 2. agent 的构造：工具换成 pi-durable 的工具形状，逐工具的重放语义按下面的映射搬过去，hooks 和 prompt 跟着换；eval 的进程内任务换成 pi-durable 的内存
-   存储。
+   存储，prefix 数据集的录制和回放换到 pi-durable 的存储；冻结的 prefix 语料是转换还是重录，票里写明，并证明回放出的
+   状态和迁移前一样。
 3. edge 的宿主：路线 (a)、(b) 时 `SessionAgent` 经 `PiHarness` 用 pi-durable 的 `Harness`；路线 (b′) 时直接用
    `Harness.open`，并自建唤醒；业务层经一层适配接 `PiHarness` 的 `submit`、
    `events()`、`abort`，以及 pi-durable 层的 usage；platform spec 里碰 pi 的两处跟着换（见下）。
@@ -163,6 +165,7 @@ pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的�
 | staging 的 api-test lane | 迁移后的部署上，一轮对话照常完成 | `workers/edge/api-test` 的 agent-turn |
 | e2e 聊天旅程 | 网页上的聊天、断线重连和历史和迁移前一样 | `e2e/` 的 `web-chat-*` 用例 |
 | eval 的配对比较 | 同一份冻结数据集，迁移前后的 pass^k 配对比较不显示退步 | `packages/eval` 的 pass^k |
+| eval 的 prefix 录制与回放 | 冻结的 prefix 语料迁移后回放出和迁移前一样的状态，录制照常 | `packages/eval` 的 `native-prefix-*` 测试 |
 
 - 每张迁移票先写"会怎么坏"，再写红测试，再实现，再做变异测试。
 
