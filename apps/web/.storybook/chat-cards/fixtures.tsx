@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ChatActionsProvider } from "../../src/features/chat/ChatActions";
 import type { ChatActions } from "../../src/features/chat/ChatActions";
 import type { AttachBasemap } from "../../src/features/chat/components/SearchMap";
+import { pointPlacements } from "../../src/features/bubble-map/bubble-geometry";
 import { SpotSelectionProvider } from "../../src/features/chat/selection/use-spot-selection";
 import type { SpotSelection } from "../../src/features/chat/selection/use-spot-selection";
 import type { LocatedSpot, SearchSpot } from "../../src/features/chat/lib/spot-clusters";
@@ -19,6 +20,13 @@ export const attachFailedBasemap: AttachBasemap = ({ onStatus }) => {
   return () => undefined;
 };
 
+/** Projected-stub basemap: the real placement math, no WebGL; composed journeys stay deterministic. */
+export const attachProjectedBasemap: AttachBasemap = ({ points, onProject, onStatus }) => {
+  onProject?.(pointPlacements(points));
+  onStatus("ready");
+  return () => undefined;
+};
+
 export const ujiSpots: readonly SearchSpot[] = [
   { id: "uji-bridge", name: "宇治橋", screenshotUrl: "/images/landing/route-uji.webp", ep: 8, city: "宇治市", coord: { lat: 34.893, lng: 135.8077 } },
   { id: "keihan-uji", name: "京阪宇治駅", ep: 5, city: "宇治市", coord: { lat: 34.8945, lng: 135.8079 } },
@@ -28,6 +36,13 @@ export const ujiSpots: readonly SearchSpot[] = [
 export const tokyoSpots: readonly SearchSpot[] = [
   { id: "suga", name: "須賀神社 男坂", screenshotUrl: "/images/landing/suga-shrine-reality-perspective-v2.webp", ep: 1, city: "新宿区", coord: { lat: 35.685, lng: 139.72 } },
   { id: "yotsuya", name: "四ツ谷駅", ep: 1, city: "新宿区", coord: { lat: 35.686, lng: 139.73 } },
+];
+
+/** #1641 journey fixtures: two far-apart regions and one long place name, all located. */
+export const journeySpots: readonly SearchSpot[] = [
+  ...ujiSpots,
+  { id: "suga", name: "須賀神社 男坂（新宿区須賀町の長い石段）", screenshotUrl: tokyoSpots[0]?.screenshotUrl, ep: 1, city: "新宿区", coord: tokyoSpots[0]?.coord },
+  { id: "yotsuya", name: "四ツ谷駅", ep: 1, city: "新宿区", coord: tokyoSpots[1]?.coord },
 ];
 
 export const routeStations = ujiSpots as readonly LocatedSpot[];
