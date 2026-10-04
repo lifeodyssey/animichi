@@ -175,11 +175,14 @@ pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的�
 | 存储一致性套件（owner 选路线 (b) 或 (b′) 时） | 新后端过 pi-durable 的 `registerStorageConformance` 和两个 Durable Object 同时写的隔离用例；迁移前 pi-session-neon 跑的是老 harness（0.87.1 起、#1995 后在 0.99.2）的那套 | `packages/pi-session-neon` 的 `storage-conformance.db.test.ts`、`repo-conformance.db.test.ts` |
 | Neon 投影（owner 选路线 (a) 时） | 三个崩溃点之后投影等于从 Pi 存储重新算出的结果；两个 Durable Object 同时投影，各自读回的历史只有自己的 turn | `packages/pi-session-neon` 的 `*.db.test.ts` |
 | edge 的 host 集成测试 | 一轮模型 turn、一轮选择 turn、重连、预算到点、结算（含同一会话的第二轮只记自己的 usage），迁移前后同样通过 | `native-stream`、`default-host`、`turn-deadline`、`independent-settlement` |
+| 崩溃窗口与恢复 | 接受之后进程死掉、选择意图提交后确认丢失、结算中途出错、恢复扫描接手：迁移前后都不丢已接受的工作，不重复计费，也不白跑；换了宿主和存储，这些用例改写成新宿主上的等价用例，不删不弱化 | `workers/edge/host-integration-test` 的 `native-host`、`selection-intent-loss`、`persistence-windows`、`recovery-endings`；`workers/edge/agent-db-test` 的 `native-settlement-faults`、`recovery-scan` |
 | staging 的 api-test lane | 迁移后的部署上，一轮对话照常完成 | `workers/edge/api-test` 的 agent-turn |
 | e2e 聊天旅程 | 网页上的聊天、断线重连和历史和迁移前一样 | `e2e/` 的 `web-chat-*` 用例 |
 | eval 的配对比较 | 同一份冻结数据集，迁移前后的 pass^k 配对比较不显示退步 | `packages/eval` 的 pass^k |
 | eval 的 prefix 录制与回放 | 冻结的 prefix 语料迁移后回放出和迁移前一样的状态，录制照常 | `packages/eval` 的 `native-prefix-*` 测试 |
 
+- 表里没点名的，`workers/edge/host-integration-test/` 和 `workers/edge/agent-db-test/` 下其余的用例也一样：迁移前后都
+  通过，改写成新宿主上的等价用例时不删、不弱化。
 - 每张迁移票先写"会怎么坏"，再写红测试，再实现，再做变异测试。
 
 ## 范围外
