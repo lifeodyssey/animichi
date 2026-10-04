@@ -116,7 +116,8 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
   规则和今天一样：谁创建的 session，谁能读。
 - 身份契约：身份类今天是 `public`（不带身份的公开读）、`anonymous`、`authenticated`（就是 `human`）。本 spec 在
   `IDENTITY_CLASSES` 里加 `service`，并在 `DEFAULT_IDENTITY_POLICY` 里给它一格：限流有值，按身份的日消息配额为空
-  （不适用），日成本上限有值。数值直接写在这份策略里，不加 wrangler 变量：`anonymous` 和 `authenticated` 的格在三个
+  （不适用），日成本上限有值。日成本上限今天只对匿名执行（operation 的授权检查只查 `scope = 'anon'` 的当日花费）；
+  本 spec 让同一条授权路径也按 `scope = 'service'` 的当日花费检查 `service` 的上限，超过就拒绝新的 turn 和工具调用。数值直接写在这份策略里，不加 wrangler 变量：`anonymous` 和 `authenticated` 的格在三个
   环境的 wrangler 里都有镜像，`service` 格是明确的例外，由身份矩阵测试的一条用例钉住（三个环境都没有
   `SERVICE_*` 变量，限流器的默认值取自策略）。这份策略是三个环境共用的一份声明：
   `service` 格在 production 和本地开发里也在，但那里注册表产不出 `service`，这一格不起作用。按环境的差别只在
@@ -126,9 +127,10 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
   本 spec 把它接上。这一格只规定方式和键（durable 限流器、出错时拒绝、计入 billing、键是 `svc:<Client ID>`），
   不带数值；数值只有一个来源，就是上一条身份策略里的 `service` 格。human、anonymous、public 的键和今天一样。`service` 不做按身份的日消息配额预留，所以
   "只有匿名预留配额"的数据库约束不动。
-- 数据面：`agent_admissions.payer` 的取值加 `service`。这是 pi-session-neon 那条 Prisma 链上的一次迁移，照
-  `docs/agents/database-and-migrations.md` 办（表的所有权；迁移失败会冻住整条 CD）。payer 的判定对 `service`
-  显式返回 `service`，不落进今天把未知类型当 `user` 的分支。
+- 数据面：`agent_admissions.payer` 和 `daily_usage.scope` 的取值都加 `service`。这是 pi-session-neon 那条 Prisma 链上
+  的一次迁移，照 `docs/agents/database-and-migrations.md` 办（表的所有权；迁移失败会冻住整条 CD）。payer 的判定对
+  `service` 显式返回 `service`，不落进今天把未知类型当 `user` 的分支；结算的记账也接受 `service`，按 `service` 记进
+  日用量表（今天结算只认 `anon`、`user`、`byok`，遇到别的 payer 就报错）。
 - 向下游转发的身份头多带主体种类。users Worker 只接受 `human`，和今天一样。
 - ADR 0006 的 staging 一行改写，不是在后面追加："none — staging 不自验"这一格改成两句：门是 Cloudflare Access，
   不自验；edge 只为身份列表里的服务令牌验 Access 的断言，产出 `service`。owner 的原则"门交给平台的访问层"不变：
@@ -171,8 +173,9 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
   - 作用域是 session，键是 `x-turn-id` 的值。不带这个头时服务端生成新键，不能重放。模型 turn 和选择 turn 共用
     同一个键空间。
   - 摘要：模型 turn 覆盖 payer、消息正文、模型身份、locale、origin 五项；选择 turn 覆盖 payer 和选择内容两项。
-  - 同键、同种类、同摘要是重放：turn 还在排队，答 202 和同一个 `run_id`；已接受或已完成，答原来那条流；已被拒，
-    答和第一次相同的拒绝（同样的状态码和原因）。
+  - 同键、同种类、同摘要是重放。模型 turn：还在排队，答 202 和同一个 `run_id`；已接受或已完成，答原来那条流；
+    已被拒，答和第一次相同的拒绝（同样的状态码和原因）。选择 turn 没有 `run_id`：已完成，重放原来那条一次性
+    结果流；还没完成，答 409 `turn_in_flight`；已被拒，答 409 `selection_refused`。
   - 409 `turn_in_flight` 有两种情况，契约里分开写：同键但种类或摘要不同（这个键用过了，换一个键）；这个
     session 里还有另一个没结束的 turn（等它结束再发）。BYOK 换了模型再重试属于第一种。
 
@@ -233,7 +236,7 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
 |---|---|---|
 | staging 的 api-test lane（opt-in），每张票加自己的用例 | 票 3：身份令牌调 staging 的 `POST /v1/chat`，被识别为 `service`、走 `svc:` 限流格；同一把令牌调 users、adopt、byok 路由答 403；只带开门令牌时，匿名请求和今天一样。票 4：历史读取有新字段。票 5：`GET /v1/runs/{id}` 返回这一轮的状态和答案。票 6：跑完一轮后，用 Workers Observability 的查询 API 按 operation id 聚合：至少有一个 turn 级 span，每个模型调用和工具调用 span 都挂在某个 turn 级 span 下 | `workers/edge/api-test` 的 `agent-turn.test.ts`、`catalog-api.test.ts` |
 | 身份注册表和身份矩阵的 node 测试 | Neon JWT 产出 `human`；Access 服务断言且 Client ID 在列表里产出 `service`；Client ID 不在列表里（开门令牌）不产出身份、走匿名管道；Access 身份断言（`sub` 不为空）不产出身份；Neon JWT 加列表里的服务断言答 401；错的 aud、过期、未知发行方得到规定的失败；production 和本地开发的配置下，同一个服务断言不产出身份；三个环境的 wrangler 都没有 `SERVICE_*` 变量，`service` 的限流默认值取自策略 | `auth-neon.test.ts`、`auth-config.test.ts`、`identity-policy-matrix.test.ts` |
-| 数据面的 db 测试 | 迁移后 `payer = 'service'` 能写；`service` 的行不能预留配额 | pi-session-neon 的 `admission.db.test.ts` |
+| 数据面的 db 测试 | 迁移后 `payer = 'service'` 和 `scope = 'service'` 能写；`service` 的行不能预留配额；一个 `service` turn 结算后记进日用量表；`service` 当日花费到上限后，新的 turn 和工具调用被拒绝 | pi-session-neon 的 `admission.db.test.ts`、`usage-meters.db.test.ts` |
 | host 集成测试 | 一轮结束后，历史读取多出所有工具结果、`respond` 的完整数据、逐次的模型名、供应商和 usage、run 状态，原有字段不变；`GET /v1/runs/{id}` 返回状态和答案，不是主人答 404；注入时钟：没调规划工具的 turn 在起点后 100 秒结束；起点后 30 秒调了 `plan_route` 的 turn 越过 100 秒继续，到起点后 600 秒以 `deadline_exceeded` 结束，逐出再恢复后上限不变 | `native-stream.test.ts`、`default-host.test.ts`、`turn-deadline.test.ts` |
 | 契约对齐测试 | 每个工具都有声明；在记录调用的 catalog 传输下，工具只调声明里的操作；声明的操作都在契约里。删一条声明、或让工具多调一个操作，测试变红 | `packages/contract/test/public-catalog.test.ts`、`workers/catalog/test/contract-parity.worker.test.ts` |
 | 鉴权失败日志的 node 测试 | 两条鉴权失败日志只有 `class` 和 `reason`，没有 `path` 键；今天断言 `path: "/v1/chat"` 的两处改成断言没有 `path` | `auth-fallthrough.test.ts`、`auth-outage.test.ts` |
