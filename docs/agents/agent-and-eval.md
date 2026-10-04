@@ -145,3 +145,12 @@ with our current `/v1` (checked against the code) and with the proposed split (i
 precedent, the whole has none found); four candidate directions and the open owner questions. See it
 before changing the shape of `/v1`; its §7 questions are open until a decision lands in
 `docs/agents/owner-decisions.md`.
+
+## pi 1.0 packages research (2026-10-04)
+
+The owner asked what the packages released with pi 1.0 could replace among our hand-written parts.
+`docs/iterations/agent-platform-research-2026-10/PI-1.0-PACKAGES-RESEARCH.md` maps each pi 1.0 package
+(pi-durable, pi-telemetry, pi-ai, pi-mcp, pi-server and the rest) against the agent runtime we wrote:
+what is usable now (pi-ai's OpenCode Go provider, pi-telemetry's `TelemetryContext`), what pi-durable
+takes over (the harness's part, not our business layer), what does not fit, and the questions a
+migration has to answer. Read it before touching the pi version line.
