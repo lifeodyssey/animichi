@@ -135,8 +135,9 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
    存储，prefix 数据集的录制和回放换到 pi-durable 的存储；冻结的 prefix 语料是转换还是重录，票里写明，并证明回放出的
    状态和迁移前一样。
 3. edge 的宿主：路线 (a)、(b) 时 `SessionAgent` 经 `PiHarness` 用 pi-durable 的 `Harness`；路线 (b′) 时直接用
-   `Harness.open`，并自建唤醒；业务层经一层适配接 `PiHarness` 的 `submit`、
-   `events()`、`abort`，以及 pi-durable 层的 usage；platform spec 里碰 pi 的两处跟着换（见下）。
+   `Harness.open`，并自建唤醒。业务层经一层适配接宿主，一份适配契约、两种实现：路线 (a)、(b) 接 `PiHarness` 的
+   `submit`、`events()`、`abort`；路线 (b′) 没有 `PiHarness` 实例，接 pi-durable `Harness` 自己的 `submit`、
+   `watchEvents`、`abort`；两种都接 pi-durable 层的 usage。platform spec 里碰 pi 的两处跟着换（见下）。
 4. 集成与收尾：把集成分支一次合进 main，删掉 harness 的 import 和 0.99 的过渡；pi-ai 升到 latest，pi-agent-core
    还有使用方就升到 latest，没有就移除依赖；文档同步。
 
