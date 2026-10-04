@@ -79,3 +79,44 @@ date the lane is red again unless the lockfile has moved to a fixed version, and
 with the toml. The root lockfile carries the same package; CI's osv lane does not read it today
 (#1964 tracks the scanner that will), and that copy is a separate suppression decision. This does
 not loosen the rule: every other suppression still needs the owner's approval first.
+
+## Agent API platform direction (2026-10-04)
+
+After three verified research records (`docs/iterations/agent-platform-research-2026-10/`), the owner
+approved the direction "one agent runtime, several surfaces, one contract" ("我感觉你的方案没啥问题")
+with four decisions, and one constraint: "记得 staging 和 production 不太一样". The decisions:
+
+1. Add a `service` principal kind; its first issuer is the Cloudflare Access service token.
+2. The complete per-turn record (model, provider, per-call usage, tool calls and results, structured
+   answer, status) is the single source of truth; the history read-back returns it.
+3. Runs that need more than the 100-second turn budget continue in the background and are read as
+   JSON by run id.
+4. "No private back door" binds the web app; the agent's tools and `/v1` share one contract, and a
+   contract-parity test keeps them aligned.
+
+The spec is `docs/specs/2026-10-04-agent-api-platform-spec.md`. The earlier proposal that the agent
+should call its own public capability API was withdrawn: no mature product does that.
+
+Four consequences of decision 1 are written into the spec and wait for the owner's objection, not
+for a new decision. Production has no Access application, so `service` exists in staging only;
+giving production one would be a separate owner decision. The existing staging CI token stays a
+door key only, because e2e, the smoke probe and the CD evidence recorder send it on every request;
+`service` comes from a second Access service token that the edge accepts by Client ID. `service`
+may run chat turns on staging, which adds `service` to `agent_admissions.payer` by a Prisma
+migration. ADR 0006's staging row is
+rewritten: the door stays Access and is not self-verified, and the edge verifies the Access
+assertion only to derive `service`, because Cloudflare requires an origin to validate that JWT
+before it trusts the claims.
+
+## pi version line (2026-10-03)
+
+pi-agent-core 1.0 removed the harness that the agent tier is built on; its successor
+`@earendil-works/pi-durable` calls itself experimental. The owner chose a time-boxed spike on
+pi-durable before any migration ("能用pi的就用pi的"), and existing SDKs over hand-built pipelines
+("能用现成sdk就用现成sdk"). On 2026-10-04 the owner asked for two things, without ordering them: an
+issue to move to 0.99.2, the last line that still ships the harness (#1995, "0.99开个issue"), and a
+separate spec for the move off the harness whose first ticket is the spike ("剩下的做一个spec吧，spec
+第一张卡写spike"). The author's
+reading, not an owner statement, and open to the owner's objection: staying on the 0.99 line until
+that spec lands is a migration in progress under the latest-dependencies rule in
+`docs/agents/code-standards.md`, not a pin around it.

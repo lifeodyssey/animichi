@@ -124,3 +124,24 @@ Every prefix-instability source audited, with its location and disposition:
 
 Not measured here: the production cache hit rate and each provider's caching semantics. They need
 production telemetry access and stay with the owner.
+
+## Observability and eval research (2026-10-03)
+
+The owner asked whether the whole observability and evaluation design was wrong ("我感觉是我们一整个
+可观测性和评测设计的有问题"). `docs/iterations/agent-platform-research-2026-10/OBSERVABILITY-AND-EVAL-RESEARCH.md`
+records what pi itself provides and recommends, the consensus of mature projects on both topics, the
+thirteen gaps between that consensus and this repository, four candidate directions and the nine owner
+questions they raise. Read it before proposing observability or eval work; its §6 questions are open
+until a decision lands in `docs/agents/owner-decisions.md`.
+
+## Agent API shape research (2026-10-04)
+
+The owner asked whether splitting the API into a base capability layer with our chat agent as one of
+its consumers is best practice, and how mature vertical agent products shape their APIs.
+`docs/iterations/agent-platform-research-2026-10/AGENT-API-SHAPE-RESEARCH.md` records, with cited
+sources, how Anthropic's own products, the AI platforms, mature vertical products and the published
+guidance shape agent APIs; a consensus-and-dissent table over eleven design questions; the comparison
+with our current `/v1` (checked against the code) and with the proposed split (its parts have
+precedent, the whole has none found); four candidate directions and the open owner questions. See it
+before changing the shape of `/v1`; its §7 questions are open until a decision lands in
+`docs/agents/owner-decisions.md`.
