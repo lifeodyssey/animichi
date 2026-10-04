@@ -131,7 +131,8 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
   的一次迁移，照 `docs/agents/database-and-migrations.md` 办（表的所有权；迁移失败会冻住整条 CD）。payer 的判定对
   `service` 显式返回 `service`，不落进今天把未知类型当 `user` 的分支；结算的记账也接受 `service`，按 `service` 记进
   日用量表（今天结算只认 `anon`、`user`、`byok`，遇到别的 payer 就报错）。
-- 向下游转发的身份头多带主体种类。users Worker 只接受 `human`，和今天一样。
+- 主体种类沿用今天转发给下游的 `X-User-Type` 头（值就是 `userType`）：`service` 填 `service`，不加新头。users Worker
+  照旧只接受这个头等于 `human` 的请求。
 - ADR 0006 的 staging 一行改写，不是在后面追加："none — staging 不自验"这一格改成两句：门是 Cloudflare Access，
   不自验；edge 只为身份列表里的服务令牌验 Access 的断言，产出 `service`。owner 的原则"门交给平台的访问层"不变：
   门仍是 Access，edge 验的是身份断言，和它验 Neon Auth 的 JWT 产出 `human` 是同一件事。这是 owner 决定 1 的
