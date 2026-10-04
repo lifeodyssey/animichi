@@ -65,7 +65,8 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
   只答了第 1 问的报告也算交付，但要写清其余各问停在哪里。
 - 卡里先写"会怎么坏"再写证据，至少包括：pi-durable 在 workerd 里起不来；逐出后生命周期任务接不上；逐出检查用的工具是
   `replay: "unsafe"`，interrupted 结果被当成恢复；工厂不接受自定义存储，(b) 走不通 `PiHarness`；
-  Neon 后端过不了一致性套件；每轮语句数比今天多；某处语义差异没有一层兜得住。
+  Neon 后端过不了一致性套件；两个 Durable Object 的根会话都是 `"1"`，共用一个键空间或一份投影时串号；结算直接用
+  `usage()` 的会话累计值，后一轮把前面的 turn 再记一遍；每轮语句数比今天多；某处语义差异没有一层兜得住。
 - 在一个不进 pnpm workspace 的临时目录里做，有自己的 `package.json` 和 lockfile：pi-durable 1.0.2 依赖
   pi-ai ^1.0.2，放进主 catalog 会和 0.99 线冲突。报告记下这个目录所在 spike 分支的 commit 和 lockfile 的哈希，
   评审席照着就能重跑。
