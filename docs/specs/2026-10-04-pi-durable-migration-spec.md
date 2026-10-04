@@ -84,7 +84,9 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
   2. 存储的两条路线：(a) `PiHarness` 自带的 SQLite 加一份同步到 Neon 的记录；spike 里同步的目标是仓库的测试
      Postgres，代替 Neon，不连远端的 Neon。以 Pi 的存储为准，Neon 里的记录是它的投影；在三个点注入崩溃（Pi 提交之后、写 Neon 之前；写 Neon 的中途；写完之后），恢复以后每个已完成的 turn
      在 Neon 里的记录都要等于从 Pi 存储重新算出的投影，比对模型、供应商、逐次 usage、工具调用与结果、答案、状态；
-     量同步的代价。(b) 按 pi-durable 的 `Storage` 接口写一个最小的 Postgres 后端（调研记录确认没有现成的），在
+     量同步的代价。投影按外层 `SessionAgent` 的 session id 落键，不按 Pi 的会话 id：每个 Durable Object 的根会话都是
+     `"1"`，而 Neon 的记录以 `(session_id, seq)` 为键；所以 (a) 也要过两对象用例：两个 Durable Object 同时各跑一轮并
+     投影，各自读回的历史只有自己的 turn。(b) 按 pi-durable 的 `Storage` 接口写一个最小的 Postgres 后端（调研记录确认没有现成的），在
      `PiHarness` 的工厂里用它调用 `Harness.open`，跑 pi-durable 自带的一致性套件 `registerStorageConformance`，并确认
      `PiHarness` 的生命周期唤醒在它上面照样能把被打断的一轮跑完。后端要给每个 `SessionAgent` 隔出自己的键空间：edge
      每个 sessionId 一个 Durable Object，每个 Harness 的根会话都是 `"1"`（pi-durable 的 `ROOT_CONVERSATION_ID`），
@@ -116,7 +118,7 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
     模型收到 interrupted 结果，两种情况这一轮都跑完；bundle 里没有只能跑在 Node 的 import。要升
     compatibility date 不算 no-go，报告写明要升到哪天、为什么。
   - 第 2 问对一条路线 go：它的存储过关（(b) 一致性套件和两对象隔离用例全过，且 `PiHarness` 的生命周期唤醒在它上面
-    工作；(b′) 一致性套件和两对象隔离用例全过，且自建唤醒把被打断的一轮跑完；(a) 三个崩溃点之后，Neon 里的记录都等于从 Pi 存储重新算出的投影）；每轮语句数不多于今天；崩溃恢复的保证不低于今天，即进程在 admission 和 pi-durable
+    工作；(b′) 一致性套件和两对象隔离用例全过，且自建唤醒把被打断的一轮跑完；(a) 三个崩溃点之后，Neon 里的记录都等于从 Pi 存储重新算出的投影，且两对象用例通过）；每轮语句数不多于今天；崩溃恢复的保证不低于今天，即进程在 admission 和 pi-durable
     提交之间任意一步死掉，恢复扫描都能把两边的状态对齐，每一种死法都有一个用例。
   - 第 3 问 go：每一处语义差异都有我们这层兜住，并有最小原型演示；逐工具的重放映射有实测结果，
     `translate_anime_title` 被打断时不重跑、不重复计费；同一会话里连续两个完成的 turn，每轮只记自己那一轮的 usage。
@@ -129,7 +131,7 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 下面是暂定的切法，spike 报告会重排；每张票再走一次 to-tickets。
 
 1. 存储：owner 选定的路线（Neon 后端、它的一致性套件和按 `SessionAgent` 隔开的键空间，或 `PiHarness` 的 SQLite 加
-   同步到 Neon 的记录）；历史、重连流、
+   按 `SessionAgent` 的 session id 落键、同步到 Neon 的记录）；历史、重连流、
    结算的读路径换到新的记录形状；`agents` 升到含 `PiHarness` 的版本。
 2. agent 的构造：工具换成 pi-durable 的工具形状，逐工具的重放语义按下面的映射搬过去，hooks 和 prompt 跟着换；eval 的进程内任务换成 pi-durable 的内存
    存储，prefix 数据集的录制和回放换到 pi-durable 的存储；冻结的 prefix 语料是转换还是重录，票里写明，并证明回放出的
@@ -169,6 +171,7 @@ pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的�
 | 接缝 | 测什么 | 先例 |
 |---|---|---|
 | 存储一致性套件（owner 选路线 (b) 或 (b′) 时） | 新后端过 pi-durable 的 `registerStorageConformance` 和两个 Durable Object 同时写的隔离用例；迁移前 pi-session-neon 跑的是老 harness（0.87.1 起、#1995 后在 0.99.2）的那套 | `packages/pi-session-neon` 的 `storage-conformance.db.test.ts`、`repo-conformance.db.test.ts` |
+| Neon 投影（owner 选路线 (a) 时） | 三个崩溃点之后投影等于从 Pi 存储重新算出的结果；两个 Durable Object 同时投影，各自读回的历史只有自己的 turn | `packages/pi-session-neon` 的 `*.db.test.ts` |
 | edge 的 host 集成测试 | 一轮模型 turn、一轮选择 turn、重连、预算到点、结算（含同一会话的第二轮只记自己的 usage），迁移前后同样通过 | `native-stream`、`default-host`、`turn-deadline`、`independent-settlement` |
 | staging 的 api-test lane | 迁移后的部署上，一轮对话照常完成 | `workers/edge/api-test` 的 agent-turn |
 | e2e 聊天旅程 | 网页上的聊天、断线重连和历史和迁移前一样 | `e2e/` 的 `web-chat-*` 用例 |
