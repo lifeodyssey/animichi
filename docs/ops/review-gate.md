@@ -21,12 +21,14 @@ thinnest layers that can actually hold it:
    `gh pr merge <number> -R owner/name …`, and refuses every other command that would merge: a
    REST or GraphQL merge, `--auto`, `--admin`, a chain, a variable or a branch as the target. Its
    checker, `~/.claude/hooks/pr_feedback_status.py`, blocks until every review thread is resolved;
-   every resolved thread has a reply from our side after its first comment; every bot that took
-   part (recognised by its GitHub account type, never by name) has seen the head, by a review on the
-   head commit, a comment after the push or a decline, or 20 minutes have passed since the push
-   (it then passes with a warning naming the silent bot); a pull request with no bot activity is at
-   least 20 minutes old; and unthreaded bot findings (summary sections) have a newer maintainer
-   comment containing `findings triaged`. Any error, timeout or crash blocks.
+   every resolved thread has a reply from our side after its first comment; and every bot that
+   took part (recognised by its GitHub account type, never by name) has seen the head: a bot that
+   submitted reviews needs a review whose commit is the head, a bot that only comments needs a
+   comment or an edit after the push. A bot that declined after the push (a review limit or
+   budget), or one still silent 20 minutes after the push, lets the merge pass with a warning naming
+   it. A pull request with no bot activity must be at least 20 minutes old, and unthreaded bot
+   findings (summary sections) need a newer maintainer comment containing `findings triaged`. Any
+   error, timeout or crash blocks.
 4. **Bots.** On 2026-10-04 the reviewing bots are `coderabbitai`, `sourcery-ai` and
    `chatgpt-codex-connector`, with `codecov` reporting coverage; qodo and SonarCloud last commented in
    August 2026 (#900 and #1164). The checker reads the account type, so a newly installed bot is
