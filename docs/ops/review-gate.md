@@ -12,17 +12,25 @@ thinnest layers that can actually hold it:
    be resolved before GitHub allows the squash merge. This is the owner's core
    requirement and it is one checkbox on GitHub's side, not custom code.
 2. **Required CI** — `PR Verification` and `Security` must be green on the
-   merge ref. Produced by `pr-verification.yml`; the merge-group trigger keeps
-   the queue fed. The contract is pinned by `docs/iterations/s0v2/ruleset-target.json`
-   (schema as code) and checked by `test_ci_contract_ruleset_migration*.rb`.
-3. **Two-way comment discipline (local hook)** — `~/.claude/hooks/check-pr-comments.sh`
-   blocks any `gh pr merge`: it requires zero unresolved threads **and** every
-   top-level bot finding (qodo / SonarCloud) acknowledged by the human. It also
-   refuses merges in the first minutes of a PR's life before bots have spoken.
-   This is the layer that catches what threads cannot: aggregate bot summaries.
-4. **Bot findings should be inline.** qodo and SonarCloud are configured to
-   comment as review comments (threads) wherever possible, so rule 1 covers
-   them natively and rule 3 is the backstop for top-level summaries only.
+   PR head. Produced by `pr-verification.yml`. The intended ruleset is written down in
+   `docs/iterations/s0v2/ruleset-target.json` (the two contexts and thread resolution only); no
+   test reads it since `test_ci_contract_ruleset_migration*.rb` was deleted in 7c17b6023. There is
+   no merge queue.
+3. **The merge hook (owner-local)** — `~/.claude/hooks/check-pr-comments.sh`, which zdev's merge
+   handler also runs before its REST merge (gate G7). It checks one command form, a standalone
+   `gh pr merge <number> -R owner/name …`, and refuses every other command that would merge: a
+   REST or GraphQL merge, `--auto`, `--admin`, a chain, a variable or a branch as the target. Its
+   checker, `~/.claude/hooks/pr_feedback_status.py`, blocks until every review thread is resolved;
+   every resolved thread has a reply from our side after its first comment; every bot that took
+   part (recognised by its GitHub account type, never by name) has seen the head, by a review on the
+   head commit, a comment after the push or a decline, or 20 minutes have passed since the push
+   (it then passes with a warning naming the silent bot); a pull request with no bot activity is at
+   least 20 minutes old; and unthreaded bot findings (summary sections) have a newer maintainer
+   comment containing `findings triaged`. Any error, timeout or crash blocks.
+4. **Bots.** On 2026-10-04 the reviewing bots are `coderabbitai`, `sourcery-ai` and
+   `chatgpt-codex-connector`, with `codecov` reporting coverage; qodo and SonarCloud last commented in
+   August 2026 (#900 and #1164). The checker reads the account type, so a newly installed bot is
+   covered without an edit here.
 
 ## What was removed, and why it is safe
 
@@ -32,8 +40,20 @@ pool emptied, every open PR red-lit at the same instant with no local remedy.
 The discipline it encoded (Standards∥Spec review, mutation red→green proof,
 fresh-head binding) lives on as **workflow discipline** — `docs/workflow.md`
 stage 5, run by whoever implements the change — not as a merge-blocking
-status. Fail-closed posture for the remaining layers is unchanged: the hook
-fails closed, the ruleset fails closed, CI is never bypassed.
+status. The hook fails closed; the ruleset and the required checks hold only for an actor that
+cannot bypass them, which today is none of ours (next section).
+
+## Where these layers do not hold (2026-10-04 inventory)
+
+- The owner account is the only bypass actor of the `protect main` ruleset, in mode `always`
+  (ruleset 19974534), and every local actor (interactive sessions, the tick, zdev, the pi lanes)
+  runs `gh` and `git` as that account. For them the required checks and thread resolution inform
+  rather than block: the rule-suites API lists 22 bypasses on `main` between 2026-09-05 and
+  2026-09-20, none since. An agent identity without bypass is an open owner decision.
+- The merge hook binds Claude Code sessions and zdev's merge handler only; a pi or kimi lane, or a
+  person at a terminal, runs `gh pr merge` without it.
+- CD is dispatched for every push to `main` without reading the pull request's CI verdict; whether
+  CD should wait for it is an open owner decision.
 
 ## Reviewer rules (discipline, unenforced by CI)
 
