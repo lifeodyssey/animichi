@@ -9,9 +9,9 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 
 ## 问题
 
-1. pi-agent-core 1.0.0 删掉了 harness。按 0.87.1 算，我们四个包里 import pi-agent-core 的 `.ts` 文件有 186 个，
-   其中 185 个用到了已经删掉的名字。0.99.2 是最后一个带 harness 的版本；#1995 先升到这里，但之后不会再有带
-   harness 的版本，停在 0.99 只能是过渡。
+1. pi-agent-core 1.0.0 删掉了 harness。按 0.87.1 算，我们五个包里 import pi-agent-core 的 `.ts` 文件有 188 个（静态和
+   动态 import 都算），其中 187 个用到了已经删掉的名字。0.99.2 是最后一个带 harness 的版本；#1995 先升到这里，但之后
+   不会再有带 harness 的版本，停在 0.99 只能是过渡。
 2. 接替者 pi-durable 自称 Experimental（"The API changes without notice between releases"）。它 09-19 才以 0.0.1
    出现在 npm 上，到今天共十一个版本，10-01 到 10-04 就发了 1.0.0、1.0.1、1.0.2 三版（`npm view @earendil-works/pi-durable time`）；它的 changelog 把 1.0.0 记为
    "Initial release"。

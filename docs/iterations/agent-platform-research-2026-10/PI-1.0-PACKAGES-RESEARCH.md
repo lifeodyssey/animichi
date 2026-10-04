@@ -20,9 +20,10 @@
   pi-ai 在这一段唯一的 breaking change 是 0.99.0 的图像模型，原话 "existing chat models, providers, and stores
   keep working unchanged"（`pi@main packages/ai/CHANGELOG.md` 的 0.99.0 条目）。0.99.2 是最后一个导出
   `./harness/*` 的版本。
-- 对我们的影响：四个包里 import pi-agent-core 的 `.ts` 文件有 186 个，其中 185 个用到了 1.0.2 已经没有的名字，
-  用得最多的是 `BACKGROUND_CONTEXT`、`Context`、`Session`、`Entry`、`MemorySessionRepo`、`AgentHarness`、
-  `AgentLane`。
+- 对我们的影响：五个包里 import pi-agent-core 的 `.ts` 文件有 188 个，静态的 `from` 和动态的 `import()` 都算
+  （`apps/web` 只有一个单元测试；`workers/edge` 有一个测试只用动态 `import()`）。其中 187 个用到了 1.0.2 已经
+  没有的名字，用得最多的是 `BACKGROUND_CONTEXT`、`Context`、`Session`、`Entry`、`MemorySessionRepo`、
+  `AgentHarness`、`AgentLane`。
 
 ## 2. 每个包
 
