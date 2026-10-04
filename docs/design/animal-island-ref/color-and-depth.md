@@ -99,7 +99,7 @@ Ratios are measured with the same helper the token tests use (`apps/web/tests/un
 | `--color-fg-ink` | `#794f27` | 6.364 AA | 5.272 AA | 6.646 AA |
 | `--color-muted-fg` | `#6f6353` | 5.255 AA | 4.353 fail | 5.488 AA |
 
-`--color-muted-fg` is judged on the card ground its own comment names (5.255:1). On `--color-muted` it reaches only 4.353:1, below AA for small text — a failing pairing, not an exemption. Live small-text uses of that pair are open accessibility debt (`SpotSheet.tsx`, `SkeletonCard.tsx`, `ClarifyCandidateOption.tsx` cover; the disabled send in `ChatInput.tsx` is an inactive control, which WCAG 1.4.3 exempts); new work must not add more. Use `--color-fg-ink` on `--color-muted`, where `--color-fg` clears AA by only 4.645:1 — thin enough that an entrance-animation alpha spends it (#1207 measured 4.43:1 on `.route-map__stage`).
+`--color-muted-fg` is judged on the card ground its own comment names (5.255:1). On `--color-muted` it reaches only 4.353:1, below AA for small text — a failing pairing, not an exemption. Live small-text uses of that pair are open accessibility debt (`SpotSheet.tsx`; the icon marks in `SkeletonCard.tsx` and the `ClarifyCandidateOption.tsx` cover are non-text graphics, held to WCAG 1.4.11's 3:1, which 4.353:1 clears; the disabled send in `ChatInput.tsx` is an inactive control, which WCAG 1.4.3 exempts); new work must not add more. Use `--color-fg-ink` on `--color-muted`, where `--color-fg` clears AA by only 4.645:1 — thin enough that an entrance-animation alpha spends it (#1207 measured 4.43:1 on `.route-map__stage`).
 
 ### Upstream-only tones
 
