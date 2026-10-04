@@ -31,7 +31,7 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
   main。
 - spike 从 Cloudflare 的官方集成 `PiHarness` 起步，这是 owner 的"能用现成sdk就用现成sdk"。
 - 存储量两条路线，量法相同：(a) `PiHarness` 自己的存储，即 Durable Object 的 SQLite，把每轮的完整记录同步一份到
-  Neon，历史、结算和 eval 照旧读 Neon；(b) 按 pi-durable 的 `Storage` 接口给 Neon 写一个后端，在 `PiHarness` 的工厂里
+  Neon，历史和结算照旧读 Neon；(b) 按 pi-durable 的 `Storage` 接口给 Neon 写一个后端，在 `PiHarness` 的工厂里
   用它调用 `Harness.open`，不用工厂收到的存储。官方文档只写了 `PiHarness` 提供存储、工厂接收存储，没写换成别的
   存储是否受支持，所以这是待验证的假设。(b) 和 2026-10-04 的决定 2（每轮的完整记录是唯一事实，platform spec 写明记录在 Neon、不加第二份存储）
   一致；(a) 多存一份记录，决定 2 没有预见到官方集成会这样存。spike 只量；选哪条路线是 owner 看完报告后的决定。
