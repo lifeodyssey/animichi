@@ -95,8 +95,11 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
   3. 业务层怎么接：用一个最小原型加文字说明，逐条试：admission 和 409 能不能放在 `submit` 前面（`PiHarness` 的
      `submit(input, { operationId })` 把同一个 operationId 当成一次提交，不比较内容；pi-durable 层的 `requestId` 也
      只比类型）；预算能不能由宿主
-     abort，turn 的开始时间从哪里读（老 harness 叫 operation，pi-durable 里对应 submission 或 run，要核对）；结算能不能接 `usage()`，它连失败和中断的尝试也算，和我们"只给完成的 turn 记账、其余退款"的口径怎样对
-     上；AI SDK 流能不能从 `session.events()`（先一个快照，再每次提交一批）来，晚加入的 watch 从当前视图开始，和我们的重连差在哪；选择 turn（不经
+     abort，turn 的开始时间从哪里读（老 harness 叫 operation，pi-durable 里对应 submission 或 run，要核对）；结算能不能接
+     `usage()`：它是整个 Session 的累计值（pi-durable 1.0.2 README 的 "Usage and Cost"），连失败和中断的尝试也算，
+     而我们今天只按一个 operation 的序号区间记账（`readOperationCharges`），口径是"只给完成的 turn 记账、其余退款"，
+     所以要写明一个 operation 的增量怎么取，并用同一会话里至少两个完成的 turn 证明第二轮不会把第一轮再记一遍；AI SDK
+     流能不能从 `session.events()`（先一个快照，再每次提交一批）来，晚加入的 watch 从当前视图开始，和我们的重连差在哪；选择 turn（不经
      模型）能不能走同一套幂等；逐个工具的重放语义怎么搬：今天 6 个工具是 pi-agent-core 的 `replay: "safe"`，
      `translate_anime_title` 是 `"never"`（被打断的调用不重跑，不重复计费），pi-durable 只有 `"safe"` 和默认的
      `"unsafe"`，要实测 `translate_anime_title` 用 `"unsafe"` 时被打断的那次尝试是否只给模型一个 interrupted 结果、
@@ -113,7 +116,7 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
     套件全过，且自建唤醒把被打断的一轮跑完；(a) 三个崩溃点之后，Neon 里的记录都等于从 Pi 存储重新算出的投影）；每轮语句数不多于今天；崩溃恢复的保证不低于今天，即进程在 admission 和 pi-durable
     提交之间任意一步死掉，恢复扫描都能把两边的状态对齐，每一种死法都有一个用例。
   - 第 3 问 go：每一处语义差异都有我们这层兜住，并有最小原型演示；逐工具的重放映射有实测结果，
-    `translate_anime_title` 被打断时不重跑、不重复计费。
+    `translate_anime_title` 被打断时不重跑、不重复计费；同一会话里连续两个完成的 turn，每轮只记自己那一轮的 usage。
   - 总判：第 1、3 问都 go，并且 (a)、(b)、(b′) 至少一条 go，才是 go；否则是 no-go，写明卡在哪条判据。
 - 产出：一份调研记录，放在 `docs/iterations/pi-durable-spike-2026-10/` 下，写上面五问的证据、判据逐条的结果、
   go/no-go 建议和重排后的迁移票清单。原型代码留在 spike 分支，不合并。
@@ -139,7 +142,7 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 迁移的不变量：
 
 - 对外契约不变：`/v1`、AI SDK 流和 `data-*` part、`x-turn-id` 的语义、历史读取的形状。
-- 预算、配额、结算的数值不变；egress 限制不变。
+- 预算、配额、结算的数值不变：每轮只记这一轮的 usage，不拿 `usage()` 的会话累计值直接记账；egress 限制不变。
 - 逐工具的重放语义不变：pi-agent-core 的 `replay: "safe"` 对应 pi-durable 的 `"safe"`；`"never"` 对应 `"unsafe"`
   （模型收到 interrupted 结果，工具不重跑，不重复计费）。授权和配额检查留在工具的 `execute` 里，因为重放路径不经过
   hook。一张逐工具矩阵钉住这个映射，沿用 bundle smoke 里现有的重放恢复测试。
@@ -161,7 +164,7 @@ pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的�
 | 接缝 | 测什么 | 先例 |
 |---|---|---|
 | 存储一致性套件（owner 选路线 (b) 时） | 新后端过 pi-durable 的 `registerStorageConformance`；迁移前 pi-session-neon 跑的是老 harness（0.87.1 起、#1995 后在 0.99.2）的那套 | `packages/pi-session-neon` 的 `storage-conformance.db.test.ts`、`repo-conformance.db.test.ts` |
-| edge 的 host 集成测试 | 一轮模型 turn、一轮选择 turn、重连、预算到点、结算，迁移前后同样通过 | `native-stream`、`default-host`、`turn-deadline`、`independent-settlement` |
+| edge 的 host 集成测试 | 一轮模型 turn、一轮选择 turn、重连、预算到点、结算（含同一会话的第二轮只记自己的 usage），迁移前后同样通过 | `native-stream`、`default-host`、`turn-deadline`、`independent-settlement` |
 | staging 的 api-test lane | 迁移后的部署上，一轮对话照常完成 | `workers/edge/api-test` 的 agent-turn |
 | e2e 聊天旅程 | 网页上的聊天、断线重连和历史和迁移前一样 | `e2e/` 的 `web-chat-*` 用例 |
 | eval 的配对比较 | 同一份冻结数据集，迁移前后的 pass^k 配对比较不显示退步 | `packages/eval` 的 pass^k |
