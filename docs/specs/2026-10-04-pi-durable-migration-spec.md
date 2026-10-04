@@ -81,8 +81,8 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
      模型只会收到一个 interrupted 结果，这一轮照样会"跑完"，所以两种都要跑：`replay: "safe"` 时，逐出后工具被重新
      执行（假 catalog 记到两次调用）；`replay: "unsafe"` 时，模型收到 interrupted 结果，不再执行工具。记下 `AbortSignal.any`、TypeBox 的
      `new Function` 回退、定时器的表现。
-  2. 存储的两条路线：(a) `PiHarness` 自带的 SQLite 加一份同步到 Neon 的记录。以 Pi 的存储为准，Neon 里的记录是
-     它的投影；在三个点注入崩溃（Pi 提交之后、写 Neon 之前；写 Neon 的中途；写完之后），恢复以后每个已完成的 turn
+  2. 存储的两条路线：(a) `PiHarness` 自带的 SQLite 加一份同步到 Neon 的记录；spike 里同步的目标是仓库的测试
+     Postgres，代替 Neon，不连远端的 Neon。以 Pi 的存储为准，Neon 里的记录是它的投影；在三个点注入崩溃（Pi 提交之后、写 Neon 之前；写 Neon 的中途；写完之后），恢复以后每个已完成的 turn
      在 Neon 里的记录都要等于从 Pi 存储重新算出的投影，比对模型、供应商、逐次 usage、工具调用与结果、答案、状态；
      量同步的代价。(b) 按 pi-durable 的 `Storage` 接口写一个最小的 Postgres 后端（调研记录确认没有现成的），在
      `PiHarness` 的工厂里用它调用 `Harness.open`，跑 pi-durable 自带的一致性套件 `registerStorageConformance`，并确认
