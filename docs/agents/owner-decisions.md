@@ -73,3 +73,16 @@ The Prisma chain is the migration authority (`docs/DOCS_POLICY.md`). The first p
 (#1637) stays a separate, human-gated step: staging CD is green at every merge, and the
 production run is approved by the owner with the run number and the
 artefact checked (`docs/agents/delivery-flow.md`).
+
+## osv ignore for GHSA-ch52-4w7c-c8xp (2026-10-04)
+
+The advisory (http-cache-semantics ≤ 4.2.0, High, no fixed version, modified 2026-10-02) turned
+every pull request's `security (osv)` lane red through `infra/database-access/pnpm-lock.yaml`, where
+the package is only a transitive dependency of `@pulumi/pulumi` and unreachable: make-fetch-happen
+builds its HTTP cache with `shared: false`, so the shared-cache entry the advisory needs never exists.
+The coordinator proposed a time-boxed `osv-scanner.toml` ignore (14 days) as the one option that
+unblocks delivery, and the owner replied "修啊" (2026-10-04). It expires on 2026-10-18: from that
+date the lane is red again unless the lockfile has moved to a fixed version, and this entry leaves
+with the toml. The root lockfile carries the same package; CI's osv lane does not read it today
+(#1964 tracks the scanner that will), and that copy is a separate suppression decision. This does
+not loosen the rule: every other suppression still needs the owner's approval first.
