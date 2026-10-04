@@ -161,7 +161,10 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
   webhook 不在本 spec 内。
 - 预算分两档，都从同一个起点算：lane 接受这个 turn 的时刻（pi 持久记下的 `startedAt`）。普通 turn 的上限是
   起点后 100 秒。这个 operation 里模型一旦调用规划工具（`plan_route`），上限变成起点后 600 秒（长任务档，是
-  配置，owner 可改）。检查点和今天一样：turn 开始时和每次模型请求前；每个检查点读一次档位。
+  配置，owner 可改）。检查点和今天一样：turn 开始时和每次模型请求前；每个检查点读一次档位。另外在当前上限的时刻
+  安排一次中止（用 edge 今天做唤醒的同一套 Agents SDK 调度）：工具调用中途到点也会被取消。工具已经把
+  `context.abortSignal` 接进了自己的超时（`web_search` 10 秒，catalog 单次 25 秒、总计 80 秒），所以中止会传进工具，
+  `deadline_exceeded` 和退款准时发生，不等工具自己返回。升档时这次中止跟着改到新上限。
 - 所以规划工具必须在前 100 秒内被模型调用：模型请求的超时本来就被截到剩余预算，100 秒内没调到 `plan_route` 的
   turn 照旧在 100 秒结束。不为"打算规划但还没调用"的 turn 留过渡路径。
 - 升档不另存：是否升档，由这个 operation 的 pi 记录里有没有 `plan_route` 的调用决定。这条记录是持久的，
@@ -238,7 +241,7 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
 | staging 的 api-test lane（opt-in），每张票加自己的用例 | 票 3：身份令牌调 staging 的 `POST /v1/chat`，被识别为 `service`、走 `svc:` 限流格；同一把令牌调 users、adopt、byok 路由答 403；只带开门令牌时，匿名请求和今天一样。票 4：历史读取有新字段。票 5：`GET /v1/runs/{id}` 返回这一轮的状态和答案。票 6：跑完一轮后，用 Workers Observability 的查询 API 按 operation id 聚合：至少有一个 turn 级 span，每个模型调用和工具调用 span 都挂在某个 turn 级 span 下 | `workers/edge/api-test` 的 `agent-turn.test.ts`、`catalog-api.test.ts` |
 | 身份注册表和身份矩阵的 node 测试 | Neon JWT 产出 `human`；Access 服务断言且 Client ID 在列表里产出 `service`；Client ID 不在列表里（开门令牌）不产出身份、走匿名管道；Access 身份断言（`sub` 不为空）不产出身份；Neon JWT 加列表里的服务断言答 401；错的 aud、过期、未知发行方得到规定的失败；production 和本地开发的配置下，同一个服务断言不产出身份；三个环境的 wrangler 都没有 `SERVICE_*` 变量，`service` 的限流默认值取自策略 | `auth-neon.test.ts`、`auth-config.test.ts`、`identity-policy-matrix.test.ts` |
 | 数据面的 db 测试 | 迁移后 `payer = 'service'` 和 `scope = 'service'` 能写；`service` 的行不能预留配额；一个 `service` turn 结算后记进日用量表；`service` 当日花费到上限后，新的 turn 和工具调用被拒绝 | pi-session-neon 的 `admission.db.test.ts`、`usage-meters.db.test.ts` |
-| host 集成测试 | 一轮结束后，历史读取多出所有工具结果、`respond` 的完整数据、逐次的模型名、供应商和 usage、run 状态，原有字段不变；`GET /v1/runs/{id}` 返回状态和答案，不是主人答 404；注入时钟：没调规划工具的 turn 在起点后 100 秒结束；起点后 30 秒调了 `plan_route` 的 turn 越过 100 秒继续，到起点后 600 秒以 `deadline_exceeded` 结束，逐出再恢复后上限不变 | `native-stream.test.ts`、`default-host.test.ts`、`turn-deadline.test.ts` |
+| host 集成测试 | 一轮结束后，历史读取多出所有工具结果、`respond` 的完整数据、逐次的模型名、供应商和 usage、run 状态，原有字段不变；`GET /v1/runs/{id}` 返回状态和答案，不是主人答 404；注入时钟：一个跨过上限的工具调用在上限时刻被取消，不等它返回；没调规划工具的 turn 在起点后 100 秒结束；起点后 30 秒调了 `plan_route` 的 turn 越过 100 秒继续，到起点后 600 秒以 `deadline_exceeded` 结束，逐出再恢复后上限不变 | `native-stream.test.ts`、`default-host.test.ts`、`turn-deadline.test.ts` |
 | 契约对齐测试 | 每个工具都有声明；在记录调用的 catalog 传输下，工具只调声明里的操作；声明的操作都在契约里。删一条声明、或让工具多调一个操作，测试变红 | `packages/contract/test/public-catalog.test.ts`、`workers/catalog/test/contract-parity.worker.test.ts` |
 | 鉴权失败日志的 node 测试 | 两条鉴权失败日志只有 `class` 和 `reason`，没有 `path` 键；今天断言 `path: "/v1/chat"` 的两处改成断言没有 `path` | `auth-fallthrough.test.ts`、`auth-outage.test.ts` |
 | span 的 node 测试 | 用 pi 的 `fauxProvider` 驱动一轮，pi-telemetry 的 `InMemoryTelemetryContext` 收 span：一个 turn、N 次模型调用、M 次工具调用，属性只有允许的键；pi 自己的 `pi.harness.hook` span 也收到 | agent 包里用 `fauxProvider` 驱动真实 pi 回合的现有测试 |
