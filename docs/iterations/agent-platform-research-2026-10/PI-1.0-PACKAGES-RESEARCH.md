@@ -126,7 +126,12 @@ watch 快照）。我们手写的业务层（admission 与 409 幂等、配额�
 - 逐个打开了 §2 表里 pi 各包的出处行；一处出处原先写错（对端鉴权那句在 `pi-server@1.0.2 README.md:61`，不在 pi-client），已改。
 - 抽查了本仓库的引用：`session-agent.ts:40,269`、`native-models.ts:3`、`history.ts:76`、`storage.ts:16`、
   `repo.ts:12`。pi-session-neon 的 455 行不含生成的 `contract.d.ts`。
-- 185/186 的算法：取 0.87.1 和 1.0.2 全部 d.ts 的导出名求差集，再逐个文件解析从 pi-agent-core import 的名字。
+- 187/188 的算法：取 0.87.1 和 1.0.2 全部 d.ts 的导出名求差集，再逐个文件解析从 pi-agent-core import 的名字（静态的
+  `import`/`export … from` 和动态 `await import()` 解构出的名字）。文件集是五个包里所有静态 `from` 或动态 `import()`
+  pi-agent-core 的 `.ts`、`.tsx`：`git grep -l -E "(from|import\()[[:space:]]*['\"]@earendil-works/pi-agent-core" -- '*.ts' '*.tsx'`，
+  没有排除项；唯一没用到已删名字的是 `workers/edge/src/agent/views/message-chunks.ts`。最初的 185/186 只扫了四个包、
+  只认静态 import，漏了 `apps/web/tests/unit/chat/_native-watch.ts` 和只用动态 import 的
+  `workers/edge/test/native-host-models.test.ts`；同一算法在原来那 186 个文件上仍得 185。
 
 ## 源表
 
