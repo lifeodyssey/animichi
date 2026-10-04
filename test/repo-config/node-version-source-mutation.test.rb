@@ -16,10 +16,12 @@ class NodeVersionSourceMutationTest < Minitest::Test
   WORKSPACE = "pnpm-workspace.yaml"
   PR_WORKFLOW = ".github/workflows/pr-verification.yml"
   SETUP_ACTION = ".github/actions/setup-workspace/action.yml"
+  EGRESS_IMAGE = "apps/anitabi-egress/Dockerfile"
   LITERAL = "pins a `node-version` literal"
   READS = "must set `node-version-file: .nvmrc`"
   ENGINES = "engines.node is"
   TYPES = "@types/node describes the runtime's API surface"
+  IMAGE = "a service image builds or runs on a Node major"
 
   def importer_paths
     workspace = Psych.safe_load(File.read(File.join(ROOT, WORKSPACE)))
@@ -32,6 +34,7 @@ class NodeVersionSourceMutationTest < Minitest::Test
     ([CONTRACT, NVMRC, MANIFEST, WORKSPACE] +
       Dir.glob(".github/workflows/*.yml", base: ROOT) +
       Dir.glob(".github/actions/**/action.yml", base: ROOT) +
+      Dir.glob("{apps,packages,workers}/*/Dockerfile", base: ROOT) +
       importer_paths).sort.uniq
   end
 
@@ -117,6 +120,13 @@ class NodeVersionSourceMutationTest < Minitest::Test
     with_tree do |root|
       write(root, NVMRC, "24\n")
       reject_tree(root, "a runtime behind the types", ENGINES, TYPES)
+    end
+  end
+
+  def test_rejects_a_service_image_behind_the_runtime
+    with_tree do |root|
+      rewrite(root, EGRESS_IMAGE, "FROM node:26-bookworm-slim\n", "FROM node:24-bookworm-slim\n", "egress runtime stage")
+      reject_tree(root, "an egress runtime stage on node:24", IMAGE, EGRESS_IMAGE)
     end
   end
 end

@@ -20,6 +20,8 @@ class NodeVersionSourceTest < Minitest::Test
   SETUP_NODE = %r{\Aactions/setup-node@}.freeze
   VERSION_FILE_KEY = "node-version-file"
   LITERAL_KEY = "node-version"
+  DOCKERFILE_GLOB = "{apps,packages,workers}/*/Dockerfile"
+  NODE_IMAGE = /^FROM\s+(?:--\S+\s+)*node:(\d+)/.freeze
   CATALOG_FIELDS = %w[dependencies devDependencies optionalDependencies peerDependencies].freeze
   DIGITS = /\d+/.freeze
 
@@ -77,6 +79,13 @@ class NodeVersionSourceTest < Minitest::Test
   def steps_without_the_nvmrc
     setup_node_steps.reject { |_relative, step| step.fetch("with", {})[VERSION_FILE_KEY] == NVMRC }
                     .map { |relative, _step| relative }.uniq
+  end
+
+  # Every `FROM node:<major>` stage of a service image, as [file, major].
+  def node_image_stages
+    Dir.glob(DOCKERFILE_GLOB, base: ROOT).sort.flat_map do |relative|
+      read(relative).scan(NODE_IMAGE).map { |(major)| [relative, major] }
+    end
   end
 
   def manifest_paths
@@ -150,5 +159,16 @@ class NodeVersionSourceTest < Minitest::Test
                  "@types/node describes the runtime's API surface, so its major must equal #{NVMRC}'s " \
                  "#{runtime_major} (#{offenders.join(', ')}); a 26-line type set checked against a 24 runtime " \
                  "is a silent false positive"
+  end
+
+  def test_every_node_image_matches_the_nvmrc_major
+    stages = node_image_stages
+    refute_empty stages, "no `FROM node:` stage was found; this contract would pass with its subject deleted"
+    offenders = stages.reject { |_relative, major| major == runtime_major }
+                      .map { |relative, major| "#{relative}: node:#{major}" }
+    assert_empty offenders,
+                 "a service image builds or runs on a Node major other than #{NVMRC}'s #{runtime_major} " \
+                 "(#{offenders.join(', ')}); CI type-checks it against #{NVMRC}, so it would ship on a runtime " \
+                 "its types do not describe"
   end
 end

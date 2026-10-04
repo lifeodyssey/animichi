@@ -1,8 +1,9 @@
 # Native tools with the production Catalog Worker
 
-Run `pnpm --filter @animichi/agent test:integration` from the workspace root with Node 24,
-Docker and the repository test-postgres image available. The gate checks the Node fixture
-and the test Worker against their respective compiler contexts, then runs six serial cases.
+Run `pnpm --filter @animichi/agent test:integration` from the workspace root with the Node
+version `.nvmrc` names, Docker and the repository test-postgres image available. The gate checks
+the Node fixture and the test Worker against their respective compiler contexts, then runs six
+serial cases.
 Wrangler is the existing root dependency; the Worker reads the production catalog's
 compatibility date and flags. No deployed account, paid model or live Neon branch is needed.
 
