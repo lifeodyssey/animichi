@@ -13,12 +13,15 @@ cd "$(git rev-parse --show-toplevel)"
 # scanner already ran on this change at pre-commit, which reads the staged diff;
 # `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby the `contracts` job
 # runs, and `.github/test/workflow-ruby-toolchain.test.rb` there is their gate;
+# `.nvmrc` is the repository's one Node version source (#716) and
+# `test/repo-config/node-version-source.test.rb` is its reader, the same
+# single-root-pin shape, so it needs no package gate of its own;
 # the two root env SHEETS (`.env.example`, `.env.test.example`) are operator
 # documentation: the root-allowlist check owns their top-level ENTRY, not their
 # contents, and a credential pasted into one is caught by the pre-commit secret
 # scan, which reads the staged diff and does not route (#1813);
 # `supabase/` is the archived historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.semgrep|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
+NO_PACKAGE='^(docs/|\.claude/|\.semgrep|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.nvmrc$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The contracts bucket (#1883): the three families CI's `contracts` job owns and
 # no workspace package does — `.github/**` is what every `.github/test/*.test.rb`
