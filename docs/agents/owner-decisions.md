@@ -52,6 +52,13 @@ The orchestration is being redesigned as a state-driven agentic workflow; the de
   lane goes back to that lane; a finding spanning lanes becomes a new issue blocked by those cards
   and is handled after they merge.
 
+## Merge authority (2026-10-04)
+
+"评审都过了 pr comment也都解决了 你就可以自己合并呀 squash": once the review seats have approved
+the head and every PR comment is handled, the agent squash-merges the PR itself instead of asking.
+Handled means each thread answered inline from our side and then resolved ("我的要求一直都是inline
+comment", the same day). The merge still goes through the merge hook (`docs/ops/review-gate.md`).
+
 ## Failure-alert drill (2026-09-16)
 
 A deliberate unattended workflow failure in the real repository is allowed, to prove the alert
