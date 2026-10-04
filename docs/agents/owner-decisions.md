@@ -57,7 +57,9 @@ The orchestration is being redesigned as a state-driven agentic workflow; the de
 "评审都过了 pr comment也都解决了 你就可以自己合并呀 squash": once the review seats have approved
 the head and every PR comment is handled, the agent squash-merges the PR itself instead of asking.
 Handled means each thread answered inline from our side and then resolved ("我的要求一直都是inline
-comment", the same day). The merge still goes through the merge hook (`docs/ops/review-gate.md`).
+comment", the same day). The author's note, not the owner's words: the merge hook runs only where
+it is installed, in Claude Code sessions and in zdev's merge handler; a worker anywhere else runs it
+explicitly and never assumes it ran (`docs/ops/review-gate.md`, `docs/ops/orca-card-delivery.md`).
 
 ## Failure-alert drill (2026-09-16)
 
