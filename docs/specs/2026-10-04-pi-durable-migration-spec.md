@@ -27,8 +27,8 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 
 ## 方案
 
-- 先做一张限时 spike 卡，回答问题 3 到 5，按下面写定的判据给出 go/no-go，并按证据重排迁移票。spike 的代码不合进
-  main。
+- 先做一张限时 spike 卡，回答下面"spike"一节的全部五问（第 1 问判 no-go 就提前停），按写定的判据给出 go/no-go，并按
+  证据重排迁移票。spike 的代码不合进 main。
 - spike 从 Cloudflare 的官方集成 `PiHarness` 起步，这是 owner 的"能用现成sdk就用现成sdk"。
 - 存储量两条路线，量法相同：(a) `PiHarness` 自己的存储，即 Durable Object 的 SQLite，把每轮的完整记录同步一份到
   Neon，历史和结算照旧读 Neon；(b) 按 pi-durable 的 `Storage` 接口给 Neon 写一个后端，在 `PiHarness` 的工厂里
