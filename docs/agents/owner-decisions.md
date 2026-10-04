@@ -131,7 +131,7 @@ pi-durable before any migration ("能用pi的就用pi的"), and existing SDKs ov
 ("能用现成sdk就用现成sdk"). On 2026-10-04 the owner asked for two things, without ordering them: an
 issue to move to 0.99.2, the last line that still ships the harness (#1995, "0.99开个issue"), and a
 separate spec for the move off the harness whose first ticket is the spike ("剩下的做一个spec吧，spec
-第一张卡写spike"). The author's
+第一张卡写spike"); that spec is `docs/specs/2026-10-04-pi-durable-migration-spec.md`. The author's
 reading, not an owner statement, and open to the owner's objection: staying on the 0.99 line until
 that spec lands is a migration in progress under the latest-dependencies rule in
 `docs/agents/code-standards.md`, not a pin around it.
