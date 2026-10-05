@@ -16,6 +16,7 @@ Current active iteration artifacts:
 - [#1317 decomposition](production-readiness-2026-08/1317-DECOMPOSITION.md) — why deleting `apps/agent` is a migration campaign: the eleven surviving container surfaces, the `/healthz` ordering constraint, and the thirteen cards it was split into
 
 - [Delivery velocity, September 2026](delivery-velocity-2026-09/README.md) — the evidence base for #1768: where integration-test time actually goes, what the 91 contract-test files are worth, unit and integration test shape, and what 23 public monorepos really do about CI parallelism
+- [Agent platform research, October 2026](agent-platform-research-2026-10/OBSERVABILITY-AND-EVAL-RESEARCH.md) — four research records behind the 2026-10 owner questions: observability and eval (pi, mature projects, the thirteen gaps), machine and agent identity (A2A, MCP, connectors, vendors), agent API shapes (Anthropic, platforms, vertical products), and what the pi 1.0 packages can replace; siblings [`AGENT-AUTH-RESEARCH.md`](agent-platform-research-2026-10/AGENT-AUTH-RESEARCH.md), [`AGENT-API-SHAPE-RESEARCH.md`](agent-platform-research-2026-10/AGENT-API-SHAPE-RESEARCH.md) and [`PI-1.0-PACKAGES-RESEARCH.md`](agent-platform-research-2026-10/PI-1.0-PACKAGES-RESEARCH.md)
 
 Inherited execution inputs, superseded as program boards:
 - `docs/iterations/iter6/` — retained until #1017 archives/reconciles its still-relevant design evidence
