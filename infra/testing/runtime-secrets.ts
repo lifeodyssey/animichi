@@ -4,16 +4,14 @@ import type { Built } from "./harness.ts";
 /** Every store secret the runtime provisions; the wrangler bindings contract
  * (`topology-runtime-secret-bindings.test.ts`) reads this same list. */
 export const RUNTIME_KEYS = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY",
-  "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN", "TURNSTILE_SECRET", "ANON_ID_SECRET",
+  "MIMO_API_KEY", "TURNSTILE_SECRET", "ANON_ID_SECRET",
   "INGEST_SIGNING_KEY",
 ];
 
 /** The runtime keys whose authority lives OUTSIDE this program, so they arrive
  * as secret stack config (ESC `fn::secret`) and are never generated here.
  *
- * "No provider can mint them" described the first four and got mistaken for the
- * category. `INGEST_SIGNING_KEY` (#1792) is a value this program could mint and
+ * `INGEST_SIGNING_KEY` (#1792) is a value this program could mint and
  * must not: the egress service in Fly holds the copy that counts — it verifies
  * what catalog signs, and Pulumi does not manage it. A generated second copy
  * would make Pulumi the authority for a value another system already holds, and
@@ -22,8 +20,7 @@ export const RUNTIME_KEYS = [
  * not who could compute the bytes. The remaining keys are generated (#1676) or
  * read from a provider. */
 export const VENDOR_KEYS = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
-  "INGEST_SIGNING_KEY",
+  "MIMO_API_KEY", "INGEST_SIGNING_KEY",
 ];
 
 /** The account's single Turnstile widget, as the provider reports it. The site

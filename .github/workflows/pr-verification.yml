@@ -365,6 +365,7 @@ jobs:
           bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
+          bundle exec ruby test/repo-config/example-env-consumers.test.rb
           bundle exec ruby test/repo-config/gitleaks-mutation.test.rb
           bundle exec ruby test/repo-config/gitleaks-pin-mutation.test.rb
           bundle exec ruby test/repo-config/gitleaks.test.rb
@@ -385,6 +386,8 @@ jobs:
           bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
           bundle exec ruby test/repo-config/retired-migration-authority-refs.test.rb
           bundle exec ruby test/repo-config/retired-python-agent-refs.test.rb
+          bundle exec ruby test/repo-config/retired-python-deploy-settings-mutation.test.rb
+          bundle exec ruby test/repo-config/retired-python-deploy-settings.test.rb
           bundle exec ruby test/repo-config/wrangler-path-claims.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev-mutation.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev.test.rb

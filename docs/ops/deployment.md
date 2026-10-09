@@ -279,9 +279,6 @@ The edge JWT path verifies against the branch's public JWKS — no Supabase/anon
 The native `AgentSession` Durable Object runs inside the edge Worker; these are the keys it reads
 besides the bindings above:
 
-- `APP_ENV` — the deployed environment's own name, from `wrangler.toml`'s per-environment `[vars]`
-  block (`development` / `staging` / `production`), NOT a GitHub secret.
-
 - `EDGE_SHOWCASE_MODE` — edge-only `[vars]`, the worker-side half of "prod is a landing-only
   showcase" (GOAL C): `"true"` (production) makes every functional route (`/v1/*`, `/v1/users/*`,
   the public catalog read) answer 403 `showcase_denied` before any binding is touched, while
@@ -300,21 +297,19 @@ besides the bindings above:
   S1.10/#282, a fairness/UX mechanism rather than a defense line; `0` or unset disables it, same
   convention as the budget ceiling above)
 
-**There is a second, unrelated `APP_ENV`** — `apps/web/wrangler.jsonc`'s per-env `vars`, read by
-`apps/web/src/server/noindex-plugin.ts`. Same name, same meaning, **opposite behaviour when
-absent**: the web app's is fail-**open-to-noindex** (assume non-production and send
-`X-Robots-Tag`). Do not "unify" the two without deciding which cost you are choosing. Guarded by
+**`APP_ENV` belongs to the web app** — `apps/web/wrangler.jsonc`'s per-env `vars`, read by
+`apps/web/src/server/noindex-plugin.ts`. It is fail-**open-to-noindex** (assume non-production and
+send `X-Robots-Tag`). Guarded by
 `apps/web/tests/unit/wrangler-app-env.test.ts`, which also pins the top-level block: its `name` is
 the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to production
-with no `APP_ENV` and silently deindex the site.
+with no `APP_ENV` and silently deindex the site. The edge Worker's own `APP_ENV` — read only by the
+deleted Python process — was retired with the other Python-era declarations (issue #1750).
 
-The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGIN`,
-`LOGFIRE_TOKEN`, `GOOGLE_MAPS_API_KEY`,
-`ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
-gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
-separate work. Do not treat them as live configuration. (The Python-era `DEFAULT_AGENT_MODEL` and
-`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables are
-a separate inventory, pinned by `.github/test/workflow-variables.test.rb`.)
+The Python-era declarations in `wrangler.toml` had no deployed consumer, and the Python tree they
+served is gone (#1607): issue #1750 retired them, and their Pulumi Secrets Store entries come out
+on the next apply (staging on merge; production behind the owner's approval). The same-named
+`DEFAULT_AGENT_MODEL` / `FALLBACK_AGENT_MODEL` GitHub Actions variables are a separate inventory,
+pinned by `.github/test/workflow-variables.test.rb`.
 
 ## Cloudflare Workers Path
 

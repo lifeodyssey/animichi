@@ -56,24 +56,16 @@
 #                               provisioned (see infra/src/neon-auth.ts).
 #
 # Runtime secrets. The container env-forwarding allowlist that used to carry
-# these into a Python process is deleted (#1605). What still has a consumer is
-# read directly by the native agent tier (`src/agent/host/native-bootstrap.ts`
-# resolves the DSN and the model credential); the rest are retained until the
-# Python-tree removal retires each with its consumer (#1607) rather than being
-# dropped here:
+# these into a Python process is deleted (#1605), and the Python-tree removal
+# (#1607) retired every declaration whose only consumer it held (issue #1750).
+# What is left is read directly by the native agent tier
+# (`src/agent/host/native-bootstrap.ts` resolves the DSN and the model
+# credential):
 #   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN, bound from the Secrets
 #                                Store in BOTH deployed environments (staging
 #                                #912 follow-up, production W4-1 #1314); read by
 #                                the native agent tier
 #   MIMO_API_KEY               — the model credential the native agent tier reads
-#   ZEN_GO_API_KEY             — the deleted Python process's zen/go provider key
-#   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
-#   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
-#   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
-#   LOGFIRE_TOKEN              — optional observability token
-#
-# Edge public configuration (vars, not secrets — issue #1047):
-#   CORS_ALLOWED_ORIGIN        — backend CORS allowlist (public origin)
 #
 # Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
 # until BOTH of these are present:
@@ -92,21 +84,12 @@ compatibility_flags = ["nodejs_compat"]
 main = "src/entry.ts"
 
 # Plain (non-secret) vars. The container env-forwarding allowlist that used to
-# carry them into a Python process is deleted (#1605).
-# CATALOG_API_URL was that process's catalog base; the native agent tier's
-# catalog client targets `https://catalog.internal` through the CATALOG service
-# binding below and reads no URL var, so this entry is retained until the
-# Python-tree removal retires it with its consumer (#1607).
+# carry them into a Python process is deleted (#1605); the Python-tree removal
+# (#1607) retired the last entries whose only consumer it held (issue #1750).
+# The native agent tier's catalog client targets `https://catalog.internal`
+# through the CATALOG service binding below and reads no catalog URL var.
 # There is NO public /catalog/* route on the main Worker.
 [vars]
-# APP_ENV (issue #498): each ring declares its own value — `[vars]`
-# "development", staging "staging", production "production" — so an environment
-# can never claim another's name. The Python process that read it (and tagged
-# its Logfire traces) is deleted (#1605); the three distinct values stay pinned
-# by `test/wrangler-toml.test.ts` as the #498 regression guard until the
-# Python-tree removal retires the entry (#1607).
-APP_ENV = "development"
-CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
 # NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
 # identity source. Unset fails closed (no verified bearer).
@@ -257,12 +240,6 @@ workers_dev = false
 preview_urls = false
 
 [env.production.vars]
-# APP_ENV (issue #498): the deployed environment's own name — see the default
-# ring's note; the Python process that read it is deleted (#1605), and it was
-# once a fail-closed required key of the container env (`CONTAINER_REQUIRED_KEYS`),
-# which is why a wrong or missing entry was loud rather than silent.
-APP_ENV = "production"
-CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
 # NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
 # identity source. Unset fails closed (no verified bearer).
@@ -287,14 +264,6 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # unrelated in-flight chat turn. Left unset this falls back to the
 # authenticated class default in @animichi/contract identity-contract (60/60s);
 # 60/60s gives normal chat usage headroom above the anonymous burst ceiling.
-# CORS_ALLOWED_ORIGIN — backend CORS allowlist (public origin; issue #1047
-# demotes it from a GitHub secret to a wrangler var). The production frontend
-# origin is the canonical https://animichi.com origin (apps/web
-# runtime-config CANONICAL_ORIGIN). ASSUMPTION (reviewer: verify against the
-# current production CORS secret before the orchestrator deletes it): the
-# secret's value is this same origin; if production was provisioned with a
-# different value, update this var to match before deploy.
-CORS_ALLOWED_ORIGIN = "https://animichi.com"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
@@ -319,21 +288,6 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 binding = "MIMO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "MIMO_API_KEY_PROD"
-
-[[env.production.secrets_store_secrets]]
-binding = "ZEN_GO_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "ZEN_GO_API_KEY_PROD"
-
-[[env.production.secrets_store_secrets]]
-binding = "GOOGLE_MAPS_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "GOOGLE_MAPS_API_KEY_PROD"
-
-[[env.production.secrets_store_secrets]]
-binding = "LOGFIRE_TOKEN"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "LOGFIRE_TOKEN_PROD"
 
 [[env.production.secrets_store_secrets]]
 binding = "AGENT_SVC_DATABASE_URL"
@@ -445,22 +399,9 @@ binding = "DOCS_ASSETS"
 bucket_name = "docs-assets-staging"
 
 [env.staging.vars]
-# APP_ENV (issue #498): staging traces must be distinguishable from production's,
-# so this block declares its own value — see the default ring's note for why the
-# three stay distinct and why the entry is still declared with no reader.
-APP_ENV = "staging"
-CATALOG_API_URL = "http://catalog.internal"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"
-# CORS_ALLOWED_ORIGIN — the Python agent service's CORS allowlist (#527/#528,
-# P1-A). It reached a consumer only through the container env allowlist, so
-# nothing reads it since #1605; the declaration is kept so the Python-tree
-# removal retires it together with that consumer rather than dropping it here.
-# A domain name isn't a secret, and the value is the real staging web origin
-# (apps/web/wrangler.jsonc's `env.staging.name` = "animichi-web-staging" with no
-# custom route, i.e. the default workers.dev URL).
-CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
 # AUTH-2 #950 hard cut (committed 2026-08-11): edge verifies Neon Auth (Better
 # Auth) JWTs against this branch JWKS ONLY — the dual-issuer flag, the split
@@ -511,21 +452,6 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 binding = "MIMO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "MIMO_API_KEY"
-
-[[env.staging.secrets_store_secrets]]
-binding = "ZEN_GO_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "ZEN_GO_API_KEY"
-
-[[env.staging.secrets_store_secrets]]
-binding = "GOOGLE_MAPS_API_KEY"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "GOOGLE_MAPS_API_KEY"
-
-[[env.staging.secrets_store_secrets]]
-binding = "LOGFIRE_TOKEN"
-store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "LOGFIRE_TOKEN"
 
 [[env.staging.secrets_store_secrets]]
 binding = "TURNSTILE_SECRET"
