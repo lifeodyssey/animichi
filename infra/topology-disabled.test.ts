@@ -14,13 +14,17 @@ import { buildStack, type Built } from "./testing/harness.ts";
 // import fails, which is itself the finding.
 const built: Built[] = await buildStack("prod", { cloudflareAccountId: "acct" });
 
-test("only private R2 buckets exist when an ungated stack is built", () => {
-  const types = built.map((r) => r.type);
+test("an ungated stack builds only the four private R2 buckets and the knob namespace", () => {
+  // Sorted: resource registration is async, so construction order is not a
+  // contract. The knob namespace (#688) is deliberately always-on — it is the
+  // operator's runtime-tunable store, not part of the cutover flag.
+  const types = built.map((r) => r.type).sort();
   assert.deepEqual(types, [
     "cloudflare:index/r2Bucket:R2Bucket",
     "cloudflare:index/r2Bucket:R2Bucket",
     "cloudflare:index/r2Bucket:R2Bucket",
     "cloudflare:index/r2Bucket:R2Bucket",
+    "cloudflare:index/workersKvNamespace:WorkersKvNamespace",
   ]);
 });
 
