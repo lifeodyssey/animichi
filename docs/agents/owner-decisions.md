@@ -52,6 +52,21 @@ The orchestration is being redesigned as a state-driven agentic workflow; the de
   lane goes back to that lane; a finding spanning lanes becomes a new issue blocked by those cards
   and is handled after they merge.
 
+## Merge authority (2026-10-04)
+
+"评审都过了 pr comment也都解决了 你就可以自己合并呀 squash": once the review seats have approved
+the head and every PR comment is handled, the agent squash-merges the PR itself instead of asking.
+For review threads the owner's requirement is an inline reply ("我的要求一直都是inline comment",
+the same day).
+
+The author's note, not the owner's words: "every PR comment" covers top-level comments as well as
+threads, from people as well as bots; a thread is answered inline and then resolved, and a
+top-level comment is answered on the pull request, before the merge. The merge hook checks threads
+and unthreaded bot findings but not top-level comments from people, because every one of our
+actors comments as the owner's account; and it runs only where it is installed, in Claude Code
+sessions and in zdev's merge handler, so a worker anywhere else runs it explicitly and never
+assumes it ran (`docs/ops/review-gate.md`, `docs/ops/orca-card-delivery.md`).
+
 ## Failure-alert drill (2026-09-16)
 
 A deliberate unattended workflow failure in the real repository is allowed, to prove the alert

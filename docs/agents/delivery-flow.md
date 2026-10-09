@@ -114,9 +114,10 @@ round four.
 The **single source** for merge quality is `docs/ops/review-gate.md`: the native
 `required_review_thread_resolution` (line-level threads must be resolved before a merge) plus the
 two required checks `PR Verification`/`Security` plus the global hook
-`~/.claude/hooks/check-pr-comments.sh` (before `gh pr merge` it enforces the two-way comment
-discipline: threads at zero + each qodo/Sonar top-level finding acknowledged by a human; it also
-rejects the jump-ahead merge made before the bots have spoken). Retired since 2026-08-31: the
+`~/.claude/hooks/check-pr-comments.sh` (it checks a standalone `gh pr merge <number>` and refuses
+every other merge form; it requires every thread resolved with an inline reply from our side, every
+bot that took part to have seen the head or 20 minutes since the push, and unthreaded bot findings
+acknowledged; where these layers do not hold is in `docs/ops/review-gate.md`). Retired since 2026-08-31: the
 Review Gate aggregate status, the LLM trusted-review seat and the verdict/marker artifacts — they
 coupled every merge to a shared model quota; when the quota emptied, every PR went red at once
 with no local way out. Review discipline (Standards∥Spec, mutation red-green proof, fresh-head)
