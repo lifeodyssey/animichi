@@ -41,8 +41,8 @@ is allowed; the reason is what is required ("最好是e2e的，如果不是，�
 2026-09-24), and a mechanism forcing a second merge is one such reason: CD applies Pulumi before
 it publishes Workers, so a route cannot name a Worker the same run creates. The owner's earlier
 words, in order: "我感觉你 pr 拆分的太小了，大的好几个 issue，能够 e2e 的，作为一个 pr" (2026-09-15);
-"记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr" (2026-09-17); "每个story完成验收
-就是一个PR，不然的话，我们CI每次都阻隔太久了" and "你可以详细拆分issue,但是尽量把一个e2e的story写成一个pr"
+"记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr" (2026-09-17);
+"每个story完成验收就是一个PR，不然的话，我们CI每次都阻隔太久了" and "你可以详细拆分issue,但是尽量把一个e2e的story写成一个pr"
 (2026-09-23). Why: every PR pays a full CI gate, and the ruleset is squash + linear history +
 strict up-to-date, so every merge puts every other open PR BEHIND and reruns its CI (O(n²)):
 hot-file PRs measured 150–200 minutes each, one PR merged `main` five times, and fine-grained PR
@@ -50,18 +50,17 @@ splitting kept the pipeline blocked.
 
 - One brief, one branch, one PR whose body closes each ticket. GitHub's `Closes #a, #b, #c`
   closes only the first number; repeat the keyword before each one.
-- A story that depends on another story's in-flight branch is a stacked PR: start from that
-  branch head and open with `gh pr create --base <parent-branch>` (or `gh pr edit <n> --base`). No
-  third-party stack tools; `gh-stack` has known issues on squash-only repositories. Each layer is
-  reviewed and approved on its own; merge from the bottom, by literal number.
-- Measured 2026-09-17: after the bottom PR squash-merges, GitHub only repoints the upper PR's base
-  to `main`; the branch still carries the old bottom commits and reads DIRTY. Rebase it yourself:
-  `git rebase --onto origin/main <old-bottom-head>`, layer by layer, then push with lease. Every
-  merge costs one restack of the remaining layers, so keep stacks short and merge fast.
+- Updating a branch is a merge: `git merge origin/main` + a normal push, or `gh pr update-branch`
+  (ADR 0009, 2026-10-09) — never a rebase, never a force-push. A story that depends on another
+  story's in-flight branch waits for that story's PR to land on `main`, then takes the same merge
+  against the fresh head; stacked PRs are retired (owner, 2026-10-09, ADR 0009). Every merge
+  keeps every other open PR a plain update away from current.
 - Never chain a rebase and a dispatch in one command. A rebase that stopped on a conflict still let
   the dispatch fire, and the reviewer received a tree with 21 conflicted files. Require
   `git status --porcelain` empty and `git rebase --show-current-patch` silent first; a conflicted
-  restack goes to the writer, hunk by hunk.
+  restack goes to the writer, hunk by hunk. (Superseded as a step 2026-10-09, ADR 0009: the
+  branch update is a merge now. The guard is this incident's own lesson and stands: no chained
+  update-and-dispatch, `git status --porcelain` empty before a dispatch.)
 
 ## Review before the PR opens (owner, 2026-09-24)
 
