@@ -13,6 +13,7 @@ overrides:
   brace-expansion: ">=5.0.12"
   js-yaml: ^4.3.2
   "@grpc/grpc-js": ">=1.14.5"
+  postcss-selector-parser: ">=7.1.6"
 allowBuilds:
   '@pulumi/neon': true
   '@pulumi/neon@file:sdks/neon': true
