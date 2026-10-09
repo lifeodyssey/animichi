@@ -226,11 +226,14 @@ Paths that need no package gate, because another hook or a CI job already owns t
 docs/**  .claude/**  .semgrep*
 root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
-Gemfile  Gemfile.lock  .ruby-version  .env.example  .env.test.example
+Gemfile  Gemfile.lock  .ruby-version  .nvmrc  .env.example  .env.test.example
 ```
 
 `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby and minitest the `contracts` job runs
 (#1774); that job's `workflow-ruby-toolchain.test.rb` holds them to the workflows' setup-ruby steps.
+`.nvmrc` is the repository's one Node version source (#716), and
+`test/repo-config/node-version-source.test.rb` in that same job holds it to the `engines.node` floor
+and the `@types/node` major — the same single-root-pin shape, so it needs no package gate either.
 
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.
@@ -249,9 +252,9 @@ documents true had to edit `.env.test.example` (#1813).
 `.github/**`, `scripts/**` and `test/repo-config/**` left this list in #1883: CI's `contracts` job
 owned them and no local gate read them — a path whose owner runs elsewhere is what this list is for,
 and the owner did not run on a laptop — so the fix was the bucket above rather than a wider
-exemption. A root config the contracts also read (`.gitleaks.toml`, `codecov.yml`, `Gemfile`) keeps
-its entry: each is a single file with a reader of its own, and routing every config the contracts
-touch would put the whole 74-command job on a push that moved one pin.
+exemption. A root config the contracts also read (`.gitleaks.toml`, `codecov.yml`, `Gemfile`,
+`.nvmrc`) keeps its entry: each is a single file with a reader of its own, and routing every config
+the contracts touch would put the whole 74-command job on a push that moved one pin.
 
 **Every** changed path has to be owned by something: a package whose routing row fired, a bucket
 that actually fired, or the whitelist. Whatever is left over stops the push and is listed by name. The

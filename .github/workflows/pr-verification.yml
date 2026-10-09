@@ -110,7 +110,7 @@ jobs:
       # job. The cached installs live in the jobs that actually install.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
       # The paths outside any pnpm project (migrations/, .github/) and the root
       # dependency files, which pnpm answers with the root project alone.
       # base/ref are read on merge_group and on push — the action special-cases
@@ -376,6 +376,8 @@ jobs:
           bundle exec ruby test/repo-config/lint-scope.test.rb
           bundle exec ruby test/repo-config/no-real-clock-sleep-mutation.test.rb
           bundle exec ruby test/repo-config/no-real-clock-sleep.test.rb
+          bundle exec ruby test/repo-config/node-version-source-mutation.test.rb
+          bundle exec ruby test/repo-config/node-version-source.test.rb
           bundle exec ruby test/repo-config/open-card-deferrals.test.rb
           bundle exec ruby test/repo-config/package-test-segments.test.rb
           bundle exec ruby test/repo-config/playwright.test.rb
