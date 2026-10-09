@@ -38,13 +38,9 @@ S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket �
   (`CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`,来自 ESC `lifeodyssey/animichi/staging`
   的 `environmentVariables`,源头是 `infra/src/staging-access.ts` 的两个 stack output)。
   旧的 WAF 闸与 `STAGING_GATE_TOKEN` / `stagingAllowedIps` / `stagingGateToken` 已随本卡删除。
-- `VITE_*` 六键(部署侧构建注入,per-env;preflight 非空校验):web 构建期配置。
-  S0-v2 增 `VITE_SHOWCASE_MODE`(严格布尔契约,见 launch spec)。
-- `EDGE_SHOWCASE_MODE`(edge Worker 的 `[vars]`,根/staging/production 三段):showcase 闸,
-  语义同 `VITE_SHOWCASE_MODE` 的严格布尔契约——仅字面量 `"false"` 开放功能路由,
-  `"true"` 使 /v1 功能路由(chat/byok/users)与 public catalog 读答 403,
-  缺失/非法值 fail-closed(同样拒绝);/healthz、/img/*、/tiles/* 恒可达。
-  staging=false、production=true、本地默认 false。仅 edge Worker 自身消费。
+- `VITE_*`(部署侧构建注入,per-env;preflight 非空校验):web 构建期配置。
+  showcase 模式已退役(2026-10-03,#1975):`VITE_SHOWCASE_MODE` 与
+  `EDGE_SHOWCASE_MODE` 不再存在,web 与 edge 均不读任何 showcase 旗标。
 - Neon/Supabase/模型 provider 键:数据面与 agent;分布以实时清单为准,用途见各包 AGENTS.md。
 
 ## 2. 域名与路由拓扑(全部 Pulumi 声明,`infra/index.ts`)

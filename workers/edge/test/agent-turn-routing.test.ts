@@ -53,7 +53,6 @@ function makeHarness(flag: string | undefined, deps: WorkerDeps = {}): Harness {
   const app = createWorkerApp({ agentTurns: makeRecordingTier(calls), ...deps });
   const env = {
     AGENT_TURN_ROUTE: flag,
-    EDGE_SHOWCASE_MODE: "false",
     ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
@@ -148,19 +147,10 @@ void test("the authenticated limiter still runs before the tier — a denied tur
   const app = createWorkerApp({ ...AUTHED, agentTurns: makeRecordingTier(calls) });
   const env = {
     AGENT_TURN_ROUTE: "edge",
-    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
     EDGE_GUARD: fakeGuard(NOW).namespace,
   } as never;
   assert.equal((await app.request("/v1/chat", POST_CHAT, env, stubCtx)).status, 200);
   assert.equal((await app.request("/v1/chat", POST_CHAT, env, stubCtx)).status, 429);
   assert.equal(calls.length, 1);
-});
-
-void test("showcase mode denies the agent tier the same way it denies the forward", async () => {
-  const calls: TierCall[] = [];
-  const app = createWorkerApp({ ...AUTHED, agentTurns: makeRecordingTier(calls) });
-  const env = { AGENT_TURN_ROUTE: "edge", EDGE_SHOWCASE_MODE: "true" } as never;
-  assert.equal((await app.request("/v1/chat", POST_CHAT, env, stubCtx)).status, 403);
-  assert.deepEqual(calls, []);
 });

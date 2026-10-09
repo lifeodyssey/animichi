@@ -25,8 +25,6 @@ const config: StorybookConfig = {
       : []),
   ],
   framework: { name: "@storybook/react-vite", options: {} },
-  // showcase.ts fails closed at module init — Storybook builds are never showcase.
-  env: (env) => ({ ...env, VITE_SHOWCASE_MODE: "false" }),
   viteFinal: (viteConfig) => ({
     ...viteConfig,
     // Storybook's staticDirs owns these copies; Vite copying public too races mkdir.

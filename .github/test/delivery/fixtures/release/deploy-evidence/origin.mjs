@@ -35,7 +35,7 @@ import { createWorkerApp } from '../../../../../../workers/edge/src/app.ts';
 const mode = process.argv[2] ?? 'gateway';
 const log = process.env.EVIDENCE_FIXTURE_LOG ?? '';
 const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: 'absent' }) });
-const env = { EDGE_SHOWCASE_MODE: 'false' };
+const env = {};
 const ctx = { waitUntil: () => undefined, passThroughOnException: () => undefined };
 const port = { value: 0 };
 

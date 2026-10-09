@@ -98,7 +98,6 @@ const emittedWorkerRuntimeConfig = JSON.stringify({
   api: { agentUrl: "http://127.0.0.1:9001", siteOrigin: emittedWorkerOrigin },
   neonAuthBaseUrl: appNeonAuthBaseUrl,
   turnstileSiteKey: turnstileTestSiteKey,
-  showcaseMode: "false",
   featureFlags: {},
 });
 // Each spec resolves its own `test.use` base from E2E_WEB_BASE_URL, so the
@@ -227,7 +226,6 @@ export default defineConfig({
           timeout: 300_000,
           env: {
             VITE_TURNSTILE_SITE_KEY: turnstileTestSiteKey,
-            VITE_SHOWCASE_MODE: "false",
             VITE_NEON_AUTH_BASE_URL: appNeonAuthBaseUrl,
           },
         },

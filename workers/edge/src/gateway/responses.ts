@@ -89,16 +89,6 @@ export function authenticationRejection(request: Request, auth: AuthFailure): Re
   return auth.reason === "invalid" ? unauthorized(pathname) : credentialsRequired();
 }
 
-/** Showcase-mode denial (S0-v2 GOAL C / C9): in showcase mode the edge
- * answers every functional backend route with 403 in the same structured
- * envelope as the other rejections, so a direct curl cannot reach chat /
- * user data while the landing stays up. The code is distinct
- * from `not_found` on purpose: clients can tell "this route is temporarily
- * denied" from "this route does not exist". */
-export function showcaseDenied(): Response {
-  return gatewayRejection("showcase_denied", 403, "Not available in showcase mode.");
-}
-
 const RATE_LIMIT_MESSAGE = "リクエストが多いみたい。少し待ってね。";
 
 /** The one rejection that EXTENDS the envelope rather than being built from it:

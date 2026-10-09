@@ -40,7 +40,8 @@ windows are env-configurable in `wrangler.toml` `[vars]`:
 - `AUTH_RATE_LIMIT` / `AUTH_RATE_LIMIT_WINDOW_SECONDS` — authenticated high-cost burst.
 - `ANON_ACCESS_ENABLED = "false"` — hard-global anonymous off (Turnstile + burst +
   budget all stop for anonymous callers; 401 instead of any anonymous service).
-- `EDGE_SHOWCASE_MODE = "true"` — land-only (every functional /v1 route answers 403).
+  This lever covers ANONYMOUS abuse specifically — it answers every anonymous
+  caller with 401 but does not close the surface for authenticated users.
 
 
 ## Layer 1 — Worker platform rollback (instant, minutes)
@@ -91,8 +92,11 @@ follows `docs/ops/migrations.md` (revert chain, no automation).
    or Layer 2 (binding config).
 2. **Durable wrong (503s on chat/BYOK/users mutations)** → Layer 1 (Worker
    revision) first; Layer 3 only with owner sign-off.
-3. **Whole surface down / anonymous lockout** → Layer 0 `ANON_ACCESS_ENABLED`/
-   showcase, then Layer 1.
+3. **Whole surface down** → Layer 1 (Worker revision rollback). There is no
+   instant close-everything env lever: every variable here ships only with a
+   release through CD, so a flag was never instant either. `ANON_ACCESS_ENABLED`
+   covers anonymous abuse specifically; it does not close the surface for
+   authenticated callers.
 4. **Flood not being damped** → check the zone WAF damper (Layer WAF) before the
    application tiers.
 

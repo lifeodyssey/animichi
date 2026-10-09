@@ -38,9 +38,6 @@ const BeaconTokenSchema = z.string().nonempty();
  * still fail closed here rather than ship in the client bundle. */
 const TurnstileSiteKeySchema = z.string().regex(/^[A-Za-z0-9-]{24}$/);
 
-/** Exactly the strict camel-case boolean string the showcase branch reads. */
-const ShowcaseModeSchema = z.literal("false").or(z.literal("true"));
-
 const FeatureFlagsSchema = z.record(z.string(), z.boolean());
 
 export const runtimeConfigSchema = z
@@ -49,7 +46,6 @@ export const runtimeConfigSchema = z
     api: ApiSchema.optional().default({}),
     neonAuthBaseUrl: UrlOptional,
     turnstileSiteKey: TurnstileSiteKeySchema.optional(),
-    showcaseMode: ShowcaseModeSchema,
     cfBeaconToken: BeaconTokenSchema.optional(),
     featureFlags: FeatureFlagsSchema.optional().default({}),
   })
@@ -69,7 +65,6 @@ export interface RuntimeConfig {
   readonly api: Readonly<RuntimeApiConfig>;
   readonly neonAuthBaseUrl?: string;
   readonly turnstileSiteKey?: string;
-  readonly showcaseMode: "true" | "false";
   readonly cfBeaconToken?: string;
   readonly featureFlags: Readonly<RuntimeFeatureFlags>;
 }
@@ -118,7 +113,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function toRuntimeConfig(data: SchemaOutput): RuntimeConfig {
   return { schemaVersion: RUNTIME_CONFIG_SCHEMA_VERSION, api: data.api,
     neonAuthBaseUrl: data.neonAuthBaseUrl, turnstileSiteKey: data.turnstileSiteKey,
-    showcaseMode: data.showcaseMode, cfBeaconToken: data.cfBeaconToken, featureFlags: data.featureFlags };
+    cfBeaconToken: data.cfBeaconToken, featureFlags: data.featureFlags };
 }
 
 function mapZodFailure(issues: readonly { readonly code: string }[]): RuntimeConfigError {
@@ -140,6 +135,5 @@ class RuntimeConfigError extends Error {
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = {
   schemaVersion: RUNTIME_CONFIG_SCHEMA_VERSION,
   api: {},
-  showcaseMode: "false",
   featureFlags: {},
 };

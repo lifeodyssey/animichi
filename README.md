@@ -93,7 +93,7 @@ Neon Auth EdDSA JWTs against the branch JWKS; production stays unset/fails close
 is provisioned). Catalog/users/jobs also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
 
 **Web (`apps/web`):** `VITE_NEON_AUTH_BASE_URL` — the Better Auth client origin (login UI + JWT
-exchange); `VITE_TURNSTILE_SITE_KEY`, `VITE_SHOWCASE_MODE` — see [`apps/web/.env.example`](apps/web/.env.example).
+exchange); `VITE_TURNSTILE_SITE_KEY` — see [`apps/web/.env.example`](apps/web/.env.example).
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 

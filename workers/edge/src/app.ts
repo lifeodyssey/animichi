@@ -6,7 +6,6 @@ import type { AuthResult } from "./identity/auth.ts";
 import { authenticate as realAuthenticate } from "./identity/auth.ts";
 import { HandleGatewayRequest, gatewayFailure, type GatewayDeps } from "./gateway/request.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
-import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 import { neonAgentTurnTier, type AgentTurnTier } from "./gateway/agent-turn.ts";
 import type { SessionAdoptionStore } from "./identity/session-adopt.ts";
 
@@ -26,8 +25,6 @@ type WorkerApp = Hono<{ Bindings: Env }>;
 export interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
   turnstileGate?: TurnstileGate;
-  /** Injectable showcase gate (tests capture its warning / isolate it per case). */
-  showcaseMode?: ShowcaseMode;
   /** Injectable agent tier (W1-7 #1256): the production one opens a Neon pool
    * and two Durable Object stubs, so tests substitute it to stay hermetic. */
   agentTurns?: AgentTurnTier;
@@ -35,13 +32,9 @@ export interface WorkerDeps {
 }
 
 function resolveGates(deps: WorkerDeps): GatewayDeps {
-  // One gate per app instance, built outside the request handlers so their
-  // pass window / warn-once dedupe is shared by every request on the same
-  // isolate — tests inject their own to keep state out of module scope.
   return {
     authenticate: deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx)),
     turnstileGate: deps.turnstileGate ?? createTurnstileGate(),
-    showcaseMode: deps.showcaseMode ?? createShowcaseMode(),
     agentTurns: deps.agentTurns ?? neonAgentTurnTier(),
     sessionAdoption: deps.sessionAdoption,
   };

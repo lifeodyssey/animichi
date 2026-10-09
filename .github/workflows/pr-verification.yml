@@ -250,7 +250,6 @@ jobs:
           # the merge landed on — the same one `plan`'s routing reads.
           CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
-          VITE_SHOWCASE_MODE: "false"
           VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
         run: |
           set -euo pipefail
@@ -385,6 +384,7 @@ jobs:
           bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
           bundle exec ruby test/repo-config/retired-migration-authority-refs.test.rb
           bundle exec ruby test/repo-config/retired-python-agent-refs.test.rb
+          bundle exec ruby test/repo-config/retired-showcase-mode-refs.test.rb
           bundle exec ruby test/repo-config/wrangler-path-claims.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev-mutation.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev.test.rb
