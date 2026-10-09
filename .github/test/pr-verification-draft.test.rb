@@ -37,13 +37,8 @@ class PrVerificationDraftTest < Minitest::Test
   # `a` says.
   GATE_MARK = "DRAFT_GATE_MARK".freeze
   WHOLE_GATE = /\A#{Regexp.escape(DRAFT_GATE)}\z/
-  # A single-quoted string (`''` is a quote inside it) or a parenthesised group,
-  # which may nest and hold strings; `\g<0>` is the pattern calling itself. An
-  # `&&` or `||` inside one is not the expression's own operator.
-  NESTED = /'(?:[^']|'')*'|\((?:[^()']|\g<0>)*\)/
-  # What those operators become inside a NESTED part, so the ones left are the
-  # top level's.
-  SHIELDED = { "&&" => "\u0001", "||" => "\u0002" }.freeze
+  # How a parenthesis changes the number of open ones.
+  OPENED = { "(" => 1, ")" => -1 }.freeze
   # The alert-failure lane gates itself to the push event (failure-alert.test.rb
   # pins that), so it is the one job the draft gate does not apply to. Every
   # other job is a lane whose verdict a draft PR must not spend a runner on.
@@ -68,15 +63,36 @@ class PrVerificationDraftTest < Minitest::Test
     jobs.fetch(id, {}).fetch("if", "").to_s
   end
 
+  # Each quoted string, emptied to `''` so the words around it stay apart. Every
+  # quote toggles into or out of a string, so the even-numbered pieces are the
+  # ones outside; a doubled quote inside a string toggles twice around an empty
+  # piece. An unterminated quote swallows the rest; actionlint rejects such an
+  # expression anyway.
+  def without_strings(text)
+    text.split("'", -1).each_slice(2).map(&:first).join("''")
+  end
+
+  # The number of parentheses open before each character, as a running sum.
+  def depth_before(text)
+    text.each_char.inject([0]) { |depths, char| depths << depths.last + OPENED.fetch(char, 0) }
+  end
+
+  # The text with every parenthesised group dropped but its opening `(`. One
+  # pass over the characters, not a recursive regex: nesting needs recursion
+  # there, and it backtracks badly on a long run of `(` (CodeQL rb/redos).
+  def outside_parentheses(text)
+    text.each_char.zip(depth_before(text)).select { |_char, depth| depth.zero? }.map(&:first).join
+  end
+
   # The `if:` without its `${{ }}` wrapper, seen from its top level: the gate is
-  # one token, and every `&&` and `||` that remains is the expression's own.
-  # `&&` binds tighter than `||`, so one `||` left over makes the whole
-  # expression a disjunction, which its other side can open on a draft. Text
-  # outside the wrapper stays in, so it cannot pass for the gate.
+  # one token, and with strings and groups gone every `&&` and `||` that remains
+  # is the expression's own. `&&` binds tighter than `||`, so one `||` left over
+  # makes the whole expression a disjunction, which its other side can open on
+  # a draft. Text outside the wrapper stays in, so it cannot pass for the gate.
   def top_level(id)
     expression = condition(id).sub(/\A\$\{\{\s*(.*?)\s*\}\}\z/, '\1')
     marked = expression.gsub("(#{DRAFT_GATE})", GATE_MARK).sub(WHOLE_GATE, GATE_MARK)
-    marked.gsub(NESTED) { |nested| nested.gsub(/&&|\|\|/, SHIELDED) }
+    outside_parentheses(without_strings(marked))
   end
 
   def assert_skips_a_draft(id)
