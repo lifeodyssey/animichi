@@ -103,15 +103,23 @@ function seedOrder(clusters: NonEmpty<LocationCluster>, origin?: Origin): NonEmp
   return remaining;
 }
 
-/** Pick the next cluster: nearest to `current`, ties broken by clusterId. */
+/** NN tie window: a candidate within this of the unrounded nearest is a tie. */
+const NN_TIE_WINDOW_M = 0.01;
+
+/** Unrounded-nearest remaining cluster to (lat, lng). */
+function nearestClusterTo(remaining: NonEmpty<LocationCluster>, lat: number, lng: number): LocationCluster {
+  return remaining.reduce((best, c) => (distTo(c, lat, lng) < distTo(best, lat, lng) ? c : best));
+}
+
+/** Pick the next cluster: within `NN_TIE_WINDOW_M` of the unrounded nearest,
+ * the lowest clusterId wins — one tie rule, a linear scan, no per-hop sort. */
 function pickNext(remaining: NonEmpty<LocationCluster>, current: LocationCluster): LocationCluster {
-  remaining.sort(byDistThenId(current.centerLat, current.centerLng, 2));
-  const best = remaining[0];
-  const bestDist = distTo(best, current.centerLat, current.centerLng);
+  const nearest = nearestClusterTo(remaining, current.centerLat, current.centerLng);
+  const nearestDist = distTo(nearest, current.centerLat, current.centerLng);
   return remaining.reduce((winner, candidate) => {
-    const tied = Math.abs(distTo(candidate, current.centerLat, current.centerLng) - bestDist) < 0.01;
+    const tied = distTo(candidate, current.centerLat, current.centerLng) - nearestDist < NN_TIE_WINDOW_M;
     return tied && candidate.clusterId.localeCompare(winner.clusterId) < 0 ? candidate : winner;
-  }, best);
+  }, nearest);
 }
 
 /** Order a cluster tuple while preserving its non-empty type. */
