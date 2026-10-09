@@ -107,7 +107,8 @@ Topic guides in `docs/agents/`:
 - `docs/agents/harness.md` — the 4-role system, Quality Ratchet, committed vs owner-local gates,
   Escalation path (who decides). Before dispatching or escalating.
 - `docs/agents/delivery-flow.md` — ticket → PR → merge → deployed: `/to-tickets`, pre-dispatch checks,
-  one story = one PR, stacked PRs, review rounds, Checks before a PR merges, CD observation. When moving a card.
+  one story = one PR, branch updates by merge, review rounds, Checks before a PR merges, CD
+  observation. When moving a card.
 - `docs/agents/review-and-verification.md` — the false greens recorded here and what caught each: mutation
   scope, fake boundaries, stale text, writer tampering. Before reviewing or accepting work.
 - `docs/agents/worktrees-and-local-gates.md` — base reset, one worktree per agent, commit and push
