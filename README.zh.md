@@ -83,7 +83,8 @@ make db-status         # 迁移路径与待应用项
 | 变量 | 用途 |
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc 角色 DSN（asyncpg）——agent 容器必需的数据面连接（#912）。旧名 `SUPABASE_DB_URL` 仍作为过渡期容器-DSN 名保留到 #855 生产切换 |
-| `MIMO_API_KEY` | 主模型供应商密钥 |
+| `OPENCODE_API_KEY` | 默认模型供应商密钥——所有非 BYOK 轮次均由 OpenCode Go 应答（#1974） |
+| `MIMO_API_KEY` | 仅为回滚保留的 MiMo 直连密钥；默认轮次不再读取（#1974） |
 
 **Worker 边缘：** `NEON_AUTH_JWKS_URL`（边缘**唯一** identity 来源 — AUTH-2 #950。用分支 JWKS 校验 Neon Auth EdDSA JWT；生产分支未就绪前不设置＝fail-closed）。catalog/users/jobs 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
