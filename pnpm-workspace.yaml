@@ -95,7 +95,7 @@ catalog:
   "esbuild": "0.28.2"
   "hono": "^4.13.7"
   "jose": "^6.2.12"
-  # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck and test:integration (miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`) — #1742
+  # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck, test:worker and test:integration (miniflare 5 builds each `workers` entry from a workerd `config` manifest and rejects the v4 `modules`, `modulesRoot`, `bindings`, `durableObjects` and `outboundService` worker options) — #1742
   "miniflare": "4.20260722.0"
   "pg": "^8.23.0"
   # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741
