@@ -139,6 +139,7 @@ overrides:
   ip-address: ">=10.5.1"
   browserslist: ">=4.28.7"
   "@grpc/grpc-js": ">=1.14.5"
+  postcss-selector-parser: ">=7.1.6"
   # `@prisma/orm-postgres` and `@opentelemetry/instrumentation-pg` pin
   # `@types/pg` to exact versions. Without this the tree carries three copies,
   # and `Pool` becomes three unrelated types: `packages/prisma-geography` fails
