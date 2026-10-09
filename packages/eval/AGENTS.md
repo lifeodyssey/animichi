@@ -76,7 +76,11 @@ a real evaluation run of these cases are separate, authorization-gated work.
 - `pnpm run eval:native`: the documented real in-process run (`NATIVE.md`). `EVAL_PROVIDER`
   selects the published provider binding explicitly (`xiaomi` by default, else `opencode-go`) and
   never falls back; it refuses to start without that binding's credential and `CATALOG_API_URL`,
-  and is never run without explicit authorization.
+  and is never run without explicit authorization. Paid runs go through OpenCode Go only
+  (owner, 2026-09-16); a run straight against Xiaomi is new spending only the owner can approve.
+  `EVAL_BASELINE` names the committed baseline artifact a model-change measurement reports next
+  to — the report records the baseline's model, the artifact and a derived `model-change` /
+  `same-model` label, and `"baseline": null` when unnamed (#1935).
 
 The Python fixture export and its drift gate are gone (#1603); the canonical sets the exported
 fixtures came from live in `datasets/canonical/`, and nothing in this package shells out to `uv`

@@ -103,6 +103,7 @@ void test('the written artifact records the run provenance, native spend and sam
     const { planned_cases: plan, pass_caret_k: verdict, ...provenance } = metadata;
     assert.deepEqual(provenance, {
       dataset: 'agent_eval_heldout_v1', model: 'openai:fixture@https://api.openai.com/v1',
+      baseline: null,
       commit: 'tested-commit', repeat: 1, sampling: 'iid', trace_sampling: 1, smoke: true,
       source_cases: E1_SOURCE_CASES, selected_cases: 3, unsupported_shapes: {},
       uploader: 'unconfigured', failed_attempt_spend: 'unmeasured',
