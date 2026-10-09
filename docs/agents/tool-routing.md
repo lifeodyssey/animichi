@@ -2,16 +2,15 @@
 
 Read before picking a skill, an MCP server or a dispatch channel for a task.
 
-- **Skill-first** — invoke the Skill tool before acting when a request matches: bugs → `/investigate` ·
-  ship/PR → `/ship` · qa → `/qa` · review → `/review` · docs → `/document-release` · retro → `/retro` ·
-  design system → `/design-consultation` · visual → `/design-review` · architecture → `/plan-eng-review` ·
-  quality → `/health` · brainstorm → `/office-hours`. TDD: `/frontend-tdd` (React).
+- **Skill-first** — invoke the Skill tool before acting when a request matches. `docs/workflow.md` maps
+  each delivery stage, external bugs and requests, hard bugs and large uncertain work to its Matt skill;
+  design and UI work goes through the skills in `docs/agents/frontend.md`; a PR body → `/pr`; a session
+  retro → `/retro`. TDD: `/frontend-tdd` (React).
 - **Orca card delivery** — backend/Infra/CI-CD Ready for Dev → merged PR follows
   `docs/ops/orca-card-delivery.md`: writers from the coordinator skill's roster, invoking `/implement`
   when their Skill tool allows it, different-model Matt review workers, three review rounds maximum,
   all PR feedback resolved before merge. This scoped owner choice overrides the opencode
   executor route for those cards.
-- **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).
 - **MCP servers — when to reach for each on this stack** (existence is config; this is the *when*):
