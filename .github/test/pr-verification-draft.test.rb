@@ -14,6 +14,13 @@
 # push and merge_group open; asserting the two halves joined by `||` means a
 # later edit cannot turn the disjunction into a conjunction, flip a comparison,
 # or drop the event guard without failing here.
+#
+# A lane skips a draft only if its whole `if:` is false there, and text that
+# merely contains the gate does not promise that: `<gate> || true` and
+# `always() || (<gate>)` keep the gate and still run on a draft. So the gate is
+# read as a term of the `if:`, not as text in it: the `if:` is the gate alone,
+# or a conjunction with the gate as a parenthesised term, and no `||` is left
+# at the top level for anything else to open the lane on a draft.
 require "minitest/autorun"
 require "psych"
 
@@ -24,6 +31,19 @@ class PrVerificationDraftTest < Minitest::Test
   # open, where github.event.pull_request is absent) OR "the pull_request is
   # not a draft" (closes only a draft pull_request).
   DRAFT_GATE = "github.event_name != 'pull_request' || github.event.pull_request.draft == false".freeze
+  # While an `if:` is read, the gate is one token. It counts as the whole `if:`
+  # or as a parenthesised `&&` term: bare inside a conjunction it would bind as
+  # `(a && <event guard>) || <draft check>`, which a ready PR satisfies whatever
+  # `a` says.
+  GATE_MARK = "DRAFT_GATE_MARK".freeze
+  WHOLE_GATE = /\A#{Regexp.escape(DRAFT_GATE)}\z/
+  # A single-quoted string (`''` is a quote inside it) or a parenthesised group,
+  # which may nest and hold strings; `\g<0>` is the pattern calling itself. An
+  # `&&` or `||` inside one is not the expression's own operator.
+  NESTED = /'(?:[^']|'')*'|\((?:[^()']|\g<0>)*\)/
+  # What those operators become inside a NESTED part, so the ones left are the
+  # top level's.
+  SHIELDED = { "&&" => "\u0001", "||" => "\u0002" }.freeze
   # The alert-failure lane gates itself to the push event (failure-alert.test.rb
   # pins that), so it is the one job the draft gate does not apply to. Every
   # other job is a lane whose verdict a draft PR must not spend a runner on.
@@ -48,6 +68,27 @@ class PrVerificationDraftTest < Minitest::Test
     jobs.fetch(id, {}).fetch("if", "").to_s
   end
 
+  # The `if:` without its `${{ }}` wrapper, seen from its top level: the gate is
+  # one token, and every `&&` and `||` that remains is the expression's own.
+  # `&&` binds tighter than `||`, so one `||` left over makes the whole
+  # expression a disjunction, which its other side can open on a draft. Text
+  # outside the wrapper stays in, so it cannot pass for the gate.
+  def top_level(id)
+    expression = condition(id).sub(/\A\$\{\{\s*(.*?)\s*\}\}\z/, '\1')
+    marked = expression.gsub("(#{DRAFT_GATE})", GATE_MARK).sub(WHOLE_GATE, GATE_MARK)
+    marked.gsub(NESTED) { |nested| nested.gsub(/&&|\|\|/, SHIELDED) }
+  end
+
+  def assert_skips_a_draft(id)
+    top = top_level(id)
+    refute_includes top, "||",
+                    "pr-verification.yml:#{id}: a top-level `||` outside a parenthesised gate can run this lane " \
+                    "on a draft PR: #{condition(id)}"
+    assert_includes top.split("&&").map(&:strip), GATE_MARK,
+                    "pr-verification.yml:#{id}: a draft PR must not run this lane; its `if:` must be the gate, or " \
+                    "`&&` it as a parenthesised term: #{condition(id)}"
+  end
+
   def test_a_draft_to_ready_conversion_wakes_the_lanes
     types = pull_request_types
     refute_empty types, "pr-verification.yml: the pull_request trigger has no activity types to pin"
@@ -62,10 +103,7 @@ class PrVerificationDraftTest < Minitest::Test
   def test_every_lane_skips_a_draft_pull_request
     gated = jobs.keys - [ALERT]
     refute_empty gated, "pr-verification.yml: no lanes to gate; this test would pass with its subject deleted"
-    gated.each do |id|
-      assert_includes condition(id), DRAFT_GATE,
-                      "pr-verification.yml:#{id}: a draft PR must not run this lane; its `if:` needs `#{DRAFT_GATE}`"
-    end
+    gated.each { |id| assert_skips_a_draft(id) }
   end
 
   def test_the_required_contexts_skip_a_draft_and_keep_their_aggregate_guard
@@ -74,8 +112,7 @@ class PrVerificationDraftTest < Minitest::Test
       assert_equal name, jobs[id]["name"], "pr-verification.yml:#{id}: the required context #{name} moved"
       assert_includes condition(id), "always()",
                       "pr-verification.yml:#{id}: must still run always() to fail on a failed or cancelled dependency"
-      assert_includes condition(id), DRAFT_GATE,
-                      "pr-verification.yml:#{id}: the required context #{name} must skip on a draft PR"
+      assert_skips_a_draft(id)
     end
   end
 end
