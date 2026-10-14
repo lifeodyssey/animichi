@@ -66,6 +66,13 @@
 name: CI
 on:
   pull_request:
+    # A draft PR is the review phase (Linear spec ZDEV-48): the review happens
+    # on the draft PR and CI starts when it turns ready. `ready_for_review`
+    # re-runs the lanes that skipped while it was a draft, and every lane below
+    # carries the draft gate — `github.event_name != 'pull_request' ||
+    # github.event.pull_request.draft == false` — which keeps a draft PR off the
+    # runners while leaving push and merge_group open (`github.event.pull_request`
+    # is absent on both, so a bare `draft == false` gate would disable them).
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   merge_group:
     branches: [main]
@@ -88,6 +95,7 @@ jobs:
   # changed.
   plan:
     name: CI / plan
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -203,7 +211,7 @@ jobs:
     name: CI / affected (${{ matrix.package }})
     needs: plan
     # An empty array in strategy.matrix is a workflow error, not a skip.
-    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.packages != '[]' }}
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.packages != '[]' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -302,6 +310,7 @@ jobs:
   # exec` resolves on a developer's machine too (#1774).
   contracts:
     name: CI / repository contracts
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -332,6 +341,7 @@ jobs:
           bundle exec ruby .github/test/merged-commit-lane.test.rb
           bundle exec ruby .github/test/pr-verification-affected.test.rb
           bundle exec ruby .github/test/pr-verification-browser.test.rb
+          bundle exec ruby .github/test/pr-verification-draft.test.rb
           bundle exec ruby .github/test/pr-verification-gates.test.rb
           bundle exec ruby .github/test/pr-verification-login.test.rb
           bundle exec ruby .github/test/pr-verification-plan.test.rb
@@ -412,7 +422,7 @@ jobs:
   delivery-toolchain:
     name: CI / delivery toolchain
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.delivery == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.delivery == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -433,6 +443,7 @@ jobs:
 
   docs:
     name: CI / documentation hygiene
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -450,7 +461,7 @@ jobs:
   e2e:
     name: CI / browser
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.web == 'true' || needs.plan.outputs.e2e == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.web == 'true' || needs.plan.outputs.e2e == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -530,7 +541,7 @@ jobs:
   db:
     name: CI / schema
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.migrations == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.migrations == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -576,7 +587,7 @@ jobs:
   foundation-install:
     name: CI / foundation install
     needs: plan
-    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.foundation == 'true' }}
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.foundation == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -610,6 +621,7 @@ jobs:
 
   gitleaks:
     name: CI / security (gitleaks)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -633,6 +645,7 @@ jobs:
 
   trufflehog:
     name: CI / security (trufflehog)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -646,6 +659,7 @@ jobs:
 
   osv:
     name: CI / security (osv)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -660,6 +674,7 @@ jobs:
 
   semgrep:
     name: CI / security (semgrep)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -690,6 +705,7 @@ jobs:
 
   zizmor:
     name: CI / security (zizmor)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -743,7 +759,7 @@ jobs:
   # every other job keeps the workflow-level default.
   commits:
     name: CI / commits
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ github.event_name != 'push' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -768,7 +784,7 @@ jobs:
   security:
     name: Security
     needs: [gitleaks, trufflehog, osv, semgrep, zizmor]
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -779,7 +795,7 @@ jobs:
   aggregate:
     name: PR Verification
     needs: [plan, affected, contracts, delivery-toolchain, docs, e2e, db, foundation-install, commits, security]
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

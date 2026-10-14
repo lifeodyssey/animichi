@@ -134,7 +134,8 @@ criterion satisfied while either binding fails.
 
 Native Minitest tests under `.github/test/` cover admission, source closure, archives, configurations,
 remote identity validation, receipt validation and workflow order. The real Wrangler bundling test
-also executes in CI's unconditional contracts job. The
+also executes in CI's `delivery-toolchain` job, which runs after a successful `plan` when its
+`delivery` or `deps` output is true, and skips a draft pull request. The
 [assertion map](../iterations/production-readiness-2026-08/SELECTED-ARTIFACT-ASSERTION-MAP.md)
 traces every replaced CD contract. See [ADR 0007](../adr/0007-selected-release-artifacts.md) for the
 activation prerequisites: deployed ledger preflight, same-lock revalidation, runtime secrets,
