@@ -117,7 +117,7 @@ retired run engine and envelope paths have no forwarding modules.
 
 node:test (no vitest, no workers pool). Two files in the suite still read a workflow verbatim,
 and they are the whole list: `auth-config.test.ts` (#1047 — no deploy surface may carry
-`secrets.NEON_AUTH_JWKS_URL` / `secrets.CORS_ALLOWED_ORIGIN`) and `migration-boundary.test.ts`
+`secrets.NEON_AUTH_JWKS_URL`) and `migration-boundary.test.ts`
 (every environment reaches the database only through the migrator Worker). A change under
 `.github/workflows/` must keep `pnpm run test:worker` green for those two. Everything else that
 used to pin pipeline text was deleted or repointed at the file owning the contract (#1373) —

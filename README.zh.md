@@ -89,7 +89,7 @@ make db-status         # 迁移路径与待应用项
 
 **Web（`apps/web`）：** `VITE_NEON_AUTH_BASE_URL`（Better Auth 客户端登录源 + JWT 交换）— 见 [`apps/web/.env.example`](apps/web/.env.example)。
 
-**可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
+**可选：** 见 [`.env.example`](.env.example)；eval lane 的 ambient 变量见 [`packages/eval/NATIVE.md`](packages/eval/NATIVE.md)。
 
 默认值见 [`.env.example`](.env.example)。
 

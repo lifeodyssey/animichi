@@ -24,8 +24,6 @@ export interface Env {
   EDGE_SHOWCASE_MODE?: string;
   /** Native per-session host; production configurations bind it. */
   AGENT_SESSION?: DurableObjectNamespace<SessionAgent>;
-  /** Deployment identity for environment-specific product capabilities. */
-  APP_ENV?: string;
   /** Per-identity anonymous message reservation ceiling; zero disables it. */
   ANON_DAILY_MESSAGE_QUOTA?: string;
   ANON_DAILY_COST_BUDGET_USD?: string;
