@@ -17,14 +17,17 @@ class ForcePushPolicyDeliveryDocsTest < Minitest::Test
   DOCS_POLICY = File.join(ROOT, "docs/DOCS_POLICY.md")
 
   # The retired update mechanics in any spelling: the words themselves (a bare rebase,
-  # restack, any stack vocabulary), the forced-push spellings with the flag after the refspec
-  # (`git push origin <branch> -f`, `--force`, the `+<branch>` refspec), the pull-update
-  # flags (`git pull origin main -r`) and the stacked-PR shapes that survive dropping the
-  # word stack (`--base <parent-branch>`, the parent branch, merge from the bottom). No /x
-  # and no date alternative here: history needs these words (the owner's 2026-09-17
-  # instruction, the 21-conflict incident), which is why the scan exempts the pinned
-  # records and the owner's quoted line below and nothing else.
-  RETIRED_MECHANICS = /rebase|stack|--force\b|push\b[^`\n]*\s-f\b|push\s+origin\s+\+|\bpull\b[^`\n]*\s-r\b|--base\b|parent branch|merge from the bottom/i
+  # restack, any stack vocabulary), the forced-push flag wherever it sits on the line —
+  # after the refspec inside a code span (`git push origin <branch> -f`) or outside one
+  # after a backticked command (`` `git push` -f ``) — `--force`, the force refspec with
+  # any remote or none (`git push upstream +<branch>`, `git push +<branch>`), the
+  # pull-update flags (`git pull origin main -r`, in or out of a code span) and the
+  # stacked-PR shapes that survive dropping the word stack (`--base <parent-branch>`,
+  # the parent branch, merge from the bottom). No /x and no date alternative here:
+  # history needs these words (the owner's 2026-09-17 instruction, the 21-conflict
+  # incident), which is why the scan exempts the pinned records and the owner's
+  # quoted line below and nothing else.
+  RETIRED_MECHANICS = /rebase|stack|--force\b|push\b[^\n]*\s-f\b|push\s+(?:\S+\s+)?\+|\bpull\b[^\n]*\s-r\b|--base\b|parent branch|merge from the bottom/i
   # The pinned records quote command-shaped mechanics in their dated history; the standing
   # update step, which teaches the live path, must carry none of them.
   COMMAND_MECHANICS = /git rebase|pull -r|pull --rebase|push -f|push --force|--force-with-lease|gh-stack|--base\b|against the parent branch|merge from the bottom/i
