@@ -16,30 +16,33 @@ function recordingFetch(requests: Request[]) {
   };
 }
 
-void test("a native server turn resolves its MiMo Secrets Store binding value", async () => {
+void test("a native server turn resolves its OpenCode Go Secrets Store binding value", async () => {
   const requests: Request[] = [];
-  const native = await nativeHostModels("store-mimo", recordingFetch(requests));
+  const native = await nativeHostModels("store-opencode", recordingFetch(requests));
   assert.equal(native.available, true);
   await native.models.completeSimple(native.model, prompt);
-  assert.equal(requests[0]?.headers.get("authorization"), "Bearer store-mimo");
+  assert.equal(requests[0]?.headers.get("authorization"), "Bearer store-opencode");
 });
 
-void test("the store-bound server key is scrubbed from native diagnostics", async () => {
-  const native = await nativeHostModels("store-mimo");
-  assert.equal(native.scrub.text("egress reported: store-mimo"), `egress reported: ${REDACTED}`);
+void test("the store-bound OpenCode Go key is scrubbed from native errors and records", async () => {
+  const native = await nativeHostModels("store-opencode");
+  assert.equal(native.scrub.text("egress reported: store-opencode"), `egress reported: ${REDACTED}`);
+  assert.equal(native.scrub.errorText(new Error("provider rejected store-opencode")), `Error: provider rejected ${REDACTED}`);
+  assert.deepEqual(native.scrub.payload({ note: "store-opencode", nested: ["keep", "store-opencode"] }),
+    { note: REDACTED, nested: ["keep", REDACTED] });
 });
 
 void test("the next native incarnation uses a rotated store value without retaining the previous key", async () => {
   const requests: Request[] = [];
   const fetch = recordingFetch(requests);
-  const first = await nativeHostModels("initial-mimo", fetch);
+  const first = await nativeHostModels("initial-opencode", fetch);
   await first.models.completeSimple(first.model, prompt);
-  const second = await nativeHostModels("rotated-mimo", fetch);
+  const second = await nativeHostModels("rotated-opencode", fetch);
   await second.models.completeSimple(second.model, prompt);
   assert.deepEqual(requests.map((request) => request.headers.get("authorization")),
-    ["Bearer initial-mimo", "Bearer rotated-mimo"]);
-  assert.equal(second.scrub.text("initial-mimo"), "initial-mimo");
-  assert.equal(second.scrub.text("rotated-mimo"), REDACTED);
+    ["Bearer initial-opencode", "Bearer rotated-opencode"]);
+  assert.equal(second.scrub.text("initial-opencode"), "initial-opencode");
+  assert.equal(second.scrub.text("rotated-opencode"), REDACTED);
 });
 
 void test("a BYOK native turn runs on the caller key alone, never the server binding", async () => {

@@ -31,7 +31,7 @@ Cloudflare Edge (Worker: workers/edge/src/entry.ts)
        ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
        ├─ catalog.internal (private) ─────────────▶ CATALOG service binding
        │    (no public /catalog/* browser route)
-       └─ MiMo model provider (`MIMO_API_KEY`) — the chat turn
+       └─ OpenCode Go model provider (`OPENCODE_API_KEY`) — the chat turn
 ```
 
 ## Auth Flow
@@ -57,7 +57,7 @@ Worker trusts only that header.
 |---|---|---|
 | `NEON_AUTH_JWKS_URL` | Worker-only | Branch JWKS — the edge's ONLY identity source (AUTH-2 #950). issuer/audience are derived from it in `workers/edge/src/identity/auth.ts`; production is unset (fails closed) until its Neon Auth branch is provisioned |
 | `AGENT_SVC_DATABASE_URL` | Worker-only (Secrets Store) | `agent_svc` role Neon DSN for the native agent tier |
-| `MIMO_API_KEY` | Worker-only (Secrets Store) | Primary `mimo-v2.6-flash` provider credential |
+| `OPENCODE_API_KEY` | Worker-only (Secrets Store) | Default `mimo-v2.6-flash` provider credential (OpenCode Go); `MIMO_API_KEY` stays bound for rollback only |
 | `TURNSTILE_SECRET` · `ANON_ID_SECRET` | Worker-only (Secrets Store) | Anonymous-access gate and anonymous-cookie seed |
 | `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not edge-Worker secrets |
 | `VITE_NEON_AUTH_BASE_URL` | `apps/web` build-time only | Better Auth client origin (login UI + JWT exchange) |

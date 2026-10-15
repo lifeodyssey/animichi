@@ -30,6 +30,13 @@ Paid eval runs are allowed only when every hop of the run (the model under test,
 judge) goes through opencode go ("可以，只要是 opencode go 的随便跑"). If any hop is fixed to
 another paid API, do not run; report back (#1560).
 
+## Default model provider (2026-10-03)
+
+Every default (non-BYOK) agent turn runs `mimo-v2.6-flash` through OpenCode Go instead of Xiaomi's
+API ("我们先上默认的provider就是oc吧"). BYOK turns are unchanged. Production then depends on OpenCode
+Go's quota alone, with no Xiaomi fallback. Xiaomi's credential binding stays in place, unread by
+default turns, so rolling back to the previous release still works (#1974).
+
 ## Delivery workflow redesign (2026-09-29)
 
 The orchestration is being redesigned as a state-driven agentic workflow; the design is

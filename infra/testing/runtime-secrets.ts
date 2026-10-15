@@ -4,7 +4,7 @@ import type { Built } from "./harness.ts";
 /** Every store secret the runtime provisions; the wrangler bindings contract
  * (`topology-runtime-secret-bindings.test.ts`) reads this same list. */
 export const RUNTIME_KEYS = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY",
+  "MIMO_API_KEY", "OPENCODE_API_KEY", "ZEN_GO_API_KEY",
   "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN", "TURNSTILE_SECRET", "ANON_ID_SECRET",
   "INGEST_SIGNING_KEY",
 ];
@@ -22,7 +22,7 @@ export const RUNTIME_KEYS = [
  * not who could compute the bytes. The remaining keys are generated (#1676) or
  * read from a provider. */
 export const VENDOR_KEYS = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
+  "MIMO_API_KEY", "OPENCODE_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
   "INGEST_SIGNING_KEY",
 ];
 

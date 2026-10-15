@@ -86,7 +86,8 @@ make db-status         # 適用パスと未適用の一覧
 | 変数名 | 用途 |
 |---|---|
 | `AGENT_SVC_DATABASE_URL` | Neon agent_svc ロール DSN（asyncpg)——agent コンテナが必要とするデータ面接続（#912）。旧称 `SUPABASE_DB_URL` は #855 プロダクション切替まで暫定の容器-DSN 名として残る |
-| `MIMO_API_KEY` | 主モデルプロバイダキー |
+| `OPENCODE_API_KEY` | デフォルトのモデルプロバイダキー — BYOK 以外のすべてのターンは OpenCode Go で応答する（#1974） |
+| `MIMO_API_KEY` | ロールバック専用に保持する MiMo 直接クレデンシャル。デフォルトターンからは読まれない（#1974） |
 
 **Worker エッジ:** `NEON_AUTH_JWKS_URL`（エッジの**唯一の** identity ソース — AUTH-2 #950。Neon Auth の EdDSA JWT をブランチ JWKS で検証。本番はブランチ準備まで未設定＝ fail-closed）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 

@@ -73,7 +73,7 @@ A secret reaching a shared environment takes one of three shapes:
    the last upload step (`sync-edge-runtime-secrets.sh` piping a JSON object into `wrangler secret
    bulk`, and the `edge-runtime-secrets.py` allowlist it fed): no workflow uploads a runtime secret
    any more, and `cloudflare/wrangler-action`'s `secrets:` input is deliberately unused.
-   The shared names — `MIMO_API_KEY`, `ZEN_GO_API_KEY`,
+   The shared names — `OPENCODE_API_KEY`, `MIMO_API_KEY`, `ZEN_GO_API_KEY`,
    `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN` — are declared
    by `infra/database-access/runtime-secrets.ts` as native `cloudflare.SecretsStoreSecret`
    resources. The stack imports `animichi/staging` or `animichi/prod`, and every project-qualified
@@ -86,7 +86,7 @@ A secret reaching a shared environment takes one of three shapes:
    consumer and is neither required nor read/forwarded; the sole agent DSN remains
    `AGENT_SVC_DATABASE_URL`. Removing its unused input does not authorize deleting an online copy.
    The edge's per-environment `secrets_store_secrets` bindings resolve through the existing
-   `readStoreOrString` helper. Native agent startup reads `MIMO_API_KEY` and
+   `readStoreOrString` helper. Native agent startup reads `OPENCODE_API_KEY` and
    `AGENT_SVC_DATABASE_URL` directly from Worker bindings. Native SDK startup receives strings,
    while local `.dev.vars` strings remain valid. BYOK turns run on the caller key alone and never
    consult the server binding.
@@ -133,23 +133,24 @@ These declarations are a candidate, not proof of applied platform changes. Verif
 secret-marked inputs separately for each environment before merging the foundation, then
 complete these gates:
 
-1. Provision the five shared nonempty `animichi-neon-secrets:<NAME>` vendor keys
-   (`MIMO_API_KEY`, `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`, `INGEST_SIGNING_KEY`)
+1. Provision the six shared nonempty `animichi-neon-secrets:<NAME>` vendor keys
+   (`OPENCODE_API_KEY`, `MIMO_API_KEY`, `ZEN_GO_API_KEY`, `GOOGLE_MAPS_API_KEY`, `LOGFIRE_TOKEN`,
+   `INGEST_SIGNING_KEY`)
    as `fn::secret` from owner-approved sources; they are the only runtime secrets ESC still
    carries. Anonymous access needs no ESC value: the adopted widget supplies `TURNSTILE_SECRET`
    and the program generates `ANON_ID_SECRET` (#1676). The first apply rotates the staging
    identity seed — an owner-authorized reset, not a continuity-preserving migration. Preserve the
    eval export. Never log or check in values.
-2. Preview staging: seven worker-scoped runtime resources (five owner-set keys, Turnstile,
-   identity); production currently has five. The staging preview must also show the widget as an **import**
+2. Preview staging: eight worker-scoped runtime resources (six owner-set keys, Turnstile,
+   identity); production currently has six. The staging preview must also show the widget as an **import**
    (`cloudflare:index/turnstileWidget:TurnstileWidget` with import id `<account_id>/<sitekey>`),
    never a create or replace — a replaced widget changes the site key committed in
    `apps/web/wrangler.jsonc`. Confirm the enablement flag matches the Worker, expected names, concealed
    values, and existing database/access resources unchanged. Missing config blocks the release.
 3. CD applies foundation before the matching edge artifact; production requires its approval.
-4. Pass staging health/front-door smoke and anonymous chat. Verify all seven staging binding
+4. Pass staging health/front-door smoke and anonymous chat. Verify all eight staging binding
    names/ids before removing legacy Worker copies; retain metadata-only removal evidence.
-5. Record the authorized staging MiMo invalid-key → failed turn → restored-key → successful
+5. Record the authorized staging OpenCode Go invalid-key → failed turn → restored-key → successful
    turn check. Unit doubles cannot prove platform propagation or rotation.
 
 Each native session bootstrap reads its binding from the Secrets Store, so a rotated value is
@@ -160,8 +161,9 @@ rotation evidence.
 
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
-| `ZEN_GO_API_KEY` | ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight |
-| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent | Exact edge core payload → Worker binding → native host model credentials | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
+| `ZEN_GO_API_KEY` | ESC `pulumiConfig` (edge runtime) | The deleted Python process's zen/go provider key (#1607); its edge declaration is retained pending the consumer sweep (#1750), and no native default turn reads it | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight |
+| `OPENCODE_API_KEY` | ESC `pulumiConfig` | **Default model credential.** Every default (non-BYOK) turn runs `mimo-v2.6-flash` through OpenCode Go (`https://opencode.ai/zen/go/v1`), with the session-routing header the host declares (#1974, owner 2026-10-03) | Exact edge core payload → Worker binding → native host model credentials | Missing or blank blocks edge staging, production, and rollback at preflight. A quota refusal ends the turn as a visible model error; it never falls back to Xiaomi |
+| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential retained so rolling back to the previous release still works; no default-turn path reads it (#1974) | Exact edge core payload → Worker binding → no native consumer | It is required even while OpenCode Go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
 | `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding for the retired Python agent (#1607) | Exact edge core payload → Worker binding (retained declaration; no consumer) | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure in a local run |
 | `LOGFIRE_TOKEN` | ESC `pulumiConfig`, one project per environment (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding (retained declaration) | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
 | `INGEST_SIGNING_KEY` | ESC `pulumiConfig`, one ESC key per environment (base / `_PROD` in the shared store), owner-set | **HMAC signing key for the anitabi egress service** (`apps/anitabi-egress`, Fly). The service verifies what the caller signs and the key never crosses the wire, so the same value must exist in Fly — which Pulumi does not manage | Owner-set ESC `animichi-neon-secrets:INGEST_SIGNING_KEY` (`fn::secret`) → native `cloudflare.SecretsStoreSecret` → `workers/catalog/wrangler.toml` binding → `workers/catalog/src/ingest/anitabi-egress.ts` (`.get()`; absent or empty resolves to `undefined` and the fetchers refuse — nothing shape-checks the key) | Missing or blank blocks staging, production, and rollback at preflight, exactly like the vendor keys above — the same required, non-empty stack config. A value Fly does not hold is a 401 on every anitabi fetch — ingest reaches no points at all — so rotate Fly first (the service accepts a current and a previous key, then drops the old one), ESC and the apply after. One Fly app serves both environments, so both ESC values move with that pair |

@@ -35,7 +35,7 @@ void test("a disconnected production client reattaches before its native model d
   const wire = await reading;
   assert.match(wire, /Reconnected to the same native turn/);
   assert.equal(wire.match(/\[DONE\]/g)?.length, 1);
-  assert.doesNotMatch(wire, /server-private-key/);
+  assert.doesNotMatch(wire, /server-opencode-key/);
   assert.equal(await settled, true);
   assert.equal(requests.length, 1);
   const admissions = await pool.query<{ state: string; operation_id: string }>("SELECT state,operation_id FROM agent_admissions");

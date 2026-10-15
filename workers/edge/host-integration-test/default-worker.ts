@@ -12,7 +12,7 @@ export async function defaultWorker(context: TestContext, bindings: Record<strin
   const directory = await mkdtemp(join(tmpdir(), "default-native-host-"));
   const requests: Request[] = [];
   const catalogRequests: Request[] = [];
-  const options = { ...await bundledEntries.modules(new URL("./default-host.worker.ts", import.meta.url).pathname), ...deployedRuntime(), bindings: { AGENT_SVC_DATABASE_URL: dsn, MIMO_API_KEY: "server-private-key", ANON_DAILY_MESSAGE_QUOTA: "2",
+  const options = { ...await bundledEntries.modules(new URL("./default-host.worker.ts", import.meta.url).pathname), ...deployedRuntime(), bindings: { AGENT_SVC_DATABASE_URL: dsn, OPENCODE_API_KEY: "server-opencode-key", ANON_DAILY_MESSAGE_QUOTA: "2",
       TEST_IDENTITY: IDENTITY, TEST_USER_TYPE: "anonymous", ...bindings }, durableObjectsPersist: join(directory, "state"),
     durableObjects: { AGENT_SESSION: { className: "AgentSession", useSQLite: true } },
     serviceBindings: { CATALOG: (request: Request) => { catalogRequests.push(request.clone()); return network.catalog?.(request) ?? Promise.resolve(Response.json(selectedItinerary)); } },
