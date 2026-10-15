@@ -4,11 +4,11 @@ Run `pnpm --filter edge-worker run test:bundle-smoke` from the repository root.
 `pnpm --filter edge-worker test` and the existing affected edge lane include it.
 
 `pi-harness.test.ts` proves S1 (#1537) against the published
-`@earendil-works/pi-agent-core@0.87.1` and `@earendil-works/chord@0.87.1`.
+`@earendil-works/pi-agent-core@0.99.2` and `@earendil-works/chord@0.99.2`.
 The `pi-agent-core-smoke` and `pi-ai-smoke` npm aliases are test dependencies:
-they install the same official 0.87.1 packages used by production.
+they install the same official 0.99.2 packages used by production.
 The frozen workspace lock also fixes core's chord, pi-ai and telemetry dependencies
-at 0.87.1. Tests never download packages or resolve a version at runtime.
+at 0.99.2. Tests never download packages or resolve a version at runtime.
 
 Wrangler's CLI builds the fixture with `deploy --dry-run --metafile`; its official
 `createTestHarness` then executes **that same emitted artifact** in local workerd.
@@ -34,7 +34,7 @@ cloud bindings or production deployment wiring.
 Measured on 2026-09-09 with Wrangler 4.114.0, Node 26.8.1, and base
 `fd73fbd532ef4d151a027ab8c93e9f2ea9304dab`. All size builds use the fixture's
 edge compatibility settings, without minification; gzip uses level 6. Both
-fixtures now install 0.87.1; the parenthesised versions are what they
+fixtures now install 0.99.2; the parenthesised versions are what they
 installed when measured.
 
 | Smoke artifact | Bytes | Gzip bytes |

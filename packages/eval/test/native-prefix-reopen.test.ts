@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
 import { value } from '@earendil-works/pi-agent-core/harness/session';
 import { pendingSelectionDifferences, readSessionState, stateDifferences } from '../src/native/prefix-replay.ts';
+import { installedPiAgentVersion } from '../src/pins.ts';
 import { canonicalSelectionCases, caseNamed, withRecordedCorpus } from './native-prefix-phase1c.ts';
 
 const CASE = 'D3_multi_success_two';
@@ -58,7 +59,7 @@ void test('every intended boundary has its own frozen source with the provenance
     assert.deepEqual(corpus.cases.map((entry) => entry.name), canonical.map((entry) => entry.id));
     for (const entry of corpus.cases) {
       const recording = entry.metadata.recording;
-      assert.deepEqual([recording.sdk, recording.model, recording.commit], ['0.87.1', 'faux-model', 'tested-commit']);
+      assert.deepEqual([recording.sdk, recording.model, recording.commit], [installedPiAgentVersion(), 'faux-model', 'tested-commit']);
       assert.equal(recording.boundary, entry.inputs.prefix.boundary);
       assert.equal(entry.inputs.prefix.session_id, entry.name);
       const source = await replay.openSource(entry, BACKGROUND_CONTEXT);
