@@ -52,6 +52,17 @@ The orchestration is being redesigned as a state-driven agentic workflow; the de
   lane goes back to that lane; a finding spanning lanes becomes a new issue blocked by those cards
   and is handled after they merge.
 
+## Showcase-mode retirement (2026-10-03)
+
+The owner retired showcase mode outright ("退役吧", #1975): no Worker, runtime
+configuration, build environment, test harness or deploy check reads a showcase
+flag any more, and the edge's `showcase_denied` rejection is gone with the gate.
+Staging is unchanged; production's functional routes open at the next release
+promotion, whose approval is the only gate left on production — the owner knows
+that promoting now means opening. Anonymous access stays governed by its own
+switch (`ANON_ACCESS_ENABLED`, production keeps it off); "whole surface down"
+covers itself through the Layer 1 Worker rollback (`docs/ops/rate-limit-rollback.md`).
+
 ## Failure-alert drill (2026-09-16)
 
 A deliberate unattended workflow failure in the real repository is allowed, to prove the alert

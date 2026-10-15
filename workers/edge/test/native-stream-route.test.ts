@@ -8,7 +8,7 @@ import { latchBudget, utcDayKey } from "../src/protect/cost-breaker.ts";
 
 const sessionId = "11111111-1111-4111-8111-111111111111";
 const path = `/v1/conversations/${sessionId}/stream`;
-const env = { EDGE_SHOWCASE_MODE: "false" } as never;
+const env = {} as never;
 const execution = { waitUntil(promise: Promise<unknown>) { void promise; }, passThroughOnException() { return undefined; } } as ExecutionContext;
 
 void test("the native reconnect endpoint is a GET that names an existing session", () => {
@@ -59,7 +59,7 @@ void test("exhausted platform budget permits anonymous stream reads while refusi
     turnstileGate: { check: () => Promise.resolve({ ok: true, errorCodes: [] }) },
     agentTurns: nativeAgentReceiver(calls, () => new Response(null, { status: 204 })),
   });
-  const visitorEnv = { EDGE_SHOWCASE_MODE: "false", ANON_ACCESS_ENABLED: "true", EDGE_GUARD: guard.namespace,
+  const visitorEnv = { ANON_ACCESS_ENABLED: "true", EDGE_GUARD: guard.namespace,
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000", TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000" } as never;
   const resumed = await app.request(path, {}, visitorEnv, execution);
   assert.equal(resumed.status, 204);

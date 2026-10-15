@@ -17,7 +17,6 @@ export default defineConfig({
       "tests/setup/auth-hermetic.ts",
       "tests/setup/neon-auth-sdk.ts",
       "tests/setup/turnstile-hermetic.ts",
-      "tests/setup/showcase-hermetic.ts",
       "tests/setup/msw-lifecycle.ts",
     ],
     environmentOptions: { jsdom: { url: "http://localhost:3000" } },

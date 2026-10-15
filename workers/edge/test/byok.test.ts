@@ -43,7 +43,6 @@ function brokenGuard() {
 function env(guard = fakeGuard(NOW).namespace, extra: Record<string, unknown> = {}): Env {
   return {
     EDGE_GUARD: guard,
-    EDGE_SHOWCASE_MODE: "false",
     ...extra,
   } as unknown as Env;
 }

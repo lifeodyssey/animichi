@@ -21,7 +21,6 @@ const STAGING = {
   },
   neonAuthBaseUrl: "https://auth.staging.animichi.com/neondb/auth",
   turnstileSiteKey: "2x00000000000000000000AA",
-  showcaseMode: "false",
   cfBeaconToken: "11111111-1111-1111-1111-111111111111",
   featureFlags: { betaSearch: true },
 };

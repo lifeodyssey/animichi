@@ -20,10 +20,10 @@ describe("runtime config in a server (node) environment", () => {
   });
 
   it("currentRuntimeConfig reads an explicit server-env binding first", () => {
-    const binding = JSON.stringify({ ...DEFAULT_RUNTIME_CONFIG, showcaseMode: "true" });
+    const binding = JSON.stringify({ ...DEFAULT_RUNTIME_CONFIG, cfBeaconToken: "beacon" });
     expect(currentRuntimeConfig({ RUNTIME_CONFIG: binding })).toEqual({
       ...DEFAULT_RUNTIME_CONFIG,
-      showcaseMode: "true",
+      cfBeaconToken: "beacon",
     });
   });
 
@@ -33,7 +33,7 @@ describe("runtime config in a server (node) environment", () => {
 
   it("runtimeConfigFromServerEnv parses a valid binding", () => {
     const parsed = runtimeConfigFromServerEnv({
-      RUNTIME_CONFIG: JSON.stringify({ schemaVersion: 1, showcaseMode: "false", featureFlags: {} }),
+      RUNTIME_CONFIG: JSON.stringify({ schemaVersion: 1, featureFlags: {} }),
     });
     expect(parsed).toEqual(DEFAULT_RUNTIME_CONFIG);
     expect(parsed.schemaVersion).toBe(RUNTIME_CONFIG_SCHEMA_VERSION);
@@ -41,9 +41,9 @@ describe("runtime config in a server (node) environment", () => {
 
   it("currentRuntimeConfig reads the live __env__ binding first on the server", () => {
     vi.stubGlobal("__env__", {
-      RUNTIME_CONFIG: JSON.stringify({ ...DEFAULT_RUNTIME_CONFIG, showcaseMode: "true" }),
+      RUNTIME_CONFIG: JSON.stringify({ ...DEFAULT_RUNTIME_CONFIG, cfBeaconToken: "beacon" }),
     });
-    expect(currentRuntimeConfig()).toEqual({ ...DEFAULT_RUNTIME_CONFIG, showcaseMode: "true" });
+    expect(currentRuntimeConfig()).toEqual({ ...DEFAULT_RUNTIME_CONFIG, cfBeaconToken: "beacon" });
   });
 
   it("currentRuntimeConfig defaults when __env__ is missing but the global is too", () => {

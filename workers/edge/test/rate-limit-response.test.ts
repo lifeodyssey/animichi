@@ -46,7 +46,7 @@ void test("the policy keeps rate limit and daily quota as SEPARATE cells", () =>
 // Through the composed app: anonymous burst 429 (rate-limited) is distinct
 // from the daily-budget 403 (quota).
 const SECRET = "fixed-test-hmac-key-0000000000000000";
-const ANON = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000", EDGE_SHOWCASE_MODE: "false" };
+const ANON = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000" };
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 
 function anonApp(response = () => new Response("agent")) {
@@ -87,7 +87,6 @@ function authedUsersApp() {
 
 function usersEnv(guard: unknown): Record<string, unknown> {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
     AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
     EDGE_GUARD: guard,

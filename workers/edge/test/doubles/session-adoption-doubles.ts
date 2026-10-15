@@ -13,7 +13,6 @@ import { TEST_ANON_SECRET } from "./signed-anonymous-cookie.ts";
 export const ADOPTION_ANON_ENV = {
   ANON_ACCESS_ENABLED: "true",
   ANON_ID_SECRET: TEST_ANON_SECRET,
-  EDGE_SHOWCASE_MODE: "false",
 };
 
 export const DEFAULT_ADOPTION_RESULT: SessionAdoptionResult = {

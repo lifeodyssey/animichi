@@ -102,7 +102,6 @@ const stubCtx = {
 function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {
     EDGE_GUARD: guard,
-    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
   } as unknown as Env;
 }

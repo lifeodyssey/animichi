@@ -58,7 +58,7 @@ describe("every request base the deployment declares is reachable (AC3)", () => 
     // runtime-config-plugin.test.ts stubs the same seam.
     vi.stubGlobal("__env__", {
       RUNTIME_CONFIG: JSON.stringify({
-        schemaVersion: 1, showcaseMode: "false", featureFlags: {},
+        schemaVersion: 1, featureFlags: {},
         neonAuthBaseUrl: "https://auth.example.test/neondb/auth",
       }),
     });
@@ -77,7 +77,7 @@ describe("every request base the deployment declares is reachable (AC3)", () => 
     // that had rendered and hydrated perfectly.
     vi.stubGlobal("__env__", {
       RUNTIME_CONFIG: JSON.stringify({
-        schemaVersion: 1, showcaseMode: "false", featureFlags: {},
+        schemaVersion: 1, featureFlags: {},
         api: {
           agentUrl: "https://agent.example.test/v1",
           catalogUrl: "https://catalog.example.test",
@@ -99,7 +99,7 @@ describe("a runtime config the policy must neither widen nor break on", () => {
     // policy to an origin nothing in the page ever dials.
     vi.stubGlobal("__env__", {
       RUNTIME_CONFIG: JSON.stringify({
-        schemaVersion: 1, showcaseMode: "false", featureFlags: {},
+        schemaVersion: 1, featureFlags: {},
         api: { siteOrigin: "https://site.example.test" },
       }),
     });

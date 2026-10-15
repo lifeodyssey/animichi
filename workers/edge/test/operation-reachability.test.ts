@@ -77,7 +77,7 @@ function concretePath(path: string): string {
 const authed = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
 
 function usersEnv(users: { fetch(req: Request): Promise<Response> }) {
-  return { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: alwaysAllowGuard, USERS: users } as never;
+  return { EDGE_GUARD: alwaysAllowGuard, USERS: users } as never;
 }
 
 /** A USERS binding that records whether a request reached it. */

@@ -18,10 +18,6 @@ export interface Env {
   TURNSTILE_SECRET: SecretsStoreSecret | string;
   ANON_ACCESS_ENABLED?: string;
   ANON_ID_SECRET?: SecretsStoreSecret | string;
-  /** Showcase-mode gate (S0-v2 GOAL C / C9): strict boolean, worker-side
-   * sibling of the web app's VITE_SHOWCASE_MODE. Only the literal "false"
-   * opens functional routes; unset/empty/malformed values fail closed (deny). */
-  EDGE_SHOWCASE_MODE?: string;
   /** Native per-session host; production configurations bind it. */
   AGENT_SESSION?: DurableObjectNamespace<SessionAgent>;
   /** Deployment identity for environment-specific product capabilities. */

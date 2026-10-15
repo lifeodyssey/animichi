@@ -11,8 +11,8 @@ import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agen
 // only receiver left, so an empty call list is now that witness too.
 
 const PATH = "/v1/conversations";
-const env = { EDGE_SHOWCASE_MODE: "false" };
-const visitorEnv = { EDGE_SHOWCASE_MODE: "false", ANON_ACCESS_ENABLED: "true",
+const env = {};
+const visitorEnv = { ANON_ACCESS_ENABLED: "true",
   ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000", TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000" };
 const execution = { waitUntil(promise: Promise<unknown>) { void promise; }, passThroughOnException() { return undefined; } } as ExecutionContext;
 

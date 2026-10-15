@@ -110,14 +110,6 @@ CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
 # NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
 # identity source. Unset fails closed (no verified bearer).
-# Showcase-mode gate (S0-v2 GOAL C / C9): worker-side sibling of the web app's
-# VITE_SHOWCASE_MODE with the same strict-boolean contract — only the literal
-# "false" opens the functional /v1 routes; "true" denies them with 403 and any
-# unset/empty/malformed value FAILS CLOSED (denies). staging=false keeps full
-# functionality, production=true makes the backend unreachable past the
-# landing's own surface (/healthz, /img/*, /tiles/*). Consumed by the edge
-# worker itself, so it was never in the container env-forwarding allowlist.
-EDGE_SHOWCASE_MODE = "false"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -266,12 +258,6 @@ CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
 # NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
 # identity source. Unset fails closed (no verified bearer).
-# Showcase-mode gate (S0-v2 GOAL C / C9): production is landing-only — every
-# functional /v1 route (chat/byok/users) and the public catalog read
-# answer 403; only /healthz, /img/* and /tiles/* stay reachable. Strict
-# boolean: anything other than the literal "false" denies, so a missing var
-# can never silently re-open the backend.
-EDGE_SHOWCASE_MODE = "true"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -450,9 +436,6 @@ bucket_name = "docs-assets-staging"
 # three stay distinct and why the entry is still declared with no reader.
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
-# Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
-# (showcase off). Strict boolean — only the literal "false" means that.
-EDGE_SHOWCASE_MODE = "false"
 # CORS_ALLOWED_ORIGIN — the Python agent service's CORS allowlist (#527/#528,
 # P1-A). It reached a consumer only through the container env allowlist, so
 # nothing reads it since #1605; the declaration is kept so the Python-tree

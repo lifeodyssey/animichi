@@ -20,7 +20,7 @@ const NOW = Date.UTC(2026, 8, 5, 12, 0, 0);
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 
 function openEnv(extra: Record<string, unknown> = {}): never {
-  return { EDGE_SHOWCASE_MODE: "false", ...extra } as never;
+  return { ...extra } as never;
 }
 
 async function envelopeOf(response: Response): Promise<{ error?: { code?: string; message?: string } }> {

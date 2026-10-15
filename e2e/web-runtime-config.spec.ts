@@ -15,7 +15,6 @@ const STAGING = {
   api: { siteOrigin: "https://staging.animichi.com", catalogUrl: "https://catalog.staging.animichi.com", usersUrl: "https://users.staging.animichi.com", agentUrl: "https://agent.staging.animichi.com" },
   neonAuthBaseUrl: "https://auth.staging.animichi.com/neondb/auth",
   turnstileSiteKey: "2x00000000000000000000AA",
-  showcaseMode: "false",
   cfBeaconToken: "11111111-1111-1111-1111-111111111111",
   featureFlags: { betaSearch: true },
 };
@@ -25,7 +24,6 @@ const PRODUCTION = {
   api: { siteOrigin: "https://animichi.com", catalogUrl: "https://catalog.animichi.com", usersUrl: "https://users.animichi.com", agentUrl: "https://agent.animichi.com" },
   neonAuthBaseUrl: "https://auth.animichi.com/neondb/auth",
   turnstileSiteKey: "3x00000000000000000000AA",
-  showcaseMode: "false",
   cfBeaconToken: "00000000-0000-0000-0000-000000000000",
   featureFlags: {},
 };
