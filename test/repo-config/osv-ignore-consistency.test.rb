@@ -5,8 +5,9 @@
 # toml's `ignoreUntil`. It pins the day only — whether the records' reasons still agree is for
 # review to settle by reading the two texts side by side, since policing prose reasons with
 # regexes is the documentation-consistency test this repository deletes on sight. The day check
-# is lexical in turn: OPERATIVE lists the phrasings the records state the day in ("extended it
-# to …", "new expiry …", "expires on …", "From … the lane is red"), and an expiry written in a
+# is lexical in turn: the records state the day in three phrasings today ("extended it to …",
+# "new expiry …", "From … the lane is red"); OPERATIVE also lists "expires on …", the phrasing
+# the pre-extension wording used and the likeliest to be copied back in. An expiry written in a
 # phrasing OPERATIVE does not list is outside this check. Procedural: delete this file together
 # with the ignore entry and the decision entry.
 require "minitest/autorun"
