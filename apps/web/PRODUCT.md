@@ -45,7 +45,7 @@ Seichijunrei = 动漫圣地巡礼的「现场作战系统」。一句话(作品�
 - 产品旅程与状态机:`docs/design/user-journey.md`(5 段 18 断点,Walk 是审判时刻)
 - [Chat 用户旅程与组件对照](../../docs/design/chat-journey-component-map.md)：当前 Chat 交互决定、图片浏览与规划节点、组件映射及接续缺口；调整 Chat 体验时同步查阅和维护。
 - 设计方向稿:`~/.gstack/projects/lifeodyssey-Seichijunrei-agent/designs/home-20260829/variant-E.png`(已批准)
-- 设计系统参照:`docs/design/animal-island-ref/`(4 份规范)
+- 设计系统权威:`apps/web/AGENTS.md`(token 落在 `apps/web/src/styles/globals.css`);`docs/design/animal-island-ref/` 已 superseded,仅作上游对照
 - 无真实用户评价/数据——未来工作不得编造 testimonials 或指标
 
 ## Product Principles
