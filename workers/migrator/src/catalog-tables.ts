@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { neonDeadline } from "./neon-deadline";
 
 /**
  * #1230 Phase 1 — the three catalog tables a promoted environment must end up
@@ -56,6 +57,7 @@ export async function readMissingCatalogTables(dsn: string): Promise<readonly st
   const [rows]: unknown[] = await sql.transaction((txn) => [txn.query(MISSING_CATALOG_TABLES_SQL)], {
     readOnly: true,
     isolationLevel: "RepeatableRead",
+    ...neonDeadline(),
   });
   return missingNames(rows);
 }

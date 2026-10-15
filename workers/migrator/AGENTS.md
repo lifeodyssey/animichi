@@ -80,6 +80,21 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    failure, `prisma_marker_mismatch`, `stale_prisma_bundle`. The one #1915
    addition to the caused side is `service_role_provisioning_failed`, which
    carries the step's redacted cause like the thrown failures above.
+
+   #1958 adds the other half of that sentence: a sub-step that only goes QUIET
+   names itself too. Each sub-step logs `[migrator] step: <name>` when it starts
+   (`src/step-log.ts`), each login probe included, because a slow call throws
+   nothing for `named` to prefix — CD's 2026-09-24 preflight timed out with an
+   empty log. And every Neon HTTP call in the apply path carries its own 45 s
+   deadline (`src/neon-deadline.ts`), through the driver's own
+   `fetchOptions.signal` (`AbortSignal.timeout`), so a call that stops answering
+   rejects inside the driver instead of holding the request open. Per CALL, never
+   over the apply — a staging chain apply takes about 3 minutes — and above the
+   platform's own 30 s blocked-callback cap, because
+   `test/integration/prisma.workerd.integration.ts` proves a 31 s round trip must
+   succeed (#1868). The two Prisma calls have no such knob
+   (`connect(connection?: unknown)` takes the URL alone) and are left to CD's own
+   curl bound; their entry line is what names a stall.
    Otherwise: returns success plus Prisma's own receipt — `markerHash`,
    `migrationsApplied` and `applied`. A receipt whose marker is not the requested
    identity refuses success (`prisma_marker_mismatch`). That receipt is visible
