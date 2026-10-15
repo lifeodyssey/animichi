@@ -204,3 +204,18 @@ and fold the verification into the natural review point.
   `pnpm install --frozen-lockfile` plus the test suites: five PRs whose lockfiles were each
   consistent with their own base auto-merged into a lockfile that was semantically broken
   (2026-07-12).
+
+## A merge guard that knew bots by name (2026-10-04)
+
+The owner-local merge hook let #1994 merge while Codex had not reviewed its final head, and
+replaying the hook's own logic over a saved snapshot showed it would have passed #1996 at
+12:54:00Z, 28 s before Codex opened a new P2 thread there. It knew three bots by name (Codex was
+not one of them), timed its window from the head's commit date instead of its push, never checked
+that a resolved thread had a reply, and let a crash through, because Claude Code blocks a call only
+on exit 2 and lets it proceed when a hook times out. The same day's inventory found its command
+filter matched only the text `gh pr merge`, so REST, GraphQL, chained and indirect merges ran
+unchecked. What caught it: replaying the guard over saved pull-request snapshots at the incident's
+timestamps, then tests written from the ways it could fail and a mutation per rule. A guard
+recognises actors by type rather than by name, times a window from the event it waits for, checks
+the reply as well as the resolution, fails closed on every error and timeout, and accepts the one
+command form it can check instead of hunting for the forms it fears.
