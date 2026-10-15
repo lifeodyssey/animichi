@@ -1,4 +1,15 @@
 import type pg from "pg";
+import {
+  aliasInsert,
+  aliasSeed,
+  clusterVersionInsert,
+  clusterVersionSeed,
+  pointInsert,
+  pointSeed,
+  runSeed,
+  workInsert,
+  workSeed,
+} from "./catalog-seed";
 
 /** A brand-new work id (not in seed()) so ingest exercises the full fetch ->
  * raw -> enrich -> publish pass against the real suite database. */
@@ -21,72 +32,60 @@ export const ANITABI_POINTS = [
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
 ];
 
+/** The suite's main work (Lucky Star), built through the contract so its id is
+ * numeric: `pointsByBangumiId` (`/^\d+$/`) would reject a `lucky-star` slug. */
+export const SEED_WORK = workSeed("2823", "らき☆すた", {
+  titleCn: "幸运星",
+  epsCount: 24,
+  rating: 8.1,
+  pointsCount: 2,
+});
+
+/** A numeric-id work with two co-located Kamakura points + one Hakone point, for
+ * the public animeOverview route (its input requires a numeric bangumi_id). */
+const OVERVIEW_WORK = workSeed("3302", "Overview Work", { pointsCount: 3 });
+const OVERVIEW_EMPTY_WORK = workSeed("999998", "Empty Overview Work", { pointsCount: 0 });
+
+/** The seeded points: the main work's two Washinomiya spots, then the overview set. */
+const SEED_POINTS = [
+  pointSeed("washinomiya", SEED_WORK, "鷲宮神社", 36.1019, 139.6586, { episode: 1, timeSeconds: 120 }),
+  pointSeed("washinomiya-torii", SEED_WORK, "鷲宮神社 鳥居", 36.1025, 139.659, { episode: 1, timeSeconds: 60 }),
+  pointSeed("ov-kama-1", OVERVIEW_WORK, "鎌倉A", 35.3066, 139.4889, {
+    city: "Kamakura", image: "https://img/ov1.jpg",
+  }),
+  pointSeed("ov-kama-2", OVERVIEW_WORK, "鎌倉B", 35.30661, 139.48891, { city: "Kamakura" }),
+  pointSeed("ov-hakone", OVERVIEW_WORK, "箱根", 35.2323, 139.1069, {
+    city: "Hakone", image: "https://img/ov3.jpg",
+  }),
+];
+
 /**
- * Seed one work (Lucky Star) with two nearby points and a normalized alias.
+ * Seed the suite's works with their nearby points, one cluster version and a
+ * normalized alias.
  *
  * Points are written through `location`: `latitude` / `longitude` are generated
  * columns on this plane, so a scalar write is `cannot insert a non-DEFAULT value
  * into column "latitude"` (`428C9`).
  */
 export async function seed(pool: pg.Pool): Promise<void> {
-  await insertSeedBangumi(pool);
-  await insertSeedPoints(pool);
-  await insertSeedCluster(pool);
-  await insertSeedAlias(pool);
-  await seedOverviewWork(pool);
+  await seedBangumi(pool);
+  await seedPoints(pool);
+  await seedCluster(pool);
+  await seedAlias(pool);
 }
 
-function insertSeedBangumi(pool: pg.Pool): Promise<unknown> {
-  return pool.query(
-    "INSERT INTO bangumi (id, title, title_cn, eps_count, rating, points_count)"
-    + " VALUES ('lucky-star', 'らき☆すた', '幸运星', 24, 8.1, 2)",
-  );
+function seedBangumi(pool: pg.Pool): Promise<void> {
+  return runSeed(pool, workInsert([SEED_WORK, OVERVIEW_WORK, OVERVIEW_EMPTY_WORK]));
 }
 
-function insertSeedPoints(pool: pg.Pool): Promise<unknown> {
-  return pool.query(
-    "INSERT INTO points (id, bangumi_id, name, location, episode, time_seconds) VALUES"
-    + ` ('washinomiya', 'lucky-star', '鷲宮神社', ${geography(139.6586, 36.1019)}, 1, 120),`
-    + ` ('washinomiya-torii', 'lucky-star', '鷲宮神社 鳥居', ${geography(139.659, 36.1025)}, 1, 60)`,
-  );
+function seedPoints(pool: pg.Pool): Promise<void> {
+  return runSeed(pool, pointInsert(SEED_POINTS));
 }
 
-function insertSeedCluster(pool: pg.Pool): Promise<unknown> {
-  return pool.query("INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('lucky-star', 1, TRUE)");
+function seedCluster(pool: pg.Pool): Promise<void> {
+  return runSeed(pool, clusterVersionInsert([clusterVersionSeed(SEED_WORK, 1, true)]));
 }
 
-function insertSeedAlias(pool: pg.Pool): Promise<unknown> {
-  return pool.query(
-    "INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)"
-    + " VALUES ('lucky-star', 'らき☆すた', 'らき☆すた', 'bangumi', 40)",
-  );
-}
-
-/** A numeric-id work with two co-located Kamakura points + one Hakone point, for
- * the public animeOverview route (its input requires a numeric bangumi_id). */
-export async function seedOverviewWork(pool: pg.Pool): Promise<void> {
-  await insertOverviewBangumi(pool);
-  await insertOverviewPoints(pool);
-}
-
-function insertOverviewBangumi(pool: pg.Pool): Promise<unknown> {
-  return pool.query(
-    "INSERT INTO bangumi (id, title, points_count) VALUES"
-    + " ('3302', 'Overview Work', 3), ('999998', 'Empty Overview Work', 0)",
-  );
-}
-
-function insertOverviewPoints(pool: pg.Pool): Promise<unknown> {
-  return pool.query(
-    "INSERT INTO points (id, bangumi_id, name, location, city, image) VALUES"
-    + ` ('ov-kama-1', '3302', '鎌倉A', ${geography(139.4889, 35.3066)}, 'Kamakura', 'https://img/ov1.jpg'),`
-    + ` ('ov-kama-2', '3302', '鎌倉B', ${geography(139.48891, 35.30661)}, 'Kamakura', NULL),`
-    + ` ('ov-hakone', '3302', '箱根', ${geography(139.1069, 35.2323)}, 'Hakone', 'https://img/ov3.jpg')`,
-  );
-}
-
-/** A `geography(Point,4326)` literal from a fixture's own coordinates. Both are
- *  this file's constants — never caller input — so they are rendered, not bound. */
-function geography(longitude: number, latitude: number): string {
-  return `ST_SetSRID(ST_MakePoint(${String(longitude)}, ${String(latitude)}), 4326)::geography`;
+function seedAlias(pool: pg.Pool): Promise<void> {
+  return runSeed(pool, aliasInsert([aliasSeed(SEED_WORK, "らき☆すた", "らき☆すた", "bangumi", 40)]));
 }

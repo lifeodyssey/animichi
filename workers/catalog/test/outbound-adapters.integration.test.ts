@@ -18,6 +18,7 @@ import {
   aliasSeed,
   pointInsert,
   pointSeed,
+  runSeed,
   workInsert,
   workSeed,
 } from "./fixtures/catalog-seed";
@@ -222,15 +223,15 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 async function seed(): Promise<void> {
-  await run(workInsert([CHIHAYAFURU, EMPTY_WORK, POPULAR_A, POPULAR_NULL_RATING, POPULAR_ZERO]));
-  await run(pointInsert(POINTS));
-  await run(pointInsert([pointSeed("p-null", CHIHAYAFURU, "No Scene", 35.3, 135.3)]));
+  await runSeed(pool, workInsert([CHIHAYAFURU, EMPTY_WORK, POPULAR_A, POPULAR_NULL_RATING, POPULAR_ZERO]));
+  await runSeed(pool, pointInsert(POINTS));
+  await runSeed(pool, pointInsert([pointSeed("p-null", CHIHAYAFURU, "No Scene", 35.3, 135.3)]));
   for (const scene of SCENE_FIELDS) {
     await pool.query("UPDATE points SET episode = $1, time_seconds = $2 WHERE id = $3", [
       scene.episode, scene.timeSeconds, scene.id,
     ]);
   }
-  await run(aliasInsert([
+  await runSeed(pool, aliasInsert([
     aliasSeed(CHIHAYAFURU, "ちはやふる", "ちはやふる", "bangumi", 40),
     aliasSeed(CHIHAYAFURU, "ちはやふる", "ちはやふる", "manual", 70),
     aliasSeed(EMPTY_WORK, "ちはやふる", "ちはやふる", "bangumi", 10),
@@ -277,10 +278,6 @@ async function seedGazetteer(): Promise<void> {
   );
   await pool.query("ANALYZE locations");
   await pool.query("ANALYZE location_aliases");
-}
-
-async function run(statement: { text: string; values: readonly (string | number)[] }): Promise<void> {
-  await pool.query(statement.text, [...statement.values]);
 }
 
 beforeAll(async () => {

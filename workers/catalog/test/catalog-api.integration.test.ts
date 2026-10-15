@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import pg from "pg";
 import { databaseDescribe, directPoolConfig, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-integration-client";
-import { seed } from "./fixtures/integration-suite-seed";
+import { SEED_WORK, seed } from "./fixtures/integration-suite-seed";
 import { stubFetch, unresolvableResponse } from "./integration-upstream-stubs";
 
 // The Node integration pool has no workerd runtime; stub the runtime module so
@@ -63,7 +63,7 @@ afterAll(async () => {
 async function assertSearchHit(): Promise<void> {
   const out = await call<{ rows: ApiPoint[]; synced_at: string }>("search", { query: "らき☆すた" });
   expect(out.rows.map((r) => r.id).sort()).toEqual(["washinomiya", "washinomiya-torii"]);
-  expect(out.rows.every((r) => r.bangumi_id === "lucky-star")).toBe(true);
+  expect(out.rows.every((r) => r.bangumi_id === SEED_WORK.workId)).toBe(true);
   expect(typeof out.synced_at).toBe("string");
 }
 
@@ -76,9 +76,9 @@ async function assertSearchMiss(): Promise<void> {
 }
 
 async function assertSpotsHit(): Promise<void> {
-  const out = await call<{ point: ApiPoint; distance_m?: number }>("spots", { bangumi_id: "lucky-star" });
+  const out = await call<{ point: ApiPoint; distance_m?: number }>("spots", { bangumi_id: SEED_WORK.workId });
   expect(out.point.id).toBe("washinomiya");
-  expect(out.point.bangumi_id).toBe("lucky-star");
+  expect(out.point.bangumi_id).toBe(SEED_WORK.workId);
 }
 
 async function assertSpots404(): Promise<void> {
