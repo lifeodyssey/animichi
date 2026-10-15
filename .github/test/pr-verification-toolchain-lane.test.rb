@@ -109,7 +109,8 @@ class PrVerificationToolchainLaneTest < Minitest::Test
     end
   end
 
-  # `contracts` and `docs` run on every diff — neither has an `if:`. What is left
+  # `contracts` and `docs` run on every diff — neither is path-filtered, they
+  # carry only the draft gate. What is left
   # in them asserts the repository's own text (groups A and C) or proves a guard
   # fires (group D); a test of the toolchain in either is the cost #1776 moved
   # out. And no job but the lane may invoke the runner, or the suite would run

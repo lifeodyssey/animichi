@@ -35,8 +35,10 @@ revision rather than mutable checkout state.
   (`contracts`, `docs`, the security jobs behind `Security`) *and* the lanes `plan` routes by the
   merged diff (`affected`, `e2e`, `db`) — `plan` computes that diff from
   `github.event.before..github.sha`. Only `commits` is gated off with
-  `if: ${{ github.event_name != 'push' }}` — it has no subject on a merged commit (no PR title, a
-  zero-commit range). `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,
+  `github.event_name != 'push'`, joined by `&&` to the draft gate every lane carries (open on `push`
+  and `merge_group`, closed on a draft `pull_request`; `.github/test/pr-verification-draft.test.rb`
+  pins it) — it has no subject on a merged commit (no PR title, a zero-commit range).
+  `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,
   and its tables must cover every job so a new job cannot land there by default. A red merged commit
   is unattended, so it carries `alert-failure` like every other `push` workflow, gated to
   `github.event_name == 'push'`; a pending run the concurrency group supersedes alerts nothing, and

@@ -199,7 +199,7 @@ pnpm project, which would otherwise be invisible to the join:
 | Changed path | Bucket |
 |---|---|
 | `packages/pi-session-neon/migrations/**` | `prisma migration check` — artifact integrity and a connected graph, no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
-| `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
+| `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every non-draft pull request. |
 | `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s four delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 38 s serial and 15 s at four (`--list` through `xargs -P4`, 2026-09-23, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. `.npmrc` was deleted with the pnpm 12 settings move (#1672) but stays in the pattern: `test/repo-config/pnpm-workspace-settings.test.rb` refuses a non-auth key there, and a re-added one still selects every package. |
 
@@ -216,7 +216,8 @@ that it is named. An entry with no owner, outside `docs/specs/`, naming an untra
 written without the `|` separator fails the gate closed, and the gate's own files are never a
 reference, so an entry cannot justify itself. Those three files — the gate, its behavioral test
 and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate (it
-selects the contracts bucket, above), and CI's `docs` job runs the same gate on every pull request.
+selects the contracts bucket, above), and CI's `docs` job runs the same gate on every non-draft
+pull request (a draft PR skips it, and it runs once the draft is marked ready).
 
 ### The whitelist, and failing closed
 
