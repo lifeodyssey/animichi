@@ -52,19 +52,32 @@ export interface MapFrame {
   readonly sampledPixels: number;
 }
 
+/** Where the map element is sampled, as (x, y) fractions of its box.
+ *
+ *  The spike paints its OWN marks over the tiles — the pilgrimage route line
+ *  (`map-layers.ts`, #c1440e) and the five spot markers (`map-controller.ts`) —
+ *  and at the lane's viewport they share one horizontal band across the middle
+ *  of the map (roughly y 0.4–0.63). A sample that lands on a mark reads that
+ *  mark's colour, not the style background, so the 204 case's
+ *  `backgroundPixels === sampledPixels` could never hold. These rows and columns
+ *  sit clear of the band, which leaves the assertion exactly as strong and keeps
+ *  the app's marks out of the sample it counts. */
+const SAMPLE_COLUMNS = [0.1, 0.5, 0.9] as const;
+const SAMPLE_ROWS = [0.1, 0.3, 0.9] as const;
+
 const captureMapColors = async (page: Page): Promise<number[][]> => {
   const screenshot = await page.locator(".map-spike__gl").screenshot();
-  return page.evaluate(async (encoded) => {
+  return page.evaluate(async (args: { columns: readonly number[]; encoded: string; rows: readonly number[] }) => {
     const image = new Image();
-    image.src = `data:image/png;base64,${encoded}`;
+    image.src = `data:image/png;base64,${args.encoded}`;
     await image.decode();
     const surface = document.createElement("canvas");
     [surface.width, surface.height] = [image.width, image.height];
     const context = surface.getContext("2d");
     if (context === null) return [];
     context.drawImage(image, 0, 0);
-    return [0.2, 0.5, 0.8].flatMap((x) => [0.2, 0.5, 0.8].map((y) => [...context.getImageData(Math.floor(image.width * x), Math.floor(image.height * y), 1, 1).data]));
-  }, screenshot.toString("base64"));
+    return args.columns.flatMap((x) => args.rows.map((y) => [...context.getImageData(Math.floor(image.width * x), Math.floor(image.height * y), 1, 1).data]));
+  }, { columns: SAMPLE_COLUMNS, encoded: screenshot.toString("base64"), rows: SAMPLE_ROWS });
 };
 
 const readRenderer = (page: Page): Promise<string> => page.evaluate(() => {
