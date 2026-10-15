@@ -1,5 +1,7 @@
 # Repository force-push policy: all branches protected, owner-authorized rewrites only
 
+> **Status**: amended 2026-10-09 by [ADR 0009](0009-branch-updates-merge-only.md) — the scope this ADR claims is wider than the ruleset carries; the original text below stands as history, ADR 0009 is the standing policy.
+
 The skeleton-refactor campaign force-pushed feature branches continuously (`rebase + push --force-with-lease`), and the history-rewrite wave (restructure W6 + GOAL W8) will force-push `main`. The GitHub ruleset `protect main` already blocks force-push on the default branch; feature branches were unprotected.
 
 ## Decision
