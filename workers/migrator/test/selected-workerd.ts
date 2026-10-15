@@ -19,12 +19,16 @@ async function workerBundle(): Promise<string> {
 export async function selectedWorker(transport: (request: WorkerRequest) => Promise<WorkerResponse>, claims: Record<string, unknown> = {}, environment = "staging") {
   const { token, jwk } = await issuedToken(claims);
   bundle ??= workerBundle();
-  const runtime = new Miniflare({ modules: [{ type: "ESModule", path: "/bundle/selected-worker.js", contents: await bundle }],
-    modulesRoot: "/bundle", compatibilityDate: "2026-07-01",
-    compatibilityFlags: ["nodejs_compat"], durableObjects: { MIGRATOR_APPLY_LOCK: "MigratorApplyLock" },
-    bindings: { MIGRATOR_DATABASE_URL: "postgresql://fixture:fixture@ep-fixture.neon.tech/neondb", MIGRATOR_OIDC_POLICY: environment },
-    outboundService: (request: WorkerRequest) => new URL(request.url).hostname === "token.actions.githubusercontent.com"
-      ? Promise.resolve(WorkerResponse.json({ keys: [jwk] })) : transport(request),
+  const runtime = new Miniflare({
+    workers: [{
+      name: "migrator-selected",
+      modules: [{ type: "ESModule", path: "/bundle/selected-worker.js", contents: await bundle }],
+      modulesRoot: "/bundle", compatibilityDate: "2026-07-01",
+      compatibilityFlags: ["nodejs_compat"], durableObjects: { MIGRATOR_APPLY_LOCK: "MigratorApplyLock" },
+      bindings: { MIGRATOR_DATABASE_URL: "postgresql://fixture:fixture@ep-fixture.neon.tech/neondb", MIGRATOR_OIDC_POLICY: environment },
+      outboundService: (request: WorkerRequest) => new URL(request.url).hostname === "token.actions.githubusercontent.com"
+        ? Promise.resolve(WorkerResponse.json({ keys: [jwk] })) : transport(request),
+    }],
     log: new Log(LogLevel.ERROR), cf: false,
   });
   return { runtime, request: (path = "/migrate", body: unknown = metadata) => runtime.dispatchFetch(`https://migrator.test${path}`, {
