@@ -44,7 +44,7 @@ ok "a root manifest selects every package once, without the closure prefix"
 # 4. Whitelisted paths need no package; the docs bucket still runs its checks.
 #    The contracts' three families left this case in #1883 for pre-push-affected-contracts.test.sh.
 new_repo
-commit_change feature docs/a.md .gitignore Gemfile Gemfile.lock .ruby-version
+commit_change feature docs/a.md .gitignore Gemfile Gemfile.lock .ruby-version .nvmrc
 run_gate < /dev/null
 expect_status "docs" 0 "$STATUS"
 expect "docs" "packages: (none)" "$OUT"

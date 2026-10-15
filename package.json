@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@12.4.2",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "scripts": {
     "lint:oxlint": "pnpm --filter catalog --filter users --filter web --filter migrator --filter animichi-e2e --filter @animichi/agent --filter @animichi/eval --filter @animichi/test-postgres --filter @animichi/contract --filter edge-worker --filter anitabi-egress run lint:oxlint",
