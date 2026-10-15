@@ -81,6 +81,40 @@ were priced, and `unmeasured` when none were. A provider outage still emits a
 zeroed usage row, so a zeroed row does not count as measured: an outage cannot
 be reported as a confident $0.
 
+## Model-change measurements and the spend rule
+
+The owner's spend rule (2026-09-16) allows a paid eval only when every hop of
+the run — the model under test, tool calls, the judge — goes through OpenCode
+Go. A run straight against Xiaomi is new spending only the owner can approve.
+
+A run on a new model sits beside a committed baseline from the old one, and
+without the name in the report itself the movement reads as a code regression
+when it is the model switch. `EVAL_BASELINE` names the committed baseline
+artifact this run reports next to (a path; repo-relative resolves against the
+repository root). The report's metadata then records the baseline's model, the
+artifact and a derived `comparison` — `model-change` when the two model
+identities differ, `same-model` when they do not — and an unnamed baseline is
+recorded as `"baseline": null` rather than omitted. A missing, unparseable or
+model-less artifact stops the run before any provider traffic.
+
+Measuring the agent's new model against the V2.5 baseline therefore runs:
+
+```sh
+EVAL_PROVIDER=opencode-go OPENCODE_API_KEY=... CATALOG_API_URL=https://catalog.example.com \
+  EVAL_MODEL=mimo-v2.6-flash \
+  EVAL_BASELINE=packages/eval/results/2026-09-07-agent_eval_heldout_v1.json \
+  EVAL_REPORT_PATH=packages/eval/results/<date>-agent_eval_heldout_v1-mimo-v2.6-flash.json \
+  pnpm --filter @animichi/eval eval:native
+```
+
+The committed report names the model and the baseline it is compared with; the
+owner reads it before approving the production promotion that carries the
+switch (#1935). Both halves of the command's credentials are operator side: the
+spend needs the owner's OpenCode Go quota, and the catalog origin needs an
+operator standing one up — the catalog Worker has no public door (#1691), so
+`CATALOG_API_URL` is a local `wrangler dev` catalog Worker or another origin
+the operator authorizes, never a guessed public host.
+
 ## Required assertions and pass^k
 
 Every loaded case carries `metadata.category` and the named correctness
