@@ -82,10 +82,10 @@ void test('the frozen corpus preserves the provenance every suite must draw from
   const heldout = canonical('agent_eval_heldout_v1');
   assert.deepEqual([...new Set(localesOf([...v3, ...heldout]))].sort(), ['en', 'ja', 'zh']);
   assert.deepEqual(['injection_g1_v1', 'input_guard_v1', 'long_context_v1', 'translation_v1']
-    .map((name) => canonical(name).length), [23, 15, 13, 65]);
+    .map((name) => canonical(name).length), [23, 15, 14, 65]);
   assert.deepEqual([...new Set(stagesOf(v3))].sort(), ['clarify', 'clarify_after_nearby', 'general_qa', 'greet_user',
     'plan_route', 'plan_selected', 'search_bangumi', 'search_nearby']);
-  assert.deepEqual(FROZEN_DATASET_COUNTS.map((entry) => entry.caseCount), [662, 33, 23, 15, 13, 5]);
+  assert.deepEqual(FROZEN_DATASET_COUNTS.map((entry) => entry.caseCount), [662, 33, 23, 15, 14, 5]);
 });
 
 void test('a roster that keeps the committed count and coverage validates', () => {

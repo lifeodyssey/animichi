@@ -27,7 +27,7 @@ export const FROZEN_DATASET_COUNTS: readonly FrozenDatasetCount[] = [
   { caseCount: 33, name: 'agent_eval_heldout_v1', stratumCount: 12 },
   { caseCount: 23, name: 'injection_g1_v1', stratumCount: 1 },
   { caseCount: 15, name: 'input_guard_v1', stratumCount: 1 },
-  { caseCount: 13, name: 'long_context_v1', stratumCount: 1 },
+  { caseCount: 14, name: 'long_context_v1', stratumCount: 1 },
   { caseCount: 5, name: 'phase1c_selection_v1', stratumCount: 1 },
 ];
 
@@ -53,7 +53,7 @@ export const FROZEN_DATASET_CATEGORY: Readonly<Record<string, CaseCategory>> = {
  * the table above — two of the seven (`runtime_journey_v1`,
  * `translation_v1`) were never exported and own no freeze row.
  */
-export const FROZEN_SIBLING_CASE_COUNT = 546;
+export const FROZEN_SIBLING_CASE_COUNT = 547;
 
 /**
  * The frozen declaration for this name: its case and stratum counts.

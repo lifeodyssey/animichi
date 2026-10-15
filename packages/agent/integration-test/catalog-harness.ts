@@ -13,9 +13,12 @@ export async function catalogHarness(context: TestContext, address: URL, origin:
   const session = await repo.create({}, BACKGROUND_CONTEXT);
   const provider = fauxProvider(); const models = createModels(); models.setProvider(provider.provider);
   const requests: string[] = [];
-  const catalog = createCatalogClient((request) => {
-    requests.push(new URL(request.url).pathname);
-    return fetch(new Request(new URL(new URL(request.url).pathname, address), request));
+  const itineraries: unknown[] = [];
+  const catalog = createCatalogClient(async (request) => {
+    const path = new URL(request.url).pathname;
+    requests.push(path);
+    if (path === "/catalog/itinerary") itineraries.push(await request.clone().json());
+    return fetch(new Request(new URL(path, address), request));
   });
   const toolContext: PilgrimageToolContext = {
     session, branch: "main", locale: "en", origin, catalog, webFetch,
@@ -23,7 +26,7 @@ export async function catalogHarness(context: TestContext, address: URL, origin:
   };
   const { harness } = await createPilgrimageHarness({ session, models, model: provider.getModel(), toolContext }, BACKGROUND_CONTEXT);
   context.after(() => harness.close(BACKGROUND_CONTEXT));
-  return { repo, session, models, toolContext, harness, provider, requests, lane: await harness.lane("main", BACKGROUND_CONTEXT) };
+  return { repo, session, models, toolContext, harness, provider, requests, itineraries, lane: await harness.lane("main", BACKGROUND_CONTEXT) };
 }
 
 export async function latestTool(lane: AgentLane, name: string) {
