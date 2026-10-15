@@ -183,7 +183,8 @@ At most three automatic review rounds are allowed per card; opening a PR does
 not reset the counter. These post-PR changes do not consume a round and are not
 re-reviewed (owner, 2026-09-18): fixes for bot findings (fix, reply inline,
 resolve), CI-environment fixes (a Ruby version), commit or PR body wording, and
-restack conflict resolution reported hunk by hunk. The list waives a review-seat
+restack conflict resolution reported hunk by hunk. (The stack step retired 2026-10-09 —
+ADR 0009; restack conflicts no longer arise.) The list waives a review-seat
 round only; it does not waive the coordinator's own verification of a code change
 before merge. Any other post-PR code change needs a fresh review within that
 budget. If the third round fails, or later changes would need a fourth, preserve
