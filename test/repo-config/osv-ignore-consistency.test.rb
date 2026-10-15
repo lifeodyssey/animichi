@@ -2,7 +2,11 @@
 # decision entry in docs/agents/owner-decisions.md that approves it. The toml holds the security
 # lane down only until the expiry its own record approves, so both records must state the same
 # operative expiry day: this check pins every statement of that day, in either record, to the
-# toml's `ignoreUntil`. It pins the day only — whether the records' reasons still agree is for
+# toml's `ignoreUntil`. The day is read only from text that belongs to this advisory — the
+# toml's header comment, the `[[IgnoredVulns]]` block whose `id` field names the advisory (a
+# block is never picked by its text, since a `reason` may cite another advisory), and the
+# decision entry's section — so a second ignore's own expiry never enters the comparison. It
+# pins the day only — whether the records' reasons still agree is for
 # review to settle by reading the two texts side by side, since policing prose reasons with
 # regexes is the documentation-consistency test this repository deletes on sight. The day check
 # is lexical in turn: the records state the day in three phrasings today ("extended it to …",
@@ -57,6 +61,12 @@ class OsvIgnoreConsistencyTest < Minitest::Test
                     "the decision entry's return-to-red day no longer matches the toml it leaves with"
   end
 
+  def test_the_tracked_entry_is_the_block_whose_id_field_names_the_advisory
+    assert_equal ID, id_field(tracked_block),
+                 "the checks must read the `[[IgnoredVulns]]` block whose `id` names #{ID}, " \
+                 "not one that merely mentions it in its text"
+  end
+
   def test_the_ignore_and_its_decision_entry_leave_together
     assert_equal(!section.nil?, !tracked_block.nil?,
                  "the toml ignore and the `#{DECISIONS}` entry are one suppression decision: " \
@@ -80,10 +90,16 @@ class OsvIgnoreConsistencyTest < Minitest::Test
     text.gsub(/^#/, "").gsub(/\s+/, " ")
   end
 
-  # The entry this record is about, from the first `[[IgnoredVulns]]` marker onward; the comment
-  # header names the same advisory id, so the pre-marker piece must stay out.
+  # The entry this record is about: the block whose `id` field names the advisory. A block is
+  # never selected by its text — a `reason` may cite another advisory — so if the `id` moves to
+  # a different advisory, this returns nil and every entry check fails. Nil once the entry has
+  # left, which the togetherness test reads.
   def tracked_block
-    toml.split("[[IgnoredVulns]]").drop(1).find { |block| block.include?(ID) }
+    toml.split("[[IgnoredVulns]]").drop(1).find { |block| id_field(block) == ID }
+  end
+
+  def id_field(block)
+    block.to_s[/\n\s*id = "([^"]+)"/, 1]
   end
 
   def header
@@ -105,8 +121,11 @@ class OsvIgnoreConsistencyTest < Minitest::Test
     @section ||= decisions[/#{Regexp.escape(HEADING)}.*?(?=\n## |\z)/m]
   end
 
+  # Only the text that belongs to this advisory: the toml's header comment (it describes this
+  # ignore), the tracked entry block, and the decision entry's section. A second ignore in the
+  # file states its own expiry day, which must not enter this comparison.
   def operative_dates
-    [toml, section].compact.flat_map do |source|
+    [header, tracked_block, section].compact.flat_map do |source|
       text = squashed(source)
       OPERATIVE.flat_map { |shape| text.scan(shape).flatten }
     end
