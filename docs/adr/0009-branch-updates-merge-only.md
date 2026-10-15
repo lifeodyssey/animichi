@@ -19,9 +19,15 @@ own word is what protects a feature branch.
   "target": "branch",
   "enforcement": "active",
   "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
-  "rules": ["deletion", "non_fast_forward", "required_linear_history"],
-  "allowed_merge_methods": ["squash"],
-  "required_status_checks": {"checks": ["PR Verification", "Security"], "strict": true},
+  "rules": [
+    {"type": "deletion"},
+    {"type": "non_fast_forward"},
+    {"type": "required_linear_history"},
+    {"parameters": {"code_scanning_tools": [{"alerts_threshold": "errors", "security_alerts_threshold": "high_or_higher", "tool": "CodeQL"}]}, "type": "code_scanning"},
+    {"parameters": {"review_draft_pull_requests": false, "review_on_push": true}, "type": "copilot_code_review"},
+    {"parameters": {"allowed_merge_methods": ["squash"], "dismiss_stale_reviews_on_push": true, "require_code_owner_review": false, "require_extra_approval_for_unattributed_changes": true, "require_last_push_approval": false, "required_approving_review_count": 0, "required_review_thread_resolution": true, "required_reviewers": []}, "type": "pull_request"},
+    {"parameters": {"do_not_enforce_on_create": false, "required_status_checks": [{"context": "PR Verification"}, {"context": "Security"}], "strict_required_status_checks_policy": true}, "type": "required_status_checks"}
+  ],
   "bypass_actors": [{"actor_id": 25764181, "actor_type": "User", "bypass_mode": "pull_request"}]
 }
 ```
