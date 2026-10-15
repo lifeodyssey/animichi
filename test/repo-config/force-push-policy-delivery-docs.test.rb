@@ -1,6 +1,7 @@
 # SUT: the delivery-facing policy docs — `docs/agents/delivery-flow.md` and the card-delivery
-# runbook, plus the two index lines this policy touched. The flow's standing update step and
-# the 21-conflict incident record are pinned verbatim; every other line of the flow is
+# runbook, plus the two index lines this policy touched. The flow's standing update step, the
+# 21-conflict incident record, the owner's 2026-09-17 quote line and the runbook's waiver
+# record are pinned verbatim; every other line of the flow is
 # scanned for the retired update mechanics (a stack, a rebase, a forced push, in any spelling
 # an author reaches for) with no date escape — only the incident record, whose step the owner
 # superseded, may carry them, and it must carry its retirement date, and only the owner's
@@ -36,7 +37,8 @@ class ForcePushPolicyDeliveryDocsTest < Minitest::Test
 
   # The owner's 2026-09-17 words as the flow carries them: the one line outside the pinned
   # records that may hold the stack vocabulary. The exemption is whole-line equality, so a
-  # retired step appended to the quote or set beside it is scanned like any other line.
+  # retired step appended to the quote or set beside it is scanned like any other line; the
+  # verbatim test below pins the complete line itself, quote, date and punctuation.
   OWNER_QUOTE_LINE = '"记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr" (2026-09-17);'.freeze
 
   # The flow's standing update step and the incident record, verbatim. The scan below
@@ -56,6 +58,19 @@ class ForcePushPolicyDeliveryDocsTest < Minitest::Test
       branch update is a merge now. The guard is this incident's own lesson and stands: no chained
       update-and-dispatch, `git status --porcelain` empty before a dispatch.)
   FLOW
+  # The runbook's 2026-09-18 waiver record, verbatim: the list, its dated retirement note
+  # and its review-seat boundary in one pinned span. An extension that adds an item, a
+  # reworded item or a dropped boundary is a change to the record — extending the waiver
+  # is an owner decision, not a doc edit.
+  WAIVER_RECORD = <<~RUNBOOK.chomp
+    These post-PR changes do not consume a round and are not
+    re-reviewed (owner, 2026-09-18): fixes for bot findings (fix, reply inline,
+    resolve), CI-environment fixes (a Ruby version), commit or PR body wording, and
+    restack conflict resolution reported hunk by hunk. (The stack step retired 2026-10-09 —
+    ADR 0009; restack conflicts no longer arise.) The list waives a review-seat
+    round only; it does not waive the coordinator's own verification of a code change
+    before merge.
+  RUNBOOK
 
   def test_delivery_flow_updates_a_branch_by_merging_main_in
     update = blocks(File.read(FLOW)).find { |block| block.match?(/git merge origin\/main/) }
@@ -82,19 +97,26 @@ class ForcePushPolicyDeliveryDocsTest < Minitest::Test
   end
 
   def test_delivery_flow_keeps_the_owner_words_verbatim
-    assert_match(/记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr/, File.read(FLOW),
+    flow = File.read(FLOW)
+    assert_match(/记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr/, flow,
                  "the owner's 2026-09-17 words were edited; quoted history stays verbatim")
+    assert_includes flow.lines.map(&:chomp), OWNER_QUOTE_LINE,
+                    "the owner's 2026-09-17 quote line was edited or extended; the complete " \
+                    "line — quote, date, punctuation — is the record"
   end
 
   def test_runbook_keeps_the_waiver_list_without_extending_it
     runbook = File.read(RUNBOOK)
+    assert_includes runbook, WAIVER_RECORD,
+                    "the runbook's 2026-09-18 waiver record drifted; the list, its dated " \
+                    "retirement note and its review-seat boundary stand or fall together"
     assert_match(/restack conflict resolution reported hunk by hunk/, runbook,
                  "the runbook rewrote the owner's 2026-09-18 waiver list; keep the original words")
     assert_match(/The stack step retired 2026-10-09/, runbook,
                  "the retired stack step lost its dated note")
-    assert_nil(runbook.match(/update-branch[^.]*waiv/i),
-               "the 2026-09-18 waiver does not cover update-branch conflicts; extending it is " \
-               "an owner decision, not a doc edit")
+    assert_nil(runbook.match(/(?:update-branch[^.]*waiv|waiv[^.]*update-branch)/i),
+               "the 2026-09-18 waiver does not cover update-branch conflicts, whichever word " \
+               "comes first; extending it is an owner decision, not a doc edit")
   end
 
   def test_index_lines_match_the_retirement
