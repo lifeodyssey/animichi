@@ -74,11 +74,24 @@ every pull request's `security (osv)` lane red through `infra/database-access/pn
 the package is only a transitive dependency of `@pulumi/pulumi` and unreachable: make-fetch-happen
 builds its HTTP cache with `shared: false`, so the shared-cache entry the advisory needs never exists.
 The coordinator proposed a time-boxed `osv-scanner.toml` ignore (14 days) as the one option that
-unblocks delivery, and the owner replied "修啊" (2026-10-04). It expires on 2026-10-18: from that
-date the lane is red again unless the lockfile has moved to a fixed version, and this entry leaves
-with the toml. The root lockfile carries the same package; CI's osv lane does not read it today
+unblocks delivery, and the owner replied "修啊" (2026-10-04): a first 14-day window that ended
+2026-10-18 — had it not been extended, the lane would have turned red again from that date unless
+the lockfile had moved to a fixed version. The root lockfile carries the same package; CI's osv
+lane does not read it today
 (#1964 tracks the scanner that will), and that copy is a separate suppression decision. This does
 not loosen the rule: every other suppression still needs the owner's approval first.
+
+On 2026-10-14 the owner extended the ignore instead of upgrading to 4.3.0 ("ZDEV-83 延长忽略"),
+with a new expiry of 2026-11-01. A check of the upstream 4.2.0 → 4.3.0 commit range
+`f01112e954b83cfa8765b633ba880e5e980aa54c...b1d4bd682fbab0252985de45219f4e7497c0067c` found the
+max-stale path and the `maxAge()` security zeroing it reaches unchanged, so 4.3.0 does not fix the
+behaviour the advisory describes; the maintainer closed the report as not planned ("This report is
+bogus", upstream #56, https://github.com/kornelski/http-cache-semantics/issues/56). The advisory
+(https://github.com/advisories/GHSA-ch52-4w7c-c8xp) still lists no fixed version, and a lockfile
+move to 4.3.0 would only silence the scanner: the `<= 4.2.0` range is from an advisory
+last updated on 2026-10-02, before 4.3.0 existed, so silence would not be evidence of a fix.
+From 2026-11-01 the lane is red again unless the lockfile has moved to a fixed version, and this
+entry still leaves with the toml.
 
 ## Agent API platform direction (2026-10-04)
 

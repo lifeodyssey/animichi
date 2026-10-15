@@ -4,12 +4,22 @@
 # another through a SHARED cache's max-stale handling. Here it is only a transitive dependency of
 # @pulumi/pulumi (-> @npmcli/arborist -> npm-registry-fetch -> make-fetch-happen), and
 # make-fetch-happen builds every cache policy with `shared: false` (lib/cache/policy.js), so the
-# shared-cache entry the advisory needs never exists; the Pulumi SDK also reaches arborist only
-# through closure code-path computation, which these programs never call. No fixed version exists
-# (advisory published 2026-09-18, modified 2026-10-02). The owner approved this time-boxed ignore
-# on 2026-10-04 (docs/agents/owner-decisions.md). From 2026-10-18 the lane is red again unless the
-# lockfile has moved to a fixed version; remove this file together with that decision entry.
+# shared-cache entry the advisory needs never exists: the vulnerable branch begins with
+# `this._isShared &&`, which these policies never take. The Pulumi SDK also reaches arborist only
+# through closure code-path computation, which these programs never call.
+#
+# The advisory still lists no fixed version. 4.3.0 (published 2026-10-04, npm latest) does not
+# change what the advisory describes: across f01112e..b1d4bd6 the max-stale handling and the
+# `maxAge()` security zeroing it reaches are unchanged, and upstream closed the report
+# (issue #56) as not planned. The vulnerable range stops at 4.2.0 only because the advisory was
+# last updated on 2026-10-02, before 4.3.0 existed, so moving the lockfile to 4.3.0 would
+# silence the scanner without fixing anything.
+#
+# The owner approved this time-boxed ignore on 2026-10-04, and the second approval of 2026-10-14
+# extended it to 2026-11-01 (docs/agents/owner-decisions.md). From 2026-11-01 the lane is red
+# again unless the lockfile has moved to a fixed version; remove this file together with that
+# decision entry.
 [[IgnoredVulns]]
 id = "GHSA-ch52-4w7c-c8xp"
-ignoreUntil = 2026-10-18
-reason = "Unreachable here: only a transitive dependency of @pulumi/pulumi; make-fetch-happen builds its HTTP cache with shared: false, so the shared-cache entry the advisory needs never exists. No fixed version yet; re-check at expiry."
+ignoreUntil = 2026-11-01
+reason = "Unreachable here: only a transitive dependency of @pulumi/pulumi; make-fetch-happen builds its HTTP cache with shared: false, so the shared-cache entry the advisory needs never exists. 4.3.0 leaves the advisory's max-stale path unchanged and upstream closed the report as not planned; there is still no fixed version, so upgrading would only silence the scanner, because the advisory's range stops at 4.2.0. Owner-approved second extension on 2026-10-14, new expiry 2026-11-01."
