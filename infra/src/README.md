@@ -6,6 +6,7 @@ Thin composition root is `../index.ts` (stable public exports for topology tests
 |--------|------|
 | `config.ts` | `pulumi.Config`, stack, accountId, bucket name helpers, `webRoutesEnabled` |
 | `buckets.ts` | Catalog media + map tiles + docs assets R2 buckets |
+| `knobs.ts` | The edge Worker's runtime-knob KV namespace (#688) |
 | `web-routes.ts` | Flag-gated Custom Domains, edge Worker routes, www + legacy DNS redirects |
 | `hardening.ts` | Prod zone DNSSEC, CAA, API rate limit, HSTS |
 | `staging.ts` | Staging WAF gate, IP helpers, per-host config settings |

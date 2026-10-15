@@ -3,6 +3,7 @@
 import type { SessionAgent } from "./agent/host/session-agent.ts";
 import type { GuardNamespace } from "./protect/guard-store.ts";
 import type { R2ObjectBucket } from "./proxy/private-r2-object.ts";
+import type { KnobStore } from "./config/runtime-knobs.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
@@ -29,6 +30,11 @@ export interface Env {
   /** Per-identity anonymous message reservation ceiling; zero disables it. */
   ANON_DAILY_MESSAGE_QUOTA?: string;
   ANON_DAILY_COST_BUDGET_USD?: string;
+  /** Runtime-tunable operational knobs (#688). Declared by Pulumi
+   * (`infra/src/knobs.ts`); wrangler binds it per ring, and the binding's
+   * namespace id lands in the stacked follow-up after the first infra apply.
+   * Absent (unit tests, local dev) resolves every knob to its env fallback. */
+  EDGE_KNOBS?: KnobStore;
   MIMO_API_KEY?: SecretsStoreSecret | string;
   /** The `agent_svc` Neon DSN. A Cloudflare Secrets Store binding where one is
    * declared (both environments, `docs/ops/secrets.md`), or a plain string

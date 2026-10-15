@@ -14,41 +14,49 @@ import * as pulumi from "@pulumi/pulumi";
 export const config = new pulumi.Config();
 export const stack = pulumi.getStack();
 
-/** One naming scheme for every bucket: production names are stable (the matching
- * wrangler environment consumes them by name), and any other stack carries its
- * own suffix so a preview can neither read nor overwrite a live bucket. The
- * per-bucket functions below are what the topology tests and `buckets.ts` read;
- * four copies of the ladder was four places for the scheme to drift (#1650
- * review S17). */
-export function bucketNameFor(prodName: string, stackName: string): string {
+/** One naming scheme for every stack-scoped resource: production names are
+ * stable (the matching wrangler environment consumes them by name), and any
+ * other stack carries its own suffix so a preview can neither read nor
+ * overwrite a live resource. The per-resource functions below are what the
+ * topology tests and `buckets.ts` read; copies of the ladder were places for
+ * the scheme to drift (#1650 review S17). */
+export function stackScopedNameFor(prodName: string, stackName: string): string {
   return stackName === "prod" ? prodName : `${prodName}-${stackName}`;
 }
 
 /** Catalog media, served through the catalog Worker's `MEDIA_BUCKET`. */
 export function mediaBucketNameFor(stackName: string): string {
-  return bucketNameFor("catalog-media", stackName);
+  return stackScopedNameFor("catalog-media", stackName);
 }
 
 /** Private map tiles, served only through the edge Worker's `/tiles/*` arm. */
 export function mapTilesBucketNameFor(stackName: string): string {
-  return bucketNameFor("map-tiles", stackName);
+  return stackScopedNameFor("map-tiles", stackName);
 }
 
 /** Immutable catalog snapshots (issue #1012). */
 export function snapshotBucketNameFor(stackName: string): string {
-  return bucketNameFor("catalog-snapshots", stackName);
+  return stackScopedNameFor("catalog-snapshots", stackName);
 }
 
 /** Private documentation assets (#1650), served only through the edge Worker's
  * `/img/docs/*` arm. */
 export function docsAssetsBucketNameFor(stackName: string): string {
-  return bucketNameFor("docs-assets", stackName);
+  return stackScopedNameFor("docs-assets", stackName);
+}
+
+/** The edge Worker's runtime-knob KV namespace (#688). Pulumi owns it and
+ * exports its id; the wrangler binding is the stacked follow-up that fills the
+ * id once the first infra apply has produced it. */
+export function edgeKnobsNamespaceTitleFor(stackName: string): string {
+  return stackScopedNameFor("animichi-edge-knobs", stackName);
 }
 
 export const mediaBucketName = mediaBucketNameFor(stack);
 export const mapTilesBucketName = mapTilesBucketNameFor(stack);
 export const snapshotBucketName = snapshotBucketNameFor(stack);
 export const docsAssetsBucketName = docsAssetsBucketNameFor(stack);
+export const edgeKnobsNamespaceTitle = edgeKnobsNamespaceTitleFor(stack);
 export const accountId = config.require("cloudflareAccountId");
 export const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 
