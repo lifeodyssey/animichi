@@ -6,6 +6,13 @@ import { defineConfig } from "vite";
 import { animalIslandAliases } from "./animal-island-vite";
 
 export default defineConfig({
+  // The one local dev port: `make dev-local` announces it, and
+  // supabase/config.toml's site_url, scripts/local-login.sh and the Playwright
+  // default base URL all assume it (test/repo-config/dev-local-port.test.rb
+  // pins the pair). Without this, vite dev binds its default :5173; without
+  // strictPort, vite hops to the next free port when :3000 is taken — either
+  // way the announcement lies.
+  server: { port: 3000, strictPort: true },
   resolve: { alias: animalIslandAliases, dedupe: ["react", "react-dom"] },
   plugins: [
     tailwindcss(),
