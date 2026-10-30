@@ -57,7 +57,7 @@
     "msw": "2.15.0",
     "nitropack": "^2.13.4",
     "oxc-parser": "0.150.0",
-    "storybook": "10.6.0",
+    "storybook": "10.6.2",
     "tailwindcss": "^4.3.3",
     "typescript": "catalog:",
     "vite": "catalog:",
