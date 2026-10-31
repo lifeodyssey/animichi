@@ -139,6 +139,6 @@ that spec lands is a migration in progress under the latest-dependencies rule in
 No card goes to production for now: merged work stops in staging ("现在没有卡上生产，全部都是in
 staging", 2026-10-02). Do not propose a production deploy ("你为啥老要部署生产", the same day).
 Production work is collected under one tracking card and done last ("production的相关的东西等到最后再搞可以不，你可以搞一个track issue",
-2026-08-15). A step only the owner can take is written on the production release card, and the
-card is then closed ("你可以在production release的issue里留一下说我需要手动干嘛，然后把这个关了",
-2026-09-23). The production approval itself is in `docs/agents/delivery-flow.md`.
+2026-08-15). On 2026-09-23 the owner had the step they would take by hand written on the
+production release issue and the card under discussion closed ("你可以在production release的issue里留一下说我需要手动干嘛，然后把这个关了");
+that was the handling of that one card, not a rule that every card is closed this way. The production approval itself is in `docs/agents/delivery-flow.md`.

@@ -111,8 +111,9 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
   to the agent eval because the reason is the same (tuning against the test set's misses is
   fitting the test set); that is the controller's reading, not an owner statement.
 - The owner agreed that zdev's eval set, which holds the owner's conversations, stays on this
-  machine (2026-10-15); an eval set that holds the owner's conversations stays out of the
-  repository, which keeps the eval commands and small synthetic fixtures.
+  machine (2026-10-15). Keeping every eval set that holds the owner's conversations out of the
+  repository, which then keeps only the eval commands and small synthetic fixtures, is the
+  controller's reading of that agreement, not an owner statement.
 
 ## Model request prefix stability (#546, 2026-10-02)
 

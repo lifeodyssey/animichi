@@ -62,7 +62,8 @@ advisor's view is advice, not the owner's authorisation, so the five categories 
   refused `git rebase` has a non-rewriting alternative, take it (a merge); if that is refused too,
   stop and ask (the owner's choice, 2026-10-15). The one exception is a hook whose message names the allowed form, such
   as writing a heredoc that quotes a command with a file tool instead.
-- **A draft the owner should see is shown to the owner before it goes out**: a new card, an
-  upstream issue or other text leaving the repository. On 2026-10-15 an upstream issue was drafted
-  with a synthetic reproduction and posted only after the owner had read it, and a new card's draft
-  was published only after the owner chose "照这个发".
+- **A draft the owner should see is shown to the owner before it goes out.** Two examples, not a
+  list: on 2026-10-15 an upstream issue was drafted with a synthetic reproduction and posted only
+  after the owner had read it, and a new card's draft was published only after the owner chose
+  "照这个发". This is about showing a draft, not about who decides: the five categories above still
+  wait for the owner's decision, drafts or not.
