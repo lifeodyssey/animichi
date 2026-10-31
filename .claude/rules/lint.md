@@ -14,7 +14,6 @@ paths:
 - `apps/web` production functions are capped at 10 lines; its `tests/**/*.ts(x)` override restores
   the shared 50-line test budget. `routeTree.gen.ts` is generated and ignored.
 - No `eslint-disable`, `@ts-ignore`, or rule downgrades without user approval. Fix the violation.
-- Find the cause before asking to relax a rule (a lint pass that peaked at 4.3 GB per file was
-  investigated first, owner, 2026-10-15). An approved exception is scoped to the named files or
-  directory, and the config states the reason, the upstream issue and, where there is one, the
-  expiry; it is deleted when upstream fixes the cause.
+- An approved oxlint exception follows "An approved exception to a rule" in
+  `docs/agents/code-standards.md`: the rule is switched off only for the named files or directory
+  in that package's `.oxlintrc.json`, with the reason, the upstream issue and the expiry beside it.

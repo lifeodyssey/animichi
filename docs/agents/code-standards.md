@@ -27,6 +27,20 @@ DDD, SOLID, OOP and Clean Architecture; the rules are the same on every side of 
 - Source code is written in English: identifiers and comments ("写代码不要用中文", 2026-08-29, when
   Chinese comments appeared in new code). User-facing text goes through the app's i18n.
 
+## An approved exception to a rule (owner, 2026-10-14 and 2026-10-15)
+
+A suppression or an exemption from a written rule waits for the owner (`AGENTS.md`, "No suppression
+without user approval"; the escalation path in `docs/agents/harness.md`). Once approved, an
+exception to any rule (a lint rule, a scanner advisory, a type check) carries the same things:
+
+- The cause is found before the exception is asked for: of a lint pass that peaked at 4.3 GB per
+  file the owner said "为什么内存占用这么多，我感觉有点问题" (2026-10-15), and nothing was relaxed until
+  the cause was known.
+- It is scoped to the named files or directories, not the package or the repository.
+- The configuration states the reason, the upstream issue and an expiry date.
+- It is removed when upstream fixes the cause; extending it is the owner's decision again (the osv
+  ignore in `docs/agents/owner-decisions.md`, extended on 2026-10-14).
+
 ## No backward-compatibility shims (owner)
 
 "不需要考虑后向兼容，只要能够完成当前的功能不变 随便重构": refactor freely, keep current behaviour
