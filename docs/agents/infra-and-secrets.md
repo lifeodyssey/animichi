@@ -34,8 +34,10 @@ again.
 - Session transcripts and logs (`~/.pi`, `~/.claude`, `~/.codex`, any `projects/*.jsonl`) are not a
   source of samples or fixtures. Nothing from them enters the repository, a push or any model,
   reviewers included; samples are built from the repository or public documentation, with the
-  source named. A writer once committed provider responses lifted from the owner's transcripts
-  as fixtures (2026-10-22); every brief that asks for recordings says so.
+  source named (owner, 2026-10-22, after a writer committed provider responses lifted from the
+  owner's transcripts as fixtures). Every dispatch brief names those directories and says the
+  writer may not read them, not only a brief that asks for recordings (the controller's practice
+  since the same incident).
 - Issues, pull requests and their comments in this repository are public: internal endpoints,
   project identifiers and paths on the owner's machine do not go there ("这个url不要写到issue的comment里，issue是公开的",
   2026-07-07). What must be kept goes on the private tracker card ("你可以写进卡里，卡是private的").

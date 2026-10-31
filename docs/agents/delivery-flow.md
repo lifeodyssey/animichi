@@ -97,8 +97,8 @@ for the head they produce; any other post-PR change needs a fresh review within 
 rounds four and up on 2026-09-17 (one card reached round eleven) found
 wording ("here", "this file", a commit-body sentence) that the gates already covered; the seat's
 value is in the first three rounds. Round-one briefs ask the reviewer to sweep a whole class of
-problem in one pass. A failed round three goes to the owner with the must-fix list, never to a
-round four. A fourth round exists only when the owner grants it for that card ("1915特批第四轮",
+problem in one pass. A failed round three goes to the owner with the must-fix list, not to a
+round four unless the owner grants one. A fourth round exists only when the owner grants it for that card ("1915特批第四轮",
 2026-09-24), and it covers only the items named for it: the round the owner granted ZDEV-51
 fixed three listed items, re-checked only those and declined the rest as outside the round
 (2026-10-09, the controller's practice under the owner's grant). Findings that arrive after round three are fixed only when they are major or

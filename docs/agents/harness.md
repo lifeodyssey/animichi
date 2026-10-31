@@ -49,9 +49,9 @@ The same path holds while the owner is away ("我去旅游了，有拿不准的�
 advisor's view is advice, not the owner's authorisation, so the five categories still wait.
 
 - **"我明确授权" is the authorisation.** When the owner has said it, do the thing; do not decline,
-  re-ask or stop again ("为啥又decline了 我明确授权！", 2026-08-25). It covers that one action and
-  nothing beyond it ("我授权你no verify 一次 就这一次", 2026-09-09). Record what was done and how
-  to undo it.
+  re-ask or stop again ("为啥又decline了 我明确授权！", 2026-08-25). It covers the scope the owner
+  named when granting it and nothing beyond: in "我授权你no verify 一次 就这一次" (2026-09-09) that
+  scope was one no-verify. Record what was done and how to undo it.
 - **A refusal by the permission classifier or a hook ends that action.** Do not retry it, do not
   route around it, do not hand it to a sub-agent, and do not write the same content with another
   tool (the controller's practice, from its loop prompt, which the owner approved on 2026-10-22
@@ -60,6 +60,7 @@ advisor's view is advice, not the owner's authorisation, so the five categories 
   refused `git rebase` has a non-rewriting alternative, take it (a merge); if that is refused too,
   stop and ask (2026-10-15). The one exception is a hook whose message names the allowed form, such
   as writing a heredoc that quotes a command with a file tool instead.
-- **Text that goes out under the owner's name is shown to the owner first**: an upstream issue
-  is drafted with a synthetic reproduction and posted only after the owner has read it
-  (2026-10-15).
+- **A draft the owner should see is shown to the owner before it goes out**: a new card, an
+  upstream issue or other text leaving the repository. On 2026-10-15 an upstream issue was drafted
+  with a synthetic reproduction and posted only after the owner had read it, and a new card's draft
+  was published only after the owner chose "照这个发".
