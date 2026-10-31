@@ -55,6 +55,21 @@ Report it as "CodeRabbit could not review because of its quota", never as "no bo
   `gh api repos/<o>/<r>/rulesets`, not the branch-protection endpoint, before concluding "no
   protection".
 - Never `--admin` past a governance gate; that decision is the owner's.
+- No merge queue: GitHub offers it to organisation-owned repositories (and Enterprise), and this
+  is a user repository, so do not propose it unless the repository moves to an organisation
+  (2026-09-15, when hot-file PRs churned 150–200 minutes each). Serialise the hot files instead.
+- No GitHub Releases: nothing here ships as an artifact ("我觉得我们没有任何必要发布release吧 我们这又不是artifact",
+  owner, 2026-08-12). Tags are kept as version backups and old ones deleted ("可以留着tag当版本备份",
+  "旧tag就删了"); how to keep a changelog is still open.
+
+## Speeding CI up starts with a profile (owner, 2026-09-15 and 2026-09-18)
+
+Measure before changing: which step, how many seconds, and why ("我感觉你一直都没有去去去做一个profiling来解决问题",
+2026-09-18, when nx, Turborepo and a slower test-container setup were weighed before anyone had timed
+the integration stages). Check every speed-up against the problem the slow step was there to solve
+("我们不能为了加速而忘了他一开始要解决的问题"). Quality moves left, into the pre-commit and pre-push
+hooks, not out of the pipeline ("测试质量肯定要左移", 2026-09-15); a gate slow enough to hold up
+development is high-priority debt.
 
 ## Workflow failures that surface only when GitHub compiles
 
