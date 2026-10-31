@@ -27,7 +27,11 @@ restart ("在做刚刚的那些事情的时候你用了对应的 skill 了吗").
 A card with a user-visible surface in `apps/web` differs in three ways: kimi writes it; its PR
 comment carries before/after comparison screenshots and screenshots of the flow; and the
 coordinator does not merge it — the owner accepts it. A change inside `apps/web` with no
-user-visible surface (a test helper, a build config) is not a visible-UI card.
+user-visible surface (a test helper, a build config) is not a visible-UI card. It does not wait for
+the bot window ("不需要等机器人窗口", 2026-09-21). Its review looks at whether the component looks
+right as well as at the code ("不光要看代码，还要看组件是否好看", 2026-09-13), and before the owner
+is asked to look, the author has run it locally and walked the flow ("在你提交之前本地启动给我看看",
+2026-09-05); the screenshots come from that run.
 
 ## Cite the installed API, never a remembered major version
 
