@@ -168,6 +168,11 @@ packages/eval/artifacts/
 # binary for `make test-integration`; never checked in, never the global install.
 /.cache/atlas/
 
+# Agent-local scratch: tile downloads, UI audit shots (never commit the GB-scale tiles)
+/.cache/tiles/
+/.cache/ui-audit/
+/.pnpm-store/
+
 # tool-generated local state (rebuildable)
 .codegraph/
 test-results/
