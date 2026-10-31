@@ -54,7 +54,8 @@ advisor's view is advice, not the owner's authorisation, so the five categories 
   to undo it.
 - **A refusal by the permission classifier or a hook ends that action.** Do not retry it, do not
   route around it, do not hand it to a sub-agent, and do not write the same content with another
-  tool; record it for the owner, who can widen `/permissions` for that one command. Rewriting a
+  tool (the controller's practice, from its loop prompt, which the owner approved on 2026-10-22
+  and again on 2026-10-23); record it for the owner, who can widen `/permissions` for that one command. Rewriting a
   refused Linear write as a standalone script was itself refused as a bypass (2026-10-16). When a
   refused `git rebase` has a non-rewriting alternative, take it (a merge); if that is refused too,
   stop and ask (2026-10-15). The one exception is a hook whose message names the allowed form, such

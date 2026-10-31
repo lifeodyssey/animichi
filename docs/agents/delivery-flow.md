@@ -81,9 +81,11 @@ candidate has approved its head, and the body carries `Review: APPROVE at <sha>`
 "就这么几类卡需要我来 review：一个是 UI 的卡，一个是涉及到改数据库的卡，一个是有一些异步或者时间序列操作的卡，然后还有一个是涉及到 secret 和 environment variable 的卡."
 Other PRs merge without the owner's approval. The review seat recognises the four kinds and posts
 an owner review packet on the PR: one Markdown comment with mermaid diagrams, tables, how to verify,
-and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). Only an `owner-accepted`
-label the owner adds by hand releases the merge. The terms are defined in zdev's `GLOSSARY.md`
-(四类卡, owner review 包, owner-accepted); the visible-UI rules are in `docs/agents/frontend.md`.
+and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). zdev's controller releases
+such a merge only on an `owner-accepted` label the owner adds by hand; that label is the
+controller's practice, not the owner's words, and whether it is the only form the owner's
+acceptance can take is still open. The terms are defined in zdev's `GLOSSARY.md` (四类卡, owner
+review 包, owner-accepted); the visible-UI rules are in `docs/agents/frontend.md`.
 
 ## Review rounds: what does and does not consume one (owner, 2026-09-18)
 

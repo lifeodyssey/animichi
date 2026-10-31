@@ -27,7 +27,9 @@ workflow-test placement is in `.claude/rules/ci.md`.
   repository**, with `SSH_AUTH_SOCK` unset and `GIT_SSH_COMMAND=false`. On 2026-10-16 a writer's
   mutation run broke a git shim and the test pushed a stray branch to the real remote with the
   owner's SSH key; the owner had it deleted. Tests and their cleanup kill only the processes they
-  started (by PID), never by pattern: a `pkill -f vitest` reaches other lanes.
+  started (by PID), never by pattern: a `pkill -f vitest` reaches other lanes. Both are the
+  controller's practice since that incident, written into its loop prompt, which the owner approved
+  and set running on 2026-10-22 and again on 2026-10-23.
 - The test-file limits and the no-conditional-logic rule are in `AGENTS.md` ("Test quality"). A
   cross-package count assertion (how many files another package has) is not written: it breaks
   when that package changes and is not run by that package's lane.
