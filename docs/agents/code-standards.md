@@ -48,7 +48,9 @@ If an official SDK or action exists, use it; a hand-written connection or client
 reinvention the repository then maintains. Today that means Prisma 8 for the data plane, the pi
 harness and its public `AgentHarness` API for the agent (no custom execution envelope), and
 official, SHA-pinned GitHub Actions (`pulumi/*` today) before a `run:` block that reimplements
-one.
+one. No adapter layer between our code and the SDK: use the library's public API the way it
+documents, even when that means deleting and rewriting ("我发现agent和eval重写里有adaptor，我不希望这个，我希望采用最clean，最符合对应依赖库的方法，可以大幅删减重写",
+2026-09-09).
 
 ## Line limits are met by design, not by trimming (owner, 2026-09-17)
 
