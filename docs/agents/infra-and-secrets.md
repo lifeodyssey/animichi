@@ -18,15 +18,35 @@ example Turnstile edit on the CD Cloudflare token) are owner actions.
 
 ## Values never enter chat, PR bodies, docs or logs
 
-Credentials have leaked through session transcripts here before. Any channel that retains and is
-searched (chat, PR body, docs, CI logs) owns a value's lifetime once it is written there, and a
-rotation reported by pasting the new value starts the loop again.
+Credentials have leaked through session transcripts here twice (a Turnstile secret, 2026-07-26; a
+Logfire read token, 2026-07-29, rotated twice because the replacement was pasted back into the
+chat). Any channel that retains and is searched (chat, PR body, docs, CI logs) owns a value's
+lifetime once it is written there, and a rotation reported by pasting the new value starts the loop
+again.
 
 - If the task can be done without knowing the value, the value is not provided: configuring an
   MCP server, writing docs, changing CI, opening an issue.
 - Writes go through the platform command with the value on stdin, executed by the owner in their
   own terminal; the value never appears in a command line or a transcript.
 - When a secret must be referred to, report the prefix and the length only.
+- When the owner says a credential is being rotated, leave it: do not read secret timestamps or
+  predict failures ("你能不能忘记轮换的事情，谁让你看了", 2026-08-06).
+- Session transcripts and logs (`~/.pi`, `~/.claude`, `~/.codex`, any `projects/*.jsonl`) are not a
+  source of samples or fixtures. Nothing from them enters the repository, a push or any model,
+  reviewers included; samples are built from the repository or public documentation, with the
+  source named. A writer once committed provider responses lifted from the owner's transcripts
+  as fixtures (2026-10-22); every brief that asks for recordings says so.
+- Issues, pull requests and their comments in this repository are public: internal endpoints,
+  project identifiers and paths on the owner's machine do not go there ("这个url不要写到issue的comment里，issue是公开的",
+  2026-07-07). What must be kept goes on the private tracker card ("你可以写进卡里，卡是private的").
+
+## Environments: staging and production, nothing else (owner, 2026-07-29 to 2026-09-05)
+
+There is no dev environment ("我们没有dev，只有staging prod", 2026-08-14). Staging is the preview,
+so pull requests get no preview deployments ("pr预览关掉吧 实际上staging是我们的预览分支",
+2026-07-29). Staging holds only synthetic test users and synthetic data ("staging 只能包含合成测试用户和合成用户数据",
+2026-08-12), and only a fixed set of people can sign in to it ("我不希望除了固定的人之外能够登录staging",
+2026-09-05; Cloudflare Access, `docs/agents/owner-decisions.md`).
 
 ## Stale is not invalid; prove before replacing (2026-08-05 outage)
 
@@ -38,7 +58,10 @@ replacement irreversible.
 1. Prove a credential invalid with a read-only call before touching it (a bucket listing, a
    token-verify endpoint); the test takes ten seconds.
 2. Verify the candidate value locally before writing it anywhere.
-3. The local `.env` is not a source of truth; it is a developer machine's residue.
+3. The local `.env` is not a source of truth; it is a developer machine's residue. It is evidence
+   of nothing, but it is the first place to look for a value: take what you need from it or from
+   the platform CLI (`neonctl`, `wrangler`, `gh`, `pulumi env`) before asking the owner ("本地.env没有嘛，或者你可以用cli来获取",
+   2026-09-09).
 4. Confirm the rollback path exists before deleting.
 5. When something goes red, align timelines first: when did the first red run start, and what was
    the last human change before it.
@@ -55,6 +78,9 @@ asks "Do you want to create a new Worker?", in an agent's shell it prints "Using
 non-interactive context: yes" and creates it, exit code 0. Before any production write, run the
 read-only existence check (`wrangler deployments list --name <x>` fails clearly when absent). If it
 happens anyway, report it and leave the object; deletion is destructive and the owner decides.
+Resources created to test something (a spike deployment, a temporary branch, a local dev server)
+are removed when the test ends ("记得测试完之后把这些删掉", 2026-09-02); one you are not allowed to
+delete, such as a Neon branch, is reported to the owner.
 
 - `gh secret set --body -` writes a literal dash; `gh` reads stdin only when `--body` is omitted
   (`printf '%s' "$v" | gh secret set NAME --env X`). Every hyphen masked in the workflow log was
