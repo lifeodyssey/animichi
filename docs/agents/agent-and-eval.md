@@ -104,8 +104,8 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
 
 - A report of an eval run carries its scores, accuracy and token spend ("刚刚测试花了多少token 准确率如何",
   "所以现在还是没有分数是吧", 2026-07-07).
-- Cases that improved after tuning get new cases of the same kind to show the gain is not
-  overfitting ("我们需要多写一些同类的case来证明不是过拟合了", "每类至少三个新 case", 2026-07-20).
+- Cases that improved after tuning get at least three new cases of each kind to show the gain
+  is not overfitting ("我们需要多写一些同类的case来证明不是过拟合了", "每类至少三个新 case", 2026-07-20).
 - Tuning happens on a development set; the test set is measured once at the end, and its misses
   are never tuned against (owner's choice for zdev's skill-retrieval eval, 2026-10-15). Tuning
   against the test set's misses is fitting the test set.
