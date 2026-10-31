@@ -19,6 +19,10 @@ Orca or coordinator failure) uses the same template: the measure goes in `## Wha
 verification in `## Acceptance criteria`, then `## Blocked by`, with the problem, the raw-record
 source (the session transcript path and time) and the root cause above them.
 
+Every open pull request has a card, Dependabot's included. When zdev's takeover found seven open
+PRs with none, the owner chose to card or close them, in the option that said "以后每个新的也要挂"
+(2026-10-31): each new Dependabot PR gets a card when it opens (#2019 got one the same day).
+
 ## Before dispatching a card (2026-09-19: four dispatched, three stale)
 
 1. `gh issue view <n> --json body -q .body` and read the whole body, then the native dependency
@@ -46,7 +50,9 @@ words, in order: "我感觉你 pr 拆分的太小了，大的好几个 issue，�
 (2026-09-23). Why: every PR pays a full CI gate, and the ruleset is squash + linear history +
 strict up-to-date, so every merge puts every other open PR BEHIND and reruns its CI (O(n²)):
 hot-file PRs measured 150–200 minutes each, one PR merged `main` five times, and fine-grained PR
-splitting kept the pipeline blocked.
+splitting kept the pipeline blocked. An e2e that cannot run, or that fails for a reason outside the
+code (data, a credential), is reported in the body as it happened, with the reason; it does not
+hold a merge whose gates pass (owner, 2026-10-23, approving the coordinator's recommendation).
 
 - One brief, one branch, one PR whose body closes each ticket. GitHub's `Closes #a, #b, #c`
   closes only the first number; repeat the keyword before each one.
@@ -70,6 +76,15 @@ cross-lane review is separate, see `docs/agents/owner-decisions.md`).
 A PR opens only after a review seat on a model different from every model that wrote the
 candidate has approved its head, and the body carries `Review: APPROVE at <sha>`.
 
+## Four kinds of card the owner reviews before merge (owner, 2026-10-09)
+
+"就这么几类卡需要我来 review：一个是 UI 的卡，一个是涉及到改数据库的卡，一个是有一些异步或者时间序列操作的卡，然后还有一个是涉及到 secret 和 environment variable 的卡."
+Other PRs merge without the owner's approval. The review seat recognises the four kinds and posts
+an owner review packet on the PR: one Markdown comment with mermaid diagrams, tables, how to verify,
+and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). Only an `owner-accepted`
+label the owner adds by hand releases the merge. The terms are defined in zdev's `GLOSSARY.md`
+(四类卡, owner review 包, owner-accepted); the visible-UI rules are in `docs/agents/frontend.md`.
+
 ## Review rounds: what does and does not consume one (owner, 2026-09-18)
 
 "我们的 implement->Review 最多三轮，pr comment 只 fix 不 review." The three-round cap is stated in
@@ -81,7 +96,9 @@ rounds four and up on 2026-09-17 (one card reached round eleven) found
 wording ("here", "this file", a commit-body sentence) that the gates already covered; the seat's
 value is in the first three rounds. Round-one briefs ask the reviewer to sweep a whole class of
 problem in one pass. A failed round three goes to the owner with the must-fix list, never to a
-round four.
+round four. A fourth round exists only when the owner grants it for that card ("1915特批第四轮",
+2026-09-24). Findings that arrive after round three are fixed only when they are major or
+security-related ("第三轮之后还有新的发现，只修复major和与security相关的", 2026-09-19).
 
 ## PR mechanics measured on this repository
 
@@ -107,6 +124,10 @@ round four.
   twice.
 - With several PRs open, merge the most-refreshed one first (the one repeatedly updated to `main`);
   every merge re-queues the rest.
+- A pile of open PRs is a process fault, not a concurrency limit: clear what can merge before
+  opening more ("放这么多出来是我们的流程有问题，pr没有及时去清理 而不是并发数量的问题",
+  2026-08-05). A PR whose checks are green and whose threads are handled is merged, not watched
+  ("这五个我看着好像全绿了？你在盯什么？", 2026-09-18).
 
 ## Checks before a PR merges (single source)
 
@@ -140,6 +161,12 @@ rather than "should be fine". `wrangler deploy` returns before the new version s
 success with an unchanged head (#1332), so the migration step now polls the migrator's schema
 identity before it posts and re-polls on a 409 (`scripts/delivery/migrate-through-worker.sh`).
 
+A check that fails on `main` after a merge (the release snapshot, the staging deploy) becomes a new
+card at the highest priority; the merged PR is not reopened. A failure the pre-commit or pre-push
+hooks could have caught should never get that far: "我们的 pre-commit 钩子就应该把这个东西所有都被发现，除非真的是说是因为环境不同"
+(owner, 2026-10-09). zdev's post-merge watch opens that card for the cards it drives (its
+owner-notification document describes the watch).
+
 ## The production approval (owner, 2026-09-23)
 
 A pending production approval is left alone; do not propose rejecting it. The 2026-09-01 rule ("a
@@ -159,6 +186,16 @@ incident is opened through `/to-tickets` like any issue (the template is in the 
 the raw record is the session transcript, and coordinator logs are corroboration. Bulk reading
 goes to a sub-agent (sonnet for research, fable for synthesis); scan for secrets before posting
 (`docs/agents/infra-and-secrets.md`).
+
+## Deferred, deleted or skipped work becomes a card (owner, 2026-08-24 to 2026-10-15)
+
+Whatever a decision defers, deletes or skips is recorded as a tech-debt or enhancement card that
+names where it came from; a sentence in the chat is forgotten. The owner's words, in order: "加快进度
+不review，快速上线 记tech debt issue" and "你记得写一个issue，就是哪个pr没做好review" (2026-08-24,
+when #1195 merged without its independent review and #1198 named it); "3.删了吧，记一个tech debt
+issue" (2026-09-12); "qa记得记todo/enhance" (2026-10-09); "并且记一个ehance issue" (2026-10-15).
+A review thread answered "identified, owned by #<n>" is the same rule at thread scale. The
+`todo.md` file an earlier layout kept is not the place.
 
 ## Dispatching sub-agents (2026-09-19)
 
