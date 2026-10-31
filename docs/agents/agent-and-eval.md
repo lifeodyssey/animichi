@@ -95,6 +95,22 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
    tool-result-parsing literature agree). The TS tier delimits web-search results
    (`packages/agent/src/web-search-results.ts`) and has no detection layer; a new free-text tool
    brings its own guard.
+4. A channel the model trusts unconditionally, such as the `agent_status` message, escapes external
+   strings when it renders them. In the #1379 re-review (2026-09-06) a seat put `</agent_status>`
+   inside a work title and closed the tag, forging server state; `packages/agent/src/status-value.ts`
+   is the fix.
+
+## Measuring a change (owner, 2026-07-07 to 2026-10-15)
+
+- A report of an eval run carries its scores, accuracy and token spend ("刚刚测试花了多少token 准确率如何",
+  "所以现在还是没有分数是吧", 2026-07-07).
+- Cases that improved after tuning get new cases of the same kind to show the gain is not
+  overfitting ("我们需要多写一些同类的case来证明不是过拟合了", "每类至少三个新 case", 2026-07-20).
+- Tuning happens on a development set; the test set is measured once at the end, and its misses
+  are never tuned against (owner's choice for zdev's skill-retrieval eval, 2026-10-15). Tuning
+  against the test set's misses is fitting the test set.
+- An eval set that holds the owner's conversations stays on this machine, out of the repository;
+  the repository keeps the eval commands and small synthetic fixtures (2026-10-15).
 
 ## Model request prefix stability (#546, 2026-10-02)
 
