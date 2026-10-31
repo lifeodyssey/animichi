@@ -19,6 +19,13 @@ DDD, SOLID, OOP and Clean Architecture; the rules are the same on every side of 
   skills. The owner's testing rules in `AGENTS.md` apply.
 - Tactical DDD (aggregate roots, domain events, CQRS) is not authorised. Introduce a pattern only
   when it can name the invariant it protects.
+- Data access is reviewed for N+1 queries and the time complexity of its SQL (owner, 2026-08-12:
+  "还有n+1以及sql的时间复杂度").
+- KISS and YAGNI bound the rest: before adding a step, a lock or a layer, answer what breaks without
+  it ("我们是不是在某些地方过度工程了 要kiss and yangi", 2026-09-05; "你这个定的太细了，啥pre
+  flight，过度工程了吧", 2026-08-12).
+- Source code is written in English: identifiers and comments ("写代码不要用中文", 2026-08-29, when
+  Chinese comments appeared in new code). User-facing text goes through the app's i18n.
 
 ## No backward-compatibility shims (owner)
 
@@ -52,4 +59,7 @@ The rule, its forbidden shortcuts and the two incidents behind it are in
 
 Repository tools run as `pnpm --filter <pkg> exec <bin>`, which resolves workspace dependencies
 only — never a bare `npx <bin>`. After a rebase or checkout, `pnpm install --frozen-lockfile`
-before using any bin.
+before using any bin. Why: in a worktree without `pnpm install`, `npx lhci` fetched a squatted
+`lhci` package from the registry (the official one is `@lhci/cli`), and only the absence of install
+scripts kept it harmless (2026-08-05). If `npx` output names a package you did not expect, stop
+and inspect `~/.npm/_npx`.
