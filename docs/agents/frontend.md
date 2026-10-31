@@ -30,7 +30,7 @@ coordinator does not merge it — the owner accepts it. A change inside `apps/we
 user-visible surface (a test helper, a build config) is not a visible-UI card. Its review looks at
 whether the component looks right as well as at the code ("不光要看代码，还要看组件是否好看",
 2026-09-13). Before it is submitted, its author starts it locally and shows it to the owner
-("在你提交之前本地启动给我看看", 2026-09-05); the screenshots come from that run.
+("在你提交之前本地启动给我看看", 2026-09-05).
 
 The same 2026-09-21 message said "不需要等机器人窗口，你看一下memory，之前给你提过机器人的事情". It
 pointed back to the rule that a bot which left nothing does not block (`docs/ops/review-gate.md`),
