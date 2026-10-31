@@ -14,8 +14,8 @@ paths:
   该重审原函数是否多职责,**按职责拆,不按行数拆**。
 - 例外(不算气味):框架惯例位置——`conftest.py` 的 fixture、vitest `setup` 文件。
 - **文件名不以下划线开头**(owner 2026-08-03:「我非常不喜欢下划线开头 很不易读」)。TanStack Router 的
-  `__root.tsx` 是框架惯例,算上面的例外;`apps/web/tests/unit/` 下 12 个下划线开头的测试辅助文件
-  早于这条记录,改名另开卡。
+  `__root.tsx` 是框架惯例,算上面的例外;`apps/web/tests/unit/` 下 9 个下划线开头的测试辅助文件
+  早于这条记录,改名另开卡;`docs/archive/` 下 3 个归档文件只读,不改。
 
 ## 测试构造:优先 fixture,其次 builder
 
