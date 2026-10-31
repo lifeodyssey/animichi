@@ -24,7 +24,7 @@ Role definitions live in `.claude/agents/`:
 
 Run every card that can run in parallel. The owner has said it more than ten times: "4是谁定的，我允许你更多"
 (2026-09-09), "我们记得一定要开满并发，能变形的东西就并行去做" (2026-09-22), and of the long-lived
-coordinator it replaced, "我一直要求开足并发但是他却并发一直很低" (2026-10-04). The ceiling comes from
+coordinator it replaced, "我一直要求开足并发但是他却并发一直很低" (2026-10-05). The ceiling comes from
 measured resources, not from a fixed number: memory (on the 24 GB host the writers were held to
 about four after a review lane was killed for lack of memory, 2026-10-15, when the owner also said
 "我们可以开大并发") and the push gates, which run serially. When fewer lanes run than the
@@ -49,7 +49,7 @@ The same path holds while the owner is away ("我去旅游了，有拿不准的�
 advisor's view is advice, not the owner's authorisation, so the five categories still wait.
 
 - **"我明确授权" is the authorisation.** When the owner has said it, do the thing; do not decline,
-  re-ask or stop again ("为啥又decline了 我明确授权！", 2026-08-24). It covers that one action and
+  re-ask or stop again ("为啥又decline了 我明确授权！", 2026-08-25). It covers that one action and
   nothing beyond it ("我授权你no verify 一次 就这一次", 2026-09-09). Record what was done and how
   to undo it.
 - **A refusal by the permission classifier or a hook ends that action.** Do not retry it, do not

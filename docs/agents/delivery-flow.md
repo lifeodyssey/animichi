@@ -126,8 +126,8 @@ security-related ("第三轮之后还有新的发现，只修复major和与secur
   every merge re-queues the rest.
 - A pile of open PRs is a process fault, not a concurrency limit: clear what can merge before
   opening more ("放这么多出来是我们的流程有问题，pr没有及时去清理 而不是并发数量的问题",
-  2026-08-05). A PR whose checks are green and whose threads are handled is merged, not watched
-  ("这五个我看着好像全绿了？你在盯什么？", 2026-09-18).
+  2026-08-06). A PR whose checks are green and whose threads are handled is merged, not watched
+  ("这五个我看着好像全绿了？你在盯什么？", 2026-09-19).
 
 ## Checks before a PR merges (single source)
 
@@ -193,7 +193,7 @@ Whatever a decision defers, deletes or skips is recorded as a tech-debt or enhan
 names where it came from; a sentence in the chat is forgotten. The owner's words, in order: "加快进度
 不review，快速上线 记tech debt issue" and "你记得写一个issue，就是哪个pr没做好review" (2026-08-24,
 when #1195 merged without its independent review and #1198 named it); "3.删了吧，记一个tech debt
-issue" (2026-09-12); "qa记得记todo/enhance" (2026-10-09); "并且记一个ehance issue" (2026-10-15).
+issue" (2026-09-13); "qa记得记todo/enhance" (2026-10-09); "并且记一个ehance issue" (2026-10-15).
 A review thread answered "identified, owned by #<n>" is the same rule at thread scale. The
 `todo.md` file an earlier layout kept is not the place.
 
