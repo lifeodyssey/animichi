@@ -67,9 +67,9 @@ Report it as "CodeRabbit could not review because of its quota", never as "no bo
 Measure before changing: which step, how many seconds, and why ("我感觉你一直都没有去去去做一个profiling来解决问题",
 2026-09-18, when nx, Turborepo and a slower test-container setup were weighed before anyone had timed
 the integration stages). Check every speed-up against the problem the slow step was there to solve
-("我们不能为了加速而忘了他一开始要解决的问题"). Quality moves left, into the pre-commit and pre-push
-hooks, not out of the pipeline ("测试质量肯定要左移", 2026-09-15); a gate slow enough to hold up
-development is high-priority debt.
+("我们不能为了加速而忘了他一开始要解决的问题"). Test quality moves left ("测试质量肯定要左移",
+2026-09-15). Debt that slows development down is raised to a high priority ("我们一定要把这个东西提到一个比较高的优先级",
+2026-09-18).
 
 ## Workflow failures that surface only when GitHub compiles
 

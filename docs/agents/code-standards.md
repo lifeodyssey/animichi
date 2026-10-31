@@ -41,6 +41,11 @@ exception to any rule (a lint rule, a scanner advisory, a type check) carries th
 - It is removed when upstream fixes the cause; extending it is the owner's decision again (the osv
   ignore in `docs/agents/owner-decisions.md`, extended on 2026-10-14).
 
+Each point comes from an owner decision on one exception: the oxlint rule (2026-10-15: find the
+cause, scope it to one directory, state the reason and link upstream, delete it when upstream fixes
+it) and the osv ignore (a dated window the owner extended). Applying them to every exception, with
+the expiry date required, is the controller's ruling of 2026-11-01.
+
 ## No backward-compatibility shims (owner)
 
 "不需要考虑后向兼容，只要能够完成当前的功能不变 随便重构": refactor freely, keep current behaviour

@@ -53,7 +53,8 @@ revision rather than mutable checkout state.
   superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its
   approval. No local or tag-triggered deploy path. There is no rollback mechanism: going back means
   selecting an older artifact and deploying it, in any order ("我一直觉得我们没有必要 roll back",
-  owner, 2026-09-05). Within one environment a deploy in progress finishes before the next one
+  owner, 2026-09-05), except for the database, which an older artifact does not take back
+  ("一定是可以回退的呀，就除了 SQL 之外"). Within one environment a deploy in progress finishes before the next one
   starts; staging and production hold independent locks, so the two can overlap
   (`docs/adr/0007-selected-release-artifacts.md`).
 - **Build and deploy jobs use uncached native setup steps.** Their environment credentials follow

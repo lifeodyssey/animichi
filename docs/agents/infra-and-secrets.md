@@ -32,10 +32,10 @@ again.
 - When the owner says a credential is being rotated, leave it: do not read secret timestamps or
   predict failures ("你能不能忘记轮换的事情，谁让你看了", 2026-08-06).
 - Session transcripts and logs (`~/.pi`, `~/.claude`, `~/.codex`, any `projects/*.jsonl`) are not a
-  source of samples or fixtures. Nothing from them enters the repository, a push or any model,
-  reviewers included; samples are built from the repository or public documentation, with the
-  source named (owner, 2026-10-22, after a writer committed provider responses lifted from the
-  owner's transcripts as fixtures). Every dispatch brief names those directories and says the
+  source of samples or fixtures. Nothing from them enters the repository, leaves this machine in a
+  push, or goes to a review model; samples are constructed to the format instead ("按格式构造的记录",
+  owner, 2026-10-22, after a writer committed provider responses lifted from the owner's
+  transcripts as fixtures). Every dispatch brief names those directories and says the
   writer may not read them, not only a brief that asks for recordings (the controller's practice
   since the same incident).
 - Issues, pull requests and their comments in this repository are public: internal endpoints,

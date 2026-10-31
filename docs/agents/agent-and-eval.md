@@ -106,11 +106,13 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
   "所以现在还是没有分数是吧", 2026-07-07).
 - Cases that improved after tuning get at least three new cases of each kind to show the gain
   is not overfitting ("我们需要多写一些同类的case来证明不是过拟合了", "每类至少三个新 case", 2026-07-20).
-- Tuning happens on a development set; the test set is measured once at the end, and its misses
-  are never tuned against (owner's choice for zdev's skill-retrieval eval, 2026-10-15). Tuning
-  against the test set's misses is fitting the test set.
-- An eval set that holds the owner's conversations stays on this machine, out of the repository;
-  the repository keeps the eval commands and small synthetic fixtures (2026-10-15).
+- For zdev's skill-retrieval eval the owner chose (2026-10-15): tune on a development set,
+  measure the test set once at the end, never tune against its misses. The same discipline applies
+  to the agent eval because the reason is the same (tuning against the test set's misses is
+  fitting the test set); that is the controller's reading, not an owner statement.
+- The owner agreed that zdev's eval set, which holds the owner's conversations, stays on this
+  machine (2026-10-15); an eval set that holds the owner's conversations stays out of the
+  repository, which keeps the eval commands and small synthetic fixtures.
 
 ## Model request prefix stability (#546, 2026-10-02)
 

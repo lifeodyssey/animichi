@@ -52,7 +52,8 @@ strict up-to-date, so every merge puts every other open PR BEHIND and reruns its
 hot-file PRs measured 150–200 minutes each, one PR merged `main` five times, and fine-grained PR
 splitting kept the pipeline blocked. An e2e that cannot run, or that fails for a reason outside the
 code (data, a credential), is reported in the body as it happened, with the reason; it does not
-hold a merge whose gates pass (owner, 2026-10-23, approving the coordinator's recommendation).
+hold a merge whose gates pass (the controller's practice on zdev cards since October 2026, not an
+owner decision).
 
 - One brief, one branch, one PR whose body closes each ticket. GitHub's `Closes #a, #b, #c`
   closes only the first number; repeat the keyword before each one.
@@ -98,11 +99,11 @@ rounds four and up on 2026-09-17 (one card reached round eleven) found
 wording ("here", "this file", a commit-body sentence) that the gates already covered; the seat's
 value is in the first three rounds. Round-one briefs ask the reviewer to sweep a whole class of
 problem in one pass. A failed round three goes to the owner with the must-fix list, not to a
-round four unless the owner grants one. A fourth round exists only when the owner grants it for that card ("1915特批第四轮",
-2026-09-24), and it covers only the items named for it: the round the owner granted ZDEV-51
-fixed three listed items, re-checked only those and declined the rest as outside the round
-(2026-10-09, the controller's practice under the owner's grant). Findings that arrive after round three are fixed only when they are major or
-security-related ("第三轮之后还有新的发现，只修复major和与security相关的", 2026-09-19).
+round four unless the owner grants one. A fourth round exists only when the owner grants it for
+that card ("1915特批第四轮", 2026-09-24), and it covers only the items named for it: the round the
+owner granted ZDEV-51 fixed three listed items, re-checked only those and declined the rest as
+outside the round (2026-10-09, the controller's practice under the owner's grant). Findings that
+arrive after round three are fixed only when they are major or security-related ("第三轮之后还有新的发现，只修复major和与security相关的", 2026-09-19).
 
 ## PR mechanics measured on this repository
 
@@ -130,7 +131,7 @@ security-related ("第三轮之后还有新的发现，只修复major和与secur
   every merge re-queues the rest.
 - A pile of open PRs is a process fault, not a concurrency limit: clear what can merge before
   opening more ("放这么多出来是我们的流程有问题，pr没有及时去清理 而不是并发数量的问题",
-  2026-08-06). A PR whose checks are green and whose threads are handled is merged, not watched
+  2026-08-06). A PR that meets the merge conditions (`docs/ops/review-gate.md`) is merged, not watched
   ("这五个我看着好像全绿了？你在盯什么？", 2026-09-19).
 
 ## Checks before a PR merges (single source)
@@ -166,8 +167,8 @@ success with an unchanged head (#1332), so the migration step now polls the migr
 identity before it posts and re-polls on a 409 (`scripts/delivery/migrate-through-worker.sh`).
 
 A check that fails on `main` after a merge (the release snapshot, the staging deploy) becomes a new
-card at the highest priority; the merged PR is not reopened. A failure the pre-commit or pre-push
-hooks could have caught should never get that far: "我们的 pre-commit 钩子就应该把这个东西所有都被发现，除非真的是说是因为环境不同"
+card at the highest priority; the merged PR is not reopened. A failure the pre-commit hooks could have
+caught should never get that far: "我们的 pre-commit 钩子就应该把这个东西所有都被发现，除非真的是说是因为环境不同"
 (owner, 2026-10-09). zdev's post-merge watch opens that card for the cards it drives (its
 owner-notification document describes the watch).
 
@@ -193,13 +194,12 @@ goes to a sub-agent (sonnet for research, fable for synthesis); scan for secrets
 
 ## Deferred, deleted or skipped work becomes a card (owner, 2026-08-24 to 2026-10-15)
 
-Whatever a decision defers, deletes or skips is recorded as a tech-debt or enhancement card that
-names where it came from; a sentence in the chat is forgotten. The owner's words, in order: "加快进度
+Whatever a decision defers, deletes or skips is recorded as a tech-debt or enhancement card; a
+sentence in the chat is forgotten. A card for a skipped review names the PR. The owner's words, in order: "加快进度
 不review，快速上线 记tech debt issue" and "你记得写一个issue，就是哪个pr没做好review" (2026-08-24,
 when #1195 merged without its independent review and #1198 named it); "3.删了吧，记一个tech debt
 issue" (2026-09-13); "qa记得记todo/enhance" (2026-10-09); "并且记一个ehance issue" (2026-10-15).
-A review thread answered "identified, owned by #<n>" is the same rule at thread scale. The
-`todo.md` file an earlier layout kept is not the place.
+A review thread answered "identified, owned by #<n>" is the same rule at thread scale.
 
 ## Dispatching sub-agents (2026-09-19)
 

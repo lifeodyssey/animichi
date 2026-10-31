@@ -24,10 +24,12 @@ Role definitions live in `.claude/agents/`:
 
 Run every card that can run in parallel. The owner has said it more than ten times: "4是谁定的，我允许你更多"
 (2026-09-09), "我们记得一定要开满并发，能变形的东西就并行去做" (2026-09-22), and of the long-lived
-coordinator it replaced, "我一直要求开足并发但是他却并发一直很低" (2026-10-05). The ceiling comes from
-measured resources, not from a fixed number: memory (on the 24 GB host the writers were held to
-about four after a review lane was killed for lack of memory, 2026-10-15, when the owner also said
-"我们可以开大并发") and the push gates, which run serially. When fewer lanes run than the
+coordinator it replaced, "我一直要求开足并发但是他却并发一直很低" (2026-10-05). How wide is set by
+measured resources, not by a number picked in advance: memory and the push gates. On the 24 GB
+host the controller held writers to about four after a review lane was killed for lack of memory
+(2026-10-15, the evening the owner said "我们可以开大并发"), and the owner accepted that cap with the
+controller's other recommendations on 2026-10-22 ("都按照你的推荐来"); the push gates run about two
+at a time. When fewer lanes run than the
 resources allow, look for more unblocked cards before waiting. The host's figures are in the
 machine-local Orca notes.
 
@@ -58,7 +60,7 @@ advisor's view is advice, not the owner's authorisation, so the five categories 
   and again on 2026-10-23); record it for the owner, who can widen `/permissions` for that one command. Rewriting a
   refused Linear write as a standalone script was itself refused as a bypass (2026-10-16). When a
   refused `git rebase` has a non-rewriting alternative, take it (a merge); if that is refused too,
-  stop and ask (2026-10-15). The one exception is a hook whose message names the allowed form, such
+  stop and ask (the owner's choice, 2026-10-15). The one exception is a hook whose message names the allowed form, such
   as writing a heredoc that quotes a command with a file tool instead.
 - **A draft the owner should see is shown to the owner before it goes out**: a new card, an
   upstream issue or other text leaving the repository. On 2026-10-15 an upstream issue was drafted

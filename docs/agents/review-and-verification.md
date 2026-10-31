@@ -106,7 +106,7 @@ never walked. Technique:
 A diagnosis starts from the raw record, not from a theory: "有问题的时候，你到底有没有认真看过所有的
 log、jsonl 以及具体的实例？…我感觉你就是想了一下，然后就去 update" (2026-08-06, after a plan was
 revised without reading the run's logs). A production fault is reproduced locally first (start the
-backend, send the same request) and the fix is proven there before a PR: "你就不能本地启动起来发api测试吗"
+backend, send the same request) and the fix is proven there before it ships: "你就不能本地启动起来发api测试吗"
 (2026-08-24, after a fix shipped untested and the fault stayed). Check every instance of the kind,
 not the one that was reported ("我们所有的doorbell都检查一下", 2026-08-23). When reading the live
 record needs a permission or a login, ask for it instead of guessing ("需要权限或者登录认证跟我说就行了",
