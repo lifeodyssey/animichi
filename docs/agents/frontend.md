@@ -27,7 +27,17 @@ restart ("在做刚刚的那些事情的时候你用了对应的 skill 了吗").
 A card with a user-visible surface in `apps/web` differs in three ways: kimi writes it; its PR
 comment carries before/after comparison screenshots and screenshots of the flow; and the
 coordinator does not merge it — the owner accepts it. A change inside `apps/web` with no
-user-visible surface (a test helper, a build config) is not a visible-UI card.
+user-visible surface (a test helper, a build config) is not a visible-UI card. Its review looks at
+whether the component looks right as well as at the code ("不光要看代码，还要看组件是否好看",
+2026-09-13). Before it is submitted, its author starts it locally and shows it to the owner
+("在你提交之前本地启动给我看看", 2026-09-05).
+
+The same 2026-09-21 message said "不需要等机器人窗口，你看一下memory，之前给你提过机器人的事情". It
+pointed back to the rule that a bot which left nothing does not block (`docs/ops/review-gate.md`),
+and it is not an exception for visible-UI cards. Because the coordinator does not merge a
+visible-UI card, no bot window stands between the card and the owner's look; the merge itself
+still passes the merge hook in `docs/ops/review-gate.md`, including its refusal in the first
+minutes before the bots have spoken.
 
 ## Cite the installed API, never a remembered major version
 

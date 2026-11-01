@@ -55,6 +55,26 @@ Report it as "CodeRabbit could not review because of its quota", never as "no bo
   `gh api repos/<o>/<r>/rulesets`, not the branch-protection endpoint, before concluding "no
   protection".
 - Never `--admin` past a governance gate; that decision is the owner's.
+- No merge queue: GitHub offers it to organisation-owned repositories (and Enterprise), and this
+  is a user repository, so do not propose it unless the repository moves to an organisation
+  (2026-09-15, when hot-file PRs churned 150–200 minutes each). Serialise the hot files instead.
+  The `merge_group` trigger stays declared in `pr-verification.yml` as a forward-looking trigger
+  that never fires on a user repository; the merged-commit lane is carried by the `push` trigger.
+- No GitHub Releases: nothing here ships as a downloadable artifact ("我觉得我们没有任何必要发布release吧 我们这又不是artifact",
+  owner, 2026-08-12). That decision is about GitHub Releases, not about CD's build output:
+  `release-build.yml` still builds an immutable snapshot and uploads it as a workflow artifact,
+  and staging and production are deployed from that artifact, so the CD delivery path is not
+  optional. Tags are kept as version backups and old ones deleted ("可以留着tag当版本备份",
+  "旧tag就删了"); how to keep a changelog is still open.
+
+## Speeding CI up starts with a profile (owner, 2026-09-15 and 2026-09-18)
+
+Measure before changing: which step, how many seconds, and why ("我感觉你一直都没有去去去做一个profiling来解决问题",
+2026-09-18, when nx, Turborepo and a slower test-container setup were weighed before anyone had timed
+the integration stages). Check every speed-up against the problem the slow step was there to solve
+("我们不能为了加速而忘了他一开始要解决的问题"). Test quality moves left ("测试质量肯定要左移",
+2026-09-15). Debt that slows development down is raised to a high priority ("我们一定要把这个东西提到一个比较高的优先级",
+2026-09-18).
 
 ## Workflow failures that surface only when GitHub compiles
 

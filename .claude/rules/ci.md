@@ -51,7 +51,13 @@ revision rather than mutable checkout state.
   the staging lock through foundation, migration, services, web, smoke and receipt. Production has
   its own approval and lock and promotes the same verified digest. Pending selections may be
   superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its
-  approval. No local or tag-triggered deploy path.
+  approval. No local or tag-triggered deploy path. The owner sees no need for a separate rollback
+  mechanism ("我一直觉得我们没有必要 roll back", 2026-09-05): going back is the manual dispatch of
+  ADR 0007, which selects an older artifact and re-deploys it
+  (`docs/adr/0007-selected-release-artifacts.md`), in any order, except for the database ("一定是可以回退的呀，就除了 SQL 之外",
+  the same day). Within one environment a deploy in progress finishes before the next one
+  starts; staging and production hold independent locks, so the two can overlap
+  (`docs/adr/0007-selected-release-artifacts.md`).
 - **Build and deploy jobs use uncached native setup steps.** Their environment credentials follow
   artifact/config verification. The PR-only cached composite and its exact approved actionlint
   diagnostic exception must not expand to CD or the builder. New builder OIDC identities require
