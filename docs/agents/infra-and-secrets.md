@@ -41,15 +41,17 @@ again.
 - When a secret must be referred to, report the prefix and the length only.
 - When the owner says a credential is being rotated, leave it: do not read secret timestamps or
   predict failures ("你能不能忘记轮换的事情，谁让你看了", 2026-08-06).
-- Session transcripts and logs (`~/.pi`, `~/.claude`, `~/.codex`, any `projects/*.jsonl`) are not a
-  source of raw samples or fixtures. Raw transcript content does not enter the repository, leave
-  this machine in a push, or go to a review model; samples are constructed to the format instead
-  ("按格式构造的记录", owner, 2026-10-22, after a writer committed provider responses lifted from the
-  owner's transcripts as fixtures). This bars raw transcript material, not the standing owner
-  decisions themselves: an owner-decision quotation distilled from a session record may be
-  recorded, as this guide does. Every dispatch brief names those directories and says the
-  writer may not read them, not only a brief that asks for recordings (the controller's practice
-  since the same incident).
+- An agent's session transcripts and logs — the record and history directories an agent keeps
+  under its own home — are not a source of raw samples or fixtures. Raw transcript content does
+  not enter the repository, leave this machine in a push, or go to a review model; samples are
+  constructed to the format instead ("按格式构造的记录", owner, 2026-10-22, after a writer committed
+  provider responses lifted from the owner's transcripts as fixtures). This bars raw transcript
+  material, not the standing owner decisions themselves: an owner-decision quotation distilled
+  from a session record may be recorded, as this guide does. Which directories the ban covers is
+  named by each dispatch brief, not by this guide: every dispatch brief names those directories
+  and says the writer may not read them, not only a brief that asks for recordings (the
+  controller's practice since the same incident, kept in the machine-local brief because the
+  owner asked that this published guide carry no machine-specific paths, 2026-11-02).
 - Issues, pull requests and their comments in this repository are public: internal endpoints,
   project identifiers and paths on the owner's machine do not go there ("这个url不要写到issue的comment里，issue是公开的",
   2026-07-07). What must be kept goes on the private tracker card ("你可以写进卡里，卡是private的").
