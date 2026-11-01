@@ -81,7 +81,12 @@ not touched. The e2e lane derives its port per checkout (`E2E_EMITTED_WORKER_POR
 
 When a cleanup meets files nobody can vouch for, they are not deleted: they go into one backup
 worktree, are checked one by one, not sampled, and stay reachable through git ("如果你不确定的话，就给我留个备份的worktree专门用来放这些，记住不要抽查，要一个个核对",
-"确保通过git可以找到所有的东西，不要直接删除", owner, 2026-09-13). When the test for a bulk
+"确保通过git可以找到所有的东西，不要直接删除", owner, 2026-09-13). "Reachable through git" means a ref, not
+just a working-tree file: an untracked or uncommitted file moved into the backup worktree is
+committed there (a scratch backup branch or commit) before the worktree can be removed, or it is
+lost with the directory. A file that carries a credential is the exception: it is checked for a
+secret first and, if it has one, kept only in the private local backup — never made reachable
+through git, where a push would place it in repository history. When the test for a bulk
 deletion stops working (183 local branches that an ancestry test could not classify after squash
 merges, 2026-09-18), each candidate is judged on its own, by a sub-agent if there are many. A cleanup
 also looks for commits that were never pushed and worktrees whose PR has merged ("还有更多做了没推的嘛？还有做完了worktree没删的吗",
