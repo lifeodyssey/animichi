@@ -52,10 +52,11 @@ words, in order: "我感觉你 pr 拆分的太小了，大的好几个 issue，�
 (2026-09-23). Why: every PR pays a full CI gate, and the ruleset is squash + linear history +
 strict up-to-date, so every merge puts every other open PR BEHIND and reruns its CI (O(n²)):
 hot-file PRs measured 150–200 minutes each, one PR merged `main` five times, and fine-grained PR
-splitting kept the pipeline blocked. An e2e that cannot run, or that fails for a reason outside the
-code (data, a credential), is reported in the body as it happened, with the reason; it does not
-hold a merge whose gates pass (the controller's practice on zdev cards since October 2026, not an
-owner decision).
+splitting kept the pipeline blocked. CI must be entirely green for a merge: an e2e that cannot
+run, or that fails for a reason outside the code (data, a credential), is reported in the body as
+it happened, with the reason, and it holds the merge — an e2e that cannot run is itself the
+reason the merge waits ("跑不了的 e2e 肯定要挡着合并啊…ci 一定要全绿了才能合并", owner, 2026-11-02, reversing
+the controller's October 2026 practice that had let such a merge through).
 
 - One brief, one branch, one PR whose body closes each ticket. GitHub's `Closes #a, #b, #c`
   closes only the first number; repeat the keyword before each one.
