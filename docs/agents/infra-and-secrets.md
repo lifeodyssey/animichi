@@ -26,11 +26,16 @@ again.
 
 - If the task can be done without knowing the value, the value is not provided: configuring an
   MCP server, writing docs, changing CI, opening an issue.
-- When a task does need a credential, the agent takes it from the local `.env` or the platform
-  CLI (`neonctl`, `wrangler`, `gh`, `pulumi env`) itself rather than asking the owner for it again
-  ("本地.env没有嘛，或者你可以用cli来获取", 2026-09-09; "如果你本地需要可以直接用.env的", 2026-09-04) — but the raw
-  value still never enters the transcript: it is piped to stdin or read from the file, not echoed
-  into agent-visible output.
+- When a task does need a credential, the agent takes it itself rather than asking the owner for
+  it again ("本地.env没有嘛，或者你可以用cli来获取", 2026-09-09; "如果你本地需要可以直接用.env的", 2026-09-04).
+  The local sources are `.env`, the Apple Keychain and the platform CLIs (`neonctl`, `wrangler`,
+  `gh`, `pulumi env`); the Keychain answers `security find-generic-password -s <service> -a
+  <account> -w` ("你应该可以直接从本地的 apple keychain 来取吧", owner, 2026-11-02). Whichever source answers,
+  the fetch must be one that cannot expose the value — the owner's condition on the same day was
+  "取的时候一定要用不会暴露的方式": the value travels only inside a `$(…)` substitution into an
+  environment variable or onto a command's stdin, and is never printed, never placed on a command
+  line where logs or process listings see it, and never echoed into agent-visible output or the
+  transcript.
 - Writes go through the platform command with the value on stdin, executed by the owner in their
   own terminal; the value never appears in a command line or a transcript.
 - When a secret must be referred to, report the prefix and the length only.
