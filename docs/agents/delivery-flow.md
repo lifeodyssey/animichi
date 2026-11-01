@@ -16,8 +16,10 @@ call); a prose "Blocked by" line is not enough, because the pre-dispatch check r
 At the skill's step 4 ("Quiz the user") the advisor, the Fable seat, approves the breakdown; do
 not quiz the owner ("拆分方案，你直接advisor fable决定就可以了", 2026-09-24). An incident issue (an
 Orca or coordinator failure) uses the same template: the measure goes in `## What to build`, its
-verification in `## Acceptance criteria`, then `## Blocked by`, with the problem, the raw-record
-source (the session transcript path and time) and the root cause above them.
+verification in `## Acceptance criteria`, then `## Blocked by`, with the problem, a safe reference
+to the raw record and the root cause above them. The session transcript path and time are
+machine-local and stay on the private tracker card, not in the public issue
+(`docs/agents/infra-and-secrets.md`).
 
 Every open pull request has a card, Dependabot's included. When zdev's takeover found seven open
 PRs with none, the owner chose to card or close them, in the option that said "以后每个新的也要挂"
@@ -82,7 +84,11 @@ candidate has approved its head, and the body carries `Review: APPROVE at <sha>`
 "就这么几类卡需要我来 review：一个是 UI 的卡，一个是涉及到改数据库的卡，一个是有一些异步或者时间序列操作的卡，然后还有一个是涉及到 secret 和 environment variable 的卡."
 Other PRs merge without the owner's approval. The review seat recognises the four kinds and posts
 an owner review packet on the PR: one Markdown comment with mermaid diagrams, tables, how to verify,
-and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). zdev's controller releases
+and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). This is a merge-time
+acceptance requirement, separate from the escalation categories in `docs/agents/harness.md`: the
+five "must wait" categories govern who decides while work is in flight, while these four kinds
+gate the merge itself. A UI, database, async/time-series or secrets card does not merge until the
+owner accepts it, regardless of which escalation category it fell into. zdev's controller releases
 such a merge only on an `owner-accepted` label the owner adds by hand; that label is the
 controller's practice, not the owner's words, and whether it is the only form the owner's
 acceptance can take is still open. The terms are defined in zdev's `GLOSSARY.md` (四类卡, owner
