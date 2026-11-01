@@ -26,16 +26,23 @@ again.
 
 - If the task can be done without knowing the value, the value is not provided: configuring an
   MCP server, writing docs, changing CI, opening an issue.
+- When a task does need a credential, the agent takes it from the local `.env` or the platform
+  CLI (`neonctl`, `wrangler`, `gh`, `pulumi env`) itself rather than asking the owner for it again
+  ("本地.env没有嘛，或者你可以用cli来获取", 2026-09-09; "如果你本地需要可以直接用.env的", 2026-09-04) — but the raw
+  value still never enters the transcript: it is piped to stdin or read from the file, not echoed
+  into agent-visible output.
 - Writes go through the platform command with the value on stdin, executed by the owner in their
   own terminal; the value never appears in a command line or a transcript.
 - When a secret must be referred to, report the prefix and the length only.
 - When the owner says a credential is being rotated, leave it: do not read secret timestamps or
   predict failures ("你能不能忘记轮换的事情，谁让你看了", 2026-08-06).
 - Session transcripts and logs (`~/.pi`, `~/.claude`, `~/.codex`, any `projects/*.jsonl`) are not a
-  source of samples or fixtures. Nothing from them enters the repository, leaves this machine in a
-  push, or goes to a review model; samples are constructed to the format instead ("按格式构造的记录",
-  owner, 2026-10-22, after a writer committed provider responses lifted from the owner's
-  transcripts as fixtures). Every dispatch brief names those directories and says the
+  source of raw samples or fixtures. Raw transcript content does not enter the repository, leave
+  this machine in a push, or go to a review model; samples are constructed to the format instead
+  ("按格式构造的记录", owner, 2026-10-22, after a writer committed provider responses lifted from the
+  owner's transcripts as fixtures). This bars raw transcript material, not the standing owner
+  decisions themselves: an owner-decision quotation distilled from a session record may be
+  recorded, as this guide does. Every dispatch brief names those directories and says the
   writer may not read them, not only a brief that asks for recordings (the controller's practice
   since the same incident).
 - Issues, pull requests and their comments in this repository are public: internal endpoints,
