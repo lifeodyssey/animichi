@@ -373,6 +373,8 @@ jobs:
           bundle exec ruby test/repo-config/coverage-report.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs-mutation.test.rb
           bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
+          bundle exec ruby test/repo-config/dev-local-port-mutation.test.rb
+          bundle exec ruby test/repo-config/dev-local-port.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
           bundle exec ruby test/repo-config/force-push-policy-adrs.test.rb
