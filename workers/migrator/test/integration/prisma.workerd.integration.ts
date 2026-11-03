@@ -130,8 +130,13 @@ roleBootTest("applies through a round trip that outlasts the platform's blocked-
   await saveEvidence("native-workerd-past-callback-cap", { elapsedMs, body });
 });
 
+// The body is consumed inside the turn: miniflare requires immediate consumption of each
+// dispatchFetch body, and the `turn.end` between the response and the read invalidates it on
+// Node 26 (#716).
 roleBootTest("rejects a requested native target absent from the sealed graph before reading a database", async ({ roleBoot }) => {
-  const response = await roleBoot.hold(() => post("migrate", { ...requestMetadata, expectedPrismaRef: "f".repeat(64) }));
-  expect(response.status).toBe(409);
-  expect(await response.json()).toEqual({ error: "stale_prisma_bundle", prismaTarget: TARGET });
+  const result = await roleBoot.hold(async () => {
+    const response = await post("migrate", { ...requestMetadata, expectedPrismaRef: "f".repeat(64) });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(result).toEqual({ status: 409, body: { error: "stale_prisma_bundle", prismaTarget: TARGET } });
 });
