@@ -1,6 +1,6 @@
 # Native model admission (#1546)
 
-These ordinary business functions use the published Pi 0.85.1 `AgentLane` and
+These ordinary business functions use the published Pi 0.99.2 `AgentLane` and
 Prisma 8 client directly. The existing `sessions.user_id` owns conversation
 identity; Pi session metadata is not an authorization record. Only new request
 intents may create that owner row. Recovery and reservation lock an existing row;
