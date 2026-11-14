@@ -54,11 +54,19 @@ export const DEFAULT_RETRY_MAX_MS = 10_000;
 export const DEFAULT_ATTEMPT_TIMEOUT_MS = 12_000;
 
 /**
- * The whole call's deadline. The edge's catalog client abandons a request at
- * 25 s (`packages/agent/src/catalog-client.ts`), and each live request path
- * makes one upstream call; 20 s leaves the request 5 s for its database work
- * and its answer. A background ingest's two calls run side by side and also
- * end inside `waitUntil`'s 30 s.
+ * The whole call's deadline: one upstream call, its retries included, settles
+ * within 20 s of its first attempt. The figure comes from the edge's catalog
+ * client, which abandons an attempt at 25 s (`fetchWithinDeadline` in
+ * `packages/agent/src/catalog-client.ts`): a request path that makes one call
+ * (`resolve`, or `pointsByBangumiId` on an uncovered work) keeps 5 s for its
+ * database work and its answer. The deadline is per call, not per request. The
+ * search miss path makes two calls in sequence, the Bangumi search and then
+ * the Anitabi lite preview (`src/api/preview.ts`), so there the edge's 25 s
+ * abandon can come first; the request's signal then aborts whichever call is
+ * in flight (`src/router.ts`). Without a `waitUntil` (a harness with no
+ * execution context), the miss path's `syncFallback` runs a full ingest after
+ * them, whose calls carry no request signal. A background ingest's two calls
+ * run side by side and also end inside `waitUntil`'s 30 s.
  */
 export const DEFAULT_RETRY_DEADLINE_MS = 20_000;
 

@@ -11,19 +11,28 @@
  * an empty upstream parks for a week (`emptySeconds`), a refusing upstream for
  * a day (`refusalSeconds`), any other failure for an hour (`failureSeconds`),
  * and the claim re-acquires once the TTL elapses. What kind of failure a row
- * records is `./ingest-failure`'s taxonomy.
+ * records is `./ingest-failure`'s taxonomy; which TTL a kind parks for, and the
+ * row it parks as, is `./parked-failure`'s.
  *
  * Pipeline callers funnel through {@link ingest}: it acquires the claim and
  * runs the pipeline, or reports the persisted guard without touching upstream.
- * The completion and failure writes are fenced on the claim; when another
- * invocation has taken the claim over, the run reports `claim_lost` and records
- * nothing, because the work's outcome is the winner's to write.
  *
- * A run whose caller's `signal` aborts (a cron pass's deadline) stops there: the
- * requests in flight are aborted, the caller's reason is rethrown, and nothing
- * is recorded — a stop is not the upstream failing, so nothing is parked behind
- * the negative cache, and the claim lapses after RUNNING_TTL like any stopped
- * holder's.
+ * Only the two writes that settle the claim are fenced on it: the completion
+ * (`markDone`) and the failure (`markFailed`). When another invocation has
+ * taken the claim over, the fenced write changes nothing and the run reports
+ * `claim_lost`, because the work's outcome is the winner's to write; a lost
+ * failure parks nothing and raises no alarm. The raw writes and the publish are
+ * not fenced: whatever of them a losing run reached before its fenced write —
+ * both raw rows, then a new published version of the work — stays written.
+ *
+ * The caller's `signal` (a cron pass's deadline) aborts the upstream requests
+ * and nothing after them. An abort while the run still waits on them aborts
+ * them, and the run rethrows the caller's reason with nothing written but its
+ * claim. Once both have answered, an abort no longer stops the run: it goes on
+ * and settles the claim as usual, except that an error it then throws is
+ * rethrown rather than parked, and the rows written before it stay. A stopped
+ * run parks nothing behind the negative cache — a stop is not the upstream
+ * failing — and its claim lapses after RUNNING_TTL like any stopped holder's.
  *
  * The pipeline phases live as module-level functions over a bundled
  * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
@@ -34,9 +43,10 @@ import type { CatalogPrisma } from "../db/prisma";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";
 import { upstreamUnavailable } from "../lib/errors";
 import {
-  classifyIngestFailure, failedStage, IngestErrorCode, operatorRecord, type IngestFailure,
+  classifyIngestFailure, IngestErrorCode, operatorRecord, type IngestFailure,
 } from "./ingest-failure";
 import { JobStore, type ClaimWrite, type FailureOptions, type IngestGuard, type JobClaim } from "./jobs";
+import { parkedFailure, type IngestTtl } from "./parked-failure";
 import { consoleRefusalAlarm, type RefusalAlarm } from "./refusal-alarm";
 import { saveRawAnitabi as writeRawAnitabi, saveRawBangumi as writeRawBangumi, type RawPayload } from "./raw-store";
 import {
@@ -67,7 +77,7 @@ export const DEFAULT_INGEST_TTL = {
 /** Knobs for {@link IngestBangumi.ingest} (defaulted for prod; tests inject `fetchImpl`). */
 export interface IngestBangumiOptions {
   fetchImpl?: FetchLike;
-  /** The caller's cancellation: it aborts the upstream requests in flight and stops the run unrecorded. */
+  /** The caller's cancellation: it aborts the upstream requests in flight; the module header says what a run it stops has written. */
   signal?: AbortSignal;
 }
 
@@ -80,7 +90,8 @@ export type IngestClaim = JobClaim | Exclude<IngestGuard, "ready">;
 /**
  * Discriminated union: the outcome of one {@link IngestBangumi.ingest} call.
  * `claim_lost` is a run whose claim another invocation took over before it
- * finished: it recorded nothing, and the work's outcome is the winner's.
+ * finished: its fenced completion or failure write changed nothing, and the
+ * work's outcome is the winner's (the module header says what it did write).
  */
 export type IngestResult =
   | { status: "ingested"; version: number; pointCount: number }
@@ -119,14 +130,6 @@ export interface IngestStore {
 /** Publisher port: enrich the raw zone and atomically publish a new version. */
 export interface IngestPublisher {
   publish(bangumiId: string): Promise<EnrichResult>;
-}
-
-/** Negative-cache TTL policy for {@link IngestBangumi}. */
-export interface IngestTtl {
-  failureSeconds: number;
-  refusalSeconds: number;
-  emptySeconds: number;
-  egressSeconds: number;
 }
 
 /** The ports + TTL an ingest phase needs, bundled so module helpers stay small. */
@@ -252,21 +255,6 @@ async function fail(runtime: IngestRuntime, claim: JobClaim, failure: IngestFail
 async function refusalAlarmDue(store: IngestStore, failure: IngestFailure): Promise<boolean> {
   if (failure.code !== IngestErrorCode.UpstreamRefused || failure.upstream === null) return false;
   return !(await store.hasLiveRefusal(failure.upstream));
-}
-
-function parkedFailure(ttl: IngestTtl, failure: IngestFailure): FailureOptions {
-  return {
-    errorCode: failure.code, ttlSeconds: parkedSeconds(ttl, failure.code),
-    error: operatorRecord(failure), stage: failedStage(failure),
-  };
-}
-
-/** How long each kind parks before the work is claimable again. */
-function parkedSeconds(ttl: IngestTtl, code: IngestErrorCode): number {
-  if (code === IngestErrorCode.NotFound) return ttl.emptySeconds;
-  if (code === IngestErrorCode.UpstreamRefused) return ttl.refusalSeconds;
-  if (code === IngestErrorCode.EgressRefused) return ttl.egressSeconds;
-  return ttl.failureSeconds;
 }
 
 /** The production `IngestBangumi` over this request's Prisma seam (#1792: egress required for anitabi). */
