@@ -502,9 +502,6 @@ importers:
       wrangler:
         specifier: 'catalog:'
         version: 4.132.0(@cloudflare/workers-types@5.20260916.1)(@types/node@26.6.1)
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.1
 
   e2e:
     devDependencies:
