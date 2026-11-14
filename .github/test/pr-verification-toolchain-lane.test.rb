@@ -18,7 +18,7 @@
 # green, and nothing else in the suite would say so.
 require "minitest/autorun"
 require "open3"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationToolchainLaneTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -49,12 +49,12 @@ class PrVerificationToolchainLaneTest < Minitest::Test
   INVOCATION = /\A(?:bundle\s+exec\s+)?(?:bash|ruby|node|sh|python3?)\s+(?<path>\S+)/
 
   def ci
-    @ci ||= Psych.safe_load(File.read(WORKFLOW), aliases: true)
+    @ci ||= RepositoryYaml.load_file(WORKFLOW)
   end
 
   def paths_filters
     step = ci.dig("jobs", "plan", "steps").find { |candidate| candidate["id"] == "paths" }
-    Psych.safe_load(step.dig("with", "filters"), aliases: true)
+    RepositoryYaml.parse(step.dig("with", "filters"))
   end
 
   def invoked(job)

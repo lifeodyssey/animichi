@@ -1,6 +1,6 @@
 # SUT: pr-verification.yml plan selects dependent packages and routes workflow/action changes to real lanes.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationPlanTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -8,12 +8,12 @@ class PrVerificationPlanTest < Minitest::Test
 
   def setup
     @source = File.read(FILE)
-    @ci = Psych.safe_load(@source, aliases: true)
+    @ci = RepositoryYaml.parse(@source)
   end
 
   def test_routes_workflow_and_action_sources_together
     paths = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "paths" }
-    filters = Psych.safe_load(paths.dig("with", "filters"), aliases: true)
+    filters = RepositoryYaml.parse(paths.dig("with", "filters"))
     assert_includes filters.fetch("workflows"), ".github/workflows/**"
     assert_includes filters.fetch("workflows"), ".github/actions/**"
     assert_includes filters.fetch("workflows"), ".github/scripts/**"
@@ -45,7 +45,7 @@ class PrVerificationPlanTest < Minitest::Test
 
   def paths_filters
     step = @ci.dig("jobs", "plan", "steps").find { |candidate| candidate["id"] == "paths" }
-    Psych.safe_load(step.dig("with", "filters"), aliases: true)
+    RepositoryYaml.parse(step.dig("with", "filters"))
   end
 
   def test_paths_filters_are_the_reviewed_routing_table

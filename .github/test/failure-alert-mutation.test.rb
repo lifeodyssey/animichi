@@ -4,11 +4,11 @@
 # tree is never written. A probe that survives is a guard that would pass with
 # its subject deleted (the five the repository had shipped before #1687).
 require "minitest/autorun"
-require "psych"
 require "json"
 require "open3"
 require "fileutils"
 require "tmpdir"
+require_relative "repository-yaml"
 
 class FailureAlertMutationTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -94,9 +94,9 @@ class FailureAlertMutationTest < Minitest::Test
   def mutate(dir, file)
     path = File.join(dir, ".github/workflows", file)
     source = File.read(path)
-    document = Psych.safe_load(source, aliases: true)
+    document = RepositoryYaml.parse(source)
     yield document
-    changed = Psych.dump(document)
+    changed = RepositoryYaml.dump(document)
     refute_equal source, changed, "mutation needle missing: #{file}"
     File.write(path, changed)
   end

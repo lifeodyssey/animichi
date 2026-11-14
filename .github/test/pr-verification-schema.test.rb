@@ -1,6 +1,6 @@
 # SUT: pr-verification.yml's db job checks the migration chain's integrity and applies it fresh.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationSchemaTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -20,7 +20,7 @@ class PrVerificationSchemaTest < Minitest::Test
   SCHEMA_FORBIDDEN = ["prisma db migrate", "supabase db push", "psql "].freeze
 
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
   end
 
   def test_schema_job_is_paths_filtered

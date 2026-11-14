@@ -7,7 +7,7 @@
 # (The absence of any credential read here is already pinned, file-wide, by
 # `.github/test/workflow-credentials.test.rb`.)
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationLoginTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -19,7 +19,7 @@ class PrVerificationLoginTest < Minitest::Test
   DEAD_END = "exit 1"
 
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
     @steps = @ci.dig("jobs", JOB, "steps").to_a
   end
 

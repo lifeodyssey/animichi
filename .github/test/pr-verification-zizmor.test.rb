@@ -1,6 +1,6 @@
 # SUT: pr-verification.yml zizmor job runs the official scanner at the required strength.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationZizmorTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -9,7 +9,7 @@ class PrVerificationZizmorTest < Minitest::Test
   ZIZMOR_INPUTS = { "persona" => "pedantic", "annotations" => true, "version" => "1.30.0", "advanced-security" => false }.freeze
 
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
   end
 
   def zizmor_step

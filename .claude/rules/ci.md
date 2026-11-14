@@ -64,8 +64,10 @@ revision rather than mutable checkout state.
   exact platform allowlists before activation.
 - **Tests follow the actual SUT and responsibility.** Workflow/action tests live in `.github/test/`;
   repository configuration tests live in `test/repo-config/`. Name each `*.test.rb` for its SUT and
-  state that SUT in the opening sentence. Use Minitest/Psych directly, keep files ≤200 lines and
-  assertions ≤10 lines, and avoid a custom assertion framework or generic workflow interpreter.
+  state that SUT in the opening sentence. Use Minitest directly. A test in `.github/test/` reads
+  YAML only through `.github/test/repository-yaml.rb`, the one place there that calls Psych and
+  the one statement of how a workflow's `on` key is read. Keep files ≤200 lines and assertions
+  ≤10 lines, and avoid a custom assertion framework or generic workflow interpreter.
 - **A check no job invokes is a check nothing runs.** `workflow-invocations.test.rb` requires a real
   interpreter invocation for every new Ruby test and every repository `*.test.sh`, verifies invoked
   paths exist, and rejects orphaned `.github/scripts` files. Pure release libraries live in

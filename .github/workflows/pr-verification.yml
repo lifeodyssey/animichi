@@ -353,6 +353,7 @@ jobs:
           bundle exec ruby .github/test/pr-verification-zizmor.test.rb
           bundle exec ruby .github/test/release-build.test.rb
           bundle exec ruby .github/test/release-dispatch.test.rb
+          bundle exec ruby .github/test/repository-yaml.test.rb
           bundle exec ruby .github/test/setup-workspace-action.test.rb
           bundle exec ruby .github/test/workflow-credentials.test.rb
           bundle exec ruby .github/test/workflow-execution.test.rb

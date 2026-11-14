@@ -4,7 +4,7 @@
 # release that verifies the wrong environment's schema would have reported that
 # as green.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdSchemaVerificationTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -14,7 +14,7 @@ class CdSchemaVerificationTest < Minitest::Test
               "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
+    @cd = RepositoryYaml.load_file(CD_FILE)
   end
 
   def steps(job)

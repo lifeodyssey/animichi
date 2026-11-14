@@ -1,6 +1,6 @@
 # SUT: workflow jobs install the workspace before using it and create every pnpm store they cache.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowWorkspaceTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -31,7 +31,7 @@ class WorkflowWorkspaceTest < Minitest::Test
   end
 
   Dir.glob(File.join(ROOT, ".github/workflows/*.yml")).sort.each do |path|
-    Psych.safe_load(File.read(path), aliases: true).fetch("jobs").each do |id, job|
+    RepositoryYaml.load_file(path).fetch("jobs").each do |id, job|
       steps = job.fetch("steps", [])
       define_method("test_#{File.basename(path)}_#{id}_installs_before_the_first_workspace_use") do
         used = steps.index { |step| needs_workspace?(step) }

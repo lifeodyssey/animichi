@@ -1,7 +1,7 @@
 # SUT: cd.yml publishes the post-deploy probe transcript beside the receipt, and
 # the seat-side workflow's run judges it with repository read access alone (#1695).
 require 'minitest/autorun'
-require 'psych'
+require_relative 'repository-yaml'
 
 class CdPostDeployEvidenceTest < Minitest::Test
   ROOT = ENV.fetch('TEST_REPOSITORY_ROOT', File.expand_path('../..', __dir__))
@@ -13,8 +13,8 @@ class CdPostDeployEvidenceTest < Minitest::Test
   ESC_KEYS = %w[CLOUDFLARE_API_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET].freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
-    @seat = Psych.safe_load(File.read(SEAT_FILE), aliases: true)
+    @cd = RepositoryYaml.load_file(CD_FILE)
+    @seat = RepositoryYaml.load_file(SEAT_FILE)
   end
 
   def steps(job)
@@ -71,7 +71,7 @@ class CdPostDeployEvidenceTest < Minitest::Test
 
   def test_the_seat_workflow_reads_the_artifact_and_holds_no_write_permission
     assert_equal({ 'contents' => 'read', 'actions' => 'read' }, @seat.fetch('permissions'))
-    events = @seat['on'] || @seat[true]
+    events = RepositoryYaml.triggers(@seat)
     assert_equal ['workflow_dispatch'], events.keys
     judge = @seat.fetch('jobs').fetch('evidence').fetch('steps').last
     assert_includes judge.fetch('run'), VERIFIER

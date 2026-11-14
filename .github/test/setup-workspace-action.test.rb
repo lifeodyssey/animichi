@@ -1,13 +1,13 @@
 # SUT: setup-workspace/action.yml installs the checked-out workspace with the official Node/pnpm actions.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class SetupWorkspaceActionTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   ACTION = File.join(ROOT, ".github/actions/setup-workspace/action.yml")
 
   def setup
-    @action = Psych.safe_load(File.read(ACTION), aliases: true)
+    @action = RepositoryYaml.load_file(ACTION)
     @steps = @action.fetch("runs").fetch("steps")
   end
 

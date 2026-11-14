@@ -1,14 +1,14 @@
 # SUT: cd.yml invokes pinned native Wrangler with selected source tags and sealed environment configs.
 require "minitest/autorun"
-require "psych"
 require "json"
+require_relative "repository-yaml"
 
 class CdPublishTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   TARGETS = { "stage" => "staging", "promote-production" => "production" }.freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   # cd.yml runs the workspace's own `pnpm exec wrangler`. An exact pin is what
@@ -16,7 +16,7 @@ class CdPublishTest < Minitest::Test
   # the manifest reaches it through `catalog:`.
   def test_native_wrangler_is_pinned_in_the_installed_workspace
     declared = JSON.parse(File.read(File.join(ROOT, "package.json"))).dig("devDependencies", "wrangler")
-    catalog = Psych.safe_load(File.read(File.join(ROOT, "pnpm-workspace.yaml"))).fetch("catalog")
+    catalog = RepositoryYaml.load_file(File.join(ROOT, "pnpm-workspace.yaml")).fetch("catalog")
     assert_match(/\A\d+\.\d+\.\d+\z/, declared == "catalog:" ? catalog.fetch("wrangler") : declared)
   end
 
