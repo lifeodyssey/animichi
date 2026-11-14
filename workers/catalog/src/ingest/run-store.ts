@@ -14,12 +14,13 @@
  * row when it is claimable, else INSERT it — with the unique key deciding the
  * race between two callers that both found no row.
  */
+import type { JsonValue } from "@prisma/orm-postgres/contract/types";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow } from "../db/plans";
 import { asJsonValue } from "../lib/json";
 import { isUniqueViolation } from "../lib/pg-error";
-import type { RunFailure, RunSnapshot } from "./daily-run";
+import type { RunFailure, RunLedgerEntry, RunSnapshot } from "./daily-run";
 
 interface RunRow extends Record<string, unknown> {
   status: string;
@@ -103,7 +104,7 @@ function recordPlan(query: CatalogPrisma, runId: string, snapshot: RunSnapshot):
         runtimeUsedMs: snapshot.budgetUsed.runtimeUsedMs,
         firstExhausted: snapshot.firstExhausted,
       },
-      failures: asJsonValue(snapshot.failures),
+      failures: recordedLedger(snapshot.failures),
       published_versions: asJsonValue(snapshot.published),
       finished_at: null,
     })
@@ -121,17 +122,22 @@ function isTerminal(status: RunSnapshot["status"]): boolean {
 }
 
 /** Mark a stale run failed before a retry re-runs it, recording the ledger the protocol carries. */
-export async function markRunFailedRow(query: CatalogPrisma, runId: string, failures: readonly RunFailure[]): Promise<void> {
+export async function markRunFailedRow(query: CatalogPrisma, runId: string, failures: readonly RunLedgerEntry[]): Promise<void> {
   await query.executor.query(failPlan(query, runId, failures));
 }
 
 /** UPDATE the run row to failed with its failure ledger and a finished timestamp. */
-function failPlan(query: CatalogPrisma, runId: string, failures: readonly RunFailure[]): SqlOrmPlan {
+function failPlan(query: CatalogPrisma, runId: string, failures: readonly RunLedgerEntry[]): SqlOrmPlan {
   const update = query.builder.public.catalog_runs
-    .update({ status: "failed", failures: asJsonValue(failures) })
+    .update({ status: "failed", failures: recordedLedger(failures) })
     .where((fields, match) => match.eq(fields.run_id, runId))
     .build();
   return atServerNow(update, ["finished_at"]);
+}
+
+/** The ledger as the `failures` column records it: an unrecognised element goes back exactly as it was read. */
+function recordedLedger(entries: readonly RunLedgerEntry[]): JsonValue {
+  return asJsonValue(entries.map((entry) => ("unrecognised" in entry ? entry.unrecognised : entry)));
 }
 
 /** Coerce a catalog_runs row into a snapshot for the protocol's read gate. */
@@ -150,20 +156,34 @@ function snapshotOf(row: RunRow): RunSnapshot | null {
 }
 
 /** Read the recorded `failures` JSONB back as the run's ledger; a NULL column is an empty one. */
-function parseFailures(value: unknown): RunFailure[] {
-  return Array.isArray(value) ? value.flatMap(ledgerEntry) : [];
+function parseFailures(value: unknown): RunLedgerEntry[] {
+  return Array.isArray(value) ? value.map(ledgerEntry) : [];
 }
 
 /**
- * One recorded ledger element, or none when it is not a failure this store
- * writes. A reclaim entry is read without the run id an older store wrote into
- * its `bangumiId`, so the next write records the reclaim without it.
+ * One recorded ledger element. A failure in the shape this store writes is read
+ * as one, and a reclaim entry is read without the run id an older store wrote
+ * into its `bangumiId`, so the next write records the reclaim without it. Any
+ * other element is carried unread, to be written back exactly as it was read.
  */
-function ledgerEntry(value: unknown): RunFailure[] {
-  if (!isRecord(value) || typeof value.reason !== "string") return [];
-  if (value.stage === "reclaim") return [{ stage: "reclaim", reason: value.reason }];
-  if (!isWorkStage(value.stage) || typeof value.bangumiId !== "string") return [];
-  return [{ bangumiId: value.bangumiId, stage: value.stage, reason: value.reason }];
+function ledgerEntry(value: unknown): RunLedgerEntry {
+  return recognisedFailure(value) ?? { unrecognised: value };
+}
+
+/** The failure an element records when it has the shape this store writes; null for anything else. */
+function recognisedFailure(value: unknown): RunFailure | null {
+  if (!isRecord(value) || !hasOnlyFailureKeys(value) || typeof value.reason !== "string") return null;
+  if (value.stage === "reclaim") return { stage: "reclaim", reason: value.reason };
+  if (!isWorkStage(value.stage) || typeof value.bangumiId !== "string") return null;
+  return { bangumiId: value.bangumiId, stage: value.stage, reason: value.reason };
+}
+
+/** The keys a failure this store writes carries; a reclaim's `bangumiId` is the run id an older store put there. */
+const FAILURE_KEYS: ReadonlySet<string> = new Set(["bangumiId", "stage", "reason"]);
+
+/** Whether an element carries no key beyond those a failure this store writes carries. */
+function hasOnlyFailureKeys(value: Record<string, unknown>): boolean {
+  return Object.keys(value).every((key) => FAILURE_KEYS.has(key));
 }
 
 /** The stages a work's own failure is recorded at. */

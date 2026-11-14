@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  runDailyIngestWith, type RunFailure, type RunPlan, type RunPolicy, type RunSnapshot, type RunStatus, type RunWorkOutcome,
+  runDailyIngestWith, type RunFailure, type RunLedgerEntry, type RunPlan, type RunPolicy, type RunSnapshot, type RunStatus,
+  type RunWorkOutcome,
 } from "../src/ingest/daily-run";
 import { canSpendWork, spendRequests, spendWork } from "../src/ingest/budgets";
 import type { RunPorts } from "../src/ingest/daily-run";
@@ -108,6 +109,7 @@ describe("Fetch-failure per-source tally (AC1)", () => {
 });
 
 const ENRICH_2: RunFailure = { bangumiId: "2", stage: "enrich", reason: "boom" };
+const UNREAD: RunLedgerEntry = { unrecognised: { bangumiId: "9", stage: "publish", reason: "a stage this code does not write" } };
 
 describe("Failure ledger across attempts", () => {
   it("a resumed run records an earlier attempt's failure and still completes", async () => {
@@ -119,9 +121,18 @@ describe("Failure ledger across attempts", () => {
     expect(recorded).toEqual([expect.objectContaining({ status: "complete", failures: [ENRICH_2] })]);
   });
 
+  it("a resumed run records an entry it does not recognise unread, and completes on its own outcomes", async () => {
+    const rec = recorder();
+    const recorded: RunSnapshot[] = [];
+    rec.ports.readRun = () => Promise.resolve(snapshot("partial", { published: { "1": 4, "3": 5 }, failures: [UNREAD] }));
+    rec.ports.recordRun = (_id, run) => { recorded.push(run); return Promise.resolve(); };
+    await runDailyIngestWith(rec.ports, plan("daily-ledger-unread"));
+    expect(recorded).toEqual([expect.objectContaining({ status: "complete", failures: [UNREAD] })]);
+  });
+
   it("a stale reclaim marks the run failed with its earlier entries and a reclaim entry naming no work", async () => {
     const rec = recorder();
-    const marked: (readonly RunFailure[])[] = [];
+    const marked: (readonly RunLedgerEntry[])[] = [];
     rec.ports.readRun = () => Promise.resolve(snapshot("running", { startedAtMs: DATA_EPOCH - 3_600_000, failures: [ENRICH_2] }));
     rec.ports.markRunFailed = (_id, failures) => { marked.push(failures); return Promise.resolve(); };
     await runDailyIngestWith(rec.ports, plan("daily-ledger-stale"));

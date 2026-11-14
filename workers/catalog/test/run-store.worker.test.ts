@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { beginRunRow, readRunRow, recordRunRow } from "../src/ingest/run-store";
+import { beginRunRow, markRunFailedRow, readRunRow, recordRunRow } from "../src/ingest/run-store";
 import type { RunSnapshot } from "../src/ingest/daily-run";
 import { recordingCatalogPrisma } from "./fakes/plan-inspection";
+import { UNRECOGNISED_LEDGER_ELEMENTS } from "./fixtures/unrecognised-ledger-elements";
 
 /**
- * Run reservation over `catalog_runs` (AC1), as the worker pool can see it.
+ * The run store over `catalog_runs`, as the worker pool can see it: the run
+ * reservation (AC1), and the failure ledger it reads back and writes again.
  *
  * The gate used to be one `INSERT … ON CONFLICT … DO UPDATE … WHERE`, and these
  * cases asserted on its rendered SQL. The Postgres renderer emits no conflict
@@ -15,6 +17,9 @@ import { recordingCatalogPrisma } from "./fakes/plan-inspection";
  * branch each row count takes; the racing behaviour is proved against real
  * Postgres in daily-run.integration.test.ts.
  */
+
+const ENRICH_7 = { bangumiId: "7", stage: "enrich", reason: "boom" } as const;
+const RECLAIM = { stage: "reclaim", reason: "stale-reclaimed" } as const;
 
 describe("Run reservation (AC1)", () => {
   it("acquires by reclaiming an existing, not-running row", async () => {
@@ -91,6 +96,32 @@ describe("Run ledger read-back", () => {
     const seam = recordingCatalogPrisma([runRow(null)]);
 
     await expect(readRunRow(seam.query, "daily-x")).resolves.toMatchObject({ failures: [] });
+  });
+
+  it.each(UNRECOGNISED_LEDGER_ELEMENTS)("carries $label unread, in its place in the ledger", async ({ element }) => {
+    const seam = recordingCatalogPrisma([runRow([ENRICH_7, element, RECLAIM])]);
+
+    const run = await readRunRow(seam.query, "daily-x");
+
+    expect(run?.failures).toEqual([ENRICH_7, { unrecognised: element }, RECLAIM]);
+  });
+});
+
+describe("Run ledger write-back", () => {
+  it.each(UNRECOGNISED_LEDGER_ELEMENTS)("records $label as the value it was read as", async ({ element }) => {
+    const seam = recordingCatalogPrisma();
+
+    await recordRunRow(seam.query, "daily-1", { ...snapshot(), failures: [ENRICH_7, { unrecognised: element }] });
+
+    expect(seam.params().map(tryParse)).toContainEqual([ENRICH_7, element]);
+  });
+
+  it.each(UNRECOGNISED_LEDGER_ELEMENTS)("marks a stale run failed with $label as the value it was read as", async ({ element }) => {
+    const seam = recordingCatalogPrisma();
+
+    await markRunFailedRow(seam.query, "daily-1", [{ unrecognised: element }, RECLAIM]);
+
+    expect(seam.params().map(tryParse)).toContainEqual([element, RECLAIM]);
   });
 });
 

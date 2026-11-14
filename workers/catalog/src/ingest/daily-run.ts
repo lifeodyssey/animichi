@@ -43,8 +43,20 @@ interface ReclaimFailure {
   reason: string;
 }
 
-/** One entry of a run's failure ledger, which a retry appends to and never replaces. */
+/** A failure this run protocol records: a work's, or a reclaim's. */
 export type RunFailure = WorkFailure | ReclaimFailure;
+
+/**
+ * A ledger element this code does not recognise: another version of the run
+ * store, or a hand edit, recorded it. A retry carries it forward unread, and
+ * only the run store writes it back, exactly as it read it.
+ */
+export interface UnrecognisedLedgerEntry {
+  readonly unrecognised: unknown;
+}
+
+/** One entry of a run's failure ledger, which a retry appends to and never replaces. */
+export type RunLedgerEntry = RunFailure | UnrecognisedLedgerEntry;
 
 /** The durable snapshot a run writes when it transitions. */
 export interface RunSnapshot {
@@ -53,10 +65,15 @@ export interface RunSnapshot {
   sources: Record<string, SourceOutcome>;
   budgetUsed: { workUsed: number; requestUsed: number; runtimeUsedMs: number };
   firstExhausted: string | null;
-  failures: RunFailure[];
+  failures: RunLedgerEntry[];
   published: Record<string, number>;
   /** When the run row was started (ms epoch); null when unknown. Drives stale reclaim. */
   startedAtMs: number | null;
+}
+
+/** One attempt's own snapshot: every failure in it is one this attempt recorded, so its status counts nothing carried. */
+interface AttemptSnapshot extends RunSnapshot {
+  failures: RunFailure[];
 }
 
 /** Non-source-code knobs for the run (all caller-supplied). */
@@ -96,7 +113,7 @@ export interface RunPorts {
   /** Bounded raw-history cleanup after the run (protects this run's evidence). */
   cleanup: (runId: string) => Promise<number>;
   /** Mark a stale run failed before a retry re-runs it, recording its ledger with the reclaim entry appended. */
-  markRunFailed: (runId: string, failures: readonly RunFailure[]) => Promise<void>;
+  markRunFailed: (runId: string, failures: readonly RunLedgerEntry[]) => Promise<void>;
 }
 
 /** Plan inputs for one run. */
@@ -126,7 +143,7 @@ export async function runDailyIngestWith(
 }
 
 /** Ingest the due works this run id has not published yet; the status counts this attempt alone. */
-async function runAttempt(ports: RunPorts, plan: RunPlan, published: ReadonlyMap<string, number>): Promise<RunSnapshot> {
+async function runAttempt(ports: RunPorts, plan: RunPlan, published: ReadonlyMap<string, number>): Promise<AttemptSnapshot> {
   const budget = new Budget(plan.policy.budget);
   const merged = mergeDiscovery(plan.knownIds, plan.discovery, plan.policy.newWorkCap);
   const due = selectDueWorks(plan.tiered, tiersFromConfig(plan.policy.tierIntervals), plan.epochMs, plan.policy.budget.workLimit);
@@ -144,8 +161,8 @@ async function runAttempt(ports: RunPorts, plan: RunPlan, published: ReadonlyMap
 async function recordAttempt(
   ports: RunPorts,
   runId: string,
-  snapshot: RunSnapshot,
-  carried: readonly RunFailure[],
+  snapshot: AttemptSnapshot,
+  carried: readonly RunLedgerEntry[],
 ): Promise<RunSnapshot> {
   const recorded: RunSnapshot = { ...snapshot, failures: [...carried, ...snapshot.failures] };
   await ports.cleanup(runId);
@@ -154,7 +171,7 @@ async function recordAttempt(
 }
 
 /** A zeroed snapshot for a fresh run, seeding any resumed publish versions. */
-function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, number> = emptyPublished()): RunSnapshot {
+function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, number> = emptyPublished()): AttemptSnapshot {
   return {
     status: "running",
     targets,
@@ -186,7 +203,7 @@ async function executeDue(
   ports: RunPorts,
   plan: RunPlan,
   due: readonly DueWork[],
-  snapshot: RunSnapshot,
+  snapshot: AttemptSnapshot,
   budget: Budget,
 ): Promise<void> {
   for (const work of due) {
@@ -202,7 +219,7 @@ async function executeDue(
 }
 /** Fold one work outcome into the snapshot ledger. */
 function applyOutcome(
-  snapshot: RunSnapshot,
+  snapshot: AttemptSnapshot,
   budget: Budget,
   bangumiId: string,
   outcome: RunWorkOutcome,
@@ -249,7 +266,7 @@ function markOther(ledger: Record<string, SourceOutcome>, source: RunSource, fie
 }
 
 /** The final run status from how many works succeeded vs failed. */
-function finalStatus(dueCount: number, snapshot: RunSnapshot): RunStatus {
+function finalStatus(dueCount: number, snapshot: AttemptSnapshot): RunStatus {
   const successCount = Object.keys(snapshot.published).length;
   if (dueCount === 0) return "complete";
   if (successCount === dueCount && snapshot.failures.length === 0) return "complete";

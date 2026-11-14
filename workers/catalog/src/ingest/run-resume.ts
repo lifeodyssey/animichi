@@ -5,7 +5,7 @@
  * published, carrying its failure ledger forward: a retry appends to that ledger
  * and never replaces it.
  */
-import type { RunFailure, RunPlan, RunSnapshot } from "./daily-run";
+import type { RunLedgerEntry, RunPlan, RunSnapshot } from "./daily-run";
 import type { DueWork } from "./tiers";
 
 /** An existing run's disposition for this attempt. */
@@ -53,7 +53,7 @@ export function pendingOf(due: readonly DueWork[], published: ReadonlyMap<string
  * reclaims a stale run. Marking the stale run failed writes this ledger, so the
  * reclaim is on the row even if this attempt never records.
  */
-export function carriedFailures(existing: RunSnapshot | null, kind: ResumePlan["kind"]): readonly RunFailure[] {
+export function carriedFailures(existing: RunSnapshot | null, kind: ResumePlan["kind"]): readonly RunLedgerEntry[] {
   const recorded = existing?.failures ?? [];
   if (kind !== "stale") return recorded;
   return [...recorded, { stage: "reclaim", reason: "stale-reclaimed" }];
