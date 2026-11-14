@@ -38,8 +38,11 @@ export interface SnapshotDeps {
   alerts?: SpotQualityAlerts;
 }
 
+/** A validator's verdict on a snapshot candidate; a rejection always says why. */
+export type ValidationVerdict = { valid: true } | { valid: false; reason: string };
+
 /** Validation port; injected so a forced failure is testable (AC3). */
-export type ValidatePort = (export_: CandidateExport) => Promise<{ valid: boolean; reason?: string }>;
+export type ValidatePort = (export_: CandidateExport) => Promise<ValidationVerdict>;
 
 /** Inputs for publishing a snapshot from one source run. */
 export interface PublishInput {
@@ -47,10 +50,15 @@ export interface PublishInput {
   createdAt: string;
 }
 
-/** The outcome of a publish attempt. */
+/**
+ * The outcome of a publish attempt: `invalid` carries the validator's reason,
+ * and `stagingFailed` the error an object-store step raised while staging and
+ * activating a candidate that passed validation.
+ */
 export type PublishResult =
   | { status: "published"; snapshot: SnapshotManifest }
-  | { status: "invalid"; reason: string };
+  | { status: "invalid"; reason: string }
+  | { status: "stagingFailed"; reason: string };
 
 function snapshotPrefix(snapshotId: string): string {
   return "snapshots/" + snapshotId;
@@ -70,7 +78,8 @@ export async function publishSnapshot(
 ): Promise<PublishResult> {
   const snapshotId = snapshotIdFor(input.sourceRunId);
   const candidate = await gatedCandidate(deps, snapshotId);
-  if (!(await validate(candidate)).valid) return invalid();
+  const verdict = await validate(candidate);
+  if (!verdict.valid) return invalid(verdict.reason);
   return activate(deps, candidate, snapshotId, input);
 }
 
@@ -105,9 +114,9 @@ function parsePublishedPoints(json: string): readonly { bangumiId: string | null
   return JSON.parse(json) as readonly { bangumiId: string | null }[];
 }
 
-/** Validation failure reports invalidity and deletes NOTHING (nothing is staged yet). */
-function invalid(): PublishResult {
-  return { status: "invalid", reason: "candidate validation failed" };
+/** Validation failure reports the validator's own reason and deletes NOTHING (nothing is staged yet). */
+function invalid(reason: string): PublishResult {
+  return { status: "invalid", reason };
 }
 
 /** Publish the manifest and atomically advance the current-snapshot pointer. */
@@ -128,14 +137,22 @@ async function activate(
     staged = await stageObjects(deps.store, candidate);
     return await flipPointer(deps, manifest, snapshotId);
   } catch (error) {
-    console.error(`[snapshot] staging failed for ${snapshotId}: ${String(error).slice(0, 200)}`);
-    await deleteKeys(deps.store, staged);
-    return invalid();
+    return stagingFailed(deps.store, snapshotId, staged, error);
   }
 }
 
+/** A staging or activation step threw: log it, remove what this attempt staged, and report its error. */
+async function stagingFailed(
+  store: ObjectStore, snapshotId: string, staged: readonly string[], error: unknown,
+): Promise<PublishResult> {
+  const reason = String(error).slice(0, 200);
+  console.error(`[snapshot] staging failed for ${snapshotId}: ${reason}`);
+  await deleteKeys(store, staged);
+  return { status: "stagingFailed", reason };
+}
+
 /** The default candidate validation: allowlist + well-formed hashes (AC1/AC2). */
-export function validateExport(export_: CandidateExport): Promise<{ valid: boolean; reason?: string }> {
+export function validateExport(export_: CandidateExport): Promise<ValidationVerdict> {
   for (const table of export_.exportedTables) {
     if (!(EXPORTED_TABLES as readonly string[]).includes(table)) {
       return Promise.resolve({ valid: false, reason: "exported non-public table: " + table });

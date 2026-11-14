@@ -135,7 +135,7 @@ databaseDescribe("import atomic switch (AC4)", () => {
     expect(points[0]).toEqual({ latitude: 36.1, longitude: 139.6, episode: 3, time_seconds: 42 });
   });
 
-  it("an invalid import performs ZERO activation", async () => {
+  it("an invalid import performs ZERO activation and returns its validator's reason", async () => {
     const source = await stagedImportSource();
     const before = await idsOf("bangumi");
     const manifest = source.manifest();
@@ -146,7 +146,9 @@ databaseDescribe("import atomic switch (AC4)", () => {
       });
     }
 
-    expect((await importSnapshot(source.source, query)).status).toBe("invalid");
+    expect(await importSnapshot(source.source, query)).toEqual({
+      status: "invalid", reason: "snapshot hash mismatch: snapshots/import/data/works.json",
+    });
 
     expect(await idsOf("bangumi")).toEqual(before);
   });

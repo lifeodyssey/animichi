@@ -19,6 +19,7 @@ import {
 } from "../ingest/daily-discovery";
 import { fetchCurrentSeason } from "../ingest/season";
 import { PENDING_DRAIN_BATCH_CAP, TTL_BATCH_CAP } from "../cron-config";
+import type { IngestResult } from "../ingest/ingest-bangumi";
 import { SEED_BANGUMI, SEED_BANGUMI_IDS } from "../ingest/seed-works";
 import type { SourceConfig } from "../ingest/sources";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
@@ -85,15 +86,17 @@ export async function runDailyJob(
 
 /** Sequential batch bounded by the shared work/request/runtime ledger. */
 async function ingestBatch(plan: IngestBatchPlan): Promise<CronJobResult> {
-  let ingested = 0;
-  let attempted = 0;
+  const summary = { attempted: 0, ingested: 0, skipped: 0, failed: 0 };
   for (const bangumiId of plan.bangumiIds) {
     if (!reserveWork(plan.budget)) break;
-    attempted++;
-    if (await ingestOne(plan.query, plan.dependencies, bangumiId, plan.egressSigningKey)) ingested++;
+    summary.attempted++;
+    summary[await ingestOne(plan.query, plan.dependencies, bangumiId, plan.egressSigningKey)]++;
   }
-  return { attempted, ingested, skipped: attempted - ingested };
+  return summary;
 }
+
+/** The summary count one attempted work lands in. */
+type WorkCount = "ingested" | "skipped" | "failed";
 
 function reserveWork(budget: Budget | undefined): boolean {
   if (!budget) return true;
@@ -102,18 +105,36 @@ function reserveWork(budget: Budget | undefined): boolean {
   return true;
 }
 
-/** One work's ingest, throwing-free — a failure counts as skipped. */
+/** One work's ingest, throwing-free — a throw is logged and counted as failed. */
 async function ingestOne(
   query: CatalogPrisma,
   dependencies: CronDependencies,
   bangumiId: string,
   egressSigningKey?: string,
-): Promise<boolean> {
+): Promise<WorkCount> {
   try {
-    return (await dependencies.ingestBangumi(query, bangumiId, egressSigningKey)).status === "ingested";
+    return countOf(await dependencies.ingestBangumi(query, bangumiId, egressSigningKey));
   } catch (err) {
     console.error("[cron] ingest failed for work " + bangumiId + ": " + String(err));
-    return false;
+    return "failed";
+  }
+}
+
+/**
+ * Where an ingest result lands: `in_progress` (another invocation holds the
+ * work, or its last failure is still parked) and `empty` (upstream has no
+ * points) leave nothing for this pass to ingest, so they are skipped; only a
+ * `failed` ingest is a failure.
+ */
+function countOf(result: IngestResult): WorkCount {
+  switch (result.status) {
+    case "ingested":
+      return "ingested";
+    case "in_progress":
+    case "empty":
+      return "skipped";
+    case "failed":
+      return "failed";
   }
 }
 

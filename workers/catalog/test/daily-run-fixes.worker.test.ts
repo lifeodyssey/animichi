@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunSnapshot, type RunStatus, type RunWorkOutcome } from "../src/ingest/daily-run";
+import {
+  runDailyIngestWith, type RunFailure, type RunPlan, type RunPolicy, type RunSnapshot, type RunStatus, type RunWorkOutcome,
+} from "../src/ingest/daily-run";
 import { canSpendWork, spendRequests, spendWork } from "../src/ingest/budgets";
 import type { RunPorts } from "../src/ingest/daily-run";
 
@@ -105,14 +107,38 @@ describe("Fetch-failure per-source tally (AC1)", () => {
   });
 });
 
-function snapshot(status: RunStatus, overrides: Partial<Pick<RunSnapshot, "startedAtMs" | "published">> = {}): RunSnapshot {
+const ENRICH_2: RunFailure = { bangumiId: "2", stage: "enrich", reason: "boom" };
+
+describe("Failure ledger across attempts", () => {
+  it("a resumed run records an earlier attempt's failure and still completes", async () => {
+    const rec = recorder();
+    const recorded: RunSnapshot[] = [];
+    rec.ports.readRun = () => Promise.resolve(snapshot("partial", { published: { "1": 4, "3": 5 }, failures: [ENRICH_2] }));
+    rec.ports.recordRun = (_id, run) => { recorded.push(run); return Promise.resolve(); };
+    await runDailyIngestWith(rec.ports, plan("daily-ledger-resume"));
+    expect(recorded).toEqual([expect.objectContaining({ status: "complete", failures: [ENRICH_2] })]);
+  });
+
+  it("a stale reclaim marks the run failed with its earlier entries and a reclaim entry naming no work", async () => {
+    const rec = recorder();
+    const marked: (readonly RunFailure[])[] = [];
+    rec.ports.readRun = () => Promise.resolve(snapshot("running", { startedAtMs: DATA_EPOCH - 3_600_000, failures: [ENRICH_2] }));
+    rec.ports.markRunFailed = (_id, failures) => { marked.push(failures); return Promise.resolve(); };
+    await runDailyIngestWith(rec.ports, plan("daily-ledger-stale"));
+    expect(marked).toEqual([[ENRICH_2, { stage: "reclaim", reason: "stale-reclaimed" }]]);
+  });
+});
+
+type ExistingRun = Partial<Pick<RunSnapshot, "startedAtMs" | "published" | "failures">>;
+
+function snapshot(status: RunStatus, overrides: ExistingRun = {}): RunSnapshot {
   return {
     status,
     targets: null,
     sources: { bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } },
     budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
     firstExhausted: null,
-    failures: [],
+    failures: overrides.failures ?? [],
     published: overrides.published ?? {},
     startedAtMs: overrides.startedAtMs ?? null,
   };

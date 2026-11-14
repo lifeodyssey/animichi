@@ -50,6 +50,6 @@ export function catalogPorts(query: CatalogPrisma, runId: string, keepHistory: n
     recordRun: (id, snapshot) => recordRunRow(query, id, snapshot),
     ingestWork: (bangumiId, tier, budget) => ingestRunWork(query, bangumiId, runId, budget, egressSigningKey),
     cleanup: (id) => cleanupRawHistory(query, id, keepHistory),
-    markRunFailed: (id, reason) => markRunFailedRow(query, id, reason),
+    markRunFailed: (id, failures) => markRunFailedRow(query, id, failures),
   };
 }

@@ -19,12 +19,13 @@ import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow } from "../db/plans";
 import { asJsonValue } from "../lib/json";
 import { isUniqueViolation } from "../lib/pg-error";
-import type { RunSnapshot } from "./daily-run";
+import type { RunFailure, RunSnapshot } from "./daily-run";
 
 interface RunRow extends Record<string, unknown> {
   status: string;
   started_at: string | null;
   published_versions: unknown;
+  failures: unknown;
 }
 
 /** Read the recorded run snapshot, or null when no run exists for the id. */
@@ -34,10 +35,10 @@ export async function readRunRow(query: CatalogPrisma, runId: string): Promise<R
   return first === undefined ? null : snapshotOf(first);
 }
 
-/** The SELECT of status + reclaim signals for one run id. */
+/** The SELECT of status, reclaim signals and the failure ledger for one run id. */
 function readPlan(query: CatalogPrisma, runId: string): SqlOrmPlan<RunRow> {
   return query.builder.public.catalog_runs
-    .select("status", "started_at", "published_versions")
+    .select("status", "started_at", "published_versions", "failures")
     .where((fields, match) => match.eq(fields.run_id, runId))
     .build();
 }
@@ -119,18 +120,15 @@ function isTerminal(status: RunSnapshot["status"]): boolean {
   return status !== "running" && status !== "pending";
 }
 
-/** Mark a run failed with a reason (stale reclaim before a retry re-runs it). */
-export async function markRunFailedRow(query: CatalogPrisma, runId: string, reason: string): Promise<void> {
-  await query.executor.query(failPlan(query, runId, reason));
+/** Mark a stale run failed before a retry re-runs it, recording the ledger the protocol carries. */
+export async function markRunFailedRow(query: CatalogPrisma, runId: string, failures: readonly RunFailure[]): Promise<void> {
+  await query.executor.query(failPlan(query, runId, failures));
 }
 
-/** UPDATE the run row to failed with a reclaim marker and a finished timestamp. */
-function failPlan(query: CatalogPrisma, runId: string, reason: string): SqlOrmPlan {
+/** UPDATE the run row to failed with its failure ledger and a finished timestamp. */
+function failPlan(query: CatalogPrisma, runId: string, failures: readonly RunFailure[]): SqlOrmPlan {
   const update = query.builder.public.catalog_runs
-    .update({
-      status: "failed",
-      failures: asJsonValue([{ bangumiId: runId, stage: "reclaim", reason }]),
-    })
+    .update({ status: "failed", failures: asJsonValue(failures) })
     .where((fields, match) => match.eq(fields.run_id, runId))
     .build();
   return atServerNow(update, ["finished_at"]);
@@ -145,10 +143,32 @@ function snapshotOf(row: RunRow): RunSnapshot | null {
     sources: {},
     budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
     firstExhausted: null,
-    failures: [],
+    failures: parseFailures(row.failures),
     published: parsePublished(row.published_versions),
     startedAtMs: parseStartedAt(row.started_at),
   };
+}
+
+/** Read the recorded `failures` JSONB back as the run's ledger; a NULL column is an empty one. */
+function parseFailures(value: unknown): RunFailure[] {
+  return Array.isArray(value) ? value.flatMap(ledgerEntry) : [];
+}
+
+/**
+ * One recorded ledger element, or none when it is not a failure this store
+ * writes. A reclaim entry is read without the run id an older store wrote into
+ * its `bangumiId`, so the next write records the reclaim without it.
+ */
+function ledgerEntry(value: unknown): RunFailure[] {
+  if (!isRecord(value) || typeof value.reason !== "string") return [];
+  if (value.stage === "reclaim") return [{ stage: "reclaim", reason: value.reason }];
+  if (!isWorkStage(value.stage) || typeof value.bangumiId !== "string") return [];
+  return [{ bangumiId: value.bangumiId, stage: value.stage, reason: value.reason }];
+}
+
+/** The stages a work's own failure is recorded at. */
+function isWorkStage(value: unknown): value is "fetch" | "enrich" | "quality" {
+  return value === "fetch" || value === "enrich" || value === "quality";
 }
 
 /** Read the recorded `published_versions` JSONB as a version map, else empty. */

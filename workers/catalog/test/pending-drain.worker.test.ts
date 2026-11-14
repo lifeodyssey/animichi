@@ -84,7 +84,7 @@ describe("scheduled pending drain", () => {
 
     const result = await runPendingDrainJob(query, deps, budget);
 
-    expect(result).toEqual({ attempted: 1, ingested: 1, skipped: 0 });
+    expect(result).toEqual({ attempted: 1, ingested: 1, skipped: 0, failed: 0 });
     expect(ingestBangumi).toHaveBeenCalledTimes(1);
   });
 });

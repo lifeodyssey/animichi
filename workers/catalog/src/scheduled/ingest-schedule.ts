@@ -42,12 +42,22 @@ export type ScheduledHandler = (
   env: ScheduledEnvironment,
 ) => Promise<void>;
 
-/** Outcome of one cron pass; `skipped` covers non-ingested and errored works. */
+/**
+ * Outcome of one cron pass. Every attempted work lands in exactly one count, so
+ * `ingested + skipped + failed = attempted`: `skipped` is a work with nothing
+ * for this pass to ingest (another invocation holds it, its last failure is
+ * still parked, or upstream has no points for it), and `failed` is an ingest
+ * that failed or threw.
+ */
 export interface CronJobResult {
   readonly attempted: number;
   readonly ingested: number;
   readonly skipped: number;
+  readonly failed: number;
 }
+
+/** The summary of a pass that ran no ingest batch: denied, or a daily publish or import. */
+const NO_BATCH: CronJobResult = { attempted: 0, ingested: 0, skipped: 0, failed: 0 };
 
 /**
  * Injectable seams for the cron jobs; tests substitute every one.
@@ -96,7 +106,7 @@ export function createScheduledHandler(
     const kind = cronKind(controller.cron);
     if (kind === "unknown") throw new Error("Unknown catalog cron: " + controller.cron);
     if (guardCron(kind, runtimeEnvironment(env.ENVIRONMENT)).denied) {
-      logCronCompletion(kind, { attempted: 0, ingested: 0, skipped: 0 });
+      logCronCompletion(kind, NO_BATCH);
       return;
     }
     const store = dependencies.snapshotStore(env.SNAPSHOT_BUCKET);
@@ -136,7 +146,8 @@ interface CronContext {
 /** Every cron run leaves an "it finished, here's what it did" signal. */
 function logCronCompletion(kind: CronKind, result: CronJobResult): void {
   console.log(
-    `${kind} cron: attempted=${String(result.attempted)} ingested=${String(result.ingested)} skipped=${String(result.skipped)}`,
+    `${kind} cron: attempted=${String(result.attempted)} ingested=${String(result.ingested)}`
+      + ` skipped=${String(result.skipped)} failed=${String(result.failed)}`,
   );
 }
 
@@ -171,11 +182,11 @@ async function runCronKind(
 ): Promise<CronJobResult> {
   if (kind === "dailyImport") {
     await runDailyImport(query, dependencies, context.importSource);
-    return { attempted: 0, ingested: 0, skipped: 0 };
+    return NO_BATCH;
   }
   if (kind === "dailyDiscover") {
     await publishDailyDiscover(query, dependencies, context);
-    return { attempted: 0, ingested: 0, skipped: 0 };
+    return NO_BATCH;
   }
   return runIngestKind(kind, query, dependencies, context.egressSigningKey);
 }
@@ -222,6 +233,7 @@ function combineResults(left: CronJobResult, right: CronJobResult): CronJobResul
     attempted: left.attempted + right.attempted,
     ingested: left.ingested + right.ingested,
     skipped: left.skipped + right.skipped,
+    failed: left.failed + right.failed,
   };
 }
 

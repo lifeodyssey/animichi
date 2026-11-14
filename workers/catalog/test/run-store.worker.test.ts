@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beginRunRow, recordRunRow } from "../src/ingest/run-store";
+import { beginRunRow, readRunRow, recordRunRow } from "../src/ingest/run-store";
 import type { RunSnapshot } from "../src/ingest/daily-run";
 import { recordingCatalogPrisma } from "./fakes/plan-inspection";
 
@@ -71,6 +71,33 @@ describe("Run reservation (AC1)", () => {
     expect(parsed).toContainEqual({});
   });
 });
+
+describe("Run ledger read-back", () => {
+  it("reads the recorded failures back, without the run id a legacy reclaim entry carried", async () => {
+    const seam = recordingCatalogPrisma([runRow([
+      { bangumiId: "7", stage: "enrich", reason: "boom" },
+      { bangumiId: "daily-x", stage: "reclaim", reason: "stale-reclaimed" },
+    ])]);
+
+    const run = await readRunRow(seam.query, "daily-x");
+
+    expect(run?.failures).toEqual([
+      { bangumiId: "7", stage: "enrich", reason: "boom" },
+      { stage: "reclaim", reason: "stale-reclaimed" },
+    ]);
+  });
+
+  it("reads a run that never recorded failures as an empty ledger", async () => {
+    const seam = recordingCatalogPrisma([runRow(null)]);
+
+    await expect(readRunRow(seam.query, "daily-x")).resolves.toMatchObject({ failures: [] });
+  });
+});
+
+/** A `catalog_runs` row as the read gate selects it. */
+function runRow(failures: unknown): Record<string, unknown> {
+  return { status: "partial", started_at: null, published_versions: {}, failures };
+}
 
 /** The driver failure a lost INSERT race reads as. */
 function uniqueViolation(): Error {
