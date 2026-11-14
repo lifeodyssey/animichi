@@ -96,7 +96,10 @@ Root guide: `../../AGENTS.md`.
 
 ## Test pools
 
-- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
+- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed, and
+  so is its network: the pool refuses every `fetch` a test did not stub, answering 500 with a body
+  that names the method and URL and logging the same line, because on 2026-11-14 a test reached
+  api.bgm.tv before it stubbed `fetch`. Stub `fetch` in the test; never widen the guard.
 - `*.node.test.ts` runs in the plain Node pool via `vitest.node.config.ts`: filesystem, a child
   process, a Miniflare bucket, a fake seam — everything workerd cannot host that needs **no**
   database. It boots no container and `pnpm test` chains it after `test:worker` (#1771).

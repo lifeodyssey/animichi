@@ -4,7 +4,7 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
 /**
- * Worker test config (vitest 4 + vitest-pool-workers 0.16). The pool is applied
+ * Worker test config (vitest 4 + vitest-pool-workers 0.22). The pool is applied
  * as a plugin via `cloudflareTest(...)` (the `defineWorkersConfig` /
  * `poolOptions.workers` API was removed in the v3→v4 migration).
  *
@@ -23,10 +23,29 @@ import { defineConfig } from "vitest/config";
  * `node:url`'s (the note in `@animichi/test-postgres`'s `prisma-chain.ts`). */
 const PG_POOL_STUB = join(dirname(fileURLToPath(import.meta.url)), "test/fakes/pg-pool-stub.ts");
 
+/**
+ * Where every outbound fetch a worker test did not stub ends up, instead of the
+ * network: root `AGENTS.md` forbids a test to request a third-party upstream,
+ * and on 2026-11-14 a worker test called the global `fetch` before it stubbed
+ * it (one GET to api.bgm.tv, up to three to the deployed egress service).
+ * Miniflare's `outboundService` receives the Worker's global `fetch()`; given a
+ * function, it calls it here in Node with the request's original method and
+ * URL. This sends nothing: it logs the request and throws, and Miniflare
+ * answers the Worker's fetch with a 500 whose body is the error. A raw
+ * `connect()` socket is not covered — Miniflare passes it through — and nothing
+ * in this pool opens one (`pg` is the stub below).
+ */
+function refuseOutboundRequest(method: string, url: string): never {
+  const refusal = `worker test pool refused an outbound request: ${method} ${url} (stub fetch in the test)`;
+  console.error(refusal);
+  throw new Error(refusal);
+}
+
 export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.toml" },
+      miniflare: { outboundService: (request) => refuseOutboundRequest(request.method, request.url) },
     }),
   ],
   // `pg` is CommonJS and the pool runs workerd with the CJS→ESM shim disabled,
