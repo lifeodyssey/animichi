@@ -15,7 +15,11 @@ export type EgressRefusalReason =
   | "method-not-allowed"
   | "configuration"
   | "upstream-timeout"
-  /** No marker at all: the answer did not come from the egress service. */
+  /**
+   * No marker at all: the answer came from something in front of the egress
+   * service, or is the service's own unmarked 500, its last resort for a
+   * failure it did not expect.
+   */
   | "unmarked";
 
 export class EgressRefusedError extends Error {

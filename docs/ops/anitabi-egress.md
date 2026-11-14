@@ -155,6 +155,24 @@ believe we had been blocked again and spend the relationship asking about it. Th
 its own refusals distinguishably, and `workers/catalog` maps the three onto distinct failure
 codes. Their retry behaviour differs too — the ceiling clears within the hour, a 403 does not.
 
+The service's own `upstream-timeout` (504) is the relay failing to deliver the upstream's answer: none
+within ten seconds, a broken connection or body, or a redirect. Two answers that did arrive are refused
+the same way, and the body's `detail` says which, for the reason the ceiling's detail travels there:
+`upstream-body-over-limit` (the body passed 8 MiB, and reading stopped there) or
+`upstream-status-not-relayable` (a status a response cannot carry). `workers/catalog` records the
+reason, not the body, so the detail is for whoever reads the answer itself.
+
+One answer carries no marker at all: a plain 500, which the service gives a request that failed
+inside it in a way no refusal reason describes. The caller reads it as `unmarked`, so the cause is
+on `fly logs` instead, as one line per such request:
+
+```json
+{"event":"request-failure","error":"TypeError","message":"…","stack":"…"}
+```
+
+`error`, `message` and `stack` are the error's own name, message and stack, each capped at 500
+characters. The line carries nothing of the request: no path, no query, no header.
+
 ## Operating it
 
 Every command needs `fly auth login` first. Read-only commands are safe to run any time.
