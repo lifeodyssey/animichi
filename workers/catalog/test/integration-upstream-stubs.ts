@@ -20,15 +20,12 @@ function isEgress(url: string): boolean {
 }
 
 /**
- * Route every upstream call to a canned response. The neon serverless driver
- * rides global fetch too (Phase B: the DB channel is HTTP), so its `/sql`
- * traffic passes through to the real fetch, init included.
+ * Route every upstream call to a canned response. The database is not one of
+ * them: `pg` speaks to it over its own socket, never through `fetch`.
  */
 export function stubFetch(route: (url: string) => Response): void {
-  const realFetch = globalThis.fetch;
-  const stub = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+  const stub = vi.fn((input: string | URL | Request) => {
     const url = input instanceof Request ? input.url : input.toString();
-    if (url.includes("/sql")) return realFetch(input, init);
     return Promise.resolve(route(url));
   });
   vi.stubGlobal("fetch", stub);

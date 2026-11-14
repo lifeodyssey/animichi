@@ -14,6 +14,10 @@ import { defineConfig } from "vitest/config";
  * No `globalSetup`, and no `pg` alias: `test/integration-db.node.test.ts` asserts
  * how the real driver fails, so it needs the real `pg` — just never a live one.
  *
+ * `test/setup/loopback-only-fetch.ts` lets the global `fetch` reach loopback
+ * only, refusing every other host as the worker pool's outbound guard does: no
+ * test here may fetch from a real host (root `AGENTS.md`).
+ *
  * `test/repo-config/integration-lane-selection.test.rb` holds the split: a file
  * the container lane selects must reach for the database.
  */
@@ -21,6 +25,7 @@ export default defineConfig({
   test: {
     include: ["test/**/*.node.test.ts"],
     environment: "node",
+    setupFiles: ["./test/setup/loopback-only-fetch.ts"],
     // `snapshot-r2-adapter` boots Miniflare twice; its workerd start is the same
     // scheduling cost the worker pool raised its own budget for.
     testTimeout: 20_000,
