@@ -34,7 +34,7 @@ disposable container has no Pulumi to create them (#1625).
 
 | Export | Is |
 |---|---|
-| `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783) |
+| `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn, networkAddress }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783). `networkAddress` is the server's IP on its Docker network, read off the started container, for a second container to dial at port 5432 |
 | `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clone from the migrated template (#1769) → `{ dsn, stop }`, for an arm that reads the data plane's schema |
 | `createMigratedDatabase(adminDsn, name)` | clone `name` from the container's one Prisma-migrated template; the seed applies the chain once per identity and holds the cluster turn, the clone does not |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |

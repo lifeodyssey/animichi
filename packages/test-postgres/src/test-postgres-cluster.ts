@@ -42,6 +42,11 @@ export interface TestPostgresClusterRequest {
 export interface TestPostgresCluster {
   /** The image's default database: where a suite creates and drops its own. */
   readonly adminDsn: string;
+  /** The server's IP address on its Docker network, read off the container
+   * testcontainers started: what a container beside it dials, at the server's
+   * own port 5432. `adminDsn`'s host and mapped port reach the server from this
+   * process only. */
+  readonly networkAddress: string;
 }
 
 const sleep: Pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -84,6 +89,15 @@ function bootContainer(deadline: SetupDeadline, shared: boolean): Promise<Starte
     .withWaitStrategy(acceptsSessionsWait())
     .withStartupTimeout(deadline.remainingMs());
   return (shared ? boot.withReuse() : boot).start();
+}
+
+/** The container's address on the first Docker network it joined: the default
+ * bridge for a container started without one, where its siblings reach it by
+ * IP, since that network resolves no container names. */
+function networkAddressOf(container: StartedTestContainer): string {
+  const [network] = container.getNetworkNames();
+  if (network === undefined) throw new Error("the test Postgres container joined no Docker network");
+  return container.getIpAddress(network);
 }
 
 /** The admin database the image pre-initialises — never a migration target. */
@@ -143,15 +157,16 @@ export async function startOwnedPostgresCluster(request: TestPostgresClusterRequ
   } catch (error) {
     return stopAfterFailedStart(container, error);
   }
-  return { adminDsn, stop: async () => { await container.stop(); } };
+  return { adminDsn, networkAddress: networkAddressOf(container), stop: async () => { await container.stop(); } };
 }
 
 /** The cluster on a deadline the caller may go on spending (`startTestPostgres`). */
 export async function openCluster(deadline: SetupDeadline): Promise<TestPostgresCluster> {
-  const admin = adminDsnOf(await bootContainer(deadline, true));
+  const container = await bootContainer(deadline, true);
+  const admin = adminDsnOf(container);
   await awaitSessions(admin, deadline);
   await provisionServiceRoles(admin);
-  return { adminDsn: admin };
+  return { adminDsn: admin, networkAddress: networkAddressOf(container) };
 }
 
 /** Boot or reuse the shared server and provision its service roles — no database, no chain. */
