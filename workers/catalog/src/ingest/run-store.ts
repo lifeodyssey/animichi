@@ -135,7 +135,12 @@ function failPlan(query: CatalogPrisma, runId: string, failures: readonly RunLed
   return atServerNow(update, ["finished_at"]);
 }
 
-/** The ledger as the `failures` column records it: an unrecognised element goes back exactly as it was read. */
+/**
+ * The ledger as the `failures` column records it: an unrecognised element goes
+ * back as the value it was read as. The column is jsonb, so that value keeps no
+ * key order or whitespace, and its numbers pass through JavaScript: an integer
+ * above 2^53, a `-0` or a `1.0` may not come back as it was written.
+ */
 function recordedLedger(entries: readonly RunLedgerEntry[]): JsonValue {
   return asJsonValue(entries.map((entry) => ("unrecognised" in entry ? entry.unrecognised : entry)));
 }
@@ -164,7 +169,8 @@ function parseFailures(value: unknown): RunLedgerEntry[] {
  * One recorded ledger element. A failure in the shape this store writes is read
  * as one, and a reclaim entry is read without the run id an older store wrote
  * into its `bangumiId`, so the next write records the reclaim without it. Any
- * other element is carried unread, to be written back exactly as it was read.
+ * other element is carried unread, to be written back as the value it was read
+ * as ({@link recordedLedger} says what that value keeps).
  */
 function ledgerEntry(value: unknown): RunLedgerEntry {
   return recognisedFailure(value) ?? { unrecognised: value };

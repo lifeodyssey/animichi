@@ -49,7 +49,8 @@ export type RunFailure = WorkFailure | ReclaimFailure;
 /**
  * A ledger element this code does not recognise: another version of the run
  * store, or a hand edit, recorded it. A retry carries it forward unread, and
- * only the run store writes it back, exactly as it read it.
+ * only the run store writes it back, as the value it read (what that value
+ * keeps: `recordedLedger` in `run-store.ts`).
  */
 export interface UnrecognisedLedgerEntry {
   readonly unrecognised: unknown;

@@ -7,8 +7,9 @@ import { databaseDescribe, openPlaneSeams, truncateCatalogPool, type PlaneSeams 
 /**
  * The run store (`src/ingest/run-store.ts`) against the committed Prisma chain's
  * schema: a retried daily run writes back every element of the failure ledger
- * that the store does not recognise, exactly as it read it (compared as jsonb
- * values, which keep no key order or whitespace). Both ledger writes are
+ * that the store does not recognise as the value it read (compared as jsonb
+ * values, which keep no key order or whitespace; the fixtures hold no number a
+ * JavaScript round trip would change). Both ledger writes are
  * covered — the resumed attempt's record, and the mark a stale reclaim leaves
  * when its attempt dies before it records — and a carried element never holds
  * the run's status back.
@@ -72,7 +73,7 @@ async function recordedRun(runId: string): Promise<RecordedRun | undefined> {
 }
 
 databaseDescribe("A retry over a ledger element the store does not recognise", () => {
-  it.each(UNRECOGNISED_LEDGER_ELEMENTS)("a resumed run writes back $label as it read it, and completes", async ({ key, element }) => {
+  it.each(UNRECOGNISED_LEDGER_ELEMENTS)("a resumed run writes back $label as the value it read, and completes", async ({ key, element }) => {
     await earlierAttempt(`store-resume-${key}`, "partial", [element]);
 
     await retry(`store-resume-${key}`, INGESTED);

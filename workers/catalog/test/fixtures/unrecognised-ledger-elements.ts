@@ -1,8 +1,9 @@
 /**
  * Elements of a run's failure ledger (`catalog_runs.failures`) that the run
  * store does not write, as another version of the store or a hand edit could
- * leave them. The store must carry each one through a retry exactly as it was
- * recorded.
+ * leave them. The store must carry each one through a retry as the value it
+ * was recorded as. None holds a number a JavaScript round trip would change,
+ * so each comes back equal to what was recorded.
  */
 export interface UnrecognisedLedgerElement {
   /** What keeps the store from recognising the element. */
