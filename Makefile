@@ -12,8 +12,8 @@ help:
 	@echo "Animichi - Available commands:"
 	@echo ""
 	@echo "Development:"
-	@echo "  make dev-local   Start the web app"
-	@echo "  make dev-stop    Stop all local dev services"
+	@echo "  make dev-local   Start the web app (refuses a port another program holds)"
+	@echo "  make dev-stop    Stop the web app this checkout's dev-local started"
 	@echo "  make local-login Open the Neon Auth magic link in your browser (AUTH-2 #950)"
 	@echo ""
 	@echo "Code Quality:"
@@ -86,13 +86,17 @@ seed-gazetteer:
 
 # ── Local Dev (one-command startup) ──────────────────────────
 
+# scripts/web-dev-server.sh signals only the server it started. Its pid file sits in this
+# checkout, so `make dev-stop` ends the server this checkout started and never another
+# worktree's; a port another program holds stops `make dev-local` with an error instead.
+WEB_DEV_PID_FILE := $(CURDIR)/.local/animichi-web.pid
+
 dev-local:
 	@echo "=== Animichi Local Dev ==="
-	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
 	@# The web app on :3000 (matching config.toml site_url). Login is Neon Auth
 	@# (AUTH-2 #950); most of the Playwright suite stubs every transport, except
 	@# e2e/web-neon-login.spec.ts, which drives the real Neon Auth origin.
-	@pnpm --filter web dev > /tmp/animichi-web.log 2>&1 & echo $$! > /tmp/animichi-web.pid
+	@bash scripts/web-dev-server.sh start 3000 "$(WEB_DEV_PID_FILE)" /tmp/animichi-web.log
 	@sleep 3
 	@echo "✓ Web app starting on :3000"
 	@echo ""
@@ -103,8 +107,7 @@ dev-local:
 
 dev-stop:
 	@echo "Stopping local dev services..."
-	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
-	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
+	@bash scripts/web-dev-server.sh stop "$(WEB_DEV_PID_FILE)"
 	@echo "Done."
 
 # ── E2E Testing ──────────────────────────────────────────────

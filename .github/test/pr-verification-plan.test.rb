@@ -39,7 +39,7 @@ class PrVerificationPlanTest < Minitest::Test
     "foundation" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".pulumi.version",
                      "infra/database-access/**", ".github/scripts/release/**"],
     "delivery" => [".github/lib/**", ".github/scripts/**", ".github/test/delivery/**",
-                   "scripts/delivery/**", "scripts/local-gates/**"]
+                   "scripts/*", "scripts/delivery/**", "scripts/local-gates/**"]
   }.freeze
   REVIEWED_MATRIX_EXCLUSIONS = ["animichi-cloudflare-worker", "animichi-e2e"].freeze
 
