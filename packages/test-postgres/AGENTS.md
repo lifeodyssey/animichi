@@ -18,7 +18,7 @@ disposable container has no Pulumi to create them (#1625).
 - `pnpm run test` — `node --test` over `test/*.test.ts` (Node's native TS type stripping; no bundler,
   no Docker, no clock).
 - `pnpm run test:integration` — `node --test` over `test/integration/*.test.ts`: the shared
-  container's own contracts, plus the two unfinished-seed cases, which each boot a container of
+  container's own contracts, plus the three unfinished-seed cases, which each boot a container of
   their own (`startOwnedPostgresCluster`) so the template they leave unprotected is never the
   shared one's. This one needs Docker and the local image.
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
@@ -177,10 +177,13 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   the database, applies the chain and protects it last (`ALLOW_CONNECTIONS false`, then
   `IS_TEMPLATE true`), so existence is also true of a template still being migrated, or left half
   done by a seed that died — and treating existence as readiness handed out clones of exactly
-  that. A caller that finds it unprotected waits for the cluster turn and checks again there; a
-  template still unprotected under the turn has no live seed, so it is dropped and seeded again.
-  `test/integration/migrated-template-unfinished-seed.test.ts` reproduces both states on a
-  container of its own, never on the shared one's template.
+  that. Half protected is unprotected too: a seed that died between those two statements leaves a
+  migrated template that refuses connections but is not marked as one. A caller that finds it
+  unprotected waits for the cluster turn and checks again there; a template still unprotected
+  under the turn has no live seed, so it is dropped and seeded again.
+  `test/integration/migrated-template-unfinished-seed.test.ts` reproduces each of those states —
+  a seed still running, one that died before protecting, one that died between the two statements
+  — on a container of its own, never on the shared one's template.
 - **Ask for the cluster unless a test reads the schema `startTestPostgres` builds.** An arm that
   only creates databases of its own paid a whole chain apply (~3.5 s locally) on a database nothing
   read, and queued on the turn for it (#1783). The cluster hands back no `dsn`, so a caller that
