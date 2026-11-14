@@ -2,7 +2,7 @@
 
 `AGENTS.md` carries 1-10-50, no `any`, no suppressions and the TypeScript gate;
 `.claude/rules/naming-ownership.md` carries naming by ownership and the line-limit rule. This
-file holds the owner's standing methodology decisions and two habits that cost real time.
+file holds the owner's standing methodology decisions and the habits that cost real time.
 
 ## Methodology mandate (owner, 2026-08-03)
 
@@ -84,3 +84,19 @@ before using any bin. Why: in a worktree without `pnpm install`, `npx lhci` fetc
 `lhci` package from the registry (the official one is `@lhci/cli`), and only the absence of install
 scripts kept it harmless (2026-08-05). If `npx` output names a package you did not expect, stop
 and inspect `~/.npm/_npx`.
+
+## A test stubs `fetch` before its first request
+
+A test whose code can make a request installs its stub before the first call that can reach the
+network — in the test's setup, never after the code under test has run. A red run is still a run:
+a test that fails, including a TDD test written to fail first, has already sent every request its
+code made, so "it failed" never means "it did nothing". A test pool should refuse an outbound
+request that no stub answers, so that a missing stub fails the test instead of reaching the network.
+
+Why: on 2026-11-14 a catalog worker test called the global `fetch` before it stubbed it, and the
+workerd test pool sent the requests on — one to `api.bgm.tv`, which answered, and up to three to
+the deployed egress service (`apps/anitabi-egress`), which refused them at transport. `AGENTS.md`
+forbids a test to request a third-party upstream, and nothing in the run enforced that: a
+`@cloudflare/vitest-pool-workers` pool passes a worker's outbound requests through to the network
+unless its configuration routes them elsewhere. Miniflare, which runs the pool, gives a worker no
+outbound override by default, and without one its requests go out.

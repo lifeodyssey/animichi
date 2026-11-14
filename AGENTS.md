@@ -117,7 +117,8 @@ Topic guides in `docs/agents/`:
   verification, hooks, removal after merge. Before creating or removing a worktree.
 - `docs/agents/ci-and-github-mechanics.md` — green-but-BLOCKED, startup failures, ruleset facts, ESC
   traps, "works locally". When CI or the merge state confuses you.
-- `docs/agents/code-standards.md` — methodology mandate, no compat shims, latest deps, official SDKs, `pnpm exec`. Before writing code.
+- `docs/agents/code-standards.md` — methodology mandate, no compat shims, latest deps, official SDKs, `pnpm exec`,
+  a test stubs `fetch` before its first request. Before writing code.
 - `docs/agents/database-and-migrations.md` — Neon role scoping, table ownership, the WebSocket-only driver,
   `neonctl` traps, counting round trips. Before touching the data plane.
 - `docs/agents/infra-and-secrets.md` — secrets by Pulumi, values never in chat, prove before replacing,
