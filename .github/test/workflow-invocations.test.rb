@@ -53,6 +53,16 @@ class WorkflowInvocationsTest < Minitest::Test
                          end
   end
 
+  # Tracked and staged paths under a directory, plus untracked ones git does not ignore (a Python import
+  # leaves an ignored __pycache__/*.pyc beside the module it loads), each kept if it is a file on disk.
+  # CI's contracts job checks what was pushed, on a clean checkout whose working tree equals the commit.
+  def committable_files(directory)
+    listed, error, status = Open3.capture3("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+                                           "--", directory, chdir: ROOT)
+    raise "git ls-files failed: #{error}" unless status.success?
+    listed.split("\0").select { |path| File.file?(File.join(ROOT, path)) }
+  end
+
   def test_every_committed_check_runs_in_pr_verification
     relative = CHECKS.map { |path| path.delete_prefix("#{ROOT}/") }
     assert_empty relative - invoked_scripts([PR_WORKFLOW]) - toolchain_suite, "committed checks PR verification does not invoke"
@@ -64,9 +74,8 @@ class WorkflowInvocationsTest < Minitest::Test
   end
 
   def test_every_delivery_script_is_reachable
-    scripts = Dir.glob(File.join(ROOT, ".github/scripts/**/*")).select { |path| File.file?(path) }
-    relative = scripts.map { |path| path.delete_prefix("#{ROOT}/") }
-    assert_empty relative - invoked_scripts - toolchain_suite, "orphaned .github/scripts files"
+    scripts = committable_files(".github/scripts")
+    assert_empty scripts - invoked_scripts - toolchain_suite, "orphaned .github/scripts files"
   end
 
   def test_every_local_action_exists

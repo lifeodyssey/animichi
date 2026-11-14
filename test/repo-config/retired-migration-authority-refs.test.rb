@@ -58,6 +58,10 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
     "workers/migrator/src/atlas-leftovers.ts" => "the migrator refuses a database by the ledger it names (#1625)",
     "workers/migrator/test/integration/prisma.integration.ts" => "one case builds the ledger the migrator must refuse",
   }.freeze
+  # GitHub blocks a pushed file over 100 MiB, so a larger one can never become a live surface;
+  # reading one over 2 GiB whole also fails on macOS (read(2): EINVAL).
+  # https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github
+  PUSHABLE_BYTES = 100 * 1024 * 1024
 
   def test_no_live_surface_names_a_retired_migration_authority
     offenders = live_files.flat_map { |path| offending_lines(path, RETIRED) }
@@ -92,10 +96,17 @@ class RetiredMigrationAuthorityRefsTest < Minitest::Test
     repository_files.reject { |path| SPELLERS.key?(path) || HISTORY.keys.any? { |family| path.match?(family) } }
   end
 
+  # Tracked and staged paths, each read as it stands in the working tree: a partially staged file is
+  # checked as it is on disk, and a new file counts once it is staged. CI's contracts job checks what
+  # was pushed, on a clean checkout whose working tree equals the commit.
   def repository_files
-    out, err, status = Open3.capture3("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", chdir: ROOT)
+    out, err, status = Open3.capture3("git", "ls-files", "-z", "--cached", chdir: ROOT)
     assert_predicate(status, :success?, "git ls-files failed: #{err}")
-    out.split("\0").select { |path| File.file?(File.join(ROOT, path)) }
+    out.split("\0").select { |path| pushable_file?(File.join(ROOT, path)) }
+  end
+
+  def pushable_file?(path)
+    File.file?(path) && File.size(path) <= PUSHABLE_BYTES
   end
 
   def offending_lines(path, patterns)
