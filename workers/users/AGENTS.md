@@ -27,8 +27,10 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 
 ## Stack + workerd gotchas (mirrors catalog — read `../catalog/AGENTS.md` for the long form)
 
-- Hono + oRPC; contract source of truth = `packages/contract/src/users-contract.ts`
-  (error registry mirror: `src/lib/errors.ts` — keep in lockstep).
+- Hono + oRPC; contract source of truth = `packages/contract/src/users-contract.ts`.
+  The error constructors (`src/lib/errors.ts`) and the Idempotency-Key 400 (`src/index.ts`) read
+  status and message from its `USERS_ERROR_DEFS`; there is no mirror to keep in lockstep, and
+  `test/errors.worker.test.ts` goes red when a registry code has no producer here.
 - **Prisma 8 through the `UsersPrisma` seam** (`src/db/prisma.ts`, #1632): statements are built with
   the contract-bound builder (`query.builder.public.<table>…`) and executed through one call,
   `query.executor.query(plan)`, which returns the plan's own `Row[]` — the result type comes from the
@@ -50,8 +52,11 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   the row AS IT STANDS — that is what #1222 was about; the real-database proof is in
   `test/idempotency-ledger.integration.test.ts`.
 - zod value imports only at the contract/handler boundary; internals `import type` from
-  `@animichi/contract`. The one exception is `SavedRoute` in `src/adapters/neon-idempotency-store.ts`,
-  which validates the ledger's `jsonb` snapshot — a column whose shape no query builder can type.
+  `@animichi/contract`. Two exceptions: `SavedRoute` in `src/adapters/neon-idempotency-store.ts`,
+  which validates the ledger's `jsonb` snapshot — a column whose shape no query builder can type —
+  and `USERS_ERROR_DEFS` in `src/lib/errors.ts`, read for status and message only. `usersContract`
+  picks its error map from that registry (`pickUsersErrors`), and `router.ts` already ships
+  `usersContract`, so reading the registry adds nothing to the bundle.
 
 ## Config / secrets
 

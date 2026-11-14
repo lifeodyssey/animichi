@@ -2,13 +2,10 @@ import type { ListSavedRoutesResult, SavedRoute } from "@animichi/contract";
 
 /** The one outbound read capability ListSavedRoutes needs from the Neon store. */
 export interface SavedRouteReader {
-  /** The caller's own saved routes, row-normalized, in store order. */
+  /** Every saved route the caller owns, row-normalized, newest update first;
+   * equal update times fall back to the newest id. The store sorts, so the
+   * order is the database's and the same on every read; there is no page size. */
   listOwned: (userId: string) => Promise<SavedRoute[]>;
-}
-
-/** Newest update first — the read journey's single ordering rule. */
-function newestFirst(a: SavedRoute, b: SavedRoute): number {
-  return b.updated_at.localeCompare(a.updated_at);
 }
 
 /** Redacted load observation: outcome, count, duration — never identifiers. */
@@ -32,27 +29,27 @@ export interface ListSavedRoutesOptions {
   clock?: ListSavedRoutesClock;
 }
 
-/** List the caller's owned saved routes, newest update first. The action owns
- * the ordering policy; the reader owns only the store read and row mapping. */
+/** List the caller's owned saved routes in the order the reader promises
+ * (newest update first). The action adds the observation, not an ordering. */
 export async function listSavedRoutes(
   reader: SavedRouteReader,
   userId: string,
   opts: ListSavedRoutesOptions = {},
 ): Promise<ListSavedRoutesResult> {
-  return { saved_routes: await readOwnedNewestFirst(reader, userId, opts) };
+  return { saved_routes: await readOwnedObserved(reader, userId, opts) };
 }
 
-/** The timed read body: read, sort newest-update-first, then observe. */
-async function readOwnedNewestFirst(
+/** The timed read body: read through the port, then observe. */
+async function readOwnedObserved(
   reader: SavedRouteReader,
   userId: string,
   opts: ListSavedRoutesOptions,
 ): Promise<SavedRoute[]> {
   const clock = opts.clock ?? realClock;
   const started = clock.now();
-  const ordered = [...(await reader.listOwned(userId))].sort(newestFirst);
-  recordIfObserved(opts, ordered.length, started, clock.now());
-  return ordered;
+  const owned = await reader.listOwned(userId);
+  recordIfObserved(opts, owned.length, started, clock.now());
+  return owned;
 }
 
 /** Record the redacted observation; duration is the injected clock's span. */

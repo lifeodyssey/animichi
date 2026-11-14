@@ -16,12 +16,12 @@ function stubReader(owned: SavedRoute[]): SavedRouteReader {
   return { listOwned: vi.fn().mockResolvedValue(owned) };
 }
 
-  it("returns the owned routes newest update first", async () => {
+  it("keeps the reader's order rather than sorting again (the store orders)", async () => {
     const older = route("00000000-0000-4000-8000-000000000001", "2026-07-12T00:00:00Z");
     const newer = route("00000000-0000-4000-8000-000000000002", "2026-07-13T00:00:00Z");
     const reader = stubReader([older, newer]);
     const result = await listSavedRoutes(reader, "user-a");
-    expect(result.saved_routes.map((item) => item.id)).toEqual([newer.id, older.id]);
+    expect(result.saved_routes.map((item) => item.id)).toEqual([older.id, newer.id]);
   });
 
   it("reads only the caller's owned routes through the reader", async () => {
@@ -32,16 +32,6 @@ function stubReader(owned: SavedRoute[]): SavedRouteReader {
 
   it("returns an empty list for a store with no owned routes", async () => {
     expect(await listSavedRoutes(stubReader([]), "user-a")).toEqual({ saved_routes: [] });
-  });
-
-  it("does not mutate the reader's row order in place", async () => {
-    const older = route("00000000-0000-4000-8000-000000000001", "2026-07-12T00:00:00Z");
-    const newer = route("00000000-0000-4000-8000-000000000002", "2026-07-13T00:00:00Z");
-    const owned = [older, newer];
-    const reader = stubReader(owned);
-    await listSavedRoutes(reader, "user-a");
-    expect(reader.listOwned).toHaveBeenCalledOnce();
-    expect(owned).toEqual([older, newer]);
   });
 
   it("records a redacted loaded observation with the injected clock's duration", async () => {

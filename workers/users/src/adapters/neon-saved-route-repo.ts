@@ -15,9 +15,9 @@
  * model wants the domain's union, and `timestamptz` is normalized to ISO at the
  * wire boundary — a deployment fact about workerd, not a guess about the shape.
  *
- * Owns statement building and row mapping only — the ListSavedRoutes action
- * (src/application/list-saved-routes.ts) owns the newest-update-first ordering
- * policy.
+ * Owns statement building and row mapping. The newest-update-first order the
+ * SavedRouteReader port promises (src/application/list-saved-routes.ts) is the
+ * list statement's own ORDER BY, so the database sorts and the action does not.
  */
 import type {
   SaveSavedRouteInput,
@@ -28,25 +28,14 @@ import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { DeleteOwnedOutcome, DeleteSavedRouteStore } from "../application/delete-saved-route";
 import type { SavedRouteReader } from "../application/list-saved-routes";
 import type { SavedRouteStore } from "../application/save-saved-route";
-import type { UsersPlanExecutor, UsersPrisma, UsersStatementBuilder } from "../db/prisma";
+import type { RowOf, UsersPlanExecutor, UsersPrisma, UsersStatementBuilder } from "../db/prisma";
+import { iso, nullableIso } from "../db/timestamptz";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
 import type { OwnerLookup } from "../domain/ownership";
 
 /** The saved_routes columns every read and RETURNING path selects, so callers
  * get one shape — the SQL builder's half of the old `savedRouteReturning()`. */
 const SAVED_ROUTE_COLUMNS = ["id", "title", "point_ids", "status", "saved_at", "updated_at"] as const;
-
-/** The row a plan resolves to, read back off the plan rather than re-declared. */
-type RowOf<Plan> = Plan extends SqlOrmPlan<infer Row> ? Row : never;
-
-/** Normalize a Postgres timestamptz (a Date under Node, text under workerd). */
-function iso(value: Date | string): string {
-  return new Date(value).toISOString();
-}
-
-function nullableIso(value: Date | string | null): string | null {
-  return value === null ? null : iso(value);
-}
 
 /** The contract types `status` as a plain String; the public model wants the union. */
 function savedRouteStatus(value: string): SavedRouteStatus {
@@ -66,11 +55,16 @@ export function toSavedRoute(row: SavedRouteRow): SavedRoute {
   };
 }
 
-/** Owner-scoped SELECT of the caller's own saved routes. */
+/** Owner-scoped SELECT of the caller's own saved routes, newest update first.
+ * Equal `updated_at` falls back to `id` (uuidv7, so the newest-created first),
+ * which makes the order total. No LIMIT: the contract defines no page size, and
+ * apps/web finds a route in this list before opening its detail page. */
 function listOwnedPlan(builder: UsersStatementBuilder, userId: string) {
   return builder.public.saved_routes
     .select(...SAVED_ROUTE_COLUMNS)
     .where((fields, fns) => fns.eq(fields.user_id, userId))
+    .orderBy("updated_at", { direction: "desc" })
+    .orderBy("id", { direction: "desc" })
     .build();
 }
 
@@ -152,7 +146,7 @@ export async function firstRow<Row>(
   return (await scope.query(plan))[0];
 }
 
-/** The caller's own saved routes, row-normalized, in store order. */
+/** The caller's own saved routes, row-normalized, in the order the port promises. */
 export class NeonSavedRouteRepo implements SavedRouteReader {
   constructor(private readonly prisma: UsersPrisma) {}
 

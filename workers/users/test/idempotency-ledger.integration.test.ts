@@ -5,6 +5,7 @@ import { NeonIdempotencyStore } from "../src/adapters/neon-idempotency-store";
 import { saveSavedRouteIdempotent } from "../src/application/save-saved-route-idempotent";
 import type { UsersPrisma } from "../src/db/prisma";
 import { canonicalFingerprint } from "../src/domain/saved-route-idempotency";
+import { instantPause } from "./instant-pause";
 import { databaseDescribe, emptySavedRoutes, openUsersPrisma, type UsersSeam } from "./integration-db";
 
 /**
@@ -45,7 +46,7 @@ const prisma = (): UsersPrisma => seam.prisma;
 function save(input = INPUT, key = "k", now = NOW) {
   return saveSavedRouteIdempotent(
     new NeonAtomicCommitStore(prisma()), new NeonIdempotencyStore(prisma()),
-    "user-a", input, key, { now: () => now },
+    "user-a", input, key, { now: () => now, sleep: instantPause },
   );
 }
 
@@ -94,8 +95,9 @@ databaseDescribe("a repeated request with the same key makes one effect (#1632 A
     const outcomes = await Promise.allSettled([save(), save()]);
     const created = outcomes.flatMap((outcome) => (outcome.status === "fulfilled" ? [outcome.value] : []));
     expect(created.length).toBeGreaterThan(0);
-    // Whoever lost the claim either replayed the winner's route or gave up with
-    // the retryable 409 — never a second route.
+    // Both saves share one connection here and pause for no time, so this pins
+    // only "never a second route": the loser either replayed the winner's route
+    // or gave up with the retryable 409.
     expect(new Set(created.map((route) => route.id)).size).toBe(1);
     expect(await countRoutes()).toBe(1);
     expect(await countLedger()).toBe(1);
