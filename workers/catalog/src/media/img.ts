@@ -5,7 +5,8 @@
  * exactly once, records the asset in `media_assets`, and serves the bytes. Every
  * later request is served straight from R2 (origin never re-fetched). If the
  * origin is gone (404), the asset is tombstoned so we stop re-pulling and serve
- * a fallback. All responses are edge-cacheable (`Cache-Control: public`).
+ * a fallback. The photo and the fallback are edge-cacheable (`Cache-Control:
+ * public`); the 502 a failed pull answers is not.
  *
  * media_assets schema (20260620230000_ingest_infrastructure.sql):
  *   point_id PK, r2_key, content_hash, last_origin_pull, tombstoned.
@@ -15,7 +16,9 @@
  *
  * The origin pull runs under the request's signal and a timeout, whichever ends
  * first, so a hung origin or a departed client stops it, body read included. A
- * pull that times out or is cancelled rejects; it stores and tombstones nothing.
+ * pull that times out or fails in transport answers 502 "Upstream error", as a
+ * bad origin status does; a pull the client cancelled rethrows the client's own
+ * reason. Neither stores nor tombstones anything.
  *
  * Every statement is a builder plan on the request's runtime
  * ({@link CatalogPrisma}). The two writes are upserts, which the builder's own
@@ -100,10 +103,40 @@ async function lazyPull(
 ): Promise<Response> {
   const origin = await originUrl(deps.query, pointId, plan);
   if (!origin) return tombstone();
+  const pulled = await pullOrigin(deps, origin);
+  if (pulled === "gone") return tombstoneAsset(deps.query, pointId);
+  if (pulled === "failed") return new Response("Upstream error", { status: 502 });
+  return storeAndServe(deps, pointId, pulled);
+}
+
+/** The photo an origin pull brought back: its bytes, read whole, and their content type. */
+interface OriginPhoto {
+  body: ArrayBuffer;
+  contentType: string;
+}
+
+/**
+ * One origin pull: the photo, `gone` when the origin no longer has it
+ * (404/410), or `failed` for a bad status, a timeout or a transport failure,
+ * whether the headers or the body ran into it. A pull the caller cancelled
+ * rethrows the caller's own reason, whatever error the abort surfaced as: the
+ * client left, the origin did not fail.
+ */
+async function pullOrigin(deps: ImgDeps, origin: string): Promise<OriginPhoto | "gone" | "failed"> {
+  try {
+    return await fetchPhoto(deps, origin);
+  } catch {
+    deps.signal?.throwIfAborted();
+    return "failed";
+  }
+}
+
+/** The origin request and its body read, both under the pull's signal. */
+async function fetchPhoto(deps: ImgDeps, origin: string): Promise<OriginPhoto | "gone" | "failed"> {
   const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal) });
-  if (res.status === 404 || res.status === 410) return tombstoneAsset(deps.query, pointId);
-  if (!res.ok) return new Response("Upstream error", { status: 502 });
-  return storeAndServe(deps, pointId, res);
+  if (res.status === 404 || res.status === 410) return "gone";
+  if (!res.ok) return "failed";
+  return { body: await res.arrayBuffer(), contentType: res.headers.get("content-type") ?? DEFAULT_CONTENT_TYPE };
 }
 
 /**
@@ -118,16 +151,14 @@ function pullSignal(caller: AbortSignal | undefined): AbortSignal {
   return AbortSignal.any(caller === undefined ? [timeout] : [caller, timeout]);
 }
 
-/** Store fetched bytes in R2, UPSERT the asset row, and serve the bytes. */
+/** Store the pulled bytes in R2, UPSERT the asset row, and serve the bytes. */
 async function storeAndServe(
-  deps: ImgDeps, pointId: string, res: ImageFetchResult,
+  deps: ImgDeps, pointId: string, photo: OriginPhoto,
 ): Promise<Response> {
   const key = r2KeyFor(pointId);
-  const body = await res.arrayBuffer();
-  const contentType = res.headers.get("content-type") ?? DEFAULT_CONTENT_TYPE;
-  await putImage(deps.bucket, key, body, contentType);
-  await recordAsset(deps.query, pointId, key, await contentHash(body));
-  return imageResponse(body, contentType);
+  await putImage(deps.bucket, key, photo.body, photo.contentType);
+  await recordAsset(deps.query, pointId, key, await contentHash(photo.body));
+  return imageResponse(photo.body, photo.contentType);
 }
 
 /** Look up the point's origin image URL, expanding leading-slash paths. */
@@ -240,6 +271,3 @@ function tombstone(): Response {
 function contentTypeOf(object: R2ObjectBody): string {
   return object.httpMetadata?.contentType ?? DEFAULT_CONTENT_TYPE;
 }
-
-/** The resolved value of an `ImageFetchLike` call. */
-type ImageFetchResult = Awaited<ReturnType<ImageFetchLike>>;
