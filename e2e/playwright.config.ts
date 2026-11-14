@@ -12,9 +12,9 @@ import { CLAIMED_PORT_ENV, claimedPort, emittedWorkerPort } from "./lane-port";
 // The Playwright MCP test server (the agent tool surface) runs as
 // `npx playwright run-test-mcp-server`; every other invocation is the plain
 // test runner. The "seed" project exists only in the MCP server process so the
-// agents can resolve seed.spec.ts while default CLI runs stay at 113 cases in
-// 21 files — 81 in 18 for `chromium`, 32 in 3 for `visual`, seed in neither
-// (`playwright test --list`, 2026-09-05; see generated/README.md).
+// agents can resolve seed.spec.ts while default CLI runs never collect it: it
+// appears in neither the `chromium` nor the `visual` project of
+// `playwright test --list` (see generated/README.md).
 //
 // Worker processes re-require this config file with a different argv, so the
 // detection is propagated through the environment: the controller (whose argv
@@ -246,12 +246,13 @@ export default defineConfig({
     // seed.spec.ts is a zero-assertion scaffold the generator agents seed from
     // (see generated/README.md). It must stay at the e2e/ root — the Playwright
     // MCP test server (npx playwright run-test-mcp-server) locates seeds there —
-    // but it must never count as a case in the always-run suite: a silent
-    // 113 -> 114 drift is exactly what the promotion gate exists to prevent.
+    // but it must never count as a case in the always-run suite: a seed that
+    // silently joins the default run is exactly what the promotion gate exists
+    // to prevent.
     //
     // Playwright runs every project in the config by default, so the seed gets
     // its own project that exists ONLY in the MCP server process. The CLI test
-    // runner therefore collects nothing but the 113 real cases in 21 files,
+    // runner therefore collects only the committed suite's real cases,
     // while the agents' server resolves the seed project (it sits first, and
     // the MCP server seeds from the first top-level project).
     ...(seedProjectEnabled

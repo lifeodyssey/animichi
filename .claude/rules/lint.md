@@ -7,8 +7,10 @@ paths:
 ---
 # TypeScript lint rules (live packages)
 
-- Gate with each package's `pnpm run lint:oxlint`: type-aware oxlint, `--deny-warnings`, TypeScript
-  7.0.2. ESLint is not a live-package gate.
+- Gate with each package's `pnpm run lint`, the script CI's affected matrix and pre-push run:
+  type-aware oxlint with `--deny-warnings`, called directly (`packages/pi-session-neon`,
+  `packages/prisma-geography`) or through the package's `lint:oxlint` (every other package).
+  TypeScript 7. ESLint is not a live-package gate.
 - Root `.oxlintrc.json` owns the strict shared rules; package `.oxlintrc.json` files extend it and
   list generated/build artifacts to ignore.
 - `apps/web` production functions are capped at 10 lines; its `tests/**/*.ts(x)` override restores

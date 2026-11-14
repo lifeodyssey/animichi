@@ -11,7 +11,7 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
 
 ## Commands (from `workers/migrator/`)
 
-- pnpm. `pnpm run typecheck` (TypeScript 7.0.2) · `pnpm run lint:oxlint`
+- pnpm. `pnpm run typecheck` (TypeScript 7) · `pnpm run lint:oxlint`
   (type-aware, strict, warnings denied) · `pnpm run test` / `pnpm run test:worker`
   (vitest + coverage). Never `wrangler deploy` locally (hook `block-local-deploy`).
 - `pnpm run test:integration` runs authenticated HTTP and the actual bundled

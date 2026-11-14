@@ -238,13 +238,11 @@ pipeline owner (product/design sign-off that the frame is truly dead). No
   contract above.** `landing-day` currently reports ~0.96 of pixels differing
   from the mockup; converging to `RATIO=0.01` is the convergence card's work
   (this card only made the atom callable and machine-honest about it).
-- First real diff ratio is recorded in `report/first-run.md` (generated) —
-  treat it as the starting point, not a passing result.
 - Fonts differ between mockup and app (Lora absent, weight synthesis
   400/600/800 → 500/700); a convergence fail may be font-only. Confirm with
   the cluster boxes before touching the app.
 - `make visual-check` needs the e2e deps installed: the docker arm mounts the
   repo and runs `npx playwright` inside the image with `e2e/node_modules`
-  (`cd e2e && npm ci` via `make e2e-setup`, or `pnpm install` from the repo
-  root); the host arm needs `e2e/node_modules/.bin/playwright` or the
+  (`make e2e-setup`, which runs `pnpm install --ignore-scripts --filter animichi-e2e`, or
+  `pnpm install` from the repo root); the host arm needs `e2e/node_modules/.bin/playwright` or the
   workspace-root `node_modules/.bin/playwright` and fails fast otherwise.

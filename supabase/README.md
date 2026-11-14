@@ -2,20 +2,17 @@
 
 > **STATUS: HISTORICAL — retired by the Neon-only hard cut (#1000 / #992 wave).**
 > This directory is kept for **historical context only** and is **no longer applied
-> or deployed** by any live CI, deployment, or runtime path. Committed
-> historical-reader tests may still inspect and validate specific migrations
-> (e.g. `test_phase1c_route_persistence.py`) — those tests just never run a
-> Supabase apply or deploy.
+> or deployed** by any live CI, deployment, or runtime path.
 
 Animichi has completed the Neon-only cutover. Auth is **Neon Auth (Better Auth,
-integrated in `apps/web`)** and the data plane is **Neon Postgres (Atlas
-migrations under `migrations/neon/`)**.
+integrated in `apps/web`)** and the data plane is **Neon Postgres, migrated by the
+one Prisma 8 chain under `packages/pi-session-neon/migrations/`** (#1636).
 
 Everything under `supabase/` predates that cutover:
 
 - `migrations/` — legacy auth-only (and early data-plane) SQL migrations that
   once lived in the Supabase Postgres. They are **history**, not an apply
-  surface; `migrations/neon/` is the single live migration authority.
+  surface; the Prisma chain is the single live migration authority.
 - `functions/send-auth-email/` — the retired Supabase Edge Function that sent
   magic-link auth emails; superseded by Neon Auth email flows.
 - `config.toml` — Supabase local CLI configuration; no longer required for
@@ -25,9 +22,8 @@ Everything under `supabase/` predates that cutover:
 
 ## Content ownership
 
-- The data-plane tables whose migrations historically lived here are now owned
-  by `migrations/neon/` and the table-ownership map in
-  `migrations/AGENTS.md`.
+- The data-plane tables whose migrations historically lived here are now built
+  by that Prisma chain; `packages/pi-session-neon/AGENTS.md` describes what it owns.
 - Do **not** add new migrations or functions to this directory.
 
 ## Why it is kept

@@ -21,7 +21,7 @@ disposable container has no Pulumi to create them (#1625).
   container's own contracts, plus the three unfinished-seed cases, which each boot a container of
   their own (`startOwnedPostgresCluster`) so the template they leave unprotected is never the
   shared one's. This one needs Docker and the local image.
-- `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
+- `pnpm run typecheck` — TypeScript 7 `tsc --noEmit`.
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Pre-push runs all four when a changed file lands in this package
   (`scripts/local-gates/pre-push-affected.sh`), which is also how CI's affected matrix runs them.
@@ -36,6 +36,7 @@ disposable container has no Pulumi to create them (#1625).
 |---|---|
 | `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn, networkAddress }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783). `networkAddress` is the server's IP on its Docker network, read off the started container, for a second container to dial at port 5432 |
 | `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clone from the migrated template (#1769) → `{ dsn, stop }`, for an arm that reads the data plane's schema |
+| `startOwnedPostgresCluster({ budget })` | a cluster of the caller's own: boot a container shared with nobody → wait → `{ adminDsn, networkAddress, stop }`. No service roles, so a role on it afterwards is one the caller's code created — the from-nothing start the migrator's service-role proof boots (#1915). The caller stops it; a failed wait stops it and rethrows the readiness failure |
 | `createMigratedDatabase(adminDsn, name)` | clone `name` from the container's one Prisma-migrated template; the seed applies the chain once per identity and holds the cluster turn, the clone does not |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
 | `SetupDeadline` | what is LEFT of that allowance, and what a phase may spend of it (#1318) |

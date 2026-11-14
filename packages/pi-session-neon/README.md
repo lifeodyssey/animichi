@@ -1,6 +1,7 @@
 # Native Pi session storage
 
-Issue #1541 implements Pi 0.85.1 `Storage` and `SessionRepo` directly on the seven native tables of
+Issue #1541 implements Pi's published `Storage` and `SessionRepo` (at the version the workspace
+catalog pins) directly on the seven native tables of
 the Prisma 8 contract from #1539, which #1626 widened to also declare the 19 catalog/users data-plane
 tables. `NeonStorage` and `NeonSessionRepo` accept a native `PostgresClient<Contract>`; the caller
 owns its connection lifecycle. The repository returns upstream `StorageBackedSession`.

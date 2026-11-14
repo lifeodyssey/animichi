@@ -16,7 +16,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 ## Monorepo layout
 
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
-- `workers/users/`     — LIVE Hono/oRPC user-data Worker over Neon; verifies nothing itself (no `jose`) — it trusts the edge-forwarded identity; 13 `test/*.worker.test.ts` files + CI lane. → `workers/users/AGENTS.md`
+- `workers/users/`     — LIVE Hono/oRPC user-data Worker over Neon; verifies nothing itself (no `jose`) — it trusts the edge-forwarded identity; `test/**/*.worker.test.ts` suites + CI lane. → `workers/users/AGENTS.md`
 - `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. → `packages/agent/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node native Pi task and preserved statistical oracles with `logfire/evals`. → `packages/eval/AGENTS.md`
@@ -24,6 +24,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/prisma-geography/` — Private Prisma 8 PostGIS geography extension pack; control/runtime descriptors and disposable-DB evidence. → `packages/prisma-geography/AGENTS.md`
 - `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, the Prisma chain, the five service roles) shared by every database-backed suite. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
+- `apps/anitabi-egress/` — the fixed-address egress service the catalog fetches anitabi through (#1792): one Fly app in TypeScript on Node, with two named operations, signed requests and an hourly upstream ceiling; deployed by hand under an owner-granted exemption. → `apps/anitabi-egress/README.md`, `docs/ops/anitabi-egress.md`
 - `workers/edge/`      — CF edge worker (`workers/edge/src/entry.ts`): the gateway (auth, `/v1` routing, the image/tile proxies incl. the private `docs-assets` arm at `/img/docs/*`; no page fallback — unmatched paths 404) **and**, the native Pi agent tier (`workers/edge/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/edge/AGENTS.md`
 - `workers/migrator/`  — TS Worker that applies the one Prisma chain (bundled into the Worker) behind GitHub OIDC; `supabase/` is an archived historical migration dir (issue #1000), not a live surface. → `workers/migrator/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
@@ -31,8 +32,8 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Core commands (from repo root)
 
-- `make check-full`    — every package's lint + typecheck + test + test:integration, the fresh-schema
-  apply and the catalog spike. **Run before AND after a change that spans packages**; a single
+- `make check-full`    — every package's lint + typecheck + test + test:integration and the
+  fresh-schema apply. **Run before AND after a change that spans packages**; a single
   package's own scripts are the loop for anything narrower.
 - `make dev-local`     — the web app, one command (never start services individually). Login is Neon Auth (AUTH-2 #950).
 - `make local-login`   — browser magic-link login for local dev.
@@ -51,8 +52,9 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   an exploratory `curl` spends a relationship rather than a request.
 - **No suppression without user approval** — no `eslint-disable` / `@ts-ignore` / `type: ignore` /
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
-- **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
-  `--deny-warnings` across every package. ESLint left the repo with `frontend/` (#537).
+- **TypeScript gate** — TypeScript 7 direct + type-aware oxlint/tsgolint with
+  `--deny-warnings` in every workspace package except `infra`, which declares no lint script.
+  ESLint left the repo with `frontend/` (#537).
 - **Coverage floors ratchet UP only** — `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.

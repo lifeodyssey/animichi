@@ -704,8 +704,9 @@ jobs:
           set -euo pipefail
           uv tool install --no-build "semgrep==$SEMGREP_VERSION"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      # The repository's own three ORM-boundary rules only (#999): the public
-      # packs are CodeQL's job, and `semgrep ci` refuses `--config` anyway.
+      # The repository's own ORM-boundary ruleset under .semgrep/ only (#999,
+      # #1633): the public packs are CodeQL's job, and `semgrep ci` refuses
+      # `--config` anyway.
       - name: Run the repository's Semgrep ruleset
         run: |
           set -euo pipefail

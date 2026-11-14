@@ -17,44 +17,44 @@ Single source of truth for the types exchanged between the **Agent** (client) an
 ## Mirror architecture
 
 ```
-packages/contract/src/models.ts   ← Zod schemas (source of truth)
+packages/contract/src/models.ts                    ← Zod schemas (source of truth)
          ↓  inferred types
-catalog/src/types.ts               ← Worker-bundle mirror (pure TS interfaces, NO zod)
+workers/catalog/src/types.ts                       ← Worker-bundle mirror (pure TS interfaces, NO zod)
          ↓  import type only
-catalog/src/router.ts, api/*.ts    ← Handlers use local types
+workers/catalog/src/router.ts, src/api/*.ts        ← Handlers use local types
 ```
 
 ### Parity guard
 
-`catalog/test/contract-parity.worker.test.ts` asserts **mutual assignability** between every
+`workers/catalog/test/contract-parity.worker.test.ts` asserts **mutual assignability** between every
 contract inferred type and the catalog hand-mirror type at compile time (`tsc --noEmit`).
 If either side drifts, `tsc` will fail before any tests run.
 
 ## Rules
 
-### 1. `import type` only inside catalog (never a value import)
+### 1. `import type` only in the catalog's type mirror (never a value import)
 
-`catalog/src/types.ts` is a **type-only module** — pure `interface`/`type` declarations,
-no `import` of runtime values, no zod. This ensures the zod runtime never enters the
-Cloudflare Worker bundle. The parity test also uses `import type` exclusively.
-
-```ts
-// CORRECT — in catalog code and tests
-import type { Point } from "../../packages/contract/src/models";
-
-// WRONG — pulls zod runtime into the Worker bundle
-import { Point } from "../../packages/contract/src/models";
-```
-
-### 2. No pnpm workspace (yet)
-
-Until P5 wires up the pnpm workspace, catalog imports the contract via a relative path:
+`workers/catalog/src/types.ts` is a **type-only module** — pure `interface`/`type` declarations,
+no `import` of runtime values, no zod. The catalog's one value import of a zod-bearing contract
+module is its oRPC boundary: `workers/catalog/src/router.ts` imports `catalogContract` from
+`@animichi/contract` to implement it, the handler/contract boundary `workers/catalog/AGENTS.md`
+sanctions for zod. Its other value imports (`@animichi/contract/constants`,
+`@animichi/contract/public-catalog`, `@animichi/contract/anitabi-display`) are import-free modules
+that carry no zod. The parity test uses `import type` exclusively.
 
 ```ts
-import type { ... } from "../../packages/contract/src/models";
+// CORRECT — in the type mirror, handlers and tests
+import type { Point } from "@animichi/contract/models";
+
+// WRONG — pulls the zod runtime into the Worker bundle from outside the oRPC boundary
+import { Point } from "@animichi/contract/models";
 ```
 
-After the workspace link lands, switch to `@animichi/contract/models`.
+### 2. Import through the workspace package
+
+The catalog depends on `@animichi/contract` (`workspace:*`) and imports its published entries
+(`@animichi/contract`, `@animichi/contract/public-catalog`, …). The parity test is the exception:
+it reaches the sources by relative path (`../../../packages/contract/src/…`).
 
 ## OpenAPI compatibility gate (`/v1`)
 
@@ -66,15 +66,15 @@ members, and error responses. Breaking changes exit 1, additive changes exit 0,
 and a future major path (`/v2/…`) is rejected unless its superseded `/v1`
 operation carries `deprecated: true` + `x-sunset`.
 
-The affected contract lane in `pr-verification.yml` runs the gate for every
-published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
+The package's own `test` script runs the gate (`vet:baseline` →
+`scripts/vet-openapi-baseline.ts`, #1358) for every published document (`openapi.json`,
+`users-openapi.json`, `agent-openapi.json`), locally and in CI's affected matrix alike:
 
 - **Baseline** = the same document at the merge-base with the PR's base branch
   (the published contract). A brand-new document has no baseline and is
-  all-additive. Baseline bootstrap (#1005 AC3): a merge-base baseline that
-  still carries the retired phantom check-in/share surface is replaced by the
-  post-cut documents committed in this tree — this landing only; after it
-  lands, merge-base is the post-cut contract and the fallback cannot trigger.
+  all-additive; a merge base the repository cannot read (missing tree or blob,
+  shallow clone) exits 1 rather than approving an unreviewed deletion. The
+  #1005 AC3 bootstrap fallback was deleted in #1347.
 - **Candidate** = the regenerated document (byte-stable emission; drift fails
   first).
 - **Approval** = the committed record under `approved-breaking-changes/`, one file
@@ -100,8 +100,8 @@ published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
   override — it waives every breaking change in one run, never reads the record,
   and is never wired into the normal PR path silently.
 
-The wiring is pinned by `test/vet-gate.test.ts` (workflow invariant + CLI
-behavior), the record by `test/openapi-approvals.test.ts`,
+The wiring is pinned by `test/vet-gate.test.ts` (the package `test` script's
+invariant + CLI behavior), the record by `test/openapi-approvals.test.ts`,
 `test/approved-breaking-changes.test.ts` and `test/vet-record-cli.test.ts`, and
 the classifier by `test/openapi-diff-endpoints.test.ts`,
 `test/openapi-diff-schemas.test.ts`, `test/openapi-diff-errors.test.ts`,

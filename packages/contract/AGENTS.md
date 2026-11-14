@@ -13,7 +13,7 @@ Worker keeps a deliberate hand-mirror where bundling requires it. Root guide: `.
   default options and reports 10 false `no-unnecessary-condition` findings (indexed reads and `?.`
   that `noUncheckedIndexedAccess` makes necessary). Bringing the tests into the **typecheck** program
   stays a separate outcome — `tsc` reports 67 findings under them today.
-- `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
+- `pnpm run typecheck` — TypeScript 7 `tsc --noEmit`.
 - `pnpm test` — vitest, then the compat gate (`vet:baseline`) and the OpenAPI drift check
   (`test:openapi-drift`). One command, the same one CI runs (#1358).
 - `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.

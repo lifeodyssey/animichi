@@ -11,12 +11,14 @@ Root guide: `../../AGENTS.md`.
 - `pnpm test` (`test:worker` then `test:node` — hermetic, boots no container) ·
   `pnpm run test:integration`
   (Docker; deliberately not chained into `test`, see Test pools) · `pnpm run typecheck`
-  (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+  (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
   ESLint is gone.
 - `pnpm run test:smoke` — boots the real deploy bundle in workerd and asserts
   `/healthz` 200. The worker pool evaluates unbundled modules, so bundle-only
   startup failures (the StringChunk TDZ, 2026-08-05) are invisible to it — this
-  gate exists for exactly that class of bug. Runs in CI as `catalog-startup-smoke`.
+  check exists for exactly that class of bug. No CI job runs it: the bundled-boot job
+  (`catalog-startup-smoke`, later `startup-smoke`) was removed in `eb6fccd60` (2026-08-25),
+  and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
 
 ## Stack (per the ADR)
 
@@ -56,8 +58,9 @@ Root guide: `../../AGENTS.md`.
 
 - `src/ingest/` (per-work TTL; singleflight via the `ingest_jobs` unique constraint — never stampede
   Anitabi) · `src/enrich/` (dedup / clustering / city backfill / attribution) · `src/publish/`.
-- Route ordering is unified **here** (`src/lib/route.ts`, haversine × 1.3, SD-28) — the old Python
-  `route_optimizer.py` is retired.
+- Route ordering is unified **here** (`src/domain/itinerary/plan.ts`: greedy nearest-neighbour
+  order by haversine distance, walking time scaled by `WALK_DETOUR_COEFFICIENT` from
+  `src/domain/transit/constants.ts`, SD-28) — the old Python `route_optimizer.py` is retired.
 - Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
 - Geocode API resolves normalized aliases exact-first; only an exact miss runs strict pg_trgm fuzzy
   matching, then deterministic collapse/limit (`src/api/geocode.ts`).
