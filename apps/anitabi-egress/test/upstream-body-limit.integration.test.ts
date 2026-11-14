@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { createServer, type Server } from "node:http";
 import { gzipSync } from "node:zlib";
-import type { UpstreamFetch } from "../src/egress-service.ts";
+import type { UpstreamFetch } from "../src/upstream-relay.ts";
 import { startEgressServer } from "../src/start-egress-server.ts";
 import type { CeilingStore } from "../src/upstream-ceiling.ts";
 

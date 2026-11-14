@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { handleEgressRequest, type EgressDeps, type UpstreamResponseLike } from "../src/egress-service.ts";
+import { handleEgressRequest, type EgressDeps } from "../src/egress-service.ts";
 import type { EgressConfig } from "../src/egress-config.ts";
 import type { CeilingDecision } from "../src/upstream-ceiling.ts";
+import type { UpstreamResponseLike } from "../src/upstream-relay.ts";
 
 /**
  * The request handler contract (#1792): exactly two operations; a verified

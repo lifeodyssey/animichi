@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { handleEgressRequest, type EgressDeps, type UpstreamFetch } from "../src/egress-service.ts";
+import { handleEgressRequest, type EgressDeps } from "../src/egress-service.ts";
+import type { UpstreamFetch } from "../src/upstream-relay.ts";
 
 /**
  * SUT: the relay half of `handleEgressRequest`, for upstream answers a Web

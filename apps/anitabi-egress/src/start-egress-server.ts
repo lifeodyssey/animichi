@@ -30,7 +30,7 @@ import {
   readListenPort,
   type EgressConfig,
 } from "./egress-config.ts";
-import type { Ceiling, EgressDeps, UpstreamFetch } from "./egress-service.ts";
+import type { Ceiling, EgressDeps } from "./egress-service.ts";
 import {
   RedisTcpCeilingStore,
   STORE_TIMEOUT_MS,
@@ -39,6 +39,7 @@ import {
 } from "./redis-tcp-ceiling-store.ts";
 import { answerInboundRequest } from "./request-boundary.ts";
 import { UpstreamRequestCeiling, type CeilingStore } from "./upstream-ceiling.ts";
+import type { UpstreamFetch } from "./upstream-relay.ts";
 
 export interface EgressServerOptions {
   env: Record<string, string | undefined>;
