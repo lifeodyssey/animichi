@@ -66,6 +66,9 @@ current-turn search/route evidence and validates before requesting native termin
 `createCatalogClient` returns the existing oRPC contract client with native request/response
 validation, transient retries and bounded deadlines. `webSearch` uses `htmlparser2` for HTML
 and entity parsing, preserves ranked source attribution, and bounds untrusted result text.
+Result text cannot end or reopen its `<untrusted_web_result>` wrapper. Before the byte bound, a
+`<` followed by the tag's letters, in any case and with any other characters between them, is
+recorded as `&#60;`; links arrive URL-serialised with `<` percent-encoded; other text is unchanged.
 Provider/search failures use native SDK tool-error semantics; empty domain results remain data.
 
 `createOperationModels(model, key, fetch?)` returns native `MutableModels`. It uses
