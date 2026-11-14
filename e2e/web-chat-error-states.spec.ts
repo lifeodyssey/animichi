@@ -1,10 +1,9 @@
-import { expect, test } from "@playwright/test";
 import type { Page, Route } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { waitingCopy } from "../apps/web/src/features/chat/waiting-copy";
+import { expect, test } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame, patchSessionId } from "./fixtures/chat-stream";
 import type { EnvelopePatch } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #272 (S1.6) browser ACs: each simulated D-state trigger renders its
@@ -53,17 +52,6 @@ async function fulfillSse(route: Route, body: string): Promise<void> {
   await route.fulfill({ status: 200, headers: SSE_HEADERS, body });
 }
 
-/** The healthz probe only fires from the hydrated client, so awaiting it
- * guarantees the composer's React handlers are attached before interacting. */
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-}
-
 async function send(page: Page, text: string): Promise<void> {
   await page.getByRole("textbox", { name: ja.inputPlaceholder }).fill(text);
   await page.getByRole("button", { name: ja.send }).click();
@@ -73,9 +61,9 @@ async function routeChatStream(page: Page, body: string): Promise<void> {
   await page.route("**/v1/chat", (route) => fulfillSse(route, body));
 }
 
-test("D1 recognition failure offers an input for another title or clue", async ({ page }) => {
+test("D1 recognition failure offers an input for another title or clue", async ({ page, anonymousVisitor }) => {
   await routeChatStream(page, patchFinalFrame(chatStreamRecording("search"), failedEnvelope("anime_not_found")));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "知らない作品");
   await expect(page.getByText(states.d1Title)).toBeVisible();
   await expect(page.getByText(states.d1Hint)).toBeVisible();
@@ -83,27 +71,27 @@ test("D1 recognition failure offers an input for another title or clue", async (
   await expect(page.getByRole("button", { name: states.d1Submit })).toBeDisabled();
 });
 
-test("D2 zero spots offers a new title or region search", async ({ page }) => {
+test("D2 zero spots offers a new title or region search", async ({ page, anonymousVisitor }) => {
   await routeChatStream(page, patchFinalFrame(chatStreamRecording("search"), zeroSpots));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "マイナー作品");
   await expect(page.getByText(states.d2Title)).toBeVisible();
   await expect(page.getByRole("textbox", { name: states.d2Label })).toBeVisible();
   await expect(page.getByRole("button", { name: states.d2Submit })).toBeDisabled();
 });
 
-test("D3 short route keeps the spot cards and proposes widening", async ({ page }) => {
+test("D3 short route keeps the spot cards and proposes widening", async ({ page, anonymousVisitor }) => {
   await routeChatStream(page, chatStreamRecording("search"));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d3Notice)).toBeVisible();
   await expect(page.getByText("宇治橋")).toBeVisible();
   await expect(page.getByRole("button", { name: states.d3Chip })).toBeVisible();
 });
 
-test("D4 interruption before the first chunk shows a retry entry, not a stuck spinner", async ({ page }) => {
+test("D4 interruption before the first chunk shows a retry entry, not a stuck spinner", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", (route) => route.abort("connectionreset"));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d4Message)).toBeVisible();
   await expect(page.getByRole("button", { name: states.d4Retry })).toBeVisible();
@@ -111,10 +99,10 @@ test("D4 interruption before the first chunk shows a retry entry, not a stuck sp
   await expect(page.locator(".chat-message--user").getByText("ユーフォ", { exact: true })).toBeVisible();
 });
 
-test("D4 recovery reconnects to the session stream and preserves the conversation", async ({ page }) => {
+test("D4 recovery reconnects to the session stream and preserves the conversation", async ({ page, anonymousVisitor }) => {
   const reconnects: string[] = [];
   await routeChatStream(page, patchSessionId(chatStreamRecording("search"), "s-e2e"));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeVisible();
   await page.route("**/v1/chat", (route) => route.abort("connectionreset"));
@@ -131,11 +119,11 @@ test("D4 recovery reconnects to the session stream and preserves the conversatio
   expect(reconnects).toEqual(["GET"]);
 });
 
-test("D5 timeout swaps the stuck turn for the same-shape retry", async ({ page }) => {
+test("D5 timeout swaps the stuck turn for the same-shape retry", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", () => {
     /* never respond: the turn hangs until the watchdog stops it */
   });
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await page.clock.install();
   await send(page, "ユーフォ");
   await expect(page.getByRole("status").filter({ hasText: waitingCopy("ja").label })).toBeVisible();
@@ -145,18 +133,18 @@ test("D5 timeout swaps the stuck turn for the same-shape retry", async ({ page }
   await expect(page.getByRole("button", { name: states.d5Retry })).toBeVisible();
 });
 
-test("D6 validation rejection apologises without leaking technical detail", async ({ page }) => {
+test("D6 validation rejection apologises without leaking technical detail", async ({ page, anonymousVisitor }) => {
   await routeChatStream(page, patchFinalFrame(chatStreamRecording("search"), failedEnvelope("output_validation_failed")));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d6Message)).toBeVisible();
   await expect(page.getByRole("button", { name: states.d6Retry })).toBeVisible();
   await expect(page.getByText(/ModelRetry|output_validator/)).toHaveCount(0);
 });
 
-test("D8 session expiry preserves the conversation and resumes in place", async ({ page }) => {
+test("D8 session expiry preserves the conversation and resumes in place", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", (route) => route.fulfill({ status: 401, body: "" }));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "こんにちは");
   await expect(page.getByText(states.d8Message)).toBeVisible();
   await expect(page.locator(".chat-message--user").getByText("こんにちは", { exact: true })).toBeVisible();
@@ -164,10 +152,10 @@ test("D8 session expiry preserves the conversation and resumes in place", async 
   await expect(page.getByRole("button", { name: states.d8Resume })).toBeVisible();
 });
 
-test("D9 scene image 404 preserves its slot with an accessible failure and episode label", async ({ page }) => {
+test("D9 scene image 404 preserves its slot with an accessible failure and episode label", async ({ page, anonymousVisitor }) => {
   await page.route("**/broken/scene.webp", (route) => route.fulfill({ status: 404, body: "" }));
   await routeChatStream(page, patchFinalFrame(chatStreamRecording("search"), brokenScene));
-  await openChat(page);
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   await expect(page.getByText("第8話")).toBeVisible();
   await expect(page.getByRole("img", { name: `宇治橋 · ${states.d9Failed}` })).toBeVisible();

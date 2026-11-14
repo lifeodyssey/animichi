@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { expect, test } from "./fixtures/anonymous-visitor";
 import { enterRoute } from "./helpers/route-entry";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { stubTurnstileEntry } from "./helpers/turnstile";
 
 
 test.use({
@@ -23,28 +22,17 @@ const emptyAnimeOverview = {
   sample_itineraries: [],
 };
 
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await healthy;
-  await expect(page.getByRole("textbox")).toBeVisible();
-}
-
 test.describe("AC4 loading/streaming state", () => {
-  test("an in-flight turn is announced via a live region and stays keyboard-operable", async ({ page }) => {
+  test("an in-flight turn is announced via a live region and stays keyboard-operable", async ({ page, anonymousVisitor }) => {
     // Hold the stream open so the busy state persists while we assert: a
     // fulfilled recording settles in milliseconds and the turn is over before
     // the first expectation runs.
     await page.route("**/v1/chat", () => {
       /* never respond: the turn stays in flight for the duration of the test */
     });
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     const input = page.getByRole("textbox");
     await input.fill("宇治");
     await page.keyboard.press("Enter");
@@ -64,18 +52,20 @@ test.describe("AC4 loading/streaming state", () => {
 });
 
 test.describe("AC4 empty states (no animation dependence)", () => {
-  test("anime empty overview shows understandable prose", async ({ page }) => {
+  test("anime empty overview shows understandable prose", async ({ page, anonymousVisitor }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({ json: emptyAnimeOverview }),
     );
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await enterRoute(page, "/anime/999", ".anime-empty");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
   });
 
-  test("route-detail empty route shows understandable prose", async ({ page }) => {
+  test("route-detail empty route shows understandable prose", async ({ page, anonymousVisitor }) => {
     await page.route("**/v1/users/saved-routes", (route) =>
       route.fulfill({
         json: {
@@ -99,7 +89,9 @@ test.describe("AC4 empty states (no animation dependence)", () => {
           timed_itinerary: { stops: [], legs: [], total_minutes: 0, total_distance_m: 0 } },
       });
     });
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await enterRoute(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
@@ -107,7 +99,7 @@ test.describe("AC4 empty states (no animation dependence)", () => {
 });
 
 test.describe("AC4 error states", () => {
-  test("anime outage error is announced and reachable by keyboard", async ({ page }) => {
+  test("anime outage error is announced and reachable by keyboard", async ({ page, anonymousVisitor }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({
         status: 500,
@@ -115,7 +107,9 @@ test.describe("AC4 error states", () => {
         body: JSON.stringify({ error: { code: "INTERNAL_SERVER_ERROR", message: "catalog unavailable" } }),
       }),
     );
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await enterRoute(page, "/anime/999", ".anime-error");
     await expect(page.getByRole("heading")).toBeVisible();
     await expect(page.getByRole("button").or(page.getByRole("link")).first()).toBeVisible();
@@ -130,8 +124,10 @@ test.describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion
     await expect(page.getByRole("textbox")).toHaveCount(0);
   });
 
-  test("the auth flow is fully operable by keyboard (email -> submit)", async ({ page }) => {
-    await openChat(page);
+  test("the auth flow is fully operable by keyboard (email -> submit)", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     // Open the login modal, then drive the whole sign-in form by keyboard:
     // the email field gets initial focus, then Tab reaches the submit button.
     const login = page.getByRole("button", { name: "ログイン" });

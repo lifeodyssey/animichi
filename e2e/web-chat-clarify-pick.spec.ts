@@ -1,9 +1,8 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import type { ChatTurnRequest } from "../packages/contract/src/agent-contract";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * W1 #1220 browser ACs — the clarify → pick → results journey and its 409
@@ -51,22 +50,13 @@ const resultsBody = patchFinalFrame(chatStreamRecording("search"), (envelope) =>
 
 const CONFLICT_ENVELOPE = JSON.stringify({ error: { code: "turn_in_flight", message: "conflict" } });
 
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-}
-
 /** The recorded turn: the pick's wire fields straight off the contract's
  * `ChatTurnRequest`, plus `turnId` as this test's own capture metadata. */
 interface SentTurn extends Pick<ChatTurnRequest, "selected_candidate_ids" | "clarification_id"> {
   readonly turnId: string | undefined;
 }
 
-async function askUntilClarify(page: Page, sent: SentTurn[], conflictOnPick = false): Promise<void> {
+async function askUntilClarify(page: Page, visitor: AnonymousVisitor, sent: SentTurn[], conflictOnPick = false): Promise<void> {
   let calls = 0;
   await page.route("**/v1/chat", (route) => {
     const body = route.request().postDataJSON() as Omit<SentTurn, "turnId">;
@@ -78,15 +68,15 @@ async function askUntilClarify(page: Page, sent: SentTurn[], conflictOnPick = fa
     }
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: resultsBody });
   });
-  await openChat(page);
+  await visitor.enterChat();
   await page.getByRole("textbox").fill("ハルヒ");
   await page.getByRole("button", { name: ja.send }).click();
   await expect(page.getByRole("button", { name: HARUHI_LABEL })).toBeVisible();
 }
 
-test("picking a clarify candidate reaches that work's results through the structured channel", async ({ page }) => {
+test("picking a clarify candidate reaches that work's results through the structured channel", async ({ page, anonymousVisitor }) => {
   const sent: SentTurn[] = [];
-  await askUntilClarify(page, sent);
+  await askUntilClarify(page, anonymousVisitor, sent);
   await page.getByRole("button", { name: HARUHI_LABEL }).click();
   // Exact: the name also sits in the pick checkbox's sr-only accessible
   // label, so a substring match resolves to 2 elements (same as the
@@ -101,9 +91,9 @@ test("picking a clarify candidate reaches that work's results through the struct
   expect(sent[1]?.turnId).not.toBe(sent[0]?.turnId);
 });
 
-test("a 409 on the pick shows the honest in-flight copy and retry resends the pick itself", async ({ page }) => {
+test("a 409 on the pick shows the honest in-flight copy and retry resends the pick itself", async ({ page, anonymousVisitor }) => {
   const sent: SentTurn[] = [];
-  await askUntilClarify(page, sent, true);
+  await askUntilClarify(page, anonymousVisitor, sent, true);
   await page.getByRole("button", { name: HARUHI_LABEL }).click();
   await expect(page.getByText(ja.errorStates.d15Message)).toBeVisible();
   await expect(page.getByText(ja.errorStates.d4Message)).toHaveCount(0);
