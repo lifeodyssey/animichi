@@ -71,29 +71,29 @@ databaseDescribe("singleflight guard vs abandoned running rows (#1227)", () => {
   it("reports a fresh running row as in_progress and refuses the acquire", async () => {
     await insertRunningJob("w1", FRESH_AGE);
     expect(await jobs.guard("w1")).toBe("in_progress");
-    expect(await jobs.acquire("w1")).toBe(false);
+    expect(await jobs.acquire("w1")).toBeNull();
   });
 
   it("reports a dead running row as ready and lets the acquire steal it", async () => {
     await insertRunningJob("w1", STALE_AGE);
     expect(await jobs.guard("w1")).toBe("ready");
-    expect(await jobs.acquire("w1")).toBe(true);
+    expect(await jobs.acquire("w1")).not.toBeNull();
   });
 
   it("restarts the heartbeat when stealing, so the thief holds the flight", async () => {
     await insertRunningJob("w1", STALE_AGE);
-    expect(await jobs.acquire("w1")).toBe(true);
+    expect(await jobs.acquire("w1")).not.toBeNull();
     expect(await jobs.guard("w1")).toBe("in_progress");
-    expect(await jobs.acquire("w1")).toBe(false);
+    expect(await jobs.acquire("w1")).toBeNull();
   });
 
   it("parks a failure behind its negative cache, then frees it", async () => {
     await insertFailedJob("w1", 3600);
     expect(await jobs.guard("w1")).toBe("recently_attempted");
-    expect(await jobs.acquire("w1")).toBe(false);
+    expect(await jobs.acquire("w1")).toBeNull();
     await insertFailedJob("w2", -1);
     expect(await jobs.guard("w2")).toBe("ready");
-    expect(await jobs.acquire("w2")).toBe(true);
+    expect(await jobs.acquire("w2")).not.toBeNull();
   });
 });
 

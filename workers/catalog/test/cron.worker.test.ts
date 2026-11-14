@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import { CRON_PASS_DEADLINE_MS, DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
   createScheduledHandler,
   type CronDependencies,
 } from "../src/scheduled/ingest-schedule";
 import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
+import type { UpstreamAccess } from "../src/ingest/sources";
+import { deferred } from "./deferred";
+import { abortTimeoutsOnFakeClock } from "./fakes/abort-timeout";
+import { unanswered } from "./fakes/unanswered-request";
 import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 // SUT: the scheduled handler — which job a cron string routes to, and what it
@@ -123,5 +127,37 @@ describe("scheduled handler refusals", () => {
     await expect(
       createScheduledHandler()({ cron: "0 0 * * *" }, ENV),
     ).rejects.toThrow("Unknown catalog cron: 0 0 * * *");
+  });
+});
+
+/** An ingest that holds its work until the pass's signal aborts, then rejects with that signal's reason. */
+function heldUntilAborted(upstream: UpstreamAccess): Promise<IngestResult> {
+  return unanswered(upstream.signal ?? new AbortController().signal);
+}
+
+describe("scheduled handler pass deadline", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("aborts the work in flight when the pass's deadline passes and starts no further work", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    abortTimeoutsOnFakeClock();
+    const reached = deferred();
+    const ingest = vi.fn<CronDependencies["ingestBangumi"]>((_query, _id, upstream) => {
+      reached.settle();
+      return heldUntilAborted(upstream);
+    });
+    const stale = vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(["1", "2", "3"]);
+    const pass = createScheduledHandler(dependencies({ ingestBangumi: ingest, listStaleBangumiIds: stale }))({ cron: TTL_REFRESH_CRON }, ENV);
+    await reached.promise;
+    const deadline = ingest.mock.calls[0]?.[2].signal;
+    await vi.advanceTimersByTimeAsync(CRON_PASS_DEADLINE_MS - 1);
+    expect(deadline?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await pass;
+    expect(deadline?.aborted).toBe(true);
+    expect(ingest).toHaveBeenCalledTimes(1);
   });
 });

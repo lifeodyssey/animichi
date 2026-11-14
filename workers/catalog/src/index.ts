@@ -120,7 +120,7 @@ app.get("/catalog/img/:pointId", async (c) => {
   // response survives the scope that gave the connection back.
   await using runtime = await acquireCatalogRuntime(connStr);
   return await serveImage(
-    { query: catalogPrisma(runtime), bucket, fetchImpl: fetch }, c.req.param("pointId"), plan,
+    { query: catalogPrisma(runtime), bucket, fetchImpl: fetch, signal: c.req.raw.signal }, c.req.param("pointId"), plan,
   );
 });
 

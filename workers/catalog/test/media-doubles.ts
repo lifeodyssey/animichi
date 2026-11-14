@@ -5,6 +5,7 @@
  * use them (`.claude/rules/naming-ownership.md`).
  */
 import type { ImageFetchLike } from "../src/media/img";
+import { unanswered } from "./fakes/unanswered-request";
 
 /** What the stub bucket holds for one key. */
 interface StoredObject {
@@ -67,4 +68,16 @@ function imageFetchResponse(status: number, bytes: Uint8Array) {
     headers: { get: (name: string) => (name.toLowerCase() === "content-type" ? "image/png" : null) },
     arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
   };
+}
+
+/** An origin that never answers: each pull hands over its signal and rejects only when that signal aborts. */
+export function makeUnansweredImageFetch(): { fetchImpl: ImageFetchLike; reached: Promise<AbortSignal> } {
+  let arrived: (signal: AbortSignal) => void = () => undefined;
+  const reached = new Promise<AbortSignal>((resolve) => { arrived = resolve; });
+  const fetchImpl: ImageFetchLike = (_input, init) => {
+    const signal = init?.signal ?? AbortSignal.abort(new Error("the origin pull carried no signal"));
+    arrived(signal);
+    return unanswered(signal);
+  };
+  return { fetchImpl, reached };
 }

@@ -1,11 +1,13 @@
 import pg from "pg";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ANITABI_THUMBNAIL_PLAN, ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 import { serveImage, type ImgDeps } from "../src/media/img";
+import { DEFAULT_ATTEMPT_TIMEOUT_MS } from "../src/ingest/retry";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
+import { abortTimeoutsOnFakeClock } from "./fakes/abort-timeout";
 import { pointInsert, pointSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
-import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
+import { makeCountingImageFetch, makeImageBucketStub, makeUnansweredImageFetch } from "./media-doubles";
 
 /**
  * Integration suite for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
@@ -106,5 +108,44 @@ databaseDescribe("serveImage tombstone path", () => {
     const res = await serveImage({ query, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
+  });
+});
+
+/** The bounds cases' origins sit on a `.invalid` host: their pulls are stubbed, and nothing here may leave the machine. */
+databaseDescribe("serveImage origin pull bounds", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("abandons an origin that never answers at the pull timeout, storing and tombstoning nothing", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    abortTimeoutsOnFakeClock();
+    await seedPoint("hung-1", "https://origin.invalid/hung-1.png");
+    const { bucket, store } = makeImageBucketStub();
+    const origin = makeUnansweredImageFetch();
+    const served = serveImage({ query, bucket, fetchImpl: origin.fetchImpl }, "hung-1", ANITABI_THUMBNAIL_PLAN);
+    const timedOut = expect(served).rejects.toMatchObject({ name: "TimeoutError" });
+    const pull = await origin.reached;
+    await vi.advanceTimersByTimeAsync(DEFAULT_ATTEMPT_TIMEOUT_MS - 1);
+    expect(pull.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(pull.aborted).toBe(true);
+    await timedOut;
+    expect(store.size).toBe(0);
+    expect(await assetOf("hung-1")).toBeUndefined();
+  });
+
+  it("aborts the origin pull in flight when the request is cancelled", async () => {
+    await seedPoint("cancelled-1", "https://origin.invalid/cancelled-1.png");
+    const caller = new AbortController();
+    const reason = new Error("the client left");
+    const origin = makeUnansweredImageFetch();
+    const deps: ImgDeps = { query, bucket: makeImageBucketStub().bucket, fetchImpl: origin.fetchImpl, signal: caller.signal };
+    const served = serveImage(deps, "cancelled-1", ANITABI_THUMBNAIL_PLAN);
+    const pull = await origin.reached;
+    caller.abort(reason);
+    expect(pull.reason).toBe(reason);
+    await expect(served).rejects.toBe(reason);
   });
 });

@@ -13,6 +13,10 @@
  * `points.image` is already a full URL (parse.ts expands Anitabi's leading-slash
  * paths to image.anitabi.cn at enrich time); we re-expand defensively here too.
  *
+ * The origin pull runs under the request's signal and a timeout, whichever ends
+ * first, so a hung origin or a departed client stops it, body read included. A
+ * pull that times out or is cancelled rejects; it stores and tombstones nothing.
+ *
  * Every statement is a builder plan on the request's runtime
  * ({@link CatalogPrisma}). The two writes are upserts, which the builder's own
  * surface cannot state, so they are the plan repairs in `../db/plans`: the
@@ -22,6 +26,7 @@
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow, upsert } from "../db/plans";
+import { DEFAULT_ATTEMPT_TIMEOUT_MS } from "../ingest/retry";
 import { getImage, putImage } from "./r2";
 import {
   ANITABI_USER_AGENT,
@@ -35,7 +40,7 @@ const DEFAULT_CONTENT_TYPE = "image/jpeg";
 
 export type ImageFetchLike = (
   input: string,
-  init?: { headers?: Record<string, string> },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -43,11 +48,13 @@ export type ImageFetchLike = (
   arrayBuffer(): Promise<ArrayBuffer>;
 }>;
 
-/** Injected collaborators for `serveImage` (plan seam + R2 binding + fetch). */
+/** Injected collaborators for `serveImage` (plan seam + R2 binding + fetch), and the request's signal. */
 export interface ImgDeps {
   query: CatalogPrisma;
   bucket: R2Bucket;
   fetchImpl: ImageFetchLike;
+  /** The request's own signal: a client that leaves aborts the origin pull in flight. */
+  signal?: AbortSignal;
 }
 
 /** A `media_assets` row (only the columns the serving path reads). */
@@ -93,10 +100,22 @@ async function lazyPull(
 ): Promise<Response> {
   const origin = await originUrl(deps.query, pointId, plan);
   if (!origin) return tombstone();
-  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT } });
+  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal) });
   if (res.status === 404 || res.status === 410) return tombstoneAsset(deps.query, pointId);
   if (!res.ok) return new Response("Upstream error", { status: 502 });
   return storeAndServe(deps, pointId, res);
+}
+
+/**
+ * One origin pull's signal: the request's cancel or the pull timeout, whichever
+ * comes first. No caller reaches `/catalog/img` today (the edge serves `/img/*`
+ * itself), so there is no caller's wait to derive the bound from: a pull gets
+ * what one catalog upstream attempt gets, and a hung origin stops holding one
+ * of the invocation's six connections that wait for response headers.
+ */
+function pullSignal(caller: AbortSignal | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(DEFAULT_ATTEMPT_TIMEOUT_MS);
+  return AbortSignal.any(caller === undefined ? [timeout] : [caller, timeout]);
 }
 
 /** Store fetched bytes in R2, UPSERT the asset row, and serve the bytes. */

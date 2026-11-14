@@ -25,6 +25,8 @@ import {
 export interface BangumiTitleSearchConfig {
   fetchImpl?: FetchLike;
   retry?: RetryOptions;
+  /** The request's signal: a caller's cancel aborts the search and surfaces as itself. */
+  signal?: AbortSignal;
 }
 
 /** Build the `UpstreamTitlePort` backed by the Bangumi search fetcher. */

@@ -42,3 +42,12 @@ export const DAILY_WORK_CAP = 40;
 
 /** Daily staging snapshot import (#1016). */
 export const DAILY_IMPORT_CRON = "0 3 * * *";
+
+/**
+ * Every cron pass's deadline. A scheduled invocation has 15 minutes of wall
+ * time on Cloudflare; when this signal fires, the upstream requests in flight
+ * are aborted and no further work starts, leaving the pass one minute to finish
+ * the database writes already under way, record its outcome, log its completion
+ * line and give its connection back, instead of being cut off mid-write.
+ */
+export const CRON_PASS_DEADLINE_MS = 14 * 60 * 1000;

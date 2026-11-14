@@ -15,6 +15,7 @@ import { consoleRefusalAlarm, type UpstreamRefusal } from "../src/ingest/refusal
 import { fetchAnitabiPoints, type FetchLike } from "../src/ingest/sources";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
+import { claimOn } from "./fixtures/job-claim";
 import { fakeSleep, mockFetchSequence } from "./mock-fetch-sequence";
 
 const WORK = "276";
@@ -71,11 +72,11 @@ function parkedStore(): Parked {
   const failures: FailureOptions[] = [];
   const liveRefusals = new Set<string>();
   const store: IngestStore = {
-    acquire: () => Promise.resolve(true),
+    acquire: (id) => Promise.resolve(claimOn(id)),
     guard: () => Promise.resolve("ready"),
     ensurePending: () => Promise.resolve(),
-    markDone: () => Promise.resolve(),
-    markFailed: (_id, opts) => { failures.push(opts); return Promise.resolve(); },
+    markDone: () => Promise.resolve("recorded"),
+    markFailed: (_claim, opts) => { failures.push(opts); return Promise.resolve("recorded"); },
     hasLiveRefusal: (upstream) => Promise.resolve(liveRefusals.has(upstream)),
     saveRawBangumi: () => Promise.resolve(),
     saveRawAnitabi: () => Promise.resolve(),

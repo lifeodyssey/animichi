@@ -69,16 +69,17 @@ function syncingResult(): PointsByBangumiResult {
  * One seam: the published-points read (`adapters/outbound/bangumi-points.ts`,
  * #1631) and the ingest's enrich/publish writes (#1630) are both plans off this
  * request's runtime, so the port takes the request's {@link CatalogPrisma} and
- * nothing else.
+ * nothing else. The request's `signal` is bound to the preview's upstream call.
  */
 export function workPointsDb(
   query: CatalogPrisma,
   egressSigningKey?: string,
+  signal?: AbortSignal,
 ): WorkPointsPort {
   const points = bangumiPoints(query);
   return {
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
-    previewForWork: (bangumiId, fetchImpl) => previewForWork(bangumiId, fetchImpl, egressSigningKey),
+    previewForWork: (bangumiId, fetchImpl) => previewForWork(bangumiId, { fetchImpl, egressSigningKey, signal }),
     ingest: catalogIngestBangumi(query, egressSigningKey),
   };
 }

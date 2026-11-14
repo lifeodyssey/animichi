@@ -3,7 +3,9 @@
  *
  * Ported from the Python clients (`backend/clients/anitabi.py`,
  * `backend/clients/bangumi.py`): same endpoints/params, Workers-native fetch.
- * Retry (bounded backoff, `Retry-After` honored) lives in `./retry`.
+ * Retry (bounded backoff, `Retry-After` honored, a timeout per attempt and a
+ * deadline per call) lives in `./retry`; sending one request through it is
+ * `./upstream-call`. A caller's `signal` reaches every request in flight.
  *
  *   Anitabi GET {egress}/anitabi/points/{id} — the egress service (#1792)
  *     calls api.anitabi.cn/bangumi/{id}/points/detail?haveImage=true; the
@@ -19,30 +21,17 @@
  * zone — parsing is downstream.
  */
 
-import {
-  isRetryableStatus,
-  parseRetryAfter,
-  RetryableError,
-  withRetry,
-  type RetryOptions,
-} from "./retry";
-import { statusFailure, UpstreamFetchError, UpstreamNotFoundError } from "./upstream-failures";
+import type { RetryOptions } from "./retry";
 import { requireEgressSigningKey, signedEgressFetch, type AnitabiOperation } from "./anitabi-egress";
-import { EgressRefusedError } from "./egress-refusal";
-import {
-  BANGUMI_BASE,
-  upstreamNameOf,
-  upstreamUrlFor,
-  type UpstreamRequest,
-} from "./upstream-requests";
-import { ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
+import { fetchJson, postJson } from "./upstream-call";
+import type { UpstreamRequest } from "./upstream-requests";
 
 export { UpstreamFetchError, UpstreamNotFoundError, UpstreamRefusedError, type UpstreamName } from "./upstream-failures";
 
 /** Minimal fetch surface we depend on; satisfied by the global `fetch`. */
 export type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string>; body?: string },
+  init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
 ) => Promise<{ ok: boolean; status: number; headers?: { get(name: string): string | null }; json: () => Promise<unknown> }>;
 
 /** Injectable knobs for the source fetchers (defaulted for prod). */
@@ -52,11 +41,16 @@ export interface SourceConfig {
    *  fetchers, which refuse without it (fail closed). Bangumi does not use it. */
   egressSigningKey?: string;
   bangumiBaseUrl?: string;
-  /** Retry knobs (bounded backoff, `Retry-After` cap); defaulted for prod. */
+  /** Retry knobs (bounded backoff, `Retry-After` cap, attempt timeout, call deadline); defaulted for prod. */
   retry?: RetryOptions;
   /** Injectable clock for the request signature; defaulted to `Date.now`. */
   nowMs?: () => number;
+  /** The caller's cancellation (a request's signal, a cron pass's deadline): it aborts the request in flight, and no retry starts after it. */
+  signal?: AbortSignal;
 }
+
+/** What a caller hands every upstream call it makes: the egress signing key and its own cancellation. */
+export type UpstreamAccess = Pick<SourceConfig, "egressSigningKey" | "signal">;
 
 /** Search-specific Bangumi knobs; `limit` is sent as a query parameter. */
 export interface BangumiSearchConfig extends SourceConfig {
@@ -196,83 +190,6 @@ function subjectId(subject: Record<string, unknown>): string | null {
   const id = subject.id;
   if (typeof id === "number") return String(id);
   return typeof id === "string" && id.length > 0 ? id : null;
-}
-
-/** GET + JSON-decode with retry + status guarding; throws on a non-2xx response. */
-export async function fetchJson(request: UpstreamRequest, cfg: SourceConfig = {}): Promise<unknown> {
-  const url = upstreamUrlFor(request, cfg.bangumiBaseUrl ?? BANGUMI_BASE);
-  const res = await fetchWithRetry(url, upstreamNameOf(request), cfg, { headers: { "User-Agent": ANITABI_USER_AGENT } });
-  if (res.status === 404) throw new UpstreamNotFoundError(url);
-  if (!res.ok) throw statusFailure(url, res.status, upstreamNameOf(request));
-  return decodeJson(res, url, upstreamNameOf(request));
-}
-
-/** POST a JSON body + JSON-decode with retry + status guarding; throws on a non-2xx response. */
-async function postJson(request: UpstreamRequest, body: string, cfg: SourceConfig = {}): Promise<unknown> {
-  const url = upstreamUrlFor(request, cfg.bangumiBaseUrl ?? BANGUMI_BASE);
-  const upstream = upstreamNameOf(request);
-  const headers = { "User-Agent": ANITABI_USER_AGENT, "Content-Type": "application/json" };
-  const res = await fetchWithRetry(url, upstream, cfg, { method: "POST", headers, body });
-  if (!res.ok) throw statusFailure(url, res.status, upstream);
-  return decodeJson(res, url, upstream);
-}
-
-/** Fetch with retry on transient failures; exhaustion rethrows as UpstreamFetchError. */
-async function fetchWithRetry(
-  url: string, upstream: ReturnType<typeof upstreamNameOf>, cfg: SourceConfig, init: Parameters<FetchLike>[1],
-): Promise<Awaited<ReturnType<FetchLike>>> {
-  const doFetch = cfg.fetchImpl ?? (fetch);
-  try {
-    return await withRetry(() => attemptFetch(doFetch, url, init), cfg.retry);
-  } catch (err) {
-    return upstreamError(url, upstream, err);
-  }
-}
-
-function upstreamError(url: string, upstream: ReturnType<typeof upstreamNameOf>, err: unknown): never {
-  if (!(err instanceof RetryableError)) throw err;
-  const suffix = err.status !== undefined ? ` (${String(err.status)})` : "";
-  throw new UpstreamFetchError(`${url}${suffix}`, upstream, err.cause);
-}
-
-/** One attempt: transient statuses/transport errors signal a retry; others pass through. */
-async function attemptFetch(
-  doFetch: FetchLike, url: string, init: Parameters<FetchLike>[1],
-): Promise<Awaited<ReturnType<FetchLike>>> {
-  try {
-    return await fetchOnce(doFetch, url, init);
-  } catch (err) {
-    // An egress refusal is OUR service refusing — final, never retried
-    // (the ceiling clears on its own within the hour); it must not be
-    // mistaken for a transient upstream fault (#1792).
-    if (err instanceof EgressRefusedError) throw err;
-    throw err instanceof RetryableError ? err : new RetryableError(undefined, undefined, err);
-  }
-}
-
-async function fetchOnce(
-  doFetch: FetchLike,
-  url: string,
-  init: Parameters<FetchLike>[1],
-): Promise<Awaited<ReturnType<FetchLike>>> {
-  const res = await doFetch(url, init);
-  checkRetryable(res);
-  return res;
-}
-
-function checkRetryable(res: Awaited<ReturnType<FetchLike>>): void {
-  if (!isRetryableStatus(res.status)) return;
-  const delay = parseRetryAfter(res.headers?.get("retry-after") ?? null, Date.now()) ?? undefined;
-  throw new RetryableError(res.status, delay);
-}
-
-/** Convert malformed response bodies into source-aware upstream failures. */
-async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: ReturnType<typeof upstreamNameOf>): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch (err) {
-    throw new UpstreamFetchError(url, upstream, err);
-  }
 }
 
 /** Normalize Anitabi's {data|points: [...]} / bare-array shapes to a point list. */

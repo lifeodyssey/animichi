@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { JobStore } from "../src/ingest/jobs";
 import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import { recordingCatalogPrisma } from "./fakes/plan-inspection";
+import { claimOn } from "./fixtures/job-claim";
 
 /** A seam whose guard read answers `rows`; every statement is a plan. */
 function dbWithRows(rows: object[]) {
@@ -34,14 +35,16 @@ describe("JobStore persisted ingest guard", () => {
     await expect(stale.guard("115908")).resolves.toBe("ready");
   });
 
-  it("fences completion and failure updates to running claims", async () => {
+  it("fences completion and failure updates to the claim's own stamp", async () => {
     const seam = recordingCatalogPrisma();
     const store = new JobStore(seam.query);
+    const claim = claimOn("115908");
 
-    await store.markDone("115908");
-    await store.markFailed("115908", { errorCode: "ingest_error", ttlSeconds: 3600 });
+    await store.markDone(claim);
+    await store.markFailed(claim, { errorCode: "ingest_error", ttlSeconds: 3600 });
 
     expect(seam.statements()).toBe(2);
+    expect(seam.params().filter((value) => value === claim.startedAt)).toHaveLength(2);
   });
 
   it("stamps the heartbeat on a claim and clears it on a park", async () => {

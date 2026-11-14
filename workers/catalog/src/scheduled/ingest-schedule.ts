@@ -6,6 +6,11 @@
  * import, and both deployed environments drain pending work). What each job
  * then DOES lives in `./cron-jobs`; kept out of the Worker entry so the
  * composition root stays a slim list of mounts and entrypoint exports.
+ *
+ * Each pass arms its deadline (`CRON_PASS_DEADLINE_MS`) the moment it starts and
+ * hands that signal, with the egress signing key, to every job: it aborts the
+ * upstream requests in flight and stops a batch before Cloudflare's 15-minute
+ * limit would cut the pass off mid-write.
  */
 import { connectionString } from "../db/connections";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma } from "../db/prisma";
@@ -23,6 +28,8 @@ import { snapshotSourceFor, type SnapshotSource } from "../import/snapshot-sourc
 import { cronKind, guardCron, runImportJob, type CronKind } from "../import/schedule";
 import type { ImportResult } from "../import/import-snapshot";
 import { hourlyIngestBudget, runtimeEnvironment } from "../operational-config";
+import { CRON_PASS_DEADLINE_MS } from "../cron-config";
+import type { UpstreamAccess } from "../ingest/sources";
 import type { Env } from "../index";
 import {
   SNAPSHOT_KEEP,
@@ -45,9 +52,9 @@ export type ScheduledHandler = (
 /**
  * Outcome of one cron pass. Every attempted work lands in exactly one count, so
  * `ingested + skipped + failed = attempted`: `skipped` is a work with nothing
- * for this pass to ingest (another invocation holds it, its last failure is
- * still parked, or upstream has no points for it), and `failed` is an ingest
- * that failed or threw.
+ * for this pass to ingest (another invocation holds it or took its claim over,
+ * its last failure is still parked, or upstream has no points for it), and
+ * `failed` is an ingest that failed or threw.
  */
 export interface CronJobResult {
   readonly attempted: number;
@@ -69,11 +76,11 @@ const NO_BATCH: CronJobResult = { attempted: 0, ingested: 0, skipped: 0, failed:
 export interface CronDependencies {
   /** Acquire this cron pass's Prisma seam; the handler disposes it when done. */
   connectPrisma: (connectionString: string) => Promise<CronPrisma>;
-  ingestBangumi: (query: CatalogPrisma, bangumiId: string, egressSigningKey?: string) => Promise<IngestResult>;
+  ingestBangumi: (query: CatalogPrisma, bangumiId: string, upstream: UpstreamAccess) => Promise<IngestResult>;
   listDoneBangumiIds: (query: CatalogPrisma, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listDrainableBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
   listStaleBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
-  runDailyIngest: (query: CatalogPrisma, egressSigningKey?: string) => Promise<DailyRunOutcome>;
+  runDailyIngest: (query: CatalogPrisma, upstream: UpstreamAccess) => Promise<DailyRunOutcome>;
   snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
   publishRun: (query: CatalogPrisma, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
@@ -83,13 +90,18 @@ export interface CronDependencies {
   runImport: (query: CatalogPrisma, source: SnapshotSource | null) => Promise<ImportResult>;
 }
 
+/** One work's ingest on a cron pass: the production `IngestBangumi`, under the pass's upstream access. */
+export function ingestOnPass(query: CatalogPrisma, bangumiId: string, upstream: UpstreamAccess): Promise<IngestResult> {
+  return catalogIngestBangumi(query, upstream.egressSigningKey).ingest(bangumiId, { signal: upstream.signal });
+}
+
 const DEFAULT_DEPENDENCIES: CronDependencies = {
   connectPrisma: defaultCronPrisma,
-  ingestBangumi: (query, bangumiId, egressSigningKey) => catalogIngestBangumi(query, egressSigningKey).ingest(bangumiId),
+  ingestBangumi: ingestOnPass,
   listDoneBangumiIds,
   listDrainableBangumiIds,
   listStaleBangumiIds,
-  runDailyIngest: (query, egressSigningKey) => runDailyJob(query, egressSigningKey),
+  runDailyIngest: (query, upstream) => runDailyJob(query, upstream),
   snapshotStore: (bucket) => (bucket ? r2ObjectStore(bucket) : null),
   publishRun: (query, store, sourceRunId, createdAt) => publishSnapshot({ query, store }, { sourceRunId, createdAt }),
   gcSnapshots: (store) => gcSnapshots(store, SNAPSHOT_KEEP),
@@ -101,6 +113,7 @@ export function createScheduledHandler(
   dependencies: CronDependencies = DEFAULT_DEPENDENCIES,
 ): ScheduledHandler {
   return async (controller, env) => {
+    const deadline = AbortSignal.timeout(CRON_PASS_DEADLINE_MS);
     const connStr = await connectionString(env);
     if (!connStr) throw new Error("catalog database not configured");
     const kind = cronKind(controller.cron);
@@ -111,8 +124,8 @@ export function createScheduledHandler(
     }
     const store = dependencies.snapshotStore(env.SNAPSHOT_BUCKET);
     const source = dependencies.importSource(env);
-    const egressSigningKey = await egressSigningKeyFromEnv(env);
-    const context: CronContext = { store, importSource: source, egressSigningKey };
+    const upstream = { egressSigningKey: await egressSigningKeyFromEnv(env), signal: deadline };
+    const context: CronContext = { store, importSource: source, upstream };
     const result = await runCron(kind, connStr, dependencies, context);
     logCronCompletion(kind, result);
   };
@@ -140,7 +153,8 @@ async function defaultCronPrisma(connStr: string): Promise<CronPrisma> {
 interface CronContext {
   readonly store: ObjectStore | null;
   readonly importSource: SnapshotSource | null;
-  readonly egressSigningKey?: string;
+  /** The egress signing key and the pass's deadline signal, handed to every upstream call. */
+  readonly upstream: UpstreamAccess;
 }
 
 /** Every cron run leaves an "it finished, here's what it did" signal. */
@@ -188,7 +202,7 @@ async function runCronKind(
     await publishDailyDiscover(query, dependencies, context);
     return NO_BATCH;
   }
-  return runIngestKind(kind, query, dependencies, context.egressSigningKey);
+  return runIngestKind(kind, query, dependencies, context.upstream);
 }
 
 /** The three kinds that only ever run ingest batches. */
@@ -196,11 +210,11 @@ function runIngestKind(
   kind: Exclude<CronKind, "unknown" | "dailyDiscover" | "dailyImport">,
   query: CatalogPrisma,
   dependencies: CronDependencies,
-  egressSigningKey?: string,
+  upstream: UpstreamAccess,
 ): Promise<CronJobResult> {
-  if (kind === "seed") return runSeedJob(query, dependencies, egressSigningKey);
-  if (kind === "ttl") return runProductionHourlyJob(query, dependencies, egressSigningKey);
-  return runPendingDrainJob(query, dependencies, undefined, egressSigningKey);
+  if (kind === "seed") return runSeedJob(query, dependencies, upstream);
+  if (kind === "ttl") return runProductionHourlyJob(query, dependencies, upstream);
+  return runPendingDrainJob(query, dependencies, undefined, upstream);
 }
 
 /** The daily run, then the snapshot publish, both on this pass's one seam. */
@@ -210,7 +224,7 @@ async function publishDailyDiscover(
   context: CronContext,
 ): Promise<void> {
   await publishAfterRun(context.store, {
-    runDailyIngest: () => dependencies.runDailyIngest(query, context.egressSigningKey),
+    runDailyIngest: () => dependencies.runDailyIngest(query, context.upstream),
     publishRun: (store, sourceRunId, createdAt) => dependencies.publishRun(query, store, sourceRunId, createdAt),
     gcSnapshots: (store) => dependencies.gcSnapshots(store),
   });
@@ -220,11 +234,11 @@ async function publishDailyDiscover(
 async function runProductionHourlyJob(
   query: CatalogPrisma,
   dependencies: CronDependencies,
-  egressSigningKey?: string,
+  upstream: UpstreamAccess,
 ): Promise<CronJobResult> {
   const budget = new Budget(hourlyIngestBudget());
-  const pending = await runPendingDrainJob(query, dependencies, budget, egressSigningKey);
-  const stale = await runTtlJob(query, dependencies, budget, egressSigningKey);
+  const pending = await runPendingDrainJob(query, dependencies, budget, upstream);
+  const stale = await runTtlJob(query, dependencies, budget, upstream);
   return combineResults(pending, stale);
 }
 

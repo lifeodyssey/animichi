@@ -6,6 +6,11 @@
  * reporting a source-aware outcome. A failed work never reaches publish, so its
  * published pointer is not advanced. Provenance and raw-history capture happen
  * across this request's Prisma runtime so the run is diagnosable after the fact.
+ *
+ * The pass's deadline travels in `upstream.signal` and reaches both fetches.
+ * Once it has passed the work reports `exhausted`, as for a spent budget: the
+ * run stops there and records its attempt, and a fetch the deadline cut off is
+ * never tallied as its source failing.
  */
 import { canSpendWork, spendWork, type Budget } from "./budgets";
 import type { RunSource, RunWorkOutcome } from "./daily-run";
@@ -19,6 +24,7 @@ import {
   fetchBangumiSubject,
   type AnitabiPoint,
   type BangumiSubject,
+  type UpstreamAccess,
 } from "./sources";
 import { ANITABI_ATTRIBUTION, ANITABI_LICENSE_URL } from "@animichi/contract/anitabi-display";
 
@@ -37,28 +43,37 @@ export async function ingestRunWork(
   bangumiId: string,
   runId: string,
   budget: Budget,
-  egressSigningKey?: string,
+  upstream: UpstreamAccess = {},
 ): Promise<RunWorkOutcome> {
-  if (!canSpendWork(budget)) return { outcome: "exhausted" };
+  if (passOver(upstream) || !canSpendWork(budget)) return { outcome: "exhausted" };
   spendWork(budget, 2, 0);
-  const fetched = await fetchSources(bangumiId, egressSigningKey);
-  if (!fetched.ok) {
-    return { outcome: "fetchFailed", source: fetched.source, attempted: fetched.attempted, reason: fetched.reason };
-  }
+  const fetched = await fetchSources(bangumiId, upstream);
+  if (!fetched.ok) return fetchFailure(fetched, upstream);
   if (fetched.points.length === 0) return { outcome: "empty", source: "anitabi", reason: "no points" };
   await writeRaw(query, runId, bangumiId, fetched);
   await captureAll(query, runId, bangumiId, fetched);
   return publish(query, bangumiId);
 }
 
+/** Whether the pass's deadline has passed: no work starts, and no cut-off fetch is tallied. */
+function passOver(upstream: UpstreamAccess): boolean {
+  return upstream.signal?.aborted === true;
+}
+
+/** A failed fetch is its source's failure, unless the pass's deadline cut it off. */
+function fetchFailure(fetched: Extract<FetchResult, { ok: false }>, upstream: UpstreamAccess): RunWorkOutcome {
+  if (passOver(upstream)) return { outcome: "exhausted" };
+  return { outcome: "fetchFailed", source: fetched.source, attempted: fetched.attempted, reason: fetched.reason };
+}
+
 /** Fetch both sources; a failure names the source that threw. */
-async function fetchSources(bangumiId: string, egressSigningKey?: string): Promise<FetchResult> {
-  const subject = await fetchBangumiSubject(bangumiId).then(
+async function fetchSources(bangumiId: string, upstream: UpstreamAccess): Promise<FetchResult> {
+  const subject = await fetchBangumiSubject(bangumiId, { signal: upstream.signal }).then(
     (value) => ({ ok: true as const, subject: value }),
     (reason: unknown) => failedResult("bangumi", reason, ["bangumi"]),
   );
   if (!subject.ok) return subject;
-  const points = await fetchAnitabiPoints(bangumiId, { egressSigningKey }).then(
+  const points = await fetchAnitabiPoints(bangumiId, upstream).then(
     (value) => ({ ok: true as const, points: value }),
     (reason: unknown) => failedResult("anitabi", reason, ["bangumi", "anitabi"]),
   );
