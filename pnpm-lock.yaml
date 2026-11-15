@@ -2826,12 +2826,6 @@ packages:
     resolution: {integrity: sha512-VVPPgHyQ6ShqnrmDWuxjmUIsO9gWyOZFmuOfLd9LfBGQJwZfy0gvv9pbHSJuoFNIYC7ZDX9aoFwowjcdSC4E8w==}
     engines: {node: '>=18'}
 
-  '@napi-rs/wasm-runtime@1.1.6':
-    resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
-    peerDependencies:
-      '@emnapi/core': ^1.7.1
-      '@emnapi/runtime': ^1.7.1
-
   '@napi-rs/wasm-runtime@1.2.1':
     resolution: {integrity: sha512-KjZdi8Q1wh89gsVmghvbrMgWl6ZWmRmHV6wjB7/g4Zf0dyO+hH3neZUtuDNPO00qq5YE5RITVWvrIZKRaAmzGQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
@@ -9343,9 +9337,6 @@ packages:
     peerDependencies:
       pg: '>=8.0'
 
-  pg-protocol@1.15.0:
-    resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
-
   pg-protocol@1.16.0:
     resolution: {integrity: sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg==}
 
@@ -9856,9 +9847,9 @@ packages:
     peerDependencies:
       seroval: ^1.0
 
-  seroval@1.6.7:
-    resolution: {integrity: sha512-AeDcLh0yO2SFm9W71essgnSzLV9DI8ZH0x0knXn2DMnUZj728mpLbxjlbB6IqKCmqh8JA3cEqRyGoNkt584JcQ==}
-    engines: {node: '>=10'}
+  seroval@1.8.1:
+    resolution: {integrity: sha512-7z9x1flFYfZBz+LfDkXNfm5UIhZJ/97ASaV8Q1wctoVkeqVfv+tLPsWebeMXBNw6XprvwxDE5wC5Ylqmr+iSrA==}
+    engines: {node: '>=20'}
 
   serve-placeholder@2.0.2:
     resolution: {integrity: sha512-/TMG8SboeiQbZJWRlfTCqMs2DD3SZgWp0kDQePz9yUuCnDfDh/92gf7/PxGhzXTKBIPASIHxFcZndoNbp6QOLQ==}
@@ -12873,17 +12864,17 @@ snapshots:
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
 
-  '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
-    dependencies:
-      '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
-      '@tybys/wasm-util': 0.10.3
-    optional: true
-
   '@napi-rs/wasm-runtime@1.2.1(@emnapi/core@1.11.0)(@emnapi/runtime@1.11.0)':
     dependencies:
       '@emnapi/core': 1.11.0
       '@emnapi/runtime': 1.11.0
+      '@tybys/wasm-util': 0.10.3
+    optional: true
+
+  '@napi-rs/wasm-runtime@1.2.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
+    dependencies:
+      '@emnapi/core': 1.11.1
+      '@emnapi/runtime': 1.11.1
       '@tybys/wasm-util': 0.10.3
     optional: true
 
@@ -15903,7 +15894,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.1
       '@emnapi/runtime': 1.11.1
-      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+      '@napi-rs/wasm-runtime': 1.2.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
     optional: true
 
   '@rolldown/binding-win32-arm64-msvc@1.1.5':
@@ -16506,8 +16497,8 @@ snapshots:
     dependencies:
       '@tanstack/history': 1.162.4
       cookie-es: 3.1.1
-      seroval: 1.6.7
-      seroval-plugins: 1.6.7(seroval@1.6.7)
+      seroval: 1.8.1
+      seroval-plugins: 1.6.7(seroval@1.8.1)
 
   '@tanstack/router-generator@1.167.38(supports-color@10.2.2)':
     dependencies:
@@ -16564,7 +16555,7 @@ snapshots:
       '@tanstack/router-core': 1.171.32
       '@tanstack/start-fn-stubs': 1.162.0
       '@tanstack/start-storage-context': 1.167.34
-      seroval: 1.6.7
+      seroval: 1.8.1
 
   '@tanstack/start-fn-stubs@1.162.0': {}
 
@@ -16583,7 +16574,7 @@ snapshots:
       lightningcss: 1.33.0
       pathe: 2.0.3
       picomatch: 4.0.7
-      seroval: 1.6.7
+      seroval: 1.8.1
       source-map: 0.7.6
       srvx: 0.11.22
       tinyglobby: 0.2.17
@@ -16615,7 +16606,7 @@ snapshots:
       '@tanstack/start-storage-context': 1.167.34
       fetchdts: 0.1.7
       h3-v2: h3@2.0.1-rc.20
-      seroval: 1.6.7
+      seroval: 1.8.1
     transitivePeerDependencies:
       - crossws
 
@@ -16796,7 +16787,7 @@ snapshots:
   '@types/pg@8.23.1':
     dependencies:
       '@types/node': 26.6.1
-      pg-protocol: 1.15.0
+      pg-protocol: 1.16.0
       pg-types: 2.2.0
 
   '@types/react-dom@19.3.0(@types/react@19.3.0)':
@@ -16917,7 +16908,7 @@ snapshots:
       glob: 14.0.3
       graceful-fs: 4.2.11
       node-gyp-build: 4.8.4
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       resolve-from: 5.0.0
     transitivePeerDependencies:
       - encoding
@@ -18501,7 +18492,7 @@ snapshots:
   import-in-the-middle@3.3.3:
     dependencies:
       cjs-module-lexer: 2.2.0
-      es-module-lexer: 2.3.1
+      es-module-lexer: 2.3.2
       module-details-from-path: 1.0.4
 
   import-meta-resolve@4.2.0: {}
@@ -19774,8 +19765,6 @@ snapshots:
     dependencies:
       pg: 8.23.0
 
-  pg-protocol@1.15.0: {}
-
   pg-protocol@1.16.0: {}
 
   pg-types@2.2.0:
@@ -19790,7 +19779,7 @@ snapshots:
     dependencies:
       pg-connection-string: 2.14.0
       pg-pool: 3.14.0(pg@8.22.0)
-      pg-protocol: 1.15.0
+      pg-protocol: 1.16.0
       pg-types: 2.2.0
       pgpass: 1.0.5
     optionalDependencies:
@@ -20363,11 +20352,11 @@ snapshots:
 
   serialize-javascript@7.0.7: {}
 
-  seroval-plugins@1.6.7(seroval@1.6.7):
+  seroval-plugins@1.6.7(seroval@1.8.1):
     dependencies:
-      seroval: 1.6.7
+      seroval: 1.8.1
 
-  seroval@1.6.7: {}
+  seroval@1.8.1: {}
 
   serve-placeholder@2.0.2:
     dependencies:
