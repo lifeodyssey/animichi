@@ -93,7 +93,7 @@ catalog:
   "@vitest/coverage-istanbul": "4.1.11"
   "ai": ^7.0.102
   "esbuild": "0.28.2"
-  "hono": "^4.13.7"
+  "hono": "^4.13.16"
   "jose": "^6.2.12"
   # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck and test:integration (miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`) — #1742
   "miniflare": "4.20260722.0"
