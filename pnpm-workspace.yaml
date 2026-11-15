@@ -110,7 +110,7 @@ catalog:
   "vitest": "^4.1.11"
   "wrangler": "4.132.0"
   "yaml": "^2.9.1"
-  "zod": "4.6.5"
+  "zod": "4.6.6"
 
 overrides:
   postcss: ">=8.5.23"
