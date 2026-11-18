@@ -20,7 +20,7 @@ new_case "the marker the record names, beside the Atlas ledger" "$(recorded_mark
 expect "and prisma_contract belongs to migrator, as staging holds it" migrator "$(owner_of prisma_contract)"
 expect "and so does the marker table the drop names" migrator "$(table_owner prisma_contract marker)"
 run_script 0
-expect "and neonctl's connection diagnostic rode along, unread as data" yes "$(said "INFO: Connecting to the database using psql...")"
+expect "and neonctl's connection diagnostic rode along, unread as data" yes "$(said "Connecting to the database; launching psql...")"
 expect "and it quotes the record it acted on" yes "$(said "stale marker approved by $ROOT/infra/database-access/reset-staging-baseline.approved-marker: $RECORDED")"
 expect "and it records the ledger it will drop" yes "$(said "pre-state: prisma_contract.ledger 2 rows")"
 expect "and the contract it will drop" yes "$(said "pre-state: prisma_contract.contract 1 rows")"

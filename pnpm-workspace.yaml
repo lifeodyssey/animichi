@@ -98,6 +98,7 @@ catalog:
   "jose": "^6.2.12"
   # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck and test:integration (miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`) — #1742
   "miniflare": "4.20260722.0"
+  "neonctl": "^9.5.2"
   "pg": "^8.23.0"
   # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741
   "prisma": "8.0.0-rc.13"
@@ -136,6 +137,10 @@ overrides:
   "@ai-sdk/provider-utils>undici": "7.30.1"
   "alchemy>undici": "7.30.1"
   "node-gyp>undici": "6.29.1"
+  # neon (neonctl's CLI) pins diff 5.2.0 exactly, which GHSA-73rr-hh4g-fpgx covers; 5.2.2 fixes
+  # it. Scoped to neon's 5.2.0 spec, so the 8.x and 9.x consumers stay put, and it stops applying
+  # by itself once neon's diff range no longer admits 5.2.0.
+  "neon>diff@5.2.0": "5.2.2"
   glob: ">=14.0.2"
   tmp: ">=0.2.6"
   ip-address: ">=10.7.4"

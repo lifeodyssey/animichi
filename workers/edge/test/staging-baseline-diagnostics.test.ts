@@ -45,7 +45,7 @@ const asPrintf = (text: string): string => text.replaceAll("\n", "\\n");
 
 // What the success path relays, exactly: neonctl's connection notice, a psql NOTICE beside it,
 // and an empty line — two trailing newlines a command substitution would have eaten.
-const DIAGNOSTIC = 'INFO: Connecting to the database using psql...\nNOTICE:  relation "bangumi" does not exist, skipping\n\n';
+const DIAGNOSTIC = 'Connecting to the database; launching psql...\nNOTICE:  relation "bangumi" does not exist, skipping\n\n';
 
 void test("a successful read relays its diagnostics byte for byte", () => {
   const { outcome, opened, left } = diagnosticCase(`
@@ -87,7 +87,7 @@ query "SELECT 1"`);
 // it rather than after. `REACHED` is the proof the read never returned.
 void test("a relay that cannot reach stderr removes its diagnostic file before failing", () => {
   const { outcome, opened, left } = diagnosticCase(`
-staging_psql() { printf 'INFO: Connecting to the database using psql...\\n' >&2; echo t; }
+staging_psql() { printf 'Connecting to the database; launching psql...\\n' >&2; echo t; }
 exec 2>&-
 query "SELECT 1"
 echo REACHED_AFTER_THE_RELAY`);

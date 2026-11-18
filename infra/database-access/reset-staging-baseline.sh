@@ -61,24 +61,37 @@ required() {
   [[ -n "${!1:-}" ]] || fail "$1 is required"
 }
 
+# One value of a stack's own configuration, read by js-yaml — the YAML library `infra`
+# declares and reads these files with in its tests — so quoting is the parser's business; jq then
+# takes a non-empty string or refuses by key and file: unset, a number, a boolean, a `secure:`
+# object. The file goes in on stdin because `pnpm exec` runs js-yaml from `infra/`.
 yaml_value() {
-  local yaml="$1" key="$2"
-  sed -n "s/^  animichi-neon-secrets:${key}: //p" "$yaml"
+  local yaml="$1" key="animichi-neon-secrets:$2"
+  pnpm --dir "$ROOT/infra" exec js-yaml < "$yaml" \
+    | jq -er --arg key "$key" '.config[$key] | select(type == "string" and length > 0)' \
+    || fail "refusing reset: $yaml sets no string $key"
 }
 
+# `main` calls this as `load_target || fail`, where `set -e` does not act, and a refusal inside a
+# command substitution ends only that subshell, so each read returns on its own. An empty id still
+# refuses below: neonctl given no branch falls back to the project's default one.
 load_target() {
   local production_branch
-  PROJECT_ID="$(yaml_value "$STAGING_YAML" neonProjectId)"
-  BRANCH_ID="$(yaml_value "$STAGING_YAML" neonBranchId)"
-  production_branch="$(yaml_value "$PRODUCTION_YAML" neonBranchId)"
+  PROJECT_ID="$(yaml_value "$STAGING_YAML" neonProjectId)" || return 1
+  BRANCH_ID="$(yaml_value "$STAGING_YAML" neonBranchId)" || return 1
+  production_branch="$(yaml_value "$PRODUCTION_YAML" neonBranchId)" || return 1
   [[ -n "$PROJECT_ID" && -n "$BRANCH_ID" && -n "$production_branch" ]] || return 1
   [[ "$BRANCH_ID" != "$production_branch" ]] || return 1
 }
 
+# neonctl at the version the root lockfile resolved for infra's catalog range, installed by
+# CD's root frozen install before this step, its analytics off; every Neon call goes through here.
+neonctl() { pnpm --dir "$ROOT/infra" exec neonctl --no-analytics "$@"; }
+
 staging_psql() {
   local role="$1"
   shift
-  npx --yes neonctl@3.6.0 psql "$BRANCH_ID" --project-id "$PROJECT_ID" \
+  neonctl psql "$BRANCH_ID" --project-id "$PROJECT_ID" \
     --role-name "$role" --database-name neondb -- "$@"
 }
 
@@ -89,8 +102,8 @@ staging_psql() {
 # unapplied" (the query itself ran and returned f; psql exits 1 on a failed -c statement and
 # 2 on a dead connection, and neonctl propagates both). The answer lands in ROWS rather than
 # on stdout: read through a command substitution, `fail` would end only that subshell. Only
-# stdout lands there (#1793): neonctl announces every connection on stderr ("INFO: Connecting
-# to the database using psql..."), and folded into ROWS it rode beside every row — the marker
+# stdout lands there (#1793): neonctl announces every connection on stderr ("Connecting to
+# the database; launching psql..."), and folded into ROWS it rode beside every row — the marker
 # approval then compared the connection log against the owner's record and could never match,
 # and the business-rows read took the diagnostic for an unapproved table. Stderr is quoted
 # into the failure message, so "cannot confirm" still says why.
@@ -232,7 +245,7 @@ refuse_business_rows() {
 
 BACKUP_CREATED_AT=""
 backup_exists() {
-  BACKUP_CREATED_AT="$(npx --yes neonctl@3.6.0 branches list --project-id "$PROJECT_ID" --output json \
+  BACKUP_CREATED_AT="$(neonctl branches list --project-id "$PROJECT_ID" --output json \
     | jq -r --arg name "$BACKUP_NAME" 'first(.[] | select(.name == $name) | .created_at)')"
   [[ -n "$BACKUP_CREATED_AT" ]]
 }
@@ -251,7 +264,7 @@ backup_holds_marker() {
 
 ensure_backup() {
   if backup_exists; then backup_holds_marker; return; fi
-  npx --yes neonctl@3.6.0 branches create --project-id "$PROJECT_ID" \
+  neonctl branches create --project-id "$PROJECT_ID" \
     --parent "$BRANCH_ID" --name "$BACKUP_NAME" --no-compute --output json >/dev/null
 }
 
