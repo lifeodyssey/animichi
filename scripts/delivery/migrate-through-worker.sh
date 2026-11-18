@@ -15,7 +15,7 @@
 # than failing the release. With one authority there is one identity on both
 # sides (#1634).
 #
-# Usage: MIGRATOR_URL=… migrate-through-worker.sh <environment> [contract-file]
+# Usage: MIGRATOR_URL=… MIGRATOR_OIDC_TOKEN=… migrate-through-worker.sh <environment> [contract-file]
 set -euo pipefail
 
 TARGET_ENVIRONMENT="${1:?target environment required}"
@@ -31,25 +31,15 @@ STALE_ATTEMPTS="${STALE_BUNDLE_ATTEMPTS:-3}"
 fail() { echo "::error title=migration::$*"; exit 1; }
 required() { [ -n "${!1:-}" ] || fail "$1 is required for $TARGET_ENVIRONMENT"; }
 
-# Every call below either carries a credential (the OIDC request token, then the
-# minted token itself) or decides whether the credential-bearing POST happens, so
-# the transport is pinned to TLS. curl refuses a plain-http URL — and a redirect
-# that leaves https — instead of sending the token over it (CWE-319).
+# The POST below carries the migrator's OIDC token, so its transport is pinned to
+# TLS: curl refuses a plain-http URL — and a redirect that leaves https — instead
+# of sending the token over it (CWE-319).
 https_only() { curl --proto '=https' --proto-redir '=https' "$@"; }
 
-# `audience` scopes the token to the migrator alone: the same token is rejected
-# by Pulumi Cloud and by every other relying party.
-oidc_token() {
-  required ACTIONS_ID_TOKEN_REQUEST_URL
-  required ACTIONS_ID_TOKEN_REQUEST_TOKEN
-  https_only -sSfL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=animichi:github-actions:migrator" | jq -r .value
-}
-
 post_migrate() {
-  local token="$1" body="$2"
+  local body="$1"
   https_only -sS -o "$RESPONSE" -w '%{http_code}' -X POST \
-    "$MIGRATOR_URL/migrate" -H "Authorization: Bearer $token" \
+    "$MIGRATOR_URL/migrate" -H "Authorization: Bearer $MIGRATOR_OIDC_TOKEN" \
     -H 'content-type: application/json' --max-time 900 -d "$body"
 }
 
@@ -60,10 +50,10 @@ stale_bundle_response() {
 
 # A bundle can change between the health check and POST; re-poll that race only.
 trigger() {
-  local token="$1" body="$2" attempt=1 code
+  local body="$1" attempt=1 code
   while [ "$attempt" -le "$STALE_ATTEMPTS" ]; do
     await_migrator_bundle "$PRISMA_REF" || fail "migrator never served schema identity $PRISMA_REF"
-    code="$(post_migrate "$token" "$body")"
+    code="$(post_migrate "$body")"
     [ "$code" = 200 ] && return 0
     stale_bundle_response "$code" || report_failure "migrator returned HTTP $code"
     echo "migrator answered 409 $(jq -r .error "$RESPONSE"); re-polling ($attempt/$STALE_ATTEMPTS)"
@@ -184,12 +174,15 @@ redact_dsn_passwords() {
 
 main() {
   required MIGRATOR_URL
-  local token body
-  PRISMA_REF="$(jq -er '.storage.storageHash | select(type == "string" and test("^[a-f0-9]{64}$"))' "$CONTRACT_FILE")"
+  # The migrator's OIDC token, minted by core.getIDToken in the call-migrator action's
+  # step before this one. Its audience scopes it to the migrator alone: the same token
+  # is rejected by Pulumi Cloud and by every other relying party.
+  required MIGRATOR_OIDC_TOKEN
+  local body
+  PRISMA_REF="$(selected_prisma_ref "$CONTRACT_FILE")"
   body="$(selected_metadata)"
-  token="$(oidc_token)"
   echo "migrating $TARGET_ENVIRONMENT to schema identity $PRISMA_REF"
-  trigger "$token" "$body"
+  trigger "$body"
   verify
   echo "migrator applied $PRISMA_REF"
 }

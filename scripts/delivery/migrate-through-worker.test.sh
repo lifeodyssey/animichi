@@ -13,6 +13,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="$ROOT/scripts/delivery/migrate-through-worker.sh"
 SEALED_REF="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 OTHER_REF="cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+# What the call-migrator action's mint step hands the apply as MIGRATOR_OIDC_TOKEN.
+TOKEN="minted-token-canary"
 WORKSPACE=""
 # Resolved before any test puts the stub on PATH, so the stub can still reach the
 # shipped curl. Every URL below is loopback port 1: the real curl either refuses
@@ -23,9 +25,11 @@ export REAL_CURL
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# `curl` reaches three endpoints here: the OIDC mint, /healthz and /migrate.
-# Each call appends its kind to CALL_LOG; /healthz answers STUB_TARGETS one entry
-# per call (the last entry repeats), /migrate answers STUB_CODES the same way.
+# `curl` reaches two endpoints here: /healthz and /migrate. Each call appends its
+# kind to CALL_LOG; /healthz answers STUB_TARGETS one entry per call (the last
+# entry repeats), /migrate answers STUB_CODES the same way. Any other call, a
+# token request among them, is one the script must not make, and fails.
+# The token the apply step is handed is pinned in migrate-through-worker-request.test.rb.
 make_curl_stub() {
   cat > "$WORKSPACE/bin/curl" <<'STUB'
 #!/usr/bin/env bash
@@ -57,10 +61,7 @@ case "$args" in
     [ "$code" != 409 ] || printf '{"error":"stale_prisma_bundle"}\n' > "$out"
     printf '%s' "$code"
     ;;
-  *)
-    echo token >> "${CALL_LOG:?}"
-    echo '{"value":"oidc-token"}'
-    ;;
+  *) echo "curl stub: an unexpected call: $args" >&2; exit 1 ;;
 esac
 STUB
   chmod +x "$WORKSPACE/bin/curl"
@@ -76,8 +77,7 @@ setup() {
   export PATH="$WORKSPACE/bin:$PATH"
   export CALL_LOG="$WORKSPACE/calls" STUB_STATE="$WORKSPACE/state"
   export RUNNER_TEMP="$WORKSPACE" MIGRATOR_URL="https://127.0.0.1:1"
-  export ACTIONS_ID_TOKEN_REQUEST_URL="https://127.0.0.1:1/token?a=1"
-  export ACTIONS_ID_TOKEN_REQUEST_TOKEN="request-token"
+  export MIGRATOR_OIDC_TOKEN="$TOKEN"
   export BUNDLE_POLL_ATTEMPTS=3 BUNDLE_POLL_SECONDS=0 STALE_BUNDLE_ATTEMPTS=2
   export STUB_TARGETS="$SEALED_REF" STUB_CODES="200" STUB_MARKER="$SEALED_REF"
   : > "$CALL_LOG"
@@ -93,7 +93,7 @@ case_applies_after_the_bundle_is_serving() {
   setup
   run_script > "$WORKSPACE/out" || fail "a serving bundle must migrate"
   grep -q "migrator applied $SEALED_REF" "$WORKSPACE/out" || fail "must report the applied identity"
-  [ "$(calls)" = "token healthz migrate " ] || fail "polled: $(calls)"
+  [ "$(calls)" = "healthz migrate " ] || fail "polled: $(calls)"
   teardown
 }
 
@@ -101,7 +101,7 @@ case_waits_for_the_new_bundle_before_posting() {
   setup
   STUB_TARGETS="$OTHER_REF $OTHER_REF $SEALED_REF"
   run_script > /dev/null || fail "must migrate once the new bundle serves"
-  [ "$(calls)" = "token healthz healthz healthz migrate " ] || fail "did not wait: $(calls)"
+  [ "$(calls)" = "healthz healthz healthz migrate " ] || fail "did not wait: $(calls)"
   teardown
 }
 
@@ -119,7 +119,7 @@ case_retries_a_409_stale_bundle() {
   STUB_CODES="409 200"
   run_script > "$WORKSPACE/out" || fail "a 409 must be retried, not fail the release"
   grep -q "409 stale_prisma_bundle" "$WORKSPACE/out" || fail "must say why it retried"
-  [ "$(calls)" = "token healthz migrate healthz migrate " ] || fail "did not re-poll: $(calls)"
+  [ "$(calls)" = "healthz migrate healthz migrate " ] || fail "did not re-poll: $(calls)"
   teardown
 }
 
@@ -149,19 +149,9 @@ case_fails_on_any_other_status() {
   teardown
 }
 
-# CWE-319 (CodeRabbit on #1471): the OIDC request token and the minted token
-# both ride on these calls, so a plain-http endpoint must stop the release
-# instead of being dialled. Both cases assert the refusal the SHIPPED curl
-# raises, and that no credential-bearing call follows it.
-case_refuses_a_plaintext_token_endpoint() {
-  setup
-  ACTIONS_ID_TOKEN_REQUEST_URL="http://127.0.0.1:1/token?a=1"
-  run_script > "$WORKSPACE/out" && fail "a plain-http token endpoint must fail the release"
-  grep -q 'Protocol "http"' "$WORKSPACE/out" || fail "wrong refusal: $(cat "$WORKSPACE/out")"
-  [ -z "$(calls)" ] || fail "nothing may be dialled after the refusal: $(calls)"
-  teardown
-}
-
+# CWE-319 (CodeRabbit on #1471): the token rides the POST, so a plain-http
+# migrator must stop the release instead of being dialled; the refusal is the
+# SHIPPED curl's own.
 case_refuses_a_plaintext_migrator_url() {
   setup
   MIGRATOR_URL="http://127.0.0.1:1"
@@ -179,7 +169,6 @@ for test_case in \
   case_gives_up_on_an_endless_409 \
   case_refuses_a_receipt_for_another_identity \
   case_fails_on_any_other_status \
-  case_refuses_a_plaintext_token_endpoint \
   case_refuses_a_plaintext_migrator_url; do
   "$test_case"
 done

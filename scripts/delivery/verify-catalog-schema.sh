@@ -10,7 +10,7 @@
 # read-only question about the schema it just migrated; this script asks it and
 # fails when the answer names a missing table.
 #
-# Usage: MIGRATOR_URL=… verify-catalog-schema.sh <environment>
+# Usage: MIGRATOR_URL=… MIGRATOR_OIDC_TOKEN=… verify-catalog-schema.sh <environment>
 set -euo pipefail
 
 TARGET_ENVIRONMENT="${1:?target environment required}"
@@ -27,18 +27,10 @@ RESPONSE="${RUNNER_TEMP:-/tmp}/catalog-schema-$TARGET_ENVIRONMENT.json"
 fail() { echo "::error title=catalog-schema::$*"; exit 1; }
 required() { [ -n "${!1:-}" ] || fail "$1 is required for $TARGET_ENVIRONMENT"; }
 
-# The OIDC request token and the minted token both ride on these calls, so the
-# transport is pinned to TLS: curl refuses a plain-http URL — and a redirect
-# that leaves https — instead of sending a credential over it (CWE-319).
+# The migrator's OIDC token rides on the catalog read, so its transport is pinned
+# to TLS: curl refuses a plain-http URL — and a redirect that leaves https —
+# instead of sending a credential over it (CWE-319).
 https_only() { curl --proto '=https' --proto-redir '=https' "$@"; }
-
-# `audience` scopes the token to the migrator alone, as the migration call does.
-oidc_token() {
-  required ACTIONS_ID_TOKEN_REQUEST_URL
-  required ACTIONS_ID_TOKEN_REQUEST_TOKEN
-  https_only -sSfL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=animichi:github-actions:migrator" | jq -r .value
-}
 
 # What the target lacks, per the migrator's answer; empty means the schema is
 # whole. An unreadable answer is "every table is unproven", never "none missing".
@@ -55,10 +47,12 @@ answer() { jq -c '{error: (.error // null), missing: (.missing // null)}' "$RESP
 main() {
   required MIGRATOR_URL
   [[ "$MIGRATOR_URL" == https://* ]] || fail "migrator must use HTTPS"
-  local token code missing
-  token="$(oidc_token)"
+  # The migrator's OIDC token, minted by core.getIDToken in the call-migrator action's
+  # step before this one, for the migrator's audience alone, as the migration call's is.
+  required MIGRATOR_OIDC_TOKEN
+  local code missing
   code="$(https_only -sS -o "$RESPONSE" -w '%{http_code}' --max-time 60 \
-    -H "Authorization: Bearer $token" "${MIGRATOR_URL%/}/catalog-schema")"
+    -H "Authorization: Bearer $MIGRATOR_OIDC_TOKEN" "${MIGRATOR_URL%/}/catalog-schema")"
   # 422 is this endpoint's "the schema is incomplete" answer, and its body names
   # what is missing; every other non-200 is a failure to answer at all, reported
   # with its own stable code rather than as a claim about the schema.

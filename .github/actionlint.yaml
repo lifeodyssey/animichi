@@ -5,7 +5,9 @@ paths:
   .github/workflows/pr-verification.yml:
     ignore:
       - '^specifying action "\$/\.github/actions/setup\-workspace" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'
-  # Owner-approved: the same upstream syntax gap, limited to the release hydration action.
+  # Owner-approved: the same upstream syntax gap, limited to the release hydration action and, since
+  # 2026-11-18, the migrator-call action.
   .github/workflows/cd.yml:
     ignore:
       - '^specifying action "\$/\.github/actions/hydrate\-release" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'
+      - '^specifying action "\$/\.github/actions/call\-migrator" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'

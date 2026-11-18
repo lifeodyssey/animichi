@@ -22,20 +22,17 @@ PRISMA_TARGET="$(printf 'a%.0s' {1..64})"
 mkdir -p "$TMP/bin"
 cat > "$TMP/bin/curl" <<'STUB'
 #!/usr/bin/env bash
-# Three call shapes reach this stub: the OIDC token (the only URL carrying `audience=`, read by
-# `jq -er .value`), `/healthz` (await_migrator_bundle's identity poll), and `/preflight`
-# (`-o schema-preflight.json -w '%{http_code}'`, so the body is a file and the printed value is
-# the status code). Every response body carries the LEAK_CANARY bytes, the successful one
-# included: a path that leaks only on success would pass a failure-only assertion.
+# Two call shapes reach this stub: `/healthz` (await_migrator_bundle's identity poll), and
+# `/preflight` (`-o schema-preflight.json -w '%{http_code}'`, so the body is a file and the printed
+# value is the status code). The script asks for no token: it presents the one its step is handed,
+# so a token request has no `-o` target and fails below. Every response body carries the
+# LEAK_CANARY bytes, the successful one included: a path that leaks only on success would pass a
+# failure-only assertion.
 set -euo pipefail
 state_dir="${STUB_STATE_DIR:?}"
 printf '%s\n' "$*" >> "$state_dir/argv"
 url="${*: -1}"
 
-if [[ "$url" == *audience=* ]]; then
-  printf '{"value":"stub-oidc-token"}'
-  exit 0
-fi
 if [[ "$url" == */healthz ]]; then
   printf '{"prismaTarget":"%s"}' "${STUB_PRISMA:?}"
   exit 0
@@ -83,11 +80,13 @@ printf '%s\n' "$1" >> "${STUB_STATE_DIR:?}/sleeps"
 STUB
 chmod +x "$TMP/bin/sleep"
 
-# What cd.yml puts in the environment, plus the identity the stub answers /healthz with.
+# What the call-migrator action puts in the environment — the token its mint step hands the
+# preflight among it —
+# plus the identity the stub answers /healthz with.
+HANDED_TOKEN="stub-handed-token"
 RUN_ENV=(
   MIGRATOR_URL="https://migrator.example.test"
-  ACTIONS_ID_TOKEN_REQUEST_TOKEN=stub-request-token
-  ACTIONS_ID_TOKEN_REQUEST_URL="https://token.example.test/?api-version=1"
+  MIGRATOR_OIDC_TOKEN="$HANDED_TOKEN"
   STUB_PRISMA="$PRISMA_TARGET"
 )
 

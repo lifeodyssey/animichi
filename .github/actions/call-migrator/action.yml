@@ -1,0 +1,56 @@
+# The one place CD mints the migrator's GitHub OIDC token (CI/CD redesign spec, section 4).
+# The wait holds no token: it is minted only once the migrator serves the selected bundle, so its
+# short life is spent by the client rather than by the wait. The schema-preflight and
+# migrate-through-worker clients check the bundle again before their first request and after a
+# stale-bundle 409; once this wait has passed, that first check is normally a single healthz read.
+# core.getIDToken masks it before
+# returning it. The steps of a composite share a steps context of their own and only declared
+# outputs leave it, so this action declares none and the client step alone reads the token. A
+# composite runs inside its caller's job, so the token carries that job's environment claim.
+name: Call the migrator
+description: Wait for the selected migrator bundle, mint the migrator's OIDC token and run one client with it
+inputs:
+  environment:
+    description: The environment the client acts on, staging or production
+    required: true
+  migrator-url:
+    description: That environment's migrator origin
+    required: true
+  client:
+    description: schema-preflight, migrate-through-worker or verify-catalog-schema
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Wait until the migrator serves the selected bundle
+      shell: bash
+      env:
+        MIGRATOR_URL: ${{ inputs.migrator-url }}
+      run: |
+        source scripts/delivery/migrator-bundle.sh
+        prisma_ref="$(selected_prisma_ref)"
+        await_migrator_bundle "$prisma_ref" || { echo '::error::selected migration executor is unavailable'; exit 1; }
+    - name: Mint the migrator token
+      id: token
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      with:
+        result-encoding: string
+        script: return core.getIDToken('animichi:github-actions:migrator')
+    - name: Run the selected client with the token
+      shell: bash
+      env:
+        CLIENT: ${{ inputs.client }}
+        TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        MIGRATOR_URL: ${{ inputs.migrator-url }}
+        MIGRATOR_OIDC_TOKEN: ${{ steps.token.outputs.result }}
+      run: |
+        case "$CLIENT" in
+          schema-preflight)
+            bash .github/scripts/release/schema-preflight.sh "$TARGET_ENVIRONMENT" ;;
+          migrate-through-worker)
+            bash scripts/delivery/migrate-through-worker.sh "$TARGET_ENVIRONMENT" ;;
+          verify-catalog-schema)
+            bash scripts/delivery/verify-catalog-schema.sh "$TARGET_ENVIRONMENT" ;;
+          *)
+            echo "::error::no migrator client named $CLIENT"; exit 1 ;;
+        esac

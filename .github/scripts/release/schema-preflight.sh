@@ -4,17 +4,16 @@ set -euo pipefail
 case "${1:?environment required}" in staging|production) ;; *) exit 1 ;; esac
 : "${MIGRATOR_URL:?existing migrator URL required}"
 [[ "$MIGRATOR_URL" == https://* ]] || { echo '::error::migrator must use HTTPS'; exit 1; }
-prisma_ref="$(jq -er '.storage.storageHash | select(type == "string" and test("^[a-f0-9]{64}$"))' release/migrator/bundle/contract.json)"
-jq -n --arg prisma "$prisma_ref" '{expectedPrismaRef:$prisma}' > preflight-request.json
+# The migrator's OIDC token, minted by core.getIDToken in the call-migrator action's step before this one.
+[[ -n "${MIGRATOR_OIDC_TOKEN:-}" ]] || { echo "::error::MIGRATOR_OIDC_TOKEN is required for $1"; exit 1; }
 # shellcheck source=scripts/delivery/migrator-bundle.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/delivery/migrator-bundle.sh"
+prisma_ref="$(selected_prisma_ref)"
+jq -n --arg prisma "$prisma_ref" '{expectedPrismaRef:$prisma}' > preflight-request.json
 await_migrator_bundle "$prisma_ref" || { echo '::error::selected migration executor is unavailable'; exit 1; }
-token="$(curl --proto '=https' --proto-redir '=https' -sSf --max-time 30 \
-  -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=animichi:github-actions:migrator" | jq -er .value)"
 request_preflight() {
   curl --proto '=https' --proto-redir '=https' -sS --max-time 60 -o schema-preflight.json -w '%{http_code}' \
-    -H "Authorization: Bearer $token" -H 'content-type: application/json' \
+    -H "Authorization: Bearer $MIGRATOR_OIDC_TOKEN" -H 'content-type: application/json' \
     --data-binary @preflight-request.json "${MIGRATOR_URL%/}/preflight"
 }
 # A 503 means the endpoint resolved no DSN or its driver threw: nothing here starts a
