@@ -97,7 +97,7 @@ function declaredStoreBindings(worker: (typeof WORKERS)[number], environment: En
   const document = parse(wranglerSource(worker.wrangler)) as {
     env: Record<string, { secrets_store_secrets: StoreBinding[] }>;
   };
-  return document.env[environment].secrets_store_secrets;
+  return document.env[environment].secrets_store_secrets.map((binding) => ({ ...binding }));
 }
 
 /** The runtime bindings a Worker must declare: its row in RUNTIME_BINDERS, in

@@ -65,7 +65,7 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Conventions
 
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
-- `zod@4.6.5` and `@orpc/*@1.15.1` are one coupled exact-pin set across this package,
+- `zod@^4.6.7` and `@orpc/*@1.15.1` are one coupled pin set across this package,
   `workers/catalog`, `workers/users`, and `apps/web` (the catalog entries in `pnpm-workspace.yaml`,
   which `test/repo-config/contract-pin-set.test.rb` holds to this line). Change them together.
 - Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle.

@@ -47,6 +47,7 @@ ALLOWED_ROOT_ENTRIES=(
   fixtures
   infra
   migrations
+  osv-scanner.toml
   package.json
   packages
   pnpm-lock.yaml

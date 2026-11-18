@@ -122,10 +122,23 @@ that was the handling of that one card, not a rule that every card is closed thi
 [`GHSA-fc5q-39xc-vjpf`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (picomatch ReDoS through
 repeated extglobs) lists every version through 4.0.7, the latest, as affected. No picomatch issue
 tracked it on that date. No upgrade clears it, and the osv lane failed on `main` and on every pull
-request. The owner chose an ignore with an expiry date over waiting for upstream. It lives in
-`infra/database-access/osv-scanner.toml`, beside the only lockfile osv flagged. There picomatch
+request. The owner chose an ignore with an expiry date over waiting for upstream. It first went
+into `infra/database-access/osv-scanner.toml`, beside the lockfile osv flagged then. There picomatch
 arrives through Pulumi's package installer (`@pulumi/pulumi` → `@npmcli/arborist` →
 `@npmcli/run-script` → `node-gyp` → `tinyglobby`). node-gyp 12.4.0, the only tinyglobby caller,
 passes it two fixed patterns without extglobs (`build/*.sln`, `build/*.mk`, `lib/build.js:87,90`).
-It expires on 2026-12-18. Remove it when picomatch ships a fix. Extending it past that date is the
-owner's decision again (the exception rules in `docs/agents/code-standards.md`).
+
+The same day the lane moved to osv-scanner v2.7.1, which reads the root `pnpm-lock.yaml` whole
+(the earlier scanner read 15 of its packages), and it flagged picomatch 2.3.2, 4.0.5 and 4.0.7
+there. The owner extended the decision to that lockfile: `osv-scanner.toml` at the repository root,
+the same advisory and expiry. In the root lockfile picomatch comes in through build, test and
+development tooling (vite, vitest, nitropack, Storybook, TanStack's build plugins, the Prisma CLI)
+and through three runtime dependencies (`agents` in `workers/edge`, `@tanstack/react-start` in
+`apps/web`, `@prisma/orm-toolchain` in `workers/migrator`), but only by modules the bundles leave
+out: no tracked source imports it, and neither the four Workers' bundles nor the web build contains
+it, so it runs only in that tooling.
+The patterns the repository passes that tooling are committed literals, and their one extglob
+(Storybook's stories glob) is not repeated.
+
+Both ignores expire on 2026-12-18. Remove them when picomatch ships a fix. Extending them past that
+date is the owner's decision again (the exception rules in `docs/agents/code-standards.md`).

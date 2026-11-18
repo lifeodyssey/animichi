@@ -101,6 +101,24 @@ never walked. Technique:
   the same bytes from a hostname that never existed (a zone-level file). A liveness or existence
   probe proves nothing until a known-absent case answers differently.
 
+## A scanner that read one lockfile document of two (2026-11-18)
+
+pnpm 12 (#1751, 2026-09-18) writes the root `pnpm-lock.yaml` as two YAML documents: pnpm's own
+environment lock (15 packages), then the workspace lock (1,917). The `CI / security (osv)` lane ran
+osv-scanner v2.3.8, whose pnpm parser read only the first document, so from 2026-09-18 to
+2026-11-18 the lane scanned 15 of the root lockfile's 1,932 packages, and the workspace's own
+dependencies took no part in its verdict. What caught it was the per-file count in the CI log,
+"Scanned …/pnpm-lock.yaml file and found 15 packages", which #1963 set beside a local osv-scanner
+2.6.0 run that read 1,941 (2026-09-29, filed as #1964); the gap then stayed open for seven weeks.
+v2.7.1 parses both documents (google/osv-scalibr#2351): it read 1,932 packages and found 91 known
+vulnerabilities in 33 of them.
+
+- Read a scanner's per-file package count, not only its verdict. A count far below what the file
+  holds means the file was not scanned, and its "No issues found" is the zero-result shape in
+  "Fake boundaries" above.
+- Recheck the counts when an input changes format, not only when the scanner does: the second
+  document arrived with the pnpm 12 upgrade, and no line of the osv job moved.
+
 ## Logs and a reproduction before a plan (owner, 2026-08-06 to 2026-08-24)
 
 A diagnosis starts from the raw record, not from a theory: "有问题的时候，你到底有没有认真看过所有的
