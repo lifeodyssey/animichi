@@ -13,6 +13,10 @@
  * own schema is the only thing that can refuse one the model cannot read. That
  * refusal has to be loud: a retry that replays an unreadable snapshot answers 200
  * with garbage.
+ *
+ * The two instants share the saved-route rows' timestamptz mapping
+ * (`src/db/timestamptz.ts`): raw workerd text reads back as the same ISO
+ * string either adapter would give it.
  */
 import type { SaveSavedRouteInput } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
@@ -65,5 +69,14 @@ describe("a ledger row the model cannot carry is not read as if it could", () =>
     };
     await expect(new NeonIdempotencyStore(store.prisma).claim(claim))
       .rejects.toThrow("invalid idempotency result row");
+  });
+});
+
+describe("a ledger row's instants arrive in the public ISO form", () => {
+  it("reads raw workerd timestamptz text on both instants as ISO", async () => {
+    const store = fakeUsersPrisma();
+    seed(store, { created_at: "2026-07-13 12:34:56+00", expires_at: "2026-07-14 12:34:56+00" });
+    const row = await new NeonIdempotencyStore(store.prisma).read({ ownerUserId: "user-a", op: OP, key: KEY });
+    expect(row).toMatchObject({ createdAt: "2026-07-13T12:34:56.000Z", expiresAt: "2026-07-14T12:34:56.000Z" });
   });
 });

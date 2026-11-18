@@ -5,6 +5,7 @@ import { NeonIdempotencyStore } from "../src/adapters/neon-idempotency-store";
 import { saveSavedRouteIdempotent } from "../src/application/save-saved-route-idempotent";
 import { canonicalFingerprint } from "../src/domain/saved-route-idempotency";
 import { fakeUsersPrisma, ledgerKey, type FakeLedgerRow, type FakeUsersPrisma } from "./fake-users-prisma";
+import { instantPause } from "./instant-pause";
 
 const OP = "saveSavedRoute";
 const NOW = 1_752_933_600_000; // 2026-07-13T04:00:00.000Z
@@ -13,7 +14,7 @@ const INPUT: SaveSavedRouteInput = { title: "Tokyo", point_ids: ["p1", "p2"], st
 const KEY = "key-001";
 /** A committed ledger carries a real SavedRoute snapshot, ids included. */
 const ROUTE_ID = "00000000-0000-4000-8000-000000000001";
-const fixedNow = { now: () => NOW };
+const fixedClock = { now: () => NOW, sleep: instantPause };
 
 /** Let a rejected promise's microtask fully settle before the test returns, so
  * vitest-pool-workers does not double-report a caught rejection as unhandled. */
@@ -55,7 +56,7 @@ async function save(
   userId: string,
   input: SaveSavedRouteInput,
   key: string,
-  opts: Parameters<typeof saveSavedRouteIdempotent>[5] = fixedNow,
+  opts: Parameters<typeof saveSavedRouteIdempotent>[5] = fixedClock,
 ): Promise<SavedRoute> {
   const { atomicStore, idemStore } = stores(store);
   return saveSavedRouteIdempotent(atomicStore, idemStore, userId, input, key, opts);

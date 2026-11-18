@@ -1,9 +1,8 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
-import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH } from "@animichi/contract";
+import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, USERS_ERROR_DEFS } from "@animichi/contract";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 import { acquireUsersRuntime, usersPrisma, type UsersPrisma } from "./db/prisma";
-import { USERS_ERRORS } from "./lib/errors";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -30,10 +29,13 @@ const unauthorized = {
   error: { code: "unauthorized", message: "Valid credentials required." },
 };
 
-/** Typed 400 envelope for an over-long Idempotency-Key (abuse-bounded #1011). */
+const KEY_INVALID = USERS_ERROR_DEFS.IDEMPOTENCY_KEY_INVALID;
+
+/** Typed 400 envelope for an over-long Idempotency-Key (abuse-bounded #1011),
+ * with the status and message the contract's registry gives the code. */
 const idempotencyKeyInvalid = {
-  defined: true, code: "IDEMPOTENCY_KEY_INVALID", status: 400,
-  message: USERS_ERRORS.IDEMPOTENCY_KEY_INVALID.message, data: {},
+  defined: true, code: "IDEMPOTENCY_KEY_INVALID", status: KEY_INVALID.status,
+  message: KEY_INVALID.message, data: {},
 };
 
 function isResponse(value: unknown): value is Response {
@@ -74,7 +76,7 @@ function admit(c: Context<{ Bindings: Env }>): Admission | Response {
   // here, before dispatch, so the ledger never sees an unbounded PK key value.
   const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
   if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
-    return c.json(idempotencyKeyInvalid, 400);
+    return c.json(idempotencyKeyInvalid, KEY_INVALID.status);
   }
   return idempotencyKey === undefined ? { userId } : { userId, idempotencyKey };
 }

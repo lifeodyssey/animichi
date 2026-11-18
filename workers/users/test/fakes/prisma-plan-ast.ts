@@ -4,8 +4,9 @@
  * Building a plan is pure — it binds no connection, reads no row and touches no
  * runtime — so a test can hand the real builder's plan to a data plane of its
  * own. What that data plane needs is not SQL text but the plan's own data: the
- * `ParamRef` values the builder bound, the WHERE tree, the `returning(...)` list
- * and the table underneath. This module is the one place that reads it.
+ * `ParamRef` values the builder bound, the WHERE tree, the ORDER BY terms, the
+ * `returning(...)` list and the table underneath. This module is the one place
+ * that reads it.
  *
  * Everything here refuses a shape it cannot model rather than guessing at it: an
  * operator it does not know, a computed projection, a table it cannot name. A
@@ -48,6 +49,7 @@ interface AstNodeView {
   readonly left?: unknown;
   readonly right?: unknown;
   readonly expr?: unknown;
+  readonly dir?: string;
 }
 
 function nodeOf(expr: unknown): AstNodeView {
@@ -113,6 +115,45 @@ export function matches(expr: unknown, row: Row): boolean {
   if (node.kind === "or") return (node.exprs ?? []).some((part) => matches(part, row));
   if (node.kind === "binary") return compare(node.op, valueOf(node.left, row), valueOf(node.right, row));
   throw new Error(`fakeUsersPrisma cannot evaluate a '${node.kind}' predicate`);
+}
+
+/** One ORDER BY term this fake applies: a plain column and its direction. */
+interface OrderTerm {
+  readonly column: string;
+  readonly descending: boolean;
+}
+
+/** The sort directions the builder renders, and whether each is descending —
+ * a `Map`, like COMPARISONS, so a direction it never renders reaches the throw. */
+const DESCENDING = new Map<string, boolean>([["asc", false], ["desc", true]]);
+
+/** An ORDER BY item naming a plain column in a known direction, as the builder
+ * renders one. A computed sort key or an unknown direction throws rather than
+ * being guessed at. */
+function orderTerm(item: unknown): OrderTerm {
+  const node = nodeOf(item);
+  const expr = nodeOf(node.expr);
+  const descending = DESCENDING.get(node.dir ?? "");
+  if (node.kind !== "order-by-item" || expr.kind !== "identifier-ref"
+    || expr.name === undefined || descending === undefined) {
+    throw new Error("fakeUsersPrisma only orders by a plain column, ascending or descending");
+  }
+  return { column: expr.name, descending };
+}
+
+/** Compare two rows term by term; the first term that differs decides. */
+function compareByTerms(left: Row, right: Row, terms: readonly OrderTerm[]): number {
+  for (const term of terms) {
+    const order = ordered(left[term.column], right[term.column]);
+    if (order !== 0) return term.descending ? -order : order;
+  }
+  return 0;
+}
+
+/** Rows in the order a SELECT's ORDER BY gives them; with none, as stored. */
+export function orderedRows(rows: readonly Row[], items: readonly unknown[] | undefined): Row[] {
+  const terms = (items ?? []).map(orderTerm);
+  return [...rows].sort((left, right) => compareByTerms(left, right, terms));
 }
 
 /** The table a plan names. */

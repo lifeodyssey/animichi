@@ -48,6 +48,9 @@ export interface UsersPlanExecutor {
   query<Row>(plan: SqlOrmPlan<Row>): PromiseLike<readonly Row[]>;
 }
 
+/** The row a built plan resolves to, read back off the plan rather than re-declared. */
+export type RowOf<Plan> = Plan extends SqlOrmPlan<infer Row> ? Row : never;
+
 /**
  * What a query adapter is handed for one request: the contract's statement
  * builder, this request's executor, and the atomic multi-statement scope.

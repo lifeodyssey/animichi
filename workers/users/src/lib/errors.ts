@@ -1,3 +1,4 @@
+import { USERS_ERROR_DEFS, type UsersErrorCode } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
 
 /** Data carried by both saved-route lookup failures. */
@@ -7,62 +8,37 @@ export interface SavedRouteErrorData { saved_route_id: string }
 export type IdempotencyErrorData = Record<string, never>;
 
 /**
- * No-zod Worker mirror of USERS_ERROR_DEFS. Keep status, category, and message
- * in lockstep with packages/contract/src/users-contract.ts.
+ * A defined oRPC error for `code`, with the status and message the contract's
+ * USERS_ERROR_DEFS registry gives it. The registry is read rather than mirrored:
+ * the Worker already ships the contract module that holds it (`router.ts`
+ * implements `usersContract` from the same module), so a hand-kept copy here
+ * could only drift. The category stays in the registry; it never crosses the wire.
  */
-export const USERS_ERRORS = {
-  SAVED_ROUTE_NOT_FOUND: {
-    status: 404, category: "user_actionable", message: "No such saved route",
-  },
-  SAVED_ROUTE_NOT_OWNED: {
-    status: 403, category: "user_actionable", message: "Route belongs to another user",
-  },
-  IDEMPOTENCY_CONFLICT: {
-    status: 409, category: "user_actionable",
-    message: "Idempotency-Key was already used with a different payload",
-  },
-  IDEMPOTENCY_IN_FLIGHT: {
-    status: 409, category: "retryable",
-    message: "A save with this Idempotency-Key is still in progress; retry shortly",
-  },
-  IDEMPOTENCY_KEY_INVALID: {
-    status: 400, category: "user_actionable",
-    message: "The Idempotency-Key is malformed or too long",
-  },
-} as const;
+function definedError<Code extends UsersErrorCode, Data>(code: Code, data: Data): ORPCError<Code, Data> {
+  const { status, message } = USERS_ERROR_DEFS[code];
+  return new ORPCError(code, { defined: true, status, message, data });
+}
 
 /** Construct a defined saved-route-not-found oRPC error. */
 export function savedRouteNotFound(
   savedRouteId: string,
 ): ORPCError<"SAVED_ROUTE_NOT_FOUND", SavedRouteErrorData> {
-  const def = USERS_ERRORS.SAVED_ROUTE_NOT_FOUND;
-  return new ORPCError("SAVED_ROUTE_NOT_FOUND", {
-    defined: true, status: def.status, message: def.message, data: { saved_route_id: savedRouteId },
-  });
+  return definedError("SAVED_ROUTE_NOT_FOUND", { saved_route_id: savedRouteId });
 }
 
 /** Construct a defined saved-route-not-owned oRPC error. */
 export function savedRouteNotOwned(
   savedRouteId: string,
 ): ORPCError<"SAVED_ROUTE_NOT_OWNED", SavedRouteErrorData> {
-  const def = USERS_ERRORS.SAVED_ROUTE_NOT_OWNED;
-  return new ORPCError("SAVED_ROUTE_NOT_OWNED", {
-    defined: true, status: def.status, message: def.message, data: { saved_route_id: savedRouteId },
-  });
+  return definedError("SAVED_ROUTE_NOT_OWNED", { saved_route_id: savedRouteId });
 }
 
 /** Construct a typed 409: the key was already consumed by a different payload. */
 export function savedRouteIdempotencyConflict(): ORPCError<"IDEMPOTENCY_CONFLICT", IdempotencyErrorData> {
-  const def = USERS_ERRORS.IDEMPOTENCY_CONFLICT;
-  return new ORPCError("IDEMPOTENCY_CONFLICT", {
-    defined: true, status: def.status, message: def.message, data: {},
-  });
+  return definedError("IDEMPOTENCY_CONFLICT", {});
 }
 
 /** Construct a typed retryable 409: a save with this key is still in flight. */
 export function savedRouteIdempotencyInFlight(): ORPCError<"IDEMPOTENCY_IN_FLIGHT", IdempotencyErrorData> {
-  const def = USERS_ERRORS.IDEMPOTENCY_IN_FLIGHT;
-  return new ORPCError("IDEMPOTENCY_IN_FLIGHT", {
-    defined: true, status: def.status, message: def.message, data: {},
-  });
+  return definedError("IDEMPOTENCY_IN_FLIGHT", {});
 }
