@@ -9,6 +9,7 @@ export {
   assertPrefixPinned, assertPrefixStable, pinnedPrefixDrift, prefixDrift, requestPrefixOf, serializePrefix,
   type RequestPrefix,
 } from "./native-request-prefix.ts";
+export { renderWebResults } from "./rendered-web-results.ts";
 
 /** Shared production/eval composition. The caller retains the SDK's native lifecycle and hooks. */
 export async function createPilgrimageHarness(options: Omit<AgentHarnessOptions<PilgrimageToolContext>, "tools">, context: Context) {

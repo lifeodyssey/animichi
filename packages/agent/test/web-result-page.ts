@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
-import { webSearch } from "@animichi/agent/tools";
 import { z } from "zod";
-import { executeTool, fixture } from "./native-tool-fixture.ts";
+import { executePilgrimageTool, fixture } from "./native-tool-fixture.ts";
 
 export interface PageResult { title: string; snippet: string; href?: string }
 
@@ -13,17 +12,23 @@ function markupText(text: string): string {
 }
 
 /** A result page in the search backend's markup whose titles and snippets carry the given text verbatim. */
-function resultPage(results: readonly PageResult[]): string {
+export function resultPage(results: readonly PageResult[]): string {
   return results.map(({ title, snippet, href = "https://example.test/" }) =>
     `<div class="result"><a class="result__a" href="${markupText(href)}">${markupText(title)}</a><a class="result__snippet">${markupText(snippet)}</a></div>`).join("");
 }
 
+/** The `web_search` result entry the production harness stores when the search backend answers with `response`. */
+export async function storedSearch(response: Response) {
+  const { repo, toolContext } = await fixture(() => Promise.reject(new Error("Catalog must not run")));
+  toolContext.webFetch = () => Promise.resolve(response);
+  const { message } = await executePilgrimageTool(toolContext, "web_search", { query: "title" });
+  await repo.close(BACKGROUND_CONTEXT);
+  return message;
+}
+
 /** What `web_search` hands the model, and records, for one scripted result page. */
 export async function searchedPage(results: readonly PageResult[]) {
-  const { repo, toolContext } = await fixture(() => Promise.reject(new Error("Catalog must not run")));
-  toolContext.webFetch = () => Promise.resolve(new Response(resultPage(results)));
-  const { message } = await executeTool(toolContext, "web_search", { query: "title" }, [webSearch]);
-  await repo.close(BACKGROUND_CONTEXT);
+  const message = await storedSearch(new Response(resultPage(results)));
   const [part] = message.content;
   assert.ok(part?.type === "text");
   return { wrapped: part.text, recorded: Recorded.parse(message.details).results };

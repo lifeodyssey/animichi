@@ -69,6 +69,9 @@ and entity parsing, preserves ranked source attribution, and bounds untrusted re
 Result text cannot end or reopen its `<untrusted_web_result>` wrapper. Before the byte bound, a
 `<` followed by the tag's letters, in any case and with any other characters between them, is
 recorded as `&#60;`; links arrive URL-serialised with `<` percent-encoded; other text is unchanged.
+Each model request renders every successful `web_search` result from its recorded details through the
+same escaping (`renderWebResults` from `@animichi/agent/harness`), so results recorded under an
+earlier escaping reach the model escaped; a result whose details do not parse is withheld.
 Provider/search failures use native SDK tool-error semantics; empty domain results remain data.
 
 `createOperationModels(model, key, fetch?)` returns native `MutableModels`. It uses

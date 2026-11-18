@@ -1,7 +1,7 @@
 import type { AgentHarnessTool } from "@earendil-works/pi-agent-core";
 import { Type } from "typebox";
 import { authorizeInvocation, type PilgrimageToolContext } from "./tool-context.ts";
-import { webSearchResults, untrustedWebText } from "./web-search-results.ts";
+import { NO_RESULTS, webSearchResults, untrustedWebText } from "./web-search-results.ts";
 
 const parameters = Type.Object({ query: Type.String({ pattern: "\\S", maxLength: 500 }) }, { additionalProperties: false });
 
@@ -13,7 +13,7 @@ export const webSearch: AgentHarnessTool<PilgrimageToolContext, typeof parameter
     await authorizeInvocation(tools, invocation, context);
     const signal = AbortSignal.any([AbortSignal.timeout(10_000), ...(context.abortSignal ? [context.abortSignal] : [])]);
     const details = webSearchResults(await searchPage(params.query, tools.webFetch ?? globalThis.fetch, signal));
-    return { content: [{ type: "text", text: details.length ? untrustedWebText(details) : `No results found for: ${params.query}` }], details: { results: details } };
+    return { content: [{ type: "text", text: details.length ? untrustedWebText(details) : `${NO_RESULTS}${params.query}` }], details: { results: details } };
   },
 };
 
