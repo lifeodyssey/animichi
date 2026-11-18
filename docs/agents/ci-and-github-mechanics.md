@@ -111,6 +111,9 @@ the run page (the authoring rule is in `.claude/rules/ci.md`):
 - A composite action's steps share a `steps` context of their own: an inner step's output leaves
   the action only through a declared `outputs:` entry. The migrator-call action relies on that: the
   token its mint step returns reaches only its client step, and the action declares no outputs.
+- Dependabot's `github-actions` ecosystem reads `.github/workflows` and a root `action.yml` only, so
+  `.github/dependabot.yml` lists `/.github/actions/*` in `directories` (which accepts globs) to keep
+  the pins inside local actions updated.
 
 ## "It works in my container / on my machine"
 
