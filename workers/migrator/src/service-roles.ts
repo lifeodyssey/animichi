@@ -1,5 +1,7 @@
-import { neon } from "@neondatabase/serverless";
+import { NeonDbError, neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type { Env } from "./create-app";
+import { neonDeadline } from "./neon-deadline";
+import { attributed, named } from "./step-log";
 
 /**
  * #1915 — the five data-plane service roles are provisioned by SQL, never by the Neon API.
@@ -138,30 +140,64 @@ const sqlLiteral = (value: string): string => value.replaceAll("'", "''");
 const setPasswordStatement = (role: string, password: string): string =>
   `ALTER ROLE ${role} PASSWORD '${sqlLiteral(password)}' VALID UNTIL 'infinity'`;
 
+/** The driver's own rejection when a call's `fetchOptions.signal` fires.
+ * `@neondatabase/serverless@1.1.0` spreads those options into `fetch` (`index.mjs:1292`) and
+ * wraps a transport rejection in a `NeonDbError` holding the original in `sourceError`
+ * (`index.mjs:1293`; the field is declared at `index.d.ts:813`). `AbortSignal.timeout` — the only
+ * signal `neonDeadline` creates — rejects with a `TimeoutError`, so that name on the wrapped
+ * error is the deadline and nothing broader is: the `28P01` or `28000` a refused login answers
+ * with is a `NeonDbError` too, and it carries no `sourceError`. */
+function deadlineAbort(error: unknown): boolean {
+  return error instanceof NeonDbError && error.sourceError?.name === "TimeoutError";
+}
+
+/** A named deadline failure: the driver error above is the thrown error's `cause`, because
+ * `named` — and `attributed`, for the batch — attributes a failure rather than replacing it.
+ * `provisionRoles` asks this to let exactly that throw reach `migrateSelected`'s catch, so a
+ * timed-out call answers `migration_unavailable` under the sub-step that made it. */
+export function callTimedOut(error: unknown): boolean {
+  return error instanceof Error && error.cause !== undefined && deadlineAbort(error.cause);
+}
+
 /**
  * True when `role` can open a session with `password` right now — the one fact the DSN
  * secrets in the store depend on. A probe is three round trips per `/migrate`, and it is the
  * only check that survives both a drifted password and a drifted verifier: no catalog read
  * (`pg_authid` is not for this role to read) and no marker stored beside the role.
+ *
+ * The probe is a `named` sub-step (#1958): it logs its entry line when it starts, and the one
+ * failure it rethrows — the deadline abort above — leaves as `authenticates <role>: …`, because
+ * a stall that read as "this password did not work" would restate the password and then wait out
+ * the batch's own deadline. Every other failure still means the bound password did not open a
+ * session: the `28P01`/`28000` a missing or wrong secret earns, and any transport answer that is
+ * not the deadline, so the statements below restate that one password.
  */
 async function authenticates(baseDsn: string, role: string, password: string): Promise<boolean> {
   const url = new URL(baseDsn);
   url.username = role;
   url.password = password;
   const sql = neon(url.toString());
+  return await named(`authenticates ${role}`, () => loginOpens(sql));
+}
+
+/** True when `SELECT 1` on `sql` opens a session; the deadline abort is rethrown and every other
+ * failure returns false, so a stall is never read as a wrong password. */
+async function loginOpens(sql: NeonQueryFunction<false, false>): Promise<boolean> {
   try {
-    await sql.query("SELECT 1");
+    await sql.query("SELECT 1", [], neonDeadline());
     return true;
-  } catch {
+  } catch (error) {
+    if (deadlineAbort(error)) throw error;
     return false;
   }
 }
 
 /**
  * The password statements the bound passwords currently need — one per runtime role the
- * probe could not log in. A role that authenticates is left untouched; a transport failure
- * on the probe shows up as one extra password restatement or, if it persists, as this
- * statement's own error.
+ * probe could not log in. A role that authenticates is left untouched; a probe that fails any
+ * way OTHER than the deadline means its bound password no longer opens a session, so exactly
+ * that one password is restated. A probe that hits its deadline is not a statement decision at
+ * all: it leaves `authenticates` already named, and the apply answers it.
  */
 async function stalePasswordStatements(baseDsn: string, passwords: RuntimeRolePasswords): Promise<string[]> {
   const stale = await Promise.all(Object.entries(PASSWORD_ROLES).map(async ([role, key]) =>
@@ -179,7 +215,7 @@ export async function provisionServiceRoles(dsn: string, passwords: RuntimeRoleP
     ENSURE_ROLES_EXIST, REVOKE_MEMBERSHIPS, ASSERT_MEMBERSHIPS_REVOKED, RESET_ROLE_ATTRIBUTES,
     ...await stalePasswordStatements(dsn, passwords),
   ];
-  await sql.transaction<false, false>(statements.map((statement) => sql.query(statement)));
+  await attributed("provisionServiceRoles", () => sql.transaction<false, false>(statements.map((statement) => sql.query(statement)), neonDeadline()));
 }
 
 async function resolveSecret(value: string | SecretsStoreSecret | undefined): Promise<string | undefined> {

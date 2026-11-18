@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { neonDeadline } from "./neon-deadline";
 
 /**
  * #1625 — a database still standing on the retired Atlas chain. The Prisma baseline creates
@@ -23,12 +24,14 @@ function strandedOf(rows: unknown): boolean {
   return row.ledger !== null;
 }
 
-/** Read-only and repeatable-read, like the catalog probe beside it. */
+/** Read-only and repeatable-read, like the catalog probe beside it. This is the call that
+ * stopped answering on 2026-09-24 (#1958), so it carries its own deadline. */
 export async function carriesAtlasLeftovers(dsn: string): Promise<boolean> {
   const sql = neon(dsn);
   const [rows]: unknown[] = await sql.transaction((txn) => [txn.query(ATLAS_LEDGER_SQL)], {
     readOnly: true,
     isolationLevel: "RepeatableRead",
+    ...neonDeadline(),
   });
   return strandedOf(rows);
 }

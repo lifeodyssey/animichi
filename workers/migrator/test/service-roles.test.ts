@@ -26,14 +26,17 @@ interface CapturedBatch {
   readonly statements: readonly string[];
 }
 
+/** A refused probe's answer, or the transport error when the call never reached SQL. */
+interface ProbeRefusal { readonly code: string; readonly transportError?: Error; }
+
 /** Serve the driver's batches, capturing every statement. A probe (`SELECT 1`, the driver's
  * single-query shape) succeeds only when its Neon-Connection-String carries a role and
  * password both listed here; a DDL batch is always accepted unless `batchError` is set, in
  * which case it fails with that message — the echo a driver or a DO-block CONTEXT hands back. */
-function serveNeonHttp(logins: readonly string[], batchError?: string): CapturedBatch[] {
+function serveNeonHttp(logins: readonly string[], batchError?: string, refusal: ProbeRefusal = { code: "28P01" }): CapturedBatch[] {
   const batches: CapturedBatch[] = [];
   const transport = vi.fn<typeof fetch>((_input: unknown, options?: RequestInit) =>
-    answerNeonHttp(logins, batches, options, batchError));
+    answerNeonHttp(logins, batches, options, batchError, refusal));
   vi.stubGlobal("fetch", transport);
   return batches;
 }
@@ -43,28 +46,31 @@ function statementsOf(raw: string): readonly string[] {
   return parsed.queries?.map((query) => query.query) ?? (parsed.query === undefined ? [] : [parsed.query]);
 }
 
-function answerNeonHttp(logins: readonly string[], batches: CapturedBatch[], options: RequestInit | undefined, batchError?: string): Promise<Response> {
+function answerNeonHttp(logins: readonly string[], batches: CapturedBatch[], options: RequestInit | undefined, batchError: string | undefined, refusal: ProbeRefusal): Promise<Response> {
   const headers = new Headers(options?.headers);
   const dsn = headers.get("Neon-Connection-String") ?? "";
   const raw = options?.body;
   if (typeof raw !== "string") return Promise.reject(new Error("unexpected neon batch body"));
   const statements = statementsOf(raw);
   batches.push({ dsn, statements });
-  if (statements.length === 1 && statements[0] === "SELECT 1") return probeAnswer(logins, dsn);
+  if (statements.length === 1 && statements[0] === "SELECT 1") {
+    if (!logins.includes(dsn) && refusal.transportError !== undefined) return Promise.reject(refusal.transportError);
+    return probeAnswer(logins, dsn, refusal.code);
+  }
   if (batchError !== undefined) return Promise.resolve(Response.json({ code: "42601", message: batchError }, { status: 400 }));
   return Promise.resolve(Response.json({ results: [] }));
 }
 
-function probeAnswer(logins: readonly string[], dsn: string): Promise<Response> {
+function probeAnswer(logins: readonly string[], dsn: string, code: string): Promise<Response> {
   return logins.includes(dsn)
     ? Promise.resolve(Response.json({ fields: [{ name: "?column?" }], rows: [[1]] }))
-    : Promise.resolve(Response.json({ code: "28P01", message: "password authentication failed" }, { status: 400 }));
+    : Promise.resolve(Response.json({ code, message: `the proxy refused the probe with ${code}` }, { status: 400 }));
 }
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-async function provision(logins: readonly string[]): Promise<readonly string[]> {
-  const batches = serveNeonHttp(logins);
+async function provision(logins: readonly string[], refusal?: ProbeRefusal): Promise<readonly string[]> {
+  const batches = serveNeonHttp(logins, undefined, refusal);
   await provisionServiceRoles(BASE_DSN, PASSWORDS);
   return batches.at(-1)?.statements ?? [];
 }
@@ -128,6 +134,26 @@ describe("the login probe", () => {
       roleDsn("users_svc", PASSWORDS.usersSvc),
     ]));
     expect(probed).toHaveLength(3);
+  });
+});
+
+describe("a probe the database refuses", () => {
+  const withoutCatalogSvc = allLogins.filter((dsn) => dsn !== LOGINS.catalog_svc);
+
+  it("restates the password when the refusal is 28P01, a password the role does not hold", async () => {
+    const statements = await provision(withoutCatalogSvc, { code: "28P01" });
+    expect(statements).toContain(`ALTER ROLE catalog_svc PASSWORD '${PASSWORDS.catalogSvc}' VALID UNTIL 'infinity'`);
+  });
+
+  it("restates the password when the refusal is 28000, a role that does not exist yet", async () => {
+    const statements = await provision(withoutCatalogSvc, { code: "28000" });
+    expect(statements).toContain(`ALTER ROLE catalog_svc PASSWORD '${PASSWORDS.catalogSvc}' VALID UNTIL 'infinity'`);
+  });
+
+  it("restates the password when the transport fails without a deadline abort", async () => {
+    const failure = { code: "28P01", transportError: new Error("socket closed before the proxy answered") };
+    const statements = await provision([], failure);
+    expect(statements).toContain(`ALTER ROLE catalog_svc PASSWORD '${PASSWORDS.catalogSvc}' VALID UNTIL 'infinity'`);
   });
 });
 
