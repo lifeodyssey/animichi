@@ -35,6 +35,15 @@
  * largest single asset but ships only on the map route, so it is budgeted as a
  * chunk family rather than folded into the landing route.
  *
+ * The map library emits two families: the vendor `maplibre-gl-*.js` and the tile
+ * worker it spawns, `maplibre-gl-worker-*.js`. The worker used to inherit the
+ * vendor ceiling only because `maplibre-gl-` is its prefix, which read as a
+ * chosen budget while nobody had chosen it, so #1570 gives the worker its own
+ * entry, declared before the vendor prefix it sits under. Its ceiling, 560,000,
+ * keeps the same small headroom as the rest (508,485 B measured on the vite
+ * build that closed #1570), so a parser regression turns the gate red and names
+ * the worker chunk instead of the vendor.
+ *
  * Units are raw bytes, matched against the built .js size. Gating on a
  * regression is what matters — the "good" estimate is the ambient build size,
  * with headroom kept small so an accidental vendor/tree-shaking regression turns
@@ -48,6 +57,10 @@ export const routeBudgets = {
 export const bundleBudgets = {
   /** Chat route entry (chat-*.js): the interactive planner surface. */
   "chat": 260_000,
+  /** MapLibre GL tile worker (maplibre-gl-worker-*.js): the module the map
+   *  offloads tile and GeoJSON parsing to. Declared before the `maplibre-gl`
+   *  vendor family because it also carries that prefix. */
+  "maplibre-gl-worker": 560_000,
   /** MapLibre GL vendor bundle (maplibre-gl-*.js), loaded only on map routes. */
   "maplibre-gl": 1_150_000,
 } as const;
@@ -55,7 +68,9 @@ export const bundleBudgets = {
 export type BundleBudgetKey = keyof typeof bundleBudgets;
 
 /** Routes a hashed built chunk basename to its budget key by stripping the
- * -HASH suffix, or null when the chunk family is not budgeted. */
+ * -HASH suffix, or null when the chunk family is not budgeted. Entries are
+ * tried in declaration order, so a family whose name prefixes another must be
+ * declared before the broader one. */
 export function budgetKeyFor(basename: string): BundleBudgetKey | null {
   for (const key of Object.keys(bundleBudgets) as BundleBudgetKey[]) {
     if (basename.startsWith(`${key}-`)) return key;

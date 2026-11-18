@@ -64,9 +64,11 @@ module E2eSpecCoverageTree
             "  EXEMPT = {\n    \"#{pattern}\" =>\n      \"a pattern broad enough to swallow the next spec\",\n")
   end
 
-  # A KNOWN_FAILING reason with its repair-owner clause removed.
-  def drop_repair_owner(root, clause)
-    rewrite(root, REGISTRY, clause, "no repair card yet")
+  # A spec parked in KNOWN_FAILING with no repair-owner clause: the entry the
+  # contract must refuse.
+  def park_without_repair_owner(root, spec)
+    rewrite(root, REGISTRY, "  KNOWN_FAILING = {\n",
+            "  KNOWN_FAILING = {\n    \"#{spec}\" =>\n      \"an assertion that does not hold yet\",\n")
   end
 
   # Every `tag:` value of the named cases, gone: the declared grep matches nothing.

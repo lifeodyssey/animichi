@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 # The specs and cases the always-run e2e lane deliberately does not run, each
 # with a reason, all checked by test/repo-config/e2e-spec-coverage.test.rb.
-# Policy data rather than derivation: a repair card deletes its own entry
-# (#1570 is the open one), so this file changes when a spec is parked, opted
-# out or repaired — never because the gate's regexes or the workflow changed.
+# Policy data rather than derivation: a repair card deletes its own entry, so
+# this file changes when a spec is parked, opted out or repaired — never because
+# the gate's regexes or the workflow changed.
 
 module E2eLaneExclusions
   # Deliberately outside the always-run lane. Named, never patterned: a pattern
@@ -37,20 +37,16 @@ module E2eLaneExclusions
       "promotion gate forbids timing asserts in a lane that runs on every PR",
   }.freeze
 
-  # Not out of the lane by choice: each of these has never run, and its
-  # assertions no longer hold against current main. The failures below were
-  # measured in the emitted-Worker lane (`E2E_SERVE_EMITTED_WORKER=1`, #1702);
-  # each ends by naming its repair owner as `#N owns the repair`, and
+  # Not out of the lane by choice: a spec parked here has never run, and its
+  # assertions do not hold against current main. #1702 found five such specs, and
+  # each repair deletes its own entry — `web-map-spike.spec.ts` (#1570) was the
+  # last, so the table is empty. An entry added back must end by naming its repair
+  # owner as `#N owns the repair`, and
   # `test_every_known_failing_reason_names_a_repair_owner`
-  # (test/repo-config/e2e-spec-coverage.test.rb) refuses an entry without that
-  # clause, so a spec parked here always names a repair card.
-  # Whether the card exists or is still open is not checked: that needs GitHub,
-  # and this contract stays offline.
+  # (test/repo-config/e2e-spec-coverage.test.rb) refuses one without that clause,
+  # so a spec parked here always names a repair card. Whether the card exists or
+  # is still open is not checked: that needs GitHub, and this contract stays
+  # offline.
   KNOWN_FAILING = {
-    "web-map-spike.spec.ts" =>
-      "#237's colours are repaired (the fixture derives them from map-style.ts) and the " \
-      "canvas does paint them — measured, 8 of 9 samples are the style background — but the " \
-      "9th lands on the app's OWN route polyline (#c1440e, map-layers.ts), so " \
-      "`backgroundPixels == sampledPixels` cannot hold; #1570 owns the repair",
   }.freeze
 end

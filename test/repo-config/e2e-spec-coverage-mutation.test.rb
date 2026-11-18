@@ -20,10 +20,6 @@ class E2eSpecCoverageMutationTest < Minitest::Test
 
   ORPHAN = "probe-orphan.spec.ts"
   EXEMPTION_PATTERN = "web-*.spec.ts"
-  # The one still-parked spec: every repaired card's entry is gone from the
-  # registry, so the probe mutates the survivor (#1721–#1724 were the others).
-  OWNED_SPEC = "web-map-spike.spec.ts"
-  OWNER_CLAUSE = "#1570 owns the repair"
   PERF_TAG = "@perf-mobile-cold"
   PERF_SPECS = %w[web-map-spike.spec.ts web-splash.spec.ts].freeze
   NO_SUCH_SPEC = "EXEMPT/KNOWN_FAILING entries with no such spec on disk"
@@ -53,11 +49,14 @@ class E2eSpecCoverageMutationTest < Minitest::Test
   end
 
   # Parking a spec demands a repair owner; without one the entry is a place
-  # failures go to be forgotten.
+  # failures go to be forgotten. #1570 repaired the last parked spec, so the
+  # probe parks a spec itself rather than stripping a registry that now holds no
+  # entry to strip (#1721–#1724 were the earlier survivors).
   def test_a_known_failing_entry_without_a_repair_owner_is_refused
     with_mutated_root do |root|
-      drop_repair_owner(root, OWNER_CLAUSE)
-      assert_refused(root, "a known-failing entry with no repair owner", OWNED_SPEC, NO_REPAIR_OWNER)
+      write_orphan(root, ORPHAN)
+      park_without_repair_owner(root, ORPHAN)
+      assert_refused(root, "a known-failing entry with no repair owner", ORPHAN, NO_REPAIR_OWNER)
     end
   end
 
