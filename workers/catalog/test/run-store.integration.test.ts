@@ -20,7 +20,7 @@ const POLICY: RunPolicy = {
   tierIntervals: { high: 86_400_000, medium: 604_800_000, low: 2_592_000_000 },
   newWorkCap: 5,
   keepHistory: 2,
-  budget: { workLimit: 5, requestLimit: 20, runtimeLimitMs: 600_000 },
+  budget: { workLimit: 5, requestLimit: 20 },
 };
 const RECLAIMED = { stage: "reclaim", reason: "stale-reclaimed" };
 const INGESTED: RunPorts["ingestWork"] = () => Promise.resolve({ outcome: "ingested", version: 1 });

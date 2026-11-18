@@ -11,7 +11,7 @@ const POLICY: RunPolicy = {
   tierIntervals: { high: 86400000, medium: 604800000, low: 2592000000 },
   newWorkCap: 5,
   keepHistory: 2,
-  budget: { workLimit: 10, requestLimit: 20, runtimeLimitMs: 600000 },
+  budget: { workLimit: 10, requestLimit: 20 },
 };
 
 const DATA_EPOCH = 1723000000000;
@@ -27,7 +27,7 @@ function plan(runId: string, budgetRequestLimit = 20): RunPlan {
       { bangumiId: "2", tier: "high", lastIngestedAtMs: null },
       { bangumiId: "3", tier: "high", lastIngestedAtMs: null },
     ],
-    policy: { ...POLICY, budget: { workLimit: 10, requestLimit: budgetRequestLimit, runtimeLimitMs: 600000 } },
+    policy: { ...POLICY, budget: { workLimit: 10, requestLimit: budgetRequestLimit } },
   };
 }
 
@@ -56,7 +56,7 @@ describe("Budget boundary stops cleanly (AC3)", () => {
     const rec = recorder();
     rec.ports.ingestWork = (_bangumiId, _tier, budget) => {
       if (!canSpendWork(budget)) return Promise.resolve({ outcome: "exhausted" });
-      spendWork(budget, 2, 0);
+      spendWork(budget, 2);
       return Promise.resolve({ outcome: "ingested", version: 1 });
     };
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-boundary", 3));
@@ -147,7 +147,7 @@ function snapshot(status: RunStatus, overrides: ExistingRun = {}): RunSnapshot {
     status,
     targets: null,
     sources: { bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } },
-    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    budgetUsed: { workUsed: 0, requestUsed: 0 },
     firstExhausted: null,
     failures: overrides.failures ?? [],
     published: overrides.published ?? {},

@@ -46,7 +46,7 @@ export async function ingestRunWork(
   upstream: UpstreamAccess = {},
 ): Promise<RunWorkOutcome> {
   if (passOver(upstream) || !canSpendWork(budget)) return { outcome: "exhausted" };
-  spendWork(budget, 2, 0);
+  spendWork(budget, 2);
   const fetched = await fetchSources(bangumiId, upstream);
   if (!fetched.ok) return fetchFailure(fetched, upstream);
   if (fetched.points.length === 0) return { outcome: "empty", source: "anitabi", reason: "no points" };

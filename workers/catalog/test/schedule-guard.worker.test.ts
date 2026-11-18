@@ -11,8 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DAILY_DISCOVER_CRON,
   DAILY_IMPORT_CRON,
+  DAILY_WORK_CAP,
+  PENDING_DRAIN_BATCH_CAP,
   PENDING_DRAIN_CRON,
   SEED_CRON,
+  TTL_BATCH_CAP,
   TTL_REFRESH_CRON,
 } from "../src/cron-config";
 import { cronKind, guardCron } from "../src/import/schedule";
@@ -23,6 +26,8 @@ import {
   allowsImportCron,
   allowsIngestCron,
   allowsPendingDrainCron,
+  dailyPolicy,
+  hourlyIngestBudget,
   runtimeEnvironment,
 } from "../src/operational-config";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
@@ -119,6 +124,12 @@ describe("operational defaults (§314)", () => {
   it("pins production stale at 36h and staging stale at 48h in operational-config", () => {
     expect(PRODUCTION_STALE_SECONDS).toBe(36 * 60 * 60);
     expect(STAGING_STALE_SECONDS).toBe(48 * 60 * 60);
+  });
+
+  it("bounds the hourly pass and the daily run by works and upstream requests alone", () => {
+    const hourlyWorks = PENDING_DRAIN_BATCH_CAP + TTL_BATCH_CAP;
+    expect(hourlyIngestBudget()).toEqual({ workLimit: hourlyWorks, requestLimit: hourlyWorks * 2 });
+    expect(dailyPolicy().budget).toEqual({ workLimit: DAILY_WORK_CAP, requestLimit: 400 });
   });
 });
 

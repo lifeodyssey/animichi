@@ -80,7 +80,7 @@ describe("scheduled pending drain", () => {
       ingestBangumi,
       listDrainableBangumiIds: () => Promise.resolve(["pending-1", "pending-2"]),
     });
-    const budget = new Budget({ workLimit: 1, requestLimit: 2, runtimeLimitMs: 60_000 });
+    const budget = new Budget({ workLimit: 1, requestLimit: 2 });
 
     const result = await runPendingDrainJob(query, deps, budget);
 

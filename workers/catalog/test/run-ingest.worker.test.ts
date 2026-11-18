@@ -25,14 +25,14 @@ describe("ingestRunWork budget boundary (AC1)", () => {
   it("returns exhausted instead of throwing when the work no longer fits the budget", async () => {
     // One request remains but a work needs two (fetch bangumi + anitabi).
     const budget = new Budget(budgetLimits({ requestLimit: 3 }));
-    budget.spend({ work: 0, requests: 2, runtimeMs: 0 });
+    budget.spend({ work: 0, requests: 2 });
     const outcome = await ingestRunWork(seam, "1", "daily-x", budget);
     expect(outcome).toEqual({ outcome: "exhausted" });
   });
 
   it("does not consume a budget it cannot spend", async () => {
     const budget = new Budget(budgetLimits({ requestLimit: 3 }));
-    budget.spend({ work: 0, requests: 2, runtimeMs: 0 });
+    budget.spend({ work: 0, requests: 2 });
     await ingestRunWork(seam, "1", "daily-x", budget);
     expect(budget.usage().requestUsed).toBe(2);
   });
@@ -58,5 +58,5 @@ describe("ingestRunWork against the pass's deadline", () => {
 });
 
 function budgetLimits(overrides: Partial<BudgetLimits>): BudgetLimits {
-  return { workLimit: 10, requestLimit: 20, runtimeLimitMs: 600000, ...overrides };
+  return { workLimit: 10, requestLimit: 20, ...overrides };
 }

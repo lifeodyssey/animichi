@@ -101,7 +101,6 @@ function recordPlan(query: CatalogPrisma, runId: string, snapshot: RunSnapshot):
       budget_used: {
         workUsed: snapshot.budgetUsed.workUsed,
         requestUsed: snapshot.budgetUsed.requestUsed,
-        runtimeUsedMs: snapshot.budgetUsed.runtimeUsedMs,
         firstExhausted: snapshot.firstExhausted,
       },
       failures: recordedLedger(snapshot.failures),
@@ -152,7 +151,7 @@ function snapshotOf(row: RunRow): RunSnapshot | null {
     status: row.status as RunSnapshot["status"],
     targets: null,
     sources: {},
-    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    budgetUsed: { workUsed: 0, requestUsed: 0 },
     firstExhausted: null,
     failures: parseFailures(row.failures),
     published: parsePublished(row.published_versions),

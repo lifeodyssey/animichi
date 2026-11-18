@@ -64,7 +64,7 @@ export interface RunSnapshot {
   status: RunStatus;
   targets: DiscoveryResult | null;
   sources: Record<string, SourceOutcome>;
-  budgetUsed: { workUsed: number; requestUsed: number; runtimeUsedMs: number };
+  budgetUsed: { workUsed: number; requestUsed: number };
   firstExhausted: string | null;
   failures: RunLedgerEntry[];
   published: Record<string, number>;
@@ -87,7 +87,7 @@ export interface RunPolicy {
   newWorkCap: number;
   /** Historical raw payloads to keep per work/source after a run. */
   keepHistory: number;
-  /** The three dimension budgets for the run. */
+  /** The run's work and upstream-request budgets. */
   budget: BudgetLimits;
 }
 /** A source fetch within the run. */
@@ -177,7 +177,7 @@ function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, numbe
     status: "running",
     targets,
     sources: sourceLedger(),
-    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    budgetUsed: { workUsed: 0, requestUsed: 0 },
     firstExhausted: null,
     failures: [],
     published: Object.fromEntries(seed),

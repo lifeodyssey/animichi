@@ -86,7 +86,7 @@ export async function runDailyJob(
 }
 
 
-/** Sequential batch bounded by the shared work/request/runtime ledger and the pass's deadline. */
+/** Sequential batch bounded by the shared work/request ledger and the pass's deadline. */
 async function ingestBatch(plan: IngestBatchPlan): Promise<CronJobResult> {
   const summary = { attempted: 0, ingested: 0, skipped: 0, failed: 0 };
   for (const bangumiId of plan.bangumiIds) {
@@ -103,7 +103,7 @@ type WorkCount = "ingested" | "skipped" | "failed";
 function reserveWork(budget: Budget | undefined): boolean {
   if (!budget) return true;
   if (!canSpendWork(budget)) return false;
-  spendWork(budget, 2, 0);
+  spendWork(budget, 2);
   return true;
 }
 

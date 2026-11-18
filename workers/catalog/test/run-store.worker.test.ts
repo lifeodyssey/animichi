@@ -71,9 +71,17 @@ describe("Run reservation (AC1)", () => {
     const parsed = seam.params().map((param) => tryParse(param));
     expect(parsed).toContainEqual({ works: [], uniqueSeen: 0, knownCount: 0, newCount: 0, cappedCount: 0 });
     expect(parsed).toContainEqual({ bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } });
-    expect(parsed).toContainEqual({ workUsed: 1, requestUsed: 2, runtimeUsedMs: 3, firstExhausted: null });
+    expect(parsed).toContainEqual({ workUsed: 1, requestUsed: 2, firstExhausted: null });
     expect(parsed).toContainEqual([]);
     expect(parsed).toContainEqual({});
+  });
+
+  it("records budget use as the work and request counts and the dimension that stopped the run", async () => {
+    const seam = recordingCatalogPrisma();
+
+    await recordRunRow(seam.query, "daily-1", snapshot());
+
+    expect(seam.params().filter(isBudgetUse)).toStrictEqual([{ workUsed: 1, requestUsed: 2, firstExhausted: null }]);
   });
 });
 
@@ -143,12 +151,17 @@ function tryParse(value: unknown): unknown {
   try { return JSON.parse(value); } catch { return value; }
 }
 
+/** The bound `budget_used` document: the one value that counts works. */
+function isBudgetUse(param: unknown): boolean {
+  return typeof param === "object" && param !== null && "workUsed" in param;
+}
+
 function snapshot(): RunSnapshot {
   return {
     status: "running",
     targets: { works: [], uniqueSeen: 0, knownCount: 0, newCount: 0, cappedCount: 0 },
     sources: { bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } },
-    budgetUsed: { workUsed: 1, requestUsed: 2, runtimeUsedMs: 3 },
+    budgetUsed: { workUsed: 1, requestUsed: 2 },
     firstExhausted: null,
     failures: [],
     published: {},
