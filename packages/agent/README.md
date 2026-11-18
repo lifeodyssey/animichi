@@ -66,6 +66,10 @@ current-turn search/route evidence and validates before requesting native termin
 `createCatalogClient` returns the existing oRPC contract client with native request/response
 validation, transient retries and bounded deadlines. `webSearch` uses `htmlparser2` for HTML
 and entity parsing, preserves ranked source attribution, and bounds untrusted result text.
+It keeps at most `WEB_SEARCH_PAGE_MAX_BYTES` (256 KiB) of the search response, counted in bytes as
+they arrive, and parses only a body that fits. The chunk that would pass the limit has already been
+handed over by the runtime but is neither decoded nor kept; the rest of the body is cancelled, best
+effort, and the call fails as an unavailable backend does, so no part of a larger page is parsed.
 Result text cannot end or reopen its `<untrusted_web_result>` wrapper. Before the byte bound, a
 `<` followed by the tag's letters, in any case and with any other characters between them, is
 recorded as `&#60;`; links arrive URL-serialised with `<` percent-encoded; other text is unchanged.
