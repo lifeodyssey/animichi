@@ -114,7 +114,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
                  "a module this source imports is not on the reviewed list. The import is where this boundary " \
                  "holds — a call-shaped check cannot see an alias or a dynamic import — so a new one is a " \
                  "deliberate edit to ALLOWED_IMPORTS, and an upstream request belongs on the one relay in " \
-                 "egress-service.ts instead:\n  #{offenders.join("\n  ")}")
+                 "upstream-relay.ts instead:\n  #{offenders.join("\n  ")}")
   end
 
   def test_the_client_half_of_a_network_module_is_named_nowhere
@@ -156,7 +156,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
     line = %(import { createConnection, type Socket } from "node:net";)
     refute outbound_client_line?(line, "#{SOURCE}/#{DIAL_COMPOSITION_ROOT}"),
            "the composition root dials the ceiling store's TCP connection, exactly as it binds the inbound server"
-    assert outbound_client_line?(line, "#{SOURCE}/egress-service.ts"),
+    assert outbound_client_line?(line, "#{SOURCE}/upstream-relay.ts"),
            "the same import anywhere else is a second outbound capability"
   end
 
@@ -180,7 +180,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   def test_the_inbound_server_module_reaches_the_composition_root_and_nothing_else
     assert allowed_import?("#{SOURCE}/#{DIAL_COMPOSITION_ROOT}", "node:http"),
            "the composition root binds the one inbound server this service listens on"
-    ["egress-service.ts", "request-signature.ts", "upstream-operations.ts"].each do |file|
+    ["egress-service.ts", "upstream-relay.ts", "request-signature.ts", "upstream-operations.ts"].each do |file|
       refute allowed_import?("#{SOURCE}/#{file}", "node:http"),
              "#{file} may not hold node:http: its client half is an outbound destination nothing reviewed"
     end
@@ -189,7 +189,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
   def test_the_store_s_socket_module_reaches_the_composition_root_and_nothing_else
     assert allowed_import?("#{SOURCE}/#{DIAL_COMPOSITION_ROOT}", "node:net"),
            "the composition root dials the ceiling store's TCP connection (#1824)"
-    ["redis-tcp-ceiling-store.ts", "egress-service.ts", "upstream-ceiling.ts"].each do |file|
+    ["redis-tcp-ceiling-store.ts", "egress-service.ts", "upstream-relay.ts", "upstream-ceiling.ts"].each do |file|
       refute allowed_import?("#{SOURCE}/#{file}", "node:net"),
              "#{file} may not hold node:net: the store takes its connection as an injected seam, the way the " \
              "relay takes its fetch"
@@ -206,7 +206,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
     assert_equal 1, found.length,
                  "the service must reach the upstream from exactly one place (found #{found.length}):\n  " \
                  "#{found.join("\n  ")}\n" \
-                 "Route every upstream request through the one relay in egress-service.ts instead of adding a call."
+                 "Route every upstream request through the one relay in upstream-relay.ts instead of adding a call."
   end
 
   def test_the_network_function_is_named_in_exactly_one_place
