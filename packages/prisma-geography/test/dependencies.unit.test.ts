@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { globSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { test } from "node:test";
@@ -27,16 +28,11 @@ void test("every declared dependency resolves from the installed workspace", asy
   assert.deepEqual(unresolved, []);
 });
 
+// pnpm counts a directory its workspace globs match as a package only when it holds a manifest, so
+// a leftover directory without one (a retired service's Python caches) is not a package here either.
 async function workspaceManifests(): Promise<readonly PackageManifest[]> {
-  const groups = await Promise.all(["apps", "packages", "workers"].map(manifestsUnder));
-  return groups.flat();
-}
-
-async function manifestsUnder(directory: string): Promise<readonly PackageManifest[]> {
-  const base = path.join(repoRoot, directory);
-  const entries = await readdir(base, { withFileTypes: true });
-  const manifests = entries.filter((entry) => entry.isDirectory()).map((entry) => readManifest(path.join(base, entry.name, "package.json")));
-  return Promise.all(manifests);
+  const manifestPaths = globSync("{apps,packages,workers}/*/package.json", { cwd: repoRoot });
+  return Promise.all(manifestPaths.map((manifestPath) => readManifest(path.join(repoRoot, manifestPath))));
 }
 
 async function readManifest(manifestPath: string): Promise<PackageManifest> {
