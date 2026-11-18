@@ -17,10 +17,10 @@
  * The disjunction in the production policy is fine — the two branches are
  * independently fully-anchored shapes, not a weak `ref OR environment`.
  * Prior art: the edge worker's verifier (workers/edge/src/identity/auth.ts)
- * and @animichi/contract/jwt (EdDSA envelope).
+ * and @animichi/contract/jwt (the Neon Auth EdDSA token).
  */
 
-import { jwtVerify, type JWTPayload, type JWTVerifyGetKey } from "jose";
+import { jwtVerify, type JWTClaimVerificationOptions, type JWTPayload, type JWTVerifyGetKey } from "jose";
 
 /** GitHub Actions OIDC issuer (fixed by GitHub; not forgeable). */
 export const GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com";
@@ -143,6 +143,16 @@ export interface GitHubOidcVerifier {
 }
 
 /**
+ * GitHub's OIDC token always carries `exp`
+ * (https://docs.github.com/en/actions/reference/security/oidc); jose checks it
+ * only when present, so it is required. GitHub documents no lifetime, so no
+ * `maxTokenAge` is set: a guessed bound would refuse a legitimate deploy.
+ */
+const GITHUB_OIDC_TOKEN_CLAIMS = {
+  requiredClaims: ["exp"],
+} satisfies JWTClaimVerificationOptions;
+
+/**
  * Factory returning the OIDC verifier. `jwks` is the injected get-key
  * (tests pass a local JWKS; production passes GitHub's remote JWKS).
  */
@@ -158,9 +168,10 @@ export function createGitHubOidcVerifier(
           algorithms: ["RS256"],
           issuer: policy.issuer,
           audience: policy.audience,
+          ...GITHUB_OIDC_TOKEN_CLAIMS,
         }));
       } catch {
-        return { ok: false, reason: "OIDC token failed signature or exp/iss/aud validation" };
+        return { ok: false, reason: "OIDC token failed signature, claim or expiry validation" };
       }
       const allowed = enforceGitHubOidcAllowlist(payload, policy);
       return allowed.ok ? { ok: true, claims: payload } : allowed;
