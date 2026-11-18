@@ -1,0 +1,105 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "sandboxProfile": [
+    "(version 1)",
+    "(allow default)",
+    "(deny network-outbound)",
+    "(allow network-outbound (remote unix-socket))",
+    "(allow network-outbound (remote ip \"localhost:*\"))",
+    "(deny network-outbound (remote ip \"localhost:7897\"))"
+  ],
+  "node": {
+    "loopback": {
+      "host": "127.0.0.1",
+      "port": 64002,
+      "elapsedMs": 15.3,
+      "outcome": "connected"
+    },
+    "testNet": {
+      "host": "192.0.2.1",
+      "port": 5432,
+      "elapsedMs": 3.8,
+      "outcome": "refused",
+      "code": "EPERM",
+      "message": "connect EPERM 192.0.2.1:5432 - Local (0.0.0.0:0)"
+    }
+  },
+  "workerd": {
+    "loopback": {
+      "hostname": "127.0.0.1",
+      "port": 64002,
+      "outcome": "opened",
+      "elapsedMs": 12,
+      "remoteAddress": "127.0.0.1:64002"
+    },
+    "testNet": {
+      "hostname": "192.0.2.1",
+      "port": 5432,
+      "outcome": "refused",
+      "elapsedMs": 6,
+      "error": "Error: proxy request failed, cannot connect to the specified address"
+    }
+  },
+  "acceptedConnections": 2,
+  "workerdLinesDuringTestNetConnect": [
+    "stderr: workerd/api/sockets.c++:449: error: Socket proxy disconnected abruptly; e = kj/async-io-unix.c++:1518: failed: connect(): Operation not permitted; address = 192.0.2.1:5432",
+    "stderr: stack: 102eb6f3f 102eb4c6b 102eb532c 1003b0e60 102d4e42c 102d5a984 1003686ac 10112d864"
+  ],
+  "workerdErrorNamesTheSandbox": true,
+  "checks": [
+    {
+      "name": "node: the loopback connect succeeds, and the listener accepts it",
+      "pass": true,
+      "observed": {
+        "host": "127.0.0.1",
+        "port": 64002,
+        "elapsedMs": 15.3,
+        "outcome": "connected"
+      }
+    },
+    {
+      "name": "node: the connect to 192.0.2.1 is refused with EPERM within 100 ms (a refusal, not a timeout)",
+      "pass": true,
+      "observed": {
+        "host": "192.0.2.1",
+        "port": 5432,
+        "elapsedMs": 3.8,
+        "outcome": "refused",
+        "code": "EPERM",
+        "message": "connect EPERM 192.0.2.1:5432 - Local (0.0.0.0:0)"
+      }
+    },
+    {
+      "name": "workerd: the loopback connect opens, and the listener accepts it",
+      "pass": true,
+      "observed": {
+        "hostname": "127.0.0.1",
+        "port": 64002,
+        "outcome": "opened",
+        "elapsedMs": 12,
+        "remoteAddress": "127.0.0.1:64002"
+      }
+    },
+    {
+      "name": "workerd: the connect to 192.0.2.1 fails within 1 s (not the 5 s timeout)",
+      "pass": true,
+      "observed": {
+        "hostname": "192.0.2.1",
+        "port": 5432,
+        "outcome": "refused",
+        "elapsedMs": 6,
+        "error": "Error: proxy request failed, cannot connect to the specified address"
+      }
+    },
+    {
+      "name": "guard: the fetch guard saw neither socket",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}
