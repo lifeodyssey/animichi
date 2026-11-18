@@ -79,8 +79,9 @@ catalog:
   # family's three entries are carets, and the lockfile holds them where
   # every member pins router-core 1.171.39: react-start 1.169.5 and
   # router-generator 1.168.0 (both 2026-11-08), and react-router 1.170.46,
-  # the version react-start 1.169.5 pins. Move the three together, and check
-  # that the lockfile still holds one @tanstack/router-core.
+  # the version react-start 1.169.5 pins. Move the three together;
+  # `test/repo-config/pnpm-lock-one-version.test.rb` fails on a lockfile that
+  # resolves more than one @tanstack/router-core.
   "@tanstack/nitro-v2-vite-plugin": "1.155.2"
   "@tanstack/react-query": "5.103.1"
   "@tanstack/react-router": "^1.170.46"

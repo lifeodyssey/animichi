@@ -392,6 +392,8 @@ jobs:
           bundle exec ruby test/repo-config/package-test-segments.test.rb
           bundle exec ruby test/repo-config/playwright.test.rb
           bundle exec ruby test/repo-config/pre-push-routing.test.rb
+          bundle exec ruby test/repo-config/pnpm-lock-one-version-mutation.test.rb
+          bundle exec ruby test/repo-config/pnpm-lock-one-version.test.rb
           bundle exec ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           bundle exec ruby test/repo-config/pnpm-workspace-settings.test.rb
           bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
