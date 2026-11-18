@@ -51,7 +51,7 @@ export async function ingestRunWork(
   if (!fetched.ok) return fetchFailure(fetched, upstream);
   if (fetched.points.length === 0) return { outcome: "empty", source: "anitabi", reason: "no points" };
   await writeRaw(query, runId, bangumiId, fetched);
-  await captureAll(query, runId, bangumiId, fetched);
+  await captureAll(query, bangumiId, fetched.points);
   return publish(query, bangumiId);
 }
 
@@ -103,19 +103,20 @@ async function writeRaw(
   await appendRawHistory(query, { workId: bangumiId, source: "anitabi", payload: fetched.points, runId });
 }
 
-/** Capture work + per-point provenance for the run. */
-async function captureAll(
-  query: CatalogPrisma,
-  runId: string,
-  bangumiId: string,
-  fetched: OkFetch,
-): Promise<void> {
+/** Capture the work's provenance and each point's in one write: its round trips do not grow with the points. */
+async function captureAll(query: CatalogPrisma, bangumiId: string, points: readonly AnitabiPoint[]): Promise<void> {
+  await captureProvenance(query, [workProvenance(bangumiId), ...pointProvenances(bangumiId, points)]);
+}
+
+/** A point-scope row for each point with a usable upstream id; a malformed point is skipped. */
+function pointProvenances(bangumiId: string, points: readonly AnitabiPoint[]): ProvenanceRecord[] {
   const map = pointFieldMap();
-  await captureProvenance(query, workProvenance(bangumiId));
-  for (const point of fetched.points) {
-    const pointId = pointIdOf(point);
-    if (pointId) await captureProvenance(query, pointProvenance(bangumiId, pointId, map));
-  }
+  return points.flatMap((point) => pointRow(bangumiId, pointIdOf(point), map));
+}
+
+/** The point's row, or none when it has no usable id. */
+function pointRow(bangumiId: string, pointId: string | null, map: Record<string, string>): ProvenanceRecord[] {
+  return pointId ? [pointProvenance(bangumiId, pointId, map)] : [];
 }
 
 /** The work-scope provenance row from the Bangumi subject. */

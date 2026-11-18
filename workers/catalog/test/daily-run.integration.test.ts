@@ -112,7 +112,7 @@ databaseDescribe("Raw payload retention (AC5)", () => {
 
 databaseDescribe("Provenance capture (AC4)", () => {
   it("UPSERTs a point provenance record with upstream identity and a field map", async () => {
-    await captureProvenance(query, {
+    await captureProvenance(query, [{
       scope: "point",
       entityId: "p-1",
       workId: "prov-w",
@@ -121,7 +121,7 @@ databaseDescribe("Provenance capture (AC4)", () => {
       attribution: "Anitabi",
       license: "https://anitabi.cn",
       fieldMap: { name: "anitabi", latitude: "anitabi" },
-    });
+    }]);
     const { rows: provenance } = await pool.query(
       "SELECT upstream_id, source FROM catalog_provenance WHERE entity_id = 'p-1'",
     );

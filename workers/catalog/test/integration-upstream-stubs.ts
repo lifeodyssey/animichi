@@ -86,7 +86,7 @@ export function jsonResponse(body: unknown): Response {
  * any anitabi answer without that marker — an answer that did not come through
  * the service is not one it will accept.
  */
-function relayedResponse(body: unknown): Response {
+export function relayedResponse(body: unknown): Response {
   const response = jsonResponse(body);
   response.headers.set("x-egress-response", "relayed-upstream");
   return response;
