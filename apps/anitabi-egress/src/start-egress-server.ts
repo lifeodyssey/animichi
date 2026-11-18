@@ -18,9 +18,10 @@
  * one through the sink below, which is the process's stderr — what `fly logs`
  * reads, and where `docs/ops/anitabi-egress.md` sends an operator looking. The
  * caller's answer is unchanged and still one of three ceiling outcomes; the
- * line is for whoever has to fix the store.
+ * line is for whoever has to fix the store. The request boundary writes to the
+ * same sink: one line for each request it could only answer with a plain 500.
  */
-import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, type Server } from "node:http";
 import { createConnection, type Socket } from "node:net";
 import { ceilingStoreFailureLogger, type LogSink } from "./ceiling-store-log.ts";
 import {
@@ -29,13 +30,14 @@ import {
   readListenPort,
   type EgressConfig,
 } from "./egress-config.ts";
-import { handleEgressRequest, type Ceiling, type EgressDeps, type UpstreamFetch } from "./egress-service.ts";
+import type { Ceiling, EgressDeps, UpstreamFetch } from "./egress-service.ts";
 import {
   RedisTcpCeilingStore,
   STORE_TIMEOUT_MS,
   type StoreConnect,
   type StoreSocket,
 } from "./redis-tcp-ceiling-store.ts";
+import { answerInboundRequest } from "./request-boundary.ts";
 import { UpstreamRequestCeiling, type CeilingStore } from "./upstream-ceiling.ts";
 
 export interface EgressServerOptions {
@@ -45,28 +47,34 @@ export interface EgressServerOptions {
   upstreamFetch?: UpstreamFetch;
   /** The ceiling's counter, when the caller supplies one (tests); otherwise it is built from the environment. */
   ceilingStore?: CeilingStore;
-  /** Where a store failure is written, when the caller owns the stream (tests); otherwise this process's stderr. */
+  /** Where the service's own lines go (a store failure, a request the boundary failed on) when the caller owns the stream (tests); otherwise this process's stderr. */
   logSink?: LogSink;
 }
 
 /** Start the service; port 0 picks an ephemeral port (tests). */
 export async function startEgressServer(options: EgressServerOptions): Promise<{ server: Server; port: number }> {
-  const config: EgressConfig | null = readEgressConfig(options.env);
-  const nowSeconds = options.nowSeconds ?? (() => Math.floor(Date.now() / 1000));
-  const outbound: UpstreamFetch = options.upstreamFetch ?? fetch;
-  const deps: EgressDeps = {
-    config,
-    ceiling: ceilingFor(config, options, nowSeconds),
-    upstreamFetch: outbound,
-    nowSeconds,
-  };
+  const deps = depsFor(options);
+  const log = logSinkOf(options);
   const server = createServer((request, response) => {
-    void serve(request, response, deps);
+    void answerInboundRequest(request, response, deps, log);
   });
   await new Promise<void>((resolve) => server.listen(options.port ?? readListenPort(options.env), resolve));
   const address = server.address();
   if (address === null || typeof address !== "object") throw new Error("egress server did not bind");
   return { server, port: address.port };
+}
+
+/** The handler's dependencies: the environment's configuration, and the real clock and network unless the caller owns them. */
+function depsFor(options: EgressServerOptions): EgressDeps {
+  const config: EgressConfig | null = readEgressConfig(options.env);
+  const nowSeconds = options.nowSeconds ?? (() => Math.floor(Date.now() / 1000));
+  const outbound: UpstreamFetch = options.upstreamFetch ?? fetch;
+  return { config, ceiling: ceilingFor(config, options, nowSeconds), upstreamFetch: outbound, nowSeconds };
+}
+
+/** Where this service's own lines go: the caller's sink when it owns the stream, otherwise this process's stderr. */
+function logSinkOf(options: EgressServerOptions): LogSink {
+  return options.logSink ?? writeToStderr;
 }
 
 /**
@@ -89,7 +97,7 @@ export function ceilingFor(
   return new UpstreamRequestCeiling(
     config.ceilingPerHour,
     store,
-    ceilingStoreFailureLogger(options.logSink ?? writeToStderr),
+    ceilingStoreFailureLogger(logSinkOf(options)),
     nowSeconds,
   );
 }
@@ -175,34 +183,4 @@ function storeSocket(socket: Socket): StoreSocket {
     onError: (listener) => socket.on("error", listener),
     onClose: (listener) => socket.on("close", listener),
   };
-}
-
-async function serve(request: IncomingMessage, response: ServerResponse, deps: EgressDeps): Promise<void> {
-  const answer = await handleEgressRequest(toRequest(request), deps);
-  response.writeHead(answer.status, headersToObject(answer.headers));
-  response.end(Buffer.from(await answer.arrayBuffer()));
-}
-
-/** Lift the node:http pair into the one Request the handler reads. GETs carry no body. */
-function toRequest(request: IncomingMessage): Request {
-  const host = request.headers.host ?? "localhost";
-  const url = `http://${host}${request.url ?? "/"}`;
-  return new Request(url, { method: request.method, headers: flatHeaders(request.headers) });
-}
-
-/** Fetch `Headers` → the plain record node:http writes. */
-function headersToObject(headers: Headers): Record<string, string> {
-  const flat: Record<string, string> = {};
-  headers.forEach((value, name) => { flat[name] = value; });
-  return flat;
-}
-
-/** node:http's header record (values may repeat) → the single-valued form Request reads. */
-function flatHeaders(headers: IncomingHttpHeaders): Record<string, string> {
-  const flat: Record<string, string> = {};
-  for (const [name, value] of Object.entries(headers)) {
-    if (typeof value === "string") flat[name] = value;
-    else if (Array.isArray(value) && value[0] !== undefined) flat[name] = value[0];
-  }
-  return flat;
 }

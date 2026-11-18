@@ -133,7 +133,7 @@ async function signedHeaders(key: string, path: string, nowMs: number): Promise<
   return { "x-egress-timestamp": String(timestampSeconds), "x-egress-signature": signature };
 }
 
-/** Accept only marked answers; a refusal becomes our typed error, an unmarked one is not-ours. */
+/** Accept only marked answers; a refusal becomes our typed error, and so does an unmarked one (not from the egress handler, or its last-resort 500). */
 function assertMarked(res: Awaited<ReturnType<FetchLike>>, url: string): Awaited<ReturnType<FetchLike>> {
   const marker = res.headers?.get(RESPONSE_MARKER) ?? null;
   if (marker === RELAYED) return res;

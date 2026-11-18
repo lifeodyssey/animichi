@@ -86,7 +86,7 @@ codes. The line carries no address and no credential.
 
 ## Reading the answers
 
-Every response carries `x-egress-response`:
+Every response but one carries `x-egress-response`:
 
 - `relayed-upstream` — status and body are the upstream's, verbatim
   (`content-type` and `retry-after` forwarded).
@@ -95,7 +95,24 @@ Every response carries `x-egress-response`:
   `configuration`, or `upstream-timeout`. That vocabulary is the caller's
   (`workers/catalog` classifies by it and knows no other), so a `ceiling`
   refusal caused by an unreachable store says so in the body's `detail`
-  rather than in a seventh reason.
+  rather than in a seventh reason. `upstream-timeout` covers every upstream
+  answer the relay could not deliver: none within ten seconds, a broken
+  connection or body, a redirect, a body past 8 MiB (reading stops there), or
+  a status a response cannot carry. The last two arrived and are named the
+  same way, in the body's `detail`: `upstream-body-over-limit` and
+  `upstream-status-not-relayable`. A status below 200 never reaches the relay
+  (`fetch` itself rejects it), so it is refused with no `detail`.
+  `method-not-allowed` is a 405 whose `Allow` header names `GET`, the one
+  method this service serves.
+- neither — a plain 500: the request failed inside this service in a way none
+  of those reasons describes. The caller reads it as `unmarked`. The service's
+  log carries one `request-failure` line for it: the error's name, message and
+  stack, each capped, and nothing of the request.
+
+Two requests get no answer from this service at all, because Node's HTTP parser
+handles them before any code here runs: `CONNECT` closes the socket without a
+response, and a request Node cannot parse gets Node's own 400, 417 or 431. The
+process keeps serving in both cases.
 
 ## The address guard
 
