@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { dictFor } from "../apps/web/src/i18n/dictionaries";
+import { expect, test } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording, patchSessionId } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { solveTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #1337 (audit web-H2): a mid-conversation trip to the settings page used
@@ -28,16 +28,6 @@ const conversation = [
   { role: "assistant", content: FIRST_TURN, created_at: "2026-09-05T00:00:01Z" },
 ];
 
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-  await expect(page.getByRole("textbox")).toBeVisible();
-}
-
 async function stubConversation(page: Page, replays: string[]): Promise<void> {
   await page.route("**/v1/chat", (route) =>
     route.fulfill({ status: 200, headers: SSE_HEADERS, body: patchSessionId(chatStreamRecording("search"), SESSION_ID) }),
@@ -48,12 +38,13 @@ async function stubConversation(page: Page, replays: string[]): Promise<void> {
   });
 }
 
-test("a trip to settings and back keeps the conversation, in one document", async ({ page }) => {
+test("a trip to settings and back keeps the conversation, in one document", async ({ page, anonymousVisitor }) => {
   let documentLoads = 0;
   page.on("domcontentloaded", () => { documentLoads += 1; });
   const replays: string[] = [];
   await stubConversation(page, replays);
-  await openChat(page);
+  await anonymousVisitor.enterChat();
+  await expect(page.getByRole("textbox")).toBeVisible();
 
   await page.getByRole("textbox").fill("ユーフォ");
   await page.getByRole("button", { name: ja.send }).click();

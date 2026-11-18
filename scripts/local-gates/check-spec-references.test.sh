@@ -12,6 +12,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-spec-references.sh"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 failures=0
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; }
@@ -20,7 +24,7 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; }
 # to the path it excludes from its own search. Prints the repo path.
 fixture() {
   local repo
-  repo="$(mktemp -d)"
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/specs" "${repo}/docs/archive/specs" "${repo}/scripts/local-gates"
   cp "${CHECK_SH}" "${repo}/scripts/local-gates/check-spec-references.sh"
   printf 'Live notes.\n' > "${repo}/docs/notes.md"
@@ -57,7 +61,7 @@ case_live_reference_passes() {
   printf '<!doctype html><title>map</title>\n' > "${repo}/docs/specs/map.html"
   printf 'Follow docs/specs/plan/iter-0.md and map.html; see settled.md.\n' > "${repo}/docs/notes.md"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case1.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case1.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 0 "live reference" "${out}" || return 1
   assert_contains "live reference" "checked 3 docs/specs files, all live-referenced" "${out}" || return 1
   printf 'PASS: a live basename reference passes, nested and non-markdown specs included\n'
@@ -70,7 +74,7 @@ case_archive_reference_fails() {
   write_spec "${repo}" "docs/specs/retired.md"
   printf 'Superseded: docs/specs/retired.md.\n' > "${repo}/docs/archive/specs/old.md"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case2.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case2.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "archive-only reference" "${out}" || return 1
   assert_contains "archive-only reference" "docs/specs/retired.md: no live reference" "${out}" || return 1
   printf 'PASS: an archive-only reference does not count and the file is named\n'
@@ -83,7 +87,7 @@ case_owner_exception_passes() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/specs/kept.md|workers/catalog/AGENTS.md\n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case3.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case3.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 0 "owner exception" "${out}" || return 1
   assert_contains "owner exception" \
     "justified exception: docs/specs/kept.md (canonical owner: workers/catalog/AGENTS.md)" "${out}" || return 1
@@ -98,7 +102,7 @@ case_ownerless_exception_fails() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/specs/kept.md|  \n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case4.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case4.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "ownerless exception" "${out}" || return 1
   assert_contains "ownerless exception" "names no canonical owner: docs/specs/kept.md" "${out}" || return 1
   printf 'PASS: an exception without an owner fails closed\n'
@@ -111,7 +115,7 @@ case_stale_exception_fails() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/specs/gone.md|docs/notes.md\n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case5.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case5.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "stale exception" "${out}" || return 1
   assert_contains "stale exception" "is not a tracked file: docs/specs/gone.md" "${out}" || return 1
   printf 'PASS: an exception for an untracked path fails closed\n'
@@ -124,7 +128,7 @@ case_malformed_exception_fails() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/specs/kept.md owner omitted\n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case6.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case6.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "malformed exception" "${out}" || return 1
   assert_contains "malformed exception" "malformed exception entry" "${out}" || return 1
   printf 'PASS: a malformed exception entry fails closed\n'
@@ -138,7 +142,7 @@ case_excluded_files_are_not_references() {
   printf '\n# docs/specs/selfish.md\n' >> "${repo}/scripts/local-gates/check-spec-references.sh"
   printf '# docs/specs/selfish.md\n' > "${repo}/scripts/local-gates/check-spec-references.test.sh"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case7.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case7.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "self and gate text" "${out}" || return 1
   assert_contains "self and gate text" "docs/specs/selfish.md: no live reference" "${out}" || return 1
   printf 'PASS: self-mentions, the gate text and the gate test never justify a spec\n'
@@ -151,7 +155,7 @@ case_out_of_tree_exception_fails() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/notes.md|README.md\n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case8.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case8.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "outside docs/specs" "${out}" || return 1
   assert_contains "outside docs/specs" "is outside docs/specs: docs/notes.md" "${out}" || return 1
   printf 'PASS: an exception for a path outside docs/specs fails closed\n'
@@ -164,7 +168,7 @@ case_basename_matches_literally_and_whole() {
   write_spec "${repo}" "docs/specs/spec.v2.md"
   printf 'Superseded variant: spec-v2.md, xspec.v2.md and spec.v2.mdx.\n' > "${repo}/docs/notes.md"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case9.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case9.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 1 "literal basename" "${out}" || return 1
   assert_contains "literal basename" "docs/specs/spec.v2.md: no live reference" "${out}" || return 1
   printf 'PASS: a basename is not matched by a regex, a substring or a longer name\n'
@@ -177,7 +181,7 @@ case_owner_keeps_later_separators() {
   write_spec "${repo}" "docs/specs/kept.md"
   printf 'docs/specs/kept.md|docs/ops/local-gates.md|#1649\n' > "${repo}/scripts/local-gates/spec-reference-exceptions.txt"
   commit_fixture "${repo}"
-  out=/tmp/spec-refs-case10.out; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  out="${TMPROOT}/spec-refs-case10.out"; rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
   assert_status "${rc}" 0 "owner with separator" "${out}" || return 1
   assert_contains "owner with separator" "(canonical owner: docs/ops/local-gates.md|#1649)" "${out}" || return 1
   printf 'PASS: an owner may carry a further separator without being truncated\n'

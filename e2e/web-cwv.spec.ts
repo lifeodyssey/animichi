@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { webCwvConfig } from "../apps/web/web-cwv.config";
 import { median } from "../apps/web/src/features/telemetry/lib/vitals-stats";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /* This harness sets no locale, so the app negotiates the browser default
@@ -140,11 +141,9 @@ const assertWithin = (metric: number, limit: number, name: string): void => {
   expect(metric, name).toBeLessThanOrEqual(limit);
 };
 
-async function prepareInteraction(page: Page): Promise<void> {
+async function prepareInteraction(page: Page, visitor: AnonymousVisitor): Promise<void> {
   await stubTurnstileEntry(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
+  await visitor.stubSignedOutSession();
 }
 
 // AC1 + AC2 — every controlled cold-start run over the fixed route inventory
@@ -163,9 +162,9 @@ test(`median LCP and CLS over ${String(webCwvConfig.numberOfRuns)} cold-start ru
 // AC3 — one representative interaction flow on the measured route must produce
 // an Interaction-to-Next-Paint proxy well inside the 200ms "good" boundary.
 // Same cold-start profile and median aggregation.
-test(`a representative mobile interaction drives INP at or below ${String(webCwvConfig.thresholds.inp.error)}ms`, async ({ page }) => {
+test(`a representative mobile interaction drives INP at or below ${String(webCwvConfig.thresholds.inp.error)}ms`, async ({ page, anonymousVisitor }) => {
   await installObservers(page);
-  await prepareInteraction(page);
+  await prepareInteraction(page, anonymousVisitor);
   const route = webCwvConfig.routes[0];
   const inpRuns: number[] = [];
   for (let run = 1; run <= webCwvConfig.numberOfRuns; run++) {

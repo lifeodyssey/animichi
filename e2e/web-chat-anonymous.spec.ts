@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { expect, test } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
 import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
@@ -19,21 +19,6 @@ const ja = chatDictFor("ja");
 const states = ja.errorStates;
 
 /**
- * The real loader is always blocked in this hermetic suite. A shared helper
- * drives the widget callback and stubs only the server verification endpoint;
- * chat still cannot mount until that endpoint answers 2xx.
- */
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-  await expect(page.getByRole("textbox")).toBeVisible();
-}
-
-/**
  * Hand the page a token through the widget's own callback. The transport waits
  * for one before sending an anonymous turn, so with the real loader blocked
  * this is what lets a turn reach the (stubbed) edge at all — and a token the
@@ -48,13 +33,14 @@ async function send(page: Page, text: string): Promise<void> {
   await page.getByRole("button", { name: ja.send }).click();
 }
 
-test("an anonymous visitor completes a full chat round-trip with no login prompt", async ({ page }) => {
+test("an anonymous visitor completes a full chat round-trip with no login prompt", async ({ page, anonymousVisitor }) => {
   const authorizations: (string | null)[] = [];
   await page.route("**/v1/chat", (route) => {
     authorizations.push(route.request().headers().authorization ?? null);
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
-  await openChat(page);
+  await anonymousVisitor.enterChat();
+  await expect(page.getByRole("textbox")).toBeVisible();
   await send(page, "ユーフォ");
   await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeVisible();
   await expect(page.getByText("宇治橋")).toBeVisible();
@@ -63,7 +49,7 @@ test("an anonymous visitor completes a full chat round-trip with no login prompt
   await expect(page.getByRole("button", { name: states.d8Login })).toHaveCount(0);
 });
 
-test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async ({ page }) => {
+test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", (route) =>
     route.fulfill({
       status: 429,
@@ -71,7 +57,8 @@ test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async 
       body: JSON.stringify({ error: { code: "rate_limited", message: "少し待ってね" } }),
     }),
   );
-  await openChat(page);
+  await anonymousVisitor.enterChat();
+  await expect(page.getByRole("textbox")).toBeVisible();
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d10Message)).toBeVisible();
   await expect(page.getByRole("button", { name: states.d10Retry })).toBeVisible();
@@ -79,7 +66,7 @@ test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async 
   await expect(page.locator(".chat-message--user").getByText("ユーフォ", { exact: true })).toBeVisible();
 });
 
-test("the anonymous budget breaker guides the visitor to login instead of failing silently", async ({ page }) => {
+test("the anonymous budget breaker guides the visitor to login instead of failing silently", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", (route) =>
     route.fulfill({
       status: 403,
@@ -93,7 +80,8 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
       }),
     }),
   );
-  await openChat(page);
+  await anonymousVisitor.enterChat();
+  await expect(page.getByRole("textbox")).toBeVisible();
   await send(page, "ユーフォ");
   // A visitor who never had a session must not be told their session expired.
   await expect(page.getByText(states.d11Message)).toBeVisible();
@@ -126,7 +114,7 @@ test("a rejected entry offers the check retry and never mounts chat", async ({ p
  * names the instant the allowance returns rather than guessing at "today".
  * Same inert-gate assumption as the D11 breaker test above.
  */
-test("an exhausted daily quota locks sending but keeps the visitor's typed text", async ({ page }) => {
+test("an exhausted daily quota locks sending but keeps the visitor's typed text", async ({ page, anonymousVisitor }) => {
   await page.clock.setFixedTime(new Date("2026-09-13T00:00:00Z"));
   const resetsAt = "2026-09-13T01:00:00Z";
   await page.route("**/v1/chat", (route) =>
@@ -143,7 +131,8 @@ test("an exhausted daily quota locks sending but keeps the visitor's typed text"
       }),
     }),
   );
-  await openChat(page);
+  await anonymousVisitor.enterChat();
+  await expect(page.getByRole("textbox")).toBeVisible();
   await send(page, "ユーフォ");
 
   const notice = page.getByRole("status").filter({ hasText: states.d12Title });

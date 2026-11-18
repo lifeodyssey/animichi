@@ -209,6 +209,11 @@ fails, and with the exemption inverted seven of its cases fail.
   from `apps/web/web-cwv.config.ts`.
 - `fixtures/map-spike.ts` — canvas pixel reads for the map spike; its ground colours come from
   `apps/web/src/features/map-spike/map-colors.ts`, the same literals `map-style.ts` paints.
+- `fixtures/anonymous-visitor.ts` — the `anonymousVisitor` Playwright fixture (`test.extend`) and
+  the `test`/`expect` the chat specs import: the signed-out session stub, the entry's Turnstile and
+  health stubs, and `enterChat()` (load `/chat`, pass the gate, wait for hydration and the
+  composer). It navigates nowhere on its own; a spec calls each step where its own setup needs it,
+  so the routes and clocks it registers first keep their place.
 - `fixtures/chat-stream.ts` — the recorded agent streams every chat spec replays. The recordings
   carry the envelope the deployed edge sends, `session_id` included (#1903), and
   `RECORDING_SESSION_ID` is the id they assign; `patchSessionId` overrides it for a spec that names
@@ -225,5 +230,5 @@ fails, and with the exemption inverted seven of its cases fail.
   injection). It is not coming back: the Neon flow is an HttpOnly cookie on the Neon Auth origin,
   which is exactly why the live login spec signs in through the browser context's shared cookie
   jar rather than injecting a token. Recover the old fixture from git history only for reference.
-- The remaining `e2e/fixtures/` hold `chat-stream.ts`, its specification `chat-stream.test.ts`, and
-  `map-spike.ts`.
+- The remaining `e2e/fixtures/` hold `anonymous-visitor.ts`, `chat-stream.ts`, its specification
+  `chat-stream.test.ts`, and `map-spike.ts`.

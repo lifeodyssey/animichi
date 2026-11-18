@@ -1,6 +1,4 @@
-import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { expect, test } from "./fixtures/anonymous-visitor";
 import { declaredNeonAuthOrigin } from "./helpers/neon-auth-origin";
 
 /**
@@ -71,19 +69,6 @@ test.use({
   baseURL: appBaseUrl,
 });
 
-async function openAnonymousChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await healthy;
-  await expect(page.getByRole("textbox")).toBeVisible();
-}
-
 test.describe("Neon Auth login", () => {
   test("password sign-in returns to Chat and survives a reload", async ({ page, context }) => {
     const credentials = requireLiveAuth();
@@ -112,8 +97,10 @@ test.describe("Neon Auth login", () => {
     await expect(page.getByRole("textbox")).toBeVisible();
   });
 
-  test("an unauthenticated visit opens the anonymous Chat entry", async ({ page }) => {
-    await openAnonymousChat(page);
+  test("an unauthenticated visit opens the anonymous Chat entry", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await expect(page).toHaveURL(/\/chat(?:\?|$)/);
     await expect(page.getByRole("button", { name: /ログイン|sign in|log in/i })).toBeVisible();
     await expect(page.getByRole("searchbox")).toHaveCount(0);

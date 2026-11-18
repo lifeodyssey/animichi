@@ -1,8 +1,5 @@
-import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { once } from "node:events";
 import { connect } from "node:net";
-import { promisify } from "node:util";
 import type { TestContext } from "node:test";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { GenericContainer, Wait } from "testcontainers";
@@ -18,7 +15,6 @@ import {
 
 // Published multi-platform packaging of upstream Neon Proxy release-proxy-8853.
 const IMAGE = "ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a";
-const execute = promisify(execFile);
 
 // WHAT this lane's database is, and why it is not the plane's own (#1625).
 //
@@ -53,7 +49,7 @@ export async function catalogPostgres(context: TestContext) {
     const dsn = await openLegacyDatabase(cluster, name);
     context.after(() => dropCleanDatabase(cluster.adminDsn, name));
     await assertDialable(dsn);
-    const proxy = await startProxy(dsn);
+    const proxy = await startProxy(cluster, dsn);
     context.after(() => proxy.stop().then(() => undefined));
     const endpoint = `http://${proxy.getHost()}:${String(proxy.getMappedPort(4444))}/sql`;
     const previous = neonConfig.fetchEndpoint; neonConfig.fetchEndpoint = endpoint;
@@ -102,18 +98,12 @@ async function dropWithoutMaskingFailure(cluster: TestPostgresCluster, name: str
   }
 }
 
-async function startProxy(dsn: string) {
-  const upstream = new URL(dsn); upstream.hostname = await postgresAddress(upstream.port); upstream.port = "5432";
+/** The proxy runs in a container of its own, so it dials the server across their shared Docker
+ * network: the address `@animichi/test-postgres` reads off the container it started, at the
+ * server's own port rather than the host-mapped one. */
+function startProxy(cluster: TestPostgresCluster, dsn: string) {
+  const upstream = new URL(dsn); upstream.hostname = cluster.networkAddress; upstream.port = "5432";
   return new GenericContainer(IMAGE).withEnvironment({ PG_CONNECTION_STRING: upstream.href }).withExposedPorts(4444)
     .withWaitStrategy(Wait.forAll([Wait.forLogMessage("serving initial configuration"),
       Wait.forSuccessfulCommand("bash -c '</dev/tcp/127.0.0.1/4445'")])).withStartupTimeout(60_000).start();
-}
-
-async function postgresAddress(port: string) {
-  const listed = await execute("docker", ["ps", "--filter", `publish=${port}`, "--format", "{{.ID}}"]);
-  const ids = listed.stdout.trim().split(/\s+/); assert.equal(ids.length, 1); assert.ok(ids[0]);
-  const inspected = await execute("docker", ["inspect", ids[0]]);
-  const containers = JSON.parse(inspected.stdout) as { NetworkSettings: { Networks: Record<string, { IPAddress: string }> } }[];
-  assert.ok(containers[0]); const address = Object.values(containers[0].NetworkSettings.Networks)[0]?.IPAddress;
-  assert.ok(address); return address;
 }

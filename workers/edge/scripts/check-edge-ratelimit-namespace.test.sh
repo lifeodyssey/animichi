@@ -7,6 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-edge-ratelimit-namespace.sh"
 PLACEHOLDER="REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -34,8 +38,8 @@ fixture_wrangler() {
 
 # ── Case 1: placeholder present in wrangler.toml -> FAILS CLOSED ──────────
 test_placeholder_fails_closed() {
-  local repo out=/tmp/rate-ns-case1.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/rate-ns-case1.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   fixture_wrangler "${repo}" "namespace_id = \"${PLACEHOLDER}\""
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -46,8 +50,8 @@ test_placeholder_fails_closed() {
 
 # ── Case 2: a real (non-placeholder) namespace_id -> passes ───────────────
 test_provisioned_namespace_passes() {
-  local repo out=/tmp/rate-ns-case2.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/rate-ns-case2.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   fixture_wrangler "${repo}" 'namespace_id = "d1c0de00000000000000000000000000"'
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -58,8 +62,8 @@ test_provisioned_namespace_passes() {
 # ── Case 3: no [[ratelimits]] namespace_id at all (binding absent) -> passes
 #    (the worker fails the native tier open with an alert; not a deploy block)
 test_absent_binding_passes() {
-  local repo out=/tmp/rate-ns-case3.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/rate-ns-case3.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/workers/edge"
   printf "%s
 " 'name = "RATE_LIMITER"' > "${repo}/workers/edge/wrangler.toml"
@@ -71,8 +75,8 @@ test_absent_binding_passes() {
 
 # ── Case 4: no wrangler.toml at all -> fails closed (cannot check) ────────
 test_missing_file_fails_closed() {
-  local repo out=/tmp/rate-ns-case4.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/rate-ns-case4.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf "hello\n" > "${repo}/README.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"

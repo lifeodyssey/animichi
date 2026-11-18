@@ -10,6 +10,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-root-allowlist.sh"
 REPO_ROOT="$(git -C "${SCRIPT_DIR}" rev-parse --show-toplevel)"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -57,7 +61,7 @@ build_fixture() {
 
 # ── Case 1: the current tree must match the allowlist (locks reality) ───────
 test_current_tree_passes() {
-  local out=/tmp/root-allowlist-case1.out rc
+  local out="${TMPROOT}/root-allowlist-case1.out" rc
   rc="$(run_check "${REPO_ROOT}" "${out}")"
   [ "${rc}" -eq 0 ] || fail_test "current repo tree must pass the allowlist, got exit ${rc}: $(cat "${out}")"
   grep -q "all top-level entries are allowlisted" "${out}" || fail_test "missing one-line summary in output"
@@ -66,8 +70,8 @@ test_current_tree_passes() {
 
 # ── Case 2: copied file list without extras -> passes ───────────────────────
 test_copied_list_passes() {
-  local repo out=/tmp/root-allowlist-case2.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/root-allowlist-case2.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   build_fixture "${repo}" "-"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -77,8 +81,8 @@ test_copied_list_passes() {
 
 # ── Case 3: injected fake entry -> fails, naming the entry ──────────────────
 test_injected_entry_fails() {
-  local repo out=/tmp/root-allowlist-case3.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/root-allowlist-case3.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   build_fixture "${repo}" "not-in-allowlist.txt"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"

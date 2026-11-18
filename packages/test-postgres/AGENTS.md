@@ -18,7 +18,9 @@ disposable container has no Pulumi to create them (#1625).
 - `pnpm run test` — `node --test` over `test/*.test.ts` (Node's native TS type stripping; no bundler,
   no Docker, no clock).
 - `pnpm run test:integration` — `node --test` over `test/integration/*.test.ts`: the shared
-  container's own contracts. This one needs Docker and the local image.
+  container's own contracts, plus the three unfinished-seed cases, which each boot a container of
+  their own (`startOwnedPostgresCluster`) so the template they leave unprotected is never the
+  shared one's. This one needs Docker and the local image.
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Pre-push runs all four when a changed file lands in this package
@@ -32,7 +34,7 @@ disposable container has no Pulumi to create them (#1625).
 
 | Export | Is |
 |---|---|
-| `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783) |
+| `startTestPostgresCluster({ budget })` | the cluster alone: reuse or boot → wait → five service roles → `{ adminDsn, networkAddress }`. No database, no chain, nothing to stop — for an arm that creates every database it reads (#1783). `networkAddress` is the server's IP on its Docker network, read off the started container, for a second container to dial at port 5432 |
 | `startTestPostgres({ database, budget })` | the whole recipe: that cluster → clone from the migrated template (#1769) → `{ dsn, stop }`, for an arm that reads the data plane's schema |
 | `createMigratedDatabase(adminDsn, name)` | clone `name` from the container's one Prisma-migrated template; the seed applies the chain once per identity and holds the cluster turn, the clone does not |
 | `SetupBudget` · `SPIKE_SETUP_BUDGET` · `AGENT_DB_SETUP_BUDGET` · `hookTimeoutMs` | the wall-clock allowance one arm may spend, one instance per arm |
@@ -171,6 +173,17 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   asserts the roles in one turn; `startTestPostgres` clones after that turn has committed them. An
   arm that applies a chain of its own still takes the same turn (`ChainApplyTurn`) on the cluster's
   admin database.
+- **The migrated template is ready when it is protected, not when it exists.** The seed creates
+  the database, applies the chain and protects it last (`ALLOW_CONNECTIONS false`, then
+  `IS_TEMPLATE true`), so existence is also true of a template still being migrated, or left half
+  done by a seed that died — and treating existence as readiness handed out clones of exactly
+  that. Half protected is unprotected too: a seed that died between those two statements leaves a
+  migrated template that refuses connections but is not marked as one. A caller that finds it
+  unprotected waits for the cluster turn and checks again there; a template still unprotected
+  under the turn has no live seed, so it is dropped and seeded again.
+  `test/integration/migrated-template-unfinished-seed.test.ts` reproduces each of those states —
+  a seed still running, one that died before protecting, one that died between the two statements
+  — on a container of its own, never on the shared one's template.
 - **Ask for the cluster unless a test reads the schema `startTestPostgres` builds.** An arm that
   only creates databases of its own paid a whole chain apply (~3.5 s locally) on a database nothing
   read, and queued on the turn for it (#1783). The cluster hands back no `dsn`, so a caller that
