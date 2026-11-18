@@ -4,6 +4,7 @@
 // Layout: see src/README.md
 
 import "./src/buckets.ts"
+import "./src/knobs.ts"
 import "./src/web-routes.ts"
 import "./src/hardening.ts"
 import "./src/staging.ts"
@@ -23,6 +24,7 @@ export { validateAccessAllowedEmails } from "./src/staging-access.ts"
 export { oneTimePinIdentityProviderId } from "./src/access-identity-provider.ts"
 export {
   catalogBucketName,
+  edgeKnobsNamespaceId,
   tilesBucketName,
   snapshotBucketName,
   stagingAccessClientId,

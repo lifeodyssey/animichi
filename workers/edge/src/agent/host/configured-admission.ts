@@ -36,7 +36,7 @@ export async function admitConfiguredModel(resources: NativeSessionResources, cr
   const byok = await requestModels(resources, request, credential);
   const model = byok?.model ?? resources.server.model;
   const configured = { ...request, modelIdentity: { provider: model.provider, modelId: model.id, baseUrl: model.baseUrl } };
-  const prepared = await prepareModelAdmission(resources.db, configured, { ...options, anonymousDailyBudget: resources.budget });
+  const prepared = await prepareModelAdmission(resources.db, configured, { ...options, anonymousDailyBudget: await resources.budgetFor() });
   if (byok && prepared.operationId && canBind(prepared))
     await bindCredential(resources, credentials, lane, context, prepared.operationId, byok);
   if (!("id" in prepared)) return prepared;

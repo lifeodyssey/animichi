@@ -19,12 +19,12 @@ function rejection(payer: string, hasCredential: boolean, authority: string) {
 
 /** Current witnesses and origin precede credential/authority decisions; cancellation never spends a key. */
 export async function prepareAuthorizedDrive(resources: NativeSessionResources, hasCredential: boolean, session: Session, lane: AgentLane, operationId: string, context: Context) {
-  const { db, budget } = resources;
+  const { db } = resources;
   if (!await prepareModelOperation(db, session, lane, operationId, context)) return false;
   const operation = { sessionId: session.metadata.id, operationId };
   const row = await db.orm.public.AgentAdmission.where(operation).first();
   if (!row) return false;
-  const authority = await operationAuthority(db, operation.sessionId, operationId, budget, context);
+  const authority = await operationAuthority(db, operation.sessionId, operationId, await resources.budgetFor(), context);
   if (authority === "unavailable") return false;
   const reason = rejection(row.payer, hasCredential, authority);
   if (reason) return cancelKnownRefusal(resources, lane, operation.sessionId, operationId, reason, context);

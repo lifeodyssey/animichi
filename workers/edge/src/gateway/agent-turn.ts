@@ -8,7 +8,7 @@ import { ByokProbe } from "../agent/byok/byok-probe.ts";
 import { ChatEnvelopeError, requestLocale } from "./chat-envelope.ts";
 import { byokHeadersRequired, byokProbed, byokRefused, byokRequiresLogin, envelopeRefused, turnResponse } from "./agent-turn-responses.ts";
 import { submissionOf, type NativeSubmission } from "./native-submission.ts";
-import { anonymousMessageAllowance } from "../agent/intake/anonymous-message-allowance.ts";
+import { edgeKnobs, RUNTIME_KNOBS } from "../config/edge-vars.ts";
 export { submissionOf, MESSAGE_MAX_CHARS } from "./native-submission.ts";
 
 export interface TurnIdentity { readonly userId: string; readonly userType: string }
@@ -33,7 +33,8 @@ async function handOff(env: Env, input: NativeSubmission) {
   const host = await sessionAgentStub(env.AGENT_SESSION, input.sessionId);
   const { byok, selection, ...request } = input;
   if (selection) return host.submitSelection({ ...request, selection });
-  return host.submitChat(request, { anonymousAllowance: anonymousMessageAllowance(env.ANON_DAILY_MESSAGE_QUOTA), now: Date.now() }, byok);
+  const anonymousAllowance = await edgeKnobs.read(env, RUNTIME_KNOBS.anonymousDailyMessageQuota);
+  return host.submitChat(request, { anonymousAllowance, now: Date.now() }, byok);
 }
 async function chatResponse(env: Env, request: Request, identity: TurnIdentity) {
   const refusal = byokLoginRefusal(request, identity);
