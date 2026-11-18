@@ -39,7 +39,7 @@ void test("native context preserves image content beside a stored text summary",
   const { repo, session, toolContext } = await fixture(() => Promise.reject(new Error("No catalog work expected")));
   const branch = await session.createBranch("main", null, context);
   const image = { type: "image" as const, data: "aGVsbG8=", mimeType: "image/png" };
-  const entryId = await branch.appendMessage({ role: "toolResult", toolCallId: "image", toolName: "web_search", timestamp: 0,
+  const entryId = await branch.appendMessage({ role: "toolResult", toolCallId: "image", toolName: "resolve_anime", timestamp: 0,
     content: [{ type: "text", text: "Stored raw text" }, image], isError: false, details: { frozenSummary: "Frozen text" } }, context);
   const provider = fauxProvider();
   const seen: unknown[] = [];

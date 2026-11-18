@@ -16,8 +16,11 @@
  * guarding a confusion that cannot arise here.
  */
 
+/** Every tier `classifySource` returns. */
+export const SOURCE_TIERS = ["verified", "unverified"] as const;
+
 /** How much reputation a result's domain carries. Never how much trust. */
-export type SourceTier = "verified" | "unverified";
+export type SourceTier = (typeof SOURCE_TIERS)[number];
 
 /** The reputable domains, matched at a dot boundary — never as a substring. */
 const VERIFIED_SOURCE_DOMAINS: readonly string[] = [
