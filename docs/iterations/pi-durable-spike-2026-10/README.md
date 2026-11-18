@@ -36,7 +36,7 @@ The card's last criterion asks for these fields, so a reviewer can re-run every 
 | `agents` used | 0.33.0, the npm `latest` on 2026-11-18. The edge already declares `^0.33.0` (`workers/edge/package.json`), so the edge needs no `agents` version bump to get `PiHarness`. |
 | pi-durable used | 1.5.2, the npm `latest`, with pi-ai, chord, pi-schema and pi-telemetry 1.5.2, which pi-durable pins exactly. |
 | Runtime | Build: Wrangler 4.132.0 `deploy --dry-run` (the repository's catalog version and the edge bundle-smoke lane's method). Run: Miniflare 4.20260722.0, which runs workerd 1.20260722.1 (the repository's catalog Miniflare). Compatibility date `2026-07-22` and flags `["nodejs_compat"]`, read from `workers/edge/wrangler.toml:89-91` on every run. Node 24.18.0, pnpm 12.4.2. |
-| Spike branch and commit | `spike/pi-durable`, created from origin/main at 6c9fb45b6. Phase 1: 608a77efc. Part A: 1dced1ab0. Part B: _filled when the coordinator commits and pushes_. |
+| Spike branch and commit | `spike/pi-durable`, created from origin/main at 6c9fb45b6. Phase 1: 608a77efc. Part A: 1dced1ab0. Part B: 7941c24cd. |
 | Prototype lockfile | `prototype/pnpm-lock.yaml`, SHA-256 `1ffb663ac5098eed093eb27f80eb4987fc43063d47f9a73b47cc21237cf104c8` (part B). Part B added one dependency, `pg` 8.23.0 (the root lockfile's version, `pnpm-lock.yaml:9408`; the catalog says `^8.23.0`). The lockfile gained 110 lines and changed none: pg 8.23.0, pg-pool 3.14.0, pg-protocol 1.16.1, pg-cloudflare 1.4.1, pg-connection-string 2.14.1, pg-types 2.2.0, pgpass 1.0.5 and their small dependencies. pg-protocol and pg-cloudflare resolved one patch above the root lockfile's 1.16.0 and 1.4.0. Part A's hash was `4451ccee2b3a388894fd4a7cfc361e806a34e4d2a8f718ff7acbdc69690298ab`, phase 1's `c0a6fed90e136bffd298a76ad30ae085e6dca6cdfe838c461fc65adc7bcc97ed`. Part A added two dev dependencies for the `validation` case: `pi-ai-0871` (`npm:@earendil-works/pi-ai@0.87.1`) and `typebox` 1.3.32 (the repository's catalog version); that lockfile gained 80 lines and changed none. |
 | Criteria per route | [Criteria](#criteria) |
 | Overall go or no-go | **Go** by the card's rule: questions 1 and 3 go, route (b′) go, questions 4 and 5 answered ([Overall](#overall-go)). Migrating and the route remain the owner's choices. |
@@ -121,6 +121,7 @@ sandboxed node q2/pg-cleanup.ts > ../evidence/q2-pg-cleanup-run-output.txt 2>&1 
 # after `pnpm install --frozen-lockfile` at the worktree root. The coordinator ran it with these four variables:
 sandboxed DOCKER_HOST=unix://<colima socket> TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock TESTCONTAINERS_RYUK_DISABLED=true \
   WRANGLER_HIDE_BANNER=true node q2/baseline-count.ts > ../evidence/q2-baseline-count-run-output.txt 2>&1   # (counts)
+sandboxed node q2/baseline-split.ts > ../evidence/q2-baseline-split-run-output.txt 2>&1   # offline: the baseline's split, from that count's evidence
 ```
 
 - `pnpm_config_strict_dep_builds=false` is the one override. pnpm 12 fails an install on dependency build scripts nobody
@@ -131,6 +132,12 @@ sandboxed DOCKER_HOST=unix://<colima socket> TESTCONTAINERS_DOCKER_SOCKET_OVERRI
   resolve up to the repository's workspace.
 - Each runner writes its evidence under `evidence/` with machine paths replaced by `<repo>`, `<tmp>` and `<home>`.
   The persisted Durable Object state lives in a fresh temporary directory per run.
+- Two runners still give their sessions a random 8-hex suffix and log the name as `key` in their evidence: the C1–C4
+  runner (`run/b-prime-admission.ts:49`) and b′1's isolation case (`run/b-prime-cases.ts:124`).
+  - A re-run of either can draw a name that gitleaks' `generic-api-key` rule flags, which blocks the commit.
+  - The fix is the fixed names b′2's wake case uses (`run/b-prime-cases.ts:172`).
+  - `run/route-a.ts:19`, `run/q3-db.ts:24` and b′3's count case (`run/b-prime-cases.ts:72`) draw a random suffix
+    too. Their evidence records the name only under fields the rule does not key on (`name`, `session`), or nowhere.
 - `git diff --stat origin/main -- pnpm-workspace.yaml pnpm-lock.yaml` is empty: the prototype has its own lockfile.
 
 ## Question 1: Workers — go
@@ -733,7 +740,10 @@ lives in Lifecycle's own table, `cf_agents_jobs` (`dist/lifecycle-v1rKHV2C.js:39
 | — business tables (admission, quota, settlement, sessions, usage), with 9 transactions' `BEGIN` and `COMMIT` | 77 | `relations`. 25 transactions in all. |
 | — Prisma's contract check: three client constructions, three statements each | 9 | `information_schema` and `prisma_contract.marker` |
 
-- **Today's commit costs about 9.25 statements** (`packages/pi-session-neon/src/commit.ts:39-51`,
+- **The split is recomputed, offline, from the count's evidence.** `q2/baseline-split.ts` writes
+  `evidence/q2-baseline-split.json`: the rule in code, each row's calls by part, and four checks that pass. Its output
+  is this table and the next bullet's figures.
+- **Today's commit costs about 9.25 statements** (`packages/pi-session-neon/src/commit.ts:41-52`,
   `session-stats.ts:14-28`):
   - `BEGIN` and `SELECT next_seq … FOR UPDATE`;
   - a validation `SELECT` on `pi_records`;
@@ -1297,7 +1307,7 @@ more than five.
 
 | # | Ticket | Package | Size | What it carries, from the spike |
 |---|---|---|---|---|
-| 1 | Neon `Storage` for pi-durable | `packages/pi-session-neon` | **L** | A `Storage` on the repository's driver, after `prototype/q2/pg-storage/` (873 lines over `pg`, a port of `SqliteStorage`). It keeps a `session_key` in every key, JSON text records, and a four-statement commit with the keyspace's metadata row locked `FOR UPDATE`. Its schema goes into the one Prisma chain. Proof: the 32 conformance cases on the test Postgres through the `node:assert` adapter (`q2/conformance-assertions.ts`), the two keyspace tests and the shared-key negative control. The 0.87.1 `NeonStorage`/`NeonSessionRepo` retire with ticket 5. |
+| 1 | Neon `Storage` for pi-durable | `packages/pi-session-neon` | **L** | A `Storage` on the repository's driver, after `prototype/q2/pg-storage/` (873 lines over `pg`, a port of `SqliteStorage`). It keeps a `session_key` in every key, JSON text records, and a four-statement commit with the keyspace's metadata row locked `FOR UPDATE`. Its schema goes into the one Prisma chain. Proof: the 32 conformance cases on the test Postgres through the `node:assert` adapter (`q2/conformance-assertions.ts`), the two keyspace tests and the shared-key negative control. Every spike connection used the test superuser `postgres`, so the grants and table ownership the backend needs are unproven: prove it under `agent_svc`, the role today's chain grants the Pi tables to (`packages/pi-session-neon/migrations/app/20260913T1711_data_plane_baseline/ops.json:2658-2662`). The 0.87.1 `NeonStorage`/`NeonSessionRepo` retire with ticket 5. |
 | 2 | Agent construction on pi-durable | `packages/agent` | **M–L** (was L) | Seven tools to `ToolRegistration` with `output`. The replay mapping: six stay `"safe"`, `translate_anime_title` goes from `"never"` to `"unsafe"`. pi-durable 1.5.0 takes any JSON Schema object as `parameters`, TypeBox's included (`@earendil-works/pi-durable@1.5.2 CHANGELOG.md:27`), so porting the schemas to pi-schema is optional. The web-result rebuild moves to `GenerationTask.beforeRequest` in the last selected extension. Prompt sections, and pi-ai 1.5 models. |
 | 3 | Eval on pi-durable | `packages/eval` | **L** (unchanged) | The in-process task on `MemoryStorage`; prefix record and replay on pi-durable's JSONL storage; the five frozen prefix sessions converted or re-recorded. |
 | 4a | Edge host: Pi, our wake, admission, settlement | `workers/edge` | **L** | `SessionAgent` opens Pi with `Harness.open` on ticket 1's storage, keyed by its session id. `wakeSession` resumes Pi and waits while it is active, then runs today's business scans; Pi's `onWake` re-arms the one-shot. Admission commits before Pi's `submit` with a `requestId`; the recovery scan resubmits admitted operations Pi lacks. Settlement banks the operation's own entry range. Proof: the host and DB lanes rewritten as equivalents, b′2's two kills and C1–C4. The production wake is M of this (prototype about 45 lines; `PiHarness`'s own about 175, with backoff, memory-limit resets, waits longer than one alarm, and job hand-off). |
@@ -1350,5 +1360,3 @@ The go stands on what was shown. These were not shown, and the tickets carry eac
   ([question 1](#abortsignalany-typeboxs-new-function-timers)). It matters to the turn budget.
 - **A package-by-package path.** An alias build plus a typecheck would show whether one is possible
   ([question 5](#can-two-pi-ai-versions-coexist-in-one-package)). Only if the owner wants to weigh it.
-- **Part B's records.** The `docs/iterations/README.md` index line the card's PR carries, and part B's spike-branch
-  commit field above. Both are the coordinator's.
