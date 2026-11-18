@@ -31,7 +31,7 @@ class DependencyHoldBacksMutationTest < Minitest::Test
   HONO_LINE = "# hold-back: hono@^4.13.7 -> 4.13.8 fails nothing at all \u2014 #9999"
   # The catalog's @vitest/coverage-istanbul line, verbatim, for the probes that move it and
   # re-cite it. (Originally the zod line, until #1745 released that pin.)
-  ISTANBUL_LINE = "  # hold-back: @vitest/coverage-istanbul@4.1.11 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #1742
+  ISTANBUL_LINE = "  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #1742
 "
 
   def manifests
@@ -81,8 +81,8 @@ class DependencyHoldBacksMutationTest < Minitest::Test
 
   def test_rejects_a_catalog_pin_with_no_register_line
     with_tree do |root|
-      rewrite(root, MANIFEST, "  # hold-back: @vitest/coverage-istanbul@4.1.11", "  # deleted: @vitest/coverage-istanbul@4.1.11", "the coverage-istanbul register line")
-      reject_tree(root, "a deleted catalog register line", "@vitest/coverage-istanbul@4.1.11: #{NO_LINE}")
+      rewrite(root, MANIFEST, "  # hold-back: @vitest/coverage-istanbul@^4.1.12", "  # deleted: @vitest/coverage-istanbul@^4.1.12", "the coverage-istanbul register line")
+      reject_tree(root, "a deleted catalog register line", "@vitest/coverage-istanbul@^4.1.12: #{NO_LINE}")
     end
   end
 
@@ -112,7 +112,7 @@ class DependencyHoldBacksMutationTest < Minitest::Test
 
   def test_rejects_a_pin_that_moved_without_the_register
     with_tree do |root|
-      rewrite(root, MANIFEST, "  \"@vitest/coverage-istanbul\": \"4.1.11\"", "  \"@vitest/coverage-istanbul\": \"5.0.1\"", "the catalog's coverage-istanbul pin")
+      rewrite(root, MANIFEST, "  \"@vitest/coverage-istanbul\": \"^4.1.12\"", "  \"@vitest/coverage-istanbul\": \"5.0.1\"", "the catalog's coverage-istanbul pin")
       reject_tree(root, "a bumped declaration left in the register", "#{MOVED_PIN}")
     end
   end
@@ -121,7 +121,7 @@ class DependencyHoldBacksMutationTest < Minitest::Test
   # the wrong follow-up card (round 1, must-fix 5).
   def test_rejects_a_line_that_cites_an_issue_the_snapshot_does_not_register
     with_tree do |root|
-      rewrite(root, MANIFEST, "  # hold-back: @vitest/coverage-istanbul@4.1.11 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #1742", "  # hold-back: @vitest/coverage-istanbul@4.1.11 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #9999", "the coverage-istanbul line's follow-up issue")
+      rewrite(root, MANIFEST, "  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #1742", "  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #9999", "the coverage-istanbul line's follow-up issue")
       reject_tree(root, "a line citing an issue the snapshot does not register", ISSUE_MISMATCH)
     end
   end

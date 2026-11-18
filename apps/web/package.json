@@ -19,7 +19,7 @@
   "dependencies": {
     "@ai-sdk/react": "^4.0.105",
     "@animichi/contract": "workspace:*",
-    "@neondatabase/auth": "0.5.0-beta",
+    "@neondatabase/auth": "^0.7.0-beta",
     "@orpc/client": "catalog:",
     "@orpc/contract": "catalog:",
     "@orpc/openapi-client": "catalog:",
@@ -40,7 +40,7 @@
   "devDependencies": {
     "@earendil-works/pi-agent-core": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
-    "@storybook/react-vite": "10.6.0",
+    "@storybook/react-vite": "^10.6.7",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/nitro-v2-vite-plugin": "catalog:",
     "@tanstack/router-generator": "catalog:",
@@ -57,7 +57,7 @@
     "msw": "2.15.0",
     "nitropack": "^2.13.4",
     "oxc-parser": "0.150.0",
-    "storybook": "10.6.0",
+    "storybook": "^10.6.7",
     "tailwindcss": "^4.3.3",
     "typescript": "catalog:",
     "vite": "catalog:",
