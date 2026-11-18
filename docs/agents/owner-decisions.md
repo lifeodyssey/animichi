@@ -116,3 +116,16 @@ Production work is collected under one tracking card and done last ("production�
 2026-08-15). On 2026-09-23 the owner had the step they would take by hand written on the
 production release issue and the card under discussion closed ("你可以在production release的issue里留一下说我需要手动干嘛，然后把这个关了");
 that was the handling of that one card, not a rule that every card is closed this way. The production approval itself is in `docs/agents/delivery-flow.md`.
+
+## osv: the unfixed picomatch advisory (2026-11-18)
+
+[`GHSA-fc5q-39xc-vjpf`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (picomatch ReDoS through
+repeated extglobs) lists every version through 4.0.7, the latest, as affected. No picomatch issue
+tracked it on that date. No upgrade clears it, and the osv lane failed on `main` and on every pull
+request. The owner chose an ignore with an expiry date over waiting for upstream. It lives in
+`infra/database-access/osv-scanner.toml`, beside the only lockfile osv flagged. There picomatch
+arrives through Pulumi's package installer (`@pulumi/pulumi` → `@npmcli/arborist` →
+`@npmcli/run-script` → `node-gyp` → `tinyglobby`). node-gyp 12.4.0, the only tinyglobby caller,
+passes it two fixed patterns without extglobs (`build/*.sln`, `build/*.mk`, `lib/build.js:87,90`).
+It expires on 2026-12-18. Remove it when picomatch ships a fix. Extending it past that date is the
+owner's decision again (the exception rules in `docs/agents/code-standards.md`).
