@@ -56,8 +56,8 @@ Root guide: `../../AGENTS.md`.
 
 - `src/ingest/` (per-work TTL; singleflight via the `ingest_jobs` unique constraint — never stampede
   Anitabi) · `src/enrich/` (dedup / clustering / city backfill / attribution) · `src/publish/`.
-- Route ordering is unified **here** (`src/lib/route.ts`, haversine × 1.3, SD-28) — the old Python
-  `route_optimizer.py` is retired.
+- Route ordering is unified **here** (`src/domain/itinerary/plan.ts`, haversine × 1.3, SD-28) — the
+  old Python `route_optimizer.py` is retired.
 - Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
 - Geocode API resolves normalized aliases exact-first; only an exact miss runs strict pg_trgm fuzzy
   matching, then deterministic collapse/limit (`src/api/geocode.ts`).
