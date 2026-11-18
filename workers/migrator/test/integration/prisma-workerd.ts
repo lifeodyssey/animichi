@@ -46,15 +46,20 @@ export async function startPrismaWorker(directory: string, dsn: string, jwk: JWK
     const response = await postgresHttp(headers.get("Neon-Connection-String") ?? dsn, headers, await request.text());
     return new WorkerResponse(await response.text(), { status: response.status, headers: [...response.headers.entries()] });
   };
-  const worker = new Miniflare({ modules: await nativeModules(directory), modulesRoot: directory,
-    compatibilityDate: "2026-06-01", compatibilityFlags: ["nodejs_compat"], port: 0, inspectorPort: 0,
-    bindings: {
-      ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: dsn,
-      CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,
-      USERS_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.usersSvc,
-      AGENT_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.agentSvc,
-    }, outboundService,
-    durableObjects: { MIGRATOR_APPLY_LOCK: { className: "MigratorApplyLock", useSQLite: true } },
+  const worker = new Miniflare({
+    workers: [{
+      name: "migrator-prisma",
+      modules: await nativeModules(directory), modulesRoot: directory,
+      compatibilityDate: "2026-06-01", compatibilityFlags: ["nodejs_compat"],
+      bindings: {
+        ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: dsn,
+        CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,
+        USERS_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.usersSvc,
+        AGENT_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.agentSvc,
+      }, outboundService,
+      durableObjects: { MIGRATOR_APPLY_LOCK: { className: "MigratorApplyLock", useSQLite: true } },
+    }],
+    port: 0, inspectorPort: 0,
   });
   const close = async () => { await worker.dispose(); };
   try {
