@@ -6,7 +6,7 @@ export { resolveAnime } from "./resolve-anime.ts";
 export { searchNearby } from "./search-nearby.ts";
 export { respond } from "./respond.ts";
 export { translateAnimeTitle } from "./translate-anime-title.ts";
-export { webSearch } from "./web-search.ts";
+export { WEB_SEARCH_PAGE_MAX_BYTES, webSearch } from "./web-search.ts";
 export { projectPilgrimage } from "./pilgrimage-projection.ts";
 export { readSearchResult } from "./search-result.ts";
 export type { PilgrimageToolContext } from "./tool-context.ts";
