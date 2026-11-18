@@ -1,0 +1,222 @@
+{
+  "binding": "unsafe",
+  "title": "Evict Unsafe",
+  "operationId": "unsafe-evict-1",
+  "receipt": {
+    "operationId": "unsafe-evict-1",
+    "session": "1",
+    "accepted": true
+  },
+  "inFlightAt": 1795016328334,
+  "armedAt": 1795016328334,
+  "killedAt": 1795016329337,
+  "restartedAt": 1795016329414,
+  "answerLoggedAt": 1795016358448,
+  "firstRequestAt": 1795016358448,
+  "catalogCalls": [
+    {
+      "at": 1795016328334,
+      "title": "Evict Unsafe",
+      "held": true
+    }
+  ],
+  "result": {
+    "operationId": "unsafe-evict-1",
+    "session": "1",
+    "status": "done",
+    "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+  },
+  "pending": [],
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "text": "Resolve the anime titled \"Evict Unsafe\"."
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "text": ""
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "resolve_anime",
+          "arguments": {
+            "title": "Evict Unsafe"
+          }
+        }
+      ],
+      "usage": {
+        "input": 0,
+        "output": 10,
+        "cacheRead": 0,
+        "cacheWrite": 67,
+        "totalTokens": 77,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "toolName": "resolve_anime",
+      "isError": true,
+      "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>",
+      "usage": {
+        "input": 0,
+        "output": 27,
+        "cacheRead": 0,
+        "cacheWrite": 109,
+        "totalTokens": 136,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "constructed",
+      "detail": {
+        "replay": "unsafe"
+      },
+      "at": 1795016328264
+    },
+    {
+      "seq": 2,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "start",
+      "detail": null,
+      "at": 1795016328288
+    },
+    {
+      "seq": 3,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "request:submit",
+      "detail": {
+        "title": "Evict Unsafe",
+        "operationId": "unsafe-evict-1"
+      },
+      "at": 1795016328289
+    },
+    {
+      "seq": 4,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "model:tool_call",
+      "detail": {
+        "title": "Evict Unsafe",
+        "args": {
+          "title": "Evict Unsafe"
+        },
+        "sawRole": "user"
+      },
+      "at": 1795016328313
+    },
+    {
+      "seq": 5,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "tool:start",
+      "detail": {
+        "title": "Evict Unsafe",
+        "replay": "unsafe"
+      },
+      "at": 1795016328329
+    },
+    {
+      "seq": 6,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016328334
+    },
+    {
+      "seq": 7,
+      "instance": "69b48fd6-19c0-4498-a7e5-30d43371f22f",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016328334
+    },
+    {
+      "seq": 8,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "constructed",
+      "detail": {
+        "replay": "unsafe"
+      },
+      "at": 1795016358349
+    },
+    {
+      "seq": 9,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "model:answer",
+      "detail": {
+        "title": "Evict Unsafe",
+        "sawToolResult": {
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        }
+      },
+      "at": 1795016358446
+    },
+    {
+      "seq": 10,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "start",
+      "detail": null,
+      "at": 1795016358453
+    },
+    {
+      "seq": 11,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016358460
+    },
+    {
+      "seq": 12,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016358461
+    },
+    {
+      "seq": 13,
+      "instance": "d7a7359d-2d31-4022-bfc4-51f56004aef0",
+      "kind": "request:report",
+      "detail": {
+        "operationId": "unsafe-evict-1"
+      },
+      "at": 1795016358472
+    }
+  ],
+  "timing": {
+    "killToRestartedInstanceMs": 29012,
+    "killToAnswerMs": 29111,
+    "workerdBStartMs": 77
+  }
+}

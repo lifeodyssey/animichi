@@ -1,0 +1,35 @@
+{
+ "bytes": 991226,
+ "gzipBytes": 220674,
+ "emittedFiles": [
+  ".wrangler",
+  "README.md",
+  "q1.worker.js",
+  "q1.worker.js.map"
+ ],
+ "externalImports": [
+  "node:fs",
+  "node:async_hooks",
+  "node:diagnostics_channel",
+  "cloudflare:workers"
+ ],
+ "unenvPolyfills": 0,
+ "dynamicImports": 0,
+ "suspects": {
+  "@earendil-works/pi-codemode": [],
+  "quickjs-wasi": [],
+  "@silvia-odwyer/photon": [],
+  "typebox": [],
+  "@sinclair/typebox": [],
+  "openai": [],
+  "@anthropic-ai/sdk": [],
+  "@google/genai": [],
+  "@aws-sdk/client-bedrock-runtime": [],
+  "@smithy/node-http-handler": [],
+  "http-proxy-agent": [],
+  "https-proxy-agent": []
+ },
+ "newFunction": [
+  "prototype/src/probes.ts"
+ ]
+}

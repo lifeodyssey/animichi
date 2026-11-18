@@ -1,0 +1,16 @@
+{
+  "name": "pi-durable-spike-prototype",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@earendil-works/chord": "1.5.2",
+    "@earendil-works/pi-ai": "1.5.2",
+    "@earendil-works/pi-durable": "1.5.2",
+    "@earendil-works/pi-schema": "1.5.2",
+    "agents": "0.33.0"
+  },
+  "devDependencies": {
+    "miniflare": "4.20260722.0",
+    "wrangler": "4.132.0"
+  }
+}
