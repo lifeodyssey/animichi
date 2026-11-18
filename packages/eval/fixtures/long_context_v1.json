@@ -1053,6 +1053,87 @@
       },
       "expected_output": null,
       "evaluators": []
+    },
+    {
+      "name": "LC_ja_006",
+      "inputs": {
+        "query": "2番目を飛ばして、残りのスポットでルートを作り直して。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "この作品のスポットを全部ルートにして。",
+              "assistant": "ルートを作成しました。itinerary_ref=route-0001、順番は 1. spot-01、2. spot-02、3. spot-03、4. spot-04 です。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、スポットの選択は変えない。",
+              "assistant": "予算を相談し、スポットの選択は変えない。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier route order and stop ids remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_route"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
     }
   ],
   "evaluators": [

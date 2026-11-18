@@ -2,7 +2,7 @@
 
 Run `pnpm --filter @animichi/agent test:integration` from the workspace root with Node 24,
 Docker and the repository test-postgres image available. The gate checks the Node fixture
-and the test Worker against their respective compiler contexts, then runs six serial cases.
+and the test Worker against their respective compiler contexts, then runs seven serial cases.
 Wrangler is the existing root dependency; the Worker reads the production catalog's
 compatibility date and flags. No deployed account, paid model or live Neon branch is needed.
 
@@ -29,6 +29,11 @@ from a shared origin and searches nearby. The second verifies transactional roll
 another real tool call, publishes changed rows and coordinates, then checks refreshed resolve,
 search and nearby results while the prior committed native result remains unchanged.
 Expected identifiers, names, coordinates and route order are literal seeded facts.
+
+The route-subset case plans a twelve-stop route over one seeded work in turn 1, then says
+"skip the second stop" in turn 2. It asserts the second turn's only Catalog request is the
+subset itinerary, carrying exactly the remaining stop ids in the earlier route's order, so
+no new search and no full re-plan runs.
 
 The translation cases read accepted Chinese titles from the same real Catalog database,
 publish a changed title, and retain the earlier committed native result. A storage failure

@@ -51,7 +51,7 @@ import { createOperationModels } from "@animichi/agent/models";
 | `resolveAnime` | Typed catalog title resolution | safe |
 | `searchBangumi` | Typed catalog pilgrimage points | safe |
 | `searchNearby` | Typed catalog geocoding and nearby points | safe |
-| `planRoute` | Typed catalog itinerary calculation; no booking | safe |
+| `planRoute` | Typed catalog itinerary calculation over a stored search result or a subset of an earlier route's published stops; no booking | safe |
 | `webSearch` | Keyless DuckDuckGo HTML search through native fetch | safe |
 | `translateAnimeTitle` | Curated catalog title, then optional native model completion | never |
 | `respond` | Validates public response data; no external effect | safe |
@@ -60,7 +60,8 @@ Every execute rechecks authorization and an invocation-keyed quota reservation. 
 the reservation transaction and must make it idempotent. `invocationId` is the native result
 entry ID; full search payloads live in `details`, and `readSearchResult` validates the entry,
 current session and branch ancestry. `projectPilgrimage` derives clarification/current work
-from committed entries. A route preserves offered point IDs and coordinates; `respond` needs
+from committed entries. A route preserves offered point IDs and coordinates; a subset re-plan
+only accepts stop IDs the earlier route's frozen summary published; `respond` needs
 current-turn search/route evidence and validates before requesting native termination.
 
 `createCatalogClient` returns the existing oRPC contract client with native request/response
