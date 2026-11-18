@@ -1,0 +1,1376 @@
+{
+  "case": "isolation",
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "names": [
+    "iso-a-4b4d25b7",
+    "iso-b-4b4d25b7"
+  ],
+  "reports": [
+    {
+      "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+      "key": "iso-a-4b4d25b7",
+      "operationId": "op-iso",
+      "settled": {
+        "status": "done",
+        "answer": 15
+      },
+      "usage": {
+        "models": {
+          "faux/faux-1": {
+            "input": 0,
+            "output": 261,
+            "cacheRead": 181,
+            "cacheWrite": 222,
+            "totalTokens": 664,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        "tools": {}
+      },
+      "events": [
+        {
+          "seq": 1,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "constructed",
+          "detail": {
+            "replay": "safe"
+          },
+          "at": 1795039134836
+        },
+        {
+          "seq": 2,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "start",
+          "detail": null,
+          "at": 1795039134838
+        },
+        {
+          "seq": 3,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "pi:opened",
+          "detail": {
+            "key": "iso-a-4b4d25b7"
+          },
+          "at": 1795039134972
+        },
+        {
+          "seq": 4,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "request:submit",
+          "detail": {
+            "operationId": "op-iso"
+          },
+          "at": 1795039134973
+        },
+        {
+          "seq": 5,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:start",
+          "detail": {
+            "wake": "pi"
+          },
+          "at": 1795039134976
+        },
+        {
+          "seq": 6,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:waiting",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039134976
+        },
+        {
+          "seq": 7,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:end",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039134976
+        },
+        {
+          "seq": 8,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:start",
+          "detail": {
+            "wake": "pi"
+          },
+          "at": 1795039134993
+        },
+        {
+          "seq": 9,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:waiting",
+          "detail": {
+            "active": true
+          },
+          "at": 1795039134993
+        },
+        {
+          "seq": 10,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "request:report",
+          "detail": {
+            "operationId": "op-iso"
+          },
+          "at": 1795039134997
+        },
+        {
+          "seq": 11,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "model:tool_call",
+          "detail": {
+            "tool": "resolve_anime",
+            "title": "Isolation A"
+          },
+          "at": 1795039135018
+        },
+        {
+          "seq": 12,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "tool:start",
+          "detail": {
+            "title": "Isolation A",
+            "replay": "safe"
+          },
+          "at": 1795039135186
+        },
+        {
+          "seq": 13,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "tool:end",
+          "detail": {
+            "title": "Isolation A",
+            "status": 200
+          },
+          "at": 1795039135189
+        },
+        {
+          "seq": 14,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "model:answer",
+          "detail": {
+            "title": "Isolation A",
+            "sawToolResult": {
+              "isError": false,
+              "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation A\",\"title_cn\":\"巡礼\"}}"
+            }
+          },
+          "at": 1795039135232
+        },
+        {
+          "seq": 15,
+          "instance": "ee9d9927-8166-475b-9adc-f4686d9b55c6",
+          "kind": "wake:end",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039140390
+        }
+      ],
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Isolation A\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Isolation A"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 181,
+            "totalTokens": 191,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation A\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation A\",\"title_cn\":\"巡礼\"}} streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed ",
+          "usage": {
+            "input": 0,
+            "output": 251,
+            "cacheRead": 181,
+            "cacheWrite": 41,
+            "totalTokens": 473,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+      "key": "iso-b-4b4d25b7",
+      "operationId": "op-iso",
+      "settled": {
+        "status": "done",
+        "answer": 15
+      },
+      "usage": {
+        "models": {
+          "faux/faux-1": {
+            "input": 0,
+            "output": 261,
+            "cacheRead": 181,
+            "cacheWrite": 222,
+            "totalTokens": 664,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        "tools": {}
+      },
+      "events": [
+        {
+          "seq": 1,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "constructed",
+          "detail": {
+            "replay": "safe"
+          },
+          "at": 1795039134841
+        },
+        {
+          "seq": 2,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "start",
+          "detail": null,
+          "at": 1795039134842
+        },
+        {
+          "seq": 3,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "pi:opened",
+          "detail": {
+            "key": "iso-b-4b4d25b7"
+          },
+          "at": 1795039134974
+        },
+        {
+          "seq": 4,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "request:submit",
+          "detail": {
+            "operationId": "op-iso"
+          },
+          "at": 1795039134975
+        },
+        {
+          "seq": 5,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:start",
+          "detail": {
+            "wake": "pi"
+          },
+          "at": 1795039134977
+        },
+        {
+          "seq": 6,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:waiting",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039134977
+        },
+        {
+          "seq": 7,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:end",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039134977
+        },
+        {
+          "seq": 8,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:start",
+          "detail": {
+            "wake": "pi"
+          },
+          "at": 1795039134992
+        },
+        {
+          "seq": 9,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:waiting",
+          "detail": {
+            "active": true
+          },
+          "at": 1795039134992
+        },
+        {
+          "seq": 10,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "request:report",
+          "detail": {
+            "operationId": "op-iso"
+          },
+          "at": 1795039134997
+        },
+        {
+          "seq": 11,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "model:tool_call",
+          "detail": {
+            "tool": "resolve_anime",
+            "title": "Isolation B"
+          },
+          "at": 1795039135019
+        },
+        {
+          "seq": 12,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "tool:start",
+          "detail": {
+            "title": "Isolation B",
+            "replay": "safe"
+          },
+          "at": 1795039135187
+        },
+        {
+          "seq": 13,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "tool:end",
+          "detail": {
+            "title": "Isolation B",
+            "status": 200
+          },
+          "at": 1795039135190
+        },
+        {
+          "seq": 14,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "model:answer",
+          "detail": {
+            "title": "Isolation B",
+            "sawToolResult": {
+              "isError": false,
+              "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation B\",\"title_cn\":\"巡礼\"}}"
+            }
+          },
+          "at": 1795039135232
+        },
+        {
+          "seq": 15,
+          "instance": "1e20f381-2665-41e7-a619-1694696f3573",
+          "kind": "wake:end",
+          "detail": {
+            "active": false
+          },
+          "at": 1795039140388
+        }
+      ],
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Isolation B\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Isolation B"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 181,
+            "totalTokens": 191,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation B\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation B\",\"title_cn\":\"巡礼\"}} streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed ",
+          "usage": {
+            "input": 0,
+            "output": 251,
+            "cacheRead": 181,
+            "cacheWrite": 41,
+            "totalTokens": 473,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "rowCounts": [
+    35,
+    35
+  ],
+  "xmins": [
+    7,
+    7
+  ],
+  "control": {
+    "names": [
+      "shared-4b4d25b7~a",
+      "shared-4b4d25b7~b"
+    ],
+    "reports": [
+      {
+        "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+        "key": "shared-4b4d25b7",
+        "operationId": "op-shared-a",
+        "settled": {
+          "status": "done",
+          "answer": 15
+        },
+        "messages": [
+          {
+            "model": [
+              {
+                "role": "user",
+                "content": "Resolve the anime titled \"Shared A\"",
+                "timestamp": 1795039140622
+              }
+            ],
+            "kind": "pi.user",
+            "id": 7,
+            "conversationId": 1
+          },
+          {
+            "model": [
+              {
+                "role": "system",
+                "content": "",
+                "toolsAdded": [
+                  {
+                    "name": "resolve_anime",
+                    "description": "Resolve an anime title against the catalog.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "name": "respond",
+                    "description": "Answer the user and end the turn.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "name": "translate_anime_title",
+                    "description": "Translate an anime title.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "target_language": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "target_language"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "timestamp": 1795039140655
+              }
+            ],
+            "kind": "pi.system",
+            "id": 10,
+            "conversationId": 1,
+            "byTaskId": 9
+          },
+          {
+            "model": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "toolCall",
+                    "id": "tool:1795039140663:3btndo9jcl",
+                    "name": "resolve_anime",
+                    "arguments": {
+                      "title": "Shared A"
+                    }
+                  }
+                ],
+                "api": "faux:1795039140493:tne5gew0f2c",
+                "provider": "faux",
+                "model": "faux-1",
+                "usage": {
+                  "input": 0,
+                  "output": 9,
+                  "cacheRead": 0,
+                  "cacheWrite": 180,
+                  "totalTokens": 189,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse",
+                "timestamp": 1795039140663,
+                "durationMs": 102,
+                "thinkingLevel": "off"
+              }
+            ],
+            "kind": "pi.assistant",
+            "id": 11,
+            "conversationId": 1,
+            "byTaskId": 9
+          },
+          {
+            "model": [
+              {
+                "role": "toolResult",
+                "toolCallId": "tool:1795039140663:3btndo9jcl",
+                "toolName": "resolve_anime",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Shared A\",\"title_cn\":\"巡礼\"}}"
+                  }
+                ],
+                "isError": false,
+                "durationMs": 1,
+                "timestamp": 1795039140793
+              }
+            ],
+            "data": {
+              "diagnostics": []
+            },
+            "kind": "pi.tool-result",
+            "id": 13,
+            "conversationId": 1,
+            "byTaskId": 12
+          },
+          {
+            "model": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Shared A\",\"title_cn\":\"巡礼\"}} streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed "
+                  }
+                ],
+                "api": "faux:1795039140493:tne5gew0f2c",
+                "provider": "faux",
+                "model": "faux-1",
+                "usage": {
+                  "input": 0,
+                  "output": 250,
+                  "cacheRead": 180,
+                  "cacheWrite": 40,
+                  "totalTokens": 470,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "stop",
+                "timestamp": 1795039140837,
+                "durationMs": 5121,
+                "thinkingLevel": "off"
+              }
+            ],
+            "kind": "pi.assistant",
+            "id": 15,
+            "conversationId": 1,
+            "byTaskId": 14
+          }
+        ],
+        "usage": {
+          "models": {
+            "faux/faux-1": {
+              "input": 0,
+              "output": 259,
+              "cacheRead": 180,
+              "cacheWrite": 220,
+              "totalTokens": 659,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0
+              }
+            }
+          },
+          "tools": {}
+        },
+        "events": [
+          {
+            "seq": 1,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "constructed",
+            "detail": {
+              "replay": "safe"
+            },
+            "at": 1795039140493
+          },
+          {
+            "seq": 2,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "start",
+            "detail": null,
+            "at": 1795039140494
+          },
+          {
+            "seq": 3,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "pi:opened",
+            "detail": {
+              "key": "shared-4b4d25b7"
+            },
+            "at": 1795039140621
+          },
+          {
+            "seq": 4,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "request:submit",
+            "detail": {
+              "operationId": "op-shared-a"
+            },
+            "at": 1795039140622
+          },
+          {
+            "seq": 5,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:start",
+            "detail": {
+              "wake": "pi"
+            },
+            "at": 1795039140623
+          },
+          {
+            "seq": 6,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:waiting",
+            "detail": {
+              "active": false
+            },
+            "at": 1795039140623
+          },
+          {
+            "seq": 7,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:end",
+            "detail": {
+              "active": false
+            },
+            "at": 1795039140623
+          },
+          {
+            "seq": 8,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:start",
+            "detail": {
+              "wake": "pi"
+            },
+            "at": 1795039140642
+          },
+          {
+            "seq": 9,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:waiting",
+            "detail": {
+              "active": true
+            },
+            "at": 1795039140642
+          },
+          {
+            "seq": 10,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "request:report",
+            "detail": {
+              "operationId": "op-shared-a"
+            },
+            "at": 1795039140643
+          },
+          {
+            "seq": 11,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "model:tool_call",
+            "detail": {
+              "tool": "resolve_anime",
+              "title": "Shared A"
+            },
+            "at": 1795039140663
+          },
+          {
+            "seq": 12,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "tool:start",
+            "detail": {
+              "title": "Shared A",
+              "replay": "safe"
+            },
+            "at": 1795039140792
+          },
+          {
+            "seq": 13,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "tool:end",
+            "detail": {
+              "title": "Shared A",
+              "status": 200
+            },
+            "at": 1795039140793
+          },
+          {
+            "seq": 14,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "model:answer",
+            "detail": {
+              "title": "Shared A",
+              "sawToolResult": {
+                "isError": false,
+                "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Shared A\",\"title_cn\":\"巡礼\"}}"
+              }
+            },
+            "at": 1795039140837
+          },
+          {
+            "seq": 15,
+            "instance": "aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+            "kind": "wake:end",
+            "detail": {
+              "active": false
+            },
+            "at": 1795039145984
+          }
+        ]
+      },
+      {
+        "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+        "key": "shared-4b4d25b7",
+        "operationId": "op-shared-b",
+        "settled": null,
+        "messages": [
+          {
+            "model": [
+              {
+                "role": "user",
+                "content": "Resolve the anime titled \"Shared A\"",
+                "timestamp": 1795039140622
+              }
+            ],
+            "kind": "pi.user",
+            "id": 7,
+            "conversationId": 1
+          },
+          {
+            "model": [
+              {
+                "role": "system",
+                "content": "",
+                "toolsAdded": [
+                  {
+                    "name": "resolve_anime",
+                    "description": "Resolve an anime title against the catalog.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "title"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "name": "respond",
+                    "description": "Answer the user and end the turn.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "name": "translate_anime_title",
+                    "description": "Translate an anime title.",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "target_language": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "target_language"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "timestamp": 1795039140655
+              }
+            ],
+            "kind": "pi.system",
+            "id": 10,
+            "conversationId": 1,
+            "byTaskId": 9
+          },
+          {
+            "model": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "toolCall",
+                    "id": "tool:1795039140663:3btndo9jcl",
+                    "name": "resolve_anime",
+                    "arguments": {
+                      "title": "Shared A"
+                    }
+                  }
+                ],
+                "api": "faux:1795039140493:tne5gew0f2c",
+                "provider": "faux",
+                "model": "faux-1",
+                "usage": {
+                  "input": 0,
+                  "output": 9,
+                  "cacheRead": 0,
+                  "cacheWrite": 180,
+                  "totalTokens": 189,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse",
+                "timestamp": 1795039140663,
+                "durationMs": 102,
+                "thinkingLevel": "off"
+              }
+            ],
+            "kind": "pi.assistant",
+            "id": 11,
+            "conversationId": 1,
+            "byTaskId": 9
+          }
+        ],
+        "usage": {
+          "models": {
+            "faux/faux-1": {
+              "input": 0,
+              "output": 9,
+              "cacheRead": 0,
+              "cacheWrite": 180,
+              "totalTokens": 189,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0
+              }
+            }
+          },
+          "tools": {}
+        },
+        "events": [
+          {
+            "seq": 1,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "constructed",
+            "detail": {
+              "replay": "safe"
+            },
+            "at": 1795039140497
+          },
+          {
+            "seq": 2,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "start",
+            "detail": null,
+            "at": 1795039140497
+          },
+          {
+            "seq": 3,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "start",
+            "detail": null,
+            "at": 1795039140643
+          },
+          {
+            "seq": 4,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "pi:opened",
+            "detail": {
+              "key": "shared-4b4d25b7"
+            },
+            "at": 1795039140765
+          },
+          {
+            "seq": 5,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "request:report",
+            "detail": {
+              "operationId": "op-shared-b"
+            },
+            "at": 1795039140766
+          },
+          {
+            "seq": 6,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "wake:start",
+            "detail": {
+              "wake": "pi"
+            },
+            "at": 1795039140766
+          },
+          {
+            "seq": 7,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "wake:waiting",
+            "detail": {
+              "active": true
+            },
+            "at": 1795039140766
+          },
+          {
+            "seq": 8,
+            "instance": "33cd1ac7-ccee-4e10-8117-488c3ba221af",
+            "kind": "wake:end",
+            "detail": {
+              "active": false
+            },
+            "at": 1795039140812
+          }
+        ]
+      }
+    ],
+    "sharedRowCount": 35
+  },
+  "checks": [
+    {
+      "name": "the two turns ran at the same time (each started before the other ended)",
+      "pass": true,
+      "observed": {
+        "spanA": {
+          "first": 1795039135018,
+          "last": 1795039135232
+        },
+        "spanB": {
+          "first": 1795039135019,
+          "last": 1795039135232
+        }
+      }
+    },
+    {
+      "name": "iso-a-4b4d25b7: Pi settled op-iso done, and messages() hold only its own turn",
+      "pass": true,
+      "observed": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Isolation A\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Isolation A"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 181,
+            "totalTokens": 191,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation A\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation A\",\"title_cn\":\"巡礼\"}} streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed ",
+          "usage": {
+            "input": 0,
+            "output": 251,
+            "cacheRead": 181,
+            "cacheWrite": 41,
+            "totalTokens": 473,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "iso-a-4b4d25b7: every row of its keyspace belongs to its own turn (the other title appears nowhere)",
+      "pass": true,
+      "observed": {
+        "rows": 35
+      }
+    },
+    {
+      "name": "iso-b-4b4d25b7: Pi settled op-iso done, and messages() hold only its own turn",
+      "pass": true,
+      "observed": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Isolation B\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Isolation B"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 181,
+            "totalTokens": 191,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation B\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Isolation B\",\"title_cn\":\"巡礼\"}} streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed ",
+          "usage": {
+            "input": 0,
+            "output": 251,
+            "cacheRead": 181,
+            "cacheWrite": 41,
+            "totalTokens": 473,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "iso-b-4b4d25b7: every row of its keyspace belongs to its own turn (the other title appears nowhere)",
+      "pass": true,
+      "observed": {
+        "rows": 35
+      }
+    },
+    {
+      "name": "both keyspaces hold the same entry ids, the same root conversation 1 and the same request id op-iso, side by side",
+      "pass": true,
+      "observed": {
+        "entriesA": [
+          7,
+          10,
+          11,
+          13,
+          15
+        ],
+        "entriesB": [
+          7,
+          10,
+          11,
+          13,
+          15
+        ]
+      }
+    },
+    {
+      "name": "no row was written by the other object: no transaction id appears in both keyspaces' row versions (xmin)",
+      "pass": true,
+      "observed": {
+        "transactionsA": 7,
+        "transactionsB": 7,
+        "crossing": []
+      }
+    },
+    {
+      "name": "negative control: two objects on one session key collide (both turns land in one keyspace, or one of them fails)",
+      "pass": true,
+      "observed": {
+        "reports": [
+          {
+            "settled": {
+              "status": "done",
+              "answer": 15
+            },
+            "users": [
+              "Resolve the anime titled \"Shared A\""
+            ]
+          },
+          {
+            "settled": null,
+            "users": [
+              "Resolve the anime titled \"Shared A\""
+            ]
+          }
+        ],
+        "sharedRowCount": 35
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms isolation stdout: [spike] constructed instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+     1ms isolation stdout: [spike] start instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+     4ms isolation stdout: [spike] constructed instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+     5ms isolation stdout: [spike] start instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   136ms isolation stdout: [spike] pi:opened instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   136ms isolation stdout: [spike] request:submit instance=ee9d9927-8166-475b-9adc-f4686d9b55c6 op=op-iso",
+    "+   137ms isolation stdout: [spike] pi:opened instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   138ms isolation stdout: [spike] request:submit instance=1e20f381-2665-41e7-a619-1694696f3573 op=op-iso",
+    "+   139ms isolation stdout: [spike] wake:start instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   139ms isolation stdout: [spike] wake:waiting instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   139ms isolation stdout: [spike] wake:end instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   140ms isolation stdout: [spike] wake:start instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   140ms isolation stdout: [spike] wake:waiting instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   140ms isolation stdout: [spike] wake:end instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   158ms isolation stdout: [spike] wake:start instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   158ms isolation stdout: [spike] wake:waiting instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   158ms isolation stdout: [spike] wake:start instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   158ms isolation stdout: [spike] wake:waiting instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   160ms isolation stdout: [spike] request:report instance=ee9d9927-8166-475b-9adc-f4686d9b55c6 op=op-iso",
+    "+   160ms isolation stdout: [spike] request:report instance=1e20f381-2665-41e7-a619-1694696f3573 op=op-iso",
+    "+   181ms isolation stdout: [spike] model:tool_call instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   182ms isolation stdout: [spike] model:tool_call instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   349ms isolation stdout: [spike] tool:start instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   350ms isolation stdout: [spike] tool:start instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   352ms isolation stdout: [spike] tool:end instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+   353ms isolation stdout: [spike] tool:end instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   395ms isolation stdout: [spike] model:answer instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+   395ms isolation stdout: [spike] model:answer instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+  5551ms isolation stdout: [spike] wake:end instance=1e20f381-2665-41e7-a619-1694696f3573",
+    "+  5553ms isolation stdout: [spike] wake:end instance=ee9d9927-8166-475b-9adc-f4686d9b55c6",
+    "+  5657ms isolation stdout: [spike] constructed instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5657ms isolation stdout: [spike] start instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5660ms isolation stdout: [spike] constructed instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5660ms isolation stdout: [spike] start instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5784ms isolation stdout: [spike] pi:opened instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5785ms isolation stdout: [spike] request:submit instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab op=op-shared-a",
+    "+  5786ms isolation stdout: [spike] wake:start instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5786ms isolation stdout: [spike] wake:waiting instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5786ms isolation stdout: [spike] wake:end instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5799ms isolation stderr: Error on server: error: duplicate key value violates unique constraint \"pd_conversations_pkey\"",
+    "+  5799ms isolation stderr:     at file://<tmp>/pi-durable-spike-spike_pi_durable_bprime-g2JoZE/b-prime.worker.js:14892:21",
+    "+  5799ms isolation stderr:     at async PendingWrites.flush (file://<tmp>/pi-durable-spike-spike_pi_durable_bprime-g2JoZE/b-prime.worker.js:87217:7)",
+    "+  5799ms isolation stderr:     at async file://<tmp>/pi-durable-spike-spike_pi_durable_bprime-g2JoZE/b-prime.worker.js:87341:9 {",
+    "+  5799ms isolation stderr:   length: 243,",
+    "+  5799ms isolation stderr:   severity: 'ERROR',",
+    "+  5799ms isolation stderr:   code: '23505',",
+    "+  5799ms isolation stderr:   detail: 'Key (session_key, id)=(shared-4b4d25b7, 1) already exists.',",
+    "+  5799ms isolation stderr:   hint: undefined,",
+    "+  5799ms isolation stderr:   position: undefined,",
+    "+  5799ms isolation stderr:   internalPosition: undefined,",
+    "+  5799ms isolation stderr:   internalQuery: undefined,",
+    "+  5799ms isolation stderr:   where: undefined,",
+    "+  5799ms isolation stderr:   schema: 'public',",
+    "+  5799ms isolation stderr:   table: 'pd_conversations',",
+    "+  5799ms isolation stderr:   column: undefined,",
+    "+  5799ms isolation stderr:   dataType: undefined,",
+    "+  5799ms isolation stderr:   constraint: 'pd_conversations_pkey',",
+    "+  5799ms isolation stderr:   file: 'nbtinsert.c',",
+    "+  5799ms isolation stderr:   line: '666',",
+    "+  5799ms isolation stderr:   routine: '_bt_check_unique'",
+    "+  5799ms isolation stderr: }",
+    "+  5799ms isolation stderr: Override onError(error) to handle server errors",
+    "+  5805ms isolation stdout: [spike] wake:start instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5805ms isolation stdout: [spike] wake:waiting instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5806ms isolation stdout: [spike] request:report instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab op=op-shared-a",
+    "+  5807ms isolation stdout: [spike] start instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5826ms isolation stdout: [spike] model:tool_call instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5928ms isolation stdout: [spike] pi:opened instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5929ms isolation stdout: [spike] request:report instance=33cd1ac7-ccee-4e10-8117-488c3ba221af op=op-shared-b",
+    "+  5929ms isolation stdout: [spike] wake:start instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5929ms isolation stdout: [spike] wake:waiting instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  5955ms isolation stdout: [spike] tool:start instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5956ms isolation stdout: [spike] tool:end instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+  5975ms isolation stdout: [spike] wake:end instance=33cd1ac7-ccee-4e10-8117-488c3ba221af",
+    "+  6000ms isolation stdout: [spike] model:answer instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab",
+    "+ 11147ms isolation stdout: [spike] wake:end instance=aff39450-78aa-4c23-a63a-ed8ae1c42eab"
+  ]
+}

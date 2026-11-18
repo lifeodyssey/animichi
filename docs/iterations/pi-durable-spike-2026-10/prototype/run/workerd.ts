@@ -91,6 +91,8 @@ export interface Start {
   readonly log: WorkerdLog;
   readonly guard: OutboundGuard;
   readonly durableObjects: Record<string, { readonly className: string; readonly useSQLite: true }>;
+  /** Text bindings, such as part B's DSN of the spike's own loopback test database. */
+  readonly bindings?: Record<string, string>;
 }
 
 /** One workerd process over the persisted directory; `dispose()` is Miniflare's SIGKILL of that process. */
@@ -102,6 +104,7 @@ export function startWorkerd(built: Bundle, start: Start): Miniflare {
     compatibilityFlags: built.runtime.compatibilityFlags,
     durableObjects: start.durableObjects,
     durableObjectsPersist: start.persist,
+    ...(start.bindings ? { bindings: start.bindings } : {}),
     outboundService: start.guard.handler,
     handleRuntimeStdio: start.log.attach(start.run),
     cf: false,

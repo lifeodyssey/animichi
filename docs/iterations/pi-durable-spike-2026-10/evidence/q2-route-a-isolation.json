@@ -1,0 +1,235 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "sessions": [
+    "ra-iso-a-e7420041",
+    "ra-iso-b-cf2a741a"
+  ],
+  "histories": [
+    [
+      {
+        "seq": 8,
+        "operationId": "op-iso",
+        "record": {
+          "operationId": "op-iso",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 9,
+                "cacheRead": 0,
+                "cacheWrite": 177,
+                "totalTokens": 186,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "from session A"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "bytes": 408
+      }
+    ],
+    [
+      {
+        "seq": 8,
+        "operationId": "op-iso",
+        "record": {
+          "operationId": "op-iso",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 9,
+                "cacheRead": 0,
+                "cacheWrite": 177,
+                "totalTokens": 186,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "from session B"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "bytes": 408
+      }
+    ]
+  ],
+  "checks": [
+    {
+      "name": "ra-iso-a-e7420041: its history, read by session id, holds exactly its own turn",
+      "pass": true,
+      "observed": [
+        {
+          "seq": 8,
+          "operationId": "op-iso",
+          "record": {
+            "operationId": "op-iso",
+            "status": "done",
+            "model": "faux-1",
+            "provider": "faux",
+            "calls": [
+              {
+                "entry": 11,
+                "model": "faux-1",
+                "provider": "faux",
+                "usage": {
+                  "input": 0,
+                  "output": 9,
+                  "cacheRead": 0,
+                  "cacheWrite": 177,
+                  "totalTokens": 186,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse"
+              }
+            ],
+            "toolCalls": [
+              {
+                "name": "respond",
+                "arguments": {
+                  "message": "from session A"
+                }
+              }
+            ],
+            "toolResults": [],
+            "answer": ""
+          },
+          "bytes": 408
+        }
+      ]
+    },
+    {
+      "name": "ra-iso-b-cf2a741a: its history, read by session id, holds exactly its own turn",
+      "pass": true,
+      "observed": [
+        {
+          "seq": 8,
+          "operationId": "op-iso",
+          "record": {
+            "operationId": "op-iso",
+            "status": "done",
+            "model": "faux-1",
+            "provider": "faux",
+            "calls": [
+              {
+                "entry": 11,
+                "model": "faux-1",
+                "provider": "faux",
+                "usage": {
+                  "input": 0,
+                  "output": 9,
+                  "cacheRead": 0,
+                  "cacheWrite": 177,
+                  "totalTokens": 186,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse"
+              }
+            ],
+            "toolCalls": [
+              {
+                "name": "respond",
+                "arguments": {
+                  "message": "from session B"
+                }
+              }
+            ],
+            "toolResults": [],
+            "answer": ""
+          },
+          "bytes": 408
+        }
+      ]
+    },
+    {
+      "name": "both turns carry the same operation id and the same seq (each object's own Pi numbering), side by side under their session ids",
+      "pass": true,
+      "observed": [
+        [
+          8
+        ],
+        [
+          8
+        ]
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms isolation stdout: [spike] constructed instance=4fef7258-550c-4ee1-bc54-485449971a6a",
+    "+    30ms isolation stdout: [spike] constructed instance=eaa7c36a-9edc-4167-acd4-351195505cc8",
+    "+    31ms isolation stdout: [spike] request:submit instance=4fef7258-550c-4ee1-bc54-485449971a6a op=op-iso",
+    "+    59ms isolation stdout: [spike] model:tool_call instance=4fef7258-550c-4ee1-bc54-485449971a6a",
+    "+    76ms isolation stdout: [spike] tool:respond instance=4fef7258-550c-4ee1-bc54-485449971a6a",
+    "+    93ms isolation stdout: [spike] request:submit instance=eaa7c36a-9edc-4167-acd4-351195505cc8 op=op-iso",
+    "+    94ms isolation stdout: [spike] model:tool_call instance=eaa7c36a-9edc-4167-acd4-351195505cc8",
+    "+   100ms isolation stdout: [spike] tool:respond instance=eaa7c36a-9edc-4167-acd4-351195505cc8",
+    "+   106ms isolation stdout: [spike] job instance=4fef7258-550c-4ee1-bc54-485449971a6a",
+    "+   113ms isolation stdout: [spike] job instance=eaa7c36a-9edc-4167-acd4-351195505cc8",
+    "+   305ms isolation stdout: [spike] projected instance=4fef7258-550c-4ee1-bc54-485449971a6a op=op-iso",
+    "+   311ms isolation stdout: [spike] projected instance=eaa7c36a-9edc-4167-acd4-351195505cc8 op=op-iso"
+  ]
+}

@@ -1,4 +1,4 @@
-# pi-durable spike: record (phase 1 and phase 2 part A, 2026-11-18 UTC)
+# pi-durable spike: record (phase 1 and phase 2 parts A and B, 2026-11-18 UTC)
 
 Status: the spike in #1999, the first card of `docs/specs/2026-10-04-pi-durable-migration-spec.md` ("spike（第一张卡）").
 
@@ -9,8 +9,15 @@ Status: the spike in #1999, the first card of `docs/specs/2026-10-04-pi-durable-
   - case b0;
   - question 3's container-free cases, plus a seventh, the per-request rebuild of stored web results;
   - the sandbox refusing sockets;
-  - the counting method that part B will use.
-- **Part B** runs the Postgres-backed cases: question 2, and question 3's `settlement` and `selection`.
+  - the counting method, which part B then validated and used.
+- **Part B** ran the Postgres-backed cases against the shared loopback test Postgres, through `pg` and databases of the
+  spike's own (`spike_pi_durable_*`, all dropped at the end), with no container started by the writer:
+  - b3-alt, the card's literal (b) wake criterion, without Postgres;
+  - the counting control, and today's store counted by the coordinator's container lane;
+  - route (b′): b1, b′1–b′3, and admission against Pi's commit (C1–C4);
+  - route (a): a1–a5; its C1–C4 were not run;
+  - question 3's `settlement` and `selection`;
+  - the overall verdict, go, and the re-cut migration tickets.
 
 Nothing here is a migration decision. Choosing to migrate and choosing a storage route are the owner's, after the full
 report.
@@ -29,11 +36,11 @@ The card's last criterion asks for these fields, so a reviewer can re-run every 
 | `agents` used | 0.33.0, the npm `latest` on 2026-11-18. The edge already declares `^0.33.0` (`workers/edge/package.json`), so the edge needs no `agents` version bump to get `PiHarness`. |
 | pi-durable used | 1.5.2, the npm `latest`, with pi-ai, chord, pi-schema and pi-telemetry 1.5.2, which pi-durable pins exactly. |
 | Runtime | Build: Wrangler 4.132.0 `deploy --dry-run` (the repository's catalog version and the edge bundle-smoke lane's method). Run: Miniflare 4.20260722.0, which runs workerd 1.20260722.1 (the repository's catalog Miniflare). Compatibility date `2026-07-22` and flags `["nodejs_compat"]`, read from `workers/edge/wrangler.toml:89-91` on every run. Node 24.18.0, pnpm 12.4.2. |
-| Spike branch and commit | `spike/pi-durable`, created from origin/main at 6c9fb45b6. Phase 1: 608a77efc. Part A: _filled when the coordinator commits and pushes_. |
-| Prototype lockfile | `prototype/pnpm-lock.yaml`, SHA-256 `4451ccee2b3a388894fd4a7cfc361e806a34e4d2a8f718ff7acbdc69690298ab` (part A). Phase 1's was `c0a6fed90e136bffd298a76ad30ae085e6dca6cdfe838c461fc65adc7bcc97ed`. Part A added two dev dependencies for the `validation` case: `pi-ai-0871` (`npm:@earendil-works/pi-ai@0.87.1`) and `typebox` 1.3.32 (the repository's catalog version). The lockfile gained 80 lines and changed none: pi-ai and pi-telemetry 0.87.1, `@anthropic-ai/sdk` 0.124.0, openai 6.40.0, typebox 1.3.27 (pi-ai 0.87.1's exact pin, as in the root lockfile, `pnpm-lock.yaml:12290`) and 1.3.32. |
+| Spike branch and commit | `spike/pi-durable`, created from origin/main at 6c9fb45b6. Phase 1: 608a77efc. Part A: 1dced1ab0. Part B: _filled when the coordinator commits and pushes_. |
+| Prototype lockfile | `prototype/pnpm-lock.yaml`, SHA-256 `1ffb663ac5098eed093eb27f80eb4987fc43063d47f9a73b47cc21237cf104c8` (part B). Part B added one dependency, `pg` 8.23.0 (the root lockfile's version, `pnpm-lock.yaml:9408`; the catalog says `^8.23.0`). The lockfile gained 110 lines and changed none: pg 8.23.0, pg-pool 3.14.0, pg-protocol 1.16.1, pg-cloudflare 1.4.1, pg-connection-string 2.14.1, pg-types 2.2.0, pgpass 1.0.5 and their small dependencies. pg-protocol and pg-cloudflare resolved one patch above the root lockfile's 1.16.0 and 1.4.0. Part A's hash was `4451ccee2b3a388894fd4a7cfc361e806a34e4d2a8f718ff7acbdc69690298ab`, phase 1's `c0a6fed90e136bffd298a76ad30ae085e6dca6cdfe838c461fc65adc7bcc97ed`. Part A added two dev dependencies for the `validation` case: `pi-ai-0871` (`npm:@earendil-works/pi-ai@0.87.1`) and `typebox` 1.3.32 (the repository's catalog version); that lockfile gained 80 lines and changed none. |
 | Criteria per route | [Criteria](#criteria) |
-| Overall go or no-go | Not yet decided. Question 1 is go. Question 3's container-free cases each have a covering layer, shown. Question 2 (every route) and question 3's `settlement` and `selection` need the test Postgres (part B). |
-| Re-cut migration tickets | Not cut. The card says the tickets are cut from the full report and the owner's decision, which need questions 2 and 3. Question 5 below is their input. |
+| Overall go or no-go | **Go** by the card's rule: questions 1 and 3 go, route (b′) go, questions 4 and 5 answered ([Overall](#overall-go)). Migrating and the route remain the owner's choices. |
+| Re-cut migration tickets | Seven tickets for route (b′), sizes included, on one integration branch ([Re-cut migration tickets](#re-cut-migration-tickets)). Per the card, nobody files them before the owner's decision. |
 
 ## Criteria
 
@@ -46,10 +53,10 @@ The card's last criterion asks for these fields, so a reviewer can re-run every 
 | 1 | A later compatibility date is needed | **no**: everything ran at 2026-07-22 | all of the above |
 | 1 | Way 11: an outbound handler fails any request other than the stubbed catalog | **in place**: the guard refused its negative control and saw nothing else. Separately, in the first step-0 run, Miniflare's Node side tried to fetch its `Request.cf` data and the sandbox refused it (EPERM); `cf: false` in `run/workerd.ts` now prevents the attempt. | `evidence/q1-guard.json` |
 | 1, 2 | Way 11 for sockets, which the `fetch` guard cannot see | **the sandbox is the enforcement** (part A): from Node and from workerd, a loopback connect succeeds, and a connect to 192.0.2.1 is refused at once with EPERM (3.8 ms and 6 ms in the recorded run; the checks allow 100 ms and 1 s). The guard saw neither socket. | `evidence/q2-sockets.json` |
-| 2 (a) | After each of three crash points, the Neon record equals the projection recomputed from Pi's store; the two-object case passes; statements per turn are no more than today; recovery is no weaker | **unanswered (part B)**: needs the test Postgres, a container lane | [Question 2](#question-2-storage) |
-| 2 (b) | The conformance suite, the two-object isolation case and `PiHarness`'s wake pass on a Neon backend; statements and recovery as above | **not pursued** (part A): with a Storage other than its own, `PiHarness`'s `accepted`, `wait()`, `abort(operationId)` and `sessions.list()` answer from its own empty store, so way 4 holds for its operation calls. The wake on another store was not run. | `evidence/q2-route.json` |
-| 2 (b′) | The conformance suite, the two-object isolation case and our own wake pass; statements and recovery as above | **the route part B measures** for a Neon backend. Its conformance control (b0) passes on `MemoryStorage`, 32 of 32, and the suite catches two defective storages. | `evidence/q2-b0-conformance.txt`, `q2-b0-negative.txt` |
-| 3 | Every semantic difference has a covering layer shown by a prototype; per-tool replay by experiment (`translate_anime_title` neither reruns nor double-bills); two completed turns each charged only their own usage | **container-free cases shown** (part A): `admission`, `budget`, `stream`, `replay` (no rerun, one reservation, nothing billed for the interrupted call), `validation` (no difference from today), `restart`, and the web-result rebuild. Each names its covering layer. **`settlement` and `selection`: part B.** | [Question 3](#question-3-business-layer) |
+| 2 (a) | After each of three crash points, the Neon record equals the projection recomputed from Pi's store; the two-object case passes; statements per turn are no more than today; recovery is no weaker | **Storage: pass**: after a1, a2 and a3 the row equals the projection recomputed from Pi's store, and a4's two objects each read back only their own turn. **Statements: pass**: 3 per turn against today's 199. **Recovery against admission (C1–C4): not run**, so route (a) is not shown to be go. | `evidence/q2-route-a-crash-all.json`, `q2-route-a-isolation.json`, `q2-route-a-count.json` |
+| 2 (b) | The conformance suite, the two-object isolation case and `PiHarness`'s wake pass on a Neon backend; statements and recovery as above | **out**. The wake itself is not the obstacle: b3-alt shows `PiHarness`'s lifecycle wake finishing an interrupted turn on a store it did not prepare, in both replay modes. But with such a store its `accepted`, `wait()`, `abort(operationId)` and `sessions.list()` answer from its own empty store (part A; b3-alt again: `wait()` → `not_found`), so (b) as the card words it, `PiHarness` kept and only the storage swapped, has a silently wrong operation API (way 4). | `evidence/q2-route.json`, `q2-b3-alt.json` |
+| 2 (b′) | The conformance suite, the two-object isolation case and our own wake pass; statements and recovery as above | **storage: pass**: b1 32 of 32 on the test Postgres, nothing weakened; b′1 isolation passes, with a negative control that collides; b′2 our own wake finishes the interrupted turn, safe and unsafe. **Statements: pass**: a cold one-request turn costs 56 statements on the Pi store against today's 199 for the same shape (b′3, baseline below). **Recovery: pass**: at each of C1–C4 the scan realigns admission, Pi and settlement, with no double charge. **Route (b′): go.** | `evidence/q2-b1-conformance.txt`, `q2-b-prime-isolation.json`, `q2-b-prime-wake.json`, `q2-b-prime-count.json`, `q2-baseline-count.json`, `q2-b-prime-admission.json` |
+| 3 | Every semantic difference has a covering layer shown by a prototype; per-tool replay by experiment (`translate_anime_title` neither reruns nor double-bills); two completed turns each charged only their own usage | **go**. Part A's container-free cases: `admission`, `budget`, `stream`, `replay` (no rerun, one reservation, nothing billed for the interrupted call), `validation` (no difference from today), `restart`, and the web-result rebuild. Part B's: `settlement` (two completed turns each charged only their own usage, with a thrown 4xx, an error frame and an interrupted attempt between them; Pi's `usage()` total equals the charges plus the uncharged attempts) and `selection` (no model, the same admission and idempotency, settled for nothing). Each names its covering layer. | [Question 3](#question-3-business-layer), `evidence/q3-settlement.json`, `q3-selection.json` |
 | 4 | Release cadence, API surface, experimental parts, cost of following releases | **answered** | [Question 4](#question-4-risk) |
 | 5 | Per-package surface with sizes, including the `agents` upgrade; whether two pi-ai versions coexist in one package | **answered** | [Question 5](#question-5-migration-surface) |
 
@@ -92,6 +99,28 @@ sandboxed node run/socket.ts        > ../evidence/q2-sockets-run-output.txt 2>&1
 for c in admission budget stream web-results validation replay restart; do
   sandboxed node run/q3.ts --case "$c" > "../evidence/q3-$c-run-output.txt" 2>&1
 done
+# Phase 2, part B. Postgres is the shared loopback test server; SPIKE_PG_ADMIN_DSN overrides
+# postgresql://postgres:test@127.0.0.1:32768/postgres. Every runner creates and drops databases named spike_pi_durable_*.
+# A run that counts resets pg_stat_monitor, which is global: run it with no other database suite on the server.
+sandboxed node q2/pg-inspect.ts    > ../evidence/q2-pg-inspect-run-output.txt 2>&1     # the counting extension, confirmed
+sandboxed node q2/count-control.ts > ../evidence/q2-count-control-run-output.txt 2>&1  # counts: 11 and 11 (counts)
+sandboxed node run/b3-alt.ts       > ../evidence/q2-b3-alt-run-output.txt 2>&1         # b3-alt, no database (about 75 s)
+sandboxed node --test --test-reporter=spec q2/neon-conformance.db.test.ts > ../evidence/q2-b1-conformance.txt 2>&1  # b1 (under a minute)
+for c in count isolation wake; do   # b′3 (counts), b′1, b′2 (about 80 s)
+  sandboxed node run/b-prime.ts --case "$c" > "../evidence/q2-b-prime-$c-run-output.txt" 2>&1
+done
+sandboxed node run/b-prime-admission.ts --crash all > ../evidence/q2-b-prime-admission-run-output.txt 2>&1  # C1–C4 (about 2 min)
+sandboxed node run/route-a.ts --crash all      > ../evidence/q2-route-a-crash-all-run-output.txt 2>&1  # a1–a3 (counts at a3; about 2 min)
+sandboxed node run/route-a.ts --case isolation > ../evidence/q2-route-a-isolation-run-output.txt 2>&1  # a4
+sandboxed node run/route-a.ts --case count     > ../evidence/q2-route-a-count-run-output.txt 2>&1      # a5 (counts)
+for c in settlement selection; do   # question 3's two database cases (settlement about 1.5 min)
+  sandboxed node run/q3-db.ts --case "$c" > "../evidence/q3-$c-run-output.txt" 2>&1
+done
+sandboxed node q2/pg-cleanup.ts > ../evidence/q2-pg-cleanup-run-output.txt 2>&1  # last: drop every spike_pi_durable_* database, the counter included
+# Today's store, the baseline: a container lane (the host test boots or reuses the server through testcontainers),
+# after `pnpm install --frozen-lockfile` at the worktree root. The coordinator ran it with these four variables:
+sandboxed DOCKER_HOST=unix://<colima socket> TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock TESTCONTAINERS_RYUK_DISABLED=true \
+  WRANGLER_HIDE_BANNER=true node q2/baseline-count.ts > ../evidence/q2-baseline-count-run-output.txt 2>&1   # (counts)
 ```
 
 - `pnpm_config_strict_dep_builds=false` is the one override. pnpm 12 fails an install on dependency build scripts nobody
@@ -390,6 +419,8 @@ under a lane day, M one to two, L three to five, XL more than five. Against the 
 3. Edge host: XL.
 4. Integration and cleanup: M.
 
+Part B corrects these sizes and the pi-schema step: see [Re-cut migration tickets](#re-cut-migration-tickets).
+
 ### Can two pi-ai versions coexist in one package?
 
 - **Installed side by side: yes.**
@@ -421,11 +452,14 @@ under a lane day, M one to two, L three to five, XL more than five. Against the 
 ## Question 2: storage
 
 Part A ran what needs no Postgres: the choice between routes (b) and (b′), case b0, the socket refusal, and the
-choice of counting method. Everything marked **[container]** starts or reuses the test Postgres and is part B's.
+choice of counting method. Part B ran the rest.
 
+- Part B reached the shared test Postgres, already running on loopback, directly with `pg`, in databases of its own
+  (`spike_pi_durable_*`, created from `template0` and dropped by each runner). It started no container.
+- The one container lane was today's baseline: the edge's host test boots or reuses the server through testcontainers.
+  The coordinator ran it.
 - Each case names its command, run from `prototype/` with the re-run block's `sandboxed` function.
-- The container steps need the owner to run the lane: earlier, a permission check refused a writer a container-starting
-  lane.
+- The marks **[container]** below are part A's plan; the part B sections give what ran.
 
 ### Part A: the route decision
 
@@ -478,12 +512,9 @@ Pi on.
   this (`index.d.ts:178`), and a release could change it.
 - **What part B builds.** `SessionAgent` calls `Harness.open` on the backend and owns the wake (b′1–b′3 below). b1
   stays as it is. b2–b4, written for `PiHarness`, are not run.
-- **Not shown.** Whether `PiHarness`'s wake finishes an interrupted turn across an eviction on a store other than its
-  own. `MemoryStorage` cannot show it, since it is lost with the object.
-  - The card's acceptance criterion for (b) asks that the wake be shown working on the backend, "or the record shows it
-    does not". Not running b3 leaves that clause open. Whether that is acceptable is the coordinator's call.
-  - An alternate-prefix SQLite store in the same object could close it without Postgres
-    (`openDurableObjectSqliteStorage(ctx.storage, { prefix })`, pi-durable `README.md:877-885`).
+- **Not shown in part A, closed in part B.** Whether `PiHarness`'s wake finishes an interrupted turn across an
+  eviction on a store other than its own: [b3-alt](#part-b-b3-alt-piharnesss-wake-on-a-store-it-did-not-prepare) shows
+  that it does, and why that leaves (b) out.
 - **Route (a) is unaffected.** It keeps `PiHarness` on its own store, which is the control above, where the operation
   calls are right.
 
@@ -525,6 +556,48 @@ Times are the recorded run's.
 
 So for sockets, way 11 rests on the sandbox, not on the guard. The profile allows every loopback port except 7897, so
 part B still checks that the only loopback port the workers reach is the test Postgres's.
+
+Part B's answer to that check is by construction, not instrumented. The only socket client in the part B workers is
+`pg` (through pg-cloudflare's `connect()`), and its only address is the DSN binding, the test server's loopback port.
+Each object's connection names itself (`application_name` `pi:<session>`), and the wake runner reads
+`pg_stat_activity` for it from Node before restarting (b′2).
+
+### Part B: b3-alt, `PiHarness`'s wake on a store it did not prepare
+
+**Question.** The card's literal (b) criterion: "the lifecycle wake finishes an interrupted turn with it (or the record
+shows it does not)".
+
+**Method.**
+- `q2/b3-alt.worker.ts` hosts `PiHarness` as question 1 does, except for one thing. The factory opens Pi on a second
+  SQLite store in the same object, `openDurableObjectSqliteStorage(ctx.storage, { prefix: "alt_" })`, not on the `pi_`
+  store `_doOpen` prepares (`agents@0.33.0 dist/harness/pi/index.js:449`).
+- `run/b3-alt.ts` runs question 1's eviction, once with `replay: "safe"` and once with `"unsafe"`:
+  - the catalog call is held;
+  - the wake job's heartbeat re-arm is durable before the kill;
+  - workerd is SIGKILLed, and a new workerd starts over the same directory;
+  - nothing is sent until the object has answered.
+- 15 checks pass (`evidence/q2-b3-alt.json`).
+
+**Result: the wake finishes the turn.**
+- On B, with no request sent, a new instance reopened the alt store in the factory, the `pi-wake` job ran, and the
+  turn finished. That took about 29.0 s from the kill in both runs, question 1's heartbeat path.
+- Safe: the tool ran again (two catalog calls), and the model answered from its result. Unsafe: one call, and the model
+  answered from the interrupted result.
+- Read through Pi from the alt store, the operation settled `done`. All of Pi's rows are under `alt_`. The `pi_` tables
+  exist (`_doOpen` still opens that store, which creates them) and are empty.
+
+**Why.** The wake reads no store. `_wakeStep` calls `pi.resume()` and `pi.wake()`, and `_waitWhileActive` waits on
+`pi.wake()` (`index.js:360-418`). `_doOpen` resumes whatever Harness the factory returned (`:447-462`). The job itself
+lives in Lifecycle's own table, `cf_agents_jobs` (`dist/lifecycle-v1rKHV2C.js:396-415`).
+
+**Why (b) stays out anyway.**
+- In the same run, `PiHarness`'s `wait()` answered `unanswered`, reason `not_found`, for the operation Pi had just
+  answered. It reads `PiHarness`'s own store (`_findSubmission`, `index.js:483-487`). Part A found the same for
+  `accepted`, `abort(operationId)` and `sessions.list()`.
+- So a host on (b) gets a working wake and a silently wrong operation API. To fix the API it would re-implement those
+  calls against `harness.pi()`. That is part A's hybrid, which relies on `PiHarness` reading nothing else from its own
+  store, something its contract does not promise (`index.d.ts:178`).
+- The wake result changes why (b) is out, not whether it is. The obstacle is the operation API, not the wake.
 
 ### Counting method: decided in part A, run in part B
 
@@ -577,6 +650,28 @@ part B still checks that the only loopback port the workers reach is the test Po
   database.
 - **If it fails.** Part B reports why. It then falls back to the proxy for the prototypes, and today's test cannot be
   counted unchanged.
+- **Part B result: the control passes, so `pg_stat_monitor` counts exactly** (`q2/pg-inspect.ts`,
+  `q2/count-control.ts`, `q2/counter.ts`; `evidence/q2-pg-inspect.json`, `q2-count-control.json`).
+  - The server is PostgreSQL 18.6. `pg_stat_monitor` 2.4 is in `shared_preload_libraries` and was created in the
+    spike's counter database, `spike_pi_durable_counter`, never in the admin database. Its reset is
+    `pg_stat_monitor_reset()`. The view `pg_stat_monitor` has `datname`, `query`, `calls`, `cmd_type_text`,
+    `relations`, `application_name` and `elevel`.
+  - Settings:
+    - `pgsm_track = top`: top level only;
+    - `pgsm_track_utility = on`: `BEGIN` and `COMMIT` are counted;
+    - `pgsm_bucket_time` 60 s and `pgsm_max_buckets` 10: a count must end within about ten minutes of its reset;
+    - `pgsm_normalized_query = off` and `pgsm_query_max_len` 2048.
+  - The control counted exactly 11 in both passes, with a reset between, in two independent runs.
+    - The failed `SELECT 1/0` is counted (`elevel` 21).
+    - `SELECT 1; SELECT 2` counts 2.
+    - A named statement executed twice counts 2.
+  - After `DROP DATABASE`, the second pass's 11 rows still read by name. Today's host test drops its database before
+    its runner reads, so this is what lets its count be read at all.
+  - One deviation from the design: the control's client connects as `postgres`, not as a service role. The five
+    service roles are `NOLOGIN` (`packages/test-postgres/src/service-roles.ts:52-66`), and every measured workload,
+    today's host test included, connects as `postgres`.
+  - Each count below is per object: every part B object opens its own connection under its own `application_name`,
+    and `pg_stat_monitor` keeps that name per row.
 
 ### What starts a container
 
@@ -618,57 +713,259 @@ part B still checks that the only loopback port the workers reach is the test Po
   and (b) runners script the same shape, one model request and one tool call, then settle. They do not use question
   1's two-request turn.
 
+### Part B: today's store, the baseline
+
+- **Run.** The coordinator ran `q2/baseline-count.ts` on 2026-11-18, 19:59:03–19:59:12Z, after a frozen root install.
+  - It ran under the sandbox, with four variables testcontainers needs on this machine: `DOCKER_HOST` pointing at the
+    local colima socket, `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`, `TESTCONTAINERS_RYUK_DISABLED=true`
+    and `WRANGLER_HIDE_BANNER=true`. Nothing was refused.
+  - The runner reset the counter and ran the edge's host test unchanged and alone: exit 0, 8.2 s.
+  - It then read the test's database, `native_host_contract_f7b06bea2df6`, the only one counted
+    (`evidence/q2-baseline-count.json`; the test's output is in `q2-baseline-test-output.txt`).
+- **310 statements**, all in that database:
+
+| Part | Statements | How it was separated |
+|---|---|---|
+| The test's setup and assertions | 17 | By text: `host-integration-test/postgres.ts:16-28`, `default-host.test.ts:11-50` |
+| Two history GETs | 8 | Both GETs' ownership check (`views/history.ts:19`), 2. The first GET's six storage reads: three `getValue`, two `scanValues`, one `scanBranch` (`history.ts:41-58`, `history-operations.ts:7-14`). The second GET answers 404 after its ownership check. |
+| **The turn** | **285** | The rest |
+| — the Pi session store (`pi_*`), with its 16 commits' `BEGIN` and `COMMIT` | **199** | `relations`. 16 commits: 16 `SELECT next_seq … FOR UPDATE`, 16 `UPDATE pi_sessions`. |
+| — business tables (admission, quota, settlement, sessions, usage), with 9 transactions' `BEGIN` and `COMMIT` | 77 | `relations`. 25 transactions in all. |
+| — Prisma's contract check: three client constructions, three statements each | 9 | `information_schema` and `prisma_contract.marker` |
+
+- **Today's commit costs about 9.25 statements** (`packages/pi-session-neon/src/commit.ts:39-51`,
+  `session-stats.ts:14-28`):
+  - `BEGIN` and `SELECT next_seq … FOR UPDATE`;
+  - a validation `SELECT` on `pi_records`;
+  - the writes, one statement each: 36 over the 16 commits;
+  - an ORM pre-select of `pi_sessions` and the `UPDATE pi_sessions`;
+  - the session-stats aggregate, then `COMMIT`.
+
+  148 of the store's 199 statements are its 16 commits; 50 are reads outside commits, and 1 creates the session.
+- **Like for like.** The turn is cold: a fresh object, one model request answering through the `respond` tool, and
+  settlement.
+  - Each route's Pi-store statements are compared with the 199.
+  - The business tables (77) are our own layers, which the migration keeps. They are reported, not compared.
+  - The comparison is in statements, never in time: the test database is reached over TCP, while production's Neon
+    driver uses only WebSocket.
+
 ### Route (b′): a Neon backend for pi-durable's `Storage`, with our own wake (part B)
 
-Part A chose this route ([above](#part-a-the-route-decision)). `SessionAgent` calls `Harness.open` on the backend directly.
-It wakes the backend with the Agents SDK scheduler, as the edge does today (`schedule(…, "wakeSession", …)`; the
-pattern is in `workers/edge/bundle-smoke/tool-replay-recovery.worker.ts`).
+Part A chose this route ([above](#part-a-the-route-decision)): the host calls `Harness.open` on the backend itself and
+owns the wake. b2–b4, written for `PiHarness` on the backend, were not run.
 
-| Case | What it shows | Command |
+**The backend** (`prototype/q2/pg-storage/`, 873 lines):
+- It is a port of `SqliteStorage` (`@earendil-works/pi-durable@1.5.2 dist/storage/sqlite/`, about 1,200 lines of JS),
+  query for query, over `pg`, with one change: `session_key` leads every key (`schema.ts`). Each `SessionAgent` thus
+  has its own keyspace in shared tables.
+- Records stay JSON text: `jsonb` would refuse `\u0000` and lone surrogates and reorder keys.
+- A commit is four statements, whatever its number of batches (`commit.ts`):
+  1. `BEGIN`;
+  2. one state read. It locks the keyspace's metadata row `FOR UPDATE` and reads every claimed id, touched document,
+     delta's latest version and created address. Durable's checks then run in memory, SQLite's line for line;
+  3. one write statement of data-modifying CTEs, the metadata included;
+  4. `COMMIT`.
+
+  A copy (a fork) adds a flush and a read.
+- One connection per open storage, and every call is serialised on it, so no read runs inside an open commit
+  transaction. The `FOR UPDATE` also serialises a second process on the same key; pi-durable's own storages leave that
+  to the host.
+- Ids are minted in memory from `next_id`, which each commit persists, as in SQLite.
+- It runs unchanged in Node and in workerd at the edge's date and flags. There `pg` connects through pg-cloudflare's
+  `cloudflare:sockets` (`pg@8.23.0 lib/stream.js`).
+
+**The host** (`prototype/q2/b-prime/host.ts`, entry `q2/b-prime.worker.ts`). It is an Agents SDK `Agent`, as
+`SessionAgent` is, keyed by its name (the session id), reached through `getAgentByName` and RPC.
+- It opens `PgStorage` under its own `application_name` and calls `Harness.open` on it.
+- It owns the wake:
+  - an interval heartbeat in `onStart`, today's pattern (`session-agent.ts:52`);
+  - a one-shot `schedule(0, "wakeSession", …)` before Pi is handed an input (`session-agent.ts:141`, `:224-228`);
+  - Pi's `onWake` re-arming that one-shot for an active Session or a sleep;
+  - `wakeSession`, which calls `resume()` and waits while `pi.wake()` is active, as `PiHarness`'s `_waitWhileActive`
+    does.
+
+  Scheduling stays paused after `Harness.open` until `resume()` (`dist/harness/types.d.ts:830-835`), so after a restart
+  only `wakeSession` moves a turn.
+
+| Case | Result | Evidence |
 |---|---|---|
-| b0 | Done in part A: the suite's own control on `MemoryStorage`, 32 of 32, with its negative control | `sandboxed node --test q2/conformance-control.test.ts` |
-| b1 **[container]** | The Neon backend passes the same suite on the test Postgres, through the same adapter, with nothing weakened | `sandboxed node --test q2/neon-conformance.db.test.ts` |
-| b′1 **[container]** | Two-object isolation. Two Durable Objects run a turn at the same time. Both have root conversation `"1"`, and each is opened on the backend keyed by its `SessionAgent` session id. Each `messages()` and each set of rows holds only its own turn, and no row is overwritten (row versions compared). | `sandboxed node run/q2-route-b-prime.ts --case isolation` |
-| b′2 **[container]** | Our own wake finishes an interrupted turn on the backend: question 1's two evictions (safe and unsafe, SIGKILL during the tool call) each finish with no request sent | `sandboxed node run/q2-route-b-prime.ts --case wake` |
-| b′3 **[container]** | Statements per turn on the backend, by the counting method | `sandboxed node run/q2-route-b-prime.ts --case count` |
+| b0 | Part A: 32 of 32 on `MemoryStorage`; its negative control catches two defective storages | `q2-b0-conformance.txt`, `q2-b0-negative.txt` |
+| b1 | **Pass**: 32 of 32 on the test Postgres, through the same adapter and loop, nothing skipped or changed, in one database with a fresh key per case. Plus two keyspace tests: two keys holding the same ids, request id and root each read back only their own; two storages on one key collide. One defect was found and fixed: calls after `close()` threw synchronously instead of rejecting. | `q2-b1-conformance.txt` |
+| b′1 | **Pass** (9 checks): two objects, same ids, one turn each at the same time; the negative control collides | `q2-b-prime-isolation.json` |
+| b′2 | **Pass** (11 checks): our own wake finishes the interrupted turn, safe and unsafe | `q2-b-prime-wake.json` |
+| b′3 | A cold one-request turn: **56** statements, against today's 199 for the Pi store | `q2-b-prime-count.json` |
 
-- b2–b4, written for `PiHarness` on the backend, are not run.
-- The record adds the size of the wake we would own. Under (b′) the host also owns the three calls the route probe
-  showed `PiHarness` getting wrong on another store (`accepted`, `wait()`, `abort(operationId)`). They are Pi's
-  `submit` with a `requestId`, `harness.submission(id).wait()` and `abortSubmission()`.
+**b′1, isolation.**
+- Two objects, `iso-a-…` and `iso-b-…`, each with its own keyspace and both with root conversation 1, submitted under
+  the same operation id `op-iso` at the same time. Each turn started before the other ended. They ran faux at
+  50 tokens/s with long answers, on question 1's resolve-then-answer turn.
+- Each settled `done`, and each `messages()` holds only its own user message and answer. Every row of each keyspace
+  belongs to its own turn: the other title appears nowhere.
+- The same ids sit side by side: both keyspaces hold the same entry ids, root conversation 1, and one submission with
+  request id `op-iso`. Each has 35 rows.
+- No row was written by the other object. No transaction id appears in both keyspaces' row versions (`xmin`), and
+  each keyspace's rows come from 7 transactions.
+- Negative control: two objects on one session key (`shared-…~a`, `shared-…~b`) collide. The second object's
+  submission is gone (`settled: null`), and its `messages()` show the first object's turn.
+
+**b′2, our own wake.**
+- Question 1's eviction, on a safe and an unsafe class. Before restarting, the runner read Postgres from Node: the
+  submission was `placed` with no tool result, and the killed process's backend had left `pg_stat_activity` 80 ms
+  (safe) and 108 ms (unsafe) after the kill. So the crash point landed where intended.
+- On B, with no request sent:
+  - a new instance was constructed and opened Pi;
+  - the SDK ran the one-shot `wakeSession` job (payload `{ wake: "pi" }`), which resumed Pi;
+  - then came the tool's rerun (safe) or the interrupted result (unsafe), and the answer, 29.2 s (safe) and 29.6 s
+    (unsafe) after the kill.
+- The two sessions are named `wake-safe` and `wake-unsafe`, with no random suffix: each run has a fresh database and a
+  fresh persistence directory (`run/pg-workerd.ts:39-40`), so the names need no suffix to stay unique. A suffix in the
+  logged `key` read as a credential to gitleaks' `generic-api-key` rule and blocked the commit.
+- What woke it:
+  - the one-shot was running when A died;
+  - Lifecycle keeps a job's row until its callback returns, and arms a deadman alarm 30 s ahead before driving due
+    jobs (`dist/lifecycle-v1rKHV2C.js:445`, `:589-609`, `:343-359`);
+  - a one-shot is not single-flight (`dist/scheduler-FIHv2-kJ.js:546`), so the deadman re-drove it on B.
+- Safe: two catalog calls. Unsafe: one, and the model answered from the interrupted result.
+
+**b′3, statements per turn** (the object's own connection only; no other application wrote in the database):
+
+| Turn | Statements | Commits (4 statements each) | Reads | Open |
+|---|---|---|---|---|
+| Cold, one request answering through `respond` (the baseline's shape) | **56** | 10 | 15 | 1 |
+| Warm: the same shape, the session's second turn | 37 | 9 | 1 | 0 |
+| An idle wake (the one-shot with nothing to do) | 0 | 0 | 0 | 0 |
+| Cold, the same shape, the answer streamed at 50 tokens/s (about 2.2 s) | 72 | 14 | 15 | 1 |
+| Cold, question 1's two-request turn | 68 | 13 | 15 | 1 |
+
+- Against today's 199 for the cold turn's Pi store, 56 is under a third. The cold reads are Pi opening its stored
+  state: the root conversation, documents by address, the newest entries, the request index and a scan of unsettled
+  submissions (the rows are in the evidence).
+- Progress persistence costs about one commit per second of streaming: 4 commits (16 statements) for a 2.2 s answer
+  (`settings.progress.persistWithinMs`, 1,000 ms, `types.d.ts:1023-1032`). The baseline's model answers in one chunk; a
+  real answer streamed for N seconds adds about 4N statements.
+- An idle wake costs nothing: Pi's `wake()` and `resume()` are in memory.
+- Business statements are not in these counts. They belong to our layers (admission, quota, settlement), the same in
+  every route.
+
+**The wake we would own, sized.**
+- The prototype's wake is about 45 lines of `host.ts`: the heartbeat, the one-shot before each input, `onPiWake`,
+  `wakeSession` and its wait loop.
+- `PiHarness`'s own wake is about 175 lines (`index.js:141-170`, `:325-421`, `:436-482`). It handles four things the
+  prototype does not:
+  - a wake whose open fails, with a backoff up to 10 minutes, stored across restarts;
+  - memory-limit resets;
+  - a wait longer than one alarm's budget;
+  - returning the job at once while tracking the wait (`trackAlarmWork`), so a turn longer than the 30 s deadman is
+    not re-driven. The prototype's wait holds the job, so a turn longer than 30 s would be re-driven and would join the
+    wait.
+- Miniflare does not evict an idle object, so a wake that returned right after `resume()` would also pass locally. The
+  kill tests prove the restart path, not eviction while idle.
+- The edge already has the scheduler wiring (`session-agent.ts:52`, `:141`, `:146-160`, `:224-231`). The change is
+  `wakeSession`'s body (resume Pi, wait while active, then the business scans it runs today) and `onWake`.
+- Under (b′) the host also owns the three calls `PiHarness` would have provided: Pi's `submit` with a `requestId`,
+  `harness.submission(id).wait()` and `abortSubmission()`.
+- Estimate: M (one to two lane days) for the production wake and its tests, inside the edge-host ticket.
 
 ### Route (a): `PiHarness`'s SQLite, projected into Neon
 
-Pi's store is authoritative. After Pi commits a completed turn, the object writes that turn's record to Neon, keyed by
-`(session_id, seq)` with the `SessionAgent` session id. The write is idempotent, so recovery can rewrite it. Crash
-points are injected by SIGKILLing workerd at a marker, and the runner sends no request until recovery has run.
+Pi's store is authoritative, and the Postgres row is its projection. Crash points are SIGKILLs of workerd at a marker;
+the runner sends no request until recovery has run. Commands: `sandboxed node run/route-a.ts --crash all`,
+`--case isolation`, `--case count`.
 
-| Case | What it shows | Command (part B) |
+**How it was built** (`prototype/q2/route-a.worker.ts`):
+- `PiHarness` is hosted as in question 1, on its own SQLite store.
+- Each turn Pi settles `done` is projected into `proj_turns`, keyed by `(session_id, seq)`: the session id the host
+  stores, and Pi's submission id.
+- The projection is recomputed from Pi's entries in the operation's own range: model, provider, per-call usage, tool
+  calls and results, answer, status.
+- **When it runs.** Inside `PiHarness`'s own wake job, after the step that finds Pi idle returns nothing, so that the
+  job would complete. A subclass overrides `onJob` (`agents@0.33.0 dist/harness/pi/index.js:144-154`); the step is
+  `_wakeStep` (`:360-381`).
+  - The job has not completed while it projects, so a kill anywhere in the projection leaves it in Lifecycle's queue.
+    After the restart it ran again, and that run re-projects the turn ([what drove recovery](#route-a-recovery)).
+- A local note in the object's SQLite records each projected turn. The insert does nothing if the row exists, so a
+  re-projection writes nothing twice.
+- The write is `BEGIN`, `INSERT … ON CONFLICT DO NOTHING`, `COMMIT`, with crash markers:
+  - a1, before it;
+  - a2, before `COMMIT`;
+  - a3, after `COMMIT` and before the note.
+
+| Case | Result | Evidence |
 |---|---|---|
-| a1 **[container]** | Crash after Pi's commit and before the Neon write | `sandboxed node run/q2-route-a.ts --crash before-write` |
-| a2 **[container]** | Crash during the Neon write: the object stops at a marker before the transaction's `COMMIT`, workerd is killed, and Postgres rolls back the open transaction when the connection drops. Part A's counting method has no proxy to hold the `COMMIT`. | `sandboxed node run/q2-route-a.ts --crash during-write` |
-| a3 **[container]** | Crash after the Neon write committed, before the object notes it | `sandboxed node run/q2-route-a.ts --crash after-write` |
-| a4 **[container]** | Two-object case: two objects (both root `"1"`) project a turn at the same time, and each history read by session id returns only its own turns | `sandboxed node run/q2-route-a.ts --case isolation` |
-| a5 **[container]** | Statements per turn and bytes per turn of the projection; the cost of the recovery scan | `sandboxed node run/q2-route-a.ts --case count` |
+| a1: after Pi's commit, before the write | **Pass**. No row before the restart; after recovery with no request, one row equal to the projection recomputed from Pi's store. Recovered 30.1 s after the kill. | `q2-route-a-crash-all.json` |
+| a2: during the write | **Pass**. The transaction held before `COMMIT` rolled back with the connection, so there was no row; recovered as in a1, 30.0 s after the kill. | same |
+| a3: after the write, before the note | **Pass**. The row had committed and the note was missing. The re-projection's insert found the row, so nothing was written twice, at the write's 3 statements. 30.0 s. | same |
+| a4: two objects | **Pass**. Same operation id and same seq in both; each history, read by session id, holds only its own turn. | `q2-route-a-isolation.json` |
+| a5: cost | **3 statements per turn** (`BEGIN`, the insert, `COMMIT`). The projection is 423 bytes for the one-request turn and 918 for question 1's turn. Measured at a3, re-projecting a turn costs the write's 3. A scan that finds nothing pending costs no Postgres statement, by construction: it reads only Pi's store and the note, both in the object's SQLite. | `q2-route-a-count.json` |
 
-After a1–a3, each completed turn's Neon record must equal the projection recomputed from Pi's store, compared on model,
-provider, per-call usage, tool calls and results, answer and status. Route (a) keeps a second copy of the record,
-which the standing decision that the complete record lives in Neon did not foresee (spec, "方案"); the spike only
-measures.
+<a id="route-a-recovery"></a>
 
-### Admission against Pi's commit, both routes **[container]**
+- **What drove recovery.** All three recoveries took about 30 s, and the runner sent no request.
+  - Before driving due jobs, Lifecycle stores an alarm 30 s ahead (`dist/lifecycle-v1rKHV2C.js:594`). A had stored
+    that alarm before it was killed.
+  - B's object was constructed when that alarm fired: at a1, 30,075 ms after A's first log line, with A's job
+    dispatched at 81 ms. The wake job then ran at once, and the projection landed 86 ms after the construction.
+  - How B released the job A left marked running is not shown. B's log has neither of the lines Lifecycle prints for a
+    running single-flight job, "Skipping job …" and "Forcing reset of hung job …" (`:601`, `:604`).
+  - One candidate is PiHarness's open: it re-pushes the wake job when `pi.wake()` asks for one (`_wakeFor`,
+    `index.js:350-353`), and a push clears the running flag (`lifecycle-v1rKHV2C.js:239-249`). Not confirmed.
+- **Statements per turn.** 3 against today's 199 for the Pi store. It could be 1: the explicit transaction exists only
+  to hold a2's marker.
+- **What the count does not see.** Pi's own writes go to the object's SQLite. After one turn the object's database was
+  147,456 bytes (whole pages; the same after question 1's turn).
+- **The second copy.** The Postgres row repeats what Pi's SQLite holds, which the standing decision that the complete
+  record lives in Neon did not foresee (spec, "方案"). The row holds the fields the card compares, not the full
+  transcript, which stays in the object.
+- **C1–C4 for route (a): not run.** Designing them turned up one finding: `PiHarness`'s wake resumes only what Pi has
+  stored.
+  - `submit` pushes the wake job and then hands the input to Pi (`_admit`, `index.js:325-338`). Each wake step resumes
+    Pi and waits while Pi is active (`_wakeStep`, `:360-381`).
+  - An operation admitted in Neon whose `submit` never ran (C1) or never committed (C2) is in no store `PiHarness`
+    reads. Its wake finds Pi idle, and nothing resubmits the operation.
+  - So a route (a) `SessionAgent` would keep a scan of its own for admitted operations: today's interval scan
+    (`session-agent.ts:52`), beside `this.lifecycle.use(harness)`. Route (a) therefore owns part of a wake too.
 
-One case per crash point, each a SIGKILL at a marker and a restart with no request.
+### Admission against Pi's commit (C1–C4): route (b′) passes
 
-- **C1**: after the admission commit, before `submit`. Recovery finds an admitted operation with no Pi submission and
-  submits it again with the same `operationId`, which Pi keeps as one submission.
-- **C2**: during `submit`.
-- **C3**: after Pi's commit, before anything else.
-- **C4**: after Pi settles, before settlement commits.
+One case per crash point, each a SIGKILL at a marker and a restart with no request. This mirrors today's
+`workers/edge/host-integration-test/persistence-windows.test.ts` and `agent-db-test/recovery-scan.test.ts`. Command:
+`sandboxed node run/b-prime-admission.ts --crash all` (or one point). All 17 checks pass
+(`evidence/q2-b-prime-admission.json`).
 
-After recovery, the admission row, Pi's submission status and the settlement row must agree, with no double charge.
-Command: `sandboxed node run/q2-admission.ts --crash c1|c2|c3|c4`. This mirrors today's
-`workers/edge/host-integration-test/persistence-windows.test.ts` and `agent-db-test/recovery-scan.test.ts`.
+**The layers under test** (`q2/b-prime/business.ts`, `host.ts` with `business`):
+- Admission in front of Pi, in today's order (`session-agent.ts:134-143`): the admission row commits first, then the
+  wake is armed, then Pi gets the input under the operation id.
+- On every wake, the recovery scan (today's pattern, `session-agent.ts:146-160`):
+  - an admitted operation that Pi has no submission for is submitted again under its id;
+  - after the wait, an admitted operation that Pi has settled is settled. Settlement writes the charge and marks the
+    admission settled in one statement, inserting at most once.
+- The charge is the usage inside the operation's own entry range, from its placed input to its answer (`charge.ts`).
+- The interval scan is shrunk to 2 s, as the edge's lane shrinks it (`FAST_RECOVERY_SCAN`).
+
+| Point | Where the kill landed, proven from Postgres before the restart | Recovery, with no request | Settled after the kill |
+|---|---|---|---|
+| C1: after the admission commit, before `submit` (and before the wake is armed) | Admission `admitted`; no Pi submission; nothing settled | The scan submitted it again under its id; Pi ran it; settled | 2.1 s |
+| C2: during `submit`: Pi's commit held before its `COMMIT` | Admission `admitted`; no submission and no entry: the held transaction rolled back with the connection | As C1 | 2.0 s |
+| C3: after Pi's commit of the submission, before anything else (the next commit held) | Admission `admitted`; one submission; no tool result; nothing settled | No resubmission; Pi resumed the placed input; settled | 1.9 s |
+| C4: after Pi settled, before settlement commits | Admission `admitted`; the submission `done`; nothing settled by us | No resubmission; settled | 30.2 s |
+
+- Every point ends aligned: the admission is `settled`, Pi has one submission (`done`) with one user entry, and there
+  is one settlement row.
+- No double charge: each settled once (`banked` 1), charging exactly the operation's own usage (190 faux tokens),
+  recomputed by the runner from the stored entries.
+- In every case the killed process's two connections, Pi's and the business one, had left `pg_stat_activity` before
+  the restart.
+- The recovery time depends on where the kill falls, as in question 1:
+  - about 2 s when the last alarm's re-arm, to the next 2 s scan, was durable;
+  - about 30 s when the kill fell inside a running job: the job waits for Lifecycle's 30 s deadman alarm
+    (`dist/lifecycle-v1rKHV2C.js:445`, `:594`) and its 30 s hung timeout (`:192`, `:599-605`). At C4 it fell inside
+    the interval job; B's workerd log says "Forcing reset of hung job … (started 30s ago)".
+  - An earlier run of the same four cases, on the host before its last opt-in additions, took 32.2 s at C1, 3.8 s at
+    C2 and C3, and 30.6 s at C4, charging 126. Its output was overwritten by the recorded run.
+  - Its 32.2 s at C1 fits neither case above: that kill was not inside a job. B started exactly 30 s after A's last
+    alarm began, which is consistent with that alarm's 30 s pre-arm being the stored one, its re-arm about 50 ms before
+    the kill not yet durable. Not confirmed.
+- Route (a) was not run against C1–C4: see [route (a)](#route-a-piharnesss-sqlite-projected-into-neon).
 
 ## Question 3: business layer
 
@@ -692,8 +989,8 @@ Figures quoted below are the recorded run's. Each one that a check bounds is giv
 | `validation` | **no difference from today** | none: both validators called directly | None needed |
 | `restart` | **shown** (three kills) | faux, 20 tokens/s | Settlement refunds for unanswered operations (today's `recovery-endings.test.ts`); settlement also decides how an aborted entry inside an operation is charged |
 | `web-results` (brief item 4) | **shown** | faux; the retryable error is a scripted 503 frame | A `beforeRequest` hook in the last selected extension: synchronous, fail-closed (today's design) |
-| `settlement` **[container]** | **part B** | faux plus the ported double | Settlement (`workers/edge/src/agent/settlement/settlement-accounting.ts:34`) |
-| `selection` **[container]** | **part B** | faux | Admission plus the selection intent |
+| `settlement` (part B) | **shown** | the ported double only | Settlement (`workers/edge/src/agent/settlement/settlement-accounting.ts:34`), re-pointed at the operation's own entry range |
+| `selection` (part B) | **shown** | none for the selection | Admission plus the selection intent |
 
 ### Provider evidence
 
@@ -706,16 +1003,19 @@ Figures quoted below are the recorded run's. Each one that a check bounds is giv
   (`faux.js:356`), and the partial carries it from the first frame (`:234`).
   - So `restart`'s aborted entries carry the whole answer's 154 output tokens after 144 and 152 of 613 characters had
     streamed.
-  - What a real provider's partial carries as usage at the moment of a crash was not checked.
+  - What a real provider's partial carries as usage at the moment of a crash depends on when its adapter sets usage.
+    Part B's `settlement` ran the double with usage only in its final frame: its aborted entry carries zero. pi-ai's
+    Anthropic adapter sets input usage at the stream's start, so it would not ([`settlement`](#settlement-part-b)).
   - 0.87.1 records such an interrupted request with zero usage (`@earendil-works/pi-agent-core@0.87.1
-    dist/harness/runtime/drive/recovery.js:4-26`). Part B's `settlement` case must not read faux's figure as a real
-    one.
-- **4xx and usage only when asked: no part-A case runs them.** The hand-written double
-  (`workers/edge/test/doubles/pi-provider-double.ts`) was not ported, because nothing in part A needs it.
-  - Faux reports every response as status 200 (`faux.js:364`) and turns a throw into an error frame (`:395-399`), so it
-    cannot throw a 4xx out of the adapter.
-  - Part B's `settlement` case should port the double for both paths: the failed attempt between two completed turns,
-    as a 4xx thrown out of the adapter (`pi-provider-double.ts:202-210`), and usage only when asked (`:58-70`).
+    dist/harness/runtime/drive/recovery.js:4-26`).
+- **4xx and usage only when asked: part B, on the ported double.** Faux reports every response as status 200
+  (`faux.js:364`) and turns a throw into an error frame (`:395-399`), so it cannot throw a 4xx out of the adapter.
+  - Part B ported the hand-written double (`workers/edge/test/doubles/pi-provider-double.ts`) to pi-ai 1.5.2's
+    provider interface (`prototype/q2/b-prime/double.ts`, through `createProvider`).
+  - The port keeps the original's three behaviours: usage only when asked (`:58-70` there), a 4xx thrown out of the
+    adapter (`:202-210`), and the `aborted` frame on the signal.
+  - It adds two: an error frame carrying usage, and a slow answer whose usage arrives only in its final frame.
+  - `settlement` produced all its evidence with the double; faux is not used there.
 - **Retryable errors.** `web-results` uses a faux error frame whose message, "503 service unavailable", pi-ai's
   classifier treats as retryable (`@earendil-works/pi-ai@1.5.2 dist/utils/retry.js:29-43`).
 
@@ -882,12 +1182,88 @@ and `rendered-web-results.ts:28-31`, at 804b582e0).
 
   So stored web text reaches a summarizer in both, and the move changes nothing there.
 
-### Part B cases **[container]**
+### `settlement` (part B)
 
-| Case | Semantic difference | Covering layer of ours |
-|---|---|---|
-| `settlement` **[container]** | `harness.usage()` is the whole session's running total and counts failed and aborted attempts (`@earendil-works/pi-durable@1.5.2 README.md:855-861`). Each assistant entry carries its own `usage`: question 1's turn recorded `totalTokens` 75 on the tool-call request and 132 on the answer (`evidence/q1-turn.json`, `transcript`). The prototype derives one operation's charge from the assistant entries inside that operation's own entry range. With two completed turns in one session, the second is charged only its own usage. A failed attempt in between appears in `usage()` and not in any completed turn's charge. Part A adds three inputs. Run that failed attempt both as a faux error frame and as a 4xx thrown out of the adapter, which needs the ported double; add usage only when asked, also from the double. Add a turn that completes after an interrupted attempt, whose aborted entry lies inside the operation's range with usage that 0.87.1 records as zero ([`restart`](#restart)). | Settlement (`readOperationCharges`, `workers/edge/src/agent/settlement/settlement-accounting.ts:34`), re-pointed at Pi's per-entry usage, banking only completed turns |
-| `selection` **[container]** | A selection turn (no model) as a display-only write submission with a request id; pi-durable 1.2.0 settles those `done` at once. The same id twice yields one entry, through the same admission as model turns. | Admission plus the selection intent (`workers/edge/host-integration-test/selection-intent-loss.test.ts` is today's case) |
+**Question.** `harness.usage()` is the whole session's running total, and it counts failed and aborted attempts
+(`@earendil-works/pi-durable@1.5.2 README.md:855-861`). We bank only completed turns, each by its own range. The case
+shows four things:
+- how one operation's charge is derived;
+- that two completed turns are each charged only their own usage, with failed and interrupted attempts between them;
+- what pi-durable records for an interrupted attempt;
+- that the charges and the uncharged attempts add up to `usage()`.
+
+**Method** (`run/q3-db.ts --case settlement`; 10 checks pass, `evidence/q3-settlement.json`). Route (b′) with its
+covering layers, on the ported double (no faux). One session runs six operations through admission:
+1. `op-1`, a completed turn: `translate_anime_title`, whose result reports 10 tokens, then the answer. The double reports
+   2 tokens per model call.
+2. `op-2`: the double throws a 4xx out of the adapter.
+3. `op-3`: the double sends a failed attempt as an error frame that reports usage.
+4. `op-4`: an answer streamed for 4.5 s, whose usage arrives only in its final frame.
+   - workerd is SIGKILLed 2.5 s in. Before the restart, Postgres held the streamed partial: a progress commit.
+   - With no request, the restarted object resumes; Pi retries after its backoff, and the turn completes.
+5. `op-5`: a second completed turn, like op-1.
+6. `op-6`: a completed turn after the session's model is switched to one whose compat does not ask for usage.
+
+**The charge** is the usage of every model call and every tool result in the operation's own entry range, from its
+placed input to its answer (`q2/b-prime/charge.ts`). An operation Pi settles `unanswered` banks nothing. The spike
+measures; it does not choose this rule.
+
+| Operation | Pi settled | Charged (tokens) | Inside its range |
+|---|---|---|---|
+| op-1 | done | 14 | two model calls (2 each) and the tool's 10 |
+| op-2, 4xx thrown | unanswered | 0 | an error entry with zero usage: "400 Bad Request: the gateway rejected the request shape" |
+| op-3, error frame | unanswered | 0 | an error entry carrying the frame's 2 tokens, outside every completed range |
+| op-4, interrupted then completed | done | 2 | the aborted entry (12 words streamed, zero usage), then the retry's answer (2) |
+| op-5 | done | 14 | its own two calls and its tool's 10 only |
+| op-6, usage not asked | done | 10 | two model calls reporting nothing, and the tool's 10 |
+
+- **Two completed turns, each charged its own usage.** op-1 and op-5 are 14 each, while `usage()` stood at 42 at the
+  end. The second turn did not charge the first again.
+- **The identity holds.** `usage()` total 42 = the stored entries' usage, 42 = the charges, 40 + the usage outside every
+  completed range, 2 (op-3's error frame).
+- **What pi-durable records for an interrupted attempt.** The stored partial becomes an aborted entry carrying whatever
+  usage that partial had.
+  - With the double, which reports usage only in its last frame, that is zero: the figure 0.87.1 records for every
+    interrupted request.
+  - An OpenAI-compatible gateway that sends usage after the content would leave the same zero. pi-ai's adapter asks
+    for usage only when the model's compat allows (`@earendil-works/pi-ai@1.5.2 dist/api/openai-completions.js:572-574`),
+    and sets the partial's usage only from a chunk that carries one (`:349-351`).
+  - With faux, whose partials carry the whole answer's estimate from the first frame, it was 154 tokens (part A's
+    `restart`).
+  - pi-ai's Anthropic adapter fills the partial's input usage from `message_start`, "even if the stream is aborted
+    early" (`dist/api/anthropic-messages.js:690-699`). An interrupted Anthropic request would therefore leave a nonzero
+    figure.
+  - Banking an operation's whole range charges that figure. Whether to is the owner's billing rule.
+- **The failed attempts** are error entries in the transcript and in `usage()`, inside no completed operation's range.
+  An error frame's usage is counted by Pi and charged to nobody, as today's settlement refunds an unanswered operation
+  (part A, [`restart`](#restart)).
+- **Covering layer:** settlement, re-pointed from `readOperationCharges(storage, …)`
+  (`workers/edge/src/agent/settlement/settlement-accounting.ts:34`) at the operation's own entry range in Pi's entries
+  (`charge.ts`), banking at most once (`business.ts`).
+
+### `selection` (part B)
+
+**Method** (`run/q3-db.ts --case selection`; 6 checks pass, `evidence/q3-selection.json`). Route (b′) with its covering
+layers.
+- A selection is admitted like a model turn (kind `selection`).
+- It is handed to Pi as a display-only write under the operation id:
+  `{ type: "write", entry: { kind: "animichi.selection", … }, requestId }`. Pi settles that `done` at once.
+- Settlement then banks it.
+
+**Results.**
+- The first selection was admitted (202) and settled `done` at once, with no model request.
+- The same id with the same content: the existing admission (200), and Pi returned the same submission; one selection
+  entry.
+- The same id with other content: 409 at admission. Pi never saw it.
+- Settled through the same settlement: one row, `done`, 0 tokens.
+- A model turn after it ran and settled as usual.
+- **Not shown: a crash between a selection's admission and its write.** The prototype's recovery scan resubmits only
+  model turns (`recoverAdmissions` skips kind `selection`, `q2/b-prime/host.ts:203`). Such a selection would stay
+  admitted and never be settled. The production scan must resubmit it as the same write under its id (ticket 4b).
+
+**Covering layer:** admission plus the selection intent, as today
+(`workers/edge/host-integration-test/selection-intent-loss.test.ts`). Without our admission, Pi alone would return the
+existing submission for other content without comparing it (part A, [`admission`](#admission)).
 
 Compaction is not a difference to cover. In 0.87.1 and in pi-durable 1.5.2, neither compaction hook can replace the
 messages being summarised (checked before this phase), so the move neither adds nor removes that capability.
@@ -898,26 +1274,81 @@ messages being summarised (checked before this phase), so the move neither adds 
 - The `stream` case recorded how a compaction boundary shows up in `watch()`: as `pi.live.compactions`, then a
   `pi.compaction` entry in place ([`stream`](#stream)).
 
-## What part B needs
+## Overall: go
 
-- **Container lanes.** Question 2 entirely, and question 3's `settlement` and `selection` cases, need the test
-  Postgres, which testcontainers starts. The owner runs those lanes.
-- **The test image.** `animichi-test-postgres:18-3.6-pgvector-0.8.6` must exist locally; building it needs the network
-  for its base image.
-- **The counting method is chosen: `pg_stat_monitor`.** Part B's first step confirms the extension on the running
-  cluster and runs the control ([counting method](#counting-method-decided-in-part-a-run-in-part-b)). The count needs a
-  solo run: the reset is global, and the cluster is shared.
-- **The baseline count** needs a frozen root install, to run the edge's own host test unchanged.
-- **The route is chosen: (b′).** Part B builds the Neon backend with our own wake (b1, b′1–b′3) and sizes that wake.
-  b2–b4 are not run. The `PiHarness`-wake hybrid stays open; it could be checked first on an alternate-prefix SQLite
-  store, with no Postgres.
-- **`pg` joins the prototype** for the question 2 runners, and the lockfile hash is re-recorded.
-- **`settlement` needs the ported double** (4xx, usage only when asked), and must decide how an interrupted attempt's
-  aborted entry is charged.
-- **The spec names `session.events()`**, which `agents` 0.33.0 does not have. Question 3 uses `session.watch()`;
-  correcting the spec is its owner's call.
-- **Policy questions for the owner, raised by question 4:**
-  - Following Pi latest versus following `agents`' supported Pi minor.
-  - A Pi-minor deploy cannot be rolled back by redeploying an older artifact.
-- **Not done.** The `docs/iterations/README.md` index line the card's PR carries, and part A's spike-branch commit
-  field above. Both are the coordinator's.
+The card's rule: go overall only when questions 1 and 3 are go, at least one of routes (a), (b) and (b′) is go, and
+questions 4 and 5 are answered.
+
+| Part of the rule | Result |
+|---|---|
+| Question 1 | **go** (phase 1) |
+| Question 3 | **go**: every semantic difference has a covering layer shown by a prototype. The replay mapping is shown by experiment: `translate_anime_title` on `"unsafe"` neither reruns nor is billed twice. Two completed turns are each charged only their own usage. |
+| At least one route | **(b′) go**: conformance 32 of 32, isolation, our own wake, 56 statements per cold turn against today's 199, C1–C4 realigned. (a) passes storage and statements, with recovery against admission not run. (b) is out. |
+| Questions 4 and 5 | **answered** (phase 1), with question 5 corrected [below](#re-cut-migration-tickets) |
+
+So the spike reports **go**. Choosing to migrate, and choosing a route, are the owner's.
+
+## Re-cut migration tickets
+
+Cut for route (b′), the one route shown go on every criterion; the differences under (a) are noted. Question 5's
+answer stands, so the packages cannot land one by one: two pi-ai lines cannot pass values between them. Tickets 1–4
+build on one integration branch, and ticket 5 merges it. Sizes: S under a lane day, M one to two, L three to five, XL
+more than five.
+
+| # | Ticket | Package | Size | What it carries, from the spike |
+|---|---|---|---|---|
+| 1 | Neon `Storage` for pi-durable | `packages/pi-session-neon` | **L** | A `Storage` on the repository's driver, after `prototype/q2/pg-storage/` (873 lines over `pg`, a port of `SqliteStorage`). It keeps a `session_key` in every key, JSON text records, and a four-statement commit with the keyspace's metadata row locked `FOR UPDATE`. Its schema goes into the one Prisma chain. Proof: the 32 conformance cases on the test Postgres through the `node:assert` adapter (`q2/conformance-assertions.ts`), the two keyspace tests and the shared-key negative control. The 0.87.1 `NeonStorage`/`NeonSessionRepo` retire with ticket 5. |
+| 2 | Agent construction on pi-durable | `packages/agent` | **M–L** (was L) | Seven tools to `ToolRegistration` with `output`. The replay mapping: six stay `"safe"`, `translate_anime_title` goes from `"never"` to `"unsafe"`. pi-durable 1.5.0 takes any JSON Schema object as `parameters`, TypeBox's included (`@earendil-works/pi-durable@1.5.2 CHANGELOG.md:27`), so porting the schemas to pi-schema is optional. The web-result rebuild moves to `GenerationTask.beforeRequest` in the last selected extension. Prompt sections, and pi-ai 1.5 models. |
+| 3 | Eval on pi-durable | `packages/eval` | **L** (unchanged) | The in-process task on `MemoryStorage`; prefix record and replay on pi-durable's JSONL storage; the five frozen prefix sessions converted or re-recorded. |
+| 4a | Edge host: Pi, our wake, admission, settlement | `workers/edge` | **L** | `SessionAgent` opens Pi with `Harness.open` on ticket 1's storage, keyed by its session id. `wakeSession` resumes Pi and waits while it is active, then runs today's business scans; Pi's `onWake` re-arms the one-shot. Admission commits before Pi's `submit` with a `requestId`; the recovery scan resubmits admitted operations Pi lacks. Settlement banks the operation's own entry range. Proof: the host and DB lanes rewritten as equivalents, b′2's two kills and C1–C4. The production wake is M of this (prototype about 45 lines; `PiHarness`'s own about 175, with backoff, memory-limit resets, waits longer than one alarm, and job hand-off). |
+| 4b | Edge host: the views, the budget, selection | `workers/edge` | **L** | The stream projection and reconnect from `watch()`. History from Pi's entries. The turn budget as a host abort from the placed entry's timestamp, re-armed after an eviction (not shown by the spike). Selections as write submissions through admission; the recovery scan resubmits an admitted selection as the same write (not shown: the prototype's scan skips selections). Native models to pi-ai 1.5. Bundle-smoke fixtures. |
+| 5 | Integration and cleanup | root config, all | **M** | Catalog: pi-ai and chord 1.5.x; add pi-durable and pi-schema; remove pi-agent-core and the edge's 0.87.1 smoke aliases. `agents` needs no bump (already `^0.33.0`); its four Pi peers at `~1.5.0` follow from the catalog. Merge the integration branch. |
+| 6 | Release policy for Pi minors | `docs/ops`, CD | **S** | The owner's decisions below, written into the deploy runbook: following `agents`' supported Pi minor, and roll-forward only after a Pi-minor deploy. |
+
+**Question 5's estimate, corrected by part B:**
+- `packages/pi-session-neon`: L for route (b′), confirmed by a working backend that passes the suite unweakened. Under
+  route (a) the storage ticket shrinks to M, a projection writer and one table. But route (a)'s edge ticket then
+  carries `PiHarness` adoption and still needs today's interval scan for admission recovery.
+- `packages/agent`: L becomes M–L, since the pi-schema port is optional.
+- `workers/edge`: XL, now split into 4a and 4b (L each); the wake we own is sized at M within 4a.
+- Statements: route (b′) cuts the Pi store's statements per cold one-request turn from 199 to 56. A warm turn costs
+  37, and an idle wake none.
+
+## For the owner
+
+- **The route.**
+  - (b′) is go on every measured criterion.
+  - (a) passes storage and statements: 3 Neon statements per turn, but a second copy of each turn and Pi's own writes in
+    the object's SQLite. Its recovery against admission was not run.
+  - (b) is out: its wake works on another store, but its operation API does not.
+- **The billing rule for an interrupted attempt.** The aborted entry inside a completed operation carries whatever
+  usage the provider had streamed before the crash: zero for usage in the final frame, nonzero for providers that
+  report early. Bank it, or exclude aborted entries?
+- **Question 4's policy questions:** follow Pi latest or `agents`' supported Pi minor; and a Pi-minor deploy cannot be
+  rolled back by redeploying an older artifact.
+- **The spec names `session.events()`**, which `agents` 0.33.0 does not have; question 3 used `session.watch()`.
+  Correcting the spec is its owner's call.
+
+## Not done
+
+The go stands on what was shown. These were not shown, and the tickets carry each.
+
+- **Route (a) against C1–C4.** The brief made it conditional on time; part B sequenced the record first and stopped
+  there, so this is not blocked by anything found. Its design is under
+  [route (a)](#route-a-piharnesss-sqlite-projected-into-neon): the host must be an `Agent` that keeps today's interval
+  scan beside `this.lifecycle.use(harness)`, because `PiHarness`'s wake resumes only what Pi has stored.
+- **How route (a)'s restarted object released the job left running** ([what drove recovery](#route-a-recovery)).
+- **Our wake under a turn longer than 30 s.** The prototype's wait holds the job, so Lifecycle would re-drive it and
+  the new run would join the wait ([the wake we would own](#route-b-a-neon-backend-for-pi-durables-storage-with-our-own-wake-part-b)).
+  Ticket 4a.
+- **Eviction while idle.** Miniflare does not evict an idle object; the kill tests prove the restart path only.
+- **The turn budget's timer after an eviction.** The timer lives in memory and must be re-armed from the stored start
+  (part A, [`budget`](#budget)). Ticket 4b.
+- **A selection admitted but not written** (a crash between the two): the prototype's scan skips selections
+  ([`selection`](#selection-part-b)). Ticket 4b.
+- **Production's clock.** Local workerd advanced `Date.now()` during synchronous work; production was not checked
+  ([question 1](#abortsignalany-typeboxs-new-function-timers)). It matters to the turn budget.
+- **A package-by-package path.** An alias build plus a typecheck would show whether one is possible
+  ([question 5](#can-two-pi-ai-versions-coexist-in-one-package)). Only if the owner wants to weigh it.
+- **Part B's records.** The `docs/iterations/README.md` index line the card's PR carries, and part B's spike-branch
+  commit field above. Both are the coordinator's.

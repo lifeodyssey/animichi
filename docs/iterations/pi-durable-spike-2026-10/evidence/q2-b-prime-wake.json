@@ -1,0 +1,600 @@
+{
+  "case": "wake",
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "runs": [
+    {
+      "binding": "safe",
+      "name": "wake-safe",
+      "operationId": "op-wake-safe",
+      "receipt": {
+        "operationId": "op-wake-safe",
+        "submission": 8
+      },
+      "inFlightAt": 1795041121184,
+      "waitingAt": 1795041121106,
+      "killedAt": 1795041122184,
+      "backendGoneMs": 80,
+      "atKill": {
+        "submission": "placed",
+        "tool_results": 0,
+        "entries": 3
+      },
+      "answerLoggedAt": 1795041151356,
+      "firstRequestAt": 1795041151373,
+      "catalogCalls": [
+        {
+          "at": 1795041121184,
+          "title": "Wake Safe",
+          "held": true
+        },
+        {
+          "at": 1795041151282,
+          "title": "Wake Safe",
+          "held": false
+        }
+      ],
+      "settled": {
+        "status": "done",
+        "answer": 15
+      },
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Wake Safe\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Wake Safe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 9,
+            "cacheRead": 0,
+            "cacheWrite": 180,
+            "totalTokens": 189,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Wake Safe\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Wake Safe\",\"title_cn\":\"巡礼\"}}",
+          "usage": {
+            "input": 0,
+            "output": 25,
+            "cacheRead": 0,
+            "cacheWrite": 221,
+            "totalTokens": 246,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ],
+      "killed": "6e8f67e9-3e77-421c-850b-92c77b9b579e",
+      "eventsAfterKill": [
+        {
+          "instance": "ac71d89e",
+          "kind": "constructed",
+          "at": 28944,
+          "detail": {
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "start",
+          "at": 28948,
+          "detail": null
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "pi:opened",
+          "at": 29069,
+          "detail": {
+            "key": "wake-safe"
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:start",
+          "at": 29070,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:waiting",
+          "at": 29070,
+          "detail": {
+            "active": true
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "tool:start",
+          "at": 29097,
+          "detail": {
+            "title": "Wake Safe",
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "tool:end",
+          "at": 29099,
+          "detail": {
+            "title": "Wake Safe",
+            "status": 200
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "model:answer",
+          "at": 29171,
+          "detail": {
+            "title": "Wake Safe",
+            "sawToolResult": {
+              "isError": false,
+              "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Wake Safe\",\"title_cn\":\"巡礼\"}}"
+            }
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:end",
+          "at": 29187,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:start",
+          "at": 29187,
+          "detail": null
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:waiting",
+          "at": 29187,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "wake:end",
+          "at": 29187,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "ac71d89e",
+          "kind": "request:report",
+          "at": 29191,
+          "detail": {
+            "operationId": "op-wake-safe"
+          }
+        }
+      ],
+      "timing": {
+        "killToAnswerMs": 29172
+      }
+    },
+    {
+      "binding": "unsafe",
+      "name": "wake-unsafe",
+      "operationId": "op-wake-unsafe",
+      "receipt": {
+        "operationId": "op-wake-unsafe",
+        "submission": 8
+      },
+      "inFlightAt": 1795041151695,
+      "waitingAt": 1795041151625,
+      "killedAt": 1795041152695,
+      "backendGoneMs": 108,
+      "atKill": {
+        "submission": "placed",
+        "tool_results": 0,
+        "entries": 3
+      },
+      "answerLoggedAt": 1795041182260,
+      "firstRequestAt": 1795041182264,
+      "catalogCalls": [
+        {
+          "at": 1795041151695,
+          "title": "Wake Unsafe",
+          "held": true
+        }
+      ],
+      "settled": {
+        "status": "done",
+        "answer": 15
+      },
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Wake Unsafe\""
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Wake Unsafe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 181,
+            "totalTokens": 191,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>",
+          "usage": {
+            "input": 0,
+            "output": 27,
+            "cacheRead": 0,
+            "cacheWrite": 222,
+            "totalTokens": 249,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ],
+      "killed": "5284547b-50b5-4965-b483-4047cdd76865",
+      "eventsAfterKill": [
+        {
+          "instance": "ea4fa74a",
+          "kind": "constructed",
+          "at": 28957,
+          "detail": {
+            "replay": "unsafe"
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "start",
+          "at": 28963,
+          "detail": null
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "pi:opened",
+          "at": 29288,
+          "detail": {
+            "key": "wake-unsafe"
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:start",
+          "at": 29290,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:waiting",
+          "at": 29290,
+          "detail": {
+            "active": true
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "model:answer",
+          "at": 29565,
+          "detail": {
+            "title": "Wake Unsafe",
+            "sawToolResult": {
+              "isError": true,
+              "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+            }
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "request:report",
+          "at": 29575,
+          "detail": {
+            "operationId": "op-wake-unsafe"
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:end",
+          "at": 29624,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:start",
+          "at": 29624,
+          "detail": null
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:waiting",
+          "at": 29624,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "ea4fa74a",
+          "kind": "wake:end",
+          "at": 29625,
+          "detail": {
+            "active": false
+          }
+        }
+      ],
+      "timing": {
+        "killToAnswerMs": 29565
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "safe: A was SIGKILLed while the tool's catalog call was held, after the wake had begun waiting",
+      "pass": true,
+      "observed": {
+        "inFlightAt": 1795041121184,
+        "waitingAt": 1795041121106,
+        "killedAt": 1795041122184
+      }
+    },
+    {
+      "name": "safe: the crash point landed: before B started, Postgres held the submission placed and no tool result, and A's backend was gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "submission": "placed",
+          "tool_results": 0,
+          "entries": 3
+        },
+        "backendGoneMs": 80
+      }
+    },
+    {
+      "name": "safe: on B, with no request sent, the SDK's wakeSession job started before anything moved the turn, and the answer came before any request",
+      "pass": true,
+      "observed": [
+        "ac71d89e constructed",
+        "ac71d89e start",
+        "ac71d89e pi:opened",
+        "ac71d89e wake:start",
+        "ac71d89e wake:waiting",
+        "ac71d89e tool:start",
+        "ac71d89e tool:end",
+        "ac71d89e model:answer",
+        "ac71d89e wake:end",
+        "ac71d89e wake:start",
+        "ac71d89e wake:waiting",
+        "ac71d89e wake:end"
+      ]
+    },
+    {
+      "name": "safe: Pi settled the operation done",
+      "pass": true,
+      "observed": {
+        "status": "done",
+        "answer": 15
+      }
+    },
+    {
+      "name": "unsafe: A was SIGKILLed while the tool's catalog call was held, after the wake had begun waiting",
+      "pass": true,
+      "observed": {
+        "inFlightAt": 1795041151695,
+        "waitingAt": 1795041151625,
+        "killedAt": 1795041152695
+      }
+    },
+    {
+      "name": "unsafe: the crash point landed: before B started, Postgres held the submission placed and no tool result, and A's backend was gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "submission": "placed",
+          "tool_results": 0,
+          "entries": 3
+        },
+        "backendGoneMs": 108
+      }
+    },
+    {
+      "name": "unsafe: on B, with no request sent, the SDK's wakeSession job started before anything moved the turn, and the answer came before any request",
+      "pass": true,
+      "observed": [
+        "ea4fa74a constructed",
+        "ea4fa74a start",
+        "ea4fa74a pi:opened",
+        "ea4fa74a wake:start",
+        "ea4fa74a wake:waiting",
+        "ea4fa74a model:answer"
+      ]
+    },
+    {
+      "name": "unsafe: Pi settled the operation done",
+      "pass": true,
+      "observed": {
+        "status": "done",
+        "answer": 15
+      }
+    },
+    {
+      "name": "safe: the tool ran again after the kill (two catalog calls), and its successful result reached the model",
+      "pass": true,
+      "observed": {
+        "calls": [
+          {
+            "at": 1795041121184,
+            "title": "Wake Safe",
+            "held": true
+          },
+          {
+            "at": 1795041151282,
+            "title": "Wake Safe",
+            "held": false
+          }
+        ],
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Wake Safe\",\"title_cn\":\"巡礼\"}}"
+        }
+      }
+    },
+    {
+      "name": "unsafe: the tool did not run again (one catalog call); the model received the interrupted result",
+      "pass": true,
+      "observed": {
+        "calls": [
+          {
+            "at": 1795041151695,
+            "title": "Wake Unsafe",
+            "held": true
+          }
+        ],
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        }
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms safe:A stdout: [spike] constructed instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+     2ms safe:A stdout: [spike] start instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   149ms safe:A stdout: [spike] pi:opened instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   152ms safe:A stdout: [spike] request:submit instance=6e8f67e9-3e77-421c-850b-92c77b9b579e op=op-wake-safe",
+    "+   154ms safe:A stdout: [spike] wake:start instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   154ms safe:A stdout: [spike] wake:waiting instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   154ms safe:A stdout: [spike] wake:end instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   174ms safe:A stdout: [spike] wake:start instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   174ms safe:A stdout: [spike] wake:waiting instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   195ms safe:A stdout: [spike] model:tool_call instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+   229ms safe:A stdout: [spike] tool:start instance=6e8f67e9-3e77-421c-850b-92c77b9b579e",
+    "+ 30176ms safe:B stdout: [spike] constructed instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30180ms safe:B stdout: [spike] start instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30301ms safe:B stdout: [spike] pi:opened instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30302ms safe:B stdout: [spike] wake:start instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30302ms safe:B stdout: [spike] wake:waiting instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30330ms safe:B stdout: [spike] tool:start instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30331ms safe:B stdout: [spike] tool:end instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30404ms safe:B stdout: [spike] model:answer instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30419ms safe:B stdout: [spike] wake:end instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30419ms safe:B stdout: [spike] wake:start instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30419ms safe:B stdout: [spike] wake:waiting instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30419ms safe:B stdout: [spike] wake:end instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df",
+    "+ 30423ms safe:B stdout: [spike] request:report instance=ac71d89e-3dc5-49e0-ab7c-c7a1d32f77df op=op-wake-safe",
+    "+ 30540ms unsafe:A stdout: [spike] constructed instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30542ms unsafe:A stdout: [spike] start instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30671ms unsafe:A stdout: [spike] pi:opened instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30672ms unsafe:A stdout: [spike] request:submit instance=5284547b-50b5-4965-b483-4047cdd76865 op=op-wake-unsafe",
+    "+ 30673ms unsafe:A stdout: [spike] wake:start instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30673ms unsafe:A stdout: [spike] wake:waiting instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30673ms unsafe:A stdout: [spike] wake:end instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30690ms unsafe:A stdout: [spike] wake:start instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30690ms unsafe:A stdout: [spike] wake:waiting instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30712ms unsafe:A stdout: [spike] model:tool_call instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 30742ms unsafe:A stdout: [spike] tool:start instance=5284547b-50b5-4965-b483-4047cdd76865",
+    "+ 60701ms unsafe:B stdout: [spike] constructed instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 60706ms unsafe:B stdout: [spike] start instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61031ms unsafe:B stdout: [spike] pi:opened instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61033ms unsafe:B stdout: [spike] wake:start instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61033ms unsafe:B stdout: [spike] wake:waiting instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61308ms unsafe:B stdout: [spike] model:answer instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61318ms unsafe:B stdout: [spike] request:report instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367 op=op-wake-unsafe",
+    "+ 61367ms unsafe:B stdout: [spike] wake:end instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61367ms unsafe:B stdout: [spike] wake:start instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61368ms unsafe:B stdout: [spike] wake:waiting instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367",
+    "+ 61368ms unsafe:B stdout: [spike] wake:end instance=ea4fa74a-b6df-4dda-b59e-b5df964ea367"
+  ]
+}
