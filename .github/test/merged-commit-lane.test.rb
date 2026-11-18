@@ -11,7 +11,7 @@
 # they are read here rather than described — and the tables below must cover every
 # job in the file, so a job added later cannot reach a merged commit by default.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class MergedCommitLaneTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -47,7 +47,7 @@ class MergedCommitLaneTest < Minitest::Test
   HEAD_REF = /github\.event\.(?:pull_request\.head\.sha|merge_group\.head_sha)/
 
   def workflow
-    @workflow ||= Psych.safe_load(File.read(File.join(ROOT, ".github/workflows", WORKFLOW)), aliases: true)
+    @workflow ||= RepositoryYaml.load_file(File.join(ROOT, ".github/workflows", WORKFLOW))
   end
 
   def jobs
@@ -55,7 +55,7 @@ class MergedCommitLaneTest < Minitest::Test
   end
 
   def events
-    (workflow["on"] || workflow[true]).to_h
+    RepositoryYaml.triggers(workflow).to_h
   end
 
   def condition(id)

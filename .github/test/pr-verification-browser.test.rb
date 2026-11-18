@@ -1,6 +1,6 @@
 # SUT: pr-verification.yml e2e job selects browser sources and runs the browser package gates.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationBrowserTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -10,7 +10,7 @@ class PrVerificationBrowserTest < Minitest::Test
   RETIRED_BROWSER_COMPOSITE = "cross-stack-e2e"
 
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
   end
 
   def browser_step_source
@@ -39,7 +39,7 @@ class PrVerificationBrowserTest < Minitest::Test
 
   def test_native_runtime_changes_select_the_browser_lane
     paths = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "paths" }
-    filters = Psych.safe_load(paths.dig("with", "filters"), aliases: true)
+    filters = RepositoryYaml.parse(paths.dig("with", "filters"))
     %w[workers/edge/** packages/agent/** packages/pi-session-neon/** packages/test-postgres/**].each do |path|
       assert_includes filters.fetch("e2e"), path
     end

@@ -1,6 +1,6 @@
 # SUT: workflow and action credentials come from guarded ESC exports under environment-bound identities.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowCredentialsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -9,7 +9,7 @@ class WorkflowCredentialsTest < Minitest::Test
 
   FILES.each do |path|
     name = path.delete_prefix("#{ROOT}/")
-    document = Psych.safe_load(File.read(path), aliases: true)
+    document = RepositoryYaml.load_file(path)
     define_method("test_#{name}_does_not_read_github_secrets") do
       refute_match(/\bsecrets\.[A-Za-z0-9_]+|secrets:\s*inherit/, File.read(path))
     end

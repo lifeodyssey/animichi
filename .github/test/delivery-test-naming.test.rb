@@ -4,7 +4,7 @@
 # mistake is a file named `cd-receipt` for `cd.yml` because `receipt.rb` happens
 # to be one of its words.
 #
-# Two halves, and the second is why the first exists. Every test in the four homes
+# Two halves, and the second is why the first exists. Every test in the five homes
 # declares the program it tests in its `# SUT:` header, and the filename must
 # carry that program's name — so a file is judged against a declaration rather
 # than against a guess, and a workflow-named file cannot pass on a coincidence of
@@ -14,20 +14,22 @@ require "minitest/autorun"
 
 class DeliveryTestNamingTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  # The four homes the toolchain lane runs (pr-verification-toolchain-lane.test.rb).
+  # The five homes the toolchain lane runs (pr-verification-toolchain-lane.test.rb).
   # A new test in any of them is judged here.
   DELIVERY_TEST_GLOBS = [
     ".github/test/delivery/*.test.rb",
+    "scripts/*.test.sh",
     "scripts/local-gates/*.test.sh",
     "scripts/delivery/*.test.sh",
     ".github/scripts/**/*.test.sh"
   ].freeze
-  # The toolchain's own four roots (#1776) — the programs a delivery test may be
+  # The toolchain's own five roots (#1776) — the programs a delivery test may be
   # named after. A declaration that resolves outside them names something whose
   # change does not select this suite, which is exactly what the move was for.
   PROGRAM_GLOBS = [
     ".github/lib/**/*",
     ".github/scripts/**/*",
+    "scripts/*",
     "scripts/delivery/*",
     "scripts/local-gates/*"
   ].freeze

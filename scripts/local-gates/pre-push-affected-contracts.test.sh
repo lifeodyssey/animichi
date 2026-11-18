@@ -24,7 +24,7 @@ refute "workflow change" "--filter" "$RECORDED"
 ok "a workflow change runs the contracts bucket and selects no package"
 
 # 2. The other two families. `scripts/**` holds the two Orca runners the
-#    contracts job runs, `delivery-test-naming.test.rb`'s four delivery homes
+#    contracts job runs, `delivery-test-naming.test.rb`'s five delivery homes
 #    and `pre-push-routing.test.rb`'s subject; `test/repo-config/**` is the
 #    contracts' own home, where a changed contract has to re-run.
 new_repo

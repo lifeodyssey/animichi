@@ -1,18 +1,18 @@
 # SUT: release-build.yml produces one complete snapshot with pinned providers, image and environment-independent bundles.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class ReleaseBuildTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
   def setup
-    @build = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/release-build.yml")), aliases: true)
+    @build = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/release-build.yml"))
     @steps = @build.fetch("jobs").fetch("snapshot").fetch("steps")
     @sealer = File.read(File.join(ROOT, ".github/scripts/release/seal-foundation.sh"))
   end
 
   def test_main_push_only_builds_snapshots
-    assert_equal({ "push" => { "branches" => ["main"] } }, @build["on"] || @build[true])
+    assert_equal({ "push" => { "branches" => ["main"] } }, RepositoryYaml.triggers(@build))
     guard = @build.dig("jobs", "snapshot", "if")
     assert_includes guard, "github.repository == 'lifeodyssey/animichi'"
     assert_includes guard, "github.ref == 'refs/heads/main'"
@@ -36,7 +36,7 @@ class ReleaseBuildTest < Minitest::Test
   end
 
   def test_neon_sdk_uses_committed_provider_versions
-    project = Psych.safe_load(File.read(File.join(ROOT, "infra/database-access/Pulumi.yaml")))
+    project = RepositoryYaml.load_file(File.join(ROOT, "infra/database-access/Pulumi.yaml"))
     assert_equal({ "source" => "terraform-provider", "version" => "1.4.0",
                    "parameters" => ["kislerdm/neon", "0.17.0"] }, project.dig("packages", "neon"))
   end

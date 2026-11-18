@@ -2,7 +2,7 @@
 # repository variable that exists, or refuses an empty value before spending it —
 # the gap #1686 found in cd.yml's production migrator URL.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowVariablesTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -35,7 +35,7 @@ class WorkflowVariablesTest < Minitest::Test
                FALLBACK_AGENT_MODEL MIGRATOR_STAGING_URL OPENAI_COMPAT_BASE_URL].freeze
 
   def load_document(relative)
-    Psych.safe_load(File.read(File.join(ROOT, relative)), aliases: true)
+    RepositoryYaml.load_file(File.join(ROOT, relative))
   end
 
   def references(value)

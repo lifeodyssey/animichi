@@ -1,11 +1,11 @@
 # SUT: workflow jobs retain time limits, cancellation policy, toolchains and required check contexts.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowExecutionTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   WORKFLOWS = Dir.glob(File.join(ROOT, ".github/workflows/*.yml")).sort.to_h do |path|
-    [File.basename(path), Psych.safe_load(File.read(path), aliases: true)]
+    [File.basename(path), RepositoryYaml.load_file(path)]
   end
   CANCELLATION = {
     "pr-verification.yml" => [true, "${{ github.event_name == 'pull_request' }}"],
@@ -48,7 +48,7 @@ class WorkflowExecutionTest < Minitest::Test
     names = workflow.fetch("jobs").map { |id, job| job.fetch("name", id) }
     assert_includes names, "PR Verification"
     assert_includes names, "Security"
-    events = workflow["on"] || workflow[true]
+    events = RepositoryYaml.triggers(workflow)
     assert_includes events.fetch("merge_group").fetch("branches"), "main"
   end
 end

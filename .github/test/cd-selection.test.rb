@@ -1,12 +1,12 @@
 # SUT: cd.yml dispatch selects an artifact while execution uses the trusted main controller.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdSelectionTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   def steps(job)
@@ -34,7 +34,7 @@ class CdSelectionTest < Minitest::Test
   end
 
   def test_main_dispatch_is_the_only_deploy_trigger
-    events = @cd["on"] || @cd[true]
+    events = RepositoryYaml.triggers(@cd)
     assert_equal ["workflow_dispatch"], events.keys
     assert_equal({ "description" => "Complete release snapshot artifact ID", "required" => true,
                    "type" => "string" }, events.dig("workflow_dispatch", "inputs", "artifact_id"))

@@ -1,12 +1,12 @@
 # SUT: cd.yml observes successful staging and requires its immutable receipt after production approval.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdReceiptTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   def steps(job)

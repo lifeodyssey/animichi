@@ -1,6 +1,6 @@
 # SUT: pr-verification.yml aggregates and commits job preserve required checks and squash/branch linting.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationAggregatesTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -10,7 +10,7 @@ class PrVerificationAggregatesTest < Minitest::Test
   AGGREGATE_GUARD = "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
 
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
   end
 
   def test_security_aggregate
@@ -39,7 +39,7 @@ class PrVerificationCommitsTest < Minitest::Test
   PAYLOAD_TITLE = "github.event.pull_request.title"
 
   def setup
-    @ci = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/pr-verification.yml")), aliases: true)
+    @ci = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/pr-verification.yml"))
   end
 
   def lint_steps
@@ -51,7 +51,7 @@ class PrVerificationCommitsTest < Minitest::Test
   end
 
   def commits_job_text
-    Psych.dump(@ci.dig("jobs", "commits"))
+    RepositoryYaml.dump(@ci.dig("jobs", "commits"))
   end
 
   def test_the_branch_range_lint_is_its_own_program_over_the_merge_base

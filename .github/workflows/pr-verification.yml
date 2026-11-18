@@ -163,8 +163,9 @@ jobs:
               - '.github/scripts/release/**'
             # The delivery toolchain's own tests (#1776), selected by the roots
             # their subjects live in — `.github/lib`, `.github/scripts`,
-            # `scripts/delivery`, `scripts/local-gates` — plus the directory the
-            # moved Ruby suites sit in. Overlapping `workflows` on
+            # `scripts/delivery`, `scripts/local-gates`, and the local developer
+            # scripts at the top of `scripts/` — plus the directory the moved
+            # Ruby suites sit in. Overlapping `workflows` on
             # `.github/lib/**` and `.github/scripts/**` is deliberate: a change
             # there reaches both the edge suite's workflow-text guards and the
             # toolchain's own tests. The `workflows` filter's force-add of
@@ -173,6 +174,7 @@ jobs:
               - '.github/lib/**'
               - '.github/scripts/**'
               - '.github/test/delivery/**'
+              - 'scripts/*'
               - 'scripts/delivery/**'
               - 'scripts/local-gates/**'
       - id: pnpm
@@ -351,6 +353,7 @@ jobs:
           bundle exec ruby .github/test/pr-verification-zizmor.test.rb
           bundle exec ruby .github/test/release-build.test.rb
           bundle exec ruby .github/test/release-dispatch.test.rb
+          bundle exec ruby .github/test/repository-yaml.test.rb
           bundle exec ruby .github/test/setup-workspace-action.test.rb
           bundle exec ruby .github/test/workflow-credentials.test.rb
           bundle exec ruby .github/test/workflow-execution.test.rb
@@ -411,7 +414,8 @@ jobs:
           bash .github/scripts/check-e2e-promotion.sh
 
   # The delivery toolchain's own tests (#1776): the unit and integration tests of
-  # `.github/lib`, `.github/scripts`, `scripts/delivery` and `scripts/local-gates`.
+  # `.github/lib`, `.github/scripts`, `scripts/delivery` and `scripts/local-gates`,
+  # and of the local developer scripts at the top of `scripts/`.
   # Each executes a committed script or library against fixtures and asserts real
   # exit codes, so each has a real SUT with a real path and none can be affected
   # by a change outside it — they are selected by the `delivery` filter above,
@@ -419,7 +423,7 @@ jobs:
   # ran all of them on every pull request whatever changed.
   #
   # Which files they are is the runner's business, not this file's: it enumerates
-  # the four homes, so a test joins the lane by landing in one rather than by
+  # the five homes, so a test joins the lane by landing in one rather than by
   # someone remembering to add a line. They are subprocess-bound rather than
   # compute-bound — real scripts in throwaway trees, real node origins — so the
   # runner runs four at a time; measured here at 195 s serial against 89 s at four.

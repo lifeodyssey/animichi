@@ -1,6 +1,6 @@
 # SUT: cd.yml migrations reach the database only through the authenticated migrator.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdMigrationsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -18,7 +18,7 @@ class CdMigrationsTest < Minitest::Test
   DIRECT_APPLY = ["prisma db migrate", "psql ", "neonctl"].freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
+    @cd = RepositoryYaml.load_file(CD_FILE)
   end
 
   def migration_step(job, environment)

@@ -22,7 +22,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 echo "=== 1/3 Installing E2E dependencies ==="
-pnpm install --ignore-scripts --filter animichi-e2e 2>/dev/null || pnpm install --ignore-scripts
+# One install. If it fails, `set -e` ends the setup here with pnpm's own error;
+# it is not silenced and retried as a whole-workspace install, which could pass
+# and leave a different tree than the one this setup asks for.
+pnpm install --ignore-scripts --filter animichi-e2e
 # --ignore-scripts skips ALL lifecycle scripts, including the one that would
 # otherwise fetch Playwright's browser binaries — download it explicitly
 # instead (the same explicit install used by the affected web CI lane) so we never run an

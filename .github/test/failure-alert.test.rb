@@ -3,7 +3,7 @@
 # behavior itself is driven in failure-alert-behavior.test.rb; this is the
 # contract that fails when the wiring is deleted.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class FailureAlertWiringTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -20,11 +20,11 @@ class FailureAlertWiringTest < Minitest::Test
   UNATTENDED = %w[schedule push workflow_dispatch].freeze
 
   def documents
-    WORKFLOWS.to_h { |path| [File.basename(path), Psych.safe_load(File.read(path), aliases: true)] }
+    WORKFLOWS.to_h { |path| [File.basename(path), RepositoryYaml.load_file(path)] }
   end
 
   def events(workflow)
-    (workflow["on"] || workflow[true].to_h).keys
+    RepositoryYaml.triggers(workflow).to_h.keys
   end
 
   def unattended

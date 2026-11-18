@@ -1,6 +1,6 @@
 # SUT: cd.yml opens only environment-bound publish credentials after trusted snapshot verification.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdCredentialsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -12,7 +12,7 @@ class CdCredentialsTest < Minitest::Test
 
   def setup
     @source = File.read(File.join(ROOT, ".github/workflows/cd.yml"))
-    @cd = Psych.safe_load(@source, aliases: true)
+    @cd = RepositoryYaml.parse(@source)
   end
 
   def steps(job)

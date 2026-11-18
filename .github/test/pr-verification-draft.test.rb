@@ -22,7 +22,7 @@
 # or a conjunction with the gate as a parenthesised term, and no `||` is left
 # at the top level for anything else to open the lane on a draft.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationDraftTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -48,7 +48,7 @@ class PrVerificationDraftTest < Minitest::Test
   REQUIRED_CONTEXTS = { "aggregate" => "PR Verification", "security" => "Security" }.freeze
 
   def workflow
-    @workflow ||= Psych.safe_load(File.read(WORKFLOW), aliases: true)
+    @workflow ||= RepositoryYaml.load_file(WORKFLOW)
   end
 
   def jobs
@@ -56,7 +56,7 @@ class PrVerificationDraftTest < Minitest::Test
   end
 
   def pull_request_types
-    ((workflow["on"] || workflow[true]).fetch("pull_request") || {}).fetch("types", [])
+    (RepositoryYaml.triggers(workflow).fetch("pull_request") || {}).fetch("types", [])
   end
 
   def condition(id)

@@ -3,13 +3,14 @@
 # from the toolchain's tests.
 #
 # The toolchain's tests are ordinary unit and integration tests of `.github/lib`,
-# `.github/scripts`, `scripts/delivery` and `scripts/local-gates`: real scripts
-# against fixture trees, asserting real exit codes. They are selected by their
-# sources' paths like every other package's, so a change outside those roots
-# never pays for them. Which tests they are is the runner's business, not this
-# file's: the lane invokes `.github/scripts/delivery-toolchain-tests.sh`, the
-# runner enumerates the four homes, and this file holds the runner to them — so a
-# test joins the lane by landing in a home rather than by someone editing a list.
+# `.github/scripts`, `scripts/delivery`, `scripts/local-gates` and the local
+# developer scripts at the top of `scripts/`: real scripts against fixture trees,
+# asserting real exit codes. They are selected by their sources' paths like every
+# other package's, so a change outside those roots never pays for them. Which
+# tests they are is the runner's business, not this file's: the lane invokes
+# `.github/scripts/delivery-toolchain-tests.sh`, the runner enumerates the five
+# homes, and this file holds the runner to them — so a test joins the lane by
+# landing in a home rather than by someone editing a list.
 #
 # The last case is the one that keeps the move from unravelling. A toolchain test
 # drifting back into `contracts` or `docs` — the two jobs that still run on every
@@ -17,41 +18,43 @@
 # green, and nothing else in the suite would say so.
 require "minitest/autorun"
 require "open3"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationToolchainLaneTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   WORKFLOW = File.join(ROOT, ".github/workflows/pr-verification.yml")
   LANE = "delivery-toolchain"
   RUNNER = ".github/scripts/delivery-toolchain-tests.sh"
-  # The tests' four homes, each beside the sources it exercises: the moved Ruby
-  # suites with their fixtures and support, the local gates, the delivery scripts
-  # and the release tooling's shell tests.
+  # The tests' five homes, each beside the sources it exercises: the moved Ruby
+  # suites with their fixtures and support, the local developer scripts, the
+  # local gates, the delivery scripts and the release tooling's shell tests.
   DELIVERY_TEST_GLOBS = [
     ".github/test/delivery/*.test.rb",
+    "scripts/*.test.sh",
     "scripts/local-gates/*.test.sh",
     "scripts/delivery/*.test.sh",
     ".github/scripts/**/*.test.sh"
   ].freeze
-  # The lane's routing table: the toolchain's four roots plus the tests' own
+  # The lane's routing table: the toolchain's five roots plus the tests' own
   # directory. `.github/**` also feeds the `workflows` filter's force-add of the
   # edge-worker lane, which this table leaves untouched.
   DELIVERY_FILTER = [
     ".github/lib/**",
     ".github/scripts/**",
     ".github/test/delivery/**",
+    "scripts/*",
     "scripts/delivery/**",
     "scripts/local-gates/**"
   ].freeze
   INVOCATION = /\A(?:bundle\s+exec\s+)?(?:bash|ruby|node|sh|python3?)\s+(?<path>\S+)/
 
   def ci
-    @ci ||= Psych.safe_load(File.read(WORKFLOW), aliases: true)
+    @ci ||= RepositoryYaml.load_file(WORKFLOW)
   end
 
   def paths_filters
     step = ci.dig("jobs", "plan", "steps").find { |candidate| candidate["id"] == "paths" }
-    Psych.safe_load(step.dig("with", "filters"), aliases: true)
+    RepositoryYaml.parse(step.dig("with", "filters"))
   end
 
   def invoked(job)
@@ -63,7 +66,7 @@ class PrVerificationToolchainLaneTest < Minitest::Test
     delivery_homes.include?(path)
   end
 
-  # The committed tests in the four homes, globbed rather than matched: what the
+  # The committed tests in the five homes, globbed rather than matched: what the
   # lane may run is exactly what is there, so a stray is judged against the tree
   # and not against a pattern's edge cases.
   def delivery_homes

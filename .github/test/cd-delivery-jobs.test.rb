@@ -1,6 +1,6 @@
 # SUT: cd.yml locks each whole environment chain and gates production independently of staging.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdDeliveryJobsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -10,7 +10,7 @@ class CdDeliveryJobsTest < Minitest::Test
   OPS_JOBS = %w[alert-failure].freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   def steps(job)

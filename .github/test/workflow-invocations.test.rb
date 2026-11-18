@@ -1,7 +1,7 @@
 # SUT: PR verification runs every repository check; workflows resolve their local scripts and actions.
 require "minitest/autorun"
 require "open3"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowInvocationsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -20,7 +20,7 @@ class WorkflowInvocationsTest < Minitest::Test
 
   def workflow_steps(paths = WORKFLOWS)
     paths.flat_map do |path|
-      Psych.safe_load(File.read(path), aliases: true).fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }
+      RepositoryYaml.load_file(path).fetch("jobs").values.flat_map { |job| job.fetch("steps", []) }
     end.flat_map { |step| [step, *local_action_steps(step)] }
   end
 
@@ -29,7 +29,7 @@ class WorkflowInvocationsTest < Minitest::Test
     return [] unless ref.start_with?("./", "$/")
     raise "recursive local action: #{ref}" if ancestors.include?(ref)
     manifest = %w[action.yml action.yaml].map { |name| File.join(ROOT, ref.delete_prefix("$/"), name) }.find { |path| File.file?(path) }
-    steps = Psych.safe_load(File.read(manifest), aliases: true).dig("runs", "steps").to_a
+    steps = RepositoryYaml.load_file(manifest).dig("runs", "steps").to_a
     steps.flat_map { |child| [child, *local_action_steps(child, ancestors + [ref])] }
   end
 
@@ -80,7 +80,7 @@ class WorkflowInvocationsTest < Minitest::Test
 
   def test_every_local_action_exists
     actions = Dir.glob(File.join(ROOT, ".github/actions/**/action.{yml,yaml}"))
-    nested = actions.flat_map { |path| Psych.safe_load(File.read(path), aliases: true).dig("runs", "steps").to_a }
+    nested = actions.flat_map { |path| RepositoryYaml.load_file(path).dig("runs", "steps").to_a }
     references = (workflow_steps + nested).map { |step| step["uses"].to_s }.grep(/\A[.$]\//)
     missing = references.reject { |ref| %w[action.yml action.yaml].any? { |name| File.file?(File.join(ROOT, ref.delete_prefix("$/"), name)) } }
     assert_empty missing, "local action references have no manifest"
