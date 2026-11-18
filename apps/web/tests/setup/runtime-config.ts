@@ -5,8 +5,8 @@ import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-con
 /**
  * Test seam for the versioned runtime config (#1013 AC1).
  *
- * Every suite starts from the env-neutral default (showcase off, no auth base,
- * no beacon, same-origin APIs) so nothing leaks between tests. Tests that need
+ * Every suite starts from the env-neutral default (no auth base, no beacon,
+ * same-origin APIs) so nothing leaks between tests. Tests that need
  * a concrete environment write the whole config via {@link stubRuntimeConfig};
  * it is cleared again by vi's automatic global unstubbing on teardown.
  */

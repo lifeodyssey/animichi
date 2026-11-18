@@ -90,13 +90,13 @@ describe("X-Robots-Tag plugin on h3 2", () => {
 
 describe("runtime config plugin on h3 2", () => {
   it("publishes the validated RUNTIME_CONFIG binding onto the global", async () => {
-    const payload = JSON.stringify({ schemaVersion: 1, showcaseMode: "true", featureFlags: {} });
+    const payload = JSON.stringify({ schemaVersion: 1, cfBeaconToken: "beacon", featureFlags: {} });
     await buildApp().request(HOME, undefined, cloudflareContext({ RUNTIME_CONFIG: payload }));
     const published = (globalThis as Record<string, unknown>)[RUNTIME_CONFIG_GLOBAL_KEY] as {
-      showcaseMode: string;
+      cfBeaconToken: string;
       schemaVersion: number;
     };
-    expect(published.showcaseMode).toBe("true");
+    expect(published.cfBeaconToken).toBe("beacon");
     expect(published.schemaVersion).toBe(1);
   });
 

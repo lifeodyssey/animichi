@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # Universal tool stub for local-gate behavioral tests.
 #
-# Records every invocation to $GATE_TEST_LOG as "PWD :: argv", logs the
-# VITE_SHOWCASE_MODE environment for pnpm invocations (the web build gate
-# depends on it), fakes the few commands the gates parse (docker run/port,
+# Records every invocation to $GATE_TEST_LOG as "PWD :: argv", fakes the few commands the gates parse (docker run/port,
 # pulumi preview classification), and exits 1 for any invocation matching
 # $GATE_FAIL_ON so tests can exercise fail-fast propagation. Dedicated env
 # switches simulate the fail-closed prerequisite conditions the gates must
@@ -85,7 +83,6 @@ esac
 log "$@"
 case "$tool:$*" in
   pnpm:*)
-    printf 'env VITE_SHOWCASE_MODE=%s\n' "${VITE_SHOWCASE_MODE:-}" >> "${GATE_TEST_LOG:?}"
     case "$*" in
       "exec wrangler deploy"*--dry-run*--outdir*) emit_wrangler_bundle "$@" ;;
     esac ;;

@@ -11,12 +11,6 @@ import { URL, fileURLToPath } from "node:url";
 //    and they must not all collapse to the same (formerly hardcoded)
 //    "production" (issue #498).
 //
-// 2. S0-v2 GOAL C / C9 nail test: the showcase gate's deployed VALUES are
-//    pinned per environment. production MUST be "true" (the landing-only
-//    contract), staging and the root/dev [vars] MUST be "false" (full
-//    functionality). Release promotion consumes this same file, so a drift
-//    here also changes deployed behavior.
-//
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 
 const WRANGLER_TOML_PATH = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
@@ -119,12 +113,6 @@ void test("wrangler.toml [env.production.vars] sets APP_ENV to production", () =
 
 void test("wrangler.toml [env.staging.vars] sets APP_ENV to staging (the whole point of issue #498)", () => {
   assert.equal(appEnvInBlock("[env.staging.vars]"), "staging");
-});
-
-void test("wrangler.toml EDGE_SHOWCASE_MODE is true in production and false in staging/dev", () => {
-  assert.equal(valueInBlock("[env.production.vars]", "EDGE_SHOWCASE_MODE"), "true");
-  assert.equal(valueInBlock("[env.staging.vars]", "EDGE_SHOWCASE_MODE"), "false");
-  assert.equal(valueInBlock("[vars]", "EDGE_SHOWCASE_MODE"), "false");
 });
 
 void test("escapeRegExp escapes a literal backslash, not just the bracket/dot metacharacters (CodeQL js/incomplete-sanitization)", () => {

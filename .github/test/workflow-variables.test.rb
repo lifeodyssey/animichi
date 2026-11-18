@@ -28,7 +28,7 @@ class WorkflowVariablesTest < Minitest::Test
   # token cannot list variables and no runner can ask GitHub, so the inventory is
   # pinned here: whoever adds, renames or retires one updates this list in the same
   # commit — the human discipline docs/ops/secrets.md states for the two credential
-  # tables. Staging-scoped names (VITE_NEON_AUTH_BASE_URL, VITE_SHOWCASE_MODE,
+  # tables. Staging-scoped names (VITE_NEON_AUTH_BASE_URL,
   # VITE_TURNSTILE_SITE_KEY) are deliberately absent: a job not bound to that
   # `environment:` reads them as empty, which is the failure this check exists for.
   DEFINED = %w[CLOUDFLARE_ACCOUNT_ID DEFAULT_AGENT_MODEL DOORBELL_STAGING_URL

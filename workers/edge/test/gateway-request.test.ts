@@ -35,7 +35,6 @@ void test("the authenticated limiter runs BEFORE the native tier — a denied re
   const guard = fakeGuard(NOW);
   const env = {
     EDGE_GUARD: guard.namespace,
-    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
   } as never;
   const app = authedApp(recordingAgent(events));
@@ -71,7 +70,6 @@ void test("the anonymous pipeline consults turnstile, limiter, budget, then nati
     ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
-    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: guardNamespace,
   } as never;
   const res = await app.request("/v1/chat", { method: "POST" }, env, stubCtx);
@@ -82,7 +80,6 @@ void test("the anonymous pipeline consults turnstile, limiter, budget, then nati
 void test("a native tier failure passes through unchanged", async () => {
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    EDGE_SHOWCASE_MODE: "false",
   } as never;
   const res = await authedApp(recordingAgent([], new Response("boom", { status: 503 }))).request("/v1/chat", POST, env, stubCtx);
   assert.equal(res.status, 503);
@@ -92,7 +89,6 @@ void test("a native tier failure passes through unchanged", async () => {
 void test("a catalog 5xx passes through unchanged on the public overview", async () => {
   const app = createWorkerApp({});
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     CATALOG: { fetch: () => Promise.resolve(new Response("catalog down", { status: 502 })) },
   } as never;
   const res = await app.request("/catalog/public/anime-overview/3302", {}, env, stubCtx);
@@ -107,7 +103,6 @@ void test("a still-open native stream is passed through without draining (discon
   const { body, bodyRead, release } = openStream();
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    EDGE_SHOWCASE_MODE: "false",
   } as never;
   const response = await Promise.race([
     authedApp(nativeAgentReceiver([], () => new Response(body, { headers: { "Content-Type": "text/event-stream" } }))).fetch(new Request("https://animichi.test/v1/chat", POST), env, stubCtx),
@@ -133,7 +128,6 @@ async function withWarnSpy(run: () => Promise<Response> | Response): Promise<{ r
 void test("the seam records class, status and duration, never identity material", async () => {
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    EDGE_SHOWCASE_MODE: "false",
   } as never;
   const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
   const record = warnings.find((entry) => entry.event === "edge_gateway_request");
@@ -149,7 +143,6 @@ void test("the seam records class, status and duration, never identity material"
 void test("an entry log precedes dispatch and carries no path or identity material", async () => {
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
-    EDGE_SHOWCASE_MODE: "false",
   } as never;
   const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
 

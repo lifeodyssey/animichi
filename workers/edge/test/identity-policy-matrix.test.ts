@@ -94,7 +94,6 @@ void test("anonymous BYOK is never promoted to authenticated (the native identit
     agentTurns: nativeAgentReceiver(captured),
   });
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",

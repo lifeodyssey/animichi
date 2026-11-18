@@ -82,7 +82,7 @@
       // #1364 deleted the injector outright — this block is now the only source.
       "vars": {
         "APP_ENV": "staging",
-        "RUNTIME_CONFIG": "{\"schemaVersion\":1,\"api\":{},\"neonAuthBaseUrl\":\"https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth\",\"turnstileSiteKey\":\"0x4AAAAAAD-SYZJEDljOH-SB\",\"showcaseMode\":\"false\",\"featureFlags\":{}}"
+        "RUNTIME_CONFIG": "{\"schemaVersion\":1,\"api\":{},\"neonAuthBaseUrl\":\"https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth\",\"turnstileSiteKey\":\"0x4AAAAAAD-SYZJEDljOH-SB\",\"featureFlags\":{}}"
       }
     },
     "production": {
@@ -113,7 +113,7 @@
       // this Worker. Add each value here when its environment is provisioned.
       "vars": {
         "APP_ENV": "production",
-        "RUNTIME_CONFIG": "{\"schemaVersion\":1,\"api\":{},\"showcaseMode\":\"false\",\"featureFlags\":{}}"
+        "RUNTIME_CONFIG": "{\"schemaVersion\":1,\"api\":{},\"featureFlags\":{}}"
       }
     }
   }

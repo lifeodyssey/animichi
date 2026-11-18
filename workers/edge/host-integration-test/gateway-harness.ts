@@ -91,7 +91,6 @@ function bindings(): Record<string, string> {
     ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: TEST_ANON_SECRET,
     TURNSTILE_SECRET: "host-integration-turnstile",
-    EDGE_SHOWCASE_MODE: "false",
     ANON_DAILY_MESSAGE_QUOTA: "2",
     MIMO_API_KEY: "host-integration-model",
     NEON_AUTH_JWKS_URL: JWKS_URL,

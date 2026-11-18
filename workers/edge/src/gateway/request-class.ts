@@ -29,7 +29,7 @@ export type RequestClass =
   | { kind: "retired" }
   | { kind: "not-found" };
 
-/** The landing surface, which the showcase gate never denies. The readiness
+/** The landing surface (/healthz, /tiles, /img). The readiness
  * probe is served by this Worker itself (#1596), and no landing class reads a
  * container binding — there is none (#1605). */
 function landingClass(method: string, pathname: string): RequestClass | null {
@@ -56,9 +56,4 @@ export function classify(request: Request): RequestClass {
   if (pathname === SESSION_ADOPT_PATH) return { kind: "adopt" };
   if (pathname.startsWith("/v1/")) return { kind: "v1", pathname };
   return { kind: "not-found" };
-}
-
-/** Functional routes are denied in showcase mode; the landing surface stays. */
-export function isFunctionalRoute(route: RequestClass): boolean {
-  return route.kind !== "landing" && route.kind !== "not-found";
 }

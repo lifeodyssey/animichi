@@ -42,7 +42,6 @@ void test("/v1/users with valid auth -> USERS gets X-User identity, no Authoriza
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const); };
   const app = createWorkerApp({ authenticate });
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: (req: Request) => { received = req; return Promise.resolve(new Response("users")); } },
   } as never;
   const res = await app.request("/v1/users/saved-routes", {
@@ -60,7 +59,6 @@ void test("/v1/users with an invalid credential 401s without hitting USERS", asy
   let received = false;
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "invalid" }) });
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: () => { received = true; return Promise.resolve(new Response("users")); } },
   } as never;
   const res = await app.request("/v1/users/saved-routes", { headers: { Authorization: "Bearer bad" } }, env, stubCtx);
@@ -72,7 +70,6 @@ void test("/v1/users with no credential 401s — anonymous is never allowed on u
   let received = false;
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: () => { received = true; return Promise.resolve(new Response("users")); } },
   } as never;
   const res = await app.request("/v1/users/saved-routes", {}, env, stubCtx);

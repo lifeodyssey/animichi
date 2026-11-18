@@ -16,7 +16,7 @@ const solvedHeaders = { [TURNSTILE_HEADER]: SOLVED, "CF-Connecting-IP": "203.0.1
 function anonEnv() {
   return {
     ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET,
-    TURNSTILE_SECRET, EDGE_SHOWCASE_MODE: "false",
+    TURNSTILE_SECRET,
     EDGE_GUARD: fakeGuard(NOW).namespace,
   } as never;
 }

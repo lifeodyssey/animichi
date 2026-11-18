@@ -65,7 +65,6 @@ function appEnv(host: string): never {
     ANON_ACCESS_ENABLED: "true",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
     ANON_ID_SECRET: SECRET,
-    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: fakeGuard(NOW).namespace,
   } as never;
 }

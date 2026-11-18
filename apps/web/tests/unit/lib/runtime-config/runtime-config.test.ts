@@ -16,7 +16,6 @@ const PROD = {
   },
   neonAuthBaseUrl: "https://auth.animichi.com/neondb/auth",
   turnstileSiteKey: "0x4AAAAAAAsitekey24chars",
-  showcaseMode: "false",
   cfBeaconToken: "00000000-0000-0000-0000-000000000000",
   featureFlags: {},
 };
@@ -39,7 +38,7 @@ describe("parseRuntimeConfig schema versioning", () => {
   });
 
   it("defaults all optional origin and token fields when omitted", () => {
-    const parsed = parseRuntimeConfig({ schemaVersion: 1, showcaseMode: "false", featureFlags: {} });
+    const parsed = parseRuntimeConfig({ schemaVersion: 1, featureFlags: {} });
     expect(parsed).toEqual(DEFAULT_RUNTIME_CONFIG);
   });
 
@@ -68,9 +67,8 @@ describe("parseRuntimeConfig schema versioning", () => {
     rejectsWith("[1,2]", "invalid");
   });
 
-  it("REJECTS missing/typed showcaseMode on an otherwise-false config", () => {
-    rejectsWith({ schemaVersion: 1 }, "invalid");
-    rejectsWith({ schemaVersion: 1, showcaseMode: "TRUE" }, "invalid");
+  it("REJECTS an unknown top-level field on an otherwise-valid config", () => {
+    rejectsWith({ schemaVersion: 1, showcaseMode: "TRUE" }, "unknown_field");
   });
 
   it("REJECTS a non-boolean feature flag value", () => {

@@ -54,7 +54,6 @@ function nativeDouble() {
 
 function nativeEnv(binding: unknown) {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: { idFromName: (name: string) => name as unknown as DurableObjectId, get: () => ({ fetch: () => Promise.resolve(new Response(JSON.stringify({ allowed: true, retryAfterSeconds: 0 }))) }) },
     RATE_LIMITER: binding,
     CATALOG: { fetch: () => Promise.resolve(new Response("cat")) },
@@ -99,7 +98,6 @@ void test("multi-PoP: two app isolates sharing one native binding see one counte
 void test("failure injection: an anonymous chat turn fails closed on durable outage", async () => {
   const down = { idFromName: (n: string) => n as unknown as DurableObjectId, get: () => ({ fetch: () => Promise.reject(new Error("down")) }) };
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
     TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",

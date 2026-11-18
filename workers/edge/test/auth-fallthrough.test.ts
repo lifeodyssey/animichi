@@ -99,7 +99,7 @@ void test("an sk_ credential reports reason invalid (AUTH-1: api_keys deleted)",
 
 function anonEnv() {
   return { ANON_ACCESS_ENABLED: "true", TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
-    ANON_ID_SECRET: SECRET, EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: fakeGuard(NOW).namespace } as never;
+    ANON_ID_SECRET: SECRET, EDGE_GUARD: fakeGuard(NOW).namespace } as never;
 }
 
 /** #441 is about which credential verdict may become anonymous, so the #447

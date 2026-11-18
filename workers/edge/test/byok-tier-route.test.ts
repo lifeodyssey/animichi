@@ -142,7 +142,6 @@ void test("a probe whose provider rejects the key answers the contract's verdict
 
 void test('an unauthenticated probe is 401 under "edge" too, never the anonymous pipeline', async () => {
   const env = {
-    EDGE_SHOWCASE_MODE: "false",
     AGENT_TURN_ROUTE: "edge",
     ANON_ACCESS_ENABLED: "true",
   } as unknown as Env;

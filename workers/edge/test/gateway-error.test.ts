@@ -30,7 +30,6 @@ const TRANSCRIPT = "/v1/conversations/6f1a4c2e-8f3b-4d5a-9c7e-2b1d0a4e5f60/messa
 
 function throwingEnv(): never {
   return {
-    EDGE_SHOWCASE_MODE: "false",
     AGENT_SVC_DATABASE_URL: { get: () => Promise.reject(new TypeError(THROWN_MESSAGE)) },
   } as never;
 }
