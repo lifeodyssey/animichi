@@ -5,7 +5,7 @@ incarnation. The deployed `AgentSession` export and `/v1/chat` production tier n
 class directly. The old turn engine is not a fallback.
 
 Default startup registers the native recurring recovery schedule before opening the native
-Prisma client, `NeonSessionRepo`, published Xiaomi model and seven production tools. Explicit
+Prisma client, `NeonSessionRepo`, OpenCode Go's published `mimo-v2.6-flash` and seven production tools. Explicit
 Session exclusion covers admission, reconciliation, drive and settlement across database awaits.
 The model's published pricing is retained; the harness owns retry scheduling and provider-level
 retries are disabled. Client cancellation never becomes the operation Context's cancellation.

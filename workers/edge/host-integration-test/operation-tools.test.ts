@@ -28,7 +28,7 @@ void test("actual BYOK tools use the caller's translation model and requested Ch
   const billing = await pool.query("SELECT scope,requests,input_tokens,output_tokens,cost_usd FROM daily_usage");
   assert.deepEqual(billing.rows, [{ scope: "byok", requests: "3", input_tokens: "90", output_tokens: "60", cost_usd: "0.000000" }]);
   const stored = await pool.query("SELECT value FROM pi_scalar_values UNION ALL SELECT payload FROM pi_records");
-  assert.doesNotMatch(JSON.stringify(stored.rows) + wire, /private-caller-key|server-private-key/);
+  assert.doesNotMatch(JSON.stringify(stored.rows) + wire, /private-caller-key|server-opencode-key/);
 });
 
 void test("a cold default host recovers the accepted operation's Japanese locale and shared GPS before executing catalog tools", async (context) => {

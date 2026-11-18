@@ -65,7 +65,10 @@
 #                                Store in BOTH deployed environments (staging
 #                                #912 follow-up, production W4-1 #1314); read by
 #                                the native agent tier
-#   MIMO_API_KEY               — the model credential the native agent tier reads
+#   OPENCODE_API_KEY           — the model credential the native agent tier reads;
+#                                every default (non-BYOK) turn answers on OpenCode Go (#1974)
+#   MIMO_API_KEY               — retained so rolling back to the previous release works;
+#                                no default-turn path reads it (#1974)
 #   ZEN_GO_API_KEY             — the deleted Python process's zen/go provider key
 #   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
 #   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
@@ -321,6 +324,11 @@ store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "MIMO_API_KEY_PROD"
 
 [[env.production.secrets_store_secrets]]
+binding = "OPENCODE_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "OPENCODE_API_KEY_PROD"
+
+[[env.production.secrets_store_secrets]]
 binding = "ZEN_GO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "ZEN_GO_API_KEY_PROD"
@@ -511,6 +519,11 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 binding = "MIMO_API_KEY"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "MIMO_API_KEY"
+
+[[env.staging.secrets_store_secrets]]
+binding = "OPENCODE_API_KEY"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "OPENCODE_API_KEY"
 
 [[env.staging.secrets_store_secrets]]
 binding = "ZEN_GO_API_KEY"

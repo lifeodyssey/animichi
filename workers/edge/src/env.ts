@@ -29,6 +29,10 @@ export interface Env {
   /** Per-identity anonymous message reservation ceiling; zero disables it. */
   ANON_DAILY_MESSAGE_QUOTA?: string;
   ANON_DAILY_COST_BUDGET_USD?: string;
+  /** OpenCode Go session credential the native agent tier reads for every default turn (#1974). */
+  OPENCODE_API_KEY?: SecretsStoreSecret | string;
+  /** Direct MiMo credential, retained so rolling back to the previous release still works;
+   * no default-turn path reads it (#1974). */
   MIMO_API_KEY?: SecretsStoreSecret | string;
   /** The `agent_svc` Neon DSN. A Cloudflare Secrets Store binding where one is
    * declared (both environments, `docs/ops/secrets.md`), or a plain string

@@ -23,7 +23,7 @@ const anonymousAccessEnabled = config.requireBoolean("anonymousAccessEnabled");
 // The two anonymous-access secrets are not config (#1676): TURNSTILE_SECRET is
 // the adopted widget's own secret and ANON_ID_SECRET is generated.
 const vendorNames = [
-  "MIMO_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
+  "MIMO_API_KEY", "OPENCODE_API_KEY", "ZEN_GO_API_KEY", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
   "INGEST_SIGNING_KEY",
 ];
 
