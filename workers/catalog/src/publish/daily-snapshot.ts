@@ -28,7 +28,7 @@ export interface DailyRunOutcome {
   createdAt: string;
 }
 
-/** The injectable daily publish collaborators (subset of CronDependencies). */
+/** The injectable daily publish collaborators: the daily discover pass's dependencies, each closed over its seam. */
 export interface DailyPublishPorts {
   runDailyIngest: () => Promise<DailyRunOutcome>;
   publishRun: (store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;

@@ -6,7 +6,7 @@ import {
   type CronDependencies,
 } from "../src/scheduled/ingest-schedule";
 import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { runPendingDrainJob } from "../src/scheduled/cron-jobs";
+import { runPendingDrainJob, type PendingDrainJobDependencies } from "../src/scheduled/cron-jobs";
 
 /**
  * The cron's Prisma seam. Every dependency below is injected, so this seam is
@@ -76,10 +76,10 @@ describe("scheduled pending drain", () => {
 
   it("stops before a work that does not fit the shared budget", async () => {
     const ingestBangumi = ingestMock();
-    const deps = dependencies({
+    const deps: PendingDrainJobDependencies = {
       ingestBangumi,
       listDrainableBangumiIds: () => Promise.resolve(["pending-1", "pending-2"]),
-    });
+    };
     const budget = new Budget({ workLimit: 1, requestLimit: 2 });
 
     const result = await runPendingDrainJob(query, deps, budget);

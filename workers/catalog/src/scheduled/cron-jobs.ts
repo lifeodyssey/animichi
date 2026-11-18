@@ -11,7 +11,8 @@
  * dispatcher acquired it and disposes it when the pass ends, so nothing here
  * opens or closes a connection — and the pass's {@link UpstreamAccess}: the
  * egress signing key and the pass's deadline signal. Once that signal aborts,
- * the work in flight is stopped and a batch starts no further work.
+ * the work in flight is stopped and a batch starts no further work. Each runner
+ * names the dependencies it uses as its own interface, and is handed no other.
  */
 import { Budget, canSpendWork, spendWork } from "../ingest/budgets";
 import { catalogDailyRun } from "../ingest/catalog-daily-run";
@@ -27,14 +28,34 @@ import type { SourceConfig, UpstreamAccess } from "../ingest/sources";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import { dailyPolicy, hourlyIngestBudget } from "../operational-config";
 import type { CatalogPrisma } from "../db/prisma";
-import type { CronDependencies, CronJobResult } from "./ingest-schedule";
+import type { CronJobResult } from "./ingest-schedule";
 
 /** The injected snapshot pool keeps N (active) and N-1 (predecessor). */
 export const SNAPSHOT_KEEP = 2;
 
+/** What every batch needs: one work's ingest on the pass. */
+export interface WorkIngestDependencies {
+  ingestBangumi: (query: CatalogPrisma, bangumiId: string, upstream: UpstreamAccess) => Promise<IngestResult>;
+}
+
+/** The seed job's dependencies: which checked-in titles are already done, then their ingest. */
+export interface SeedJobDependencies extends WorkIngestDependencies {
+  listDoneBangumiIds: (query: CatalogPrisma, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
+}
+
+/** The TTL job's dependencies: the stalest raw works, then their ingest. */
+export interface TtlJobDependencies extends WorkIngestDependencies {
+  listStaleBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
+}
+
+/** The pending drain's dependencies: the request-parked works, then their ingest. */
+export interface PendingDrainJobDependencies extends WorkIngestDependencies {
+  listDrainableBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
+}
+
 interface IngestBatchPlan {
   query: CatalogPrisma;
-  dependencies: CronDependencies;
+  dependencies: WorkIngestDependencies;
   bangumiIds: readonly string[];
   budget?: Budget;
   upstream: UpstreamAccess;
@@ -43,7 +64,7 @@ interface IngestBatchPlan {
 /** Seed pass: ingest the checked-in titles that have no `done` ingest_jobs row. */
 export async function runSeedJob(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: SeedJobDependencies,
   upstream: UpstreamAccess = {},
 ): Promise<CronJobResult> {
   const done = await dependencies.listDoneBangumiIds(query, SEED_BANGUMI_IDS);
@@ -56,7 +77,7 @@ export async function runSeedJob(
 /** TTL pass: re-ingest the stalest raw works, one at a time, capped per run. */
 export async function runTtlJob(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: TtlJobDependencies,
   budget = new Budget(hourlyIngestBudget()),
   upstream: UpstreamAccess = {},
 ): Promise<CronJobResult> {
@@ -67,7 +88,7 @@ export async function runTtlJob(
 /** Drain request-parked work in creation order, bounded per invocation. */
 export async function runPendingDrainJob(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: PendingDrainJobDependencies,
   budget: Budget | undefined = new Budget(hourlyIngestBudget()),
   upstream: UpstreamAccess = {},
 ): Promise<CronJobResult> {
@@ -110,7 +131,7 @@ function reserveWork(budget: Budget | undefined): boolean {
 /** One work's ingest, throwing-free — a throw (a stop at the pass's deadline included) is logged and counted as failed. */
 async function ingestOne(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: WorkIngestDependencies,
   bangumiId: string,
   upstream: UpstreamAccess,
 ): Promise<WorkCount> {

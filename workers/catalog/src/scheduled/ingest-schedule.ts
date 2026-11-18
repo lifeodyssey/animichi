@@ -37,6 +37,9 @@ import {
   runPendingDrainJob,
   runSeedJob,
   runTtlJob,
+  type PendingDrainJobDependencies,
+  type SeedJobDependencies,
+  type TtlJobDependencies,
 } from "./cron-jobs";
 
 interface ScheduledInput {
@@ -66,28 +69,40 @@ export interface CronJobResult {
 /** The summary of a pass that ran no ingest batch: denied, or a daily publish or import. */
 const NO_BATCH: CronJobResult = { attempted: 0, ingested: 0, skipped: 0, failed: 0 };
 
-/**
- * Injectable seams for the cron jobs; tests substitute every one.
- *
- * Every job takes the pass's {@link CatalogPrisma} (#1630, #1633) — the staging
- * import was the last one on a seam of its own, and joined this one when the
- * Drizzle client left the repository.
- */
-export interface CronDependencies {
-  /** Acquire this cron pass's Prisma seam; the handler disposes it when done. */
-  connectPrisma: (connectionString: string) => Promise<CronPrisma>;
-  ingestBangumi: (query: CatalogPrisma, bangumiId: string, upstream: UpstreamAccess) => Promise<IngestResult>;
-  listDoneBangumiIds: (query: CatalogPrisma, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
-  listDrainableBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
-  listStaleBangumiIds: (query: CatalogPrisma, cap: number) => Promise<readonly string[]>;
+/** The daily discover pass's dependencies: the run, then the snapshot publish and the pool's GC. */
+export interface DailyDiscoverDependencies {
   runDailyIngest: (query: CatalogPrisma, upstream: UpstreamAccess) => Promise<DailyRunOutcome>;
-  snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
   publishRun: (query: CatalogPrisma, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
-  /** Build the read-only snapshot source, or null when no import binding exists (AC2). */
-  importSource: (env: ScheduledEnvironment) => SnapshotSource | null;
+}
+
+/** The daily staging import's dependency. */
+export interface DailyImportDependencies {
   /** Run the daily staging import over the pass's seam (AC1/AC3/AC4). */
   runImport: (query: CatalogPrisma, source: SnapshotSource | null) => Promise<ImportResult>;
+}
+
+/** The production hourly pass drains pending work, then refreshes stale work. */
+type HourlyJobDependencies = PendingDrainJobDependencies & TtlJobDependencies;
+
+/**
+ * Injectable seams for the scheduled handler; tests substitute every one.
+ *
+ * The handler opens a pass with its own three — the pass's Prisma seam, the
+ * snapshot store and the import source — and hands each job only the
+ * dependencies that job's interface names. Every job takes the pass's
+ * {@link CatalogPrisma} (#1630, #1633) — the staging import was the last one on
+ * a seam of its own, and joined this one when the Drizzle client left the
+ * repository.
+ */
+export interface CronDependencies
+  extends SeedJobDependencies, TtlJobDependencies, PendingDrainJobDependencies,
+  DailyDiscoverDependencies, DailyImportDependencies {
+  /** Acquire this cron pass's Prisma seam; the handler disposes it when done. */
+  connectPrisma: (connectionString: string) => Promise<CronPrisma>;
+  snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
+  /** Build the read-only snapshot source, or null when no import binding exists (AC2). */
+  importSource: (env: ScheduledEnvironment) => SnapshotSource | null;
 }
 
 /** One work's ingest on a cron pass: the production `IngestBangumi`, under the pass's upstream access. */
@@ -199,7 +214,7 @@ async function runCronKind(
     return NO_BATCH;
   }
   if (kind === "dailyDiscover") {
-    await publishDailyDiscover(query, dependencies, context);
+    await publishDailyDiscover(query, dependencies, context.store, context.upstream);
     return NO_BATCH;
   }
   return runIngestKind(kind, query, dependencies, context.upstream);
@@ -220,20 +235,21 @@ function runIngestKind(
 /** The daily run, then the snapshot publish, both on this pass's one seam. */
 async function publishDailyDiscover(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
-  context: CronContext,
+  dependencies: DailyDiscoverDependencies,
+  store: ObjectStore | null,
+  upstream: UpstreamAccess,
 ): Promise<void> {
-  await publishAfterRun(context.store, {
-    runDailyIngest: () => dependencies.runDailyIngest(query, context.upstream),
-    publishRun: (store, sourceRunId, createdAt) => dependencies.publishRun(query, store, sourceRunId, createdAt),
-    gcSnapshots: (store) => dependencies.gcSnapshots(store),
+  await publishAfterRun(store, {
+    runDailyIngest: () => dependencies.runDailyIngest(query, upstream),
+    publishRun: (snapshotStore, sourceRunId, createdAt) => dependencies.publishRun(query, snapshotStore, sourceRunId, createdAt),
+    gcSnapshots: (snapshotStore) => dependencies.gcSnapshots(snapshotStore),
   });
 }
 
 /** Production reuses the existing hourly event: durable intent first, TTL second. */
 async function runProductionHourlyJob(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: HourlyJobDependencies,
   upstream: UpstreamAccess,
 ): Promise<CronJobResult> {
   const budget = new Budget(hourlyIngestBudget());
@@ -256,7 +272,7 @@ function combineResults(left: CronJobResult, right: CronJobResult): CronJobResul
  * validation/activation failure is not a silent no-op. */
 async function runDailyImport(
   query: CatalogPrisma,
-  dependencies: CronDependencies,
+  dependencies: DailyImportDependencies,
   importSource: SnapshotSource | null,
 ): Promise<void> {
   logImportOutcome(await dependencies.runImport(query, importSource));
