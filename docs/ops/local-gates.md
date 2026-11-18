@@ -225,7 +225,7 @@ Paths that need no package gate, because another hook or a CI job already owns t
 
 ```text
 docs/**  .claude/**  .semgrep*
-root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
+root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  osv-scanner.toml  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
 Gemfile  Gemfile.lock  .ruby-version  .env.example  .env.test.example
 ```
@@ -235,7 +235,8 @@ Gemfile  Gemfile.lock  .ruby-version  .env.example  .env.test.example
 
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.
-`.codacy.yml` and `.sonarcloud.properties` configure CI-side analyzers with no local gate;
+`.codacy.yml`, `.sonarcloud.properties` and `osv-scanner.toml` (read only by the `CI / security
+(osv)` lane) configure CI-side analyzers with no local gate;
 `supabase/**` is the archived historical migration directory (#1000), not a live surface, so
 nothing in it is gated locally.
 

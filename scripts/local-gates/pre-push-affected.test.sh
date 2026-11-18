@@ -202,11 +202,12 @@ refute "deleted file in package" "no gate covers" "$OUT"
 ok "a deleted file inside a surviving package still selects that package"
 
 # 17. The retired stack's stragglers: the root analyzer configs name CI-side
-#     scanners with no local gate, and supabase/ is the archived historical
-#     migration dir (#1000), not a live surface — whitelisted, so a later
-#     touch of any of the three cannot block a push either (#1607).
+#     scanners with no local gate (osv-scanner.toml is read only by the osv
+#     lane), and supabase/ is the archived historical migration dir (#1000),
+#     not a live surface — whitelisted, so a later touch of any of them cannot
+#     block a push either (#1607).
 new_repo
-commit_change feature .codacy.yml .sonarcloud.properties supabase/README.md
+commit_change feature .codacy.yml .sonarcloud.properties osv-scanner.toml supabase/README.md
 run_gate < /dev/null
 expect_status "analyzer configs" 0 "$STATUS"
 expect "analyzer configs" "packages: (none)" "$OUT"
