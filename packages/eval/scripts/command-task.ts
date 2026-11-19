@@ -20,6 +20,7 @@ function writeDryRunPlan(result: NativeRunResult): void {
     dataset: result.config.datasetName,
     provider: result.config.provider,
     model: result.config.modelId,
+    baseline: result.baseline,
     repeat: result.config.repeat,
     maxConcurrency: result.config.maxConcurrency,
     sampling: 'iid',
