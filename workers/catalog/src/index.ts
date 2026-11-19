@@ -7,7 +7,7 @@ import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
 import { serveImage } from "./media/img";
 import { parseAnitabiImagePlan } from "@animichi/contract/anitabi-display";
-import { mountSnapshotRoutes } from "./api/snapshot";
+import { mountSnapshotRoutes } from "./adapters/inbound/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes, type AdminConnection } from "./import/admin-routes";

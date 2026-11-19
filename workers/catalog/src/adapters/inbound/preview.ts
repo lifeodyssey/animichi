@@ -5,16 +5,16 @@
  * preview's upstream call and surfaces as itself, never as an outage.
  */
 
-import { upstreamUnavailable } from "../lib/errors";
-import { optional } from "../lib/optional";
+import { upstreamUnavailable } from "../../lib/errors";
+import { optional } from "../../lib/optional";
 import {
   fetchAnitabiLite,
   UpstreamNotFoundError,
   type AnitabiLite,
   type AnitabiPoint,
   type SourceConfig,
-} from "../ingest/sources";
-import type { Point } from "../types";
+} from "../../ingest/sources";
+import type { Point } from "../../types";
 
 /** A bangumi id plus its fast `/lite` point preview. */
 export interface MissPreview {

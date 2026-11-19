@@ -24,7 +24,7 @@ Root guide: `../../AGENTS.md`.
 
 - **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
 - **One query path.** Every read and write crosses the Prisma data plane (spec §4.2) — the
-  **nearby** read (#1628), the `src/api` handlers (#1631), the cron/daily queries, the
+  **nearby** read (#1628), the `src/adapters/inbound` handlers (#1631), the cron/daily queries, the
   **ingest → enrich → publish writes** (#1630) and, since #1633, the staging **import**
   (`src/import/switch.ts`) and **media** (`src/media/img.ts`). `src/db/prisma.ts` builds the
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
@@ -63,7 +63,7 @@ Root guide: `../../AGENTS.md`.
   the same file, SD-28) — the old Python `route_optimizer.py` is retired.
 - Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
 - Geocode API resolves normalized aliases exact-first; only an exact miss runs strict pg_trgm fuzzy
-  matching, then deterministic collapse/limit (`src/api/geocode.ts`).
+  matching, then deterministic collapse/limit (`src/adapters/inbound/geocode.ts`).
 - Gazetteer source lock: `data/gazetteer-sources.json`; generator:
   `scripts/build-gazetteer.ts`; review output: `data/gazetteer-audit.csv`. The canonical invocation and
   provenance live in `docs/data-sources.md`.

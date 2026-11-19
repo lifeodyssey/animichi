@@ -32,12 +32,12 @@ interface LayerRule {
 const LAYER_RULES: readonly LayerRule[] = [
   {
     layer: "src/domain/",
-    directories: ["adapters", "api", "enrich", "ingest", "publish", "db", "lib"],
+    directories: ["adapters", "enrich", "ingest", "publish", "db", "lib"],
     packages: ["hono", "@orpc", "@prisma", "@animichi/prisma-geography", "cloudflare:"],
   },
   {
     layer: "src/application/",
-    directories: ["adapters", "api", "enrich", "ingest", "publish", "db"],
+    directories: ["adapters", "enrich", "ingest", "publish", "db"],
     packages: ["hono", "@prisma", "@animichi/prisma-geography"],
   },
 ];

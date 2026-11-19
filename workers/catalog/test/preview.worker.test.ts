@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewForWork } from "../src/api/preview";
+import { previewForWork } from "../src/adapters/inbound/preview";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 import { upstreamUnavailable } from "../src/lib/errors";
 import { mockFetchSequence } from "./mock-fetch-sequence";
@@ -8,7 +8,7 @@ import { unanswered } from "./fakes/unanswered-request";
 import type { FetchLike, SourceConfig } from "../src/ingest/sources";
 
 /**
- * Unit tests for the fast Anitabi L1 preview mapping (api/preview.ts).
+ * Unit tests for the fast Anitabi L1 preview mapping (adapters/inbound/preview.ts).
  *
  * Covers the whole `/lite` mapping chain — litePoint, liteBase, liteGeo,
  * liteImage, liteString, liteInt — through `previewForWork`, the preview
@@ -80,7 +80,7 @@ const MAPPED_LITE_POINTS = [
   },
 ];
 
-describe("previewForWork (api/preview.ts)", () => {
+describe("previewForWork (adapters/inbound/preview.ts)", () => {
   it("maps every lite point of the work onto the point contract", async () => {
     const { fetch } = mockFetchSequence([{ status: 200, body: { pointsLength: 2, litePoints: LITE_POINTS } }]);
     const preview = await previewForWork("10380", egressCall(fetch));
@@ -132,7 +132,7 @@ describe("previewForWork (api/preview.ts)", () => {
   });
 });
 
-describe("a caller's cancel through the preview (api/preview.ts)", () => {
+describe("a caller's cancel through the preview (adapters/inbound/preview.ts)", () => {
   it("previewForWork rejects with the caller's own reason when the caller cancels the Anitabi fetch", async () => {
     const caller = new AbortController();
     const reason = new Error("the edge gave up");

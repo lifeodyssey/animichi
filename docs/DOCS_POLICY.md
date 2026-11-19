@@ -90,7 +90,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Agent entry | `workers/edge/src/gateway/agent-turn.ts` → `workers/edge/src/agent/host/session-agent.ts` | Authenticated native Pi host |
 | Agent shared types | Public Pi Session/AgentLane/results and `packages/agent/src/` domain schemas | No custom execution envelope |
 | Agent tools | `packages/agent/src/harness.ts` + `tools.ts` | Seven native tools shared by serving and Eval |
-| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
+| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `adapters/inbound/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC service over Neon, `/v1/users/*`; no token verification of its own — it trusts the edge-forwarded identity (AUTH-2 #950) |
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |

@@ -1,15 +1,15 @@
 // TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /** Tiered point reads for an already-resolved Bangumi id. */
 
-import { bangumiPoints } from "../adapters/outbound/bangumi-points";
+import { bangumiPoints } from "../outbound/bangumi-points";
 import {
   pointsByBangumi,
   type PointsByBangumiResult,
   type PublishedPointRow,
-} from "../application/list-points-for-bangumi";
-import type { CatalogPrisma } from "../db/prisma";
-import { catalogIngestBangumi, type IngestGuard } from "../ingest/ingest-bangumi";
-import type { FetchLike } from "../ingest/sources";
+} from "../../application/list-points-for-bangumi";
+import type { CatalogPrisma } from "../../db/prisma";
+import { catalogIngestBangumi, type IngestGuard } from "../../ingest/ingest-bangumi";
+import type { FetchLike } from "../../ingest/sources";
 import { previewForWork, type MissPreview } from "./preview";
 
 interface PendingIngest {

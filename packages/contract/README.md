@@ -21,7 +21,7 @@ packages/contract/src/models.ts                    ← Zod schemas (source of tr
          ↓  inferred types
 workers/catalog/src/types.ts                       ← Worker-bundle mirror (pure TS interfaces, NO zod)
          ↓  import type only
-workers/catalog/src/router.ts, src/api/*.ts        ← Handlers use local types
+workers/catalog/src/router.ts, src/adapters/inbound/*.ts ← Handlers use local types
 ```
 
 ### Parity guard

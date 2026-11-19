@@ -2,7 +2,7 @@
  * Protected admin command routes (issue #1016, AC5).
  *
  * POST /catalog/admin/full-ingest and POST /catalog/admin/canary sit behind the
- * bearer guard the snapshot rollback uses (`../api/bearer-guard.ts`), with
+ * bearer guard the snapshot rollback uses (`../adapters/inbound/bearer-guard.ts`), with
  * CATALOG_ADMIN_TOKEN as their token: a missing or wrong token, and any token
  * while none is configured, answers 401 before the database is resolved, so a
  * public caller never touches the pipeline. Both delegate to the production
@@ -21,7 +21,7 @@ import type { Env } from "../index";
 import { fullIngest, runCanaryCommand } from "./admin-commands";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { ObjectStore } from "../publish/object-store";
-import { bearerGuard } from "../api/bearer-guard";
+import { bearerGuard } from "../adapters/inbound/bearer-guard";
 
 /** The seam one admin command runs on, resolved from the environment. */
 export interface AdminSeams {
