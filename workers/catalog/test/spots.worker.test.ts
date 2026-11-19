@@ -100,6 +100,11 @@ describe("spots (api/spots.ts)", () => {
     });
   });
 
+  it("keeps an empty name_cn and city on the point, as the other reads do", async () => {
+    const { point } = await spots(fakeCatalogPrisma([{ ...KAMAKURA, name_cn: "", city: "" }]), { bangumi_id: "100" });
+    expect(point).toMatchObject({ name_cn: "", city: "" });
+  });
+
   it("throws SpotNotFoundError for an unknown bangumi_id (no points)", async () => {
     await expect(spots(fakeCatalogPrisma([]), { bangumi_id: "999" })).rejects.toBeInstanceOf(SpotNotFoundError);
   });

@@ -74,10 +74,10 @@ function representativePlan(query: CatalogPrisma, bangumiId: string): SqlOrmPlan
 function toPoint(r: RepresentativeRow): Point {
   return {
     ...pointBase(r),
-    ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
-    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
-    ...(r.city ? { city: r.city } : {}),
-    ...optional({ origin: r.origin, origin_url: r.origin_url }),
+    ...optional({
+      name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
+      city: r.city, origin: r.origin, origin_url: r.origin_url,
+    }),
   };
 }
 
