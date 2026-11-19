@@ -1,11 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import type {
-  RouteTooManyPointsData,
-  UpstreamUnavailableData,
-  WorkNotFoundData,
-} from "../src/lib/errors";
+import type { RouteTooManyPointsData, WorkNotFoundData } from "../src/lib/errors";
 import type { Itinerary } from "../src/types";
 import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
@@ -66,8 +62,8 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
  * read and every ingest write answers on the Prisma plane (#1630), one row-list
  * per `query()` in call order.
  */
-function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
-  return { prisma: fakeCatalogPrisma(rows), fetchImpl };
+function context(rows: unknown[]): CatalogContext {
+  return { prisma: fakeCatalogPrisma(rows) };
 }
 
 /** Context whose Prisma seam must not be touched. */
@@ -139,16 +135,6 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
     expect(body).toMatchObject({ truncated: true, shown_cluster_count: 50, total_cluster_count: 51 });
   });
 
-  it("serializes WORK_NOT_FOUND for a spots miss", async () => {
-    const res = await call("spots", { bangumi_id: "missing-work" }, context([]));
-    expect(res.status).toBe(404);
-    expect(await json<WorkNotFoundData>(res)).toEqual({
-      defined: true, code: "WORK_NOT_FOUND", status: 404,
-      message: "No pilgrimage points for this work",
-      data: { bangumi_id: "missing-work" },
-    });
-  });
-
   it("serializes WORK_NOT_FOUND for an unknown anime overview", async () => {
     const res = await callOverview("999999", context([]));
     expect(res.status).toBe(404);
@@ -156,17 +142,6 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
       defined: true, code: "WORK_NOT_FOUND", status: 404,
       message: "No pilgrimage points for this work",
       data: { bangumi_id: "999999" },
-    });
-  });
-
-  it("serializes UPSTREAM_UNAVAILABLE for a search alias miss with Bangumi down", async () => {
-    const fetchImpl = (() => Promise.reject(new Error("bangumi down"))) as unknown as typeof fetch;
-    const res = await call("search", { query: "unknown title" }, context([], fetchImpl));
-    expect(res.status).toBe(502);
-    expect(await json<UpstreamUnavailableData>(res)).toEqual({
-      defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,
-      message: "Upstream catalog source unavailable",
-      data: { upstream: "bangumi" },
     });
   });
 });

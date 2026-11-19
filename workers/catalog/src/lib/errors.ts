@@ -88,16 +88,6 @@ export const ROUTE_ERRORS = {
   ROUTE_TOO_MANY_POINTS: declaration("ROUTE_TOO_MANY_POINTS", type<RouteTooManyPointsData>()),
 };
 
-/** `spots` procedure error declarations — mirrors the contract attachment. */
-export const SPOTS_ERRORS = {
-  WORK_NOT_FOUND: declaration("WORK_NOT_FOUND", type<WorkNotFoundData>()),
-};
-
-/** `search` procedure error declarations — mirrors the contract attachment. */
-export const SEARCH_ERRORS = {
-  UPSTREAM_UNAVAILABLE: declaration("UPSTREAM_UNAVAILABLE", type<UpstreamUnavailableData>()),
-};
-
 /** Construct a defined route-too-many-clusters oRPC error. */
 export function routeTooManyClusters(clusterCount: number, maxClusters: number): ORPCError<"ROUTE_TOO_MANY_CLUSTERS", RouteTooManyClustersData> {
   const def = CATALOG_ERRORS.ROUTE_TOO_MANY_CLUSTERS;

@@ -18,10 +18,10 @@ import { describe, expect, it } from "vitest";
  * module that reached a driver directly would be a second one.
  *
  * What this rule does NOT forbid: `import type { SqlOrmPlan } from
- * "@prisma/orm-postgres/relational-core/types"`, which `src/api/search.ts` and
- * `src/api/spots.ts` carry. That is the plan's TYPE — erased at compile time,
- * naming what the seam hands back — never a client. Constructing one is the
- * thing this batch stopped reaching for.
+ * "@prisma/orm-postgres/relational-core/types"`, which a module that builds its
+ * own plan carries (the outbound adapters do). That is the plan's TYPE — erased at
+ * compile time, naming what the seam hands back — never a client. Constructing
+ * one is the thing this batch stopped reaching for.
  */
 
 /**
@@ -89,7 +89,7 @@ describe("the src/api batch constructs no database client (#1631, #1633)", () =>
   });
 
   it("reads the batch's own tree, not an empty one", () => {
-    expect(Object.keys(catalogTree())).toContain("src/api/search.ts");
+    expect(Object.keys(catalogTree())).toContain("src/api/work-points.ts");
     expect(Object.keys(catalogTree())).toContain("src/router.ts");
   });
 
@@ -103,10 +103,10 @@ describe("the src/api batch constructs no database client (#1631, #1633)", () =>
     })).toEqual(["src/api/lazy-probe.ts", "src/api/neon-probe.ts", "src/api/probe.ts"]);
   });
 
-  it("allows the plan TYPE the handlers actually import", () => {
+  it("allows type-only imports of the plan and the seam", () => {
     expect(driverImporters({
-      "src/api/search.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
-      "src/api/spots.ts": 'import type { CatalogPrisma } from "../db/prisma";\n',
+      "src/api/nearby.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
+      "src/api/work-points.ts": 'import type { CatalogPrisma } from "../db/prisma";\n',
     })).toEqual([]);
   });
 });

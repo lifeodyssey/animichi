@@ -87,7 +87,8 @@ Root guide: `../../AGENTS.md`.
   rejects ``db.raw.sql`…` `` and a hand-built `new RawExpr(...)` everywhere but `src/db/`; the
   `fns.raw` / `match.raw` fragment form is the sanctioned shape and the query layer is full of it.
 - **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
-  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see `src/api/search.ts`).
+  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see
+  `src/application/list-points-for-bangumi.ts`, `syncedAt`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).

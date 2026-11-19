@@ -69,8 +69,8 @@ export type BangumiSearchSubject = BangumiSubject & { id: string };
 /**
  * The fast L1 preview from Anitabi's `/lite` endpoint: the FIRST ~10 points
  * (`litePoints`, official geo[] schema) plus `total` (the work's full point
- * count, from `pointsLength`). One small fetch — the basis of the search miss
- * path's immediate preview before the full ingest backgrounds.
+ * count, from `pointsLength`). One small fetch — the basis of
+ * points-by-bangumi-id's immediate preview of a work whose full ingest is parked.
  */
 export interface AnitabiLite {
   points: AnitabiPoint[];
@@ -95,7 +95,7 @@ export async function fetchAnitabiPoints(
  * official geo[] schema: `id`, `name`, `image`, `ep`, `s`, `geo`) and
  * `pointsLength` (the total point count). This is a single small response —
  * cheap enough to return inline as a preview while the full
- * `/points/detail` ingest runs in the background. Defensive: a missing/garbage
+ * `/points/detail` ingest waits for the pending drain. Defensive: a missing/garbage
  * body yields an empty preview rather than throwing.
  */
 export async function fetchAnitabiLite(
@@ -157,15 +157,6 @@ export async function fetchBangumiSubjects(
   const request: UpstreamRequest = { upstream: "bangumi", operation: "search-subjects", limit };
   const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
   return searchSubjects(await postJson(request, body, cfg), limit);
-}
-
-/** Resolve a title to the relevance-head subject id; retained for ingest preview. */
-export async function fetchBangumiSearch(
-  keywords: string,
-  cfg: SourceConfig = {},
-): Promise<string | null> {
-  return fetchBangumiSubjects(keywords, { ...cfg, limit: 1 })
-    .then((subjects) => subjects[0]?.id ?? null);
 }
 
 /** Bangumi subject type for anime (v0 `filter.type`); matches the Python client. */

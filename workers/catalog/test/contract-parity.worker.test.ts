@@ -10,6 +10,7 @@
  *   - This parity test uses only `import type`; the router intentionally imports
  *     the contract value so Zod validates untrusted input at the boundary.
  *   - SearchResult lives in contract.ts (not models.ts) — imported separately below.
+ *     Its catalog side is `PointsByBangumiResult`, the pointsByBangumiId response.
  *   - The retired Python mirror (agent/clients/catalog_client.py) diverged via
  *     sentinel defaults (episode=-1, name_cn="", distance_m=-1.0); it is gone
  *     with the Python agent (#1607) — do not reintroduce a Python consumer of
@@ -57,7 +58,6 @@ import type {
   Itinerary as LocalItinerary,
   Pacing as LocalPacing,
   Origin as LocalOrigin,
-  SearchResult as LocalSearchResult,
   GeocodeCandidate as LocalGeocodeCandidate,
   GeocodeInput as LocalGeocodeInput,
   GeocodeResult as LocalGeocodeResult,
@@ -68,6 +68,8 @@ import type {
   AnimeSampleItinerary as LocalAnimeSampleItinerary,
   AnimeOverview as LocalAnimeOverview,
 } from "../src/types";
+
+import type { PointsByBangumiResult as LocalPointsByBangumiResult } from "../src/application/list-points-for-bangumi";
 
 import type {
   CatalogErrorCode as LocalCatalogErrorCode,
@@ -117,9 +119,9 @@ const _pac_b: LocalPacing = null as unknown as ContractPacing;
 const _orig_a: ContractOrigin = null as unknown as ContractOrigin;
 const _orig_b: LocalOrigin = null as unknown as ContractOrigin;
 
-// --- SearchResult (from contract.ts, not models.ts) ---
-const _sr_a: ContractSearchResult = null as unknown as ContractSearchResult;
-const _sr_b: LocalSearchResult = null as unknown as ContractSearchResult;
+// --- SearchResult (from contract.ts, not models.ts) ↔ PointsByBangumiResult ---
+const _sr_a: ContractSearchResult = null as unknown as LocalPointsByBangumiResult;
+const _sr_b: LocalPointsByBangumiResult = null as unknown as ContractSearchResult;
 
 // --- Catalog resolution ---
 const _ac_a: ContractAnimeCandidate = null as unknown as LocalAnimeCandidate;

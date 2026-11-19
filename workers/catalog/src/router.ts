@@ -5,17 +5,14 @@ import { planItinerary as planItineraryUseCase, type ItineraryObserverPort } fro
 import { bangumiTitleSearch } from "./adapters/outbound/bangumi-search";
 import { titleAlias } from "./adapters/outbound/title-alias";
 import { pointsForRoute } from "./adapters/outbound/route-points";
-import { search as searchHandler, searchDb } from "./api/search";
 import { pointsByBangumiId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
-import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogPrisma } from "./db/prisma";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
-import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
@@ -24,28 +21,19 @@ export interface CatalogContext {
   fetchImpl?: typeof fetch;
   /** The anitabi egress signing key (#1792); anitabi fetches refuse without it. */
   egressSigningKey?: string;
-  waitUntil?: (promise: Promise<unknown>) => void;
 }
 
 /**
  * Implement the shared contract value directly. Its routes, Zod validators,
  * error maps, and output schemas are the Worker boundary's source of truth.
  *
- * oRPC hands each handler the incoming request's `signal`; the three handlers
+ * oRPC hands each handler the incoming request's `signal`; the two handlers
  * that call upstream bind it into the adapters they build, so a caller that
  * gives up (the edge's per-attempt timeout, a closed client) aborts the
  * upstream request in flight. Workers fire that signal on a disconnect only
  * under `enable_request_signal` (`wrangler.toml`).
  */
 const os = implement(catalogContract).$context<CatalogContext>();
-
-const search = os.search.handler(async ({ input, context, signal }) =>
-  searchHandler(searchDb(context.prisma, context.egressSigningKey, signal), input, {
-    fetchImpl: context.fetchImpl,
-    egressSigningKey: context.egressSigningKey,
-    waitUntil: context.waitUntil,
-  }),
-);
 
 const resolve = os.resolve.handler(async ({ input, context, signal }) =>
   resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl, signal }), input, {
@@ -58,10 +46,6 @@ const pointsById = os.pointsByBangumiId.handler(async ({ input, context, signal 
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
   }),
-);
-
-const spots = os.spots.handler(async ({ input, context }) =>
-  callSpots(context.prisma, input),
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
@@ -108,16 +92,6 @@ const popular = os.popular.handler(async ({ input, context }) => {
   };
 });
 
-/** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
-async function callSpots(prisma: CatalogPrisma, input: { bangumi_id: string; origin?: Origin }) {
-  try {
-    return await spotsHandler(prisma, input);
-  } catch (err) {
-    if (err instanceof SpotNotFoundError) throw workNotFound(err.bangumiId);
-    throw err;
-  }
-}
-
 /** Run anime overview, translating only an absent anime into the typed 404. */
 async function callAnimeOverview(prisma: CatalogPrisma, input: { bangumi_id: string }) {
   try {
@@ -151,10 +125,8 @@ function itineraryObserver(): ItineraryObserverPort {
 }
 
 export const catalogRouter = {
-  search,
   resolve,
   pointsByBangumiId: pointsById,
-  spots,
   nearby,
   geocode,
   planItinerary,

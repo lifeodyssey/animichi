@@ -2,9 +2,9 @@ import { expect, it, vi } from "vitest";
 import { IngestEntrypoint } from "../src/index";
 import { databaseDescribe, planeDatabaseUrl } from "./integration-db";
 import { call, type ApiPoint } from "./catalog-integration-client";
-import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
+import { ANITABI_POINTS, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
 import { stubEgressSigningKey } from "./egress-stub";
-import { stubSearchMiss, stubUpstream } from "./integration-upstream-stubs";
+import { stubUpstream } from "./integration-upstream-stubs";
 
 // The Node integration pool has no workerd runtime; stub the runtime module so
 // `src/index.ts` (which now exports the `IngestEntrypoint` named entrypoint)
@@ -43,21 +43,5 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
     const found = await call<{ rows: ApiPoint[] }>("points-by-bangumi-id", { bangumi_id: NEW_WORK_ID });
     expect(found.rows.map((r) => r.id).sort()).toEqual(["sakuragaoka-gate", "toyosato-hall"]);
     expect(found.rows.every((r) => r.bangumi_id === NEW_WORK_ID)).toBe(true);
-  });
-});
-
-databaseDescribe("Catalog search miss -> Bangumi resolve -> on-demand ingest -> points", () => {
-  it("an UNCOVERED title resolves+ingests on first search, then is an alias hit on the second", async () => {
-    const { urls } = stubSearchMiss();
-
-    const first = await call<{ rows: ApiPoint[] }>("search", { query: MISS_TITLE });
-    expect(first.rows.map((r) => r.id).sort()).toEqual(["keihan-uji", "uji-bridge"]);
-    expect(first.rows.every((r) => r.bangumi_id === MISS_WORK_ID)).toBe(true);
-    expect(urls.some((u) => u.includes("/v0/search/subjects"))).toBe(true);
-
-    const searchCallsAfterFirst = urls.length;
-    const second = await call<{ rows: ApiPoint[] }>("search", { query: MISS_TITLE });
-    expect(second.rows.map((r) => r.id).sort()).toEqual(["keihan-uji", "uji-bridge"]);
-    expect(urls.length).toBe(searchCallsAfterFirst); // alias hit: no re-resolve, no re-ingest
   });
 });

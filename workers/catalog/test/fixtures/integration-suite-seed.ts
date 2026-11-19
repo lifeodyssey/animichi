@@ -5,17 +5,6 @@ import type pg from "pg";
 export const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
 export const NEW_TITLE = "けいおん！";
 
-// A second uncovered work, reached via the search MISS path (Bangumi search ->
-// resolve id -> ingest -> return). Distinct from NEW_WORK_ID so the two ingest
-// E2Es don't collide in the shared suite database.
-export const MISS_WORK_ID = "100020"; // Bangumi subject id (Hibike! Euphonium)
-export const MISS_TITLE = "響け！ユーフォニアム";
-
-export const MISS_POINTS = [
-  { id: "uji-bridge", name: "宇治橋", lat: 34.8915, lng: 135.8078, ep: 1, s: 45 },
-  { id: "keihan-uji", name: "京阪宇治駅", lat: 34.8908, lng: 135.8112, ep: 1, s: 80 },
-];
-
 export const ANITABI_POINTS = [
   { id: "sakuragaoka-gate", name: "桜が丘高校 正門", lat: 34.6571, lng: 135.9486, ep: 1, s: 30 },
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },

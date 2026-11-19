@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewForQuery, previewForWork } from "../src/api/preview";
+import { previewForWork } from "../src/api/preview";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 import { upstreamUnavailable } from "../src/lib/errors";
 import { mockFetchSequence } from "./mock-fetch-sequence";
@@ -11,12 +11,12 @@ import type { FetchLike, SourceConfig } from "../src/ingest/sources";
  * Unit tests for the fast Anitabi L1 preview mapping (api/preview.ts).
  *
  * Covers the whole `/lite` mapping chain — litePoint, liteBase, liteGeo,
- * liteImage, liteString, liteInt — which the search tests only reach through
- * an injected `resolvePreview` fake. Here the real fetch chain runs against
- * canned bangumi-search and anitabi-lite bodies, so the field mapping is
- * exercised (not just the empty-preview paths).
+ * liteImage, liteString, liteInt — through `previewForWork`, the preview
+ * points-by-bangumi-id serves for an unpublished work. The real fetch chain runs
+ * against canned anitabi-lite bodies, so the field mapping is exercised (not
+ * just the empty-preview paths).
  *
- * A caller that cancels during either upstream call gets its own reason back,
+ * A caller that cancels during the upstream call gets its own reason back,
  * never the upstream-unavailable error an outage gets.
  */
 
@@ -34,9 +34,6 @@ function unansweredUpstream() {
   };
   return { fetch, called: arrival.promise };
 }
-
-const SEARCH_BODY = { data: [{ id: 10380 }] };
-const SEARCH_EMPTY = { data: [] };
 
 /** A real Anitabi `/lite` point body, official geo[] schema. */
 const LITE_POINTS = [
@@ -82,33 +79,6 @@ const MAPPED_LITE_POINTS = [
     longitude: 135.8071,
   },
 ];
-
-describe("previewForQuery (api/preview.ts)", () => {
-  it("resolves a title and maps every lite point onto the point contract", async () => {
-    const { fetch } = mockFetchSequence([
-      { status: 200, body: SEARCH_BODY },
-      { status: 200, body: { pointsLength: 2, litePoints: LITE_POINTS } },
-    ]);
-
-    const preview = await previewForQuery("けいおん！", egressCall(fetch));
-
-    expect(preview?.bangumiId).toBe("10380");
-    expect(preview?.points).toEqual(MAPPED_LITE_POINTS);
-  });
-
-  it("returns null when the title resolves to no bangumi subject", async () => {
-    const { fetch } = mockFetchSequence([{ status: 200, body: SEARCH_EMPTY }]);
-    expect(await previewForQuery("nothing here", egressCall(fetch))).toBeNull();
-  });
-
-  it("returns null when the work has an empty lite preview", async () => {
-    const { fetch } = mockFetchSequence([
-      { status: 200, body: SEARCH_BODY },
-      { status: 200, body: { pointsLength: 0, litePoints: [] } },
-    ]);
-    expect(await previewForQuery("けいおん！", egressCall(fetch))).toBeNull();
-  });
-});
 
 describe("previewForWork (api/preview.ts)", () => {
   it("maps every lite point of the work onto the point contract", async () => {
@@ -163,17 +133,6 @@ describe("previewForWork (api/preview.ts)", () => {
 });
 
 describe("a caller's cancel through the preview (api/preview.ts)", () => {
-  it("previewForQuery rejects with the caller's own reason when the caller cancels the Bangumi search", async () => {
-    const caller = new AbortController();
-    const reason = new Error("the edge gave up");
-    const upstream = unansweredUpstream();
-    const preview = previewForQuery("けいおん！", { ...egressCall(upstream.fetch), signal: caller.signal });
-    await upstream.called;
-    caller.abort(reason);
-    await expect(preview).rejects.toBe(reason);
-    await expect(preview).rejects.not.toEqual(upstreamUnavailable("bangumi", expect.anything() as unknown));
-  });
-
   it("previewForWork rejects with the caller's own reason when the caller cancels the Anitabi fetch", async () => {
     const caller = new AbortController();
     const reason = new Error("the edge gave up");
