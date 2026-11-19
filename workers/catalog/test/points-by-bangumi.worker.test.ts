@@ -40,6 +40,12 @@ const ROW: PublishedPointRow = {
   synced_at: "2026-06-20T00:00:00.000Z",
 };
 
+/** {@link ROW} with every nullable column null. */
+const BARE_ROW: PublishedPointRow = {
+  ...ROW, name_cn: null, bangumi_id: null, episode: null, time_seconds: null, image: null,
+  title: null, title_cn: null, cover_url: null, city: null, origin: null, origin_url: null, synced_at: null,
+};
+
 function fakePort(rows: PublishedPointRow[]): PointsByBangumiPort {
   return { pointsForBangumi: () => Promise.resolve(rows) };
 }
@@ -75,6 +81,13 @@ describe("pointsByBangumi use case", () => {
       origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
     });
     expect(result.partial).toBeUndefined();
+  });
+
+  it("maps a row whose nullable columns are all null to the required fields alone", async () => {
+    const result = await pointsByBangumi(fakePort([BARE_ROW]), "1");
+    expect(result.rows).toStrictEqual([
+      { id: "spot-1", name: "鷲宮神社", bangumi_id: "", screenshot_url: "", latitude: 36.1019, longitude: 139.6586 },
+    ]);
   });
 
   it("derives synced_at from the first row's bangumi.updated_at", async () => {
