@@ -38,12 +38,13 @@ function getAsset(store: Map<string, StoredObject>) {
   };
 }
 
-/** What a counting fetch records about the requests it answered. */
+/** What a counting fetch records about the requests it answered: URL, user agent and redirect mode. */
 export interface CountingImageFetch {
   fetchImpl: ImageFetchLike;
   calls: () => number;
   urls: string[];
   agents: (string | undefined)[];
+  redirects: (string | undefined)[];
 }
 
 /** A fetch that always answers `status` with `bytes`, counting every call. */
@@ -51,13 +52,15 @@ export function makeCountingImageFetch(status: number, bytes: Uint8Array): Count
   let count = 0;
   const urls: string[] = [];
   const agents: (string | undefined)[] = [];
+  const redirects: (string | undefined)[] = [];
   const fetchImpl: ImageFetchLike = (input, init) => {
     count += 1;
     urls.push(input);
     agents.push(init?.headers?.["User-Agent"]);
+    redirects.push(init?.redirect);
     return Promise.resolve(imageFetchResponse(status, bytes));
   };
-  return { fetchImpl, calls: () => count, urls, agents };
+  return { fetchImpl, calls: () => count, urls, agents, redirects };
 }
 
 /** The response shape `ImageFetchLike` resolves to. */

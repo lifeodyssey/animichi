@@ -15,7 +15,9 @@
  * stored `points.image`, and it is always on the image origin. A stored value
  * that names no URL there answers 404 `{"error":"image origin not allowed"}`:
  * nothing is fetched, stored in R2 or recorded in `media_assets`, so a corrected
- * row is pulled on its next request.
+ * row is pulled on its next request. The pull never follows a redirect: it asks
+ * for `redirect: "manual"`, so a 3xx comes back as the answer and is a bad
+ * origin status like any other non-2xx.
  *
  * The origin pull runs under the request's signal and a timeout, whichever ends
  * first, so a hung origin or a departed client stops it, body read included. A
@@ -42,7 +44,7 @@ const DEFAULT_CONTENT_TYPE = "image/jpeg";
 
 export type ImageFetchLike = (
   input: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal; redirect?: "manual" },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -132,9 +134,9 @@ async function pullOrigin(deps: ImgDeps, origin: string): Promise<OriginPhoto | 
   }
 }
 
-/** The origin request and its body read, both under the pull's signal. */
+/** The origin request and its body read, both under the pull's signal; a redirect is answered, never followed. */
 async function fetchPhoto(deps: ImgDeps, origin: string): Promise<OriginPhoto | "gone" | "failed"> {
-  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal) });
+  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal), redirect: "manual" });
   if (res.status === 404 || res.status === 410) return "gone";
   if (!res.ok) return "failed";
   return { body: await res.arrayBuffer(), contentType: res.headers.get("content-type") ?? DEFAULT_CONTENT_TYPE };

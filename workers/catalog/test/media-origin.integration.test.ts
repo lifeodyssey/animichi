@@ -17,7 +17,8 @@ import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
  * `https://image.anitabi.cn/<path>?<query>` with the requested size plan. Any
  * other stored value answers 404 `{"error":"image origin not allowed"}` with
  * nothing fetched, stored or recorded, so a corrected row is pulled on its next
- * request. A redirect answer is a 502 with nothing stored.
+ * request. A pull never follows a redirect: it asks for `redirect: "manual"`,
+ * and a redirect answer is a 502 with nothing stored.
  *
  * Every pull is stubbed through `deps.fetchImpl`; nothing here leaves the machine.
  */
@@ -94,6 +95,14 @@ databaseDescribe("serveImage refuses a stored image that names no URL on the ima
 });
 
 databaseDescribe("serveImage answers a redirect from the image origin", () => {
+  it("asks the runtime to hand a redirect back instead of following it", async () => {
+    await seedImagePoint(pool, ORIGIN_WORK, "redirect-2", "https://image.anitabi.cn/redirect-2.png");
+    const { fetchImpl, urls, redirects } = makeCountingImageFetch(200, new Uint8Array([4, 2]));
+    await serveImage({ query, bucket: makeImageBucketStub().bucket, fetchImpl }, "redirect-2", ANITABI_THUMBNAIL_PLAN);
+    expect(urls).toEqual(["https://image.anitabi.cn/redirect-2.png?plan=h160"]);
+    expect(redirects).toEqual(["manual"]);
+  });
+
   it("answers 502 to a redirect, storing and recording nothing", async () => {
     await seedImagePoint(pool, ORIGIN_WORK, "redirect-1", "https://image.anitabi.cn/redirect-1.png");
     const { bucket, store } = makeImageBucketStub();
