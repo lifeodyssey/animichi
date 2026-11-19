@@ -14,7 +14,7 @@
  */
 import { canSpendWork, spendWork, type Budget } from "./budgets";
 import type { RunSource, RunWorkOutcome } from "./daily-run";
-import { appendRawHistory } from "./raw_history";
+import { appendRawHistory } from "./raw-history";
 import { captureProvenance, pointFieldMap, type ProvenanceRecord } from "./provenance";
 import type { CatalogPrisma } from "../db/prisma";
 import { saveRawAnitabi, saveRawBangumi } from "./raw-store";

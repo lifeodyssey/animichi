@@ -4,7 +4,7 @@
  * Wires the run protocol (daily-run.ts) to this request's Prisma runtime: run
  * persistence over catalog_runs (run-store.ts), per-work ingest with provenance
  * + raw-history capture (run-ingest.ts), and bounded raw-history cleanup
- * (raw_history.ts). The caller supplies the epoch clock and the discovery inputs
+ * (raw-history.ts). The caller supplies the epoch clock and the discovery inputs
  * + known/tiered works so the scheduled handler owns upstream discovery while the
  * run owns the durable protocol.
  *
@@ -17,7 +17,7 @@ import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts } from 
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { TieredWork } from "./tiers";
 import { beginRunRow, markRunFailedRow, readRunRow, recordRunRow } from "./run-store";
-import { cleanupRawHistory } from "./raw_history";
+import { cleanupRawHistory } from "./raw-history";
 import { ingestRunWork } from "./run-ingest";
 import type { UpstreamAccess } from "./sources";
 import type { CatalogPrisma } from "../db/prisma";
