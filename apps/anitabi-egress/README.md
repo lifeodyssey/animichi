@@ -140,6 +140,13 @@ fly deploy . --config apps/anitabi-egress/fly.toml \
   --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
 ```
 
+The first deploy of the rolling window over a service that ran the fixed clock
+hour honours the old hourly counters by itself, and a return to the fixed hour
+has one exposed hour: both are in
+[`docs/ops/anitabi-egress.md`](../../docs/ops/anitabi-egress.md) ("Switching
+from the fixed hour", "Going back to the fixed hour"). Deploy at a quiet time,
+with one machine running.
+
 The app needs three secrets, all set with `fly secrets` and none of them in this
 tree: `INGEST_SIGNING_KEY` and its rotation mate `INGEST_SIGNING_KEY_PREVIOUS`,
 and `CEILING_STORE_URL`, the Private URL of the store the ceiling counts in. Set

@@ -30,12 +30,18 @@ function bulk(argument: string): string {
 }
 
 /**
- * The store's whole side of an admission: ONE EVAL of the window's script, with
- * its one key, the limit, the member and the key's life, as a RESP2 array of
- * bulk strings. The array header is written out, so a changed shape has to
- * change this line.
+ * The fixed-hour counters the service before the window left, for the clock
+ * hour `REQUEST` falls in (it started at 1699999200) and the hour before it.
  */
-const WINDOW_PAYLOAD = `*7\r\n${["EVAL", SCRIPT, "1", "anitabi-egress:upstream-requests:rolling", "100", MEMBER, "7200"].map(bulk).join("")}`;
+const COUNTERS = ["anitabi-egress:upstream-requests:1699999200", "anitabi-egress:upstream-requests:1699995600"];
+
+/**
+ * The store's whole side of an admission: ONE EVAL of the window's script, with
+ * its keys — the window, then the two counters — the limit, the member and the
+ * key's life, as a RESP2 array of bulk strings. The array header is written
+ * out, so a changed shape has to change this line.
+ */
+const WINDOW_PAYLOAD = `*9\r\n${["EVAL", SCRIPT, "3", "anitabi-egress:upstream-requests:rolling", ...COUNTERS, "100", MEMBER, "7200"].map(bulk).join("")}`;
 
 /** The same admission with the address's own credential in front of it. */
 const AUTH_PAYLOAD = `*3\r\n${["AUTH", "default", PASSWORD].map(bulk).join("")}${WINDOW_PAYLOAD}`;
@@ -50,14 +56,6 @@ void describe("RedisTcpCeilingStore", () => {
     const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
     await store.admit(REQUEST);
     assert.deepEqual(socket.written, [WINDOW_PAYLOAD], "one request is one call to the store, and one write");
-  });
-
-  void it("keeps the egress's clock out of the window: the script reads the store's TIME, and no clock is sent", async () => {
-    const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
-    await store.admit(REQUEST);
-    const written = socket.written.join("");
-    assert.match(written, /local now = tonumber\(redis\.call\('TIME'\)\[1\]\)/);
-    assert.equal(written.includes(String(REQUEST.nowSeconds)), false, "the window must not move with this machine's clock");
   });
 
   void it("answers with the window's decision: 1 admitted, 0 refused", async () => {
@@ -90,6 +88,25 @@ void describe("RedisTcpCeilingStore", () => {
   void it("reads a reply that arrives in pieces", async () => {
     const { store } = storeOverSocket(["+OK\r\n:", "1", "\r\n"]);
     assert.equal(await store.admit(REQUEST), "admitted", "a reply split across chunks is still the reply");
+  });
+});
+
+/** Which clock, which keys and which member each admission's call carries. */
+void describe("what each admission names", () => {
+  void it("keeps the egress's clock out of the window: the script reads the store's TIME, and no clock is sent", async () => {
+    const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
+    await store.admit(REQUEST);
+    const written = socket.written.join("");
+    assert.match(written, /local now = tonumber\(redis\.call\('TIME'\)\[1\]\)/);
+    assert.equal(written.includes(String(REQUEST.nowSeconds)), false, "the window must not move with this machine's clock");
+  });
+
+  void it("names the fixed-hour counters by the egress's own clock, the clock that named them", async () => {
+    const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
+    await store.admit({ nowSeconds: 1_699_999_200 + 3599, limit: 100 });
+    await store.admit({ nowSeconds: 1_699_999_200 + 3600, limit: 100 });
+    const named = socket.written.map((payload) => payload.match(/anitabi-egress:upstream-requests:\d+/g));
+    assert.deepEqual(named, [COUNTERS, ["anitabi-egress:upstream-requests:1700002800", COUNTERS[0]]]);
   });
 
   void it("records every admission under a member of its own", async () => {

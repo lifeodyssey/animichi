@@ -89,6 +89,27 @@ plus one for each command it runs, and does not bill `AUTH`
 ([billing](https://upstash.com/docs/redis/overall/billing)). An admitted request is six billed
 commands (`EVAL`, `TIME`, `ZREMRANGEBYSCORE`, `ZCARD`, `ZADD`, `EXPIRE`) and a refused one four
 (`EVAL`, `TIME`, `ZREMRANGEBYSCORE`, `ZCARD`); the fixed hour's counter was two (`INCR`, `EXPIRE`).
+A request that finds the window empty adds two (`GET`, `GET`, below).
+
+**Switching from the fixed hour.** The service before the window counted each clock hour in a key of
+its own (`anitabi-egress:upstream-requests:<hour start>`), refusals included. When the window finds
+itself empty — the first request after the deploy — the script reads this clock hour's counter and
+the last one's, named by the egress's clock as the old service named them, and copies them in as
+placeholder admissions at its own second, capped at the ceiling. What the old service relayed is
+honoured, more conservatively than it happened: each placeholder holds its slot for a full window
+from the switch. Copying costs two more billed commands (`ZADD`, `EXPIRE`) once; the read runs only
+while the window is empty, and the old counters expire two hours after the old service's last
+request. A count can be honoured twice — at the switch, and again from the "last hour" slot if the
+window empties within those two hours — so capacity can stay reduced for up to two hours after the
+deploy. Deploy at a quiet time, away from the 06:00 UTC daily run, with `fly status` showing one
+machine: Fly replaces machines one by one, so with two the old and the new code would run side by
+side for the length of the deploy, and neither sees the other's admissions.
+
+**Going back to the fixed hour.** The old code reads only its own clock-hour counter, never the
+window, so in the clock hour of a return it can admit up to the ceiling on top of what the window
+admitted in the hour before. Return outside 05:00–08:00 UTC. Coming forward again is covered by the
+same copy only if the window is empty at that moment: if it still holds admissions under an hour
+old, what the old code admitted in between is not read.
 
 **The window lives in an external store, not in the process** (#1810). A deploy, a secret rotation
 or a crash used to start a fresh hour, so the service could relay a second hour's worth inside the

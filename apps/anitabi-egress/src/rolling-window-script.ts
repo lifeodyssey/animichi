@@ -30,6 +30,19 @@
  *
  * THE ANSWER is an integer: `1` admitted, `0` refused. A guard the script
  * cannot pass answers an error whose first word names it, `EXPIRY` or `MEMBER`.
+ *
+ * THE SWITCH FROM THE FIXED HOUR. The service before the window counted each
+ * clock hour in a key of its own, refusals included, and those counts are in
+ * the store when the window first runs. So when the window finds itself empty,
+ * it reads the counters of this clock hour and the last — named by the egress's
+ * clock, the clock that named them — and copies them in as placeholder
+ * admissions at its own second, capped at the limit. The requests the old
+ * service relayed are honoured, more conservatively than they happened: each
+ * holds its slot for a full window from the switch. The read costs nothing
+ * while the window has members, and once the old service has been gone two
+ * hours its counters have expired, so it finds nothing. It stays because it is
+ * also what makes a return to the fixed hour and back safe, while the window is
+ * empty at the return.
  */
 import type { AdmissionRequest } from "./upstream-ceiling.ts";
 
@@ -49,6 +62,12 @@ const WINDOW_TTL_SECONDS = 2 * WINDOW_SECONDS;
  */
 export const WINDOW_KEY = "anitabi-egress:upstream-requests:rolling";
 
+/** The fixed-hour counter the service before the window kept for the clock hour holding `seconds`. */
+function hourlyCounterAt(seconds: number): string {
+  const hourStart = seconds - (seconds % WINDOW_SECONDS);
+  return `anitabi-egress:upstream-requests:${String(hourStart)}`;
+}
+
 /** Where the script's `now` comes from, and the arguments that carry it. */
 export interface ScriptClock {
   /** Lua that defines `local now`, in whole seconds, ahead of the window's body. */
@@ -64,14 +83,31 @@ export const STORE_CLOCK: ScriptClock = {
 };
 
 /**
- * The window itself: drop what aged out, count what is left, and admit while
- * the count is under the limit. `KEYS[1]` is the window; `ARGV` is the limit,
- * the admission's member and the key's life.
+ * The window itself: drop what aged out, count what is left — the old hourly
+ * counters' placeholders, when it is empty — and admit while the count is under
+ * the limit. `KEYS` is the window, then this clock hour's counter and the last
+ * one's; `ARGV` is the limit, the admission's member and the key's life.
  */
 export const WINDOW_BODY = `local window, limit = KEYS[1], tonumber(ARGV[1])
 local stamp = string.format('%d', now)
+local function honoured(room)
+  local placeholders = {}
+  for _, counter in ipairs({KEYS[3], KEYS[2]}) do
+    local owed = math.min(room - #placeholders / 2, tonumber(redis.call('GET', counter) or '0'))
+    for i = 1, owed do
+      table.insert(placeholders, stamp)
+      table.insert(placeholders, counter .. '#' .. string.format('%d', i))
+    end
+  end
+  if #placeholders == 0 then return 0 end
+  redis.call('ZADD', window, unpack(placeholders))
+  redis.call('EXPIRE', window, ARGV[3])
+  return #placeholders / 2
+end
 redis.call('ZREMRANGEBYSCORE', window, '-inf', '(' .. string.format('%d', now - ${String(WINDOW_SECONDS)}))
-if redis.call('ZCARD', window) >= limit then return 0 end
+local count = redis.call('ZCARD', window)
+if count == 0 then count = honoured(limit) end
+if count >= limit then return 0 end
 if redis.call('ZADD', window, 'NX', stamp, ARGV[2]) ~= 1 then
   return redis.error_reply('MEMBER the admission was already counted')
 end
@@ -81,9 +117,9 @@ end
 return 1
 `;
 
-/** The EVAL that runs the window for one request: the script on `clock`, its key, and its arguments. */
+/** The EVAL that runs the window for one request: the script on `clock`, its keys, and its arguments. */
 export function windowCommand(clock: ScriptClock, request: AdmissionRequest, member: string): string[] {
-  const keys = [WINDOW_KEY];
+  const keys = [WINDOW_KEY, hourlyCounterAt(request.nowSeconds), hourlyCounterAt(request.nowSeconds - WINDOW_SECONDS)];
   const args = [String(request.limit), member, String(WINDOW_TTL_SECONDS), ...clock.argumentsAt(request.nowSeconds)];
   return ["EVAL", clock.prologue + WINDOW_BODY, String(keys.length), ...keys, ...args];
 }

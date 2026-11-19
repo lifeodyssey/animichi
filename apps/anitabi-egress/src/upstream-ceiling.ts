@@ -42,7 +42,9 @@
 /**
  * What the ceiling asks the store for each request: its limit, and the
  * egress's clock. The service's store keeps its window on its own clock and
- * reads this one only where a test hands it a clock that does.
+ * reads this one to name the hourly counters the service before the window
+ * left, the clock that named them — and as the window's clock only where a
+ * test hands it one.
  */
 export interface AdmissionRequest {
   readonly nowSeconds: number;
