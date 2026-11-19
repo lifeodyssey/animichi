@@ -1,7 +1,8 @@
 /**
  * Overview read adapter — the only SQL on the overview projection path
- * (CATALOG-5 #946; moved onto the Prisma data plane by #1629). Replaces the
- * api/anime-overview.ts raw row projection.
+ * (CATALOG-5 #946; moved onto the Prisma data plane by #1629). It replaced the
+ * raw row projection the overview handler used to build inline; it is read by
+ * `getBangumiOverview` (`application/get-bangumi-overview.ts`).
  *
  * Both reads are built with the shared contract's statement builder and run on
  * the request's runtime ({@link CatalogPrisma}). Ordering (`points.id ASC`) is
