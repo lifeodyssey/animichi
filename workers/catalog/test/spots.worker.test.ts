@@ -46,6 +46,11 @@ const KAMAKURA: FixtureRow = {
   origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
 };
 
+/** {@link KAMAKURA} with every nullable column null but bangumi_id, which the read filters on. */
+const KAMAKURA_BARE: FixtureRow = {
+  ...KAMAKURA, name_cn: null, episode: null, time_seconds: null, image: null, city: null, origin: null, origin_url: null,
+};
+
 async function assertContractShape(): Promise<void> {
   const { point } = await spots(fakeCatalogPrisma([KAMAKURA]), { bangumi_id: "100" });
   expect(point).toEqual({
@@ -87,6 +92,18 @@ describe("spots (api/spots.ts)", () => {
   });
 
   it("coerces null optional columns to absent / empty per the contract", assertNullCoercion);
+
+  it("maps a row whose nullable columns are all null to the required fields alone", async () => {
+    const { point } = await spots(fakeCatalogPrisma([KAMAKURA_BARE]), { bangumi_id: "100" });
+    expect(point).toStrictEqual({
+      id: "spot-1", name: "鎌倉高校前駅", bangumi_id: "100", screenshot_url: "", latitude: 35.3066, longitude: 139.4889,
+    });
+  });
+
+  it("keeps an empty name_cn and city on the point, as the other reads do", async () => {
+    const { point } = await spots(fakeCatalogPrisma([{ ...KAMAKURA, name_cn: "", city: "" }]), { bangumi_id: "100" });
+    expect(point).toMatchObject({ name_cn: "", city: "" });
+  });
 
   it("throws SpotNotFoundError for an unknown bangumi_id (no points)", async () => {
     await expect(spots(fakeCatalogPrisma([]), { bangumi_id: "999" })).rejects.toBeInstanceOf(SpotNotFoundError);

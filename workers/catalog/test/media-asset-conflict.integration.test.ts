@@ -57,11 +57,12 @@ async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombst
   return (rows as { r2_key: string | null; tombstoned: boolean; last_origin_pull: string | null }[])[0];
 }
 
-/** One request over a seeded clash, with the origin answering `status`. */
-async function serveOverClash(id: string, status: number, bytes: Uint8Array): Promise<void> {
-  const { fetchImpl } = makeCountingImageFetch(status, bytes);
+/** One request over a seeded clash, with the origin answering `status`; the URLs its pulls fetched. */
+async function serveOverClash(id: string, status: number, bytes: Uint8Array): Promise<string[]> {
+  const { fetchImpl, urls } = makeCountingImageFetch(status, bytes);
   const { bucket } = makeImageBucketStub();
   await serveImage({ query, bucket, fetchImpl }, id, ANITABI_THUMBNAIL_PLAN);
+  return urls;
 }
 
 databaseDescribe("serveImage over an existing, unresolved media_assets row", () => {
@@ -69,7 +70,7 @@ databaseDescribe("serveImage over an existing, unresolved media_assets row", () 
     await seedPointWithBareAsset("clash-1");
     expect((await assetOf("clash-1"))?.last_origin_pull).toBeNull();
 
-    await serveOverClash("clash-1", 200, new Uint8Array([7]));
+    expect(await serveOverClash("clash-1", 200, new Uint8Array([7]))).toEqual(["https://image.anitabi.cn/clash-1.png?plan=h160"]);
 
     const asset = await assetOf("clash-1");
     expect(asset?.r2_key).toBe("points/clash-1");
@@ -79,7 +80,7 @@ databaseDescribe("serveImage over an existing, unresolved media_assets row", () 
   it("overwrites the bare row with the tombstone when the origin is gone", async () => {
     await seedPointWithBareAsset("clash-2");
 
-    await serveOverClash("clash-2", 404, new Uint8Array());
+    expect(await serveOverClash("clash-2", 404, new Uint8Array())).toEqual(["https://image.anitabi.cn/clash-2.png?plan=h160"]);
 
     const asset = await assetOf("clash-2");
     expect(asset?.tombstoned).toBe(true);

@@ -11,8 +11,13 @@
  * media_assets schema (20260620230000_ingest_infrastructure.sql):
  *   point_id PK, r2_key, content_hash, last_origin_pull, tombstoned.
  *
- * `points.image` is already a full URL (parse.ts expands Anitabi's leading-slash
- * paths to image.anitabi.cn at enrich time); we re-expand defensively here too.
+ * The URL a pull fetches is `./image-origin.ts`'s to build, from the point's
+ * stored `points.image`, and it is always on the image origin. A stored value
+ * that names no URL there answers 404 `{"error":"image origin not allowed"}`:
+ * nothing is fetched, stored in R2 or recorded in `media_assets`, so a corrected
+ * row is pulled on its next request. The pull never follows a redirect: it asks
+ * for `redirect: "manual"`, so a 3xx comes back as the answer and is a bad
+ * origin status like any other non-2xx.
  *
  * The origin pull runs under the request's signal and a timeout, whichever ends
  * first, so a hung origin or a departed client stops it, body read included. A
@@ -31,19 +36,15 @@ import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow, upsert } from "../db/plans";
 import { DEFAULT_ATTEMPT_TIMEOUT_MS } from "../ingest/retry";
 import { getImage, putImage } from "./r2";
-import {
-  ANITABI_USER_AGENT,
-  withAnitabiImagePlan,
-  type AnitabiImagePlan,
-} from "@animichi/contract/anitabi-display";
+import { originPullUrl } from "./image-origin";
+import { ANITABI_USER_AGENT, type AnitabiImagePlan } from "@animichi/contract/anitabi-display";
 
-const IMAGE_BASE = "https://image.anitabi.cn";
 const CACHE_CONTROL = "public, max-age=604800, s-maxage=2592000";
 const DEFAULT_CONTENT_TYPE = "image/jpeg";
 
 export type ImageFetchLike = (
   input: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal; redirect?: "manual" },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -101,8 +102,10 @@ async function serveFromR2(bucket: R2Bucket, key: string): Promise<Response> {
 async function lazyPull(
   deps: ImgDeps, pointId: string, plan: AnitabiImagePlan,
 ): Promise<Response> {
-  const origin = await originUrl(deps.query, pointId, plan);
-  if (!origin) return tombstone();
+  const stored = await storedImage(deps.query, pointId);
+  if (!stored) return tombstone();
+  const origin = originPullUrl(stored, plan);
+  if (origin === null) return originNotAllowed(pointId);
   const pulled = await pullOrigin(deps, origin);
   if (pulled === "gone") return tombstoneAsset(deps.query, pointId);
   if (pulled === "failed") return new Response("Upstream error", { status: 502 });
@@ -131,9 +134,9 @@ async function pullOrigin(deps: ImgDeps, origin: string): Promise<OriginPhoto | 
   }
 }
 
-/** The origin request and its body read, both under the pull's signal. */
+/** The origin request and its body read, both under the pull's signal; a redirect is answered, never followed. */
 async function fetchPhoto(deps: ImgDeps, origin: string): Promise<OriginPhoto | "gone" | "failed"> {
-  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal) });
+  const res = await deps.fetchImpl(origin, { headers: { "User-Agent": ANITABI_USER_AGENT }, signal: pullSignal(deps.signal), redirect: "manual" });
   if (res.status === 404 || res.status === 410) return "gone";
   if (!res.ok) return "failed";
   return { body: await res.arrayBuffer(), contentType: res.headers.get("content-type") ?? DEFAULT_CONTENT_TYPE };
@@ -161,14 +164,16 @@ async function storeAndServe(
   return imageResponse(photo.body, photo.contentType);
 }
 
-/** Look up the point's origin image URL, expanding leading-slash paths. */
-async function originUrl(
-  query: CatalogPrisma, pointId: string, plan: AnitabiImagePlan,
-): Promise<string | null> {
+/** The point's stored origin image, or null when it has none. */
+async function storedImage(query: CatalogPrisma, pointId: string): Promise<string | null> {
   const rows = await query.executor.query(pointImagePlan(query, pointId));
-  const image = rows[0]?.image;
-  if (!image) return null;
-  return originPullUrl(image, plan);
+  return rows[0]?.image ?? null;
+}
+
+/** A stored image that names no URL on the image origin: refused, with nothing fetched, stored or recorded. */
+function originNotAllowed(pointId: string): Response {
+  console.warn(`[media] image origin not allowed for point ${pointId}`);
+  return Response.json({ error: "image origin not allowed" }, { status: 404 });
 }
 
 /** The SELECT of one point's stored origin image URL. */
@@ -179,12 +184,6 @@ function pointImagePlan(
     .select("image")
     .where((fields, match) => match.eq(fields.id, pointId))
     .build();
-}
-
-/** The origin URL a public display path may fetch: an explicit size plan is required. */
-export function originPullUrl(stored: string, plan: AnitabiImagePlan): string {
-  const expanded = stored.startsWith("/") ? `${IMAGE_BASE}${stored}` : stored;
-  return withAnitabiImagePlan(expanded, plan);
 }
 
 /** UPSERT a stored asset (r2_key + content_hash + last_origin_pull). */

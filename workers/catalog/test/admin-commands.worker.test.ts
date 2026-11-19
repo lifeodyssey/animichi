@@ -1,14 +1,13 @@
 /**
  * Protected canary + full-ingest commands (issue #1016, AC5) — api test.
  *
- * The /catalog/admin/* routes reject public/unauthorized callers before any
- * pipeline work, and an authorized caller runs the SAME production daily
- * pipeline (fullIngest / runCanaryCommand) with a controlled, injected epoch.
+ * An authorized caller runs the SAME production daily pipeline (fullIngest /
+ * runCanaryCommand) with a controlled, injected epoch. The token guard in front
+ * of both routes is `admin-guard.worker.test.ts`'s subject.
  */
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
 import type { Env } from "../src/index";
-import { catalogRequest } from "./catalog-request";
 import {
   mountAdminRoutes,
   type AcquirePrisma,
@@ -34,21 +33,6 @@ const COMPLETE = { status: "complete", runId: "daily-2026-08-14", createdAt: "20
 function authorizedEnv(): Env {
   return { ENVIRONMENT: "staging", CATALOG_ADMIN_TOKEN: "ops-token" };
 }
-
-describe("admin token guard (AC5)", () => {
-  it("rejects a public caller with 401 on the mounted app", async () => {
-    const res = await catalogRequest("/catalog/admin/full-ingest", {
-      method: "POST",
-      headers: { authorization: "Bearer wrong" },
-    }, authorizedEnv());
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects a public caller with 401 when no token is configured", async () => {
-    const res = await catalogRequest("/catalog/admin/canary", { method: "POST" }, { ENVIRONMENT: "staging" });
-    expect(res.status).toBe(401);
-  });
-});
 
 describe("authorized admin command (AC5)", () => {
   it("runs the injected pipeline with a controlled epoch for an authorized call", async () => {

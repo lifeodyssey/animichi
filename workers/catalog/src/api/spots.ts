@@ -14,13 +14,14 @@
  * removes the row narrowing the Drizzle seam needed. The wire shapes (`Point` /
  * `Origin`) come from `../types` — the single in-Worker mirror of
  * packages/contract/src/models.ts (import type erases at compile time, keeping
- * the contract's zod runtime out of the bundle).
+ * the contract's zod runtime out of the bundle). The row becomes its `Point`
+ * through `../application/point-row.ts`, as on every other read.
  */
 
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import { toPoint } from "../application/point-row";
 import type { CatalogPrisma } from "../db/prisma";
 import { haversine } from "../domain/geo";
-import { optional } from "../lib/optional";
 import type { Origin, Point } from "../types";
 
 export type { Origin, Point };
@@ -68,28 +69,6 @@ function representativePlan(query: CatalogPrisma, bangumiId: string): SqlOrmPlan
     .orderBy("id")
     .limit(1)
     .build();
-}
-
-/** Map a representative row to the contract Point shape (omitting null columns). */
-function toPoint(r: RepresentativeRow): Point {
-  return {
-    ...pointBase(r),
-    ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
-    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
-    ...(r.city ? { city: r.city } : {}),
-    ...optional({ origin: r.origin, origin_url: r.origin_url }),
-  };
-}
-
-function pointBase(r: RepresentativeRow): Point {
-  return {
-    id: r.id,
-    name: r.name,
-    bangumi_id: r.bangumi_id ?? "",
-    screenshot_url: r.image ?? "",
-    latitude: r.latitude,
-    longitude: r.longitude,
-  };
 }
 
 /** Distance in meters from a lat/lng origin to the point; undefined for named origins. */

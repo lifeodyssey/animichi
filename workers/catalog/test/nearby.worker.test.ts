@@ -127,6 +127,17 @@ describe("nearby (api/nearby.ts) fills in what the detail read omits", () => {
     expect(rows[1]?.episode).toBeUndefined();
   });
 
+  it.each([
+    { case: "a detail row whose columns are all null", details: [WASHINOMIYA, { ...SATTE, bangumi_id: null }] },
+    { case: "no detail row", details: [WASHINOMIYA] },
+  ])("puts only the required fields and distance_m on a point with $case", async ({ details }) => {
+    const { rows } = await run(GEO, details);
+    expect(rows[1]).toStrictEqual({
+      id: "satte", name: "幸手権現堂", bangumi_id: "", screenshot_url: "",
+      latitude: 36.0833, longitude: 139.725, distance_m: 4200,
+    });
+  });
+
   it("answers an over-cap radius from the geo read, never widening it", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows).toHaveLength(2);

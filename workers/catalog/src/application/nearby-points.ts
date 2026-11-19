@@ -14,8 +14,8 @@
  * bucket, count, outcome, duration — never coordinates.
  */
 
-import { optional } from "../lib/optional";
 import type { Point } from "../types";
+import { toPoint } from "./point-row";
 
 /** Hard ceiling on the searched radius; larger requests are clamped, not rejected. */
 export const MAX_RADIUS_M = 50_000;
@@ -143,34 +143,16 @@ function compareDistance(left: NearbyPoint, right: NearbyPoint): number {
   return left.id < right.id ? -1 : 1;
 }
 
-/** Merge a geo hit with its detail row into a contract `Point`. */
+/** The detail columns of a geo hit that has no detail row: none of them. */
+const NO_DETAIL: Omit<PointDetail, "id"> = {
+  bangumi_id: null, name_cn: null, image: null, episode: null,
+  time_seconds: null, origin: null, origin_url: null, city: null,
+};
+
+/** Merge a geo hit with its detail row (or none) into a contract `Point` with its distance. */
 function merge(near: NearbyPoint, detail: PointDetail | undefined): Point {
-  return { ...baseFields(near, detail), ...optional(optionals(detail)) };
-}
-
-/** The required `Point` fields; absent detail rows keep the sentinel defaults. */
-function baseFields(near: NearbyPoint, detail: PointDetail | undefined): Point {
-  return {
-    id: near.id,
-    name: near.name,
-    bangumi_id: detail?.bangumi_id ?? "",
-    screenshot_url: detail?.image ?? "",
-    latitude: near.latitude,
-    longitude: near.longitude,
-    distance_m: near.distanceM,
-  };
-}
-
-/** The optional `Point` fields, present only when the detail row has them. */
-function optionals(detail: PointDetail | undefined): Record<string, unknown> {
-  return {
-    name_cn: detail?.name_cn,
-    episode: detail?.episode,
-    time_seconds: detail?.time_seconds,
-    origin: detail?.origin,
-    origin_url: detail?.origin_url,
-    city: detail?.city,
-  };
+  const row = { ...NO_DETAIL, ...detail, id: near.id, name: near.name, latitude: near.latitude, longitude: near.longitude };
+  return { ...toPoint(row), distance_m: near.distanceM };
 }
 
 /** Record the ok observation; the duration is the injected clock's span. */
