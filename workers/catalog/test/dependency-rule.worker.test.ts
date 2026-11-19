@@ -179,8 +179,8 @@ function catalogTree(): TextTree {
 describe("dependency rule detection", () => {
   it("flags a domain file reaching into an outward src directory", () => {
     expect(dependencyRuleViolations({
-      "src/domain/itinerary/plan.ts": 'import { x } from "../../lib/transit/constants";\n',
-    })).toEqual(["src/domain/itinerary/plan.ts: ../../lib/transit/constants"]);
+      "src/domain/itinerary/plan.ts": 'import { x } from "../../lib/optional";\n',
+    })).toEqual(["src/domain/itinerary/plan.ts: ../../lib/optional"]);
   });
 
   it("flags a domain file importing a framework, including a multi-line clause", () => {

@@ -17,7 +17,7 @@ pattern won.
 | Other TS modules | kebab-case | multi-word non-test `.ts` modules: kebab 79 vs camel 40 |
 | Python modules / functions / vars | snake_case | 396 snake, 0 uppercase, 0 dash |
 | Python classes | PascalCase | 395/395 |
-| TS symbols (vars, functions, local fields) | camelCase | 3 snake-case local declarations found (`distance_m` spots.ts:93, `station_ids` dijkstra.ts:38, `point_ids` test-only) — all wire-payload keys, exempt per the carve-out below; wire-mirror interface/zod fields excluded from this row |
+| TS symbols (vars, functions, local fields) | camelCase | 3 snake-case local declarations found (`distance_m` spots.ts:93, `station_ids` in the since-deleted transit dijkstra.ts, `point_ids` test-only) — all wire-payload keys, exempt per the carve-out below; wire-mirror interface/zod fields excluded from this row |
 
 Serialization-boundary carve-out (audit-relevant, measured from the same scan):
 
