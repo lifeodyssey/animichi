@@ -146,9 +146,9 @@ void describe("readEgressConfig — the ceiling the service can actually enforce
 });
 
 /**
- * The ceiling's counter lives outside this process (#1810), and since #1824 it
- * is the Redis `fly redis create` provisions: the Private URL that command's
- * status prints, which is a `redis://` address carrying the store's own
+ * The ceiling's window lives outside this process (#1810), and since #1824 in
+ * the Redis `fly redis create` provisions, addressed by the Private URL that
+ * command's status prints: a `redis://` address carrying the store's own
  * password. The service has to be told where it is, and a value that is not
  * that address is refused at boot rather than dialed.
  *

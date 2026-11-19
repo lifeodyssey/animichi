@@ -16,7 +16,7 @@
  * instrumented by, with no runtime dependencies beyond Node and no Logfire
  * token in its environment. A client library here would be a new dependency, a
  * new secret and a new failure mode in the one service whose design is "nothing
- * but a counter", for a line the platform already carries. So the line goes to
+ * but a window", for a line the platform already carries. So the line goes to
  * the process's own stderr, which is what `fly logs` reads.
  *
  * THE LINE IS BUILT FROM THE FAILURE AND NOTHING ELSE. It carries the code and

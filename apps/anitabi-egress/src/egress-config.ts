@@ -25,7 +25,7 @@ export const PREVIOUS_KEY_VAR = "INGEST_SIGNING_KEY_PREVIOUS";
 export const CEILING_VAR = "UPSTREAM_REQUEST_CEILING_PER_HOUR";
 
 /**
- * Where the ceiling's counter lives (#1810, #1824). One `fly secrets` value of
+ * Where the ceiling's window lives (#1810, #1824). One `fly secrets` value of
  * the same kind as the signing key — the Fly Redis Private URL `fly redis
  * status` prints, which carries the store's own password inside the address —
  * and it is not in this tree.
@@ -47,7 +47,7 @@ export function readEgressConfig(env: Record<string, string | undefined>): Egres
 
 /**
  * The ceiling store's address, or null — and null means the service has no
- * counter, so its ceiling is null and every request is refused
+ * window, so its ceiling is null and every request is refused
  * (`configuration`). A ceiling the service cannot count is not a ceiling.
  */
 export interface CeilingStoreConfig {
@@ -65,7 +65,7 @@ export interface CeilingStoreConfig {
  * its `https://` address must fail closed at boot rather than be read as a
  * Redis host — a service that dialed it would be reaching a destination that
  * is not its store. Every other scheme, the public `rediss://` endpoint
- * included, is a destination this service was not told to use: the counter is
+ * included, is a destination this service was not told to use: the window is
  * reached over Fly's private network, and a value naming anything else is a
  * paste of the wrong URL.
  *
@@ -118,8 +118,8 @@ export function isSigningKey(value: string): boolean {
 /**
  * The largest ceiling the service will run with: one request per second of its
  * own window. A ceiling past it is not a generous limit, it is the absence of
- * one, and the arithmetic that enforces it (`used >= limit` against an hour of
- * seconds) stops meaning anything — so it fails closed at boot like every other
+ * one, and the arithmetic that enforces it (the window's count against an hour
+ * of seconds) stops meaning anything — so it fails closed at boot like every other
  * unusable value rather than starting up ungated. It is derived from the
  * window, not a second opinion about the agreed number: an agreement larger
  * than this needs the window's arithmetic reconsidered first.

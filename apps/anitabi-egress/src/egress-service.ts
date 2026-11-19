@@ -7,8 +7,8 @@
  *   auth   — the signature is verified BEFORE the ceiling, so unauthenticated
  *            traffic cannot spend a single upstream slot
  *   ceiling— our promise to the upstream, enforced regardless of the caller,
- *            and counted in an external store since #1810 so a restart inside
- *            the upstream's hour cannot start a second one
+ *            over the last 3600 seconds in an external store since #1810, so
+ *            a restart cannot start a fresh budget
  *   relay  — the upstream's answer, verbatim, marked as the upstream's, asked
  *            from the one URL this service built and never redirected off it;
  *            an answer a response cannot carry is refused as `upstream-timeout`,
@@ -32,7 +32,7 @@ const SERVED_METHOD = "GET";
 
 /**
  * Why the ceiling refused, when the reason alone does not say: the store
- * holding this hour's count could not be reached, so the service refused
+ * holding the last hour's window could not be reached, so the service refused
  * rather than count in memory (#1810).
  *
  * It travels in the refusal body's `detail`, NOT as a second
@@ -45,7 +45,7 @@ const SERVED_METHOD = "GET";
 export const CEILING_STORE_DETAIL = "ceiling-store-unavailable";
 
 /**
- * The hourly upstream-request budget; UpstreamRequestCeiling satisfies it.
+ * The upstream-request budget of the last hour; UpstreamRequestCeiling satisfies it.
  * Asynchronous because the count is not in this process any more (#1810): the
  * decision is the store's answer, and `store-unavailable` is a refusal.
  */
@@ -104,8 +104,8 @@ export function noSuchOperation(): Response {
 /**
  * Our ceiling's refusal — one reason, two causes. The caller is told the same
  * thing either way: this service refused, do not read it as the upstream, do
- * not retry it in-request. Whether this hour's budget ran out or the counter
- * storing it was unreachable is an operator's question, and the body answers it.
+ * not retry it in-request. Whether the last hour's budget ran out or the store
+ * holding it was unreachable is an operator's question, and the body answers it.
  */
 function ceilingRefusal(decision: CeilingDecision): Response {
   const detail = decision === "store-unavailable" ? CEILING_STORE_DETAIL : undefined;

@@ -3,7 +3,7 @@
 The fixed-address egress service the catalog fetches anitabi through (#1792).
 One Fly app, `animichi-anitabi-egress`, in Tokyo; TypeScript on Node, no
 runtime dependencies, no product data, no data-plane credential, and no write
-path beyond the ceiling's own counter (#1810).
+path beyond the ceiling's own window (#1810).
 
 The operations, the checks and the hostname are all public — the repository is
 public and the design never depended on hiding them. The only things that stay
@@ -54,20 +54,24 @@ when there is a reason.
 ## The ceiling
 
 `UPSTREAM_REQUEST_CEILING_PER_HOUR` (fly.toml `[env]`, the one place in the
-repository that states the number) caps upstream requests per hour. It is a
-promise to the upstream, not a tuning knob: changing it means changing the
+repository that states the number) caps upstream requests in any 60 minutes. It
+is a promise to the upstream, not a tuning knob: changing it means changing the
 agreement. The service refuses past it with a response marked as its own, so
 the caller never mistakes our ceiling for an upstream refusal.
 
-The window is the **fixed UTC clock hour**, and the count lives in an external
-counter — the Redis `fly redis create` provisions, holding one integer per hour
-and reached over TCP with RESP at `CEILING_STORE_URL` (#1810, #1824). That value
-is the store's **Private URL**: a `redis` address with the store's own password
-inside it, set with `fly secrets` and required at boot. Counting outside the
-process is what makes the promise survive a deploy, a rotation or a crash, and
-what makes two instances share one budget; counting in a fixed clock hour is
-what lets both derive its key from the clock alone. As with any fixed window, a
-request burst can straddle a boundary.
+The window is the **last 3600 seconds, rolling**: an admission at second `s`
+still counts at `s + 3600` and frees its slot at `s + 3601`, so no 60 minutes
+hold more than the ceiling, and a burst can no longer spend it at the end of one
+clock hour and again at the start of the next. The window lives in an external
+store — the Redis `fly redis create` provisions, reached over TCP with RESP at
+`CEILING_STORE_URL` (#1810, #1824) — as one sorted set: a second and a random id
+for each admission, and nothing for a refusal. Each request is one `EVAL` of a
+short script (`src/rolling-window-script.ts`) that trims, counts and admits as
+one step, on the store's own clock (`TIME`), so every instance spends from one
+window on one clock. `CEILING_STORE_URL` is the store's **Private URL**: a
+`redis` address with the store's own password inside it, set with
+`fly secrets` and required at boot. Keeping the window outside the process is
+what makes the promise survive a deploy, a rotation or a crash.
 
 **Fail closed.** A store the service cannot reach means the service cannot
 count, and it refuses every request (`ceiling`, with
@@ -79,7 +83,7 @@ is not a ceiling.
 
 The body says which of the two ceiling refusals it was; *why* the store could
 not be read goes to the service's own log stream instead — one JSON line per
-failed increment, carrying the store's own message and a `code` naming which
+failed admission, carrying the store's own message and a `code` naming which
 reply-set guard fired or how the connection ended. `fly logs` reads it, and
 [`docs/ops/anitabi-egress.md`](../../docs/ops/anitabi-egress.md) lists the
 codes. The line carries no address and no credential.
@@ -136,6 +140,13 @@ fly deploy . --config apps/anitabi-egress/fly.toml \
   --dockerfile apps/anitabi-egress/Dockerfile --app animichi-anitabi-egress
 ```
 
+The first deploy of the rolling window over a service that ran the fixed clock
+hour honours the old hourly counters by itself, and a return to the fixed hour
+has one exposed hour: both are in
+[`docs/ops/anitabi-egress.md`](../../docs/ops/anitabi-egress.md) ("Switching
+from the fixed hour", "Going back to the fixed hour"). Deploy at a quiet time,
+with one machine running.
+
 The app needs three secrets, all set with `fly secrets` and none of them in this
 tree: `INGEST_SIGNING_KEY` and its rotation mate `INGEST_SIGNING_KEY_PREVIOUS`,
 and `CEILING_STORE_URL`, the Private URL of the store the ceiling counts in. Set
@@ -148,7 +159,7 @@ releases and the restart between them drops the old key first. Update the
 caller, then remove the previous key after the overlap window.
 
 `CEILING_STORE_URL` has no ordering to keep: it is the only value holding the
-counter, so rotating it is setting it. A store the service cannot open refuses
+window, so rotating it is setting it. A store the service cannot open refuses
 every request until it can. No store is provisioned from this repository — it is
 entirely the operator's, like the signing key's Fly copy: `fly redis create`
 (primary region `nrt`), then `fly redis status` for the Private URL, then

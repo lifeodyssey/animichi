@@ -46,7 +46,7 @@ export interface EgressServerOptions {
   port?: number;
   nowSeconds?: () => number;
   upstreamFetch?: UpstreamFetch;
-  /** The ceiling's counter, when the caller supplies one (tests); otherwise it is built from the environment. */
+  /** The ceiling's store, when the caller supplies one (tests); otherwise it is built from the environment. */
   ceilingStore?: CeilingStore;
   /** Where the service's own lines go (a store failure, a request the boundary failed on) when the caller owns the stream (tests); otherwise this process's stderr. */
   logSink?: LogSink;
@@ -123,7 +123,7 @@ const DEFAULT_REDIS_PORT = 6379;
 
 /**
  * The one TCP dial this process makes (#1824). It is `family: 6` because the
- * counter lives in the Redis `fly redis create` provisions, which Fly reaches
+ * window lives in the Redis `fly redis create` provisions, which Fly reaches
  * over the org's private IPv6 network — the address the upstream allowlisted
  * is IPv4, and this destination is deliberately not it.
  *

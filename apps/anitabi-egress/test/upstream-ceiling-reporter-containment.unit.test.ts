@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   UpstreamRequestCeiling,
+  type Admission,
   type CeilingStore,
   type CeilingStoreFailure,
   type CeilingStoreFailureReporter,
@@ -26,19 +27,13 @@ const T = 1_700_000_100;
 
 /** A store that fails the way an unreachable one does (#1833's own fixture). */
 function failingStore(): CeilingStore {
-  return { increment: () => Promise.reject(new Error("the ceiling store did not answer")) };
+  return { admit: () => Promise.reject(new Error("the ceiling store did not answer")) };
 }
 
-/** A store that counts, for the answers a reporter must never reach. */
-function countingStore(): CeilingStore {
-  const counts = new Map<string, number>();
-  return {
-    increment: (window) => {
-      const count = (counts.get(window) ?? 0) + 1;
-      counts.set(window, count);
-      return Promise.resolve(count);
-    },
-  };
+/** A store that answers `answers` in turn, for the answers a reporter must never reach. */
+function answeringStore(answers: readonly Admission[]): CeilingStore {
+  const queue = [...answers];
+  return { admit: () => Promise.resolve(queue.shift() ?? "refused") };
 }
 
 /** A reporter that is given the failure and then throws, as a broken sink does. */
@@ -69,7 +64,7 @@ void describe("a reporter that throws", () => {
 
   void it("cannot reach into an answer the store granted", async () => {
     const seen: CeilingStoreFailure[] = [];
-    const ceiling = new UpstreamRequestCeiling(1, countingStore(), reporterThatThrows(seen), () => T);
+    const ceiling = new UpstreamRequestCeiling(1, answeringStore(["admitted", "refused"]), reporterThatThrows(seen), () => T);
     assert.equal(await ceiling.tryAcquire(), "granted");
     assert.equal(await ceiling.tryAcquire(), "exhausted");
     assert.deepEqual(seen, [], "a granted request reports nothing, so a throwing reporter is never called");

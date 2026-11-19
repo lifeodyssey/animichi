@@ -1,22 +1,20 @@
 /**
- * The hourly ceiling on upstream requests, as an object the handler asks
- * before relaying — counted in an external store, so the promise survives the
+ * The ceiling on upstream requests in any hour, as an object the handler asks
+ * before relaying — kept in an external store, so the promise survives the
  * process that made it (#1810).
  *
- * THE WINDOW is the FIXED UTC CLOCK HOUR the clock names: the key is derived
- * from the clock alone, which is what lets two instances agree on one budget
- * without coordinating, and what "100 requests per hour" means to the operator
- * who was told it. A fixed hour admits a burst across its boundary — up to the
- * ceiling at the end of one hour and up to it again at the start of the next —
- * and a rolling window would not; the ceiling the upstream was given is stated
- * per hour, so the hour is what is enforced.
+ * THE WINDOW is the last 3600 seconds, rolling (`rolling-window-script.ts`):
+ * any 3600 seconds hold at most the limit, so a burst can no longer spend the
+ * ceiling at the end of one clock hour and again at the start of the next, as
+ * a fixed hour allowed. The store keeps the window and decides each admission
+ * itself, in one script on its own clock, which is what lets two instances
+ * agree on one budget without coordinating.
  *
  * WHY THE STORE. In-memory, a deploy, a key rotation or a crash started a
  * fresh hour, so the service could relay a second hour's worth inside the
  * upstream's original one — while `docs/ops/anitabi-egress.md` stated the
- * ceiling as enforced. The count now lives outside the process, keyed by the
- * hour, and both instances of the service (and every future restart within the
- * hour) spend from the same one.
+ * ceiling as enforced. The window now lives outside the process, and both
+ * instances of the service (and every future restart) spend from the same one.
  *
  * FAIL CLOSED. A store that does not answer yields `store-unavailable`, and
  * the handler refuses. There is deliberately no in-memory fallback: it would
@@ -35,38 +33,37 @@
  * collaborator rather than an optional one, because a ceiling that cannot say
  * why it refused is the defect this closes.
  *
- * THE STORE IS NOT THE DATA PLANE. It holds one integer per hour — a count of
- * requests, keyed by the hour and nothing else. No user data, no data-plane
- * credential, and no write path beyond that key's increment (see the operating
- * doc's "What this service must never have").
+ * THE STORE IS NOT THE DATA PLANE. It holds one window — a second and a random
+ * id for each admission of the last hour, under one key named for this service.
+ * No user data, no data-plane credential, and no write path beyond that window
+ * (see the operating doc's "What this service must never have").
  */
-
-/** One hour in seconds — the window, and the unit the agreement is written in. */
-const WINDOW_SECONDS = 60 * 60;
 
 /**
- * The window's namespace in a store that may hold other keys. It names this
- * service and this counter, and nothing about a deployment: a second instance
- * derives the same string, which is the whole mechanism.
+ * What the ceiling asks the store for each request: its limit, and the
+ * egress's clock. The service's store keeps its window on its own clock and
+ * reads this one to name the hourly counters the service before the window
+ * left, the clock that named them — and as the window's clock only where a
+ * test hands it one.
  */
-const WINDOW_KEY_PREFIX = "anitabi-egress:upstream-requests";
-
-/** The window key for the fixed clock hour containing `nowSeconds`. */
-export function ceilingWindowOf(nowSeconds: number): string {
-  const hourStart = Math.floor(nowSeconds / WINDOW_SECONDS) * WINDOW_SECONDS;
-  return `${WINDOW_KEY_PREFIX}:${String(hourStart)}`;
+export interface AdmissionRequest {
+  readonly nowSeconds: number;
+  readonly limit: number;
 }
 
+/** The window's decision on one request. A refusal is not recorded. */
+export type Admission = "admitted" | "refused";
+
 /**
- * The external counter the ceiling reads. `increment` counts one request
- * against `window` and answers with that window's total AFTER it.
+ * The external window the ceiling asks. `admit` admits one request if the last
+ * hour holds fewer than `limit`, records it, and answers which it was.
  *
- * A store that cannot answer REJECTS. It never answers a lower number and
- * never answers zero: the ceiling's refusal depends on that distinction being
- * the store's, not this process's guess.
+ * A store that cannot answer REJECTS. It never answers a decision it did not
+ * make: the ceiling's refusal depends on that distinction being the store's,
+ * not this process's guess.
  */
 export interface CeilingStore {
-  increment(window: string): Promise<number>;
+  admit(request: AdmissionRequest): Promise<Admission>;
 }
 
 /**
@@ -75,7 +72,7 @@ export interface CeilingStore {
  * The four reply-set codes are the guards #1825 added, and they are four codes
  * rather than one because they are four different things to fix: a store that
  * answered a conversation it was not asked, a credential it refused, a window
- * it left without an expiry, and an increment that answered no count. They are
+ * it left without an expiry, and a window that answered no decision. They are
  * the diagnostics whose value was zero while nothing bound the error.
  *
  * `unreachable` is the code a rejection that names none of the others arrives
@@ -88,7 +85,7 @@ export type CeilingStoreFailureCode =
   | "reply-count"
   | "credential"
   | "expiry"
-  | "count"
+  | "decision"
   | "oversized-reply"
   | "timeout"
   | "connection"
@@ -108,7 +105,7 @@ export interface CeilingStoreFailure {
 
 /**
  * Where a store failure goes so an operator can read it (#1833). It is called
- * once per failed increment, before the refusal is returned.
+ * once per failed admission, before the refusal is returned.
  *
  * WHO GUARANTEES WHAT. A reporter that writes its line and returns is still
  * what a good one looks like, but the ceiling no longer DEPENDS on that: the
@@ -159,16 +156,16 @@ export class UpstreamRequestCeiling {
     this.reportStoreFailure = reporterThatCannotThrow(reportStoreFailure);
   }
 
-  /** Count one upstream request against this hour's window, or refuse it. */
+  /** Ask the store to admit one upstream request into the last hour's window, or refuse it. */
   async tryAcquire(): Promise<CeilingDecision> {
-    let used: number;
+    let admission: Admission;
     try {
-      used = await this.store.increment(ceilingWindowOf(this.nowSeconds()));
+      admission = await this.store.admit({ nowSeconds: this.nowSeconds(), limit: this.limit });
     } catch (cause) {
       this.reportStoreFailure(failureFrom(cause));
       return "store-unavailable";
     }
-    return used <= this.limit ? "granted" : "exhausted";
+    return admission === "admitted" ? "granted" : "exhausted";
   }
 }
 

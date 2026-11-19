@@ -369,6 +369,7 @@ jobs:
           bundle exec ruby test/repo-config/anitabi-egress-ceiling.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-disclosure.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-fetch-sites.test.rb
+          bundle exec ruby test/repo-config/anitabi-egress-image-build.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-surface.test.rb
           bundle exec ruby test/repo-config/contract-pin-set-mutation.test.rb
           bundle exec ruby test/repo-config/contract-pin-set.test.rb

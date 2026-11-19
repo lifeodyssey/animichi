@@ -77,7 +77,7 @@ function startService(overrides: Partial<EgressServerOptions> = {}): Promise<{ s
     port: 0,
     nowSeconds: () => NOW_SECONDS,
     upstreamFetch: () => Promise.resolve(new Response('{"points":[]}', { status: 200 })),
-    ceilingStore: { increment: () => Promise.resolve(1) },
+    ceilingStore: { admit: () => Promise.resolve("admitted") },
     ...overrides,
   });
 }

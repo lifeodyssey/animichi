@@ -1,8 +1,8 @@
 # The anitabi egress service (#1792). Build context is the REPOSITORY ROOT
 # (see fly.toml [build]); the image is a single self-contained bundle — the
 # service has no runtime dependencies beyond Node itself, no product data, no
-# data-plane credential, and no write path beyond the ceiling's own counter
-# (#1810), which is an external store the service reaches over TCP (#1824).
+# data-plane credential, and no write path beyond the ceiling's own window
+# (#1810), kept in an external store the service reaches over TCP (#1824).
 #
 #   docker build -f apps/anitabi-egress/Dockerfile .
 
@@ -11,6 +11,9 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/anitabi-egress/package.json apps/anitabi-egress/
+# A frozen install reads every patch pnpm-workspace.yaml names, even under
+# --filter (test/repo-config/anitabi-egress-image-build.test.rb).
+COPY packages/pi-session-neon/patches packages/pi-session-neon/patches
 RUN pnpm install --frozen-lockfile --filter anitabi-egress --ignore-scripts
 COPY apps/anitabi-egress apps/anitabi-egress
 RUN pnpm --filter anitabi-egress build

@@ -16,6 +16,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "esbuild": "catalog:",
+    "testcontainers": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"
   }

@@ -29,16 +29,16 @@ export const DAILY_DISCOVER_CRON = "0 6 * * *";
 /**
  * Daily run work cap — one run never ingests more works than this.
  *
- * It is a cap like the hourly ones because it spends the SAME hour they do: the
- * daily run fires at 06:00, the TTL refresh at :17 and the staged drain at :37,
- * and the upstream ceiling (100 requests per clock hour, `apps/anitabi-egress`)
- * counts REQUESTS — up to one per operation per work. So the caps of every
- * caller that can land in one hour are one pool, and
- * `test/repo-config/anitabi-egress-ceiling.test.rb` converts and refuses a
- * raise past the ceiling; this value is what that arithmetic leaves the daily
- * run (#1809).
+ * It is a cap like the hourly ones because it spends the SAME egress the
+ * hourly passes do: the daily run fires at 06:00, production's hourly event at
+ * :17 drains parked work and refreshes stale work on one budget, and staging's
+ * drain at :37 signs into the same egress. The upstream ceiling
+ * (`apps/anitabi-egress`) holds any 60 minutes to 100 REQUESTS — up to one per
+ * operation per work. `test/repo-config/anitabi-egress-ceiling.test.rb` sums
+ * every caller that can land in one clock hour and refuses a raise past the
+ * ceiling (#1809); this value is what that arithmetic leaves the daily run.
  */
-export const DAILY_WORK_CAP = 40;
+export const DAILY_WORK_CAP = 35;
 
 /** Daily staging snapshot import (#1016). */
 export const DAILY_IMPORT_CRON = "0 3 * * *";

@@ -8,14 +8,21 @@
 # double the real rate and hit our own wall, so the conversion is asserted
 # instead of remembered.
 #
-# THE CEILING IS PER CLOCK HOUR, so the callers that can land in one hour are
-# ONE pool and their caps SUM (#1809). The daily run fires at 06:00 and the
-# hourly passes at :17 and :37, so all of them spend the daily run's hour; the
-# hourly ones alone were converted before #1809, and the daily run could spend
-# that hour's whole budget by itself — the other two were left racing for what
-# remained. The service refuses the losers correctly (`egress_refused`), which
-# is why nothing broke; but the caller-side budget was not allocated, it was
-# raced for, and this contract is what allocates it.
+# THIS CONTRACT POOLS BY CLOCK HOUR: the callers that can land in one hour are
+# ONE pool and their caps SUM (#1809), so the daily run's 06:00 hour holds it
+# and both hourly passes. Before #1809 the daily run could spend that hour's
+# whole budget by itself and the others raced for what remained; the service
+# refused the losers (`egress_refused`), but the budget was raced for, not
+# allocated, and this contract is what allocates it.
+#
+# The egress enforces the ceiling over ANY 60 minutes, which is stricter. In
+# this contract's unit the worst 60 minutes, 05:17 to 06:17, hold two
+# production hourly passes, staging's drain and the daily run: 60 works, 120
+# requests. Scheduled ingest sends one request per work, so that span is about
+# 60 requests in practice, before retries. Whether this guard should pool any
+# 60 minutes and count that real cost is the owner's to decide; until then it
+# keeps the clock-hour pool and the two-requests-per-work unit, and is not
+# loosened.
 require "minitest/autorun"
 require "json"
 
@@ -31,20 +38,22 @@ class AnitabiEgressCeilingTest < Minitest::Test
   CEILING_VAR = "UPSTREAM_REQUEST_CEILING_PER_HOUR"
 
   # Every scheduled caller that spends from the ceiling, as the cron constant
-  # that runs it and the bound on the works one run of it may ingest.
+  # that runs it and the `cron-config.ts` caps whose sum bounds the works one run
+  # of it may ingest. The cron is IN the row because the hour pools callers, and
+  # `test_every_declared_work_cap_bounds_a_scheduled_caller` refuses a cap left
+  # out of this list. The seed pass's bound is the checked-in list's length.
   #
-  # The cron is IN the row because the hour is what pools callers: a fixed-hour
-  # caller shares its hour with the hourly passes, and their works are summed
-  # there. A caller whose bound is a `cron-config.ts` cap is named by that
-  # constant, so `test_every_declared_work_cap_bounds_a_scheduled_caller`
-  # refuses a cap that is declared there and left out of this list. The seed
-  # pass is the one caller with no cap to read: it ingests the undone entries of
-  # the checked-in list, so that list's own length is its bound.
+  # The rows are the deployed layout (`workers/catalog/wrangler.toml`).
+  # Production's hourly event at :17 drains parked work and then refreshes stale
+  # work on one shared budget (`runProductionHourlyJob`, `hourlyIngestBudget`),
+  # so its row holds both caps. Staging drains its own parked work at :37 and
+  # signs into the SAME egress — one Fly app serves both environments — so its
+  # works spend this ceiling too.
   SCHEDULED_CALLERS = [
     { cron: "SEED_CRON", bound: :seed_list },
-    { cron: "DAILY_DISCOVER_CRON", bound: "DAILY_WORK_CAP" },
-    { cron: "TTL_REFRESH_CRON", bound: "TTL_BATCH_CAP" },
-    { cron: "PENDING_DRAIN_CRON", bound: "PENDING_DRAIN_BATCH_CAP" },
+    { cron: "DAILY_DISCOVER_CRON", bound: %w[DAILY_WORK_CAP] },
+    { cron: "TTL_REFRESH_CRON", bound: %w[PENDING_DRAIN_BATCH_CAP TTL_BATCH_CAP] },
+    { cron: "PENDING_DRAIN_CRON", bound: %w[PENDING_DRAIN_BATCH_CAP] },
   ].freeze
 
   def test_the_service_reads_the_agreed_rate_from_configuration
@@ -108,10 +117,10 @@ class AnitabiEgressCeilingTest < Minitest::Test
     match[1] == "*" ? :every : Integer(match[1], 10)
   end
 
-  # The works one run of a caller may spend: its cap constant, or the seed
+  # The works one run of a caller may spend: the sum of its caps, or the seed
   # pass's own list — the one caller that has no cap to read.
   def works_of(bound)
-    bound == :seed_list ? seed_list_works : cap_of(bound)
+    bound == :seed_list ? seed_list_works : bound.sum { |name| cap_of(name) }
   end
 
   def seed_list_works
@@ -128,9 +137,9 @@ class AnitabiEgressCeilingTest < Minitest::Test
     read(CRON_CONFIG).scan(/^export const (\w*CAP\w*) = \d+;/).flatten
   end
 
-  # The caps this contract places, in the same spelling `declared_caps` finds.
+  # The caps this contract places, each once, in the same spelling `declared_caps` finds.
   def placed_caps
-    SCHEDULED_CALLERS.filter_map { |row| row[:bound].is_a?(String) ? row[:bound] : nil }
+    SCHEDULED_CALLERS.flat_map { |row| row[:bound] == :seed_list ? [] : row[:bound] }.uniq
   end
 
   # The most requests one work can cost: every operation the surface permits.
