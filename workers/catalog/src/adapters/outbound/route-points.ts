@@ -1,7 +1,8 @@
 /**
  * Outbound adapter for the `PointsForRoutePort`: fetch the points for a route
  * from Postgres (joined to bangumi for the anime title) and map the rows to
- * `ItineraryPoint`s, preserving the requested `ids` order. This adapter owns the
+ * `ItineraryPoint`s (`../../application/point-row.ts`, the mapping every read
+ * shares), preserving the requested `ids` order. This adapter owns the
  * only SQL on the plan-itinerary path, built with the shared contract's
  * statement builder and run on the request's runtime ({@link CatalogPrisma}).
  *
@@ -14,8 +15,7 @@
 
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { ItineraryPoint, PointsForRoutePort } from "../../application/plan-itinerary";
-import { optional } from "../../lib/optional";
-import type { Point } from "../../types";
+import { toPoint } from "../../application/point-row";
 import type { CatalogPrisma } from "../../db/prisma";
 
 /**
@@ -87,31 +87,4 @@ function pointsPlan(query: CatalogPrisma, ids: string[]): SqlOrmPlan<ItineraryPo
     }))
     .where((fields, match) => match.in(fields.points.id, ids))
     .build();
-}
-
-/** Map a joined DB row to a contract `Point` (+ clustering geo). */
-function toPoint(row: ItineraryPointRow): ItineraryPoint {
-  return { ...scalarFields(row), latitude: row.latitude, longitude: row.longitude };
-}
-
-/** The non-coordinate `Point` fields, dropping null optionals. */
-function scalarFields(row: ItineraryPointRow): Omit<Point, "latitude" | "longitude"> {
-  return { ...scalarBase(row), ...optional(scalarOptionals(row)) };
-}
-
-function scalarBase(row: ItineraryPointRow): Omit<Point, "latitude" | "longitude"> {
-  return {
-    id: row.id,
-    name: row.name,
-    bangumi_id: row.bangumi_id ?? "",
-    screenshot_url: row.image ?? "",
-  };
-}
-
-function scalarOptionals(row: ItineraryPointRow): Record<string, unknown> {
-  return {
-    name_cn: row.name_cn, episode: row.episode, time_seconds: row.time_seconds,
-    origin: row.origin, origin_url: row.origin_url, title: row.title, title_cn: row.title_cn,
-    cover_url: row.cover_url, city: row.city,
-  };
 }
