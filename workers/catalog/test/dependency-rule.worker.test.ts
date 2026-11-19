@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
  *
  * `?raw` inlines every source file at transform time, so by the time this runs
  * inside workerd the tree is string constants and the sandboxed filesystem is
- * never touched (the technique `worker-entry-exports.worker.test.ts` uses).
+ * never touched.
  *
  * `src/types.ts` is deliberately absent from both lists: it is the type-only,
  * import-free mirror of the contract, erased at compile time. The last test
