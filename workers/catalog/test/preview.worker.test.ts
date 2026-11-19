@@ -58,6 +58,31 @@ const LITE_POINTS = [
   },
 ];
 
+/** {@link LITE_POINTS} on the point contract for work 10380: p1's relative image gains the image
+ * host and its origin text is kept; p2's absolute image and string geo come through as values. */
+const MAPPED_LITE_POINTS = [
+  {
+    id: "p1",
+    name: "宇治橋",
+    bangumi_id: "10380",
+    screenshot_url: "https://image.anitabi.cn/lite/p1.jpg",
+    latitude: 34.8915,
+    longitude: 135.8078,
+    episode: 1,
+    time_seconds: 12,
+    origin: "バンダイチャンネル",
+    origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
+  },
+  {
+    id: "p2",
+    name: "平等院",
+    bangumi_id: "10380",
+    screenshot_url: "https://cdn.example/lite/p2.jpg",
+    latitude: 34.8898,
+    longitude: 135.8071,
+  },
+];
+
 describe("previewForQuery (api/preview.ts)", () => {
   it("resolves a title and maps every lite point onto the point contract", async () => {
     const { fetch } = mockFetchSequence([
@@ -68,28 +93,7 @@ describe("previewForQuery (api/preview.ts)", () => {
     const preview = await previewForQuery("けいおん！", egressCall(fetch));
 
     expect(preview?.bangumiId).toBe("10380");
-    expect(preview?.points).toEqual([
-      {
-        id: "p1",
-        name: "宇治橋",
-        bangumi_id: "10380",
-        screenshot_url: "https://image.anitabi.cn/lite/p1.jpg",
-        latitude: 34.8915,
-        longitude: 135.8078,
-        episode: 1,
-        time_seconds: 12,
-        origin: "バンダイチャンネル",
-        origin_url: "https://www.b-ch.com/ttl/index.php?ttl_c=1",
-      },
-      {
-        id: "p2",
-        name: "平等院",
-        bangumi_id: "10380",
-        screenshot_url: "https://cdn.example/lite/p2.jpg",
-        latitude: 34.8898,
-        longitude: 135.8071,
-      },
-    ]);
+    expect(preview?.points).toEqual(MAPPED_LITE_POINTS);
   });
 
   it("returns null when the title resolves to no bangumi subject", async () => {
@@ -107,6 +111,12 @@ describe("previewForQuery (api/preview.ts)", () => {
 });
 
 describe("previewForWork (api/preview.ts)", () => {
+  it("maps every lite point of the work onto the point contract", async () => {
+    const { fetch } = mockFetchSequence([{ status: 200, body: { pointsLength: 2, litePoints: LITE_POINTS } }]);
+    const preview = await previewForWork("10380", egressCall(fetch));
+    expect(preview).toEqual({ bangumiId: "10380", points: MAPPED_LITE_POINTS });
+  });
+
   it("normalizes geo to numbers, falling back to 0,0 on malformed entries", async () => {
     const { fetch } = mockFetchSequence([
       {

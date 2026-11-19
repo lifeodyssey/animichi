@@ -4,7 +4,8 @@
  *
  * Covers the application use case (`application/list-points-for-bangumi.ts`),
  * its outbound adapter (`adapters/outbound/bangumi-points.ts`, the only
- * SQL on the path), and the OpenAPI route seam end to end.
+ * SQL on the path), and the OpenAPI route seam end to end, plus the shared row
+ * mapping's empty-string rule (`application/point-row.ts`).
  *
  * Ordering contract (the "requested ordering" the adapter must emit): scene
  * order — `ORDER BY p.episode ASC, p.time_seconds ASC, p.id ASC`.
@@ -100,6 +101,13 @@ describe("pointsByBangumi use case", () => {
     expect(result.rows).toEqual([]);
     expect(typeof result.synced_at).toBe("string");
     expect(result.partial).toBeUndefined();
+  });
+});
+
+describe("toPoint row mapping, through the use case", () => {
+  it("keeps an empty name_cn and city on the point; only null is left out", async () => {
+    const result = await pointsByBangumi(fakePort([{ ...ROW, name_cn: "", city: "" }]), "1");
+    expect(result.rows[0]).toMatchObject({ name_cn: "", city: "" });
   });
 });
 

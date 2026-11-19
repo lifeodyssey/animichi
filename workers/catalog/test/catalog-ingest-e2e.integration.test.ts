@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { IngestEntrypoint } from "../src/index";
 import { databaseDescribe, planeDatabaseUrl } from "./integration-db";
 import { call, type ApiPoint } from "./catalog-integration-client";
-import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
+import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_WORK_ID } from "./fixtures/integration-suite-seed";
 import { stubEgressSigningKey } from "./egress-stub";
 import { stubSearchMiss, stubUpstream } from "./integration-upstream-stubs";
 
@@ -21,8 +21,8 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
-databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
-  it("IngestEntrypoint publishes the work, then /search returns the fresh points", async () => {
+databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> points-by-bangumi-id)", () => {
+  it("IngestEntrypoint publishes the work, then /points-by-bangumi-id returns the fresh points", async () => {
     stubUpstream();
 
     const entrypoint = new IngestEntrypoint(
@@ -40,7 +40,7 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
       pointCount: ANITABI_POINTS.length,
     });
 
-    const found = await call<{ rows: ApiPoint[] }>("search", { query: NEW_TITLE });
+    const found = await call<{ rows: ApiPoint[] }>("points-by-bangumi-id", { bangumi_id: NEW_WORK_ID });
     expect(found.rows.map((r) => r.id).sort()).toEqual(["sakuragaoka-gate", "toyosato-hall"]);
     expect(found.rows.every((r) => r.bangumi_id === NEW_WORK_ID)).toBe(true);
   });

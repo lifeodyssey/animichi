@@ -34,4 +34,4 @@ const overview: AnimeOverview = {
 os.animeOverview.handler(() => overview);
 
 // @ts-expect-error -- the contract requires synced_at; removing this directive must fail tsc.
-os.search.handler(() => ({ rows: [] }));
+os.pointsByBangumiId.handler(() => ({ rows: [] }));
