@@ -5,7 +5,7 @@ import { makeSnapshotBucket, publishTwoSnapshots } from "./fakes/snapshot-bucket
 
 /**
  * The token guard in front of `POST /catalog/snapshot/rollback`
- * (`src/api/snapshot.ts`), driven through the real app.
+ * (`src/adapters/inbound/snapshot.ts`), driven through the real app.
  *
  * While no `SNAPSHOT_ADMIN_TOKEN` is configured, the route answers 503
  * `{"error":"snapshot rollback not configured"}` whatever the request carries.

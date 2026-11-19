@@ -32,7 +32,7 @@ import type { CatalogPrisma } from "../../db/prisma";
  * One stored candidate row: the `bangumi` columns the candidate is built from,
  * plus its point count. An `interface`, not a type alias, on purpose — the plan
  * hands back exactly this shape, and an interface keeps the deleted row-narrowing
- * helpers (`src/lib/rows.ts`) from being called on it again.
+ * helpers from being called on it again.
  */
 export interface StoredCandidateRow extends CandidateFields {
   points_count: number;

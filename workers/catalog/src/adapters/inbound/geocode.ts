@@ -1,8 +1,8 @@
-import { geocodePlace } from "../application/geocode-place";
-import { NeonGazetteer } from "../adapters/outbound/neon/gazetteer";
-import { unconfiguredGeocoder } from "../adapters/outbound/geocoder-client";
-import type { CatalogPrisma } from "../db/prisma";
-import type { GeocodeInput, GeocodeResult } from "../types";
+import { geocodePlace } from "../../application/geocode-place";
+import { NeonGazetteer } from "../outbound/neon/gazetteer";
+import { unconfiguredGeocoder } from "../outbound/geocoder-client";
+import type { CatalogPrisma } from "../../db/prisma";
+import type { GeocodeInput, GeocodeResult } from "../../types";
 
 /**
  * Resolve a place through the gazetteer, then the external geocoder.

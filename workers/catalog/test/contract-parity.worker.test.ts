@@ -79,7 +79,7 @@ import type {
   RouteTooManyPointsData as LocalRouteTooManyPointsData,
   UpstreamUnavailableData as LocalUpstreamUnavailableData,
   WorkNotFoundData as LocalWorkNotFoundData,
-} from "../src/lib/errors";
+} from "../src/adapters/inbound/errors";
 
 type ContractErrorSpec = {
   [Code in keyof ContractCatalogErrorDefs]: Pick<ContractCatalogErrorDefs[Code], "status" | "category" | "message">;

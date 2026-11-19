@@ -31,7 +31,7 @@ import type { CatalogPrisma } from "../../db/prisma";
 /**
  * One ranked work row. An `interface`, not a type alias, on purpose: the plan
  * already hands back exactly this shape, and an interface keeps the deleted
- * row-narrowing helpers (`src/lib/rows.ts`) from being called on it again —
+ * row-narrowing helpers from being called on it again —
  * TypeScript refuses to pass one to their `Record<string, unknown>` parameter.
  */
 export interface PopularBangumiRow {

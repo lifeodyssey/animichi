@@ -41,7 +41,7 @@ import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { upsert } from "../db/plans";
 import { clusterByLocation } from "../domain/clustering/cluster";
-import { rankAliases, Source, type RawAlias } from "../lib/alias";
+import { rankAliases, Source, type RawAlias } from "../domain/alias";
 import { parseAnitabiPoints, parseBangumi, type BangumiRow, type PointRow } from "./parse";
 
 /** Outcome of enriching one work: how many points it wrote. */

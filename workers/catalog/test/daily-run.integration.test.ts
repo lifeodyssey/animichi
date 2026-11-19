@@ -5,7 +5,7 @@ import {
   runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts, type RunWorkOutcome,
 } from "../src/ingest/daily-run";
 import { catalogPorts } from "../src/ingest/catalog-daily-run";
-import { appendRawHistory, cleanupRawHistory, historyCount } from "../src/ingest/raw_history";
+import { appendRawHistory, cleanupRawHistory, historyCount } from "../src/ingest/raw-history";
 import { captureProvenance } from "../src/ingest/provenance";
 import {
   databaseDescribe,

@@ -1,7 +1,7 @@
 /** The recording WorkPointsPort double and its canonical rows, shared by the
  * work-points suites. Named for what it builds, per
  * .claude/rules/naming-ownership.md. */
-import type { WorkPointsPort } from "../src/api/work-points";
+import type { WorkPointsPort } from "../src/adapters/inbound/work-points";
 import type { IngestGuard } from "../src/ingest/ingest-bangumi";
 import type { Point } from "../src/types";
 import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";

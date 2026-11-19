@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { workPointsDb } from "../src/api/work-points";
+import { workPointsDb } from "../src/adapters/inbound/work-points";
 import { countingCatalogPrisma } from "./fakes/fake-catalog-prisma";
 import { PUBLISHED } from "./work-points.fixtures";
 

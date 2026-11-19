@@ -1,6 +1,6 @@
 /**
  * The bearer guard in front of the two operational surfaces: the admin commands
- * (`../import/admin-routes.ts`) and the snapshot rollback (`./snapshot.ts`).
+ * (`../../import/admin-routes.ts`) and the snapshot rollback (`./snapshot.ts`).
  *
  * Hono's `bearerAuth` reads the `Authorization` header and Hono's own
  * `timingSafeEqual` compares the token: the scheme matches whatever its case
@@ -15,7 +15,7 @@
 import type { MiddlewareHandler } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { timingSafeEqual } from "hono/utils/buffer";
-import type { Env } from "../index";
+import type { Env } from "../../index";
 
 /** The operational secret a mount reads from the env, as wrangler binds it. */
 type OperatorToken = string | SecretsStoreSecret | undefined;

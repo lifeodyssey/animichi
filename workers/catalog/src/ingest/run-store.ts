@@ -20,8 +20,8 @@ import type { JsonValue } from "@prisma/orm-postgres/contract/types";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow } from "../db/plans";
-import { asJsonValue } from "../lib/json";
-import { isUniqueViolation } from "../lib/pg-error";
+import { asJsonValue } from "../db/json";
+import { isUniqueViolation } from "../db/pg-error";
 import type { RunFailure, RunLedgerEntry, RunSnapshot } from "./daily-run";
 
 interface RunRow extends Record<string, unknown> {

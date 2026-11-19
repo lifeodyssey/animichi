@@ -34,7 +34,7 @@
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerClock, atServerNow } from "../db/plans";
-import { isUniqueViolation } from "../lib/pg-error";
+import { isUniqueViolation } from "../db/pg-error";
 import { fetchStage, IngestErrorCode } from "./ingest-failure";
 import type { UpstreamName } from "./upstream-failures";
 

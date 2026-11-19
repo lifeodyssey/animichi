@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUniqueViolation, sqlStateOf } from "../src/lib/pg-error";
+import { isUniqueViolation, sqlStateOf } from "../src/db/pg-error";
 
 /**
  * SQLSTATE classification for the guarded claims (#1630).

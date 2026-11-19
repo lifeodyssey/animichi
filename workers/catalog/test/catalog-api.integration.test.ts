@@ -25,7 +25,7 @@ vi.mock("cloudflare:workers", () => ({
  * Boots the REAL Hono `app` (from src/index.ts) against the suite database on
  * the hermetic Docker arm, with `DATABASE_URL` set to it.
  * Each call goes through the
- * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
+ * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> adapters/inbound/* handler
  * -> plan -> PostGIS query -> response. This is the integration that the
  * Worker-runtime test cannot do (workerd has no TCP sockets).
  *

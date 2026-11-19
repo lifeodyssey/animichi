@@ -15,11 +15,11 @@
  * never queried by these routes.
  */
 import { Hono } from "hono";
-import type { Env } from "../index";
-import type { CatalogPrisma } from "../db/prisma";
-import { r2ObjectStore } from "../publish/object-store";
+import type { Env } from "../../index";
+import type { CatalogPrisma } from "../../db/prisma";
+import { r2ObjectStore } from "../../publish/object-store";
 import { bearerGuard } from "./bearer-guard";
-import { readCurrentSnapshot, rollbackToPrevious, type SnapshotDeps } from "../publish/snapshot";
+import { readCurrentSnapshot, rollbackToPrevious, type SnapshotDeps } from "../../publish/snapshot";
 
 /** A plan seam that must never be queried: snapshot reads/rollback are store-only. */
 const NO_QUERY = {

@@ -146,11 +146,6 @@ backend/tests/eval/results/agent_openai-mimo-*
 # a future artifact kind cannot land in a commit by being new.
 packages/eval/artifacts/
 
-# Catalog TS service source — re-include (root lib/ rule is too broad)
-!catalog/src/lib/
-!workers/catalog/src/lib/
-!workers/catalog/src/lib/**
-
 # Users TS service source — re-include (root lib/ rule is too broad)
 !workers/users/src/lib/
 !workers/users/src/lib/**

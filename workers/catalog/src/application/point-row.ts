@@ -9,11 +9,11 @@
  * the same row the same way. The required fields are always present, and a null
  * bangumi_id or image becomes "" because the contract requires a string. Every
  * other field is present exactly when its column holds a value: null is left out
- * (`../lib/optional.ts`), and any other value, "" included, is kept. The work's
+ * (`./optional.ts`), and any other value, "" included, is kept. The work's
  * title, title_cn and cover_url arrive only from the reads that join `bangumi`.
  */
 
-import { optional } from "../lib/optional";
+import { optional } from "./optional";
 import type { Point } from "../types";
 
 /** The columns a read selects for one point; only the joined reads carry the work's titles. */

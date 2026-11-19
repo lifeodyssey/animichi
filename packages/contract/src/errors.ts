@@ -1,7 +1,7 @@
 /**
  * Single source of truth for cross-service Catalog error codes.
  *
- * The mirror lives in `workers/catalog/src/lib/errors.ts` (TS, no zod). Keep both
+ * The mirror lives in `workers/catalog/src/adapters/inbound/errors.ts` (TS, no zod). Keep both
  * in lockstep.
  */
 

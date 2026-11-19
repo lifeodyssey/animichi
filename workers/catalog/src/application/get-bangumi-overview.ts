@@ -7,7 +7,7 @@
  */
 
 import { clusterByLocation, type LocationCluster } from "../domain/clustering/cluster";
-import { optional } from "../lib/optional";
+import { optional } from "./optional";
 import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleItinerary, AnimeScene } from "../types";
 
 /** A published point row, as read and validated by the outbound adapter. */

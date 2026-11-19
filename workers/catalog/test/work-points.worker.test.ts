@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pointsByBangumiId } from "../src/api/work-points";
+import { pointsByBangumiId } from "../src/adapters/inbound/work-points";
 import { PREVIEW, PUBLISHED, fakeDb } from "./work-points.fixtures";
 
 describe("pointsByBangumiId tiered ingest", () => {

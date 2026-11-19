@@ -18,7 +18,7 @@
  */
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
-import { asJsonValue } from "../lib/json";
+import { asJsonValue } from "../db/json";
 
 /** How many newest raw payloads per work/source the cleanup retains. */
 export const DEFAULT_KEEP_COUNT = 2;

@@ -6,14 +6,14 @@
  * this file only adapts dependencies and logs.
  */
 
-import { nearbyDetailsPort, nearbyGeoPort } from "../adapters/outbound/nearby-points";
+import { nearbyDetailsPort, nearbyGeoPort } from "../outbound/nearby-points";
 import {
   nearbyPoints,
   type NearbyObservation,
   type NearbyObserverPort,
-} from "../application/nearby-points";
-import type { CatalogPrisma } from "../db/prisma";
-import type { Point } from "../types";
+} from "../../application/nearby-points";
+import type { CatalogPrisma } from "../../db/prisma";
+import type { Point } from "../../types";
 
 export interface NearbyInput {
   lat: number;

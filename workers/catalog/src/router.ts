@@ -5,14 +5,14 @@ import { planItinerary as planItineraryUseCase, type ItineraryObserverPort } fro
 import { bangumiTitleSearch } from "./adapters/outbound/bangumi-search";
 import { titleAlias } from "./adapters/outbound/title-alias";
 import { pointsForRoute } from "./adapters/outbound/route-points";
-import { pointsByBangumiId, workPointsDb } from "./api/work-points";
-import { nearby as nearbyHandler } from "./api/nearby";
-import { geocode as geocodeHandler } from "./api/geocode";
+import { pointsByBangumiId, workPointsDb } from "./adapters/inbound/work-points";
+import { nearby as nearbyHandler } from "./adapters/inbound/nearby";
+import { geocode as geocodeHandler } from "./adapters/inbound/geocode";
 import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogPrisma } from "./db/prisma";
-import { routeTooManyPoints, workNotFound } from "./lib/errors";
+import { routeTooManyPoints, workNotFound } from "./adapters/inbound/errors";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {

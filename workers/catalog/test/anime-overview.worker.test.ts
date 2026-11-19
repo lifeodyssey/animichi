@@ -4,9 +4,9 @@ import { overviewPointsDb } from "../src/adapters/outbound/overview-points";
 import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
 /**
- * Unit tests for the public `animeOverview` read handler
- * (catalog/src/api/anime-overview.ts). No Docker / no live Postgres: the handler
- * only touches `db.execute(sql`...`)` returning `{ rows }`, so a typed fake is
+ * Unit tests for the public `animeOverview` read: the `getBangumiOverview` use
+ * case over the `overviewPointsDb` adapter. No Docker / no live Postgres: the
+ * adapter only calls the seam's `executor.query(plan)`, so a typed fake is
  * injected. Asserts the contract AnimeOverview shape: bubble aggregation
  * (region + count), 名場面 ranking (by shot count), and per-region sample routes.
  * Named *.worker.test.ts so vitest-pool-workers picks it up.

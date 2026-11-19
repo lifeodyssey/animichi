@@ -4,11 +4,11 @@ import {
   rankAliases,
   Source,
   SOURCE_PRIORITY,
-} from "../src/lib/alias";
+} from "../src/domain/alias";
 
 /**
  * Unit tests for alias normalization + multi-source priority ranking
- * (catalog/src/lib/alias.ts), feeding the `aliases` catalog table.
+ * (catalog/src/domain/alias.ts), feeding the `aliases` catalog table.
  *
  * Expected NFKC outputs were captured from Node's String.prototype.normalize
  * ("NFKC") directly. Named *.worker.test.ts so the vitest-pool-workers config
