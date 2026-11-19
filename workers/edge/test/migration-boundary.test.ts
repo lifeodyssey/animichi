@@ -58,19 +58,26 @@ void test("no worker maps the data plane with a schema of its own", () => {
 // onto that path and deleted the last database credential CI held.
 void test("both environments migrate through the migrator Worker on an OIDC identity", () => {
   const cd = read(".github/workflows/cd.yml");
+  const action = read(".github/actions/call-migrator/action.yml");
   const handshake = read("scripts/delivery/migrate-through-worker.sh");
   // #1468 collapsed the five staging stages into one `stage` job, so the job
   // that proves an identity to the migrator is that one; what this pins is
   // unchanged — the staging migration runs under an `id-token: write` job.
+  // Each job applies through the call-migrator action, which mints the migrator's token inside
+  // that job with the official toolkit's `core.getIDToken`, for the migrator's audience, and the
+  // handshake presents the token its step was handed.
+  const stagingApply =
+    /uses: \$\/\.github\/actions\/call-migrator\n\s+with:\n\s+environment: staging\n\s+migrator-url: \$\{\{ vars\.MIGRATOR_STAGING_URL \}\}\n\s+client: migrate-through-worker\n/;
+  const productionApply =
+    /uses: \$\/\.github\/actions\/call-migrator\n\s+with:\n\s+environment: production\n\s+migrator-url: \$\{\{ vars\.MIGRATOR_PRODUCTION_URL \}\}\n\s+client: migrate-through-worker\n/;
   const stage = jobBlock(cd, "stage");
   assert.match(stage, /id-token: write/);
-  assert.match(stage, /MIGRATOR_URL: \$\{\{ vars\.MIGRATOR_STAGING_URL \}\}/);
-  assert.match(stage, /migrate-through-worker\.sh staging/);
+  assert.match(stage, stagingApply);
   const production = jobBlock(cd, "promote-production");
   assert.match(production, /id-token: write/);
-  assert.match(production, /MIGRATOR_URL: \$\{\{ vars\.MIGRATOR_PRODUCTION_URL \}\}/);
-  assert.match(production, /migrate-through-worker\.sh production/);
-  assert.match(handshake, /audience=animichi:github-actions:migrator/);
+  assert.match(production, productionApply);
+  assert.match(action, /core\.getIDToken\('animichi:github-actions:migrator'\)/);
+  assert.match(handshake, /Authorization: Bearer \$MIGRATOR_OIDC_TOKEN/);
   assert.doesNotMatch(cd, /NEON_DATABASE_URL/);
 });
 

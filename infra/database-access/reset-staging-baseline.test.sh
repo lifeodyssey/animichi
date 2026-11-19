@@ -20,18 +20,22 @@
 #     reset-staging-baseline.approved-rows names -> pre-state, backup branch, rebuild
 #   no marker, leftovers, rows anywhere else    -> named refusal, exit 1, nothing touched
 #   a read that cannot be answered              -> named refusal, exit 1, nothing touched
+#   a stack file whose target is unset or not a
+#     string                                    -> named refusal, exit 1, nothing reached
 #
 # The predicates are SQL, so each case runs the shipped script against a disposable
-# PostgreSQL + PostGIS database; only `npx neonctl` is stubbed, routing `psql` to that database
-# and recording the branch calls that would reach the Neon API. Fails closed without Docker or
-# the offline image, like scripts/local-gates/db-fresh-schema.sh.
+# PostgreSQL + PostGIS database; only neonctl is stubbed — reached as the lockfile-installed
+# `pnpm --dir <repo>/infra exec neonctl --no-analytics`, while `npx` refuses — routing `psql` to
+# that database and recording the branch calls that would reach the Neon API. Fails closed without
+# Docker or the offline image, like scripts/local-gates/db-fresh-schema.sh.
 #
-# One suite, three files split by responsibility, sourced into this shell so the one container
+# One suite, four files split by responsibility, sourced into this shell so the one container
 # serves the whole run: this file owns the seeds every case runs on and the no-marker cutover
 # states the reset exists for, reset-staging-baseline.marker-cases.sh owns the marker beside the
-# ledger and the owner's record that may approve it (#1781), and
+# ledger and the owner's record that may approve it (#1781),
 # reset-staging-baseline.half-reset-cases.sh owns the half-reset a failed owner step strands and
-# the re-run that finishes it (#1949).
+# the re-run that finishes it (#1949), and reset-staging-baseline.stack-config-cases.sh owns how
+# the Neon target is read out of the stack configuration.
 set -euo pipefail
 
 # shellcheck source=infra/database-access/reset-staging-baseline.test.harness.sh
@@ -132,10 +136,13 @@ run_script 1
 expect "and it refuses to guess" yes "$(said "cannot confirm staging state")"
 expect "and it takes no backup" no "$(backup_taken)"
 
-# The marker's cases and the half-reset's, in this shell and against the same container.
+# The marker's cases, the half-reset's and the stack configuration's, in this shell and against
+# the same container.
 # shellcheck source=infra/database-access/reset-staging-baseline.marker-cases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.marker-cases.sh"
 # shellcheck source=infra/database-access/reset-staging-baseline.half-reset-cases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.half-reset-cases.sh"
+# shellcheck source=infra/database-access/reset-staging-baseline.stack-config-cases.sh
+. "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.stack-config-cases.sh"
 
 report_suite "reset-staging-baseline"

@@ -128,10 +128,17 @@ jobs:
         env:
           NEON_API_KEY: ${{ steps.esc.outputs.NEON_API_KEY }}
         run: bash infra/database-access/reset-staging-baseline.sh
+      # The migrator admits a GitHub OIDC token minted for its own audience
+      # (workers/migrator/src/policy.ts). Every call to it goes through the
+      # call-migrator action, which waits until the migrator serves the selected
+      # bundle, then mints that token from this job's identity and hands it to
+      # the named client alone; no step of this workflow holds it.
       - name: Preview the selected native migration graph
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash .github/scripts/release/schema-preflight.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: schema-preflight
       # The generated provider SDKs do not travel in git (#1865): the directory's
       # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
       # `packages:` with `pulumi install` — the CLI is already on PATH from the
@@ -160,16 +167,20 @@ jobs:
           stack-name: lifeodyssey/staging
           work-dir: release/foundation/infra
       - name: Apply the selected migration chain
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash scripts/delivery/migrate-through-worker.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: migrate-through-worker
       # The chain applying is not the schema existing (#1230). Read the three
       # catalog tables back through the migrator before this release's
       # consumers are published onto them.
       - name: Verify the promoted catalog schema
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash scripts/delivery/verify-catalog-schema.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: verify-catalog-schema
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh staging
@@ -182,9 +193,16 @@ jobs:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev https://animichi-web-staging.zhenjiazhou0127.workers.dev
+      # The receipt records the migrator's answer after the smoke. That read is a
+      # step of its own, so the token reaches it and not the recorder (#1695).
+      - name: Read the migrator's schema view for the receipt
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: schema-preflight
       - name: Record observed deployment identities
         env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
@@ -193,7 +211,6 @@ jobs:
           # origin is behind Cloudflare Access.
           EVIDENCE_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
         run: |
-          bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging
           node .github/scripts/release/record-evidence.mjs staging
       - name: Publish the immutable staging receipt
@@ -300,10 +317,14 @@ jobs:
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env production --tag "sha-$SOURCE_SHA"
+      # Every call to the migrator goes through the call-migrator action, as in
+      # the staging job.
       - name: Preview the selected native migration graph
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash .github/scripts/release/schema-preflight.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: schema-preflight
       # The generated provider SDKs do not travel in git (#1865): the directory's
       # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
       # `packages:` with `pulumi install` — the CLI is already on PATH from the
@@ -332,16 +353,20 @@ jobs:
           stack-name: lifeodyssey/prod
           work-dir: release/foundation/infra
       - name: Apply the selected migration chain
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash scripts/delivery/migrate-through-worker.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: migrate-through-worker
       # The promotion is what #1230 Phase 1 exists for: production held zero
       # catalog tables while staging held three. Verify the same three through
       # this environment's own migrator before its consumers are published.
       - name: Verify the promoted catalog schema
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash scripts/delivery/verify-catalog-schema.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: verify-catalog-schema
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh production
@@ -350,15 +375,18 @@ jobs:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi.com https://animichi.com
+      - name: Read the migrator's schema view for the receipt
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: schema-preflight
       - name: Record observed deployment identities
         env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
-        run: |
-          bash .github/scripts/release/schema-preflight.sh production
-          node .github/scripts/release/record-receipt.mjs production
+        run: node .github/scripts/release/record-receipt.mjs production
       - name: Publish the immutable production receipt
         id: receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

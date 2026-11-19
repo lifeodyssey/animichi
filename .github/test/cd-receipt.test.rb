@@ -21,12 +21,15 @@ class CdReceiptTest < Minitest::Test
     steps(job).index(step(job, name))
   end
 
+  # The migrator's answer the receipt records is read by the step just before the recorder, a
+  # call-migrator step of its own; the recorder is handed no token (cd-post-deploy-evidence).
   def test_receipt_records_actual_versions_only_after_successful_smoke
-    %w[stage promote-production].each do |job|
+    { "stage" => "staging", "promote-production" => "production" }.each do |job, environment|
       record = step(job, "Record observed deployment identities")
-      assert_operator position(job, "Record observed deployment identities"), :>, position(job, "Smoke the release")
+      read = steps(job)[position(job, "Record observed deployment identities") - 1]
+      assert_operator steps(job).index(read), :>, position(job, "Smoke the release")
       refute record.key?("if")
-      assert_includes record.fetch("run"), "schema-preflight.sh"
+      assert_equal ["$/.github/actions/call-migrator", "schema-preflight", environment], [read["uses"], *read.fetch("with").values_at("client", "environment")]
       assert_includes record.fetch("run"), "node .github/scripts/release/record-receipt.mjs"
     end
   end

@@ -66,7 +66,7 @@ echo PROCEEDS`);
 const businessRowsLive = (tables: readonly string[], record = ""): Outcome => sourcedResetScript(`
 ${record && `APPROVED_ROWS="${record}"`}
 staging_psql() {
-  printf 'INFO: Connecting to the database using psql...\\n' >&2
+  printf 'Connecting to the database; launching psql...\\n' >&2
   printf '%s\\n' ${tables.map((table) => `"${table}"`).join(" ")}
 }
 refuse_business_rows
@@ -80,7 +80,7 @@ void test("rows only in the tables the committed record approves proceed", () =>
 
 void test("the connection diagnostic is not mistaken for a table holding rows", () => {
   const outcome = businessRowsLive(STAGING_2026_09_18);
-  assert.equal(outcome.stderr, "INFO: Connecting to the database using psql...\n");
+  assert.equal(outcome.stderr, "Connecting to the database; launching psql...\n");
   assert.equal(outcome.stdout, "PROCEEDS\n");
 });
 

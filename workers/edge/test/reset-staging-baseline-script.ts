@@ -10,8 +10,14 @@ const SCRIPT = fileURLToPath(new URL("../../../infra/database-access/reset-stagi
 
 export interface Outcome { status: number | null; stdout: string; stderr: string }
 
+// Every Neon call the script makes goes through its `neonctl`, so that one function refuses
+// until a case answers it, and `npx` refuses outright: a case that forgets to replace a read fails
+// here instead of sending a request to the Neon API.
+const NO_NEON = `neonctl() { echo "neonctl must not run in this test: $*" >&2; return 97; }
+npx() { echo "npx must not run in this test: $*" >&2; return 97; }`;
+
 export const sourcedResetScript = (body: string): Outcome => {
-  const result = spawnSync("bash", ["-c", `set -euo pipefail\nsource "${SCRIPT}"\n${body}`], { encoding: "utf8" });
+  const result = spawnSync("bash", ["-c", `set -euo pipefail\nsource "${SCRIPT}"\n${NO_NEON}\n${body}`], { encoding: "utf8" });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 };
 

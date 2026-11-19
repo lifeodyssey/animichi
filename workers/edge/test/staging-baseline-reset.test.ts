@@ -21,8 +21,6 @@ void test("staging reset is branch-backed and production-safe", () => {
   assert.match(sh, /branches create[\s\S]*--parent "\$BRANCH_ID"[\s\S]*--no-compute/);
   assert.match(sh, /--role-name "\$role"/);
   assert.match(sh, /OWNER_ROLE="neondb_owner"/);
-  assert.match(sh, /neonctl@3\.6\.0/);
-  assert.doesNotMatch(sh, /neonctl@latest/);
 });
 
 // audit §2.6: the reset SQL ran without a transaction wrapper — a mid-script failure could

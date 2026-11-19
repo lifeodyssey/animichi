@@ -11,7 +11,8 @@ class WorkflowWorkspaceTest < Minitest::Test
   # `wrangler deploy --dry-run`) and the pre-push commitlint cases (the workspace's
   # real commitlint), so the lane that invokes the runner is the job that needs the
   # install — `contracts`, which used to run those files one by one, no longer does.
-  # The `commits` job's two lint programs drive the same real commitlint (#1858).
+  # The `commits` job's two lint programs drive the same real commitlint (#1858). The
+  # staging rebuild runs neonctl and js-yaml out of `infra`'s installed dependencies.
   WORKSPACE_SCRIPTS = %w[
     .github/scripts/delivery-toolchain-tests.sh
     .github/scripts/release/build-worker.mjs .github/scripts/release/verify-config.mjs
@@ -19,6 +20,7 @@ class WorkflowWorkspaceTest < Minitest::Test
     .github/scripts/release/record-receipt.mjs .github/scripts/release/publish-services.sh
     .github/scripts/commits/lint-commit-range.sh .github/scripts/commits/lint-pr-title.sh
     scripts/local-gates/oxlint-changed.sh scripts/local-gates/pre-push-affected.sh
+    infra/database-access/reset-staging-baseline.sh
   ].freeze
 
   def test_indirect_workspace_consumers_exist

@@ -5,7 +5,9 @@ require_relative "repository-yaml"
 class CdMigrationsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CD_FILE = File.join(ROOT, ".github", "workflows", "cd.yml")
-  MIGRATION_SCRIPT = "bash scripts/delivery/migrate-through-worker.sh"
+  # The apply runs migrate-through-worker.sh through the action that mints the migrator's token.
+  CALLER = "$/.github/actions/call-migrator"
+  APPLY = "migrate-through-worker"
   RETIREMENT_SCRIPT = "bash scripts/delivery/retire-migrator-container.sh"
   EDGE_RETIREMENT_SCRIPT = "bash scripts/delivery/retire-edge-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
@@ -21,16 +23,21 @@ class CdMigrationsTest < Minitest::Test
     @cd = RepositoryYaml.load_file(CD_FILE)
   end
 
-  def migration_step(job, environment)
-    @cd.dig("jobs", job, "steps").to_a.find { |step| step["run"].to_s.include?("#{MIGRATION_SCRIPT} #{environment}") }
+  def calls?(step, client)
+    step["uses"] == CALLER && step.dig("with", "client") == client
+  end
+
+  def client_index(steps, client)
+    steps.index { |step| calls?(step, client) }
   end
 
   def test_every_environment_migrates_through_the_worker
     MIGRATION_TARGETS.each do |job, (environment, url)|
-      step = migration_step(job, environment)
-      assert(!step.nil?, "cd.yml:#{job}: must migrate through `#{MIGRATION_SCRIPT} #{environment}`")
-      assert(step.to_h.dig("env", "MIGRATOR_URL").to_s.include?(url),
-                       "cd.yml:#{job}: the migration must name the #{environment} migrator (#{url})")
+      step = @cd.dig("jobs", job, "steps").to_a.find { |item| calls?(item, APPLY) }
+      assert(!step.nil?, "cd.yml:#{job}: must migrate through #{CALLER} with client #{APPLY}")
+      assert_equal environment, step.dig("with", "environment")
+      assert(step.dig("with", "migrator-url").to_s.include?(url),
+             "cd.yml:#{job}: the migration must name the #{environment} migrator (#{url})")
     end
   end
 
@@ -79,8 +86,8 @@ class CdMigrationsTest < Minitest::Test
   def test_native_preflight_precedes_the_apply_in_every_job
     %w[stage promote-production].each do |job|
       steps = @cd.dig("jobs", job, "steps")
-      preflight = steps.index { |step| step["run"].to_s.match?(/schema-preflight\.sh/) }
-      apply = steps.index { |step| step["run"].to_s.match?(/migrate-through-worker\.sh/) }
+      preflight = client_index(steps, "schema-preflight")
+      apply = client_index(steps, APPLY)
       refute_nil preflight, "#{job}: the native preflight must run"
       assert_operator apply, :>, preflight, "#{job}: the apply must follow its preflight"
     end
@@ -94,7 +101,8 @@ class CdMigrationsTest < Minitest::Test
   end
 
   def mutates?(step)
-    step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|retire-edge-container\.sh|reset-staging/)
+    step.dig("with", "command") == "up" || calls?(step, APPLY) ||
+      step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|retire-edge-container\.sh|reset-staging/)
   end
 
   def test_native_graph_is_published_before_preview_and_application_changes

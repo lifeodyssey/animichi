@@ -15,5 +15,6 @@ when %r{/migrate}
   File.write(ARGV.fetch(ARGV.index("-o") + 1), body)
   print code
 else
-  puts JSON.generate("value" => "fixture-token")
+  # The controller asks for nothing else: its token is the one its step is handed.
+  abort "migration-curl fixture: an unexpected call: #{ARGV.join(' ')}"
 end
