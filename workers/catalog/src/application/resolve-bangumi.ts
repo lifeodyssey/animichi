@@ -15,7 +15,7 @@
  */
 
 import { MAX_CANDIDATES } from "@animichi/contract/constants";
-import { normalizeAlias } from "../lib/alias";
+import { normalizeAlias } from "../domain/alias";
 import { optional } from "../lib/optional";
 import type { AnimeCandidate, ResolveOutcome } from "../types";
 

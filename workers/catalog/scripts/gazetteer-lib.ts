@@ -1,7 +1,7 @@
 /** Build the deterministic PR-B gazetteer Atlas data migration and audit CSV. */
 import { createHash } from "node:crypto";
 import { fileURLToPath, URL as NodeURL } from "node:url";
-import { normalizeAlias } from "../src/lib/alias";
+import { normalizeAlias } from "../src/domain/alias";
 import { compareText, sorted } from "./gazetteer-render";
 
 export type Kind = "station" | "city" | "ward" | "prefecture";

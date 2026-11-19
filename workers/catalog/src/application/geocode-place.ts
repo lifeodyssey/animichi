@@ -10,7 +10,7 @@
  * invalid_row (every gazetteer row has broken coordinates).
  */
 
-import { normalizeAlias } from "../lib/alias";
+import { normalizeAlias } from "../domain/alias";
 import {
   collapseGeocodeHits,
   isValidGeocodeHit,
