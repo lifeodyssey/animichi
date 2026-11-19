@@ -41,11 +41,11 @@ async function runStatus(runId: string): Promise<string | null> {
   return (rows[0] as { status: string } | undefined)?.status ?? null;
 }
 
-async function currentPointer(workId: string): Promise<number | undefined> {
-  const { rows } = await pool.query(
-    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [workId],
-  );
-  return (rows as { version: number }[])[0]?.version;
+async function publishTrace(runId: string, workId: string): Promise<Record<string, unknown> | undefined> {
+  const { rows } = await pool.query<Record<string, unknown>>("SELECT (SELECT version FROM cluster_version WHERE"
+    + " bangumi_id = $2 AND is_current) AS pointer, EXISTS (SELECT 1 FROM bangumi WHERE id = $2) AS bangumi,"
+    + " EXISTS (SELECT 1 FROM catalog_runs WHERE run_id = $1 AND published_versions ? $2) AS published", [runId, workId]);
+  return rows[0];
 }
 
 beforeAll(async () => {
@@ -133,9 +133,9 @@ databaseDescribe("Provenance capture (AC4)", () => {
 
 databaseDescribe("Published pointer safety (AC6)", () => {
   it("does not advance the published pointer for a work that never publishes", async () => {
-    expect(await currentPointer("spike-1")).toBeUndefined();
+    expect(await publishTrace("daily-ac6", "spike-1")).toEqual({ pointer: null, bangumi: false, published: false });
     await runDailyIngestWith(catalogPorts(query, "daily-ac6", POLICY.keepHistory), plan("daily-ac6"));
-    expect(await currentPointer("spike-1")).toBeUndefined();
+    expect(await publishTrace("daily-ac6", "spike-1")).toEqual({ pointer: null, bangumi: false, published: false });
   });
 });
 

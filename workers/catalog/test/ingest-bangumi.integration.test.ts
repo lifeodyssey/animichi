@@ -1,5 +1,5 @@
 import pg from "pg";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import type { IngestBangumi } from "../src/ingest/ingest-bangumi";
 import { databaseDescribe } from "./integration-db";
 import {
@@ -53,11 +53,13 @@ databaseDescribe("IngestBangumi claim uniqueness: concurrent double ingest", () 
     // Winner parks in fetch (job 'running'); loser's claim then loses the race.
     const winner = ingest.ingest("460101", { fetchImpl: makeGatedFetch(gate) });
     await awaitRunning("460101");
-    const loser = await ingest.ingest("460101", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const loserFetch = vi.fn(makeFetch(ANITABI_POINTS));
+    const loser = await ingest.ingest("460101", { fetchImpl: loserFetch });
     release();
     const a = await winner;
     const statuses = [a.status, loser.status].sort();
     expect(statuses).toEqual(["in_progress", "ingested"]);
+    expect(loserFetch).not.toHaveBeenCalled();
     expect(await currentVersion("460101")).toBe(1);
   });
 });
@@ -74,9 +76,10 @@ databaseDescribe("IngestBangumi crash recovery + idempotent replay", () => {
   });
 
   it("re-ingests idempotently: re-enrich upserts, no duplicate points, version bumps once", async () => {
-    await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
-    await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const first = await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const second = await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
 
+    expect([first.status, second.status]).toEqual(["ingested", "ingested"]);
     expect(await pointCount("460106")).toBe(2);
     expect(await currentVersion("460106")).toBe(2);
     expect(await jobStatus("460106")).toBe("done");

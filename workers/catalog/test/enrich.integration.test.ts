@@ -3,6 +3,8 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { saveRawAnitabi, saveRawBangumi } from "../src/ingest/raw-store";
 import { enrichWork } from "../src/enrich/enrich";
+import { enrichedRows } from "./enriched-rows";
+import { LUCKY_STAR_ROWS, RAW_ANITABI, RAW_BANGUMI } from "./fixtures/lucky-star-enrich";
 import {
   databaseDescribe,
   openPlaneSeams,
@@ -14,27 +16,9 @@ import {
  * Integration suite for the Enrich stage (card W3-2): raw zone -> enriched catalog -> publish.
  *
  * Uses the committed Prisma chain's schema, cloned into the suite database, then
- * seeds realistic raw payloads through the raw store before driving enrichWork
- * over the plane seams.
+ * seeds realistic raw payloads (`fixtures/lucky-star-enrich.ts`) through the raw
+ * store before driving enrichWork over the plane seams.
  */
-
-// Realistic raw payloads matching the sources.ts upstream shapes.
-const RAW_BANGUMI = {
-  id: 1,
-  name: "らき☆すた",
-  name_cn: "幸运星",
-  summary: "高校生たちの日常コメディ。",
-  images: { large: "https://lain.bgm.tv/pic/cover/l/lucky.jpg" },
-  rating: { score: 8.1 },
-  total_episodes: 24,
-  date: "2007-04-08",
-};
-// Two points ~12m apart (one 50m cluster) + a far one (a second cluster).
-const RAW_ANITABI = [
-  { id: "p-washinomiya", name: "鷲宮神社", geo: [36.1019, 139.6586], image: "/2024/shrine.jpg", ep: 1, s: 42, origin: "バンダイチャンネル", originURL: "https://www.b-ch.com/ttl/index.php?ttl_c=1" },
-  { id: "p-torii", cn: "鳥居", geo: [36.10199, 139.65861], image: "https://img/torii.jpg", ep: 1 },
-  { id: "p-tokyo", name: "東京駅", lat: 35.6812, lng: 139.7671, screenshot: "/2024/tokyo.jpg", episode: 3 },
-];
 
 let pool: pg.Pool;
 let query: CatalogPrisma;
@@ -116,6 +100,10 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
     expect(result.pointCount).toBe(3);
   });
 
+  it("writes exactly the golden bangumi, points and aliases rows", async () => {
+    expect(await enrichedRows(pool, "lucky-star")).toEqual(LUCKY_STAR_ROWS);
+  });
+
   it("writes the bangumi row parsed from the raw subject", assertEnrichBangumiRow);
 
   it("writes points with coords and trigger-derived geography location", async () => {
@@ -160,6 +148,7 @@ databaseDescribe("re-enrich from raw is idempotent and publishes a new version",
     const result = await enrichWork(query, "lucky-star");
     expect(result.version).toBe(2);
     expect(result.pointCount).toBe(3);
+    expect(await enrichedRows(pool, "lucky-star")).toEqual(LUCKY_STAR_ROWS);
     expect(await pointCount("lucky-star")).toBe(3);
     expect(await allVersions("lucky-star")).toEqual([1, 2]);
     expect(await currentVersion("lucky-star")).toBe(2);

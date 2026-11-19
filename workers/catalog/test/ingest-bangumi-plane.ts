@@ -14,7 +14,7 @@ import { openPlaneSeams, truncateCatalogPool, type PlaneSeams } from "./integrat
  * `ingest-bangumi-negative-cache.integration.test.ts` the negative cache.
  */
 
-// Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.integration.test.ts).
+// Realistic upstream payloads matching the sources.ts shapes (mirrors fixtures/lucky-star-enrich.ts).
 const BANGUMI_SUBJECT = {
   id: 1,
   name: "らき☆すた",
