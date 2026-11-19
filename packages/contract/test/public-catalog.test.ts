@@ -100,7 +100,7 @@ describe("the public catalog matcher", () => {
     expect(isPublicCatalogPath("/catalog/public")).toBe(false);
     expect(isPublicCatalogPath("/catalog/public/secret")).toBe(false);
     expect(isPublicCatalogPath("/catalog/public/anime-overviews/3302")).toBe(false);
-    expect(isPublicCatalogPath("/catalog/search")).toBe(false);
+    expect(isPublicCatalogPath("/catalog/resolve")).toBe(false);
   });
 
   it("keeps the numeric bangumi id and the encoded separator out of the surface", () => {

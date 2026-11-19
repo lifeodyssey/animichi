@@ -19,7 +19,7 @@
  *                                oRPC catalog client from) by
  *                                `packages/contract/test/public-catalog.test.ts`.
  *
- * The private catalog procedures (`POST /catalog/search`, `/catalog/itinerary`,
+ * The private catalog procedures (`POST /catalog/resolve`, `/catalog/itinerary`,
  * …) are deliberately NOT in that set: they have no public door (iter-5 S5.4's
  * security AC) and are reachable only over the container's CATALOG binding, so
  * they are not paths the edge can route. A web call to one is a different

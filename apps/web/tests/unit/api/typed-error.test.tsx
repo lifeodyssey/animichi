@@ -11,8 +11,8 @@ import { TEST_ORIGIN } from "../../msw/fixtures";
 
 type CatalogClient = ReturnType<typeof createCatalogClient>;
 
-async function searchError(client: CatalogClient): Promise<ORPCError<string, unknown>> {
-  const { error } = await safe(client.search({ query: "hakone" }));
+async function pointsError(client: CatalogClient): Promise<ORPCError<string, unknown>> {
+  const { error } = await safe(client.pointsByBangumiId({ bangumi_id: "12345" }));
   return error as ORPCError<string, unknown>;
 }
 
@@ -23,8 +23,8 @@ describe("typed error parity across SSR and client navigation", () => {
     const ssr = createCatalogClient({ url: resolveApiConfig({ siteOrigin: TEST_ORIGIN }).catalogUrl });
     const browser = createCatalogClient({ url: resolveApiConfig({}, window.location).catalogUrl });
 
-    const ssrError = await searchError(ssr);
-    const clientError = await searchError(browser);
+    const ssrError = await pointsError(ssr);
+    const clientError = await pointsError(browser);
 
     expect(ssrError).toBeInstanceOf(ORPCError);
     expect(clientError).toBeInstanceOf(ORPCError);

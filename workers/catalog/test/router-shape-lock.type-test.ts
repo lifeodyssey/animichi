@@ -16,7 +16,6 @@ const os = implement(catalogContract).$context<CatalogContext>();
 const validOutput: SearchResult = { rows: [], synced_at: "2026-07-13T00:00:00.000Z" };
 
 expectTypeOf(validOutput).toExtend<SearchResult>();
-os.search.handler(() => validOutput);
 os.pointsByBangumiId.handler(() => validOutput);
 const resolved: ResolveOutcome = {
   outcome: "resolved",
@@ -34,4 +33,10 @@ const overview: AnimeOverview = {
 os.animeOverview.handler(() => overview);
 
 // @ts-expect-error -- the contract requires synced_at; removing this directive must fail tsc.
-os.search.handler(() => ({ rows: [] }));
+os.pointsByBangumiId.handler(() => ({ rows: [] }));
+
+// `search` and `spots` were retired (#2075): the contract offers neither procedure to implement.
+// @ts-expect-error -- `search` is no longer a catalog procedure.
+void os.search;
+// @ts-expect-error -- `spots` is no longer a catalog procedure.
+void os.spots;

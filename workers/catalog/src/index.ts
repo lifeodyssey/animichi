@@ -101,17 +101,6 @@ app.use("/catalog/public/*", async (c, next) => {
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
-function waitUntilFor(
-  c: { executionCtx: { waitUntil: (p: Promise<unknown>) => void } },
-): ((p: Promise<unknown>) => void) | undefined {
-  try {
-    const ctx = c.executionCtx;
-    return ctx.waitUntil.bind(ctx);
-  } catch {
-    return undefined;
-  }
-}
-
 app.get("/catalog/img/:pointId", async (c) => {
   const plan = parseAnitabiImagePlan(c.req.query("plan"));
   if (plan === null) return c.json({ error: "image plan required" }, 400);
@@ -142,7 +131,6 @@ app.use("/catalog/*", async (c, next) => {
       prisma: catalogPrisma(runtime),
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
-      waitUntil: waitUntilFor(c),
     },
   });
   if (matched) {

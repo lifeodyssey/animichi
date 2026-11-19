@@ -22,8 +22,8 @@ vi.mock("cloudflare:workers", () => ({
 
 /**
  * SUT: the request path's upstream calls — `pointsByBangumiId`'s anitabi `/lite`
- * preview through the egress service, and the Bangumi searches behind `resolve`
- * and `search` — driven through the whole Hono app against the suite database.
+ * preview through the egress service, and the Bangumi search behind `resolve` —
+ * driven through the whole Hono app against the suite database.
  *
  * The upstream is a stub that answers scripted statuses and then never answers,
  * rejecting only when its own request signal aborts, as `fetch` does. Time is
@@ -106,13 +106,12 @@ databaseDescribe("pointsByBangumiId preview: an upstream that never answers", ()
 
 /**
  * Every procedure that reaches upstream on the request path. An outage would
- * answer 502 (search, pointsByBangumiId) or `upstream_unavailable` (resolve); a
- * cancel answers oRPC's generic 500 to a caller that is no longer there.
+ * answer 502 (pointsByBangumiId) or `upstream_unavailable` (resolve); a cancel
+ * answers oRPC's generic 500 to a caller that is no longer there.
  */
 const CANCELLABLE = [
   ["/catalog/points-by-bangumi-id", { bangumi_id: "460401" }],
   ["/catalog/resolve", { query: "取消された題名" }],
-  ["/catalog/search", { query: "取消された題名" }],
 ] as const;
 
 databaseDescribe("request-path upstream calls: a caller that cancels", () => {

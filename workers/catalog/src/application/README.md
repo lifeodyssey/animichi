@@ -14,5 +14,5 @@ import from `adapters/`, `api/`, the data-platform stages, `db/`, hono or the
 Prisma data-access packages, in this layer or in `src/domain/`.
 
 `point-row.ts` is not a use case: it is the one mapping from a `points` row to
-the contract `Point`, shared by the use cases here and by the adapters that map
-rows themselves (`src/api/spots.ts`, `src/adapters/outbound/route-points.ts`).
+the contract `Point`, shared by the use cases here and by the adapter that maps
+rows itself (`src/adapters/outbound/route-points.ts`).

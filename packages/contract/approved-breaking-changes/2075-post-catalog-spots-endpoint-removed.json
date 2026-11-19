@@ -1,0 +1,8 @@
+{
+  "document": "openapi.json",
+  "method": "POST",
+  "path": "/catalog/spots",
+  "kind": "endpoint-removed",
+  "issue": "#2075",
+  "approved": "2026-11-14"
+}

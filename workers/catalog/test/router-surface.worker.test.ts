@@ -8,10 +8,8 @@ import { catalogRouter } from "../src/router";
  * exact allowed set, so re-adding (or renaming) any procedure fails here.
  */
 const PUBLIC_PROCEDURES = [
-  "search",
   "resolve",
   "pointsByBangumiId",
-  "spots",
   "nearby",
   "geocode",
   "planItinerary",

@@ -15,9 +15,6 @@
 
 import type { LocationCluster } from "../clustering/cluster";
 import { haversine } from "../geo";
-import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../transit/constants";
-import { maybeTransitLeg } from "../transit/leg";
-import type { TransitIndex } from "../transit/graph";
 import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../../types";
 
 /**
@@ -47,6 +44,11 @@ export interface Origin {
 }
 
 type NonEmpty<T> = [T, ...T[]];
+
+/** Typical walking speed in metres per minute. */
+const WALKING_SPEED_M_PER_MIN = 80;
+/** Straight-line to walking-route distance multiplier. */
+const WALK_DETOUR_COEFFICIENT = 1.3;
 
 const DWELL_MULTIPLIERS: Record<Pacing, number> = {
   chill: 1.5,
@@ -208,22 +210,11 @@ function makeWalkLeg(from: LocationCluster, to: LocationCluster, buffer: number)
   };
 }
 
-function legPoint(cluster: LocationCluster) {
-  return { lat: cluster.centerLat, lng: cluster.centerLng, id: cluster.clusterId };
-}
-
-function makeLeg(from: LocationCluster, to: LocationCluster, buffer: number, transit?: TransitIndex): TransitLeg {
-  const walk = makeWalkLeg(from, to, buffer);
-  const rail = transit ? maybeTransitLeg(legPoint(from), legPoint(to), transit) : null;
-  return rail && rail.duration_minutes < walk.duration_minutes ? rail : walk;
-}
-
 /** Options for {@link buildTimedItinerary}. */
 export interface ItineraryOptions {
   startTime?: string;
   pacing?: string;
   origin?: Origin;
-  transit?: TransitIndex; // Optional until production asset shipping injects an index.
 }
 
 /**
@@ -239,7 +230,7 @@ export function buildTimedItinerary(
   const pacing = safePacing(opts.pacing ?? "normal");
   const ordered = orderClusters(clusters, opts.origin);
   if (!ordered) return { stops: [], legs: [], total_minutes: 0, total_distance_m: 0, pacing, start_time: startTime };
-  return assembleItinerary(ordered, startTime, pacing, opts.transit);
+  return assembleItinerary(ordered, startTime, pacing);
 }
 
 /** Order clusters by nearest-neighbor; null when given none to route. */
@@ -262,10 +253,9 @@ function assembleItinerary(
   ordered: NonEmpty<LocationCluster>,
   startTime: string,
   pacing: Pacing,
-  transit?: TransitIndex,
 ): TimedItinerary {
   const acc = startAccumulator(ordered[0], startTime, pacing);
-  for (const next of ordered.slice(1)) appendCluster(acc, next, pacing, TRANSIT_BUFFERS[pacing], transit);
+  for (const next of ordered.slice(1)) appendCluster(acc, next, pacing, TRANSIT_BUFFERS[pacing]);
   return finalizeItinerary(acc.stops, acc.legs, acc.totalDistance, startTime, pacing);
 }
 
@@ -275,11 +265,11 @@ function startAccumulator(first: LocationCluster, startTime: string, pacing: Pac
 }
 
 /** Append one cluster, including the inbound leg and its timed stop. */
-function appendCluster(acc: ItineraryAccumulator, next: LocationCluster, pacing: Pacing, buffer: number, transit?: TransitIndex): void {
-  const leg = makeLeg(acc.current, next, buffer, transit);
+function appendCluster(acc: ItineraryAccumulator, next: LocationCluster, pacing: Pacing, buffer: number): void {
+  const leg = makeWalkLeg(acc.current, next, buffer);
   const arrive = addMinutes(acc.currentStop.depart, leg.duration_minutes);
   const stop = makeStop(next, arrive, computeDwellMinutes(next.photoCount, pacing));
-  acc.totalDistance += leg.mode === "transit" ? leg.distance_m : distTo(next, acc.current.centerLat, acc.current.centerLng);
+  acc.totalDistance += distTo(next, acc.current.centerLat, acc.current.centerLng);
   acc.legs.push(leg);
   acc.stops.push(stop);
   acc.current = next;

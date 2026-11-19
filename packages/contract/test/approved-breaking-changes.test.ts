@@ -110,6 +110,21 @@ describe("the approval this card lands", () => {
       });
     }
   });
+
+  // #2075 (the pull request that argues it) retires the catalog's two uncalled
+  // procedures, search and spots. Both names are exact.
+  it("records the two retired catalog procedures for #2075", () => {
+    for (const path of ["/catalog/search", "/catalog/spots"]) {
+      expect(RECORD).toContainEqual({
+        document: "openapi.json",
+        method: "POST",
+        path,
+        kind: "endpoint-removed",
+        issue: "#2075",
+        approved: "2026-11-14",
+      });
+    }
+  });
 });
 
 describe("a file that is not an entry fails the record, naming that file", () => {

@@ -1,16 +1,14 @@
 // TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /**
- * Fast Anitabi L1 preview mapping shared by title and work-id read paths. The
- * request's signal travels in the `SourceConfig`, so a caller's cancel aborts
- * the preview's upstream calls and surfaces as itself, never as an outage.
+ * Fast Anitabi L1 preview mapping for the work-id read path. The request's
+ * signal travels in the `SourceConfig`, so a caller's cancel aborts the
+ * preview's upstream call and surfaces as itself, never as an outage.
  */
 
 import { upstreamUnavailable } from "../lib/errors";
 import { optional } from "../lib/optional";
-import { withUpstreamUnavailable } from "../lib/upstream";
 import {
   fetchAnitabiLite,
-  fetchBangumiSearch,
   UpstreamNotFoundError,
   type AnitabiLite,
   type AnitabiPoint,
@@ -18,29 +16,16 @@ import {
 } from "../ingest/sources";
 import type { Point } from "../types";
 
-/** A resolved title plus its fast `/lite` point preview. */
+/** A bangumi id plus its fast `/lite` point preview. */
 export interface MissPreview {
   bangumiId: string;
   points: Point[];
-}
-
-/** Resolve a title and return a non-empty preview, preserving search miss behavior. */
-export async function previewForQuery(query: string, cfg: SourceConfig): Promise<MissPreview | null> {
-  const bangumiId = await bangumiIdResolve(query, cfg);
-  if (!bangumiId) return null;
-  const preview = await previewForWork(bangumiId, cfg);
-  return preview.points.length > 0 ? preview : null;
 }
 
 /** Fetch a preview for an already-resolved bangumi id, including an empty preview. */
 export async function previewForWork(bangumiId: string, cfg: SourceConfig): Promise<MissPreview> {
   const lite = await fetchLitePreview(bangumiId, cfg);
   return { bangumiId, points: lite.points.map((point) => litePoint(point, bangumiId)) };
-}
-
-/** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
-async function bangumiIdResolve(query: string, cfg: SourceConfig): Promise<string | null> {
-  return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, cfg), cfg.signal);
 }
 
 /** Treat Anitabi 404 as a real empty preview and other failures as outages; a caller's cancel stays its own. */

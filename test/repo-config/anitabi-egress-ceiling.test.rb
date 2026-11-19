@@ -134,8 +134,9 @@ class AnitabiEgressCeilingTest < Minitest::Test
   end
 
   # The most requests one work can cost: every operation the surface permits.
-  # A work's ingest fetches `points`; the search-miss path adds `lite` for its
-  # preview. The capture is the authority for how many operations exist.
+  # A work's ingest fetches `points`; points-by-bangumi-id adds `lite` for its
+  # preview of an unpublished work. The capture is the authority for how many
+  # operations exist.
   def requests_per_work
     capture["operations"].length
   end

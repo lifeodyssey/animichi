@@ -3,9 +3,9 @@
  * to the contract `Point` (`../types`, the in-Worker mirror of
  * packages/contract/src/models.ts).
  *
- * Search and points-by-bangumi-id (`list-points-for-bangumi.ts`), spots
- * (`../api/spots.ts`), itinerary (`../adapters/outbound/route-points.ts`) and
- * nearby (`nearby-points.ts`) all map their rows here, so every endpoint answers
+ * Points-by-bangumi-id (`list-points-for-bangumi.ts`), itinerary
+ * (`../adapters/outbound/route-points.ts`) and nearby (`nearby-points.ts`) all
+ * map their rows here, so every endpoint answers
  * the same row the same way. The required fields are always present, and a null
  * bangumi_id or image becomes "" because the contract requires a string. Every
  * other field is present exactly when its column holds a value: null is left out

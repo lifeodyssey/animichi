@@ -1,24 +1,11 @@
 /** The one point the wire-shape integration file seeds: a `points` row with
  * every column the read endpoints map set, on a work whose title columns are
- * set too, with the alias `search` resolves to the work. Named for what it
- * builds, per `.claude/rules/naming-ownership.md`. */
+ * set too. Named for what it builds, per `.claude/rules/naming-ownership.md`. */
 import type pg from "pg";
-import {
-  aliasInsert,
-  aliasSeed,
-  pointInsert,
-  pointSeed,
-  workInsert,
-  workSeed,
-  type SeedStatement,
-} from "./fixtures/catalog-seed";
+import { pointInsert, pointSeed, workInsert, workSeed, type SeedStatement } from "./fixtures/catalog-seed";
 
 /** The work, under a Bangumi subject id `points-by-bangumi-id` accepts. */
 export const WIRE_WORK = workSeed("3704", "涼宮ハルヒの憂鬱");
-
-/** The alias `search` resolves to the work. `normalizeAlias` is the identity on
- * this title (NFKC-stable, nothing to fold), so the stored key is the title. */
-export const WIRE_ALIAS = "涼宮ハルヒの憂鬱";
 
 /** The point's id and coordinates, which the nearby and itinerary requests name. */
 export const WIRE_POINT = { id: "wire-1", name: "県立北高校", latitude: 34.7569, longitude: 135.3466 };
@@ -37,7 +24,7 @@ const POINT_COLUMNS = {
   origin_url: "https://origin.invalid/points/wire-1",
 };
 
-/** Insert the work, its alias and the point on `pool`. */
+/** Insert the work and the point on `pool`. */
 export async function seedWirePoint(pool: pg.Pool): Promise<void> {
   for (const statement of wireSeedStatements()) {
     await pool.query(statement.text, statement.values);
@@ -51,7 +38,6 @@ function wireSeedStatements(): readonly SeedStatement[] {
     workTitles(),
     pointInsert([pointSeed(WIRE_POINT.id, WIRE_WORK, WIRE_POINT.name, WIRE_POINT.latitude, WIRE_POINT.longitude)]),
     pointColumns(),
-    aliasInsert([aliasSeed(WIRE_WORK, WIRE_ALIAS, WIRE_ALIAS, "bangumi", 40)]),
   ];
 }
 

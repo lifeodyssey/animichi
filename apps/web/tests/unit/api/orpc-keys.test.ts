@@ -7,8 +7,8 @@ const usersUtils = createUsersUtils(createUsersClient({ url: "https://users.test
 
 describe("oRPC tanstack utils key prefixes", () => {
   it("prefixes catalog queries under the catalog namespace", () => {
-    const [path] = catalogUtils.search.key();
-    expect(path).toEqual(["catalog", "search"]);
+    const [path] = catalogUtils.pointsByBangumiId.key();
+    expect(path).toEqual(["catalog", "pointsByBangumiId"]);
   });
 
   it("prefixes users queries under the users namespace", () => {
@@ -17,7 +17,7 @@ describe("oRPC tanstack utils key prefixes", () => {
   });
 
   it("keeps the two service namespaces disjoint", () => {
-    const [catalogPath] = catalogUtils.search.key();
+    const [catalogPath] = catalogUtils.pointsByBangumiId.key();
     const [usersPath] = usersUtils.listSavedRoutes.key();
     expect(catalogPath[0]).toBe("catalog");
     expect(usersPath[0]).toBe("users");
