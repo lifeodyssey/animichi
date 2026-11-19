@@ -17,7 +17,7 @@
  */
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
-import { asJsonValue } from "../lib/json";
+import { asJsonValue } from "../db/json";
 
 /** A JSON-serializable itinerary snapshot payload. */
 export type SnapshotPayload = Record<string, unknown> | unknown[];

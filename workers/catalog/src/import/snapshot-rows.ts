@@ -15,14 +15,14 @@
  *     from. Writing the scalars is `cannot insert a non-DEFAULT value into
  *     column "latitude"` (`428C9`).
  *   - `catalog_provenance.attribution` / `field_map` are jsonb, which the plan
- *     boundary takes as `JsonValue` (see `../lib/json`).
+ *     boundary takes as `JsonValue` (see `../db/json`).
  *
  * Each row is read through its snapshot interface after `importSnapshot` has
  * verified the object's SHA-256 against the manifest, so what arrives here is
  * bytes this Worker's own export wrote, not caller input.
  */
 import { geographyPoint } from "@animichi/prisma-geography";
-import { asJsonValue } from "../lib/json";
+import { asJsonValue } from "../db/json";
 import type { ImportKind } from "./import-snapshot";
 
 /** The public table each snapshot kind loads (staging's active Catalog). */
