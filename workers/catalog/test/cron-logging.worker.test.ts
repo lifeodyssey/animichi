@@ -10,7 +10,7 @@ import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 // routing behaviour itself stays covered in cron.worker.test.ts.
 const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "production" };
 const STAGING_ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "staging" };
-const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
+const INGESTED: IngestResult = { status: "ingested", pointCount: 4 };
 const IN_PROGRESS: IngestResult = { status: "in_progress" };
 const EMPTY: IngestResult = { status: "empty", reason: "no points" };
 const FAILED: IngestResult = { status: "failed", reason: "enrich failed" };

@@ -3,8 +3,8 @@
  *
  * ingestRunWork runs the fetch -> raw -> history -> provenance -> enrich ->
  * publish pipeline for one work within a run, consuming the run's budget and
- * reporting a source-aware outcome. A failed work never reaches publish, so its
- * published pointer is not advanced. Provenance and raw-history capture happen
+ * reporting a source-aware outcome. A failed work never reaches publish, so the
+ * run records no published marker for it. Provenance and raw-history capture happen
  * across this request's Prisma runtime so the run is diagnosable after the fact.
  *
  * The pass's deadline travels in `upstream.signal` and reaches both fetches.
@@ -156,8 +156,8 @@ function pointIdOf(point: AnitabiPoint): string | null {
 /** Enrich + publish the work; a failure becomes a pipeline failure. */
 async function publish(query: CatalogPrisma, bangumiId: string): Promise<RunWorkOutcome> {
   try {
-    const result = await enrichWork(query, bangumiId);
-    return { outcome: "ingested", version: result.version };
+    await enrichWork(query, bangumiId);
+    return { outcome: "ingested" };
   } catch (err) {
     return { outcome: "pipelineFailed", stage: "enrich", reason: message(err) };
   }

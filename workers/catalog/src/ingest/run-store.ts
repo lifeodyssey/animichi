@@ -2,10 +2,12 @@
  * Run persistence over catalog_runs (#1006 AC1).
  *
  * A run row keyed by a STABLE run id records the discovered targets, per-source
- * outcomes, budget use, failures, completion state, and published versions as
- * JSONB snapshots. readRun / beginRun / recordRun are the idempotent gate +
- * transitions; every statement is a builder plan on the request's runtime
- * ({@link CatalogPrisma}), so retries never issue raw SQL.
+ * outcomes, budget use, failures, completion state, and a numeric "published"
+ * marker per work as JSONB snapshots. The marker sits in `published_versions`,
+ * named for the version it held until the publish stopped minting one; rows
+ * written before then still hold versions. readRun / beginRun / recordRun are
+ * the idempotent gate + transitions; every statement is a builder plan on the
+ * request's runtime ({@link CatalogPrisma}), so retries never issue raw SQL.
  *
  * `beginRun` is the run's singleflight gate, and it is the one write here the
  * conflict clause does not serve: the gate has to leave a live run untouched,
@@ -196,13 +198,13 @@ function isWorkStage(value: unknown): value is "fetch" | "enrich" | "quality" {
   return value === "fetch" || value === "enrich" || value === "quality";
 }
 
-/** Read the recorded `published_versions` JSONB as a version map, else empty. */
+/** Read the recorded `published_versions` JSONB as the published-work map (any numeric value), else empty. */
 function parsePublished(value: unknown): Record<string, number> {
   if (!isRecord(value)) return {};
   const out: Record<string, number> = {};
   for (const key of Object.keys(value)) {
-    const version = value[key];
-    if (typeof version === "number") out[key] = version;
+    const marker = value[key];
+    if (typeof marker === "number") out[key] = marker;
   }
   return out;
 }

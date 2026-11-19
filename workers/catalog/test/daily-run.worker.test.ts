@@ -33,7 +33,7 @@ interface Recorder {
 
 function recorder(): Recorder {
   const calls: string[] = [];
-  let outcome: RunWorkOutcome = { outcome: "ingested", version: 1 };
+  let outcome: RunWorkOutcome = { outcome: "ingested" };
   const ports: RunPorts = {
     readRun: () => Promise.resolve(null),
     beginRun: () => { calls.push("begin"); return Promise.resolve(true); },
@@ -57,7 +57,7 @@ describe("Daily run protocol — idempotency (AC1)", () => {
     expect(rec.calls().filter((c) => c.startsWith("ingest:")).length).toBe(firstRuns);
   });
 
-  it("records a complete status and a publish version per work on success", async () => {
+  it("records a complete status and a published marker per work on success", async () => {
     const rec = recorder();
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-ok"));
     expect(snapshot.status).toBe("complete");
@@ -69,9 +69,9 @@ describe("Daily run protocol — idempotency (AC1)", () => {
   it("marks a run partial when some works succeed and others fail", async () => {
     const rec = recorder();
     const outcomes: RunWorkOutcome[] = [
-      { outcome: "ingested", version: 4 },
+      { outcome: "ingested" },
       { outcome: "pipelineFailed", stage: "enrich", reason: "boom" },
-      { outcome: "ingested", version: 5 },
+      { outcome: "ingested" },
     ];
     let n = 0;
     rec.ports.ingestWork = (bangumiId) => {
@@ -83,10 +83,10 @@ describe("Daily run protocol — idempotency (AC1)", () => {
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-partial"));
     expect(snapshot.status).toBe("partial");
     expect(snapshot.failures).toEqual([{ bangumiId: "2", stage: "enrich", reason: "boom" }]);
-    expect(snapshot.published).toEqual({ "1": 4, "3": 5 });
+    expect(snapshot.published).toEqual({ "1": 1, "3": 1 });
   });
 
-  it("marks a run failed when no work publishes and never advances a pointer", async () => {
+  it("marks a run failed when no work publishes, and marks none published", async () => {
     const rec = recorder();
     rec.setOutcome({ outcome: "fetchFailed", source: "bangumi", attempted: ["bangumi"], reason: "500" });
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-fail"));
@@ -155,7 +155,7 @@ describe("Daily run protocol — partial/failed resume is idempotent (MAJOR-2)",
     const result = await runDailyIngestWith(rec.ports, plan("daily-resume"));
     const ingested = rec.calls().filter((c) => c.startsWith("ingest:")).map((c) => c.slice("ingest:".length));
     expect(ingested).toEqual(["3"]);
-    // Retained versions stay; work 3 publishes at the recorder default version 1.
+    // An older row's recorded versions stay as read; work 3 is marked 1.
     expect(result.published).toEqual({ "1": 4, "2": 5, "3": 1 });
     expect(result.status).toBe("complete");
   });

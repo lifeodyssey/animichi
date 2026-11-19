@@ -17,7 +17,7 @@ import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 // Production lineage: the per-env AC1 guard allows ingest crons only in
 // production, so the routing tests below run as the production environment.
 const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "production" };
-const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
+const INGESTED: IngestResult = { status: "ingested", pointCount: 4 };
 /**
  * The cron's Prisma seam. Every dependency below is injected, so this seam is
  * never reached — a real build of it would assert that by failing loudly if the

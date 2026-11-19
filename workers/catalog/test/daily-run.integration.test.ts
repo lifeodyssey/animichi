@@ -19,7 +19,7 @@ import {
  *
  * Exercises the durable run protocol (AC1), deterministic discovery (AC2),
  * provenance capture (AC4), bounded raw retention (AC5), the partial/failed
- * run guarantee that never advances a published pointer (AC6), and the failure
+ * run guarantee that never marks a failed work published (AC6), and the failure
  * ledger a retry carries forward, against the committed Prisma chain's schema,
  * cloned into the suite database.
  */
@@ -41,11 +41,10 @@ async function runStatus(runId: string): Promise<string | null> {
   return (rows[0] as { status: string } | undefined)?.status ?? null;
 }
 
-async function currentPointer(workId: string): Promise<number | undefined> {
-  const { rows } = await pool.query(
-    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [workId],
-  );
-  return (rows as { version: number }[])[0]?.version;
+async function publishTrace(runId: string, workId: string): Promise<Record<string, unknown> | undefined> {
+  const sql = "SELECT EXISTS (SELECT 1 FROM bangumi WHERE id = $2) AS bangumi, EXISTS (SELECT 1 FROM catalog_runs"
+    + " WHERE run_id = $1 AND published_versions ? $2) AS published";
+  return (await pool.query<Record<string, unknown>>(sql, [runId, workId])).rows[0];
 }
 
 beforeAll(async () => {
@@ -131,15 +130,15 @@ databaseDescribe("Provenance capture (AC4)", () => {
   });
 });
 
-databaseDescribe("Published pointer safety (AC6)", () => {
-  it("does not advance the published pointer for a work that never publishes", async () => {
-    expect(await currentPointer("spike-1")).toBeUndefined();
+databaseDescribe("Publish safety for a failed work (AC6)", () => {
+  it("leaves no catalog row and no published marker for a work that never publishes", async () => {
+    expect(await publishTrace("daily-ac6", "spike-1")).toEqual({ bangumi: false, published: false });
     await runDailyIngestWith(catalogPorts(query, "daily-ac6", POLICY.keepHistory), plan("daily-ac6"));
-    expect(await currentPointer("spike-1")).toBeUndefined();
+    expect(await publishTrace("daily-ac6", "spike-1")).toEqual({ bangumi: false, published: false });
   });
 });
 
-const INGESTED: RunWorkOutcome = { outcome: "ingested", version: 1 };
+const INGESTED: RunWorkOutcome = { outcome: "ingested" };
 const SPIKE_2_FAILED = { bangumiId: "spike-2", stage: "enrich", reason: "boom" };
 const RECLAIMED = { stage: "reclaim", reason: "stale-reclaimed" };
 

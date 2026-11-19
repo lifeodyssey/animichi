@@ -14,7 +14,7 @@ function candidate(): ImportCandidate {
   };
 }
 
-// importTransaction (like publishVersion) has no try/catch around the unit: the
+// importTransaction has no try/catch around the unit: the
 // PINNED behaviour is a clean propagation with no partial-state ambiguity — a
 // failure anywhere in the one transaction rejects the whole switchCatalog call,
 // so an invalid/partial activation never lands.

@@ -47,7 +47,7 @@ function deps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
+    ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),

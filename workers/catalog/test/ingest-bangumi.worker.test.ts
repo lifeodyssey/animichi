@@ -61,13 +61,11 @@ function makeSource(fetchPoints?: () => Promise<AnitabiPoint[]>): IngestSource {
 }
 
 function makePublisher(rec: Recorder): IngestPublisher {
-  let version = 0;
   return {
     publish: (id) => {
       rec.calls.push(`publish:${id}`);
       rec.publishes++;
-      version++;
-      return Promise.resolve({ version, pointCount: POINTS.length });
+      return Promise.resolve({ pointCount: POINTS.length });
     },
   };
 }
@@ -81,7 +79,7 @@ describe("IngestBangumi claim uniqueness (singleflight)", () => {
     const winner = ingest.ingest("10380");
     const loser = await ingest.ingest("10380");
     gate.resolve();
-    expect(await winner).toEqual({ status: "ingested", version: 1, pointCount: 1 });
+    expect(await winner).toEqual({ status: "ingested", pointCount: 1 });
     expect(loser.status).toBe("in_progress");
     expect(rec.publishes).toBe(1);
   });
@@ -160,7 +158,7 @@ describe("IngestBangumi atomic publish ordering", () => {
     const rec = recorder();
     const ingest = new IngestBangumi(makeSource(), makeStore(rec), makePublisher(rec), DEFAULT_INGEST_TTL);
     const result = await ingest.ingest("10380");
-    expect(result).toEqual({ status: "ingested", version: 1, pointCount: 1 });
+    expect(result).toEqual({ status: "ingested", pointCount: 1 });
     expect(rec.calls).toEqual([
       "acquire:10380",
       "save:bangumi:10380",

@@ -91,6 +91,49 @@ export function recordingExecutor(): CatalogPlanExecutor & { plans(): readonly {
   };
 }
 
+/** The rows an executor answers, keyed by statement label (`select raw_bangumi`); an unlisted one answers none. */
+export type PlanAnswers = Readonly<Record<string, readonly unknown[]>>;
+
+/**
+ * An executor that writes each plan's label — its statement kind and table,
+ * `insert bangumi` — into `trace` and answers it from `answers`: every
+ * statement of a pass, in the order issued, beside whatever else the caller
+ * writes into the same trace.
+ */
+export function tracingExecutor(answers: PlanAnswers, trace: string[]): CatalogPlanExecutor {
+  return {
+    query: (plan) => {
+      const label = planLabel(plan);
+      trace.push(label);
+      return Promise.resolve((answers[label] ?? []) as readonly never[]);
+    },
+  };
+}
+
+/**
+ * {@link tracingExecutor}, except that the `call`-th plan it is handed
+ * (counting every plan from 1) is traced and then rejects with `error`: the
+ * refused statement of a failure-path row.
+ */
+export function rejectingAtCall(call: number, error: Error, answers: PlanAnswers, trace: string[]): CatalogPlanExecutor {
+  const tracing = tracingExecutor(answers, trace);
+  let calls = 0;
+  return {
+    query: (plan) => {
+      calls += 1;
+      if (calls !== call) return tracing.query(plan);
+      trace.push(planLabel(plan));
+      return Promise.reject(error);
+    },
+  };
+}
+
+/** A plan's statement kind and the table it reads or writes. */
+function planLabel(plan: { readonly ast: unknown }): string {
+  const ast = plan.ast as { readonly kind: string; readonly table?: { name: string }; readonly from?: { name: string } };
+  return `${ast.kind} ${ast.table?.name ?? ast.from?.name ?? "?"}`;
+}
+
 function walk(node: unknown, into: unknown[]): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, into);

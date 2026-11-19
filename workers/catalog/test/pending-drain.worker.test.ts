@@ -16,7 +16,7 @@ import { runPendingDrainJob, type PendingDrainJobDependencies } from "../src/sch
 const query = unreachableCatalogPrisma();
 const DATABASE_URL = "postgresql://user:password@catalog.example/animichi";
 
-const INGESTED = { status: "ingested", version: 1, pointCount: 2 } as const;
+const INGESTED = { status: "ingested", pointCount: 2 } as const;
 const BASE_DEPENDENCIES: CronDependencies = {
   connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
   ingestBangumi: () => Promise.resolve(INGESTED),

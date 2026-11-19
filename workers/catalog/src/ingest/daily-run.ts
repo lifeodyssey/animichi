@@ -5,9 +5,11 @@
  * retry is idempotent: re-running a completed day returns the already-recorded
  * outcome instead of fetching and publishing again. The run row records the
  * discovered target set, per-source outcomes, budget use, the failures of every
- * attempt (a retry appends to that ledger), completion state, and the publish
- * version each work reached. A partial or failed run is NEVER marked complete,
- * and a failed work never advances its published pointer.
+ * attempt (a retry appends to that ledger), completion state, and a numeric
+ * "published" marker for each work that published. The record of which version
+ * a work reached is retired: the publish stopped minting versions when it
+ * stopped writing `cluster_version`, so there is no version to record. A partial
+ * or failed run is NEVER marked complete, and a failed work gets no marker.
  *
  * The orchestrator is a pure plan over injected ports so the run-state protocol
  * is deterministically unit-testable; the production adapter wires real
@@ -67,6 +69,7 @@ export interface RunSnapshot {
   budgetUsed: { workUsed: number; requestUsed: number };
   firstExhausted: string | null;
   failures: RunLedgerEntry[];
+  /** Each work this run published, marked {@link PUBLISHED_MARKER}; a resumed row's older versions are kept as read. */
   published: Record<string, number>;
   /** When the run row was started (ms epoch); null when unknown. Drives stale reclaim. */
   startedAtMs: number | null;
@@ -95,11 +98,18 @@ export type RunSource = "bangumi" | "anitabi";
 
 /** Per-work ingest outcome reported back to the orchestrator. */
 export type RunWorkOutcome =
-  | { outcome: "ingested"; version: number }
+  | { outcome: "ingested" }
   | { outcome: "empty"; source: RunSource; reason: string }
   | { outcome: "fetchFailed"; source: RunSource; attempted: readonly RunSource[]; reason: string }
   | { outcome: "pipelineFailed"; stage: "enrich" | "quality"; reason: string }
   | { outcome: "exhausted" };
+
+/**
+ * What an `ingested` work is marked with in `RunSnapshot.published`. A number,
+ * because every reader of that map keeps only numeric values, the code that
+ * recorded versions there included.
+ */
+const PUBLISHED_MARKER = 1;
 
 /** Ports the run plan calls; production wires these to the CatalogDb seam. */
 export interface RunPorts {
@@ -171,7 +181,7 @@ async function recordAttempt(
   return recorded;
 }
 
-/** A zeroed snapshot for a fresh run, seeding any resumed publish versions. */
+/** A zeroed snapshot for a fresh run, seeding the works an earlier attempt published. */
 function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, number> = emptyPublished()): AttemptSnapshot {
   return {
     status: "running",
@@ -231,7 +241,7 @@ function applyOutcome(
   }
   snapshot.budgetUsed = budget.usage();
   if (outcome.outcome === "ingested") {
-    snapshot.published[bangumiId] = outcome.version;
+    snapshot.published[bangumiId] = PUBLISHED_MARKER;
     markSource(snapshot.sources, "bangumi", "ok");
     markSource(snapshot.sources, "anitabi", "ok");
     return;

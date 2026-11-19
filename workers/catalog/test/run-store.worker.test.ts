@@ -115,6 +115,16 @@ describe("Run ledger read-back", () => {
   });
 });
 
+describe("Run published read-back", () => {
+  it("reads back every number a row recorded per work, and drops what is not one", async () => {
+    const seam = recordingCatalogPrisma([{ ...runRow(null), published_versions: { a: 4, b: 1, c: "x" } }]);
+
+    const run = await readRunRow(seam.query, "daily-x");
+
+    expect(run?.published).toEqual({ a: 4, b: 1 });
+  });
+});
+
 describe("Run ledger write-back", () => {
   it.each(UNRECOGNISED_LEDGER_ELEMENTS)("records $label as the value it was read as", async ({ element }) => {
     const seam = recordingCatalogPrisma();
