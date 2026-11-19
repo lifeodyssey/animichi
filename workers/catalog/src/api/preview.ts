@@ -25,7 +25,7 @@ export interface MissPreview {
 }
 
 /** Resolve a title and return a non-empty preview, preserving search miss behavior. */
-export async function previewForQuery(query: string, cfg: SourceConfig = {}): Promise<MissPreview | null> {
+export async function previewForQuery(query: string, cfg: SourceConfig): Promise<MissPreview | null> {
   const bangumiId = await bangumiIdResolve(query, cfg);
   if (!bangumiId) return null;
   const preview = await previewForWork(bangumiId, cfg);
@@ -33,7 +33,7 @@ export async function previewForQuery(query: string, cfg: SourceConfig = {}): Pr
 }
 
 /** Fetch a preview for an already-resolved bangumi id, including an empty preview. */
-export async function previewForWork(bangumiId: string, cfg: SourceConfig = {}): Promise<MissPreview> {
+export async function previewForWork(bangumiId: string, cfg: SourceConfig): Promise<MissPreview> {
   const lite = await fetchLitePreview(bangumiId, cfg);
   return { bangumiId, points: lite.points.map((point) => litePoint(point, bangumiId)) };
 }
