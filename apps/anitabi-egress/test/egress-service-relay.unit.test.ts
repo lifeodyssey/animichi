@@ -5,11 +5,16 @@ import { handleEgressRequest, type EgressDeps } from "../src/egress-service.ts";
 import type { UpstreamFetch } from "../src/upstream-relay.ts";
 
 /**
- * SUT: the relay half of `handleEgressRequest`, for upstream answers a Web
- * `Response` cannot carry as they arrived. A status outside 200-599, or a body
- * on a status that has none, makes the `Response` constructor throw. The relay
- * answers those with its own upstream-failure answer, the marked 504
- * `upstream-timeout`, and still relays verbatim everything it can carry.
+ * SUT: the relay half of `handleEgressRequest`. It asks the upstream once for
+ * each request the ceiling granted, so one admission is one upstream request:
+ * no retry inside the request, and no redirect followed (pinned in
+ * `egress-service.unit.test.ts`, "the relay never follows a redirect", and
+ * against a real loopback redirect in `egress-service.integration.test.ts`).
+ * And for upstream answers a Web `Response` cannot carry as they arrived — a
+ * status outside 200-599, or a body on a status that has none, makes the
+ * `Response` constructor throw — the relay answers with its own upstream-failure
+ * answer, the marked 504 `upstream-timeout`, and still relays verbatim
+ * everything it can carry.
  */
 
 const KEY = crypto.randomBytes(48).toString("base64");
@@ -104,6 +109,35 @@ void describe("an upstream answer the relay cannot carry", () => {
     assert.deepEqual(answer.head, RELAY_FAILURE);
     assert.equal(detailIn(answer.body), undefined);
   });
+});
+
+/** An upstream that answers with `answer` and counts how often it was asked. */
+function countedUpstream(answer: UpstreamFetch): { fetch: UpstreamFetch; asked: () => number } {
+  let asked = 0;
+  return {
+    fetch: (url, init) => {
+      asked += 1;
+      return answer(url, init);
+    },
+    asked: () => asked,
+  };
+}
+
+/** Upstream answers a retrying relay would ask again for: the transient ones, and a request that failed outright. */
+const RETRYABLE = [
+  { what: "a 503", upstream: upstreamAnswering(503, SOME_BYTES) },
+  { what: "a 429", upstream: upstreamAnswering(429, SOME_BYTES) },
+  { what: "a request that failed outright", upstream: (() => Promise.reject(new Error("connection reset"))) satisfies UpstreamFetch },
+];
+
+void describe("one granted request is one upstream request", () => {
+  for (const { what, upstream } of RETRYABLE) {
+    void it(`asks the upstream once, and only once, when it answers ${what}`, async () => {
+      const counted = countedUpstream(upstream);
+      await answerTo(counted.fetch);
+      assert.equal(counted.asked(), 1, "a retry inside the request spends upstream requests the ceiling never granted");
+    });
+  }
 });
 
 void describe("an upstream answer the relay can carry", () => {

@@ -118,8 +118,8 @@ export function isSigningKey(value: string): boolean {
 /**
  * The largest ceiling the service will run with: one request per second of its
  * own window. A ceiling past it is not a generous limit, it is the absence of
- * one, and the arithmetic that enforces it (`used >= limit` against an hour of
- * seconds) stops meaning anything — so it fails closed at boot like every other
+ * one, and the arithmetic that enforces it (the window's count against an hour
+ * of seconds) stops meaning anything — so it fails closed at boot like every other
  * unusable value rather than starting up ungated. It is derived from the
  * window, not a second opinion about the agreed number: an agreement larger
  * than this needs the window's arithmetic reconsidered first.

@@ -5,20 +5,18 @@ import { createServer as createTcpServer, type Server } from "node:net";
 import { startEgressServer } from "../src/start-egress-server.ts";
 
 /**
- * The ceiling's store, over a real TCP connection (#1810, #1824).
+ * The ceiling's store, over a real TCP connection (#1810, #1824). The unit
+ * tests pin what the adapter writes, and the `rolling-window*` suites what the
+ * window decides on a real Redis; this suite proves what only the composition
+ * root's own connection can: the admission reaches a store carrying its
+ * credential as the window's one call, the store's decision is the ceiling's,
+ * and a store which stops answering refuses the request HERE — before the
+ * upstream, marked as our refusal — rather than being counted in memory.
  *
- * The unit tests below this one decide what the adapter writes and how every
- * unreadable answer is refused; this suite proves the three things only a real
- * connection can: that the service's count reaches a store carrying its
- * credential on the hour's own key, that the count the store answers with is
- * the ceiling's count, and that a store which stops answering refuses the
- * request HERE — before the upstream, marked as our refusal — rather than
- * being counted in the memory of the process that is failing.
- *
- * The store is a RESP-speaking stub on the loopback that this test owns, and
- * the service dials it through the composition root's real connection —
- * `family: 6`, so the stub binds `::1` exactly as Fly's private network is
- * reached. Nothing leaves the loopback, and no store is provisioned anywhere.
+ * The store is a RESP-speaking stub on the loopback that this test owns,
+ * answering the decision the test names, and the service dials it through the
+ * composition root's real connection — `family: 6`, so the stub binds `::1`
+ * exactly as Fly's private network is reached. Nothing leaves the loopback.
  */
 
 const KEY = crypto.randomBytes(48).toString("base64");
@@ -26,9 +24,12 @@ const KEY = crypto.randomBytes(48).toString("base64");
 /** The store's password: an obviously-fake constant, the form this repository's test credentials take. */
 const STORE_PASSWORD = "the-integration-tests-own-password";
 
-/** A moment inside the hour that starts at 1699999200, which is the key the store must be asked for. */
+/** The moment the service's clock reads. */
 const NOW_SECONDS = 1_700_000_000;
-const HOUR_KEY = "anitabi-egress:upstream-requests:1699999200";
+
+/** The window's key, and the shape of the random member an admission is recorded under. */
+const WINDOW_KEY = "anitabi-egress:upstream-requests:rolling";
+const MEMBER_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const PATH = "/anitabi/lite/2461";
 
@@ -88,21 +89,19 @@ interface StubStore {
   url(username: string | null): string;
   /** Every command every connection carried, in the order the service sent them. */
   commands: string[][];
-  /** Answer every further command with this Redis error instead of a count; null restores the count. */
+  /** Answer every further command with this Redis error instead of a decision; null restores the decision. */
   refuse(message: string | null): void;
+  /** Answer every further admission with the window's refusal, `0`, as a spent window does. */
+  spend(): void;
 }
 
 async function startStubStore(): Promise<StubStore> {
   const commands: StubStore["commands"] = [];
-  let count = 0;
+  let decision = 1;
   let refusal: string | null = null;
   const answer = (command: readonly string[]): string => {
     if (refusal !== null) return `-${refusal}\r\n`;
-    if (command[0] === "INCR") {
-      count += 1;
-      return `:${String(count)}\r\n`;
-    }
-    return command[0] === "EXPIRE" ? ":1\r\n" : "+OK\r\n";
+    return command[0] === "EVAL" ? `:${String(decision)}\r\n` : "+OK\r\n";
   };
   const server = createTcpServer((socket) => {
     let buffered = "";
@@ -123,6 +122,9 @@ async function startStubStore(): Promise<StubStore> {
     commands,
     refuse: (message) => {
       refusal = message;
+    },
+    spend: () => {
+      decision = 0;
     },
     url: (username) => {
       const credentials = username === null ? "" : `${username}:${STORE_PASSWORD}@`;
@@ -156,15 +158,16 @@ void describe("the store the ceiling counts in, over a real connection", () => {
     store.server.close();
   });
 
-  void it("counts the request in the store, on the hour's own key, before relaying", async () => {
+  void it("asks the store's window to admit the request, in one call, before relaying", async () => {
     const answer = await ask(service.port);
     assert.equal(answer.status, 200);
     assert.equal(answer.marker, "relayed-upstream");
-    assert.deepEqual(
-      store.commands,
-      [["INCR", HOUR_KEY], ["EXPIRE", HOUR_KEY, "7200"]],
-      "the window is the clock hour the request falls in, and the hour is the whole key",
-    );
+    const admission = store.commands[0] ?? [];
+    assert.equal(store.commands.length, 1, "one request is one call to the store");
+    assert.equal(admission[0], "EVAL");
+    assert.equal(admission[3], WINDOW_KEY, "the window is the store's one key, and names no instance");
+    assert.equal(admission.at(-3), "100", "the limit travels with the call: the store decides");
+    assert.match(admission.at(-2) ?? "", MEMBER_SHAPE, "each admission is recorded under a member of its own");
   });
 
   void it("refuses when the store stops answering, and never reaches the upstream", async () => {
@@ -190,7 +193,7 @@ void describe("the store the ceiling counts in, over a real connection", () => {
 /**
  * The same store, reached by an address that carries the credential — which is
  * the shape Fly's Private URL has. The AUTH is a command on the same
- * connection, in the same write, and the count is still the store's.
+ * connection, in the same write, and the decision is still the store's.
  */
 void describe("an address that carries the store's own credential", () => {
   let service: { server: Server; port: number };
@@ -207,22 +210,20 @@ void describe("an address that carries the store's own credential", () => {
     store.server.close();
   });
 
-  void it("opens the store with that credential, then counts in it", async () => {
+  void it("opens the store with that credential, then asks its window", async () => {
     const answer = await ask(service.port);
     assert.equal(answer.marker, "relayed-upstream");
-    assert.deepEqual(
-      store.commands,
-      [["AUTH", "default", STORE_PASSWORD], ["INCR", HOUR_KEY], ["EXPIRE", HOUR_KEY, "7200"]],
-      "the store refuses every command without its AUTH, and the increment cannot arrive ahead of it",
-    );
+    assert.deepEqual(store.commands[0], ["AUTH", "default", STORE_PASSWORD], "the store refuses every command without its AUTH");
+    assert.equal(store.commands[1]?.[0], "EVAL", "the window's call comes after the AUTH, never ahead of it");
+    assert.equal(store.commands.length, 2);
   });
 });
 
 /**
- * The ceiling reads the store's number, and the store's number is the only one.
- * A limit of two over a store that counts is two requests: the third is refused
- * by our own ceiling, with the detail the caller reads to tell a spent budget
- * from an unreachable store.
+ * The ceiling reads the store's decision, and the store's decision is the only
+ * one. A window the store reports spent is refused by our own ceiling, with no
+ * store detail, which is how the caller tells a spent budget from an
+ * unreachable store.
  */
 void describe("a budget the store has spent", () => {
   let service: { server: Server; port: number };
@@ -231,7 +232,7 @@ void describe("a budget the store has spent", () => {
 
   before(async () => {
     store = await startStubStore();
-    service = await serveAt(store.url(null), "2", upstream.shim);
+    service = await serveAt(store.url(null), "100", upstream.shim);
   });
 
   after(() => {
@@ -239,14 +240,14 @@ void describe("a budget the store has spent", () => {
     store.server.close();
   });
 
-  void it("refuses past the limit, without the store's own refusal detail", async () => {
+  void it("refuses when the store's window refuses, without the store's own refusal detail", async () => {
     assert.equal((await ask(service.port)).marker, "relayed-upstream");
-    assert.equal((await ask(service.port)).marker, "relayed-upstream");
+    store.spend();
     const refused = await ask(service.port);
     assert.equal(refused.status, 429);
     assert.equal(refused.refusal, "ceiling");
     assert.doesNotMatch(refused.body, /ceiling-store-unavailable/, "the store answered: this refusal is the budget's");
-    assert.equal(upstream.requests.length, 2, "the third request must not have reached the upstream");
+    assert.equal(upstream.requests.length, 1, "the refused request must not have reached the upstream");
   });
 });
 

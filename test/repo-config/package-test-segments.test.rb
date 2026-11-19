@@ -42,6 +42,7 @@ class PackageTestSegmentsTest < Minitest::Test
   # affected matrix and `make check-full` all run for an affected package, so nothing has to name it
   # again. The pair is pinned in both directions: the script exists, and `test` does not chain it.
   DOCKER_FREE_TEST_SCRIPTS = {
+    "apps/anitabi-egress" => "test:integration",
     "workers/catalog" => "test:integration",
     "workers/users" => "test:integration"
   }.freeze

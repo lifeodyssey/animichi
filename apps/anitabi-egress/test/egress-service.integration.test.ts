@@ -53,7 +53,7 @@ function sign(path: string, at: number): string {
 
 /** A ceiling that grants: the store is not this suite's subject, and the limit here is 100. */
 function grantingStore(): CeilingStore {
-  return { increment: () => Promise.resolve(1) };
+  return { admit: () => Promise.resolve("admitted") };
 }
 
 /** The stub upstream, plus the fetch shim that serves anitabi URLs from it. */

@@ -1,5 +1,5 @@
 /**
- * The ceiling's counter, in the Redis `fly redis create` provisions (#1810,
+ * The ceiling's window, in the Redis `fly redis create` provisions (#1810,
  * #1824) — the adapter for the one thing this service keeps outside itself.
  *
  * WHY TCP. #1810's store was an HTTPS REST endpoint addressed by a second
@@ -9,29 +9,19 @@
  * is spoken to — RESP over a TCP connection — and the URL is the whole
  * configuration.
  *
- * The store holds ONE INTEGER PER HOUR and the service does exactly two things
- * to it: `INCR` the hour's key, and give that key a life past its own hour.
- * Both travel in ONE write, so a window cannot be incremented here and left
- * without an expiry; the increment's own answer is the count, and Redis'
- * `INCR` is atomic, so two requests racing in one instance (or in two) cannot
- * both be told they are the hundredth. The address's own password, when it
- * carries one, is `AUTH` in front of them — pipelined into the same write,
- * because Redis runs a pipeline's commands in order and the increment must not
- * arrive unauthenticated.
- *
- * What the commands MEAN is here; the bytes of their replies are framed in
- * `resp-replies.ts`, and this module is what turns the reply into the count — or
- * into a refusal, in every other way the exchange can end.
+ * ONE CALL PER REQUEST. Each admission is one EVAL of the window's script
+ * (`rolling-window-script.ts`), which the store runs whole, so two requests
+ * racing in one instance (or in two) cannot both be told there was room. The
+ * address's own password, when it carries one, is `AUTH` in front of it, in the
+ * same write: Redis runs a pipeline's commands in order, and the script must
+ * not arrive unauthenticated. What the script DECIDES is there; the replies are
+ * framed in `resp-replies.ts`; this module turns the reply into an admission —
+ * or into a refusal, in every other way the exchange can end.
  *
  * THE REPLY SET IS READ WHOLE (#1825): one reply per command sent, the AUTH the
  * address may owe (at most one: a URL carries one credential) answered `+OK`,
- * the increment a POSITIVE count, the expiry `1`. A set that is not that one is
- * a refusal, and each guard below says what its reply would otherwise read as.
- *
- * The counter is MONOTONE within its hour: it counts admissions the service
- * attempted, including the ones the ceiling then refused, so a refusal never
- * frees a slot. Over-counting is the safe direction for a promise, and it is
- * what makes the store's number the only number.
+ * and the script's `1` or `0`. A set that is not that one is a refusal, and
+ * each guard below says what its reply would otherwise read as.
  *
  * The CONNECTION is INJECTED, exactly as the relay's fetch is: this module
  * names no network module and no global network function, so the service's
@@ -41,23 +31,27 @@
  *
  * Every failure is a rejection — an unreachable store, a refused AUTH, a
  * connection that drops, a reply that is not the answer asked for. None of
- * them may read as a count: a store whose failures were tolerated is a ceiling
- * that is not enforced. Each rejection carries the failure code an operator
- * reads (#1833), so the four reply-set guards below are four findings.
+ * them may read as an admission: a store whose failures were tolerated is a
+ * ceiling that is not enforced. Each rejection carries the failure code an
+ * operator reads (#1833), so the four reply-set guards below are four findings.
+ * A timeout can fall after the store has already run the script: that
+ * admission is then recorded and refused here, which over-counts, the safe
+ * direction for a promise.
  */
+import { randomUUID } from "node:crypto";
 import { ReplyBuffer, type Reply } from "./resp-replies.ts";
-import { CeilingStoreError, type CeilingStore, type CeilingStoreFailureCode } from "./upstream-ceiling.ts";
-
-/**
- * How long a window's key outlives its hour. Comfortably past the hour it
- * counts, so a late request still finds its own window, and finite, so a store
- * accumulates one key per hour rather than one per hour forever.
- */
-const WINDOW_TTL_SECONDS = 2 * 60 * 60;
+import { STORE_CLOCK, windowCommand, type ScriptClock } from "./rolling-window-script.ts";
+import {
+  CeilingStoreError,
+  type Admission,
+  type AdmissionRequest,
+  type CeilingStore,
+  type CeilingStoreFailureCode,
+} from "./upstream-ceiling.ts";
 
 /**
  * How long the store has to answer, and how long its connection has to open. It
- * is one atomic increment on a counter this service owns: a store that cannot
+ * is one short script over a window this service owns: a store that cannot
  * manage it inside this is not slow, and the caller is better served by a
  * refusal than by a held connection. The composition root holds the dial to the
  * same number (#1824), so reaching the store is inside a deadline too — an
@@ -103,31 +97,32 @@ export interface RedisTcpCeilingStoreOptions {
   /** The store's Private URL, as `readCeilingStoreConfig` accepted it. */
   readonly url: string;
   readonly connect: StoreConnect;
+  /** Where the window's `now` comes from: the store's own clock, unless a test hands it another. */
+  readonly clock?: ScriptClock;
+  /** A fresh member for each admission: random, unless a test pins the bytes. */
+  readonly newMember?: () => string;
 }
 
 export class RedisTcpCeilingStore implements CeilingStore {
   constructor(private readonly options: RedisTcpCeilingStoreOptions) {}
 
-  /** Count one request against `window`, and answer with that window's new total. */
-  async increment(window: string): Promise<number> {
+  /** Ask the window to admit one request, and answer with what it decided. */
+  async admit(request: AdmissionRequest): Promise<Admission> {
     const auth = authCommands(this.options.url);
-    const commands = [...auth, ...counterCommands(window)];
+    const commands = [...auth, this.windowCommandFor(request)];
     const socket = await this.options.connect(this.options.url);
     try {
-      const replies = await exchange(socket, commands);
-      return countFrom(replies, auth.length, commands.length);
+      return admissionFrom(await exchange(socket, commands), auth.length, commands.length);
     } finally {
       socket.destroy();
     }
   }
-}
 
-/** The window's own count, and the life it is given, in the order Redis must run them. */
-function counterCommands(window: string): Command[] {
-  return [
-    ["INCR", window],
-    ["EXPIRE", window, String(WINDOW_TTL_SECONDS)],
-  ];
+  /** The window's one call for `request`, on this store's clock, under a member of its own. */
+  private windowCommandFor(request: AdmissionRequest): Command {
+    const member = (this.options.newMember ?? randomUUID)();
+    return windowCommand(this.options.clock ?? STORE_CLOCK, request, member);
+  }
 }
 
 /**
@@ -219,25 +214,25 @@ class ReplyReader {
 }
 
 /**
- * The count in a WHOLE conversation, or a refusal: `replies` answers the `owed`
- * commands that went out, of which the first `authCount` were the address's
- * AUTH. Every slot has one answer and one shape, so a set that is not the one
- * asked for is refused here rather than read as a count, and each guard names
- * the code an operator reads (#1833) so the refusal says WHICH of them fired.
+ * The window's decision in a WHOLE conversation, or a refusal: `replies`
+ * answers the `owed` commands that went out, of which the first `authCount`
+ * were the address's AUTH. Every slot has one answer and one shape, so a set
+ * that is not the one asked for is refused here rather than read as a decision,
+ * and each guard names the code an operator reads (#1833) so the refusal says
+ * WHICH of them fired.
  */
-function countFrom(replies: readonly Reply[], authCount: number, owed: number): number {
+function admissionFrom(replies: readonly Reply[], authCount: number, owed: number): Admission {
   requireEveryCommandAnswered(replies, owed);
   requireCredentialAccepted(replies, authCount);
-  requireExpirySet(replies[authCount + 1]);
-  return countIn(replies, authCount);
+  return admissionIn(replies[authCount]);
 }
 
 /**
- * One reply per command sent, and no more: `countIn` reads the increment's
- * answer by the POSITION it was sent at, which is only that answer while the
- * store answered the pipeline it was given. The reader grants as soon as it
+ * One reply per command sent, and no more: `admissionIn` reads the window's
+ * answer by the POSITION its EVAL was sent at, which is only that answer while
+ * the store answered the pipeline it was given. The reader grants as soon as it
  * holds `owed` replies and hands that array over, so the extra refused here is
- * one that arrived WITH them: a later one lands after the count is read and
+ * one that arrived WITH them: a later one lands after the decision is read and
  * never reaches this guard, and no grant is ever short.
  */
 function requireEveryCommandAnswered(replies: readonly Reply[], owed: number): void {
@@ -257,31 +252,35 @@ function requireCredentialAccepted(replies: readonly Reply[], authCount: number)
   throw new CeilingStoreError("credential", "the ceiling store did not accept the credential its address carries");
 }
 
+/** The window's two answers, and the decision each one is. */
+const DECISIONS = new Map<number, Admission>([
+  [1, "admitted"],
+  [0, "refused"],
+]);
+
 /**
- * The expiry was SET, which Redis answers `1` for and `0` when it did not — and
- * a window the increment created without one is a key that never dies, which is
- * not the counter this service asked for. The increment has just made the key,
- * so `1` is the only answer to this EXPIRE that leaves the store as promised.
+ * The reply owed after the AUTH ones: the script's `1` or `0`, which is the
+ * whole answer. Anything else is refused here rather than read as a decision.
  */
-function requireExpirySet(reply: Reply | undefined): void {
-  if (reply?.kind !== "integer" || reply.value !== 1) {
-    throw new CeilingStoreError("expiry", "the ceiling store did not give the window an expiry");
-  }
+function admissionIn(reply: Reply | undefined): Admission {
+  const decision = reply?.kind === "integer" ? DECISIONS.get(reply.value) : undefined;
+  if (decision !== undefined) return decision;
+  throw refusalFor(reply);
 }
 
 /**
- * The replies owed after the AUTH ones: the increment's count, which is the
- * whole answer — and a COUNT, so positive. Of `upstream-ceiling.ts`'s promise
- * that the store "never answers a lower number and never answers zero", one
- * reply can show only the zero half: a lower number is `INCR`'s monotonicity
- * across increments, and the ceiling reads any number here as a total.
+ * The refusal an answer that is no decision gets. The script's own guard on the
+ * window's expiry answers an error whose first word is `EXPIRY`: an admission
+ * left without one is a key that never dies, which is not the window this
+ * service asked for. Every other answer — another error, another number,
+ * another type — is no decision, and carries what the store did say.
  */
-function countIn(replies: readonly Reply[], authCount: number): number {
-  const increment = replies[authCount];
-  if (increment?.kind !== "integer" || increment.value <= 0) {
-    throw new CeilingStoreError("count", "the ceiling store's increment answered with no positive count");
+function refusalFor(reply: Reply | undefined): CeilingStoreError {
+  if (reply?.kind === "error" && reply.value.startsWith("EXPIRY ")) {
+    return new CeilingStoreError("expiry", "the ceiling store did not give the window an expiry");
   }
-  return increment.value;
+  const said = reply === undefined ? "nothing" : `${reply.kind} ${String(reply.value)}`;
+  return new CeilingStoreError("decision", `the ceiling store's window answered no decision (${said})`);
 }
 
 /** RESP2's array of bulk strings — the only request shape this adapter writes. */

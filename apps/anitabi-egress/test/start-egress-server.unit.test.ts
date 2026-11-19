@@ -59,7 +59,7 @@ void describe("ceilingFor — a store failure leaves by the operator's sink", ()
       [CEILING_VAR]: "100",
     });
     const store: CeilingStore = {
-      increment: () =>
+      admit: () =>
         Promise.reject(new CeilingStoreError("expiry", "the ceiling store did not give the window an expiry")),
     };
     const ceiling = ceilingFor(

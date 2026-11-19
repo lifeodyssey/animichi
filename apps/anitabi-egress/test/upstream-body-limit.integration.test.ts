@@ -51,7 +51,7 @@ async function ask(port: number): Promise<Answered> {
 }
 
 function grantingStore(): CeilingStore {
-  return { increment: () => Promise.resolve(1) };
+  return { admit: () => Promise.resolve("admitted") };
 }
 
 function startService(upstreamFetch: UpstreamFetch): Promise<{ server: Server; port: number }> {

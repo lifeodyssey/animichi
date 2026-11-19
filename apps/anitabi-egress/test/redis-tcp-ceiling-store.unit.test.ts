@@ -1,62 +1,44 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { RedisTcpCeilingStore, type StoreConnect } from "../src/redis-tcp-ceiling-store.ts";
-import { OPEN_URL, PASSWORD, PRIVATE_URL, storeOverSocket, WINDOW } from "./store-over-socket.ts";
+import { STORE_CLOCK, WINDOW_BODY } from "../src/rolling-window-script.ts";
+import { MEMBER, OPEN_URL, PASSWORD, PRIVATE_URL, REQUEST, socketDouble, storeOverSocket } from "./store-over-socket.ts";
 
 /**
- * The production store (#1810, #1824): the Redis `fly redis create`
- * provisions, spoken to over TCP in RESP. It is a counter and nothing else —
- * no user data, no data-plane credential — and the tests here pin the whole
- * conversation it can have, because that conversation is the service's second
- * destination and the one a credential travels to.
+ * SUT: the production store's conversation (#1810, #1824): the Redis
+ * `fly redis create` provisions, spoken to over TCP in RESP. It keeps the
+ * ceiling's window and nothing else — no user data, no data-plane credential —
+ * and the tests here pin the whole conversation it can have, because that
+ * conversation is the service's second destination and the one a credential
+ * travels to. What the window's script DECIDES is proven on a real Redis
+ * (`rolling-window*.integration.test.ts`); this file pins what goes on the wire
+ * and how every answer is read.
  *
- * The CONNECTION is injected, the way the relay's fetch is: this module names
- * no network module and no global network function, so a test hands it a
- * socket it owns and reads the exact bytes that would have gone on the wire.
- * Nothing here opens a real Redis, and nothing in this package leaves the
- * loopback.
- *
- * Every failure path is a refusal. An answer this adapter cannot read is a
- * store failure, never a grant: the store's whole job is to be believed.
+ * The CONNECTION is injected, the way the relay's fetch is, so a test hands
+ * the store a socket it owns and reads the exact bytes that would have gone on
+ * the wire. Nothing here opens a real Redis.
  */
 
-/** How long a window's key outlives its hour, and how long the store has to answer. */
-const TTL = "7200";
 const STORE_TIMEOUT_MS = 5_000;
 
-/**
- * The counter's whole side of the conversation, as RESP2 arrays of bulk
- * strings: `INCR <window>` and `EXPIRE <window> 7200`, in ONE payload. Written
- * out rather than produced by a helper the implementation could drift into
- * agreeing with — the array headers and byte counts included, so a changed
- * framing has to change these lines.
- */
-const COUNTER_PAYLOAD =
-  "*2\r\n" +
-  "$4\r\nINCR\r\n" +
-  `$${String(WINDOW.length)}\r\n${WINDOW}\r\n` +
-  "*3\r\n" +
-  "$6\r\nEXPIRE\r\n" +
-  `$${String(WINDOW.length)}\r\n${WINDOW}\r\n` +
-  `$${String(TTL.length)}\r\n${TTL}\r\n`;
+/** The script the service runs: the store's own clock, then the window. */
+const SCRIPT = STORE_CLOCK.prologue + WINDOW_BODY;
 
-/** What that payload looks like with the address's own credential in front of it. */
-const AUTH_PAYLOAD =
-  "*3\r\n$4\r\nAUTH\r\n$7\r\ndefault\r\n" + `$${String(PASSWORD.length)}\r\n${PASSWORD}\r\n` + COUNTER_PAYLOAD;
-
-/**
- * One reply per command sent, in the order they were sent: the AUTH status, the
- * count, and the expiry's answer — the shape of a conversation with an address
- * that carries a credential.
- */
-function counted(count: number): string[] {
-  return [`+OK\r\n:${String(count)}\r\n:1\r\n`];
+/** One RESP2 bulk string, framed by hand: its length is the bytes that follow, not the characters. */
+function bulk(argument: string): string {
+  return `$${String(Buffer.byteLength(argument, "utf8"))}\r\n${argument}\r\n`;
 }
 
-/** The same conversation on an address carrying no credential, so no AUTH reply is owed. */
-function countedUnAuthenticated(count: number): string[] {
-  return [`:${String(count)}\r\n:1\r\n`];
-}
+/**
+ * The store's whole side of an admission: ONE EVAL of the window's script, with
+ * its one key, the limit, the member and the key's life, as a RESP2 array of
+ * bulk strings. The array header is written out, so a changed shape has to
+ * change this line.
+ */
+const WINDOW_PAYLOAD = `*7\r\n${["EVAL", SCRIPT, "1", "anitabi-egress:upstream-requests:rolling", "100", MEMBER, "7200"].map(bulk).join("")}`;
+
+/** The same admission with the address's own credential in front of it. */
+const AUTH_PAYLOAD = `*3\r\n${["AUTH", "default", PASSWORD].map(bulk).join("")}${WINDOW_PAYLOAD}`;
 
 /** Let every microtask the store queued run, so its timer exists before the test's clock moves. */
 function drained(): Promise<void> {
@@ -64,36 +46,40 @@ function drained(): Promise<void> {
 }
 
 void describe("RedisTcpCeilingStore", () => {
-  void it("sends INCR and EXPIRE as one RESP pipeline, in a single write", async () => {
-    const { store, socket } = storeOverSocket(countedUnAuthenticated(1), OPEN_URL);
-    await store.increment(WINDOW);
-    assert.deepEqual(
-      socket.written,
-      [COUNTER_PAYLOAD],
-      "the increment and the key's expiry are one conversation: a second write is a window that can half-exist",
-    );
+  void it("sends the window as one EVAL, in a single write", async () => {
+    const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
+    await store.admit(REQUEST);
+    assert.deepEqual(socket.written, [WINDOW_PAYLOAD], "one request is one call to the store, and one write");
   });
 
-  void it("answers with the count the store's own increment returned", async () => {
-    const { store } = storeOverSocket(counted(42));
-    assert.equal(await store.increment(WINDOW), 42);
+  void it("keeps the egress's clock out of the window: the script reads the store's TIME, and no clock is sent", async () => {
+    const { store, socket } = storeOverSocket([":1\r\n"], OPEN_URL);
+    await store.admit(REQUEST);
+    const written = socket.written.join("");
+    assert.match(written, /local now = tonumber\(redis\.call\('TIME'\)\[1\]\)/);
+    assert.equal(written.includes(String(REQUEST.nowSeconds)), false, "the window must not move with this machine's clock");
+  });
+
+  void it("answers with the window's decision: 1 admitted, 0 refused", async () => {
+    assert.equal(await storeOverSocket(["+OK\r\n:1\r\n"]).store.admit(REQUEST), "admitted");
+    assert.equal(await storeOverSocket(["+OK\r\n:0\r\n"]).store.admit(REQUEST), "refused");
   });
 
   void it("reaches the address it was configured with, and no other", async () => {
-    const { store, dialled } = storeOverSocket(counted(1));
-    await store.increment(WINDOW);
+    const { store, dialled } = storeOverSocket(["+OK\r\n:1\r\n"]);
+    await store.admit(REQUEST);
     assert.deepEqual(dialled, [PRIVATE_URL], "the destination is the environment's, never a request's");
   });
 
-  void it("closes the connection it opened once the count is in", async () => {
-    const { store, socket } = storeOverSocket(counted(1));
-    await store.increment(WINDOW);
+  void it("closes the connection it opened once the answer is in", async () => {
+    const { store, socket } = storeOverSocket(["+OK\r\n:1\r\n"]);
+    await store.admit(REQUEST);
     assert.equal(socket.closed(), true);
   });
 
-  void it("sends the address's own credential as AUTH, ahead of the counter, in the same write", async () => {
-    const { store, socket } = storeOverSocket(counted(7));
-    await store.increment(WINDOW);
+  void it("sends the address's own credential as AUTH, ahead of the window, in the same write", async () => {
+    const { store, socket } = storeOverSocket(["+OK\r\n:1\r\n"]);
+    await store.admit(REQUEST);
     assert.deepEqual(
       socket.written,
       [AUTH_PAYLOAD],
@@ -101,98 +87,81 @@ void describe("RedisTcpCeilingStore", () => {
     );
   });
 
-  void it("sends no AUTH when the address carries no credential to send", async () => {
-    const { store, socket } = storeOverSocket(countedUnAuthenticated(1), OPEN_URL);
-    await store.increment(WINDOW);
-    assert.deepEqual(socket.written, [COUNTER_PAYLOAD]);
-  });
-
   void it("reads a reply that arrives in pieces", async () => {
-    const { store } = storeOverSocket(["+OK\r\n:", "7\r\n:1", "\r\n"]);
-    assert.equal(await store.increment(WINDOW), 7, "a reply split across chunks is still the reply");
+    const { store } = storeOverSocket(["+OK\r\n:", "1", "\r\n"]);
+    assert.equal(await store.admit(REQUEST), "admitted", "a reply split across chunks is still the reply");
   });
 
-  void it("counts the second window from its own increment, not the first", async () => {
-    const { store } = storeOverSocket(counted(9));
-    assert.equal(await store.increment(WINDOW), 9);
-    assert.equal(await store.increment(WINDOW), 9, "the store's number is the store's, this adapter keeps none");
+  void it("records every admission under a member of its own", async () => {
+    const socket = socketDouble([":1\r\n"]);
+    const store = new RedisTcpCeilingStore({ url: OPEN_URL, connect: () => Promise.resolve(socket.socket) });
+    await store.admit(REQUEST);
+    await store.admit(REQUEST);
+    const members = socket.written.map((payload) => /\$36\r\n([0-9a-f-]{36})\r\n/.exec(payload)?.[1]);
+    assert.equal(new Set(members).size, 2, "two admissions under one member would count as one");
   });
 });
 
 /**
  * Every way a store can fail to answer is a rejection the ceiling turns into a
- * refusal. None of them may read as a count, and none may be swallowed: a
+ * refusal. None of them may read as an admission, and none may be swallowed: a
  * store whose failures were tolerated is a ceiling that is not enforced.
  */
 void describe("an answer the store cannot give is a refusal", () => {
-  void it("refuses the error Redis returns for a command it did not run", async () => {
-    const { store } = storeOverSocket(["+OK\r\n-ERR value is not an integer or out of range\r\n:1\r\n"]);
-    await assert.rejects(store.increment(WINDOW), Error, "an error must not read as a count");
+  void it("refuses the error Redis returns for a script it could not run", async () => {
+    const wrongType = "-WRONGTYPE Operation against a key holding the wrong kind of value script: 0, on @user_script:3.\r\n";
+    const { store } = storeOverSocket([`+OK\r\n${wrongType}`]);
+    await assert.rejects(store.admit(REQUEST), Error, "an error must not read as an admission");
   });
 
-  void it("refuses when the expiry failed, so no window is left without one", async () => {
-    const { store } = storeOverSocket(["+OK\r\n:1\r\n-ERR wrong number of arguments for 'expire' command\r\n"]);
-    await assert.rejects(
-      store.increment(WINDOW),
-      Error,
-      "the increment landing without its expiry is a key that never dies, which is not the counter asked for",
-    );
-  });
-
-  void it("refuses the store's rejection of the credential", async () => {
-    const { store } = storeOverSocket(["-WRONGPASS invalid username-password pair\r\n:1\r\n:1\r\n"]);
-    await assert.rejects(store.increment(WINDOW), Error, "a failed AUTH must not read as a count");
-  });
-
-  void it("refuses a reply type this pipeline never asked for", async () => {
-    const { store } = storeOverSocket(["+OK\r\n$3\r\nfoo\r\n:1\r\n"]);
-    await assert.rejects(store.increment(WINDOW), Error, "a bulk string is not the integer asked for");
+  void it("refuses a reply type the window never answers", async () => {
+    const { store } = storeOverSocket(["+OK\r\n$1\r\n1\r\n"]);
+    await assert.rejects(store.admit(REQUEST), Error, "a bulk string is not the integer the script returns");
   });
 
   void it("refuses a reply the store never finished sending, once its own timeout passes", async (context) => {
     context.mock.timers.enable({ apis: ["setTimeout"] });
-    const { store } = storeOverSocket(["+OK\r\n:4"]);
-    const refused = assert.rejects(store.increment(WINDOW), Error, "a truncated reply is not a count");
+    const { store } = storeOverSocket(["+OK\r\n:"]);
+    const refused = assert.rejects(store.admit(REQUEST), Error, "a truncated reply is not an admission");
     await drained();
     context.mock.timers.tick(STORE_TIMEOUT_MS);
     await refused;
   });
 
-  void it("refuses a connection hung up before the count arrived", async () => {
+  void it("refuses a connection hung up before the answer arrived", async () => {
     const { store } = storeOverSocket([], PRIVATE_URL, "hang-up");
-    await assert.rejects(store.increment(WINDOW), Error, "a store that hung up has not counted anything");
+    await assert.rejects(store.admit(REQUEST), Error, "a store that hung up has decided nothing");
   });
 
   void it("refuses a connection that failed", async () => {
     const { store } = storeOverSocket([], PRIVATE_URL, "fail");
-    await assert.rejects(store.increment(WINDOW), Error, "a broken connection must reject, not answer zero");
+    await assert.rejects(store.admit(REQUEST), Error, "a broken connection must reject, not admit");
   });
 
   void it("refuses when the store cannot be reached at all", async () => {
     const connect: StoreConnect = () => Promise.reject(new Error("connect ECONNREFUSED"));
     const store = new RedisTcpCeilingStore({ url: PRIVATE_URL, connect });
-    await assert.rejects(store.increment(WINDOW), Error, "an unreachable store must reject, not answer zero");
+    await assert.rejects(store.admit(REQUEST), Error, "an unreachable store must reject, not admit");
   });
 
   void it("closes the connection it opened even when the store failed", async () => {
     const { store, socket } = storeOverSocket([], PRIVATE_URL, "fail");
-    await assert.rejects(store.increment(WINDOW));
-    assert.equal(socket.closed(), true, "a refused count must not leave its connection open");
+    await assert.rejects(store.admit(REQUEST));
+    assert.equal(socket.closed(), true, "a refused admission must not leave its connection open");
   });
 });
 
 /**
  * The bound on what this pipeline will read (#1824). The store's whole
- * conversation is three small replies, so a header longer than any of them is
+ * conversation is two small replies, so a header longer than any of them is
  * bytes that cannot be an answer — and the buffer holding them must not be left
- * to grow until the endpoint decides to end a line, which is what an endpoint
- * that never does would make it do.
+ * to grow until the endpoint decides to end a line.
  */
 void describe("a header longer than any reply the store owes", () => {
   void it("is refused having run past the bound, before its terminator arrives", async () => {
     const { store } = storeOverSocket(["A".repeat(4_096)], PRIVATE_URL, "hang-up");
     await assert.rejects(
-      store.increment(WINDOW),
+      store.admit(REQUEST),
       /longer than any answer it owes/,
       "an endpoint that never ends its header is refused as one, not buffered without end",
     );
@@ -201,7 +170,7 @@ void describe("a header longer than any reply the store owes", () => {
   void it("is refused when it does end, having run past the bound", async () => {
     const { store } = storeOverSocket([`+${"A".repeat(4_096)}\r\n`]);
     await assert.rejects(
-      store.increment(WINDOW),
+      store.admit(REQUEST),
       /longer than any answer it owes/,
       "the bound is on the header, not on how it arrives: a decode is bounded only if the bytes are",
     );
