@@ -15,6 +15,7 @@ import { catalogDailyRun } from "../ingest/catalog-daily-run";
 import { buildDailyInventory, type SeasonalResolver } from "../ingest/daily-discovery";
 import { dailyPolicy } from "../operational-config";
 import type { DailyRunInputs } from "../ingest/catalog-daily-run";
+import type { RunPolicy } from "../ingest/daily-run";
 import { publishAfterRun, type DailyPublishPorts } from "../publish/daily-snapshot";
 import { publishSnapshot } from "../publish/snapshot";
 import { gcSnapshots } from "../publish/snapshot-gc";
@@ -46,9 +47,9 @@ export function canarySelection(epochMs: number): readonly TieredWork[] {
 }
 
 /** A bounded policy so a canary exercises the pipeline without a full crawl. */
-export function canaryPolicy() {
+export function canaryPolicy(): RunPolicy {
   const base = dailyPolicy();
-  return { ...base, newWorkCap: 5, budget: { workLimit: 6, requestLimit: 40, runtimeLimitMs: 3 * 60 * 1000 } };
+  return { ...base, newWorkCap: 5, budget: { workLimit: 6, requestLimit: 40 } };
 }
 
 /**

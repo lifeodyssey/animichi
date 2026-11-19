@@ -30,25 +30,31 @@ export interface CatalogContext {
 /**
  * Implement the shared contract value directly. Its routes, Zod validators,
  * error maps, and output schemas are the Worker boundary's source of truth.
+ *
+ * oRPC hands each handler the incoming request's `signal`; the three handlers
+ * that call upstream bind it into the adapters they build, so a caller that
+ * gives up (the edge's per-attempt timeout, a closed client) aborts the
+ * upstream request in flight. Workers fire that signal on a disconnect only
+ * under `enable_request_signal` (`wrangler.toml`).
  */
 const os = implement(catalogContract).$context<CatalogContext>();
 
-const search = os.search.handler(async ({ input, context }) =>
-  searchHandler(searchDb(context.prisma, context.egressSigningKey), input, {
+const search = os.search.handler(async ({ input, context, signal }) =>
+  searchHandler(searchDb(context.prisma, context.egressSigningKey, signal), input, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
     waitUntil: context.waitUntil,
   }),
 );
 
-const resolve = os.resolve.handler(async ({ input, context }) =>
-  resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl }), input, {
+const resolve = os.resolve.handler(async ({ input, context, signal }) =>
+  resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl, signal }), input, {
     observer: resolveObserver(),
   }),
 );
 
-const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
-  pointsByBangumiId(workPointsDb(context.prisma, context.egressSigningKey), input.bangumi_id, {
+const pointsById = os.pointsByBangumiId.handler(async ({ input, context, signal }) =>
+  pointsByBangumiId(workPointsDb(context.prisma, context.egressSigningKey, signal), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
     egressSigningKey: context.egressSigningKey,
   }),

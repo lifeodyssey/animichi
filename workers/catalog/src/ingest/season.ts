@@ -2,11 +2,13 @@
  * Current-season discovery (#1006 AC2, MAJOR-1): the Bangumi calendar week's
  * anime ids. The calendar endpoint returns 7 weekday buckets of airing subjects;
  * we flatten them into one deduped, order-stable bangumi id list that feeds the
- * `current_season` discovery source. Reuses the shared `sources.ts` HTTP client
- * (retry + UpstreamFetchError), so a Bangumi outage surfaces as a typed failure
- * the caller may degrade. A malformed body yields an empty list, never a throw.
+ * `current_season` discovery source. Reuses the shared upstream call
+ * (`./upstream-call`: retry inside a deadline + UpstreamFetchError), so a Bangumi
+ * outage surfaces as a typed failure the caller may degrade. A malformed body
+ * yields an empty list, never a throw.
  */
-import { fetchJson, type SourceConfig } from "./sources";
+import type { SourceConfig } from "./sources";
+import { fetchJson } from "./upstream-call";
 
 /** Fetch the current calendar week's bangumi ids (deduped, order-stable). */
 export async function fetchCurrentSeason(cfg: SourceConfig = {}): Promise<readonly string[]> {

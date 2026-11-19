@@ -66,7 +66,7 @@ function sequenceResponse(response: SequenceResponse) {
 /**
  * Build a mock FetchLike that REJECTS every call — a transport-layer failure
  * (DNS/connection-refused/timeout), distinct from `mockFetchSequence`'s
- * resolved-but-bad-status responses. `fetchWithRetry` (src/ingest/sources.ts)
+ * resolved-but-bad-status responses. `fetchWithRetry` (src/ingest/upstream-call.ts)
  * treats a rejected fetch() the same as a transient status: retried, then
  * (once the retry budget is exhausted) rethrown as UpstreamFetchError.
  */

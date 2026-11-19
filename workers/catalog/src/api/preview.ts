@@ -1,5 +1,9 @@
 // TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
-/** Fast Anitabi L1 preview mapping shared by title and work-id read paths. */
+/**
+ * Fast Anitabi L1 preview mapping shared by title and work-id read paths. The
+ * request's signal travels in the `SourceConfig`, so a caller's cancel aborts
+ * the preview's upstream calls and surfaces as itself, never as an outage.
+ */
 
 import { upstreamUnavailable } from "../lib/errors";
 import { optional } from "../lib/optional";
@@ -10,7 +14,7 @@ import {
   UpstreamNotFoundError,
   type AnitabiLite,
   type AnitabiPoint,
-  type FetchLike,
+  type SourceConfig,
 } from "../ingest/sources";
 import type { Point } from "../types";
 
@@ -21,38 +25,31 @@ export interface MissPreview {
 }
 
 /** Resolve a title and return a non-empty preview, preserving search miss behavior. */
-export async function previewForQuery(
-  query: string,
-  fetchImpl?: FetchLike,
-  egressSigningKey?: string,
-): Promise<MissPreview | null> {
-  const bangumiId = await bangumiIdResolve(query, fetchImpl);
+export async function previewForQuery(query: string, cfg: SourceConfig): Promise<MissPreview | null> {
+  const bangumiId = await bangumiIdResolve(query, cfg);
   if (!bangumiId) return null;
-  const preview = await previewForWork(bangumiId, fetchImpl, egressSigningKey);
+  const preview = await previewForWork(bangumiId, cfg);
   return preview.points.length > 0 ? preview : null;
 }
 
 /** Fetch a preview for an already-resolved bangumi id, including an empty preview. */
-export async function previewForWork(
-  bangumiId: string,
-  fetchImpl?: FetchLike,
-  egressSigningKey?: string,
-): Promise<MissPreview> {
-  const lite = await fetchLitePreview(bangumiId, fetchImpl, egressSigningKey);
+export async function previewForWork(bangumiId: string, cfg: SourceConfig): Promise<MissPreview> {
+  const lite = await fetchLitePreview(bangumiId, cfg);
   return { bangumiId, points: lite.points.map((point) => litePoint(point, bangumiId)) };
 }
 
 /** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
-async function bangumiIdResolve(query: string, fetchImpl?: FetchLike): Promise<string | null> {
-  return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, { fetchImpl }));
+async function bangumiIdResolve(query: string, cfg: SourceConfig): Promise<string | null> {
+  return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, cfg), cfg.signal);
 }
 
-/** Treat Anitabi 404 as a real empty preview and other failures as outages. */
-async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike, egressSigningKey?: string): Promise<AnitabiLite> {
+/** Treat Anitabi 404 as a real empty preview and other failures as outages; a caller's cancel stays its own. */
+async function fetchLitePreview(bangumiId: string, cfg: SourceConfig): Promise<AnitabiLite> {
   try {
-    return await fetchAnitabiLite(bangumiId, { fetchImpl, egressSigningKey });
+    return await fetchAnitabiLite(bangumiId, cfg);
   } catch (error) {
     if (error instanceof UpstreamNotFoundError) return { points: [], total: 0 };
+    cfg.signal?.throwIfAborted();
     throw upstreamUnavailable("anitabi", error);
   }
 }

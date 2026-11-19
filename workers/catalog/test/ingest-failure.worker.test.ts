@@ -1,117 +1,21 @@
 /**
  * The ingest failure taxonomy (#1784): a refusal from the upstream is parked as
  * its own kind, separately from an upstream fault, and neither is retried the
- * way the other is. Every upstream answer comes from a fetch double.
+ * way the other is. Every upstream answer comes from a fetch double
+ * (`./ingest-failure-doubles`); the alarm a parked refusal raises is
+ * `refusal-alarm.worker.test.ts`'s subject.
  */
-import { describe, expect, it, vi } from "vitest";
-import {
-  DEFAULT_INGEST_TTL,
-  IngestBangumi,
-  type IngestSource,
-  type IngestStore,
-} from "../src/ingest/ingest-bangumi";
-import type { FailureOptions } from "../src/ingest/jobs";
-import { consoleRefusalAlarm, type UpstreamRefusal } from "../src/ingest/refusal-alarm";
-import { fetchAnitabiPoints, type FetchLike } from "../src/ingest/sources";
+import { describe, expect, it } from "vitest";
+import { DEFAULT_INGEST_TTL } from "../src/ingest/ingest-bangumi";
+import type { UpstreamRefusal } from "../src/ingest/refusal-alarm";
+import type { FetchLike } from "../src/ingest/sources";
 import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
-import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
-import { fakeSleep, mockFetchSequence } from "./mock-fetch-sequence";
+import {
+  anitabiAnswering, anitabiAnsweringWith, ingestAgainst, ingestParkedAgainst, parkedStore, WORK,
+} from "./ingest-failure-doubles";
 
-const WORK = "276";
 /** The URL the row records is the one we actually call: the egress operation (#1792). */
 const DETAIL_URL = `${ANITABI_EGRESS_BASE_URL}/anitabi/points/${WORK}`;
-
-interface Upstream {
-  source: IngestSource;
-  requests: () => number;
-  waits: number[];
-}
-
-/** Anitabi answering every request with `status`; Bangumi answers normally. */
-function anitabiAnswering(status: number): Upstream {
-  const { fetch, callCount } = mockFetchSequence([1, 2, 3].map(() => ({ status, body: null })));
-  // The service relays the upstream's answer, so the double stamps the relayed
-  // marker: an answer that reached us through the egress.
-  const upstream = anitabiAnsweringWith(lenientEgressFetch(fetch));
-  return { ...upstream, requests: callCount };
-}
-
-/**
- * The same double over an arbitrary fetch, passed through untouched — the
- * caller's double carries whatever markers its scenario is about, so a
- * refusal from OUR egress stays marked as ours.
- */
-function anitabiAnsweringWith(fetch: FetchLike): Upstream {
-  const { sleep, waits } = fakeSleep();
-  let requests = 0;
-  const count = () => requests;
-  const retry = { sleep, jitterMs: (ms: number) => ms };
-  const source: IngestSource = {
-    fetchBangumi: () => Promise.resolve({ id: 276 }),
-    fetchPoints: (bangumiId) =>
-      fetchAnitabiPoints(bangumiId, {
-        fetchImpl: (url, init) => {
-          requests += 1;
-          return fetch(url, init);
-        },
-        egressSigningKey: stubEgressSigningKey(),
-        retry,
-      }),
-  };
-  return { source, requests: count, waits };
-}
-
-interface Parked {
-  store: IngestStore;
-  failures: FailureOptions[];
-  liveRefusals: Set<string>;
-}
-
-function parkedStore(): Parked {
-  const failures: FailureOptions[] = [];
-  const liveRefusals = new Set<string>();
-  const store: IngestStore = {
-    acquire: () => Promise.resolve(true),
-    guard: () => Promise.resolve("ready"),
-    ensurePending: () => Promise.resolve(),
-    markDone: () => Promise.resolve(),
-    markFailed: (_id, opts) => { failures.push(opts); return Promise.resolve(); },
-    hasLiveRefusal: (upstream) => Promise.resolve(liveRefusals.has(upstream)),
-    saveRawBangumi: () => Promise.resolve(),
-    saveRawAnitabi: () => Promise.resolve(),
-  };
-  return { store, failures, liveRefusals };
-}
-
-const unusedPublisher = { publish: () => Promise.reject(new Error("must not publish")) };
-
-async function ingestAgainst(upstream: Upstream, parked: Parked, raised: UpstreamRefusal[] = []): Promise<FailureOptions> {
-  const ingest = boundIngest(upstream, parked, raised);
-  await expect(ingest.ingest(WORK)).rejects.toMatchObject({ code: "UPSTREAM_UNAVAILABLE" });
-  return parkedFailure(parked);
-}
-
-/**
- * The same ingest where the failure is OURS (#1792): an egress refusal parks
- * and reports a failed status rather than being rethrown as an upstream 502 —
- * the upstream never answered, and the ceiling clears within the hour.
- */
-async function ingestParkedAgainst(upstream: Upstream, parked: Parked, raised: UpstreamRefusal[] = []): Promise<FailureOptions> {
-  const result = await boundIngest(upstream, parked, raised).ingest(WORK);
-  expect(result.status).toBe("failed");
-  return parkedFailure(parked);
-}
-
-function boundIngest(upstream: Upstream, parked: Parked, raised: UpstreamRefusal[]): IngestBangumi {
-  const alarm = { upstreamRefused: (refusal: UpstreamRefusal) => { raised.push(refusal); } };
-  return new IngestBangumi(upstream.source, parked.store, unusedPublisher, DEFAULT_INGEST_TTL, alarm);
-}
-
-function parkedFailure(parked: Parked): FailureOptions {
-  const [failure] = parked.failures;
-  if (failure === undefined) throw new Error("the failure was not parked");
-  return failure;
-}
 
 describe("an upstream refusal is not an upstream fault", () => {
   it("parks a 403 as a refusal that names the source and says retrying will not help", async () => {
@@ -218,46 +122,3 @@ function egressRefusing(reason: string, status: number): FetchLike {
       json: () => Promise.resolve({ refusedBy: "anitabi-egress", reason }),
     });
 }
-
-describe("the refusal alarm", () => {
-  it("raises the first refusal from a source with what to do about it", async () => {
-    const raised: UpstreamRefusal[] = [];
-
-    await ingestAgainst(anitabiAnswering(403), parkedStore(), raised);
-
-    expect(raised).toHaveLength(1);
-    expect(raised[0]).toMatchObject({ upstream: "anitabi", workId: WORK });
-    expect(raised[0]?.detail).toContain("retrying will not help");
-  });
-
-  it("stays silent while the same source already has a live refusal on record", async () => {
-    const raised: UpstreamRefusal[] = [];
-    const parked = parkedStore();
-    parked.liveRefusals.add("anitabi");
-
-    await ingestAgainst(anitabiAnswering(403), parked, raised);
-
-    expect(raised).toEqual([]);
-  });
-
-  it("raises nothing for a fault", async () => {
-    const raised: UpstreamRefusal[] = [];
-
-    await ingestAgainst(anitabiAnswering(500), parkedStore(), raised);
-
-    expect(raised).toEqual([]);
-  });
-});
-
-describe("the default refusal alarm", () => {
-  it("writes one structured error record keyed on the refusal event", () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    consoleRefusalAlarm().upstreamRefused({ upstream: "anitabi", workId: WORK, detail: "refused" });
-
-    expect(error).toHaveBeenCalledExactlyOnceWith({
-      event: "ingest.upstream_refused", upstream: "anitabi", work_id: WORK, detail: "refused",
-    });
-    error.mockRestore();
-  });
-});

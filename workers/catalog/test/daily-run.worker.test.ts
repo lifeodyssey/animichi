@@ -7,7 +7,7 @@ const POLICY: RunPolicy = {
   tierIntervals: { high: 86400000, medium: 604800000, low: 2592000000 },
   newWorkCap: 5,
   keepHistory: 2,
-  budget: { workLimit: 10, requestLimit: 20, runtimeLimitMs: 600000 },
+  budget: { workLimit: 10, requestLimit: 20 },
 };
 
 function plan(runId: string): RunPlan {
@@ -99,7 +99,7 @@ describe("Daily run protocol — idempotency (AC1)", () => {
 describe("Daily run protocol — clean budget stop (AC1)", () => {
   it("stops cleanly at the work budget and records the partial state", async () => {
     const rec = recorder();
-    const tinyPolicy: RunPolicy = { ...POLICY, budget: { workLimit: 3, requestLimit: 2, runtimeLimitMs: 600000 } };
+    const tinyPolicy: RunPolicy = { ...POLICY, budget: { workLimit: 3, requestLimit: 2 } };
     const snapshot = await runDailyIngestWith(rec.ports, { ...plan("daily-budget"), policy: tinyPolicy });
     expect(snapshot.status).toBe("partial");
     expect(snapshot.firstExhausted).toBe("request");
@@ -178,7 +178,7 @@ function snapshot(status: RunStatus, overrides: Partial<Pick<RunSnapshot, "start
     status,
     targets: null,
     sources: { bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } },
-    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    budgetUsed: { workUsed: 0, requestUsed: 0 },
     firstExhausted: null,
     failures: [],
     published: overrides.published ?? {},

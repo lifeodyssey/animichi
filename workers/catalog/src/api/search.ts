@@ -139,17 +139,18 @@ function emptyResult(): SearchResult {
  * One seam: the alias lookup, the published-points read
  * (`adapters/outbound/bangumi-points.ts`, #1631) and the ingest's enrich/publish
  * writes (#1630) are all plans off this request's runtime.
+ *
+ * The request's `signal` is bound to the preview, which the request waits on.
+ * The full ingest gets none: it runs under `waitUntil` to outlive the response,
+ * and its upstream calls are bounded by their own deadline instead.
  */
-export function searchDb(
-  query: CatalogPrisma,
-  egressSigningKey?: string,
-): SearchDb {
+export function searchDb(query: CatalogPrisma, egressSigningKey?: string, signal?: AbortSignal): SearchDb {
   const ingest = catalogIngestBangumi(query, egressSigningKey);
   const points = bangumiPoints(query);
   return {
     bangumiIdForAlias: (normalized) => firstBangumiId(query, normalized),
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
-    resolvePreview: (search, fetchImpl) => previewForQuery(search, fetchImpl, egressSigningKey),
+    resolvePreview: (search, fetchImpl) => previewForQuery(search, { fetchImpl, egressSigningKey, signal }),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };
 }

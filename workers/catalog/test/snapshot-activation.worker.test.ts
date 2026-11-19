@@ -59,7 +59,7 @@ describe("publishSnapshot atomic activation (AC3 support)", () => {
 });
 
 describe("publishSnapshot staging failure signal (failure-signal audit C7/A5)", () => {
-  it("logs the real exception when staging (store.put) throws, and still returns invalid", async () => {
+  it("logs the real exception when staging (store.put) throws, and returns it as stagingFailed", async () => {
     const { store: base } = inMemoryObjectStore();
     const throwingStore: ObjectStore = {
       ...base,
@@ -71,7 +71,7 @@ describe("publishSnapshot staging failure signal (failure-signal audit C7/A5)", 
 
     const result = await publishSnapshot({ query, store: throwingStore }, INPUT);
 
-    expect(result).toEqual({ status: "invalid", reason: "candidate validation failed" });
+    expect(result).toEqual({ status: "stagingFailed", reason: "Error: R2 quota exceeded" });
     expect(errorSpy).toHaveBeenCalledTimes(1);
     const [message] = errorSpy.mock.calls[0] as [string];
     expect(message).toContain("R2 quota exceeded");

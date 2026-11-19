@@ -10,12 +10,18 @@ import { defineConfig } from "vitest/config";
  * Every file this selects reaches for that database — a Node suite that does not
  * is a `*.node.test.ts` in `vitest.node.config.ts`, and
  * `test/repo-config/integration-lane-selection.test.rb` refuses the mix (#1771).
+ *
+ * `test/setup/loopback-only-fetch.ts` lets the global `fetch` reach loopback
+ * only: an unstubbed request to any other host is refused, even in a run whose
+ * `NODE_USE_ENV_PROXY=1` would hand it to the machine's proxy. The database
+ * does not ride `fetch`; `pg` speaks to it over its own socket.
  */
 export default defineConfig({
   test: {
     include: ["test/**/*.integration.test.ts"],
     environment: "node",
     globalSetup: ["./test/integration-db-global.ts"],
+    setupFiles: ["./test/setup/loopback-only-fetch.ts"],
     testTimeout: 60_000,
     hookTimeout: 120_000,
     // The suite shares one Docker Postgres container; each DB file truncates

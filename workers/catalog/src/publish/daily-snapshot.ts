@@ -7,8 +7,9 @@
  * N / N-1 reachability GC. The runId and createdAt are taken from the completed
  * run's own outcome (never recomputed from the wall clock), so the snapshot id
  * matches the run that produced it. A partial or failed run never publishes
- * (AC6). The ingest, publish, and gc steps are injected so the gate is
- * worker-testable.
+ * (AC6), and a publish that does not activate logs its run id, status and
+ * reason and schedules no GC. The ingest, publish, and gc steps are injected so
+ * the gate is worker-testable.
  *
  * Each port closes over its own seam rather than receiving one: the run and the
  * snapshot publish are both Prisma plans over the pass's runtime (#1630), so a
@@ -27,7 +28,7 @@ export interface DailyRunOutcome {
   createdAt: string;
 }
 
-/** The injectable daily publish collaborators (subset of CronDependencies). */
+/** The injectable daily publish collaborators: the daily discover pass's dependencies, each closed over its seam. */
 export interface DailyPublishPorts {
   runDailyIngest: () => Promise<DailyRunOutcome>;
   publishRun: (store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
@@ -42,5 +43,14 @@ export async function publishAfterRun(
   const outcome = await ports.runDailyIngest();
   if (store === null || outcome.status !== "complete") return;
   const result = await ports.publishRun(store, outcome.runId, outcome.createdAt);
-  if (result.status === "published") await ports.gcSnapshots(store);
+  if (result.status !== "published") {
+    logNotActivated(outcome.runId, result);
+    return;
+  }
+  await ports.gcSnapshots(store);
+}
+
+/** A publish that did not activate says why: its run, its status and its reason, nothing more. */
+function logNotActivated(runId: string, result: Exclude<PublishResult, { status: "published" }>): void {
+  console.error(`[dailyPublish] run ${runId} not activated (${result.status}): ${result.reason}`);
 }

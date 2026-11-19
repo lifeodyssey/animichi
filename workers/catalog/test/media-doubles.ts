@@ -5,6 +5,7 @@
  * use them (`.claude/rules/naming-ownership.md`).
  */
 import type { ImageFetchLike } from "../src/media/img";
+import { unanswered } from "./fakes/unanswered-request";
 
 /** What the stub bucket holds for one key. */
 interface StoredObject {
@@ -67,4 +68,40 @@ function imageFetchResponse(status: number, bytes: Uint8Array) {
     headers: { get: (name: string) => (name.toLowerCase() === "content-type" ? "image/png" : null) },
     arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
   };
+}
+
+/** An origin that cannot be reached: every pull rejects with `failure`, as `fetch` does on a transport error. */
+export function makeFailingImageFetch(failure: Error): ImageFetchLike {
+  return () => Promise.reject(failure);
+}
+
+/** An origin a test holds open: its fetch, and the signal of the pull that reached it. */
+export interface HeldImageFetch {
+  fetchImpl: ImageFetchLike;
+  reached: Promise<AbortSignal>;
+}
+
+/** An origin that never answers: each pull hands over its signal and rejects only when that signal aborts. */
+export function makeUnansweredImageFetch(): HeldImageFetch {
+  return heldOrigin((signal) => unanswered(signal));
+}
+
+/** An origin that answers 200 and never finishes the body: the read rejects only when the pull's signal aborts. */
+export function makeStalledBodyImageFetch(): HeldImageFetch {
+  return heldOrigin((signal) => Promise.resolve({
+    ...imageFetchResponse(200, new Uint8Array()),
+    arrayBuffer: () => unanswered<ArrayBuffer>(signal),
+  }));
+}
+
+/** A fetch that hands each pull's signal over through `reached`, then answers the pull with `answer`. */
+function heldOrigin(answer: (signal: AbortSignal) => ReturnType<ImageFetchLike>): HeldImageFetch {
+  let arrived: (signal: AbortSignal) => void = () => undefined;
+  const reached = new Promise<AbortSignal>((resolve) => { arrived = resolve; });
+  const fetchImpl: ImageFetchLike = (_input, init) => {
+    const signal = init?.signal ?? AbortSignal.abort(new Error("the origin pull carried no signal"));
+    arrived(signal);
+    return answer(signal);
+  };
+  return { fetchImpl, reached };
 }

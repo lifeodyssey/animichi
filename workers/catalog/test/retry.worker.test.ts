@@ -113,7 +113,7 @@ describe("withRetry — Retry-After", () => {
     await expect(
       withRetry(() => {
         throw new RetryableError(429, 600_000);
-      }, { sleep, attempts: 2, maxDelayMs: 10_000 }),
+      }, { sleep, attempts: 2, maxDelayMs: 10_000, deadlineMs: 60_000 }),
     ).rejects.toThrow(RetryableError);
     expect(waits).toEqual([10_000]);
   });

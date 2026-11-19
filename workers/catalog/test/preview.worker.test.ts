@@ -3,6 +3,9 @@ import { previewForQuery, previewForWork } from "../src/api/preview";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
 import { upstreamUnavailable } from "../src/lib/errors";
 import { mockFetchSequence } from "./mock-fetch-sequence";
+import { deferred } from "./deferred";
+import { unanswered } from "./fakes/unanswered-request";
+import type { FetchLike, SourceConfig } from "../src/ingest/sources";
 
 /**
  * Unit tests for the fast Anitabi L1 preview mapping (api/preview.ts).
@@ -12,7 +15,25 @@ import { mockFetchSequence } from "./mock-fetch-sequence";
  * an injected `resolvePreview` fake. Here the real fetch chain runs against
  * canned bangumi-search and anitabi-lite bodies, so the field mapping is
  * exercised (not just the empty-preview paths).
+ *
+ * A caller that cancels during either upstream call gets its own reason back,
+ * never the upstream-unavailable error an outage gets.
  */
+
+/** The preview's upstream knobs: the canned fetch behind the egress stand-in, and a fresh signing key. */
+function egressCall(fetch: FetchLike): SourceConfig {
+  return { fetchImpl: lenientEgressFetch(fetch), egressSigningKey: stubEgressSigningKey() };
+}
+
+/** An upstream that never answers: its call ends only when the request's signal aborts, with that reason, as `fetch` does. */
+function unansweredUpstream() {
+  const arrival = deferred();
+  const fetch: FetchLike = (_url, init) => {
+    arrival.settle();
+    return unanswered(init?.signal ?? AbortSignal.abort(new Error("the upstream call carried no signal")));
+  };
+  return { fetch, called: arrival.promise };
+}
 
 const SEARCH_BODY = { data: [{ id: 10380 }] };
 const SEARCH_EMPTY = { data: [] };
@@ -44,7 +65,7 @@ describe("previewForQuery (api/preview.ts)", () => {
       { status: 200, body: { pointsLength: 2, litePoints: LITE_POINTS } },
     ]);
 
-    const preview = await previewForQuery("けいおん！", lenientEgressFetch(fetch), stubEgressSigningKey());
+    const preview = await previewForQuery("けいおん！", egressCall(fetch));
 
     expect(preview?.bangumiId).toBe("10380");
     expect(preview?.points).toEqual([
@@ -73,7 +94,7 @@ describe("previewForQuery (api/preview.ts)", () => {
 
   it("returns null when the title resolves to no bangumi subject", async () => {
     const { fetch } = mockFetchSequence([{ status: 200, body: SEARCH_EMPTY }]);
-    expect(await previewForQuery("nothing here", lenientEgressFetch(fetch), stubEgressSigningKey())).toBeNull();
+    expect(await previewForQuery("nothing here", egressCall(fetch))).toBeNull();
   });
 
   it("returns null when the work has an empty lite preview", async () => {
@@ -81,7 +102,7 @@ describe("previewForQuery (api/preview.ts)", () => {
       { status: 200, body: SEARCH_BODY },
       { status: 200, body: { pointsLength: 0, litePoints: [] } },
     ]);
-    expect(await previewForQuery("けいおん！", lenientEgressFetch(fetch), stubEgressSigningKey())).toBeNull();
+    expect(await previewForQuery("けいおん！", egressCall(fetch))).toBeNull();
   });
 });
 
@@ -94,7 +115,7 @@ describe("previewForWork (api/preview.ts)", () => {
       },
     ]);
 
-    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
+    const preview = await previewForWork("10380", egressCall(fetch));
 
     expect(preview.points).toEqual([
       { id: "p3", name: "bad", bangumi_id: "10380", screenshot_url: "", latitude: 0, longitude: 0 },
@@ -103,13 +124,13 @@ describe("previewForWork (api/preview.ts)", () => {
 
   it("treats an Anitabi 404 as an empty preview, not an outage", async () => {
     const { fetch } = mockFetchSequence([{ status: 404, body: null }]);
-    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
+    const preview = await previewForWork("10380", egressCall(fetch));
     expect(preview).toEqual({ bangumiId: "10380", points: [] });
   });
 
   it("maps an Anitabi outage to a typed retryable upstream error", async () => {
     const { fetch } = mockFetchSequence([{ status: 503, body: null }]);
-    await expect(previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey())).rejects.toEqual(
+    await expect(previewForWork("10380", egressCall(fetch))).rejects.toEqual(
       upstreamUnavailable("anitabi", expect.anything() as unknown),
     );
   });
@@ -125,8 +146,32 @@ describe("previewForWork (api/preview.ts)", () => {
       },
     ]);
 
-    const preview = await previewForWork("10380", lenientEgressFetch(fetch), stubEgressSigningKey());
+    const preview = await previewForWork("10380", egressCall(fetch));
 
     expect(preview.points[0]).toMatchObject({ episode: 3, time_seconds: 7 });
+  });
+});
+
+describe("a caller's cancel through the preview (api/preview.ts)", () => {
+  it("previewForQuery rejects with the caller's own reason when the caller cancels the Bangumi search", async () => {
+    const caller = new AbortController();
+    const reason = new Error("the edge gave up");
+    const upstream = unansweredUpstream();
+    const preview = previewForQuery("けいおん！", { ...egressCall(upstream.fetch), signal: caller.signal });
+    await upstream.called;
+    caller.abort(reason);
+    await expect(preview).rejects.toBe(reason);
+    await expect(preview).rejects.not.toEqual(upstreamUnavailable("bangumi", expect.anything() as unknown));
+  });
+
+  it("previewForWork rejects with the caller's own reason when the caller cancels the Anitabi fetch", async () => {
+    const caller = new AbortController();
+    const reason = new Error("the edge gave up");
+    const upstream = unansweredUpstream();
+    const preview = previewForWork("10380", { ...egressCall(upstream.fetch), signal: caller.signal });
+    await upstream.called;
+    caller.abort(reason);
+    await expect(preview).rejects.toBe(reason);
+    await expect(preview).rejects.not.toEqual(upstreamUnavailable("anitabi", expect.anything() as unknown));
   });
 });

@@ -1,7 +1,9 @@
 import pg from "pg";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import type { CatalogPrisma } from "../src/db/prisma";
-import { runDailyIngestWith, type RunPlan, type RunPolicy } from "../src/ingest/daily-run";
+import {
+  runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts, type RunWorkOutcome,
+} from "../src/ingest/daily-run";
 import { catalogPorts } from "../src/ingest/catalog-daily-run";
 import { appendRawHistory, cleanupRawHistory, historyCount } from "../src/ingest/raw_history";
 import { captureProvenance } from "../src/ingest/provenance";
@@ -16,9 +18,10 @@ import {
  * Integration suite for the daily discovery + ingest run (#1006).
  *
  * Exercises the durable run protocol (AC1), deterministic discovery (AC2),
- * provenance capture (AC4), bounded raw retention (AC5), and the partial/failed
- * run guarantee that never advances a published pointer (AC6) against the
- * committed Prisma chain's schema, cloned into the suite database.
+ * provenance capture (AC4), bounded raw retention (AC5), the partial/failed
+ * run guarantee that never advances a published pointer (AC6), and the failure
+ * ledger a retry carries forward, against the committed Prisma chain's schema,
+ * cloned into the suite database.
  */
 
 const POLICY: RunPolicy = {
@@ -26,7 +29,7 @@ const POLICY: RunPolicy = {
   tierIntervals: { high: 86_400_000, medium: 604_800_000, low: 2_592_000_000 },
   newWorkCap: 5,
   keepHistory: 2,
-  budget: { workLimit: 5, requestLimit: 20, runtimeLimitMs: 600_000 },
+  budget: { workLimit: 5, requestLimit: 20 },
 };
 
 let pool: pg.Pool;
@@ -109,7 +112,7 @@ databaseDescribe("Raw payload retention (AC5)", () => {
 
 databaseDescribe("Provenance capture (AC4)", () => {
   it("UPSERTs a point provenance record with upstream identity and a field map", async () => {
-    await captureProvenance(query, {
+    await captureProvenance(query, [{
       scope: "point",
       entityId: "p-1",
       workId: "prov-w",
@@ -118,7 +121,7 @@ databaseDescribe("Provenance capture (AC4)", () => {
       attribution: "Anitabi",
       license: "https://anitabi.cn",
       fieldMap: { name: "anitabi", latitude: "anitabi" },
-    });
+    }]);
     const { rows: provenance } = await pool.query(
       "SELECT upstream_id, source FROM catalog_provenance WHERE entity_id = 'p-1'",
     );
@@ -133,5 +136,65 @@ databaseDescribe("Published pointer safety (AC6)", () => {
     expect(await currentPointer("spike-1")).toBeUndefined();
     await runDailyIngestWith(catalogPorts(query, "daily-ac6", POLICY.keepHistory), plan("daily-ac6"));
     expect(await currentPointer("spike-1")).toBeUndefined();
+  });
+});
+
+const INGESTED: RunWorkOutcome = { outcome: "ingested", version: 1 };
+const SPIKE_2_FAILED = { bangumiId: "spike-2", stage: "enrich", reason: "boom" };
+const RECLAIMED = { stage: "reclaim", reason: "stale-reclaimed" };
+
+/** The real run store, with each work's ingest scripted so a failure needs no upstream. */
+function scriptedPorts(runId: string, ingestWork: RunPorts["ingestWork"]): RunPorts {
+  return { ...catalogPorts(query, runId, POLICY.keepHistory), ingestWork };
+}
+
+/** A first attempt in which spike-1 publishes and spike-2 fails at enrich. */
+async function partialFirstAttempt(runId: string): Promise<void> {
+  const ingestWork = vi.fn<RunPorts["ingestWork"]>()
+    .mockResolvedValueOnce(INGESTED)
+    .mockResolvedValueOnce({ outcome: "pipelineFailed", stage: "enrich", reason: "boom" });
+  await runDailyIngestWith(scriptedPorts(runId, ingestWork), plan(runId));
+}
+
+/** A retry in which every remaining work publishes. */
+async function succeedingRetry(runId: string): Promise<void> {
+  const ingestWork = vi.fn<RunPorts["ingestWork"]>().mockResolvedValue(INGESTED);
+  await runDailyIngestWith(scriptedPorts(runId, ingestWork), plan(runId));
+}
+
+/** Leave the run as an attempt that started long before the plan's clock and never finished. */
+async function abandonAttempt(runId: string): Promise<void> {
+  await pool.query(
+    "UPDATE catalog_runs SET status = 'running', started_at = '2024-08-06T00:00:00Z' WHERE run_id = $1", [runId],
+  );
+}
+
+async function ledgerOf(runId: string): Promise<unknown> {
+  const { rows } = await pool.query("SELECT failures FROM catalog_runs WHERE run_id = $1", [runId]);
+  return (rows[0] as { failures: unknown } | undefined)?.failures;
+}
+
+databaseDescribe("Failure ledger across attempts", () => {
+  it("a resumed run keeps the failure its first attempt recorded, and completes", async () => {
+    await partialFirstAttempt("daily-ledger-resume");
+    await succeedingRetry("daily-ledger-resume");
+    expect(await runStatus("daily-ledger-resume")).toBe("complete");
+    expect(await ledgerOf("daily-ledger-resume")).toEqual([SPIKE_2_FAILED]);
+  });
+
+  it("a stale reclaim keeps the earlier failure and appends a reclaim entry naming no work", async () => {
+    await partialFirstAttempt("daily-ledger-stale");
+    await abandonAttempt("daily-ledger-stale");
+    await succeedingRetry("daily-ledger-stale");
+    expect(await ledgerOf("daily-ledger-stale")).toEqual([SPIKE_2_FAILED, RECLAIMED]);
+  });
+
+  it("keeps the reclaim on the row when the reclaiming attempt dies before it records", async () => {
+    await partialFirstAttempt("daily-ledger-died");
+    await abandonAttempt("daily-ledger-died");
+    const dies = vi.fn<RunPorts["ingestWork"]>().mockRejectedValue(new Error("worker evicted"));
+    await expect(runDailyIngestWith(scriptedPorts("daily-ledger-died", dies), plan("daily-ledger-died")))
+      .rejects.toThrow("worker evicted");
+    expect(await ledgerOf("daily-ledger-died")).toEqual([SPIKE_2_FAILED, RECLAIMED]);
   });
 });

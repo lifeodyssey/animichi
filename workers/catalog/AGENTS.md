@@ -96,7 +96,12 @@ Root guide: `../../AGENTS.md`.
 
 ## Test pools
 
-- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
+- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed, and
+  so is its network: the pool refuses every `fetch` a test did not stub, answering 500 with a body
+  that names the method and URL and logging the same line, because on 2026-11-14 a test reached
+  api.bgm.tv before it stubbed `fetch`. The guard covers `fetch` only: Miniflare passes a raw
+  `connect()` socket through, and nothing in the pool opens one (`pg` is the stub, see Stack).
+  Stub `fetch` in the test; never widen the guard.
 - `*.node.test.ts` runs in the plain Node pool via `vitest.node.config.ts`: filesystem, a child
   process, a Miniflare bucket, a fake seam — everything workerd cannot host that needs **no**
   database. It boots no container and `pnpm test` chains it after `test:worker` (#1771).
@@ -132,4 +137,10 @@ Root guide: `../../AGENTS.md`.
   via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes
   into it).
   See `test/wrangler-private.worker.test.ts`.
+- Both Node pools load `test/setup/loopback-only-fetch.ts`: the global `fetch` reaches loopback
+  only, and a request to any other host is refused before anything is sent, thrown and logged
+  with its method and URL. It is defined on `globalThis`, not stubbed, so a test's
+  `vi.unstubAllGlobals()` or `vi.restoreAllMocks()` brings the refusal back, not the network. It
+  guards `fetch` only: `pg` and testcontainers use their own sockets, and no suite in these lanes
+  sends a request through `node:http` itself. Stub `fetch` in the test; never widen the guard.
 - TDD via `vitest-pool-workers`; keep `test/contract-parity.worker.test.ts` green.

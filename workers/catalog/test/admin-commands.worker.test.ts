@@ -15,7 +15,7 @@ import {
   type AdminDeps,
   type AdminRouteOptions,
 } from "../src/import/admin-routes";
-import { canarySelection } from "../src/import/admin-commands";
+import { canaryPolicy, canarySelection } from "../src/import/admin-commands";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
@@ -111,5 +111,9 @@ describe("canary selection (AC5)", () => {
     const a = canarySelection(1_700_000_000_000).map((w) => w.bangumiId);
     const b = canarySelection(1_700_000_000_000).map((w) => w.bangumiId);
     expect(a).toEqual(b);
+  });
+
+  it("bounds a canary run by works and upstream requests alone", () => {
+    expect(canaryPolicy().budget).toEqual({ workLimit: 6, requestLimit: 40 });
   });
 });

@@ -9,10 +9,11 @@
  * field. A work row carries the Bangumi subject provenance. Re-ingest of the
  * same entity overwrites the latest capture, so provenance never goes stale.
  *
- * The write is the builder's INSERT plus the conflict clause it does not model
- * ({@link ../db/plans}), on the (scope, entity_id) unique key. `captured_at` is
- * the column's own `now()` on both branches — the conflict side copies
- * `EXCLUDED.captured_at` — so the capture timestamp is the database's clock.
+ * The write is the builder's multi-row INSERT plus the conflict clause it does
+ * not model ({@link ../db/plans}), on the (scope, entity_id) unique key.
+ * `captured_at` is the column's own `now()` on both branches — the conflict side
+ * copies `EXCLUDED.captured_at` — so the capture timestamp is the database's
+ * clock, one per statement.
  */
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
@@ -42,18 +43,55 @@ const PROVENANCE_UPDATE_COLUMNS = [
   "work_id", "source", "upstream_id", "attribution", "license", "field_map", "captured_at",
 ] as const;
 
-/** UPSERT a provenance record for an entity; latest capture wins. */
+/** The most values one statement can bind: the wire protocol counts them in 16 bits. */
+const MAX_BOUND_VALUES = 65_535;
+
+/** The values one row binds: every column {@link provenanceValues} sets. */
+const VALUES_PER_ROW = 8;
+
+/** The most rows one UPSERT carries before its bound values would pass the protocol's count. */
+export const ROWS_PER_STATEMENT = Math.floor(MAX_BOUND_VALUES / VALUES_PER_ROW);
+
+/**
+ * UPSERT a capture's records, latest capture winning: one statement for every
+ * {@link ROWS_PER_STATEMENT} rows, so a work's capture is one statement unless
+ * it carries more rows than that.
+ *
+ * A key the capture lists twice keeps its last record, as two writes in a row
+ * did. Postgres refuses a statement that updates one row twice (SQLSTATE
+ * 21000), so a repeated key would otherwise fail every row beside it.
+ *
+ * A statement is all or nothing. When Postgres refuses one of its rows, none of
+ * its rows is written, the rows an earlier capture wrote for those keys keep
+ * their values, and the refusal reaches the caller as the driver raised it. The
+ * statements are not one transaction: in a capture longer than one statement,
+ * the statements before the refused one stay written.
+ */
 export async function captureProvenance(
   query: CatalogPrisma,
-  record: ProvenanceRecord,
+  records: readonly ProvenanceRecord[],
 ): Promise<void> {
-  await query.executor.query(capturePlan(query, record));
+  for (const rows of statementRows(latestByKey(records))) {
+    await query.executor.query(capturePlan(query, rows));
+  }
 }
 
-/** The UPSERT ... ON CONFLICT (scope, entity_id) DO UPDATE plan. */
-function capturePlan(query: CatalogPrisma, record: ProvenanceRecord): SqlOrmPlan {
+/** One record per (scope, entity_id): the last one the capture lists for it. */
+function latestByKey(records: readonly ProvenanceRecord[]): ProvenanceRecord[] {
+  return [...new Map(records.map((record) => [JSON.stringify([record.scope, record.entityId]), record])).values()];
+}
+
+/** The records cut into runs of at most {@link ROWS_PER_STATEMENT}, one run per statement. */
+function statementRows(records: readonly ProvenanceRecord[]): ProvenanceRecord[][] {
+  const statements = Math.ceil(records.length / ROWS_PER_STATEMENT);
+  return Array.from({ length: statements }, (_, index) =>
+    records.slice(index * ROWS_PER_STATEMENT, (index + 1) * ROWS_PER_STATEMENT));
+}
+
+/** The UPSERT ... ON CONFLICT (scope, entity_id) DO UPDATE plan for one statement's rows. */
+function capturePlan(query: CatalogPrisma, records: readonly ProvenanceRecord[]): SqlOrmPlan {
   const insert = query.builder.public.catalog_provenance
-    .insert([provenanceValues(record)])
+    .insert(records.map(provenanceValues))
     .build();
   return upsert(insert, { target: ["scope", "entity_id"], update: PROVENANCE_UPDATE_COLUMNS });
 }

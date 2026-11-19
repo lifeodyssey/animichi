@@ -1,11 +1,15 @@
 import pg from "pg";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ANITABI_THUMBNAIL_PLAN, ANITABI_USER_AGENT } from "@animichi/contract/anitabi-display";
 import { serveImage, type ImgDeps } from "../src/media/img";
+import { DEFAULT_ATTEMPT_TIMEOUT_MS } from "../src/ingest/retry";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
+import { abortTimeoutsOnFakeClock } from "./fakes/abort-timeout";
 import { pointInsert, pointSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
-import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
+import {
+  makeCountingImageFetch, makeFailingImageFetch, makeImageBucketStub, makeStalledBodyImageFetch, makeUnansweredImageFetch,
+} from "./media-doubles";
 
 /**
  * Integration suite for the lazy-R2 media path (Wave 6): serveImage over `media_assets`.
@@ -108,3 +112,87 @@ databaseDescribe("serveImage tombstone path", () => {
     expect(calls()).toBe(1);
   });
 });
+
+/** The bounds cases' origins sit on a `.invalid` host: their pulls are stubbed, and nothing here may leave the machine. */
+databaseDescribe("serveImage origin pull bounds", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("answers 502 when the origin never answers by the pull timeout, storing and tombstoning nothing", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    abortTimeoutsOnFakeClock();
+    await seedPoint("hung-1", "https://origin.invalid/hung-1.png");
+    const { bucket, store } = makeImageBucketStub();
+    const origin = makeUnansweredImageFetch();
+    const served = serveImage({ query, bucket, fetchImpl: origin.fetchImpl }, "hung-1", ANITABI_THUMBNAIL_PLAN);
+    const pull = await origin.reached;
+    await vi.advanceTimersByTimeAsync(DEFAULT_ATTEMPT_TIMEOUT_MS - 1);
+    expect(pull.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(pull.aborted).toBe(true);
+    await expectUpstreamError(served);
+    expect(store.size).toBe(0);
+    expect(await assetOf("hung-1")).toBeUndefined();
+  });
+
+  it("answers 502 when the origin's body stalls past the pull timeout, storing and tombstoning nothing", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    abortTimeoutsOnFakeClock();
+    await seedPoint("stalled-1", "https://origin.invalid/stalled-1.png");
+    const { bucket, store } = makeImageBucketStub();
+    const origin = makeStalledBodyImageFetch();
+    const served = serveImage({ query, bucket, fetchImpl: origin.fetchImpl }, "stalled-1", ANITABI_THUMBNAIL_PLAN);
+    await origin.reached;
+    await vi.advanceTimersByTimeAsync(DEFAULT_ATTEMPT_TIMEOUT_MS);
+    await expectUpstreamError(served);
+    expect(store.size).toBe(0);
+    expect(await assetOf("stalled-1")).toBeUndefined();
+  });
+
+  it("answers 502 when the origin pull fails in transport, storing and tombstoning nothing", async () => {
+    await seedPoint("unreachable-1", "https://origin.invalid/unreachable-1.png");
+    const { bucket, store } = makeImageBucketStub();
+    const fetchImpl = makeFailingImageFetch(new TypeError("fetch failed"));
+    await expectUpstreamError(serveImage({ query, bucket, fetchImpl }, "unreachable-1", ANITABI_THUMBNAIL_PLAN));
+    expect(store.size).toBe(0);
+    expect(await assetOf("unreachable-1")).toBeUndefined();
+  });
+});
+
+/** The cancel cases' origins sit on a `.invalid` host too; the request's own signal ends their pulls. */
+databaseDescribe("serveImage cancelled by its request", () => {
+  it("aborts the origin pull in flight when the request is cancelled", async () => {
+    await seedPoint("cancelled-1", "https://origin.invalid/cancelled-1.png");
+    const caller = new AbortController();
+    const reason = new Error("the client left");
+    const origin = makeUnansweredImageFetch();
+    const deps: ImgDeps = { query, bucket: makeImageBucketStub().bucket, fetchImpl: origin.fetchImpl, signal: caller.signal };
+    const served = serveImage(deps, "cancelled-1", ANITABI_THUMBNAIL_PLAN);
+    const pull = await origin.reached;
+    caller.abort(reason);
+    expect(pull.reason).toBe(reason);
+    await expect(served).rejects.toBe(reason);
+  });
+
+  it("rethrows a cancel whose reason is a TimeoutError as the caller's own, never as a 502", async () => {
+    await seedPoint("cancelled-2", "https://origin.invalid/cancelled-2.png");
+    const caller = new AbortController();
+    const reason = new DOMException("the caller's own deadline passed", "TimeoutError");
+    const origin = makeUnansweredImageFetch();
+    const deps: ImgDeps = { query, bucket: makeImageBucketStub().bucket, fetchImpl: origin.fetchImpl, signal: caller.signal };
+    const served = serveImage(deps, "cancelled-2", ANITABI_THUMBNAIL_PLAN);
+    await origin.reached;
+    caller.abort(reason);
+    await expect(served).rejects.toBe(reason);
+  });
+});
+
+/** A failed origin pull answers as a bad origin status does: 502 "Upstream error", with nothing to cache. */
+async function expectUpstreamError(served: Promise<Response>): Promise<void> {
+  const res = await served;
+  expect(res.status).toBe(502);
+  expect(await res.text()).toBe("Upstream error");
+  expect(res.headers.get("Cache-Control")).toBeNull();
+}

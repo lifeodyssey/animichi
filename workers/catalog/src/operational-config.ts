@@ -72,7 +72,7 @@ export function allowsPendingDrainCron(environment: RuntimeEnvironment): boolean
 /** One hourly event shares a bounded allowance across pending and TTL work. */
 export function hourlyIngestBudget(): BudgetLimits {
   const workLimit = PENDING_DRAIN_BATCH_CAP + TTL_BATCH_CAP;
-  return { workLimit, requestLimit: workLimit * 2, runtimeLimitMs: 14 * 60 * 1000 };
+  return { workLimit, requestLimit: workLimit * 2 };
 }
 
 /** Production budget/tier policy for the daily run (operational config, not magic). */
@@ -82,6 +82,6 @@ export function dailyPolicy(): RunPolicy {
     tierIntervals: { high: 24 * 60 * 60 * 1000, medium: 7 * 24 * 60 * 60 * 1000, low: 30 * 24 * 60 * 60 * 1000 },
     newWorkCap: 20,
     keepHistory: 2,
-    budget: { workLimit: DAILY_WORK_CAP, requestLimit: 400, runtimeLimitMs: 10 * 60 * 1000 },
+    budget: { workLimit: DAILY_WORK_CAP, requestLimit: 400 },
   };
 }

@@ -6,11 +6,21 @@
  * backoff; every other error raises immediately. A `Retry-After` header
  * (delta-seconds or HTTP-date) overrides the backoff when present, capped at
  * `maxDelayMs`. Once attempts are exhausted the last transient failure is
- * rethrown, so callers keep their own error semantics — `sources.ts`
+ * rethrown, so callers keep their own error semantics — `upstream-call.ts`
  * converts it back to `UpstreamFetchError`.
+ *
+ * Time is bounded twice. Each attempt runs under `AbortSignal.timeout` of
+ * `attemptTimeoutMs`, joined with the caller's signal by `AbortSignal.any`, so
+ * a hung connection ends at the timeout and a caller's cancel reaches the
+ * request in flight. The whole call has `deadlineMs` from its first attempt,
+ * and a retry starts only when its wait plus one full attempt still end by
+ * then — so the call settles by its deadline, and no retry is started that
+ * could only be cut off (each one would spend another upstream request). Once
+ * the caller's signal has aborted, no attempt starts and the caller's own
+ * reason is rethrown: a cancel is never reported as an upstream failure.
  */
 
-/** Knobs for {@link withRetry}; tests inject `sleep`/`jitterMs` to fake the clock. */
+/** Knobs for {@link withRetry}; tests inject `sleep`/`jitterMs`/`now` to fake the clock. */
 export interface RetryOptions {
   /** Total attempts (initial + retries), at least 1. Default 3; NaN or non-positive values fall back to the default. */
   attempts?: number;
@@ -18,15 +28,47 @@ export interface RetryOptions {
   baseDelayMs?: number;
   /** Ceiling for any single wait (incl. `Retry-After`), in ms. Default 10s. */
   maxDelayMs?: number;
+  /** One attempt's timeout, in ms: an attempt still unanswered then is aborted. Default 12 s. */
+  attemptTimeoutMs?: number;
+  /** The whole call's deadline, in ms from its first attempt. Default 20 s. */
+  deadlineMs?: number;
   /** Injectable sleeper — mock the clock in tests; default `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
   /** Injectable jitter over the backoff base — deterministic in tests. */
   jitterMs?: (baseMs: number) => number;
+  /** Injectable clock the deadline is measured on — mock it in tests; default `Date.now`. */
+  now?: () => number;
 }
 
 export const DEFAULT_RETRY_ATTEMPTS = 3;
 export const DEFAULT_RETRY_BASE_MS = 400;
 export const DEFAULT_RETRY_MAX_MS = 10_000;
+
+/**
+ * One attempt's timeout. The anitabi egress gives the upstream 10 s before it
+ * answers with its own `upstream-timeout` refusal, which is final and never
+ * retried (`apps/anitabi-egress/src/egress-service.ts`); 2 s more covers the
+ * service's own checks and the hop to it, so that refusal arrives before this
+ * side gives up and turns it into a retry that costs another request.
+ */
+export const DEFAULT_ATTEMPT_TIMEOUT_MS = 12_000;
+
+/**
+ * The whole call's deadline: one upstream call, its retries included, settles
+ * within 20 s of its first attempt. The figure comes from the edge's catalog
+ * client, which abandons an attempt at 25 s (`fetchWithinDeadline` in
+ * `packages/agent/src/catalog-client.ts`): a request path that makes one call
+ * (`resolve`, or `pointsByBangumiId` on an uncovered work) keeps 5 s for its
+ * database work and its answer. The deadline is per call, not per request. The
+ * search miss path makes two calls in sequence, the Bangumi search and then
+ * the Anitabi lite preview (`src/api/preview.ts`), so there the edge's 25 s
+ * abandon can come first; the request's signal then aborts whichever call is
+ * in flight (`src/router.ts`). Without a `waitUntil` (a harness with no
+ * execution context), the miss path's `syncFallback` runs a full ingest after
+ * them, whose calls carry no request signal. A background ingest's two calls
+ * run side by side and also end inside `waitUntil`'s 30 s.
+ */
+export const DEFAULT_RETRY_DEADLINE_MS = 20_000;
 
 /** A transient upstream failure: {@link withRetry} retries these and nothing else. */
 export class RetryableError extends Error {
@@ -54,15 +96,52 @@ export function parseRetryAfter(value: string | null, nowMs: number): number | n
   return Number.isNaN(dateMs) ? null : Math.max(dateMs - nowMs, 0);
 }
 
-/** Re-run `attempt` on transient failures with backoff; rethrow everything else. */
-export async function withRetry<T>(attempt: () => Promise<T> | T, opts: RetryOptions = {}): Promise<T> {
-  const cfg = resolveRetryConfig(opts);
+/**
+ * Re-run `attempt` on transient failures with backoff inside the call's
+ * deadline; rethrow everything else. Each attempt is handed the signal it must
+ * pass to its request: the caller's cancellation joined with its own timeout.
+ */
+export async function withRetry<T>(
+  attempt: (signal: AbortSignal) => Promise<T> | T,
+  opts: RetryOptions = {},
+  caller: AbortSignal = new AbortController().signal,
+): Promise<T> {
+  const call = new RetryCall(resolveRetryConfig(opts), caller);
   for (let attemptNo = 0; ; attemptNo++) {
     try {
-      return await attempt();
+      return await attempt(call.attemptSignal());
     } catch (err) {
-      await backoffOrRethrow(err, attemptNo, cfg);
+      await call.backoffOrRethrow(err, attemptNo);
     }
+  }
+}
+
+/** One call's retry state: its policy, its caller's signal, and the deadline its first attempt set. */
+class RetryCall {
+  private readonly deadlineAt: number;
+
+  constructor(private readonly cfg: Required<RetryOptions>, private readonly caller: AbortSignal) {
+    this.deadlineAt = cfg.now() + cfg.deadlineMs;
+  }
+
+  /** The signal for the next attempt; none starts once the caller has cancelled. */
+  attemptSignal(): AbortSignal {
+    this.caller.throwIfAborted();
+    return AbortSignal.any([this.caller, AbortSignal.timeout(this.cfg.attemptTimeoutMs)]);
+  }
+
+  /** Sleep the backoff, or rethrow: on a cancel, a final error, the last attempt, or no time left. */
+  async backoffOrRethrow(err: unknown, attemptNo: number): Promise<void> {
+    this.caller.throwIfAborted();
+    if (!(err instanceof RetryableError) || attemptNo + 1 >= this.cfg.attempts) throw err;
+    const waitMs = retryDelayMs(err.retryAfterMs, this.cfg.baseDelayMs * 2 ** attemptNo, this.cfg);
+    if (!this.retryFits(waitMs)) throw err;
+    await this.cfg.sleep(waitMs);
+  }
+
+  /** Whether a retry after `waitMs` would still end, timeout and all, by the deadline. */
+  private retryFits(waitMs: number): boolean {
+    return this.cfg.now() + waitMs + this.cfg.attemptTimeoutMs <= this.deadlineAt;
   }
 }
 
@@ -77,8 +156,11 @@ function resolveRetryConfig(opts: RetryOptions): Required<RetryOptions> {
     attempts: normalizeAttempts(opts.attempts),
     baseDelayMs: opts.baseDelayMs ?? DEFAULT_RETRY_BASE_MS,
     maxDelayMs: opts.maxDelayMs ?? DEFAULT_RETRY_MAX_MS,
+    attemptTimeoutMs: opts.attemptTimeoutMs ?? DEFAULT_ATTEMPT_TIMEOUT_MS,
+    deadlineMs: opts.deadlineMs ?? DEFAULT_RETRY_DEADLINE_MS,
     sleep: opts.sleep ?? defaultSleep,
     jitterMs: opts.jitterMs ?? fullJitter,
+    now: opts.now ?? Date.now,
   };
 }
 
@@ -94,26 +176,14 @@ function normalizeAttempts(attempts: number | undefined): number {
   return attempts;
 }
 
-/** Sleep the backoff, or rethrow when the error is final or attempts run out. */
-function backoffOrRethrow(
-  err: unknown,
-  attemptNo: number,
-  cfg: Required<RetryOptions>,
-): Promise<void> {
-  if (!(err instanceof RetryableError) || attemptNo + 1 >= cfg.attempts) throw err;
-  const backoffMs = cfg.baseDelayMs * 2 ** attemptNo;
-  return cfg.sleep(retryDelayMs(err.retryAfterMs, backoffMs, cfg.maxDelayMs, cfg.jitterMs));
-}
-
 /** `Retry-After` wins over the jittered backoff; both are capped at `maxDelayMs`. */
 function retryDelayMs(
   retryAfterMs: number | undefined,
   backoffMs: number,
-  maxDelayMs: number,
-  jitterMs: (baseMs: number) => number,
+  cfg: Required<RetryOptions>,
 ): number {
-  const baseMs = retryAfterMs ?? jitterMs(backoffMs);
-  return Math.min(baseMs, maxDelayMs);
+  const baseMs = retryAfterMs ?? cfg.jitterMs(backoffMs);
+  return Math.min(baseMs, cfg.maxDelayMs);
 }
 
 function defaultSleep(ms: number): Promise<void> {
