@@ -42,10 +42,31 @@ constants are imported by their own tests, mocks sit in front of the boundary un
 - Read the contract (`packages/contract/src/models.ts`) before writing a fixture: which fields are
   required, and what "absent" looks like on the wire. Do not copy another test's fixture; false
   greens travel through fixtures.
-- Ask "if this line broke, which test goes red?", not "did I test it?". No answer means untested.
+- Ask "if this line broke, which test goes red?", not "did I test it?". No answer means untested:
+  in #2073 no test held the two lines of the catalog's `preview.ts` that carry a caller's cancel,
+  each deletion mutant left all 771 worker tests green, and #2073 added a case for each
+  (2026-11-19). A line coverage reports as hit is no answer either; coverage counts execution, not
+  assertion.
+- A safety argument needs a case for the behaviour it rests on. The rollback compatibility of
+  #2076 rested on the run record's reader keeping any number; nothing pinned it, and a reviewer's
+  mutation of the reader to `=== 1` survived (2026-11-19). "Both versions keep X, so a rollback is
+  safe" makes X a case of its own, green on the base and red under that mutation.
 - Suites that stop at the first failure hide which cases went red: a mutation on 2026-09-23 turned
   the suite red on an earlier case while the new case, which tested nothing, never ran. Run each
   case on its own and cite the set of cases that went red, not "the suite went red".
+
+## Codecov counts an untaken branch as a miss (2026-11-19)
+
+The patch gate (`codecov.yml`, 95%) counts a line with an untaken branch as partial, not covered.
+
+- Read the head lcov's `BRDA` records before guessing which lines Codecov means. The catalog
+  worker lane's coverage provider, istanbul, records a default parameter as a `default-arg` branch
+  on the signature line, so a default that no caller relies on is an untaken branch: the two
+  untaken branches Codecov reported on #2073 were `cfg = {}` defaults that no caller used
+  (2026-11-19).
+- On a deletion-heavy PR few lines are added and one partial line swings the ratio. Intersect the
+  diff's added `src` lines with the head lcov's `DA` and `BRDA` records before pushing, as #2077
+  did: 67 added source lines, none of them coverable (2026-11-19).
 
 ## A mutation that did not go red has two explanations
 
@@ -97,9 +118,24 @@ never walked. Technique:
   than "no failures". A pipe hands `$?` to its last command; use `${PIPESTATUS[0]}` (2026-08-03).
   Before trusting "X does not exist", search again with different keywords and say which you
   tried; a single-keyword negative is the commonest false conclusion.
+- A search pattern can match nothing by construction. With Apple Git 2.54 on macOS, `git grep -E`
+  with `\b` or `\<…\>` matched nothing and exited 1 silently, where `-F`, `-wF` and `-P` found the
+  name (checked 2026-11-20); a negative from such a search reads as "no caller". Search fixed
+  strings (`-F`), in several shapes.
+- A selector that matches nothing passes, and one that is ignored runs everything. A
+  `pnpm --filter` that matches no package prints `Scope: 0 of <n> workspace projects` and exits 0
+  (pnpm 12.4.2); `--fail-if-no-match` makes it exit 1. The gate commands quoted in PR bodies have
+  carried the flag since #2049 (2026-11-18), with no incident on record; `docs/ops/local-gates.md`
+  records the same exit 0 from a nested worktree. `pnpm run <script> -- <args>` passes the `--`
+  on, and vitest ignores a file filter after it: `pnpm --filter migrator run test -- <file>` ran
+  the package's whole suite, and the same command without the `--` ran only that file (pnpm
+  12.4.2, vitest 4.1.12, checked 2026-11-20). Pass vitest arguments without `--`.
 - Measurement needs a control: a `robots.txt` that returned 200 from a Worker's hostname returned
   the same bytes from a hostname that never existed (a zone-level file). A liveness or existence
-  probe proves nothing until a known-absent case answers differently.
+  probe proves nothing until a known-absent case answers differently. A bundle diff needs one too:
+  build the base twice and confirm the two `index.js` files are byte-identical, then diff base
+  against head and classify every differing line. In #2077 (2026-11-19) 20 lines differed: 17
+  esbuild module markers matching the move table, and 3 for one function rename.
 
 ## A scanner that read one lockfile document of two (2026-11-18)
 
@@ -197,6 +233,16 @@ or add suppressions. Verification checklist:
 6. Run the gates yourself; a self-report of green (or of a commit) is not evidence.
 7. Judge a worker by its diff and its side effects, never by its exit code.
 
+## Brief writers on public text, not only reviewers (2026-11-19)
+
+Code, docs and commit messages are as public here as issues and pull requests
+(`docs/agents/infra-and-secrets.md`). In #2076's first review round two new test headers named a
+private tracker's ticket and a private working document, which no reader of the repository can
+resolve; the review caught them as a must-fix, and the writer rewrote both commits. Every writer
+brief says: no private tracker ids, private document names or machine paths in code, docs or
+commit messages, trailers excepted. Before review, grep the diff and the commit bodies, trailers
+aside, for the tracker's id prefix.
+
 ## Run the project's gate, not one you invented
 
 Independent verification means running the same command the project enforces (the package
@@ -216,6 +262,15 @@ and fold the verification into the natural review point.
 - Deleting or renaming a file: grep the old name and the new name, whole tree. A "complete" list
   built from the new name alone missed the four tests that referenced the old filename and broke
   CI (2026-08-26). A list handed to a sub-agent as complete must be complete, or say it is not.
+  Grep the old path in every shape, prefixed (`src/api/`) and bare (`api/x.ts`, `(api/`,
+  `` `api/ ``): in #2077 (2026-11-19) a prefixed-only sweep missed two comments naming a file in
+  the retired `api/` directory, and the independent review caught them.
+- A rename leaves a path-keyed guard green and checking nothing. Dependency rules, semgrep scopes
+  and exemptions, scanner file lists, a test's batch of files, coverage globs and pre-push routes
+  all name paths. List each guard's file set at base and head and map the two one to one through
+  the move table; then plant one violation per changed guard and watch it fail ("plant what it
+  must catch", above). #2077 (2026-11-19) mapped six guards and planted four violations, each red
+  while planted and green after the revert.
 - Tests that locate by filename are layout coupling; locate by table or version. Assert SQL by
   meaning, after normalising quotes and whitespace, not by literal rendering.
 - Platform-capability research enumerates the vendor's whole catalogue first (the products page,
