@@ -35,6 +35,21 @@ precise GRANT is decoration.
 - A migration that fails freezes the whole CD chain: the stage's later jobs are skipped, nothing
   deploys, and the merged PR looks fine. Watch the migration step, not the merge.
 
+## CD migrates before it publishes (2026-11-19)
+
+Both CD stages run "Apply the selected migration chain" before "Publish the selected services"
+(`.github/workflows/cd.yml`; `.github/test/cd-stage.test.rb` pins the order). In run 44493870952
+the staging chain step started at 09:11:57Z and the publish step at 09:12:07Z: between them the
+new schema serves the old code. A migration that removes something the old code still writes
+breaks that window, so split it expand–contract across two PRs, or prove the old code survives
+it, with a case for the behaviour the proof rests on (`docs/agents/review-and-verification.md`).
+`docs/ops/deployment.md` states the rule under "Schema change policy" and the step order under
+"Migration promotion". #2076 is the first half of such a split, and its body gives this window as
+the reason: it stops writing `cluster_version` and leaves the drop to a second PR, because a drop
+in the same release would have failed every publish of the old catalog code in that window. CD
+may skip `main` commits, so each half also needs its own release in each environment: approving
+production for a snapshot that carries both halves is the same-release drop again.
+
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
 `@neondatabase/serverless` (still an edge dependency in `workers/edge/package.json`) reaches

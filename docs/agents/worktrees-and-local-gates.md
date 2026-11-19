@@ -42,6 +42,39 @@ green.
   The inverse for probes: gitleaks' `github-pat` rule needs entropy ≥ 3 and its stopwords include
   the alphabet sequence, so a canary that must go red is random and checksum-free.
 
+## A path no gate covers cannot be pushed (2026-11-19)
+
+The pre-push gate (`scripts/local-gates/pre-push-affected.sh`) refuses a changed path that no
+selected package, fired bucket or `NO_PACKAGE` entry owns, with "no gate covers"
+(`docs/ops/local-gates.md`, "Failure handling"). `recovery/` is tracked
+(`scripts/local-gates/check-root-allowlist.sh` names it) and owned by none of them, so #2072 took
+out its commit that removed a machine-local path from a note under `recovery/`; whether
+`recovery/` joins the whitelist, as the archived `supabase/` directory does, is left to the owner.
+Before planning a change outside every package, check that the gate covers the path, and split
+out what it does not cover rather than route around the gate.
+
+## A pre-push timeout is not yet a flake (2026-11-19)
+
+A push whose affected set includes `packages/contract` runs contract's whole downstream
+(`docs/ops/local-gates.md`), and on a loaded machine its timing-sensitive tests fail on things the
+change cannot reach:
+
+- #2075's first push stopped on `chat-page-clarify-pick`, which timed out under the gate's full
+  load; the test passes on its own and depends on nothing #2075 changed, and the second push passed
+  ([merge report](https://github.com/lifeodyssey/animichi/pull/2075#issuecomment-7004850624)).
+- #2077's push took four attempts: on a heavily loaded machine three failed on timing-sensitive
+  tests the change does not reach, each of those passed when run alone, and the fourth passed once
+  the load dropped
+  ([merge report](https://github.com/lifeodyssey/animichi/pull/2077#issuecomment-7015696475)).
+
+Check the machine's load before such a push. When the gate stops on a timeout, first check that
+the branch does not touch the test's imports or handlers, then run the file alone several times
+and compare its duration with the limit. Until the test passes alone, the timeout is unproven, not
+a flake; retry only after that. Never route around the gate with `--no-verify`
+(`docs/agents/commit-and-pr-hygiene.md`). When the packages' suites ran side by side, `apps/web`'s
+vitest run blew its 5 s budgets (#1503); that is why the gate runs one package at a time
+(`docs/ops/local-gates.md`).
+
 ## Hooks: check they are on
 
 On 2026-09-03 the repository's `.git/config` carried `core.hooksPath=/dev/null` from an unknown
@@ -73,7 +106,9 @@ Done means the branch's PR is MERGED (`gh pr view --json state`) or the card is 
 runner in that directory, no unpushed commits — either `HEAD` equals the merged PR's head SHA
 (`gh pr view <n> --json headRefOid`) or there are no commits beyond the upstream
 (`git rev-list origin/<branch>..HEAD` empty; an ancestry test against `main` is always
-false after a squash merge and is not the test). Then `git worktree remove <path>` and
+false after a squash merge and is not the test). An agent need not run in a directory to depend
+on it: a brief can send it there to read library source or `node_modules`, so also check that no
+running agent's brief names the directory (2026-11-20). Then `git worktree remove <path>` and
 `git branch -D <branch>`; GitHub deleted the remote
 branch at merge. Worktrees that are not the pipeline's (the owner's own, the main checkout) are
 not touched. The e2e lane derives its port per checkout (`E2E_EMITTED_WORKER_PORT` in
