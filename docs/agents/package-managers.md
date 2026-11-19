@@ -29,3 +29,9 @@ contract suites.
   `# hold-back: <package>@<declared> -> <latest> fails <gate> — #<issue>`, naming the gate it fails
   and the issue that retires it (the line has no expiry field). Exact versions that predate the rule
   are still in the tree.
+- **A scoped override retires itself** (#2058; written 2026-11-18, merged 2026-11-19). neonctl's
+  `neon` package pins `diff` 5.2.0 exactly, which GHSA-73rr-hh4g-fpgx covers. The override
+  `"neon>diff@5.2.0": "5.2.2"` in `pnpm-workspace.yaml` applies only while `neon`'s `diff` range
+  admits 5.2.0: the workspace's 8.x and 9.x `diff` copies stay where they are, and once `neon`
+  moves on the override stops applying by itself (a control with a non-matching range left it
+  inert). Scope an override for a pin a parent holds the same way, to the parent and its spec.
