@@ -19,7 +19,7 @@
     "@animichi/prisma-geography": "workspace:*",
     "@neondatabase/serverless": "catalog:",
     "@prisma/orm-postgres": "catalog:",
-    "@prisma/orm-toolchain": "8.0.0-rc.9",
+    "@prisma/orm-toolchain": "8.0.0-rc.23",
     "hono": "catalog:",
     "jose": "catalog:"
   },
