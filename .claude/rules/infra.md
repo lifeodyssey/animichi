@@ -21,7 +21,8 @@ paths:
   keys, or passphrase are stored in GitHub secrets.
 - Stacks: `Pulumi.yaml` + `Pulumi.staging.yaml` + `Pulumi.prod.yaml`.
 - **Secrets** live in Pulumi encrypted config (`secure:` in the stack file) / ESC — never plaintext.
-  CF Worker secrets are pushed via CI (`wrangler secret put`) from Pulumi outputs
-  (`@pulumi/cloudflare` v6 has no `WorkersSecret` resource), not hand-set.
+  CI uploads no runtime secret (#1364): the `infra/database-access` stack provisions the
+  Cloudflare Secrets Store entries the Workers bind (`cloudflare.SecretsStoreSecret`), and
+  `docs/ops/secrets.md` records how the edge runtime secrets outside the store are rotated.
 - Production `pulumi up` requires explicit user approval; normal deploys use the GitHub
   `production` environment gate.

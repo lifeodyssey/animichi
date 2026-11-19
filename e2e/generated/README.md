@@ -46,16 +46,15 @@ full gate description):
 - Fixes by the healer stay uncommitted until a human reviews and commits them.
 - `seed.spec.ts` lives at the `e2e/` root (the Playwright MCP server locates seeds
   there), NOT in this directory. It is a zero-assertion scaffold, not a test, so
-  it must never count as a case in the always-run suite: the default
-  `npx playwright test` run is exactly **113 tests in 21 files** (`playwright
-  test --list`, 2026-09-05), and a silent 113→114 drift is the failure mode
-  this gate exists to prevent. Isolation
+  it must never count as a case in the always-run suite: it must not appear in the
+  default `npx playwright test --list`, and a seed that silently joins that run is the
+  failure mode this gate exists to prevent. Isolation
    mechanism (see `../playwright.config.ts`): the seed has its own `seed` project
    that exists only in the MCP server process (`npx playwright
    run-test-mcp-server`) — the CLI test runner never sees it, and the `chromium`
    project `testIgnore`s it. A project-level `testIgnore` **replaces** the
    top-level one (it does not merge), so the `chromium` project carries the full
-   union — `generated/**`, `agent-discovered/**`, and `seed.spec.ts` — otherwise
+   union — `generated/**`, `agent-discovered/**`, `visual/**` and `seed.spec.ts` — otherwise
    the working-dir protection would silently drop for the default run. The MCP
    server seeds from the first top-level
   project, so the `seed` project sits first in the config, and the flag is

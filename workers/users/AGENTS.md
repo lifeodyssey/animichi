@@ -9,7 +9,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
 - `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck`
-  (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+  (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
 - `pnpm run test:integration` — the Docker Postgres arm (`vitest.integration.config.ts`), kept out of
   `test` per #1473; pre-push, the CI affected matrix and `make check-full` all run it for this package.
 
@@ -60,9 +60,11 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 
 ## Config / secrets
 
-- `wrangler.toml` `[vars]` holds ENVIRONMENT only. `DATABASE_URL` is a secret
-  (`.dev.vars` locally — see `.dev.vars.example`; `wrangler secret put` / deploy-lane env
-  in CI). The users worker no longer reads `NEON_AUTH_JWKS_URL` (identity arrives as headers).
+- `wrangler.toml` `[vars]` holds ENVIRONMENT only. `DATABASE_URL` is a secret: `.dev.vars`
+  locally (see `.dev.vars.example`); in staging and production a Cloudflare Secrets Store binding
+  (`USERS_DATABASE_URL` / `USERS_DATABASE_URL_PROD`, provisioned by the `infra/database-access`
+  Pulumi stack), so CI uploads no DSN. `src/index.ts` awaits the binding's `.get()`. The users
+  worker no longer reads `NEON_AUTH_JWKS_URL` (identity arrives as headers).
 - Envs: `[env.staging]` = `users-staging`, `[env.production]` = `users` (routeless; binding-only).
 - DB schema changes ride the one Prisma chain in `packages/pi-session-neon/` (`make db-new`).
 

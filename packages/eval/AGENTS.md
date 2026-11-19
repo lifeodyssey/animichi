@@ -18,7 +18,8 @@ of becoming fabricated zero spend, and a provider outage's zeroed usage row does
 a priced call. The task closes its harness and repository after success,
 failure or cancellation; cleanup uses the native Context without the cancelled AbortSignal.
 
-The task and tests use public Pi/Chord 0.87.1 and Logfire 0.22.9 APIs. Production composition
+The task and tests use public Pi/Chord and Logfire APIs, at the versions `package.json` and the
+workspace catalog pin. Production composition
 tests execute the real seven-tool harness with deterministic HTTP/provider fixtures. Tests
 cover fresh attempts, model and paid-tool usage, rejected/failed/aborted/suspended outcomes,
 native cancellation and resource closure. `src/native/native-run.ts` is the documented

@@ -29,5 +29,5 @@ small public-package consumer in workerd.
 - Harness composition returns SDK objects directly. Native Neon storage lives
   in `packages/pi-session-neon`; authenticated HTTP, admission/quota and hosting stay in edge.
 - Keep new domain behavior covered through named public exports. The package README records
-  current modules and the old consumer-bound rules waiting for their owning migration cards.
+  current modules and the retain-domain rules that still live at edge paths.
 - Follow root 1-10-50, no suppression, no `any`, and test files at most 200 lines.

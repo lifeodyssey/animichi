@@ -10,7 +10,7 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 - `pnpm run build` — Vite/Nitro Cloudflare build; emits `.output/server/index.mjs` + public assets.
 - `pnpm test` — Vitest unit suite with Istanbul coverage.
 - `pnpm run test:integration` — build-output and Wrangler dry-run integration checks.
-- `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
+- `pnpm run typecheck` — TypeScript 7 `tsc --noEmit`.
 - `pnpm run lint:oxlint` — type-aware oxlint with warnings denied.
 - `pnpm run preview` — `wrangler dev` against the built `.output` entry.
 
@@ -27,12 +27,16 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
   shrink as pages are rebuilt in the 2026-08-29 direction-E redesign.
 - **UI styling comes from `animal-island-ui-tailwind`'s CSS class layer**
   (`animal-btn`, `animal-input-wrapper`, `animal-card`, …; already global via the
-  `style/core` import in `globals.css`). React components come from the subpath
-  entries only — `animal-island-ui-tailwind/button` (`Button`), `/input`
+  `style/core` import in `globals.css`). React components come only through the
+  subpath specifiers `animal-island-vite.ts` aliases onto the package's per-component
+  `dist/es/components/<Name>/<Name>.js` files (the package's `exports` declares no such
+  subpaths; `vite.config.ts` and `vitest.config.ts` load the aliases) —
+  `animal-island-ui-tailwind/button` (`Button`), `/input`
   (`Input`), `/checkbox` (`Checkbox`), `/cursor` (`Cursor`), `/radio` (`Radio`), `/select` (`Select`), `/switch` (`Switch`);
-  type shims live in `src/env.d.ts`. Do NOT import the package's main JS entry:
-  it vendors `react-dom@19.2.6` under `dist/es/node_modules`, which crashes
-  against our React 19.2.8 ("Incompatible React versions"). Where no subpath
+  their type shims live in `src/env.d.ts`. A new component needs both an alias and a shim.
+  Do NOT import the package's main JS entry: it vendors its own `react-dom` under
+  `dist/es/node_modules`, built for a different React than the one `package.json` installs,
+  and loading it crashes ("Incompatible React versions"). Where no aliased
   component exists, mirror the class structure its components render; retheme
   via `--animal-*` custom properties on a wrapper.
   `node_modules/animal-island-ui-tailwind/AI_USAGE.md` documents the design
@@ -58,8 +62,10 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 - `orpc.ts` wraps clients in `@orpc/tanstack-query` utils with disjoint key prefixes
   (`["catalog", …]` / `["users", …]`); consume them via query hooks in `src/api/hooks/` — UI never
   touches the transport directly (dependency points inward: component → hook → client).
-- `config.ts` resolves per-service base URLs and the SSR absolute origin (`VITE_SITE_ORIGIN` on the
-  server, `location.origin` in the browser). `query-client.ts` builds a fresh `QueryClient`; `getRouter`
+- `config.ts` resolves per-service base URLs and the absolute origin: `location.origin` in the
+  browser; on the server, the runtime-config field `api.siteOrigin` (#1013) when set, else the SSR
+  request's own origin (`getRequestUrl`), and it throws when neither exists rather than fall back to
+  a relative base. `query-client.ts` builds a fresh `QueryClient`; `getRouter`
   creates one per request and `routerWithQueryClient` wires dehydrate/hydrate (no cross-request leak,
   no double fetch).
 - MSW has two swimlanes (`tests/msw/`): `node.ts` (`setupServer`, component/loader unit tests),
@@ -70,14 +76,17 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 
 ## Dependency direction (UI → features → clients/platform; never reverse)
 
-- One-way layering, enforced by convention and peer review (no lint plugin exists; a back-edge is
-  a review blocker):
+- One-way layering, enforced by the unit suite rather than a lint plugin:
+  `tests/unit/state-ownership/architecture.test.ts` (#1009) scans the whole `src/` tree and fails
+  on a reverse or cross-feature deep import:
   1. `src/routes/` and `src/components/` — UI. May import features, `src/api/hooks/`, `src/lib/`.
   2. `src/features/*/` — feature units. May import `src/api/` clients/hooks, `src/lib/`,
-     `src/platform/`. Prefer no imports from other features' internals — share via `src/lib/`
-     or `src/api/hooks/`. **Known exception:** map geometry/controller under
-     `src/features/bubble-map/` is a shared map primitive used by chat maps until a
-     `src/lib/map/` extract retires that allowlist edge (#842, pinned by `tests/unit/state-ownership/checker.ts`).
+     `src/platform/`. No runtime imports from other features' internals — share via `src/lib/`
+     or `src/api/hooks/`. **Exempt edges** (`tests/unit/state-ownership/gate-policy.ts`): the
+     shared map primitives — chat maps reuse the `src/features/bubble-map/` geometry/controller,
+     and bubble-map and map-spike mount the shared maplibre adapter and map style — until a
+     `src/lib/map/` extract retires them (#842); and the `src/features/auth/ui` login wall, which
+     any feature may import.
   3. `src/api/` (transport + hooks) · `src/lib/` (pure utilities) · `src/platform/` — never import
      UI or features. Nothing may reverse this order.
 - A feature owns everything it needs under `src/features/<feature>/` — components/, hooks, and a

@@ -39,7 +39,7 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre
 - `shellcheck --severity=warning` over **every** shell file in the repository
 - `actionlint` over `.github/workflows/*.{yml,yaml}`
 - `ruff --fix` + `ruff-format` over staged Python (`scripts/git-squash-daily.py`)
-- `semgrep` over the repository's own three ORM-boundary rules (`.semgrep/`)
+- `semgrep` over the repository's own ORM-boundary ruleset (`.semgrep/`)
 - `oxlint --type-aware --deny-warnings` for the staged workspace packages, dispatched by
   `scripts/local-gates/oxlint-changed.sh`
 
