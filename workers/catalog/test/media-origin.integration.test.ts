@@ -14,8 +14,10 @@ import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
  *
  * A stored image on the image origin — a leading-slash path, or a URL on
  * image.anitabi.cn — is pulled from the URL it has always been pulled from:
- * `https://image.anitabi.cn/<path>?<query>` with the requested size plan. A
- * redirect answer is a 502 with nothing stored.
+ * `https://image.anitabi.cn/<path>?<query>` with the requested size plan. Any
+ * other stored value answers 404 `{"error":"image origin not allowed"}` with
+ * nothing fetched, stored or recorded, so a corrected row is pulled on its next
+ * request. A redirect answer is a 502 with nothing stored.
  *
  * Every pull is stubbed through `deps.fetchImpl`; nothing here leaves the machine.
  */
@@ -56,6 +58,38 @@ databaseDescribe("serveImage pulls a stored image on the image origin from its U
     expect(res.status).toBe(200);
     expect(urls).toEqual([pulled]);
     expect(store.has(`points/${id}`)).toBe(true);
+  });
+});
+
+/** Stored values that name no URL on the image origin. */
+const OFF_ORIGIN = [
+  { id: "foreign-1", stored: "https://photos.invalid/foreign-1.png" },
+  { id: "relative-1", stored: "screenshot/relative-1.png" },
+];
+
+databaseDescribe("serveImage refuses a stored image that names no URL on the image origin", () => {
+  it.each(OFF_ORIGIN)("answers 404 image origin not allowed for $stored, fetching, storing and recording nothing", async ({ id, stored }) => {
+    await seedImagePoint(pool, ORIGIN_WORK, id, stored);
+    const { bucket, store } = makeImageBucketStub();
+    const { fetchImpl, calls } = makeCountingImageFetch(200, new Uint8Array([4, 2]));
+    const res = await serveImage({ query, bucket, fetchImpl }, id, ANITABI_THUMBNAIL_PLAN);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "image origin not allowed" });
+    expect(res.headers.get("Cache-Control")).toBeNull();
+    expect(calls()).toBe(0);
+    expect(store.size).toBe(0);
+    expect(await mediaAssetOf(pool, id)).toBeUndefined();
+  });
+
+  it("pulls the photo of a refused point once its stored image is corrected onto the origin", async () => {
+    await seedImagePoint(pool, ORIGIN_WORK, "corrected-1", "https://photos.invalid/corrected-1.png");
+    const { bucket } = makeImageBucketStub();
+    const { fetchImpl, urls } = makeCountingImageFetch(200, new Uint8Array([4, 2]));
+    expect((await serveImage({ query, bucket, fetchImpl }, "corrected-1", ANITABI_THUMBNAIL_PLAN)).status).toBe(404);
+    await pool.query("UPDATE points SET image = $1 WHERE id = $2", ["https://image.anitabi.cn/corrected-1.png", "corrected-1"]);
+    const res = await serveImage({ query, bucket, fetchImpl }, "corrected-1", ANITABI_THUMBNAIL_PLAN);
+    expect(res.status).toBe(200);
+    expect(urls).toEqual(["https://image.anitabi.cn/corrected-1.png?plan=h160"]);
   });
 });
 

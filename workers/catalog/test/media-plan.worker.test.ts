@@ -36,4 +36,25 @@ describe("the pull URL of a stored image on the image origin", () => {
   ] as const)("pulls $stored at $plan from $pulled, on image.anitabi.cn", ({ stored, plan, pulled }) => {
     expect(originPullUrl(stored, plan)).toBe(pulled);
   });
+
+  it.each([
+    { case: "an http URL on the image host", stored: "http://image.anitabi.cn/p.jpg" },
+    { case: "a URL with a fragment", stored: "https://image.anitabi.cn/p.jpg#scene" },
+  ])("pulls $case from its https URL on the origin, without the fragment", ({ stored }) => {
+    expect(originPullUrl(stored, "h160")).toBe("https://image.anitabi.cn/p.jpg?plan=h160");
+  });
+});
+
+describe("a stored image that names no URL on the image origin", () => {
+  it.each([
+    { case: "another host", stored: "https://photos.invalid/p.jpg" },
+    { case: "userinfo ahead of another host", stored: "https://image.anitabi.cn@photos.invalid/p.jpg" },
+    { case: "userinfo on the image host", stored: "https://ops@image.anitabi.cn/p.jpg" },
+    { case: "a host that only begins with the image host", stored: "https://image.anitabi.cn.invalid/p.jpg" },
+    { case: "a port on the image host", stored: "https://image.anitabi.cn:8443/p.jpg" },
+    { case: "a scheme other than http and https", stored: "ftp://image.anitabi.cn/p.jpg" },
+    { case: "a slash-less relative path", stored: "screenshot/p.jpg" },
+  ])("gives no pull URL for $case: $stored", ({ stored }) => {
+    expect(originPullUrl(stored, "h160")).toBeNull();
+  });
 });

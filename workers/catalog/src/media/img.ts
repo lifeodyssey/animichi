@@ -12,7 +12,10 @@
  *   point_id PK, r2_key, content_hash, last_origin_pull, tombstoned.
  *
  * The URL a pull fetches is `./image-origin.ts`'s to build, from the point's
- * stored `points.image`.
+ * stored `points.image`, and it is always on the image origin. A stored value
+ * that names no URL there answers 404 `{"error":"image origin not allowed"}`:
+ * nothing is fetched, stored in R2 or recorded in `media_assets`, so a corrected
+ * row is pulled on its next request.
  *
  * The origin pull runs under the request's signal and a timeout, whichever ends
  * first, so a hung origin or a departed client stops it, body read included. A
@@ -97,8 +100,10 @@ async function serveFromR2(bucket: R2Bucket, key: string): Promise<Response> {
 async function lazyPull(
   deps: ImgDeps, pointId: string, plan: AnitabiImagePlan,
 ): Promise<Response> {
-  const origin = await originUrl(deps.query, pointId, plan);
-  if (!origin) return tombstone();
+  const stored = await storedImage(deps.query, pointId);
+  if (!stored) return tombstone();
+  const origin = originPullUrl(stored, plan);
+  if (origin === null) return originNotAllowed(pointId);
   const pulled = await pullOrigin(deps, origin);
   if (pulled === "gone") return tombstoneAsset(deps.query, pointId);
   if (pulled === "failed") return new Response("Upstream error", { status: 502 });
@@ -157,14 +162,16 @@ async function storeAndServe(
   return imageResponse(photo.body, photo.contentType);
 }
 
-/** Look up the point's origin image URL, expanding leading-slash paths. */
-async function originUrl(
-  query: CatalogPrisma, pointId: string, plan: AnitabiImagePlan,
-): Promise<string | null> {
+/** The point's stored origin image, or null when it has none. */
+async function storedImage(query: CatalogPrisma, pointId: string): Promise<string | null> {
   const rows = await query.executor.query(pointImagePlan(query, pointId));
-  const image = rows[0]?.image;
-  if (!image) return null;
-  return originPullUrl(image, plan);
+  return rows[0]?.image ?? null;
+}
+
+/** A stored image that names no URL on the image origin: refused, with nothing fetched, stored or recorded. */
+function originNotAllowed(pointId: string): Response {
+  console.warn(`[media] image origin not allowed for point ${pointId}`);
+  return Response.json({ error: "image origin not allowed" }, { status: 404 });
 }
 
 /** The SELECT of one point's stored origin image URL. */
