@@ -108,7 +108,7 @@ runner in that directory, no unpushed commits — either `HEAD` equals the merge
 (`git rev-list origin/<branch>..HEAD` empty; an ancestry test against `main` is always
 false after a squash merge and is not the test). An agent need not run in a directory to depend
 on it: a brief can send it there to read library source or `node_modules`, so also check that no
-running agent's brief names the directory. Then `git worktree remove <path>` and
+running agent's brief names the directory (2026-11-20). Then `git worktree remove <path>` and
 `git branch -D <branch>`; GitHub deleted the remote
 branch at merge. Worktrees that are not the pipeline's (the owner's own, the main checkout) are
 not touched. The e2e lane derives its port per checkout (`E2E_EMITTED_WORKER_PORT` in
