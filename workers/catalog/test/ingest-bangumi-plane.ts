@@ -97,13 +97,6 @@ export async function bangumiExists(bangumiId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function currentVersion(bangumiId: string): Promise<number | undefined> {
-  const { rows } = await pool.query(
-    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [bangumiId],
-  ) as { rows: { version: number }[] };
-  return rows[0]?.version;
-}
-
 export async function jobStatus(bangumiId: string): Promise<string | undefined> {
   const { rows } = await pool.query(
     "SELECT status FROM ingest_jobs WHERE work_id = $1", [bangumiId],

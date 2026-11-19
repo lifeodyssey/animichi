@@ -16,12 +16,11 @@ import { rejectingAtCall, tracingExecutor, type PlanAnswers } from "./fakes/plan
  *
  * Four kinds of row: a failure before the transaction opens, a refused
  * statement inside it, a refused call of the transaction's own, and two
- * overlapping publishes of one work. Three refused statements belong to the
- * `cluster_version` swap ({@link SWAP}): when the write goes, they and
- * {@link SWAP} go with it, and every other row stays as written. The
- * overlapping publishes pin the premise of `enrich-overlap.integration.test.ts`:
- * each publish is one transaction whose first write is the `bangumi` upsert,
- * the statement that queues a second publish of the same work in Postgres.
+ * overlapping publishes of one work. No row refuses a `cluster_version`
+ * statement: the publish no longer makes one. The overlapping publishes pin
+ * the premise of `enrich-overlap.integration.test.ts`: each publish is one
+ * transaction whose first write is the `bangumi` upsert, the statement that
+ * queues a second publish of the same work in Postgres.
  */
 
 const WORK = "failure-work";
@@ -30,17 +29,13 @@ const WORK = "failure-work";
 const READS = ["select raw_bangumi", "select raw_anitabi"];
 /** The catalog upserts a pass makes inside its transaction, in order. */
 const UPSERTS = ["insert bangumi", "insert points", "insert aliases"];
-/** The `cluster_version` swap that follows them: flip, next-version read, insert. */
-const SWAP = ["update cluster_version", "select cluster_version", "insert cluster_version"];
-/** Every statement a pass makes inside its transaction. */
-const WRITES = [...UPSERTS, ...SWAP];
+/** Every statement a pass makes inside its transaction: the upserts, and nothing after them. */
+const WRITES = UPSERTS;
 
-/** What a healthy pass reads: a titled subject, two points, and the next version. */
+/** What a healthy pass reads: a titled subject and two points. */
 const ANSWERS: PlanAnswers = {
   "select raw_bangumi": [{ payload: { name: "Failure Anime", name_cn: "失败动画" } }],
   "select raw_anitabi": [{ payload: [{ id: "f-1", name: "First", geo: [35, 139] }, { id: "f-2", name: "Second", geo: [36, 140] }] }],
-  "select cluster_version": [{ version: 3 }],
-  "insert cluster_version": [{ version: 3 }],
 };
 
 /** One publish's seam, and the trace its statements and transaction calls share. */
@@ -97,9 +92,6 @@ const REFUSED_STATEMENTS: readonly RefusedStatementRow[] = [
   { row: "the bangumi upsert", call: 3, writes: ["insert bangumi"] },
   { row: "the points upsert", call: 4, writes: ["insert bangumi", "insert points"] },
   { row: "the aliases upsert", call: 5, writes: UPSERTS },
-  { row: "the cluster_version flip", call: 6, writes: [...UPSERTS, "update cluster_version"] },
-  { row: "the next-version read", call: 7, writes: [...UPSERTS, "update cluster_version", "select cluster_version"] },
-  { row: "the version insert", call: 8, writes: WRITES },
 ];
 
 describe("enrichWork when a statement inside its transaction is refused", () => {

@@ -7,7 +7,6 @@ import {
   awaitRunning,
   bangumiExists,
   closeIngestPlane,
-  currentVersion,
   jobStatus,
   makeFetch,
   makeGatedFetch,
@@ -36,12 +35,11 @@ beforeAll(async () => {
 afterAll(closeIngestPlane);
 
 databaseDescribe("IngestBangumi end-to-end: claim -> fetch -> raw -> enrich -> publish -> done", () => {
-  it("ingests a new title and lands it in the catalog with one current version", async () => {
+  it("ingests a new title and lands it in the catalog", async () => {
     const result = await ingest.ingest("460100", { fetchImpl: makeFetch(ANITABI_POINTS) });
-    expect(result).toEqual({ status: "ingested", version: 1, pointCount: 2 });
+    expect(result).toEqual({ status: "ingested", pointCount: 2 });
     expect(await bangumiExists("460100")).toBe(true);
     expect(await pointCount("460100")).toBe(2);
-    expect(await currentVersion("460100")).toBe(1);
     expect(await jobStatus("460100")).toBe("done");
   });
 });
@@ -60,7 +58,6 @@ databaseDescribe("IngestBangumi claim uniqueness: concurrent double ingest", () 
     const statuses = [a.status, loser.status].sort();
     expect(statuses).toEqual(["in_progress", "ingested"]);
     expect(loserFetch).not.toHaveBeenCalled();
-    expect(await currentVersion("460101")).toBe(1);
   });
 });
 
@@ -75,13 +72,12 @@ databaseDescribe("IngestBangumi crash recovery + idempotent replay", () => {
     expect(await jobStatus("460105")).toBe("done");
   });
 
-  it("re-ingests idempotently: re-enrich upserts, no duplicate points, version bumps once", async () => {
+  it("re-ingests idempotently: both ingests run, re-enrich upserts, no duplicate points", async () => {
     const first = await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
     const second = await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
 
     expect([first.status, second.status]).toEqual(["ingested", "ingested"]);
     expect(await pointCount("460106")).toBe(2);
-    expect(await currentVersion("460106")).toBe(2);
     expect(await jobStatus("460106")).toBe("done");
   });
 });

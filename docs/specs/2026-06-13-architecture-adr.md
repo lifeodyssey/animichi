@@ -40,6 +40,7 @@
      §1 各"服务"是逻辑边界非部署单元;raw 先 JSONB,OG 同步渲染
   2. **版本绑定 = 原子发布**:cluster_version + route_snapshots,重聚类后旧路线/
      しおり/分享页永不漂移;版本指针切换免费实现蓝绿
+     **(状态更新 2026-11-19:发布不再写版本。`cluster_version` 没有读者,写入已移除;该表在后续迁移中删除)**
   3. **Singleflight + 负缓存**:ingest_jobs(work_id) 唯一约束——分享页爆火
      (获客环成功时刻)不得击穿 Anitabi
   4. LLM 成本闸:per-session token 预算 + 工具调用上限 + 超限降级普通搜索

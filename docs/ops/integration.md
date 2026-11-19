@@ -88,7 +88,7 @@ Anitabi /points/detail ─┐
 Bangumi /v0/subjects ───┼→ catalog Worker Ingest(请求驱动;S0-v2 加 cron:种子+TTL 刷新)
 image.anitabi.cn ───────┘      ↓ raw_anitabi / raw_bangumi(JSONB 重放源)+ ingest_jobs(单飞/负缓存)
                           Enrich → bangumi / points / aliases(UPSERT)
-                          Publish → cluster_version(蓝绿指针);媒体 → R2 catalog-media
+                          Publish → R2 catalog-snapshots(完整日跑后的不可变快照;不再写 cluster_version);媒体 → R2 catalog-media
 edge Worker 的 native Pi agent = catalog 的只读消费者(经 service binding 读目录)
 users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron 范式的参照实现)
 数据库 + 认证 = Neon(一条 Prisma 迁移链 packages/pi-session-neon/migrations;auth = Neon Auth,edge 仅验 Neon JWKS,AUTH-2 #950 已切净;无 Supabase 依赖)

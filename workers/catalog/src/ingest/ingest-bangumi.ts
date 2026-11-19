@@ -23,7 +23,7 @@
  * `claim_lost`, because the work's outcome is the winner's to write; a lost
  * failure parks nothing and raises no alarm. The raw writes and the publish are
  * not fenced: whatever of them a losing run reached before its fenced write —
- * both raw rows, then a new published version of the work — stays written.
+ * both raw rows, then the work's enriched catalog rows — stays written.
  *
  * The caller's `signal` (a cron pass's deadline) aborts the upstream requests
  * and nothing after them. An abort while the run still waits on them aborts
@@ -94,7 +94,7 @@ export type IngestClaim = JobClaim | Exclude<IngestGuard, "ready">;
  * work's outcome is the winner's (the module header says what it did write).
  */
 export type IngestResult =
-  | { status: "ingested"; version: number; pointCount: number }
+  | { status: "ingested"; pointCount: number }
   | { status: "in_progress" }
   | { status: "empty"; reason: string }
   | { status: "failed"; reason: string }
@@ -127,7 +127,7 @@ export interface IngestStore {
   saveRawAnitabi(bangumiId: string, payload: RawPayload): Promise<void>;
 }
 
-/** Publisher port: enrich the raw zone and atomically publish a new version. */
+/** Publisher port: enrich the raw zone into the catalog rows, in one transaction. */
 export interface IngestPublisher {
   publish(bangumiId: string): Promise<EnrichResult>;
 }
@@ -214,7 +214,7 @@ async function runPipeline(runtime: IngestRuntime, claim: JobClaim, call: Ingest
   await runtime.store.saveRawAnitabi(claim.workId, points);
   const enriched = await runtime.publisher.publish(claim.workId);
   if (await runtime.store.markDone(claim) === "claim_lost") return claimLost(claim);
-  return { status: "ingested", version: enriched.version, pointCount: enriched.pointCount };
+  return { status: "ingested", pointCount: enriched.pointCount };
 }
 
 /**

@@ -36,7 +36,6 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
     const ingested = await entrypoint.ingestBangumi(NEW_WORK_ID);
     expect(ingested).toEqual({
       status: "ingested",
-      version: 1,
       pointCount: ANITABI_POINTS.length,
     });
 

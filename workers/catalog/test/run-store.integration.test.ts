@@ -23,7 +23,7 @@ const POLICY: RunPolicy = {
   budget: { workLimit: 5, requestLimit: 20 },
 };
 const RECLAIMED = { stage: "reclaim", reason: "stale-reclaimed" };
-const INGESTED: RunPorts["ingestWork"] = () => Promise.resolve({ outcome: "ingested", version: 1 });
+const INGESTED: RunPorts["ingestWork"] = () => Promise.resolve({ outcome: "ingested" });
 const EVICTED: RunPorts["ingestWork"] = () => Promise.reject(new Error("worker evicted"));
 
 let seams: PlaneSeams;

@@ -38,18 +38,11 @@ async function locationWkt(pointId: string): Promise<string | null> {
   return rows[0]?.wkt ?? null;
 }
 
-async function currentVersion(workId: string): Promise<number | undefined> {
+async function clusterVersionRows(workId: string): Promise<number> {
   const rows = (
-    await pool.query("SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [workId])
-  ).rows as { version: number }[];
-  return rows[0]?.version;
-}
-
-async function allVersions(workId: string): Promise<number[]> {
-  const rows = (
-    await pool.query("SELECT version FROM cluster_version WHERE bangumi_id = $1 ORDER BY version", [workId])
-  ).rows as { version: number }[];
-  return rows.map((r) => r.version);
+    await pool.query("SELECT COUNT(*)::int AS n FROM cluster_version WHERE bangumi_id = $1", [workId])
+  ).rows as { n: number }[];
+  return rows[0]?.n ?? 0;
 }
 
 beforeAll(async () => {
@@ -94,10 +87,9 @@ async function assertEnrichAliases(): Promise<void> {
 }
 
 databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", () => {
-  it("returns the published version and point count", async () => {
+  it("returns the point count", async () => {
     const result = await enrichWork(query, "lucky-star");
-    expect(result.version).toBe(1);
-    expect(result.pointCount).toBe(3);
+    expect(result).toEqual({ pointCount: 3 });
   });
 
   it("writes exactly the golden bangumi, points and aliases rows", async () => {
@@ -138,20 +130,18 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
 
   it("writes normalized aliases from the bangumi titles", assertEnrichAliases);
 
-  it("publishes a current cluster_version", async () => {
-    expect(await currentVersion("lucky-star")).toBe(1);
+  it("writes no cluster_version row", async () => {
+    expect(await clusterVersionRows("lucky-star")).toBe(0);
   });
 });
 
-databaseDescribe("re-enrich from raw is idempotent and publishes a new version", () => {
-  it("does not duplicate points and bumps to a new current version", async () => {
+databaseDescribe("re-enrich from raw is idempotent", () => {
+  it("does not duplicate points, leaves the golden rows, and writes no cluster_version row", async () => {
     const result = await enrichWork(query, "lucky-star");
-    expect(result.version).toBe(2);
-    expect(result.pointCount).toBe(3);
+    expect(result).toEqual({ pointCount: 3 });
     expect(await enrichedRows(pool, "lucky-star")).toEqual(LUCKY_STAR_ROWS);
     expect(await pointCount("lucky-star")).toBe(3);
-    expect(await allVersions("lucky-star")).toEqual([1, 2]);
-    expect(await currentVersion("lucky-star")).toBe(2);
+    expect(await clusterVersionRows("lucky-star")).toBe(0);
   });
 });
 

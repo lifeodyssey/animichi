@@ -7,7 +7,7 @@ import { fakeRuntime } from "./fakes/fake-catalog-runtime";
  *
  * neon-http had no client transaction, so an atomic unit was a batch of
  * statements; the Prisma plane has a real one, and every multi-statement publish
- * (`enrich`, `publishVersion`) now runs inside it. The properties that matter
+ * (`enrich`) now runs inside it. The properties that matter
  * are all boundary properties, so they are stated here rather than at a
  * call site:
  *

@@ -37,7 +37,7 @@ function publishedOf(published: Record<string, number>): ReadonlyMap<string, num
   return new Map(Object.entries(published));
 }
 
-/** The publish versions of a run that has published nothing yet. */
+/** The published works of a run that has published nothing yet. */
 export function emptyPublished(): ReadonlyMap<string, number> {
   return new Map();
 }

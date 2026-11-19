@@ -20,9 +20,9 @@ import {
  * writes.
  *
  * A publish's first write is the `bangumi` upsert. At READ COMMITTED the second
- * publish waits on that key until the first commits, and its `cluster_version`
- * swap then runs on the first's committed rows, so the swap is not what keeps
- * two publishes apart. This file holds that, before and after the swap goes.
+ * publish waits on that key until the first commits. The `cluster_version` swap
+ * that used to end each publish ran after that wait, so it was never what kept
+ * two publishes apart; this file passed with the swap and passes without it.
  *
  * The publishes run on two runtimes, as two Worker requests do. One runtime is
  * one Postgres session (`postgresServerless().connect` opens one client, and

@@ -30,7 +30,7 @@ describe("IngestEntrypoint", () => {
   });
 
   it("delegates ingestBangumi(bangumiId) to the IngestBangumi use case", async () => {
-    const result: IngestResult = { status: "ingested", version: 3, pointCount: 12 };
+    const result: IngestResult = { status: "ingested", pointCount: 12 };
     mocks.ingest.mockResolvedValue(result);
 
     const entrypoint = new IngestEntrypoint(ctx, {

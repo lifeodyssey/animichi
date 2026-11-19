@@ -39,7 +39,7 @@ interface Recorder {
 
 function recorder(): Recorder {
   const calls: string[] = [];
-  let outcome: RunWorkOutcome = { outcome: "ingested", version: 1 };
+  let outcome: RunWorkOutcome = { outcome: "ingested" };
   const ports: RunPorts = {
     readRun: () => Promise.resolve(null),
     beginRun: () => { calls.push("begin"); return Promise.resolve(true); },
@@ -57,7 +57,7 @@ describe("Budget boundary stops cleanly (AC3)", () => {
     rec.ports.ingestWork = (_bangumiId, _tier, budget) => {
       if (!canSpendWork(budget)) return Promise.resolve({ outcome: "exhausted" });
       spendWork(budget, 2);
-      return Promise.resolve({ outcome: "ingested", version: 1 });
+      return Promise.resolve({ outcome: "ingested" });
     };
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-boundary", 3));
     expect(snapshot.status).toBe("partial");
