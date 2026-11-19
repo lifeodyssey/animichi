@@ -192,12 +192,12 @@ async function runSafely(runtime: IngestRuntime, claim: JobClaim, call: IngestBa
     return await runPipeline(runtime, claim, call);
   } catch (err) {
     if (call.signal?.aborted === true) throw err;
-    return handleError(runtime, claim, err);
+    return parkThrownFailure(runtime, claim, err);
   }
 }
 
 /** Park the classified failure; rethrow upstream failures as defined 502s, unless the claim was lost. */
-async function handleError(runtime: IngestRuntime, claim: JobClaim, err: unknown): Promise<IngestResult> {
+async function parkThrownFailure(runtime: IngestRuntime, claim: JobClaim, err: unknown): Promise<IngestResult> {
   const result = await fail(runtime, claim, classifyIngestFailure(err));
   // An egress refusal is deliberately NOT rethrown as UPSTREAM_UNAVAILABLE: the
   // upstream never answered, our ceiling clears within the hour, and the
