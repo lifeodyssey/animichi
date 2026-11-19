@@ -82,6 +82,31 @@ describe("the admin guard on the real app", () => {
   });
 });
 
+/** Each refusal's RFC 6750 challenge, with the token configured when it was refused. */
+const CHALLENGED: readonly { case: string; headers: Record<string, string>; token: Env["CATALOG_ADMIN_TOKEN"]; challenge: string }[] = [
+  { case: "no Authorization header", headers: {}, token: TOKEN, challenge: 'Bearer realm=""' },
+  { case: "a non-Bearer scheme", headers: { authorization: `Basic ${btoa(`ops:${TOKEN}`)}` }, token: TOKEN, challenge: 'Bearer error="invalid_request"' },
+  { case: "a wrong token", headers: { authorization: "Bearer ops-tokex" }, token: TOKEN, challenge: 'Bearer error="invalid_token"' },
+  { case: "a bearer token while none is configured", headers: { authorization: `Bearer ${TOKEN}` }, token: undefined, challenge: 'Bearer error="invalid_token"' },
+];
+
+describe("the admin guard's RFC 6750 and RFC 7235 behaviour", () => {
+  it.each(CHALLENGED)("sends the challenge $challenge with the 401 for $case", async ({ headers, token, challenge }) => {
+    const res = await post(PATHS[0], headers, adminEnv(token));
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toBe(challenge);
+  });
+
+  it.each([`bearer ${TOKEN}`, `BEARER ${TOKEN}`, `Bearer  ${TOKEN}`])(
+    "lets the right token through under the scheme spelling %j, matched case-insensitively and after one or more spaces",
+    async (authorization) => {
+      const res = await post(PATHS[0], { authorization }, adminEnv(TOKEN));
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: "catalog database not configured" });
+    },
+  );
+});
+
 describe("the pipeline behind the admin guard", () => {
   it.each(REFUSED_ON_EACH_PATH)("never resolves the database or runs a pipeline for $case on $path", async ({ path, headers }) => {
     const mounted = mountedAdminApp();

@@ -57,6 +57,38 @@ describe("the rollback guard with a token configured", () => {
     expect(await res.json()).toMatchObject({ snapshotId: "snap-daily-1", sourceRunId: "daily-1" });
     expect(await currentSnapshotId(env)).toBe("snap-daily-1");
   });
+
+  it("rolls back for the right token read from a Secrets Store binding", async () => {
+    const env = await publishedEnv({ get: () => Promise.resolve(TOKEN) });
+    const res = await rollback(env, { authorization: `Bearer ${TOKEN}` });
+    expect(res.status).toBe(200);
+    expect(await currentSnapshotId(env)).toBe("snap-daily-1");
+  });
+});
+
+/** Each refusal's RFC 6750 challenge. */
+const CHALLENGED: readonly { case: string; headers: Record<string, string>; challenge: string }[] = [
+  { case: "no Authorization header", headers: {}, challenge: 'Bearer realm=""' },
+  { case: "a non-Bearer scheme", headers: { authorization: `Basic ${btoa(`ops:${TOKEN}`)}` }, challenge: 'Bearer error="invalid_request"' },
+  { case: "a wrong token", headers: { authorization: "Bearer ops-tokex" }, challenge: 'Bearer error="invalid_token"' },
+];
+
+describe("the rollback guard's RFC 6750 and RFC 7235 behaviour", () => {
+  it.each(CHALLENGED)("sends the challenge $challenge with the 401 for $case", async ({ headers, challenge }) => {
+    const res = await rollback(await publishedEnv(TOKEN), headers);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toBe(challenge);
+  });
+
+  it.each([`bearer ${TOKEN}`, `BEARER ${TOKEN}`, `Bearer  ${TOKEN}`])(
+    "rolls back for the right token under the scheme spelling %j, matched case-insensitively and after one or more spaces",
+    async (authorization) => {
+      const env = await publishedEnv(TOKEN);
+      const res = await rollback(env, { authorization });
+      expect(res.status).toBe(200);
+      expect(await currentSnapshotId(env)).toBe("snap-daily-1");
+    },
+  );
 });
 
 describe("the rollback guard with no token configured", () => {

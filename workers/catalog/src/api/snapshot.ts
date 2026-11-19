@@ -5,8 +5,10 @@
  *                           only: snapshotId, sourceRunId, createdAt, counts,
  *                           compatibility). 404 before any snapshot publishes.
  * POST /catalog/snapshot/rollback -> swap the pointer back to the previous
- *                           snapshot (N-1). Operational; guarded by the
- *                           SNAPSHOT_ADMIN_TOKEN secret (401 when absent/wrong).
+ *                           snapshot (N-1). Operational; behind the bearer
+ *                           guard (`./bearer-guard.ts`) with the
+ *                           SNAPSHOT_ADMIN_TOKEN secret: 503 while it is unset,
+ *                           401 when the request's token is missing or wrong.
  *
  * Mounted before the oRPC /catalog DB middleware so reads need only the R2
  * bucket — the plan seam is the immutable export's source of truth and is
@@ -16,7 +18,7 @@ import { Hono } from "hono";
 import type { Env } from "../index";
 import type { CatalogPrisma } from "../db/prisma";
 import { r2ObjectStore } from "../publish/object-store";
-import { timingSafeEqual } from "../lib/timing";
+import { bearerGuard } from "./bearer-guard";
 import { readCurrentSnapshot, rollbackToPrevious, type SnapshotDeps } from "../publish/snapshot";
 
 /** A plan seam that must never be queried: snapshot reads/rollback are store-only. */
@@ -38,17 +40,16 @@ export function mountSnapshotRoutes(app: Hono<{ Bindings: Env }>): void {
     return c.json(manifest);
   });
 
-  app.post("/catalog/snapshot/rollback", async (c) => {
-    const token = c.env.SNAPSHOT_ADMIN_TOKEN;
-    if (typeof token !== "string" || token.length === 0) {
-      return c.json({ error: "snapshot rollback not configured" }, 503);
-    }
-    const auth = c.req.header("authorization");
-    if (!timingSafeEqual(auth ?? "", "Bearer " + token)) return c.json({ error: "unauthorized" }, 401);
+  app.post("/catalog/snapshot/rollback", bearerGuard((env) => env.SNAPSHOT_ADMIN_TOKEN, rollbackNotConfigured), async (c) => {
     const deps = snapshotDeps(c.env.SNAPSHOT_BUCKET);
     if (deps === null) return c.json({ error: "snapshots not configured" }, 503);
     const manifest = await rollbackToPrevious(deps);
     if (manifest === null) return c.json({ error: "nothing to roll back to" }, 404);
     return c.json(manifest);
   });
+}
+
+/** The rollback's answer while no SNAPSHOT_ADMIN_TOKEN is configured: the route is off. */
+function rollbackNotConfigured(): Response {
+  return Response.json({ error: "snapshot rollback not configured" }, { status: 503 });
 }
