@@ -58,7 +58,7 @@ catalog:
   "@cloudflare/workers-types": "5.20260916.1"
   "@earendil-works/chord": "0.87.1"
   "@earendil-works/pi-agent-core": "0.87.1"
-  "@earendil-works/pi-ai": "0.87.1"
+  "@earendil-works/pi-ai": "1.5.2"
   "@modelcontextprotocol/sdk": "^1.32.2"
   "@neondatabase/serverless": "^1.1.0"
   "@orpc/client": "1.15.1"
