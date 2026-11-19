@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ANITABI_USER_AGENT, parseAnitabiImagePlan } from "@animichi/contract/anitabi-display";
-import { originPullUrl } from "../src/media/img";
+import { originPullUrl } from "../src/media/image-origin";
 
 describe("public display image pulls", () => {
   it("refuses a full-resolution request that omitted the plan", () => {

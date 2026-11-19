@@ -11,8 +11,8 @@
  * media_assets schema (20260620230000_ingest_infrastructure.sql):
  *   point_id PK, r2_key, content_hash, last_origin_pull, tombstoned.
  *
- * `points.image` is already a full URL (parse.ts expands Anitabi's leading-slash
- * paths to image.anitabi.cn at enrich time); we re-expand defensively here too.
+ * The URL a pull fetches is `./image-origin.ts`'s to build, from the point's
+ * stored `points.image`.
  *
  * The origin pull runs under the request's signal and a timeout, whichever ends
  * first, so a hung origin or a departed client stops it, body read included. A
@@ -31,13 +31,9 @@ import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow, upsert } from "../db/plans";
 import { DEFAULT_ATTEMPT_TIMEOUT_MS } from "../ingest/retry";
 import { getImage, putImage } from "./r2";
-import {
-  ANITABI_USER_AGENT,
-  withAnitabiImagePlan,
-  type AnitabiImagePlan,
-} from "@animichi/contract/anitabi-display";
+import { originPullUrl } from "./image-origin";
+import { ANITABI_USER_AGENT, type AnitabiImagePlan } from "@animichi/contract/anitabi-display";
 
-const IMAGE_BASE = "https://image.anitabi.cn";
 const CACHE_CONTROL = "public, max-age=604800, s-maxage=2592000";
 const DEFAULT_CONTENT_TYPE = "image/jpeg";
 
@@ -179,12 +175,6 @@ function pointImagePlan(
     .select("image")
     .where((fields, match) => match.eq(fields.id, pointId))
     .build();
-}
-
-/** The origin URL a public display path may fetch: an explicit size plan is required. */
-export function originPullUrl(stored: string, plan: AnitabiImagePlan): string {
-  const expanded = stored.startsWith("/") ? `${IMAGE_BASE}${stored}` : stored;
-  return withAnitabiImagePlan(expanded, plan);
 }
 
 /** UPSERT a stored asset (r2_key + content_hash + last_origin_pull). */
