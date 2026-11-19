@@ -1,8 +1,8 @@
 # The anitabi egress service (#1792). Build context is the REPOSITORY ROOT
 # (see fly.toml [build]); the image is a single self-contained bundle — the
 # service has no runtime dependencies beyond Node itself, no product data, no
-# data-plane credential, and no write path beyond the ceiling's own counter
-# (#1810), which is an external store the service reaches over TCP (#1824).
+# data-plane credential, and no write path beyond the ceiling's own window
+# (#1810), kept in an external store the service reaches over TCP (#1824).
 #
 #   docker build -f apps/anitabi-egress/Dockerfile .
 

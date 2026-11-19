@@ -18,7 +18,7 @@
 #     first version of this rule could be walked around (#1806).
 #
 # THE STORE'S SOCKET (#1824) is the second destination these nets had to take a
-# position on. The ceiling's counter is the Redis `fly redis create`
+# position on. The ceiling's window lives in the Redis `fly redis create`
 # provisions, reached over TCP, so `node:net` is a module this source holds
 # legitimately — and it is held the way `node:http` is: by the composition root
 # ALONE. The store module takes its connection as an injected seam, exactly as
@@ -62,7 +62,7 @@ class AnitabiEgressFetchSitesTest < Minitest::Test
     # acquiring a client (`http.request`, `https.get`) it has no reason to hold.
     "node:http" => [DIAL_COMPOSITION_ROOT],
     # The ceiling store's TCP dial (#1824). Fly Redis answers RESP over a
-    # socket and nothing else, so this module is unavoidable for the counter —
+    # socket and nothing else, so this module is unavoidable for the window —
     # and it is held exactly as `node:http` is, by the composition root alone.
     # `redis-tcp-ceiling-store.ts` takes its connection as an injected seam, so
     # an import there would be the store opening a destination of its own.

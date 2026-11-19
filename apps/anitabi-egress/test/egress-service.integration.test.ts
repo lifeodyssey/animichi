@@ -15,7 +15,7 @@ import type { CeilingStore } from "../src/upstream-ceiling.ts";
  * catalog caller use — moves the bytes to the stub. No test reaches the real
  * anitabi API.
  *
- * The ceiling is injected here as a counter that grants, because this suite's
+ * The ceiling is injected here as a window that admits, because this suite's
  * subject is the route/sign/relay surface. What the service sends a real store
  * over real HTTP — and what it does when that store stops answering — is
  * `ceiling-store.integration.test.ts` (#1810).
