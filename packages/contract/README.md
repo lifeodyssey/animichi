@@ -153,7 +153,7 @@ table, built from `code` + validated `data`.
 
 ```
 packages/contract/src/errors.ts        ← registry (zod, source of truth)
-workers/catalog/src/lib/errors.ts      ← Worker mirror (no zod) + ORPCError constructors
+workers/catalog/src/adapters/inbound/errors.ts ← Worker mirror (no zod) + ORPCError constructors
 ```
 
 Parity between the contract and the Worker mirror is enforced at compile time
@@ -166,7 +166,7 @@ by `workers/catalog/test/contract-parity.worker.test.ts`.
    it to the owning procedure in `src/contract.ts` via
    `.errors(pickCatalogErrors([...]))`. Run `pnpm emit:openapi` and commit the
    regenerated `openapi.json`.
-2. **Catalog worker** — mirror the entry in `workers/catalog/src/lib/errors.ts`
+2. **Catalog worker** — mirror the entry in `workers/catalog/src/adapters/inbound/errors.ts`
    (interface + `CATALOG_ERRORS` entry + a typed constructor that sets
    `defined: true`). Throw it at the site. Extend the parity assertions in
    `test/contract-parity.worker.test.ts` and add a wire-shape test in

@@ -41,7 +41,7 @@
  */
 import type { CatalogPrisma } from "../db/prisma";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";
-import { upstreamUnavailable } from "../lib/errors";
+import { upstreamUnavailable } from "../adapters/inbound/errors";
 import {
   classifyIngestFailure, IngestErrorCode, operatorRecord, type IngestFailure,
 } from "./ingest-failure";

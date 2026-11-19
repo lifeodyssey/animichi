@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import type { RouteTooManyPointsData, WorkNotFoundData } from "../src/lib/errors";
+import type { RouteTooManyPointsData, WorkNotFoundData } from "../src/adapters/inbound/errors";
 import type { Itinerary } from "../src/types";
 import { fakeCatalogPrisma, unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 

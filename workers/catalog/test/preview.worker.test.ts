@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { previewForWork } from "../src/adapters/inbound/preview";
 import { lenientEgressFetch, stubEgressSigningKey } from "./egress-stub";
-import { upstreamUnavailable } from "../src/lib/errors";
+import { upstreamUnavailable } from "../src/adapters/inbound/errors";
 import { mockFetchSequence } from "./mock-fetch-sequence";
 import { deferred } from "./deferred";
 import { unanswered } from "./fakes/unanswered-request";

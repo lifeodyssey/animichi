@@ -12,7 +12,7 @@ import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogPrisma } from "./db/prisma";
-import { routeTooManyPoints, workNotFound } from "./lib/errors";
+import { routeTooManyPoints, workNotFound } from "./adapters/inbound/errors";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {

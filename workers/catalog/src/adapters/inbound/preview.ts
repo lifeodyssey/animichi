@@ -5,7 +5,7 @@
  * preview's upstream call and surfaces as itself, never as an outage.
  */
 
-import { upstreamUnavailable } from "../../lib/errors";
+import { upstreamUnavailable } from "./errors";
 import { optional } from "../../lib/optional";
 import {
   fetchAnitabiLite,

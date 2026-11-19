@@ -128,6 +128,6 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Pitfalls
 
 - Catalog errors move in two-mirror lockstep:
-  `src/errors.ts` ↔ `workers/catalog/src/lib/errors.ts`.
+  `src/errors.ts` ↔ `workers/catalog/src/adapters/inbound/errors.ts`.
 - Extend `workers/catalog/test/contract-parity.worker.test.ts` with any mirror change; do not rely on OpenAPI generation alone.
 - Do not introduce runtime value imports into the catalog's type mirror.
