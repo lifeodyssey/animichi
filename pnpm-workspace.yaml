@@ -56,7 +56,7 @@ catalogMode: strict
 catalog:
   "@cloudflare/vitest-pool-workers": "^0.22.0"
   "@cloudflare/workers-types": "5.20260916.1"
-  "@earendil-works/chord": "0.87.1"
+  "@earendil-works/chord": "1.5.2"
   "@earendil-works/pi-agent-core": "0.87.1"
   "@earendil-works/pi-ai": "0.87.1"
   "@modelcontextprotocol/sdk": "^1.32.2"
