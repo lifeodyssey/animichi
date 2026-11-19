@@ -1,151 +1,39 @@
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import type { CatalogPrisma } from "../src/db/prisma";
-import { catalogIngestBangumi, type IngestBangumi } from "../src/ingest/ingest-bangumi";
-import { ANITABI_EGRESS_BASE_URL } from "../src/ingest/anitabi-egress";
-import type { FetchLike } from "../src/ingest/sources";
-import { stubEgressSigningKey } from "./egress-stub";
+import type { IngestBangumi } from "../src/ingest/ingest-bangumi";
+import { databaseDescribe } from "./integration-db";
 import {
-  databaseDescribe,
-  openPlaneSeams,
-  truncateCatalogPool,
-  type PlaneSeams,
-} from "./integration-db";
+  ANITABI_POINTS,
+  awaitRunning,
+  bangumiExists,
+  closeIngestPlane,
+  currentVersion,
+  jobStatus,
+  makeFetch,
+  makeGatedFetch,
+  openIngestPlane,
+  pointCount,
+} from "./ingest-bangumi-plane";
 
 /**
- * Integration suite for the IngestBangumi use case: acquire -> fetch -> raw -> enrich ->
- * publish -> completion over the source/store/publisher ports, with singleflight,
- * negative-cache TTLs, crash recovery, and idempotent replay (mirrors the
- * worker-pool component tests against the committed Prisma chain's schema,
- * cloned into the suite database).
+ * Integration suite for the IngestBangumi use case's lifecycle: acquire -> fetch ->
+ * raw -> enrich -> publish -> completion over the source/store/publisher ports, with
+ * singleflight, crash recovery, and idempotent replay (mirrors the worker-pool
+ * component tests against the committed Prisma chain's schema, cloned into the
+ * suite database). The negative-cache arms are
+ * `ingest-bangumi-negative-cache.integration.test.ts`.
  */
-
-// Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.integration.test.ts).
-const BANGUMI_SUBJECT = {
-  id: 1,
-  name: "らき☆すた",
-  name_cn: "幸运星",
-  summary: "高校生たちの日常コメディ。",
-  images: { large: "https://lain.bgm.tv/pic/cover/l/lucky.jpg" },
-  rating: { score: 8.1 },
-  total_episodes: 24,
-  date: "2007-04-08",
-};
-const ANITABI_POINTS = [
-  { id: "o-washinomiya", name: "鷲宮神社", geo: [36.1019, 139.6586], image: "/2024/shrine.jpg", ep: 1, s: 42 },
-  { id: "o-tokyo", name: "東京駅", lat: 35.6812, lng: 139.7671, screenshot: "/2024/tokyo.jpg", episode: 3 },
-];
-
-/**
- * The anitabi arm of every double below is the EGRESS SERVICE's points route,
- * not the upstream's (#1792) — the catalog reaches api.anitabi.cn only through
- * it — and its answer carries the service's relayed marker, without which the
- * caller treats the answer as not ours.
- */
-function isEgressPoints(url: string): boolean {
-  return url.startsWith(`${ANITABI_EGRESS_BASE_URL}/anitabi/points/`);
-}
-
-/** The relayed marker the egress service stamps on an upstream's own answer. */
-const RELAYED = { get: (name: string) => (name === "x-egress-response" ? "relayed-upstream" : null) };
-
-/** Build a mock fetchImpl that routes by URL substring to the canned payloads. */
-function makeFetch(points: unknown): FetchLike {
-  return (url) => Promise.resolve(
-    isEgressPoints(url)
-      ? { ok: true, status: 200, headers: RELAYED, json: () => Promise.resolve(points) }
-      : { ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) },
-  );
-}
-
-/** A fetchImpl that throws — simulates an upstream/network failure. */
-const throwingFetch: FetchLike = () => { throw new Error("upstream exploded"); };
-
-const notFoundFetch: FetchLike = (url) => {
-  if (isEgressPoints(url)) {
-    return Promise.resolve({ ok: false, status: 404, headers: RELAYED, json: () => Promise.resolve(null) });
-  }
-  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) });
-};
-
-/**
- * A fetchImpl gated on an external promise — the winner's pipeline parks here
- * (job still 'running') until released, so a concurrent caller's claim is
- * forced to observe the in-flight row and lose the singleflight race.
- */
-function makeGatedFetch(gate: Promise<void>): FetchLike {
-  return async (url) => {
-    await gate;
-    return isEgressPoints(url)
-      ? { ok: true, status: 200, headers: RELAYED, json: () => Promise.resolve(ANITABI_POINTS) }
-      : { ok: true, status: 200, json: () => Promise.resolve(BANGUMI_SUBJECT) };
-  };
-}
 
 let pool: pg.Pool;
-let query: CatalogPrisma;
-let seams: PlaneSeams;
 let ingest: IngestBangumi;
 
-async function pointCount(bangumiId: string): Promise<number> {
-  const { rows } = await pool.query<{ n: number }>(
-    "SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = $1", [bangumiId],
-  );
-  return rows[0]?.n ?? 0;
-}
-
-async function bangumiExists(bangumiId: string): Promise<boolean> {
-  const { rows } = await pool.query("SELECT 1 FROM bangumi WHERE id = $1", [bangumiId]);
-  return rows.length > 0;
-}
-
-async function currentVersion(bangumiId: string): Promise<number | undefined> {
-  const { rows } = await pool.query(
-    "SELECT version FROM cluster_version WHERE bangumi_id = $1 AND is_current", [bangumiId],
-  ) as { rows: { version: number }[] };
-  return rows[0]?.version;
-}
-
-async function jobStatus(bangumiId: string): Promise<string | undefined> {
-  const { rows } = await pool.query(
-    "SELECT status FROM ingest_jobs WHERE work_id = $1", [bangumiId],
-  ) as { rows: { status: string }[] };
-  return rows[0]?.status;
-}
-
-async function backdateNegativeCache(bangumiId: string): Promise<void> {
-  await pool.query(
-    "UPDATE ingest_jobs SET negative_cached_until = NOW() - INTERVAL '1 second' WHERE work_id = $1", [bangumiId],
-  );
-}
-
-async function negativeCacheSeconds(bangumiId: string): Promise<number | undefined> {
-  const { rows } = await pool.query(
-    "SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds"
-    + " FROM ingest_jobs WHERE work_id = $1", [bangumiId],
-  ) as { rows: { seconds: number }[] };
-  return rows[0]?.seconds;
-}
-
-async function awaitRunning(bangumiId: string): Promise<void> {
-  for (let i = 0; i < 100; i++) {
-    if ((await jobStatus(bangumiId)) === "running") return;
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  throw new Error(`job ${bangumiId} never reached running`);
-}
-
 beforeAll(async () => {
-  seams = await openPlaneSeams();
-  pool = seams.pool;
-  query = seams.query;
-  await truncateCatalogPool(pool);
-  ingest = catalogIngestBangumi(query, stubEgressSigningKey());
+  const plane = await openIngestPlane();
+  pool = plane.pool;
+  ingest = plane.ingest;
 }, 120_000);
 
-afterAll(async () => {
-  await seams.dispose();
-});
+afterAll(closeIngestPlane);
 
 databaseDescribe("IngestBangumi end-to-end: claim -> fetch -> raw -> enrich -> publish -> done", () => {
   it("ingests a new title and lands it in the catalog with one current version", async () => {
@@ -171,44 +59,6 @@ databaseDescribe("IngestBangumi claim uniqueness: concurrent double ingest", () 
     const statuses = [a.status, loser.status].sort();
     expect(statuses).toEqual(["in_progress", "ingested"]);
     expect(await currentVersion("460101")).toBe(1);
-  });
-});
-
-databaseDescribe("IngestBangumi negative cache: empty upstream", () => {
-  it("returns 'empty', parks the empty TTL, and blocks re-ingest within it", async () => {
-    const fetchImpl = makeFetch([]);
-    const result = await ingest.ingest("460102", { fetchImpl });
-    expect(result.status).toBe("empty");
-    expect(await jobStatus("460102")).toBe("failed");
-    expect(await bangumiExists("460102")).toBe(false);
-    const retry = await ingest.ingest("460102", { fetchImpl });
-    expect(retry.status).toBe("empty");
-  });
-
-  it("parks an upstream 404 for seven days and exposes a genuine-empty guard", async () => {
-    const result = await ingest.ingest("460104", { fetchImpl: notFoundFetch });
-    const ttl = await negativeCacheSeconds("460104");
-
-    expect(result.status).toBe("empty");
-    expect(ttl).toBeGreaterThan(6 * 24 * 60 * 60);
-    expect(ttl).toBeLessThanOrEqual(7 * 24 * 60 * 60);
-    await expect(ingest.guard("460104")).resolves.toBe("empty");
-  });
-});
-
-databaseDescribe("IngestBangumi retryable upstream: fetch throws", () => {
-  it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
-    await expect(ingest.ingest("460103", { fetchImpl: throwingFetch })).rejects.toMatchObject({
-      code: "UPSTREAM_UNAVAILABLE",
-      defined: true,
-      status: 502,
-    });
-    expect(await jobStatus("460103")).toBe("failed");
-    // After the negative-cache TTL elapses the title re-acquires and succeeds.
-    await backdateNegativeCache("460103");
-    const retry = await ingest.ingest("460103", { fetchImpl: makeFetch(ANITABI_POINTS) });
-    expect(retry.status).toBe("ingested");
-    expect(await jobStatus("460103")).toBe("done");
   });
 });
 
