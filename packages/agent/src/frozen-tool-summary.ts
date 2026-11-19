@@ -9,7 +9,7 @@ export function annotateToolContext(event: HookInvocation<"after_tool">) {
   if (event.toolName === "web_search") return undefined;
   if (event.isError || !details || typeof details !== "object" || Array.isArray(details)) return undefined;
   const frozenSummary = toolSummaryText(event);
-  const executedFacts = executedToolFacts(event, frozenSummary !== undefined);
+  const executedFacts = executedToolFacts(event);
   if (!frozenSummary && !executedFacts) return undefined;
   return { details: { ...details, ...(frozenSummary ? { frozenSummary } : {}), ...(executedFacts ? { executedFacts } : {}) } };
 }
