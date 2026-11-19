@@ -2,8 +2,9 @@
  * The entry-export check's walk and command (`lint:oxlint` runs it): for each
  * directory under workers/* and apps/*, the first of wrangler.toml,
  * wrangler.jsonc and wrangler.json, the main it declares (`wrangler-main.ts`),
- * and that entry's source when it is on disk. `worker-entry-exports.ts` judges
- * the result; any failure is printed and fails the command.
+ * and, when that main is a string path to a file on disk, the entry's source.
+ * `worker-entry-exports.ts` judges the result; any failure is printed and fails
+ * the command.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -17,7 +18,7 @@ const WRANGLER_NAMES = ["wrangler.toml", "wrangler.jsonc", "wrangler.json"] as c
 
 /** The tree a walk fills in before handing it to the check. */
 interface WalkedTree {
-  mains: Record<string, string | undefined>;
+  mains: Record<string, unknown>;
   sources: Record<string, string>;
 }
 
@@ -44,7 +45,7 @@ function addEntry(tree: WalkedTree, repo: string, pkg: string, config: string): 
   const configPath = rel(repo, config);
   const main = wranglerMain(config);
   tree.mains[configPath] = main;
-  if (main === undefined) return;
+  if (typeof main !== "string") return;
   const entry = join(pkg, main);
   if (!existsSync(entry)) return;
   tree.sources[entryPath(configPath, main)] = readFileSync(entry, "utf8");

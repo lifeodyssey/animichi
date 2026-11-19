@@ -3,16 +3,18 @@
  * `export *`, because workerd treats named entry exports as handlers and a
  * star-export lifts non-handler values. The check is pure: it reads a
  * `WorkerTree`, which `check-worker-entry-exports.ts` builds from disk with each
- * config's main read by `wrangler-main.ts`.
+ * config's main read by `wrangler-main.ts`. A config whose main is missing, or
+ * is not a string, is reported rather than scanned.
  */
 
 export type TextTree = Readonly<Record<string, string>>;
 
 /** What a walk of workers/* and apps/* found: the main each wrangler config
- * declares (undefined when it declares none), keyed by the config's path, and
- * the source of every entry the walk could load, keyed by the entry's path. */
+ * declares, as the config holds it (undefined when it declares none), keyed by
+ * the config's path, and the source of every entry the walk could load, keyed by
+ * the entry's path. */
 export interface WorkerTree {
-  readonly mains: Readonly<Record<string, string | undefined>>;
+  readonly mains: Readonly<Record<string, unknown>>;
   readonly sources: TextTree;
 }
 
@@ -47,6 +49,7 @@ export function entryPath(configPath: string, main: string): string {
 function entryViolations(configPath: string, tree: WorkerTree): string[] {
   const main = tree.mains[configPath];
   if (main === undefined) return [`${configPath}: missing wrangler main`];
+  if (typeof main !== "string") return [`${configPath}: wrangler main is not a string`];
   const entry = entryPath(configPath, main);
   const source = tree.sources[entry];
   if (source === undefined) return [];

@@ -33,7 +33,7 @@ function write(relativePath: string, contents: string): void {
 /** The catalog's main, read from its own wrangler.toml. */
 function catalogMain(): string {
   const main = wranglerMain(join(REPO, CATALOG_CONFIG));
-  if (main === undefined) throw new Error("catalog wrangler.toml missing main");
+  if (typeof main !== "string") throw new Error("catalog wrangler.toml declares no string main");
   return main;
 }
 
@@ -102,14 +102,23 @@ describe("repoWorkerTree", () => {
     ]);
   });
 
+  it("fails closed when workers/ and apps/ have no wrangler files", () => {
+    expect(workerEntryFailures(repoWorkerTree(root))).toEqual([
+      "no wrangler configs under workers/* or apps/*",
+    ]);
+  });
+});
+
+describe("repoWorkerTree on a wrangler main the check cannot follow", () => {
   it("reports a wrangler config that declares no main", () => {
     write("workers/demo/wrangler.toml", 'name = "demo"\n');
     expect(workerEntryFailures(repoWorkerTree(root))).toEqual(["workers/demo/wrangler.toml: missing wrangler main"]);
   });
 
-  it("fails closed when workers/ and apps/ have no wrangler files", () => {
+  it("reports a wrangler main that is not a string, without throwing", () => {
+    write("workers/demo/wrangler.toml", 'name = "demo"\nmain = 42\n');
     expect(workerEntryFailures(repoWorkerTree(root))).toEqual([
-      "no wrangler configs under workers/* or apps/*",
+      "workers/demo/wrangler.toml: wrangler main is not a string",
     ]);
   });
 });

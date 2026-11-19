@@ -44,3 +44,46 @@ describe("wranglerMain reads main from a config file", () => {
     expect(wranglerMain(configFile("wrangler.jsonc", '/* "main": "commented.ts" */\n{ "name": "x" }\n'))).toBeUndefined();
   });
 });
+
+describe("wranglerMain parses the config as wrangler does", () => {
+  it.each([
+    {
+      case: "a JSONC block comment that spans lines and holds a main key",
+      name: "wrangler.jsonc",
+      text: '{\n  "name": "demo",\n  /*\n  "main": "x",\n  */\n  "main": "src/entry.ts"\n}\n',
+      main: "src/entry.ts",
+    },
+    {
+      case: "a JSONC line comment that names main after another key",
+      name: "wrangler.jsonc",
+      text: '{\n  "name": "n", // "main": "y"\n  "main": "src/entry.ts"\n}\n',
+      main: "src/entry.ts",
+    },
+    {
+      case: "an environment's main written before the top-level one",
+      name: "wrangler.jsonc",
+      text: '{ "env": { "staging": { "main": "z" } }, "main": "src/entry.ts" }\n',
+      main: "src/entry.ts",
+    },
+    {
+      case: "a TOML literal string",
+      name: "wrangler.toml",
+      text: "name = \"demo\"\nmain = 'src/index.ts'\n",
+      main: "src/index.ts",
+    },
+    {
+      case: "a TOML multi-line string holding a main line before the real key",
+      name: "wrangler.toml",
+      text: 'name = "demo"\ndescription = """\nmain = "fake.ts"\n"""\nmain = "src/index.ts"\n',
+      main: "src/index.ts",
+    },
+  ])("reads the top-level main through $case", ({ name, text, main }) => {
+    expect(wranglerMain(configFile(name, text))).toBe(main);
+  });
+
+  it("throws wrangler's ParseError, naming the file, for a config wrangler cannot parse", async () => {
+    const path = configFile("wrangler.toml", 'name = "demo"\nmain = "src/index.ts\n');
+    await expect(Promise.resolve().then(() => wranglerMain(path)))
+      .rejects.toMatchObject({ name: "ParseError", location: { file: path } });
+  });
+});

@@ -1,24 +1,28 @@
 /**
  * The `main` a wrangler config file declares, for the entry-export check
- * (`check-worker-entry-exports.ts`). Reads the file's lines and takes the first
- * `main` key on a line that is not a whole-line comment.
+ * (`check-worker-entry-exports.ts`), read with wrangler's own config reader,
+ * `experimental_readRawConfig`. The file is parsed as wrangler parses it, so
+ * comments, every TOML and JSONC string form and environment tables are read as
+ * wrangler reads them, and only the top-level `main` counts. A file wrangler
+ * cannot parse throws wrangler's `ParseError`, which names the file and line.
+ *
+ * The raw reader validates nothing. wrangler's schema declares `main` an optional
+ * string (`config-schema.json`, `RawConfig.main`), but a config can hold any value
+ * there, so `main` comes back as the config holds it, and the check reports one
+ * that is not a string.
+ *
+ * wrangler's published types re-export the reader from
+ * `@cloudflare/workers-utils`, which wrangler bundles and does not install, so
+ * the type checker has no type for it. `ReadRawConfig` states the part used
+ * here: the reader takes the config's path and returns the raw config.
  */
-import { readFileSync } from "node:fs";
+import { experimental_readRawConfig } from "wrangler";
 
-const MAIN_TOML = /^main\s*=\s*"([^"]+)"/;
-const MAIN_JSON = /"main"\s*:\s*"([^"]+)"/;
+type ReadRawConfig = (args: { config: string }) => { rawConfig: { main?: unknown } };
 
-function isCommentLine(line: string): boolean {
-  return line.startsWith("#") || line.startsWith("//") || (line.startsWith("/*") && line.endsWith("*/"));
-}
+const readRawConfig = experimental_readRawConfig as ReadRawConfig;
 
-function mainFromRawLine(raw: string): string | undefined {
-  const line = raw.trim();
-  if (isCommentLine(line)) return undefined;
-  return (MAIN_TOML.exec(line) ?? MAIN_JSON.exec(line))?.[1];
-}
-
-/** The `main` the wrangler config at `configFile` declares, if it declares one. */
-export function wranglerMain(configFile: string): string | undefined {
-  return readFileSync(configFile, "utf8").split("\n").map(mainFromRawLine).find((main) => main !== undefined);
+/** The top-level `main` of the wrangler config at `configFile`, as the config holds it. */
+export function wranglerMain(configFile: string): unknown {
+  return readRawConfig({ config: configFile }).rawConfig.main;
 }

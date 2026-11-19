@@ -58,12 +58,6 @@ describe("worker entry must not star-export", () => {
     ).toEqual(['apps/web/src/entry.ts: export * from "./handlers";']);
   });
 
-  it("flags a wrangler config with no main key", () => {
-    expect(starExportViolations({ mains: { "workers/x/wrangler.toml": undefined }, sources: {} })).toEqual([
-      "workers/x/wrangler.toml: missing wrangler main",
-    ]);
-  });
-
   it("allows explicit named exports on a wrangler main", () => {
     expect(
       starExportViolations({
@@ -80,5 +74,19 @@ describe("worker entry must not star-export", () => {
         sources: { "workers/x/src/index.ts": '// export * from "./mod";\nexport default {};\n' },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("a wrangler main the check cannot follow", () => {
+  it("flags a wrangler config with no main key", () => {
+    expect(starExportViolations({ mains: { "workers/x/wrangler.toml": undefined }, sources: {} })).toEqual([
+      "workers/x/wrangler.toml: missing wrangler main",
+    ]);
+  });
+
+  it("flags a wrangler main that is not a string", () => {
+    expect(starExportViolations({ mains: { "workers/x/wrangler.toml": 42 }, sources: {} })).toEqual([
+      "workers/x/wrangler.toml: wrangler main is not a string",
+    ]);
   });
 });
