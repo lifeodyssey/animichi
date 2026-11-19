@@ -1,6 +1,6 @@
 # Catalog
 
-Owns seichi **master data** and **planning algorithms**: Bangumi, Points, search/nearby/geocode, and Itinerary computation. Read-mostly for the Agent; public anonymous reads for some overview/search surfaces. Does **not** own login identity, SavedRoute documents, or Agent Session state.
+Owns seichi **master data** and **planning algorithms**: Bangumi, Points, resolve/nearby/geocode, and Itinerary computation. Read-mostly for the Agent; public anonymous reads for the anime overview and popular surfaces. Does **not** own login identity, SavedRoute documents, or Agent Session state.
 
 Published language: ADR-0002 · greenfield: `docs/specs/2026-08-06-greenfield-language-and-data-plane.md`.
 
@@ -27,7 +27,7 @@ As in prior glossary; pipeline stages are not fan-facing nouns.
 |---|---|
 | Point rows, Bangumi identity | User identity / JWT |
 | Itinerary computation | SavedRoute persistence (Users) |
-| Search, nearby, geocode, anime overview | Agent Session / messages |
+| Title resolution, nearby, geocode, anime overview | Agent Session / messages |
 | Ingest→enrich→publish | Edge rate limits |
 
 ## Wire / tables (greenfield target)
