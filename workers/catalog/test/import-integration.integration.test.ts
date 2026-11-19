@@ -34,37 +34,37 @@ import {
   truncateCatalogPool,
   type PlanePrisma,
 } from "./integration-db";
+import { pointInsert, pointSeed, runSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
 
 let pool: pg.Pool;
 let query: CatalogPrisma;
 let seam: PlanePrisma;
 
 /** The production set the export reads: two works, one point, one provenance row. */
+const PROD_WORK = workSeed("900001", "Lucky Star", { titleCn: "幸運星" });
+const PROD_SLOW = workSeed("900002", "Slow Loop");
+const PROD_POINT = pointSeed("pp1", PROD_WORK, "gate", 36.1, 139.6, { episode: 3, timeSeconds: 42 });
+
 async function seedProductionSet(): Promise<void> {
-  await pool.query(
-    "INSERT INTO bangumi (id, title, title_cn) VALUES ('prod1', 'Lucky Star', '幸運星'), ('prod2', 'Slow Loop', NULL)",
-  );
-  await pool.query(
-    "INSERT INTO points (id, bangumi_id, name, episode, time_seconds, location)"
-    + " VALUES ('pp1', 'prod1', 'gate', 3, 42, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography)",
-    [139.6, 36.1],
-  );
+  await runSeed(pool, workInsert([PROD_WORK, PROD_SLOW]));
+  await runSeed(pool, pointInsert([PROD_POINT]));
   await pool.query(
     "INSERT INTO catalog_provenance (scope, entity_id, work_id, source, attribution)"
-    + " VALUES ('work', 'prod1', 'prod1', 'bangumi', $1)", [JSON.stringify({ by: "bangumi" })],
+    + " VALUES ('work', $1, $1, 'bangumi', $2)", [PROD_WORK.workId, JSON.stringify({ by: "bangumi" })],
   );
 }
 
 /** The rows the import must replace: a different work, a different point. */
+const STAGING_WORK = workSeed("900003", "OLD");
+const STAGING_POINT = pointSeed("op1", STAGING_WORK, "old", 1, 1);
+
 async function seedStagingBaseline(): Promise<void> {
-  await pool.query("INSERT INTO bangumi (id, title) VALUES ('old1', 'OLD')");
-  await pool.query(
-    "INSERT INTO points (id, bangumi_id, name, location)"
-    + " VALUES ('op1', 'old1', 'old', ST_SetSRID(ST_MakePoint(1, 1), 4326)::geography)",
-  );
+  await runSeed(pool, workInsert([STAGING_WORK]));
+  await runSeed(pool, pointInsert([STAGING_POINT]));
   await pool.query("INSERT INTO sessions (id) VALUES (gen_random_uuid()::text)");
   await pool.query(
-    "INSERT INTO saved_routes (user_id, title, point_ids) VALUES ('u1', 'seed', ARRAY['pp1'])",
+    "INSERT INTO saved_routes (user_id, title, point_ids) VALUES ('u1', 'seed', ARRAY[$1])",
+    [PROD_POINT.id],
   );
 }
 
@@ -118,8 +118,8 @@ databaseDescribe("import atomic switch (AC4)", () => {
 
     expect((await importSnapshot(source.source, query)).status).toBe("imported");
 
-    expect(await idsOf("bangumi")).toEqual(["prod1", "prod2"]);
-    expect(await idsOf("points")).toEqual(["pp1"]);
+    expect(await idsOf("bangumi")).toEqual([PROD_WORK.workId, PROD_SLOW.workId]);
+    expect(await idsOf("points")).toEqual([PROD_POINT.id]);
   });
 
   it("keeps every exported column across the round trip", async () => {
@@ -127,10 +127,11 @@ databaseDescribe("import atomic switch (AC4)", () => {
 
     expect((await importSnapshot(source.source, query)).status).toBe("imported");
 
-    const { rows: works } = await pool.query("SELECT title_cn FROM bangumi WHERE id = 'prod1'");
+    const { rows: works } = await pool.query("SELECT title_cn FROM bangumi WHERE id = $1", [PROD_WORK.workId]);
     expect((works as { title_cn: string | null }[])[0]?.title_cn).toBe("幸運星");
     const { rows: points } = await pool.query(
-      "SELECT latitude, longitude, episode, time_seconds FROM points WHERE id = 'pp1'",
+      "SELECT latitude, longitude, episode, time_seconds FROM points WHERE id = $1",
+      [PROD_POINT.id],
     );
     expect(points[0]).toEqual({ latitude: 36.1, longitude: 139.6, episode: 3, time_seconds: 42 });
   });

@@ -26,28 +26,34 @@ import { readPointer } from "../src/publish/pointer";
 import { databaseDescribe, openPlaneSeams, truncateCatalogPool, type PlaneSeams } from "./integration-db";
 import { textToArrayBuffer } from "../src/publish/bytes";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
+import { aliasInsert, aliasSeed, pointInsert, pointSeed, runSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
 
 let pool: pg.Pool;
 let query: CatalogPrisma;
 let seams: PlaneSeams;
 
+/** The public set the export reads, built through the contract. */
+const LUCKY_STAR = workSeed("920001", "Lucky Star");
+const SLOW_LOOP = workSeed("920002", "Slow Loop");
+const PUBLIC_POINTS = [
+  pointSeed("p1", LUCKY_STAR, "Gate", 36.1, 139.6, { image: "/gate.png" }),
+  pointSeed("p2", LUCKY_STAR, "School", 35.6, 139.7, { image: "/school.png" }),
+  pointSeed("p3", SLOW_LOOP, "Bay", 34.0, 135.0),
+];
+
 async function seedPublic(): Promise<void> {
-  await pool.query("INSERT INTO bangumi (id, title) VALUES ('w1', 'Lucky Star'), ('w2', 'Slow Loop')");
+  await runSeed(pool, workInsert([LUCKY_STAR, SLOW_LOOP]));
+  await runSeed(pool, pointInsert(PUBLIC_POINTS));
+  await runSeed(pool, aliasInsert([aliasSeed(LUCKY_STAR, "らき☆すた", "らきすた", "bangumi", 0)]));
   await pool.query(
-    "INSERT INTO points (id, bangumi_id, name, location, image) VALUES"
-    + " ('p1', 'w1', 'Gate', ST_SetSRID(ST_MakePoint(139.6, 36.1), 4326)::geography, '/gate.png'),"
-    + " ('p2', 'w1', 'School', ST_SetSRID(ST_MakePoint(139.7, 35.6), 4326)::geography, '/school.png'),"
-    + " ('p3', 'w2', 'Bay', ST_SetSRID(ST_MakePoint(135.0, 34.0), 4326)::geography, null)",
+    "INSERT INTO series_edges (from_bangumi_id, to_bangumi_id, relation) VALUES ($1, $2, 'sequel')",
+    [LUCKY_STAR.workId, SLOW_LOOP.workId],
   );
-  await pool.query(
-    "INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority) VALUES"
-    + " ('w1', 'らき☆すた', 'らきすた', 'bangumi', 0)",
-  );
-  await pool.query("INSERT INTO series_edges (from_bangumi_id, to_bangumi_id, relation) VALUES ('w1', 'w2', 'sequel')");
   await pool.query(
     "INSERT INTO catalog_provenance (scope, entity_id, work_id, source, attribution, license) VALUES"
-    + " ('work', 'w1', 'w1', 'bangumi', null, null),"
-    + " ('point', 'p1', 'w1', 'anitabi', 'Anitabi', 'https://anitabi.cn')",
+    + " ('work', $1, $1, 'bangumi', null, null),"
+    + " ('point', 'p1', $1, 'anitabi', 'Anitabi', 'https://anitabi.cn')",
+    [LUCKY_STAR.workId],
   );
   await pool.query(
     "INSERT INTO media_assets (point_id, r2_key, content_hash, tombstoned) VALUES ('p1', 'points/p1', $1, false)",
@@ -90,7 +96,7 @@ databaseDescribe("Candidate export contains only public catalog data (AC1)", () 
     const exported = await exportCandidate(query, "snapshots/snap-e2e/data");
     const points = exported.objects.find((o) => o.kind === "points");
     const rows = JSON.parse(points ? new TextDecoder().decode(points.body) : "[]") as Record<string, unknown>[];
-    expect(rows[0]).toMatchObject({ id: "p1", bangumiId: "w1", nameCn: null, image: "/gate.png" });
+    expect(rows[0]).toMatchObject({ id: "p1", bangumiId: LUCKY_STAR.workId, nameCn: null, image: "/gate.png" });
   });
 
   it("never carries auth, user, lock, or private run-log rows", async () => {

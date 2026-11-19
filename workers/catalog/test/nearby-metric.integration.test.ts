@@ -4,6 +4,8 @@ import { MAX_RESULTS, nearbyGeoPort } from "../src/adapters/outbound/nearby-poin
 import { acquireCatalogRuntime, catalogPrisma } from "../src/db/prisma";
 import { captureNearbyPlan, type NearbyPlanCapture, type PlanNode } from "./nearby-plan";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
+import { workSeed } from "./fixtures/catalog-seed";
+import { ORIGIN, ORIGIN_GEOGRAPHY, seedCalibrationRing } from "./fixtures/calibration-ring-seed";
 
 /**
  * The nearby query's ONE metric and the plan that serves it (#1628, spec §4.11 /
@@ -25,9 +27,7 @@ import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integ
  * PostGIS or fixture change.
  */
 
-const WORK_ID = "calibration";
-const ORIGIN = { lat: 35.6812, lng: 139.7671 };
-const ORIGIN_GEOGRAPHY = "ST_SetSRID(ST_MakePoint(139.7671, 35.6812), 4326)::geography";
+const CALIBRATION_WORK = workSeed("930001", "Calibration ring");
 const RING_AZIMUTHS = 400;
 const RING_METRES = 10_000;
 const FILLER_ROWS = 8_000;
@@ -65,22 +65,12 @@ function sortKeys(nodes: readonly PlanNode[]): readonly string[] {
 }
 
 async function seedCalibratedFixture(): Promise<void> {
-  await pool.query("INSERT INTO bangumi (id, title) VALUES ($1, $2)", [WORK_ID, "Calibration ring"]);
-  await pool.query(
-    `INSERT INTO points (id, bangumi_id, name, location)
-     SELECT 'ring-' || to_char(g, 'FM000'), $1, 'Ring ' || g,
-            ST_Project(${ORIGIN_GEOGRAPHY}, $2::float8, radians(g * 360.0 / $3::float8))::geography
-     FROM generate_series(0, $4::int) AS g`,
-    [WORK_ID, RING_METRES, RING_AZIMUTHS, RING_AZIMUTHS - 1],
-  );
-  await pool.query(
-    `INSERT INTO points (id, bangumi_id, name, location)
-     SELECT 'filler-' || to_char(g, 'FM00000'), $1, 'Filler ' || g,
-            ST_SetSRID(ST_MakePoint(130 + (g % 900) / 100.0, 30 + (g % 700) / 100.0), 4326)::geography
-     FROM generate_series(0, $2::int) AS g`,
-    [WORK_ID, FILLER_ROWS - 1],
-  );
-  await pool.query("ANALYZE points");
+  await seedCalibrationRing(pool, {
+    work: CALIBRATION_WORK,
+    azimuths: RING_AZIMUTHS,
+    metres: RING_METRES,
+    fillerRows: FILLER_ROWS,
+  });
 }
 
 beforeAll(async () => {
