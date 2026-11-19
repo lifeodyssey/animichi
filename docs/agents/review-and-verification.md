@@ -240,8 +240,8 @@ Code, docs and commit messages are as public here as issues and pull requests
 private tracker's ticket and a private working document, which no reader of the repository can
 resolve; the review caught them as a must-fix, and the writer rewrote both commits. Every writer
 brief says: no private tracker ids, private document names or machine paths in code, docs or
-commit messages, trailers excepted. Before review, grep the diff and the commit bodies, trailers
-aside, for the tracker's id prefix.
+commit messages; references in a commit body follow `docs/agents/commit-and-pr-hygiene.md`.
+Before review, grep the diff and the commit bodies for the tracker's id prefix.
 
 ## Run the project's gate, not one you invented
 
