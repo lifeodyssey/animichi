@@ -6,7 +6,7 @@
  */
 
 import { upstreamUnavailable } from "./errors";
-import { optional } from "../../lib/optional";
+import { optional } from "../../application/optional";
 import {
   fetchAnitabiLite,
   UpstreamNotFoundError,

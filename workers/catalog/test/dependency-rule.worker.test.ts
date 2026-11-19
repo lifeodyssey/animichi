@@ -32,7 +32,7 @@ interface LayerRule {
 const LAYER_RULES: readonly LayerRule[] = [
   {
     layer: "src/domain/",
-    directories: ["adapters", "enrich", "ingest", "publish", "db", "lib"],
+    directories: ["adapters", "application", "enrich", "ingest", "publish", "db"],
     packages: ["hono", "@orpc", "@prisma", "@animichi/prisma-geography", "cloudflare:"],
   },
   {
@@ -179,8 +179,8 @@ function catalogTree(): TextTree {
 describe("dependency rule detection", () => {
   it("flags a domain file reaching into an outward src directory", () => {
     expect(dependencyRuleViolations({
-      "src/domain/itinerary/plan.ts": 'import { x } from "../../lib/optional";\n',
-    })).toEqual(["src/domain/itinerary/plan.ts: ../../lib/optional"]);
+      "src/domain/itinerary/plan.ts": 'import { x } from "../../application/optional";\n',
+    })).toEqual(["src/domain/itinerary/plan.ts: ../../application/optional"]);
   });
 
   it("flags a domain file importing a framework, including a multi-line clause", () => {
@@ -210,7 +210,7 @@ describe("dependency rule detection", () => {
   it("allows the inward directions the design grants each layer", () => {
     expect(dependencyRuleViolations({
       "src/domain/itinerary/plan.ts": 'import { haversine } from "../geo";\nimport type { Pacing } from "../../types";\n',
-      "src/application/plan-itinerary.ts": 'import { optional } from "../lib/optional";\nimport { MAX } from "@animichi/contract/constants";\n',
+      "src/application/plan-itinerary.ts": 'import { optional } from "./optional";\nimport { MAX } from "@animichi/contract/constants";\n',
       "src/adapters/outbound/route-points.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
     })).toEqual([]);
   });

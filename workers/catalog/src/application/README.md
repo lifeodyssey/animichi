@@ -11,8 +11,14 @@ ports (e.g. `PointsForRoutePort`), implemented by outbound adapters under
 A port is declared **here**, next to the use case that needs it — never in the
 adapter that implements it. `test/dependency-rule.worker.test.ts` fails on any
 import from `adapters/`, the data-platform stages, `db/`, hono or the
-Prisma data-access packages, in this layer or in `src/domain/`.
+Prisma data-access packages, in this layer or in `src/domain/`, and on any
+import of this layer from `src/domain/`.
 
 `point-row.ts` is not a use case: it is the one mapping from a `points` row to
 the contract `Point`, shared by the use cases here and by the adapter that maps
 rows itself (`src/adapters/outbound/route-points.ts`).
+
+`optional.ts` is not a use case either: it is the contract's optional-field
+rule (a null column is left out, never sent as `null`), shared by
+`point-row.ts`, the use cases and the inbound preview
+(`src/adapters/inbound/preview.ts`).
