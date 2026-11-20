@@ -59,17 +59,19 @@ drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
   template, targets the emitted `src/contract.json`, not the newest migration. The template is
   named after the migration directories alone, and seeding reads no marker. So a tree whose
   `contract.json` lags its chain seeds the template at the old head under the new chain's name,
-  and every lane that clones it is green with nothing applied. The plan to run the old code on the
-  dropped schema restored the old `contract.json` to do it; review caught that before it ran. Seed
-  the template from the intact tree first, and check a clone's `prisma_contract.marker` before
+  and every lane that clones it is green with nothing applied. Restoring an older
+  `contract.json` to run old code against a new schema makes exactly such a tree. Seed the
+  template from the intact tree first, and check a clone's `prisma_contract.marker` before
   trusting such a run.
-- One transaction covers a whole apply: every pending migration in every contract space, and
-  their markers. A drop that fails rolls back whole and leaves the marker where it was, so
-  reverting the PR unfreezes CD: the selected target equals the live marker. Once a drop has
-  applied, a revert does the opposite. The reverted chain has no path from the live marker, the
+- Prisma's runner wraps an apply in one transaction, marker included
+  (`PostgresMigrationRunner.execute` in `@prisma/orm-target-postgres` 8.0.0-rc.9). For this one
+  migration in the app space,
+  `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins it: a drop that
+  fails rolls back whole and leaves the marker where it was. Applies of several migrations or
+  contract spaces are read from the runner's source, not tested. After a failed drop, reverting
+  the PR unfreezes CD, because the selected target equals the live marker. Once a drop has
+  applied, a revert does the opposite: the reverted chain has no path from the live marker, the
   preflight refuses, and CD stays frozen until a forward fix or a PITR.
-  `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins the rollback for
-  that migration.
 
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 

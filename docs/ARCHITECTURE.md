@@ -70,7 +70,7 @@ appropriate. Missing native evidence remains pending. Recorded zero cost cannot 
 free from unpriced usage because the published ledger does not provide that distinction.
 
 Neon is the data plane. Prisma 8 owns native agent queries/storage and the migration chain in
-`packages/pi-session-neon/migrations/`, which builds the seven native agent tables and the 19
+`packages/pi-session-neon/migrations/`, which builds the seven native agent tables and the 17
 catalog/users data-plane tables it adopted from the retired Atlas chain. Since #1633 Catalog and
 Users reach those tables only as builder plans over the contract that chain generates, on a runtime
 acquired per request; the migrator Worker applies that one chain and nothing else (#1636).
