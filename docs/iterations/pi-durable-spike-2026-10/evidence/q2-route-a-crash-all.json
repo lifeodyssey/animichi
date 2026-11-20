@@ -1,0 +1,645 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "runs": [
+    {
+      "point": "a1",
+      "name": "ra-a1-63a7fab9",
+      "operationId": "op-a1",
+      "killedAt": 1795038706633,
+      "backendGoneMs": 251,
+      "atKill": 0,
+      "after": [
+        {
+          "seq": 8,
+          "operationId": "op-a1",
+          "record": {
+            "operationId": "op-a1",
+            "status": "done",
+            "model": "faux-1",
+            "provider": "faux",
+            "calls": [
+              {
+                "entry": 11,
+                "model": "faux-1",
+                "provider": "faux",
+                "usage": {
+                  "input": 0,
+                  "output": 10,
+                  "cacheRead": 0,
+                  "cacheWrite": 178,
+                  "totalTokens": 188,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse"
+              }
+            ],
+            "toolCalls": [
+              {
+                "name": "respond",
+                "arguments": {
+                  "message": "A route (a) turn"
+                }
+              }
+            ],
+            "toolResults": [],
+            "answer": ""
+          },
+          "bytes": 410
+        }
+      ],
+      "recomputed": {
+        "instance": "5b3a7f70-68d8-4d13-808e-5170ceb605c6",
+        "session": "ra-a1-63a7fab9",
+        "sqliteBytes": 147456,
+        "recomputed": {
+          "operationId": "op-a1",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "status": "done"
+      },
+      "projectedAfterKillMs": 30078
+    },
+    {
+      "point": "a2",
+      "name": "ra-a2-979e2dad",
+      "operationId": "op-a2",
+      "killedAt": 1795038737343,
+      "backendGoneMs": 115,
+      "atKill": 0,
+      "after": [
+        {
+          "seq": 8,
+          "operationId": "op-a2",
+          "record": {
+            "operationId": "op-a2",
+            "status": "done",
+            "model": "faux-1",
+            "provider": "faux",
+            "calls": [
+              {
+                "entry": 11,
+                "model": "faux-1",
+                "provider": "faux",
+                "usage": {
+                  "input": 0,
+                  "output": 10,
+                  "cacheRead": 0,
+                  "cacheWrite": 178,
+                  "totalTokens": 188,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse"
+              }
+            ],
+            "toolCalls": [
+              {
+                "name": "respond",
+                "arguments": {
+                  "message": "A route (a) turn"
+                }
+              }
+            ],
+            "toolResults": [],
+            "answer": ""
+          },
+          "bytes": 410
+        }
+      ],
+      "recomputed": {
+        "instance": "398d2f97-a26e-43e7-8101-28d31eaa4367",
+        "session": "ra-a2-979e2dad",
+        "sqliteBytes": 147456,
+        "recomputed": {
+          "operationId": "op-a2",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "status": "done"
+      },
+      "projectedAfterKillMs": 29985
+    },
+    {
+      "point": "a3",
+      "name": "ra-a3-5e146dcf",
+      "operationId": "op-a3",
+      "killedAt": 1795038767886,
+      "backendGoneMs": 96,
+      "atKill": 1,
+      "after": [
+        {
+          "seq": 8,
+          "operationId": "op-a3",
+          "record": {
+            "operationId": "op-a3",
+            "status": "done",
+            "model": "faux-1",
+            "provider": "faux",
+            "calls": [
+              {
+                "entry": 11,
+                "model": "faux-1",
+                "provider": "faux",
+                "usage": {
+                  "input": 0,
+                  "output": 10,
+                  "cacheRead": 0,
+                  "cacheWrite": 178,
+                  "totalTokens": 188,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "toolUse"
+              }
+            ],
+            "toolCalls": [
+              {
+                "name": "respond",
+                "arguments": {
+                  "message": "A route (a) turn"
+                }
+              }
+            ],
+            "toolResults": [],
+            "answer": ""
+          },
+          "bytes": 410
+        }
+      ],
+      "recomputed": {
+        "instance": "399801aa-6941-49d7-ab2a-f5efc3c170df",
+        "session": "ra-a3-5e146dcf",
+        "sqliteBytes": 147456,
+        "recomputed": {
+          "operationId": "op-a3",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "status": "done"
+      },
+      "projectedAfterKillMs": 29982,
+      "recoveryStatements": [
+        {
+          "calls": 1,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 1,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "a1: the crash landed where intended (read from Postgres before the restart): Pi committed the turn; no projection row; the killed process's connection was gone",
+      "pass": true,
+      "observed": {
+        "rowsAtKill": 0,
+        "backendGoneMs": 251
+      }
+    },
+    {
+      "name": "a1: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)",
+      "pass": true,
+      "observed": {
+        "stored": {
+          "operationId": "op-a1",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "recomputed": {
+          "operationId": "op-a1",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        }
+      }
+    },
+    {
+      "name": "a2: the crash landed where intended (read from Postgres before the restart): the projection's transaction, held before COMMIT, rolled back with the connection: no row; the killed process's connection was gone",
+      "pass": true,
+      "observed": {
+        "rowsAtKill": 0,
+        "backendGoneMs": 115
+      }
+    },
+    {
+      "name": "a2: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)",
+      "pass": true,
+      "observed": {
+        "stored": {
+          "operationId": "op-a2",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "recomputed": {
+          "operationId": "op-a2",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        }
+      }
+    },
+    {
+      "name": "a3: the crash landed where intended (read from Postgres before the restart): the projection row committed; the object had not noted it; the killed process's connection was gone",
+      "pass": true,
+      "observed": {
+        "rowsAtKill": 1,
+        "backendGoneMs": 96
+      }
+    },
+    {
+      "name": "a3: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)",
+      "pass": true,
+      "observed": {
+        "stored": {
+          "operationId": "op-a3",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        },
+        "recomputed": {
+          "operationId": "op-a3",
+          "status": "done",
+          "model": "faux-1",
+          "provider": "faux",
+          "calls": [
+            {
+              "entry": 11,
+              "model": "faux-1",
+              "provider": "faux",
+              "usage": {
+                "input": 0,
+                "output": 10,
+                "cacheRead": 0,
+                "cacheWrite": 178,
+                "totalTokens": 188,
+                "cost": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "total": 0
+                }
+              },
+              "stopReason": "toolUse"
+            }
+          ],
+          "toolCalls": [
+            {
+              "name": "respond",
+              "arguments": {
+                "message": "A route (a) turn"
+              }
+            }
+          ],
+          "toolResults": [],
+          "answer": ""
+        }
+      }
+    },
+    {
+      "name": "a3: the re-projection wrote nothing twice (its insert found the row) and cost the write's three statements",
+      "pass": true,
+      "observed": [
+        {
+          "calls": 1,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 1,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+        }
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms a1:A stdout: [spike] constructed instance=f9770198-21df-477a-8fad-c9cb03e4415b",
+    "+    22ms a1:A stdout: [spike] request:submit instance=f9770198-21df-477a-8fad-c9cb03e4415b op=op-a1",
+    "+    43ms a1:A stdout: [spike] model:tool_call instance=f9770198-21df-477a-8fad-c9cb03e4415b",
+    "+    61ms a1:A stdout: [spike] tool:respond instance=f9770198-21df-477a-8fad-c9cb03e4415b",
+    "+    81ms a1:A stdout: [spike] job instance=f9770198-21df-477a-8fad-c9cb03e4415b",
+    "+    81ms a1:A stdout: [spike] marker:a1 instance=f9770198-21df-477a-8fad-c9cb03e4415b",
+    "+ 30075ms a1:B stdout: [spike] constructed instance=5b3a7f70-68d8-4d13-808e-5170ceb605c6",
+    "+ 30080ms a1:B stdout: [spike] job instance=5b3a7f70-68d8-4d13-808e-5170ceb605c6",
+    "+ 30161ms a1:B stdout: [spike] projected instance=5b3a7f70-68d8-4d13-808e-5170ceb605c6 op=op-a1",
+    "+ 30484ms a1:B stdout: [spike] request:recompute instance=5b3a7f70-68d8-4d13-808e-5170ceb605c6 op=op-a1",
+    "+ 30655ms a2:A stdout: [spike] constructed instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d",
+    "+ 30666ms a2:A stdout: [spike] request:submit instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d op=op-a2",
+    "+ 30675ms a2:A stdout: [spike] model:tool_call instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d",
+    "+ 30683ms a2:A stdout: [spike] tool:respond instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d",
+    "+ 30688ms a2:A stdout: [spike] job instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d",
+    "+ 30771ms a2:A stdout: [spike] marker:a2 instance=1f610ec1-1547-4a5a-8fe4-d3aa7e98740d",
+    "+ 60695ms a2:B stdout: [spike] constructed instance=398d2f97-a26e-43e7-8101-28d31eaa4367",
+    "+ 60706ms a2:B stdout: [spike] job instance=398d2f97-a26e-43e7-8101-28d31eaa4367",
+    "+ 60778ms a2:B stdout: [spike] projected instance=398d2f97-a26e-43e7-8101-28d31eaa4367 op=op-a2",
+    "+ 61081ms a2:B stdout: [spike] request:recompute instance=398d2f97-a26e-43e7-8101-28d31eaa4367 op=op-a2",
+    "+ 61224ms a3:A stdout: [spike] constructed instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9",
+    "+ 61232ms a3:A stdout: [spike] request:submit instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9 op=op-a3",
+    "+ 61239ms a3:A stdout: [spike] model:tool_call instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9",
+    "+ 61246ms a3:A stdout: [spike] tool:respond instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9",
+    "+ 61250ms a3:A stdout: [spike] job instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9",
+    "+ 61320ms a3:A stdout: [spike] marker:a3 instance=48e28ff0-4a7c-49f0-b308-93938dfaa6f9",
+    "+ 91254ms a3:B stdout: [spike] constructed instance=399801aa-6941-49d7-ab2a-f5efc3c170df",
+    "+ 91258ms a3:B stdout: [spike] job instance=399801aa-6941-49d7-ab2a-f5efc3c170df",
+    "+ 91318ms a3:B stdout: [spike] projected instance=399801aa-6941-49d7-ab2a-f5efc3c170df op=op-a3",
+    "+ 91726ms a3:B stdout: [spike] request:recompute instance=399801aa-6941-49d7-ab2a-f5efc3c170df op=op-a3"
+  ]
+}

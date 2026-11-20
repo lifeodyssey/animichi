@@ -1,0 +1,66 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "bytes": 991226,
+  "gzipBytes": 220674,
+  "emittedFiles": [
+    ".wrangler",
+    "README.md",
+    "q1.worker.js",
+    "q1.worker.js.map"
+  ],
+  "externalImports": {
+    "node:fs": [
+      "@earendil-works/pi-ai@1.5.2 dist/utils/provider-env.js"
+    ],
+    "node:async_hooks": [
+      "agents@0.33.0 dist/current-agent-DhoDkSnH.js",
+      "agents@0.33.0 dist/lifecycle-v1rKHV2C.js"
+    ],
+    "node:diagnostics_channel": [
+      "agents@0.33.0 dist/diagnostics-BzvaX2UT.js"
+    ],
+    "cloudflare:workers": [
+      "(prototype or wrangler) src/q1.worker.ts",
+      "agents@0.33.0 dist/lifecycle-v1rKHV2C.js"
+    ]
+  },
+  "unenvPolyfills": [],
+  "dynamicImports": [],
+  "suspectsInGraph": {
+    "@earendil-works/pi-codemode": [],
+    "quickjs-wasi": [],
+    "@silvia-odwyer/photon": [],
+    "typebox": [],
+    "@sinclair/typebox": [],
+    "openai": [],
+    "@anthropic-ai/sdk": [],
+    "@google/genai": [],
+    "@aws-sdk/client-bedrock-runtime": [],
+    "@smithy/node-http-handler": [],
+    "http-proxy-agent": [],
+    "https-proxy-agent": []
+  },
+  "packages": [
+    "(prototype or wrangler)",
+    "@earendil-works/chord@1.5.2",
+    "@earendil-works/pi-ai@1.5.2",
+    "@earendil-works/pi-durable@1.5.2",
+    "@earendil-works/pi-schema@1.5.2",
+    "@earendil-works/pi-telemetry@1.5.2",
+    "agents@0.33.0",
+    "nanoid@5.1.16",
+    "partial-json@0.1.7"
+  ],
+  "newFunctionOccurrences": [
+    {
+      "offset": 981774,
+      "module": "prototype/src/probes.ts",
+      "context": "ble/docs/iterations/pi-durable-spike-2026-10/prototype/src/probes.ts\nfunction newFunction() {\n  try {\n    const built = new Function(\"return 1\");\n    return { allowed: built() === "
+    }
+  ]
+}

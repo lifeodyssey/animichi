@@ -1,0 +1,8 @@
+total 310 = test 17 + history GETs 8 + turn 285
+turn 285 = Pi store 199 + business 77 + Prisma 9
+Pi store 199 = 16 commits of 148 statements (9.25 each; 36 writes) + 50 reads outside commits + 1 session creation
+business 77, with 9 of the 25 transactions
+PASS the copied test patterns select exactly the rows the count runner set aside
+PASS both history GETs' ownership checks, and no other call of that statement
+PASS BEGIN and COMMIT pair up
+PASS every call is allocated once

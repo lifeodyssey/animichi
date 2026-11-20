@@ -1,0 +1,16 @@
+{
+  "at": "2026-11-18T22:33:27.070Z",
+  "before": [],
+  "dropped": [
+    "spike_pi_durable_admission",
+    "spike_pi_durable_bprime",
+    "spike_pi_durable_conformance",
+    "spike_pi_durable_control",
+    "spike_pi_durable_q3_selection",
+    "spike_pi_durable_q3_settlement",
+    "spike_pi_durable_route_a",
+    "spike_pi_durable_counter"
+  ],
+  "after": [],
+  "pass": true
+}

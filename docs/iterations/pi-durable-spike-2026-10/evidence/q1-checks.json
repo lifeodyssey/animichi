@@ -1,0 +1,470 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "timing": {
+    "safe": {
+      "killToRestartedInstanceMs": 29006,
+      "killToAnswerMs": 29051,
+      "workerdBStartMs": 70
+    },
+    "unsafe": {
+      "killToRestartedInstanceMs": 29012,
+      "killToAnswerMs": 29111,
+      "workerdBStartMs": 77
+    }
+  },
+  "checks": [
+    {
+      "name": "turn: the operation settles done",
+      "pass": true,
+      "observed": {
+        "operationId": "turn-1",
+        "session": "1",
+        "status": "done",
+        "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}"
+      }
+    },
+    {
+      "name": "turn: user, system, one resolve_anime call, its successful result, the answer",
+      "pass": true,
+      "observed": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Turn Probe\"."
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Turn Probe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 9,
+            "cacheRead": 0,
+            "cacheWrite": 66,
+            "totalTokens": 75,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}",
+          "usage": {
+            "input": 0,
+            "output": 25,
+            "cacheRead": 66,
+            "cacheWrite": 41,
+            "totalTokens": 132,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "turn: the stubbed catalog counted one call",
+      "pass": true,
+      "observed": 1
+    },
+    {
+      "name": "probe: the AbortSignal.any counter is live (the probe's own call moves it by exactly one)",
+      "pass": true,
+      "observed": {
+        "sinceLoad": {
+          "calls": 0,
+          "patched": true
+        },
+        "afterOwnCall": {
+          "calls": 1,
+          "patched": true
+        }
+      }
+    },
+    {
+      "name": "validation: pi-schema refused {} (no title) in a request context, before execute ran",
+      "pass": true,
+      "observed": {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "resolve_anime",
+        "isError": true,
+        "text": "<harness>\n[error] Validation failed for tool \"resolve_anime\":\n  - title: missing\n\nReceived arguments:\n{}\n</harness>"
+      }
+    },
+    {
+      "name": "coercion: pi-schema coerced { title: 42 } to \"42\" and execute ran with it",
+      "pass": true,
+      "observed": {
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"42\",\"title_cn\":\"巡礼\"}}"
+        },
+        "callsFor42": 1
+      }
+    },
+    {
+      "name": "safe: workerd A was SIGKILLed while the tool's catalog call was held in flight",
+      "pass": true,
+      "observed": {
+        "inFlightAt": 1795016298012,
+        "killedAt": 1795016299013,
+        "firstCall": {
+          "at": 1795016298012,
+          "title": "Evict Safe",
+          "held": true
+        }
+      }
+    },
+    {
+      "name": "safe: a new instance in workerd B answered before any request reached the object",
+      "pass": true,
+      "observed": {
+        "instances": [
+          "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e"
+        ],
+        "kinds": [
+          "1ec39450 constructed",
+          "1ec39450 tool:start",
+          "1ec39450 start",
+          "1ec39450 job",
+          "1ec39450 alarm",
+          "1ec39450 tool:end",
+          "1ec39450 model:answer",
+          "1ec39450 request:report"
+        ],
+        "answerLoggedAt": 1795016328064,
+        "firstRequestAt": 1795016328064
+      }
+    },
+    {
+      "name": "safe: the lifecycle job (pi-wake) ran on the answering instance before any request",
+      "pass": true,
+      "observed": [
+        "constructed",
+        "tool:start",
+        "start",
+        "job",
+        "alarm",
+        "tool:end",
+        "model:answer"
+      ]
+    },
+    {
+      "name": "safe: the operation settled done",
+      "pass": true,
+      "observed": {
+        "operationId": "safe-evict-1",
+        "session": "1",
+        "status": "done",
+        "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+      }
+    },
+    {
+      "name": "safe: one tool call in the transcript, one tool result, then the answer",
+      "pass": true,
+      "observed": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Evict Safe\"."
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Evict Safe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 9,
+            "cacheRead": 0,
+            "cacheWrite": 66,
+            "totalTokens": 75,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}",
+          "usage": {
+            "input": 0,
+            "output": 25,
+            "cacheRead": 0,
+            "cacheWrite": 107,
+            "totalTokens": 132,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "unsafe: workerd A was SIGKILLed while the tool's catalog call was held in flight",
+      "pass": true,
+      "observed": {
+        "inFlightAt": 1795016328334,
+        "killedAt": 1795016329337,
+        "firstCall": {
+          "at": 1795016328334,
+          "title": "Evict Unsafe",
+          "held": true
+        }
+      }
+    },
+    {
+      "name": "unsafe: a new instance in workerd B answered before any request reached the object",
+      "pass": true,
+      "observed": {
+        "instances": [
+          "d7a7359d-2d31-4022-bfc4-51f56004aef0"
+        ],
+        "kinds": [
+          "d7a7359d constructed",
+          "d7a7359d model:answer",
+          "d7a7359d start",
+          "d7a7359d job",
+          "d7a7359d alarm",
+          "d7a7359d request:report"
+        ],
+        "answerLoggedAt": 1795016358448,
+        "firstRequestAt": 1795016358448
+      }
+    },
+    {
+      "name": "unsafe: the lifecycle job (pi-wake) ran on the answering instance before any request",
+      "pass": true,
+      "observed": [
+        "constructed",
+        "model:answer",
+        "start",
+        "job",
+        "alarm"
+      ]
+    },
+    {
+      "name": "unsafe: the operation settled done",
+      "pass": true,
+      "observed": {
+        "operationId": "unsafe-evict-1",
+        "session": "1",
+        "status": "done",
+        "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+      }
+    },
+    {
+      "name": "unsafe: one tool call in the transcript, one tool result, then the answer",
+      "pass": true,
+      "observed": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Evict Unsafe\"."
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Evict Unsafe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 10,
+            "cacheRead": 0,
+            "cacheWrite": 67,
+            "totalTokens": 77,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>",
+          "usage": {
+            "input": 0,
+            "output": 27,
+            "cacheRead": 0,
+            "cacheWrite": 109,
+            "totalTokens": 136,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "safe: the tool ran again after the eviction (two catalog calls, the second answered)",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795016298012,
+          "title": "Evict Safe",
+          "held": true
+        },
+        {
+          "at": 1795016328045,
+          "title": "Evict Safe",
+          "held": false
+        }
+      ]
+    },
+    {
+      "name": "safe: the rerun's successful result reached the model, and the answer uses it",
+      "pass": true,
+      "observed": {
+        "title": "Evict Safe",
+        "sawToolResult": {
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+        }
+      }
+    },
+    {
+      "name": "unsafe: the tool did not run again (one catalog call, no tool:start on the restarted instance)",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795016328334,
+          "title": "Evict Unsafe",
+          "held": true
+        }
+      ]
+    },
+    {
+      "name": "unsafe: the model received the interrupted result and answered from it",
+      "pass": true,
+      "observed": {
+        "stored": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        },
+        "modelSaw": {
+          "title": "Evict Unsafe",
+          "sawToolResult": {
+            "isError": true,
+            "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+          }
+        }
+      }
+    },
+    {
+      "name": "PiHarness logged no missing-onWake warning",
+      "pass": true,
+      "observed": null
+    },
+    {
+      "name": "guard: the only refused request in the whole run is the negative control's, and the worker got no answer from it",
+      "pass": true,
+      "observed": {
+        "response": {
+          "refused": false,
+          "status": 500
+        },
+        "violations": [
+          {
+            "at": 1795016358827,
+            "method": "GET",
+            "url": "https://upstream.invalid/spike-guard-self-test"
+          }
+        ]
+      }
+    }
+  ]
+}

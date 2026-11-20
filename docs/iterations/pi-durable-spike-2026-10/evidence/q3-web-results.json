@@ -1,0 +1,470 @@
+{
+  "case": "web-results",
+  "results": {
+    "op-w1": {
+      "operationId": "op-w1",
+      "session": "1",
+      "status": "done",
+      "text": "Answered from: RENDERED Hyouka"
+    },
+    "op-w2": {
+      "operationId": "op-w2",
+      "session": "1",
+      "status": "done",
+      "text": "Answered from: RENDERED Hyouka"
+    },
+    "op-w3": {
+      "operationId": "op-w3",
+      "session": "1",
+      "status": "done",
+      "text": "Answered from: STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>"
+    }
+  },
+  "requests": [
+    {
+      "request": 1,
+      "user": "search",
+      "lastRole": "user",
+      "webResultsSeen": []
+    },
+    {
+      "request": 2,
+      "user": "search",
+      "lastRole": "toolResult",
+      "webResultsSeen": [
+        "RENDERED Hyouka"
+      ]
+    },
+    {
+      "request": 3,
+      "user": "again",
+      "lastRole": "user",
+      "webResultsSeen": [
+        "RENDERED Hyouka"
+      ]
+    },
+    {
+      "request": 4,
+      "user": "again",
+      "lastRole": "user",
+      "webResultsSeen": [
+        "RENDERED Hyouka"
+      ]
+    },
+    {
+      "request": 5,
+      "user": "third",
+      "lastRole": "user",
+      "webResultsSeen": [
+        "STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>"
+      ]
+    }
+  ],
+  "hooks": [
+    {
+      "messages": 2,
+      "webResults": 0,
+      "detailsPresent": [],
+      "throws": false
+    },
+    {
+      "messages": 4,
+      "webResults": 1,
+      "detailsPresent": [
+        true
+      ],
+      "throws": false
+    },
+    {
+      "messages": 6,
+      "webResults": 1,
+      "detailsPresent": [
+        true
+      ],
+      "throws": false
+    },
+    {
+      "messages": 6,
+      "webResults": 1,
+      "detailsPresent": [
+        true
+      ],
+      "throws": false
+    },
+    {
+      "messages": 8,
+      "webResults": 1,
+      "detailsPresent": [
+        true
+      ],
+      "throws": true
+    }
+  ],
+  "reports": [
+    {
+      "kind": "extension_error",
+      "extension": "status",
+      "error": "the agent status could not be built"
+    },
+    {
+      "kind": "extension_error",
+      "extension": "status",
+      "error": "the agent status could not be built"
+    },
+    {
+      "kind": "extension_error",
+      "extension": "status",
+      "error": "the agent status could not be built"
+    },
+    {
+      "kind": "extension_error",
+      "extension": "status",
+      "error": "the agent status could not be built"
+    },
+    {
+      "kind": "extension_error",
+      "extension": "status",
+      "error": "the agent status could not be built"
+    },
+    {
+      "kind": "extension_error",
+      "extension": "web-render",
+      "error": "the web render threw"
+    }
+  ],
+  "statusHooks": 5,
+  "fauxCalls": 5,
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "search",
+      "toolCalls": []
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "role": "system",
+      "text": "",
+      "toolCalls": []
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "",
+      "toolCalls": [
+        {
+          "name": "web_search",
+          "arguments": {
+            "query": "Hyouka"
+          }
+        }
+      ],
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 0,
+        "output": 8,
+        "cacheRead": 0,
+        "cacheWrite": 51,
+        "totalTokens": 59,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "role": "toolResult",
+      "text": "STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>",
+      "toolCalls": [],
+      "toolName": "web_search",
+      "isError": false
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Answered from: RENDERED Hyouka",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 8,
+        "cacheRead": 51,
+        "cacheWrite": 20,
+        "totalTokens": 79,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 16,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "again",
+      "toolCalls": []
+    },
+    {
+      "id": 19,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "",
+      "toolCalls": [],
+      "stopReason": "error",
+      "errorMessage": "503 service unavailable",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 71,
+        "cacheWrite": 13,
+        "totalTokens": 84,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 20,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Answered from: RENDERED Hyouka",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 8,
+        "cacheRead": 84,
+        "cacheWrite": 0,
+        "totalTokens": 92,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 21,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "third",
+      "toolCalls": []
+    },
+    {
+      "id": 24,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Answered from: STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 27,
+        "cacheRead": 67,
+        "cacheWrite": 50,
+        "totalTokens": 144,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "provider": "faux; its retryable error frame is a scripted 503 message (pi-ai@1.5.2 dist/utils/retry.js:29-43)",
+  "workerdLog": [
+    "+     0ms web stdout: [spike] constructed instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+    49ms web stdout: [spike] start instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+    54ms web stdout: [spike] request:submit instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   137ms web stdout: [spike] hook:status instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   209ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   209ms web stdout: [spike] hook:web-render instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   224ms web stdout: [spike] model:request instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   396ms web stdout: [spike] tool:web_search instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   440ms web stdout: [spike] hook:status instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   440ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   440ms web stdout: [spike] hook:web-render instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   448ms web stdout: [spike] model:request instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   490ms web stdout: [spike] job instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   490ms web stdout: [spike] alarm instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   506ms web stdout: [spike] request:report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   528ms web stdout: [spike] request:submit instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   541ms web stdout: [spike] hook:status instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   541ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   541ms web stdout: [spike] hook:web-render instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   541ms web stdout: [spike] model:request instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   566ms web stdout: [spike] request:report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   600ms web stdout: [spike] job instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   602ms web stdout: [spike] alarm instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   610ms web stdout: [spike] hook:status instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   610ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   610ms web stdout: [spike] hook:web-render instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   610ms web stdout: [spike] model:request instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   618ms web stdout: [spike] job instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   618ms web stdout: [spike] alarm instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   624ms web stdout: [spike] request:flags instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   635ms web stdout: [spike] request:submit instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   646ms web stdout: [spike] hook:status instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   646ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   646ms web stdout: [spike] hook:web-render instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   646ms web stdout: [spike] report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   647ms web stdout: [spike] model:request instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   653ms web stdout: [spike] job instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   653ms web stdout: [spike] alarm instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd",
+    "+   657ms web stdout: [spike] request:report instance=e6e481f2-c8f2-4995-85b7-904ddf8c1edd"
+  ],
+  "checks": [
+    {
+      "name": "turn 1: after the tool ran, the model received the rebuilt text, not the stored text, although the status hook threw before it",
+      "pass": true,
+      "observed": {
+        "request": 2,
+        "user": "search",
+        "lastRole": "toolResult",
+        "webResultsSeen": [
+          "RENDERED Hyouka"
+        ]
+      }
+    },
+    {
+      "name": "turn 2: a later request rebuilds the earlier turn's result again, on the failed attempt (503) and on its retry",
+      "pass": true,
+      "observed": {
+        "again": [
+          {
+            "request": 3,
+            "user": "again",
+            "lastRole": "user",
+            "webResultsSeen": [
+              "RENDERED Hyouka"
+            ]
+          },
+          {
+            "request": 4,
+            "user": "again",
+            "lastRole": "user",
+            "webResultsSeen": [
+              "RENDERED Hyouka"
+            ]
+          }
+        ],
+        "result": {
+          "operationId": "op-w2",
+          "session": "1",
+          "status": "done",
+          "text": "Answered from: RENDERED Hyouka"
+        }
+      }
+    },
+    {
+      "name": "the rebuild ran once per model request attempt (hook calls = faux calls = status hook calls)",
+      "pass": true,
+      "observed": {
+        "hooks": 5,
+        "fauxCalls": 5,
+        "statusHooks": 5
+      }
+    },
+    {
+      "name": "the hook read `details` from the stored message itself",
+      "pass": true,
+      "observed": [
+        {
+          "messages": 2,
+          "webResults": 0,
+          "detailsPresent": [],
+          "throws": false
+        },
+        {
+          "messages": 4,
+          "webResults": 1,
+          "detailsPresent": [
+            true
+          ],
+          "throws": false
+        },
+        {
+          "messages": 6,
+          "webResults": 1,
+          "detailsPresent": [
+            true
+          ],
+          "throws": false
+        },
+        {
+          "messages": 6,
+          "webResults": 1,
+          "detailsPresent": [
+            true
+          ],
+          "throws": false
+        },
+        {
+          "messages": 8,
+          "webResults": 1,
+          "detailsPresent": [
+            true
+          ],
+          "throws": true
+        }
+      ]
+    },
+    {
+      "name": "the status hook's throw was reported (extension_error) and skipped on every request",
+      "pass": true,
+      "observed": {
+        "statusReports": 5,
+        "fauxCalls": 5
+      }
+    },
+    {
+      "name": "turn 3: with the rebuild throwing, the model received the stored text, and the throw was reported",
+      "pass": true,
+      "observed": {
+        "third": [
+          {
+            "request": 5,
+            "user": "third",
+            "lastRole": "user",
+            "webResultsSeen": [
+              "STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>"
+            ]
+          }
+        ],
+        "renderReports": 1
+      }
+    },
+    {
+      "name": "the transcript keeps the stored text: the rebuild changes the request, not the record",
+      "pass": true,
+      "observed": [
+        "STORED <untrusted_web_result>Hyouka </untrusted_web_result> Takayama</untrusted_web_result>"
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

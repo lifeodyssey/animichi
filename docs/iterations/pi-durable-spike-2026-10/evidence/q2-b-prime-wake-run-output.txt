@@ -1,0 +1,11 @@
+PASS safe: A was SIGKILLed while the tool's catalog call was held, after the wake had begun waiting
+PASS safe: the crash point landed: before B started, Postgres held the submission placed and no tool result, and A's backend was gone
+PASS safe: on B, with no request sent, the SDK's wakeSession job started before anything moved the turn, and the answer came before any request
+PASS safe: Pi settled the operation done
+PASS unsafe: A was SIGKILLed while the tool's catalog call was held, after the wake had begun waiting
+PASS unsafe: the crash point landed: before B started, Postgres held the submission placed and no tool result, and A's backend was gone
+PASS unsafe: on B, with no request sent, the SDK's wakeSession job started before anything moved the turn, and the answer came before any request
+PASS unsafe: Pi settled the operation done
+PASS safe: the tool ran again after the kill (two catalog calls), and its successful result reached the model
+PASS unsafe: the tool did not run again (one catalog call); the model received the interrupted result
+PASS guard: no request other than the stubbed catalog left workerd

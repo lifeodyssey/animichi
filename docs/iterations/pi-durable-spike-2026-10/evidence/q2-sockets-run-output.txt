@@ -1,0 +1,6 @@
+PASS node: the loopback connect succeeds, and the listener accepts it
+PASS node: the connect to 192.0.2.1 is refused with EPERM within 100 ms (a refusal, not a timeout)
+PASS workerd: the loopback connect opens, and the listener accepts it
+PASS workerd: the connect to 192.0.2.1 fails within 1 s (not the 5 s timeout)
+PASS guard: the fetch guard saw neither socket
+{"node":{"loopback":{"host":"127.0.0.1","port":64002,"elapsedMs":15.3,"outcome":"connected"},"testNet":{"host":"192.0.2.1","port":5432,"elapsedMs":3.8,"outcome":"refused","code":"EPERM","message":"connect EPERM 192.0.2.1:5432 - Local (0.0.0.0:0)"}},"workerd":{"loopback":{"hostname":"127.0.0.1","port":64002,"outcome":"opened","elapsedMs":12,"remoteAddress":"127.0.0.1:64002"},"testNet":{"hostname":"192.0.2.1","port":5432,"outcome":"refused","elapsedMs":6,"error":"Error: proxy request failed, cannot connect to the specified address"}},"workerdErrorNamesTheSandbox":true}

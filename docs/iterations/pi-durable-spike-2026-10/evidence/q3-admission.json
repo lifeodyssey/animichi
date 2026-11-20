@@ -1,0 +1,227 @@
+{
+  "case": "admission",
+  "raw": {
+    "rawFirst": {
+      "operationId": "op-raw",
+      "session": "1",
+      "accepted": true
+    },
+    "rawSecond": {
+      "operationId": "op-raw",
+      "session": "1",
+      "accepted": false
+    },
+    "rawResult": {
+      "operationId": "op-raw",
+      "session": "1",
+      "status": "done",
+      "text": "Answer to: A"
+    },
+    "writeSameId": {
+      "rejected": true,
+      "error": "Request op-raw already identifies a submission of type input"
+    }
+  },
+  "covered": [
+    {
+      "status": 202,
+      "kind": "created",
+      "receipt": {
+        "operationId": "op-covered",
+        "session": "1",
+        "accepted": true
+      }
+    },
+    {
+      "status": 409,
+      "kind": "conflict"
+    },
+    {
+      "status": 200,
+      "kind": "existing",
+      "receipt": {
+        "operationId": "op-covered",
+        "session": "1",
+        "accepted": false
+      }
+    }
+  ],
+  "coveredResult": {
+    "operationId": "op-covered",
+    "session": "1",
+    "status": "done",
+    "text": "Answer to: C"
+  },
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "A",
+      "toolCalls": []
+    },
+    {
+      "id": 10,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Answer to: A",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 3,
+        "cacheRead": 0,
+        "cacheWrite": 2,
+        "totalTokens": 5,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 11,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "C",
+      "toolCalls": []
+    },
+    {
+      "id": 14,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Answer to: C",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 3,
+        "cacheRead": 2,
+        "cacheWrite": 8,
+        "totalTokens": 13,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "fauxCalls": 2,
+  "provider": "faux",
+  "workerdLog": [
+    "+     0ms admission stdout: [spike] constructed instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   102ms admission stdout: [spike] start instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   108ms admission stdout: [spike] request:submit instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   185ms admission stdout: [spike] model:answer instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   267ms admission stdout: [spike] job instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   267ms admission stdout: [spike] alarm instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   276ms admission stdout: [spike] request:submit instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   282ms admission stdout: [spike] job instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   282ms admission stdout: [spike] alarm instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   289ms admission stdout: [spike] request:report instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   307ms admission stdout: [spike] request:write-same-id instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   321ms admission stdout: [spike] request:admit instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   354ms admission stdout: [spike] model:answer instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   452ms admission stdout: [spike] job instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   452ms admission stdout: [spike] alarm instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   491ms admission stdout: [spike] request:admit instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   499ms admission stdout: [spike] request:admit instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   505ms admission stdout: [spike] job instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   505ms admission stdout: [spike] alarm instance=f2586840-dba4-4d34-8b9a-fb9b54314f40",
+    "+   511ms admission stdout: [spike] request:report instance=f2586840-dba4-4d34-8b9a-fb9b54314f40"
+  ],
+  "checks": [
+    {
+      "name": "PiHarness: a second submit under the same operationId with other content gets accepted: false, and Pi answers only the first",
+      "pass": true,
+      "observed": {
+        "rawFirst": {
+          "operationId": "op-raw",
+          "session": "1",
+          "accepted": true
+        },
+        "rawSecond": {
+          "operationId": "op-raw",
+          "session": "1",
+          "accepted": false
+        },
+        "rawResult": {
+          "operationId": "op-raw",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: A"
+        },
+        "writeSameId": {
+          "rejected": true,
+          "error": "Request op-raw already identifies a submission of type input"
+        }
+      }
+    },
+    {
+      "name": "pi-durable: a submission of another type (a write) under that request id is rejected",
+      "pass": true,
+      "observed": {
+        "rejected": true,
+        "error": "Request op-raw already identifies a submission of type input"
+      }
+    },
+    {
+      "name": "covering layer: the same id with other content answers 409; the same id with the same content is the existing admission",
+      "pass": true,
+      "observed": {
+        "covered": [
+          {
+            "status": 202,
+            "kind": "created",
+            "receipt": {
+              "operationId": "op-covered",
+              "session": "1",
+              "accepted": true
+            }
+          },
+          {
+            "status": 409,
+            "kind": "conflict"
+          },
+          {
+            "status": 200,
+            "kind": "existing",
+            "receipt": {
+              "operationId": "op-covered",
+              "session": "1",
+              "accepted": false
+            }
+          }
+        ],
+        "result": {
+          "operationId": "op-covered",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: C"
+        }
+      }
+    },
+    {
+      "name": "Pi placed A and C only, and the faux model ran twice: B and D never reached the model",
+      "pass": true,
+      "observed": {
+        "userTexts": [
+          "A",
+          "C"
+        ],
+        "fauxCalls": 2
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

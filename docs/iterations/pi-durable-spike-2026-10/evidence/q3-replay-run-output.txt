@@ -1,0 +1,8 @@
+PASS control: the same tool completing with no interruption is billed under tools, with its 10 tokens
+PASS A was SIGKILLed while translate_anime_title's catalog call was held in flight
+PASS replay: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there
+PASS the tool did not run again: one catalog call, no tool:start after the kill
+PASS one reservation, made inside execute before the kill
+PASS the model received an interrupted error result and answered from it
+PASS Pi's usage counts nothing for the interrupted call: no translate_anime_title entry under tools
+PASS guard: no request other than the stubbed catalog left workerd

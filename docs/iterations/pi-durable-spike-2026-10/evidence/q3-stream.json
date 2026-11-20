@@ -1,0 +1,686 @@
+{
+  "case": "stream",
+  "receipt": {
+    "operationId": "op-stream",
+    "session": "1",
+    "accepted": true
+  },
+  "result": {
+    "operationId": "op-stream",
+    "session": "1",
+    "status": "done",
+    "text": "Stream answer: stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream "
+  },
+  "operationEntries": {
+    "placed": 127,
+    "answer": 130
+  },
+  "earlyFirst": {
+    "entries": 50,
+    "firstEntry": 27,
+    "lastEntry": 125,
+    "before": 25,
+    "kinds": {
+      "spike.note": 50
+    },
+    "running": false,
+    "partialChars": 0,
+    "answerEntries": []
+  },
+  "earlyCalls": [
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 0,
+      "answerEntries": [],
+      "ops": 2,
+      "opPreview": "[[\"s\",[\"docs\",\"pi.live\",\"run\"],{\"taskId\":129,\"inputs\":[128],\"turns\":0,\"first\":127}],[\"p\",[\"entries\"],50,0,[{\"model\":[{\"role\":\"user\",\"content\":\"stream please\",\"timestamp\":1795024035231}],\"kind\":\"pi.user\",\"id\":127,\"conversationId\":1}]]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 0,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"s\",[\"docs\",\"pi.live\",\"generation\"],{\"attempt\":1}]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 16,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"s\",[\"docs\",\"pi.live\",\"generation\",\"message\"],{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Stream answer: s\"}],\"api\":\"faux:1795024034981:ue6je5s2avs\",\"provider\":\"faux\",\"model\":\"faux-1\",\"usage\":{\"input\":0,\"output\":109,\"cacheRead\":"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 56,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"tream stream stream stream stream stream\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 92,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream stream \"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 124,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream stre\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 160,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"am stream stream stream stream strea\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 196,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"m stream stream stream stream stream\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 224,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 252,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 288,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream stream \"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 316,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream \"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 348,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream stre\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 384,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"am stream stream stream stream strea\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 27,
+      "lastEntry": 127,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 416,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"m stream stream stream stream st\"]]"
+    },
+    {
+      "entries": 52,
+      "firstEntry": 27,
+      "lastEntry": 130,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1,
+        "pi.assistant": 1
+      },
+      "running": false,
+      "partialChars": 0,
+      "answerEntries": [
+        130
+      ],
+      "ops": 4,
+      "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+    }
+  ],
+  "earlyCallsBeforeLate": 5,
+  "lateFirst": {
+    "entries": 50,
+    "firstEntry": 29,
+    "lastEntry": 127,
+    "before": 27,
+    "kinds": {
+      "spike.note": 49,
+      "pi.user": 1
+    },
+    "running": true,
+    "partialChars": 92,
+    "answerEntries": []
+  },
+  "lateCalls": [
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 124,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream stre\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 160,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"am stream stream stream stream strea\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 196,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"m stream stream stream stream stream\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 224,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 252,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 288,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\" stream stream stream stream stream \"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 316,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream \"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 348,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"stream stream stream stream stre\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 384,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"am stream stream stream stream strea\"]]"
+    },
+    {
+      "entries": 50,
+      "firstEntry": 29,
+      "lastEntry": 127,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1
+      },
+      "running": true,
+      "partialChars": 416,
+      "answerEntries": [],
+      "ops": 1,
+      "opPreview": "[[\"a\",[\"docs\",\"pi.live\",\"generation\",\"message\",\"content\",0,\"text\"],\"m stream stream stream stream st\"]]"
+    },
+    {
+      "entries": 51,
+      "firstEntry": 29,
+      "lastEntry": 130,
+      "before": 27,
+      "kinds": {
+        "spike.note": 49,
+        "pi.user": 1,
+        "pi.assistant": 1
+      },
+      "running": false,
+      "partialChars": 0,
+      "answerEntries": [
+        130
+      ],
+      "ops": 4,
+      "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+    }
+  ],
+  "compaction": {
+    "outcome": {
+      "status": "terminal",
+      "outcome": {
+        "status": "completed",
+        "result": {
+          "submissionId": 133
+        }
+      }
+    },
+    "compactionEntries": [
+      {
+        "id": 132,
+        "kind": "pi.compaction",
+        "head": 130
+      }
+    ],
+    "calls": [
+      {
+        "entries": 50,
+        "firstEntry": 31,
+        "lastEntry": 130,
+        "before": 29,
+        "kinds": {
+          "spike.note": 48,
+          "pi.user": 1,
+          "pi.assistant": 1
+        },
+        "running": false,
+        "partialChars": 0,
+        "answerEntries": [
+          130
+        ],
+        "ops": 1,
+        "opPreview": "[[\"s\",[\"docs\",\"pi.live\",\"compactions\"],[{\"taskId\":131,\"trigger\":\"manual\",\"blocking\":false,\"attempt\":1}]]]"
+      },
+      {
+        "entries": 51,
+        "firstEntry": 31,
+        "lastEntry": 132,
+        "before": 29,
+        "kinds": {
+          "spike.note": 48,
+          "pi.user": 1,
+          "pi.assistant": 1,
+          "pi.compaction": 1
+        },
+        "running": false,
+        "partialChars": 0,
+        "answerEntries": [
+          130
+        ],
+        "ops": 5,
+        "opPreview": "[[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\",\"input\"],358],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\",\"output\"],124],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\",\"totalTokens\"],487],[\"d\",[\"docs\",\"pi.live\",\"compactions\"]],[\"p\",[\"ent"
+      }
+    ]
+  },
+  "endOfRun": {
+    "callIndex": 15,
+    "call": {
+      "entries": 52,
+      "firstEntry": 27,
+      "lastEntry": 130,
+      "before": 25,
+      "kinds": {
+        "spike.note": 50,
+        "pi.user": 1,
+        "pi.assistant": 1
+      },
+      "running": false,
+      "partialChars": 0,
+      "answerEntries": [
+        130
+      ],
+      "ops": 4,
+      "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+    },
+    "answerArrivesInThatCall": true
+  },
+  "provider": "faux, tokensPerSecond 50",
+  "workerdLog": [
+    "+     0ms stream stdout: [spike] constructed instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+    45ms stream stdout: [spike] start instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+    53ms stream stdout: [spike] request:scenario instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+   271ms stream stdout: [spike] model:request instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+   275ms stream stdout: [spike] job instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+   276ms stream stdout: [spike] alarm instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  2554ms stream stdout: [spike] job instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  2554ms stream stdout: [spike] alarm instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  2871ms stream stdout: [spike] model:request instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  2873ms stream stdout: [spike] job instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  2873ms stream stdout: [spike] alarm instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  3192ms stream stdout: [spike] job instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea",
+    "+  3193ms stream stdout: [spike] alarm instance=6ef8ee2a-8e3a-4efd-a6fb-e032c82f82ea"
+  ],
+  "checks": [
+    {
+      "name": "the operation answered",
+      "pass": true,
+      "observed": {
+        "operationId": "op-stream",
+        "session": "1",
+        "status": "done",
+        "text": "Stream answer: stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream stream "
+      }
+    },
+    {
+      "name": "the first value is a window of the newest 50 of the 60 seeded entries, with `before` set",
+      "pass": true,
+      "observed": {
+        "entries": 50,
+        "firstEntry": 27,
+        "lastEntry": 125,
+        "before": 25,
+        "kinds": {
+          "spike.note": 50
+        },
+        "running": false,
+        "partialChars": 0,
+        "answerEntries": []
+      }
+    },
+    {
+      "name": "before the late attach, the first watcher had received at least three changes carrying a growing partial",
+      "pass": true,
+      "observed": {
+        "partials": [
+          16,
+          56,
+          92
+        ]
+      }
+    },
+    {
+      "name": "the late watcher's first value already holds the partial so far, as state, and it receives fewer changes than the first watcher",
+      "pass": true,
+      "observed": {
+        "lateFirst": {
+          "entries": 50,
+          "firstEntry": 29,
+          "lastEntry": 127,
+          "before": 27,
+          "kinds": {
+            "spike.note": 49,
+            "pi.user": 1
+          },
+          "running": true,
+          "partialChars": 92,
+          "answerEntries": []
+        },
+        "lateCalls": 11,
+        "earlyCalls": 16
+      }
+    },
+    {
+      "name": "both watchers end on the same view: the answer entry, no run, no partial",
+      "pass": true,
+      "observed": {
+        "lastEarly": {
+          "entries": 52,
+          "firstEntry": 27,
+          "lastEntry": 130,
+          "before": 25,
+          "kinds": {
+            "spike.note": 50,
+            "pi.user": 1,
+            "pi.assistant": 1
+          },
+          "running": false,
+          "partialChars": 0,
+          "answerEntries": [
+            130
+          ],
+          "ops": 4,
+          "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+        },
+        "lastLate": {
+          "entries": 51,
+          "firstEntry": 29,
+          "lastEntry": 130,
+          "before": 27,
+          "kinds": {
+            "spike.note": 49,
+            "pi.user": 1,
+            "pi.assistant": 1
+          },
+          "running": false,
+          "partialChars": 0,
+          "answerEntries": [
+            130
+          ],
+          "ops": 4,
+          "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+        }
+      }
+    },
+    {
+      "name": "the operation's end shows as pi.live.run leaving the view; no other end marker exists in the watch",
+      "pass": true,
+      "observed": {
+        "endCall": {
+          "entries": 52,
+          "firstEntry": 27,
+          "lastEntry": 130,
+          "before": 25,
+          "kinds": {
+            "spike.note": 50,
+            "pi.user": 1,
+            "pi.assistant": 1
+          },
+          "running": false,
+          "partialChars": 0,
+          "answerEntries": [
+            130
+          ],
+          "ops": 4,
+          "opPreview": "[[\"d\",[\"docs\",\"pi.live\",\"run\"]],[\"d\",[\"docs\",\"pi.live\",\"generation\"]],[\"s\",[\"docs\",\"pi.usage\",\"models\",\"faux/faux-1\"],{\"input\":0,\"output\":109,\"cacheRead\":0,\"cacheWrite\":5,\"totalTokens\":114,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWr"
+        },
+        "answerEntry": 130
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

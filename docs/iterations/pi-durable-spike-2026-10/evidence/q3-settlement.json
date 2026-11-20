@@ -1,0 +1,941 @@
+{
+  "case": "settlement",
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "session": "settlement-06f5caee",
+  "settlements": [
+    {
+      "operation_id": "op-1",
+      "outcome": "done",
+      "charged_tokens": "14",
+      "first_entry": "7",
+      "last_entry": "15"
+    },
+    {
+      "operation_id": "op-2",
+      "outcome": "unanswered",
+      "charged_tokens": "0",
+      "first_entry": "16",
+      "last_entry": null
+    },
+    {
+      "operation_id": "op-3",
+      "outcome": "unanswered",
+      "charged_tokens": "0",
+      "first_entry": "20",
+      "last_entry": null
+    },
+    {
+      "operation_id": "op-4",
+      "outcome": "done",
+      "charged_tokens": "2",
+      "first_entry": "24",
+      "last_entry": "28"
+    },
+    {
+      "operation_id": "op-5",
+      "outcome": "done",
+      "charged_tokens": "14",
+      "first_entry": "29",
+      "last_entry": "36"
+    },
+    {
+      "operation_id": "op-6",
+      "outcome": "done",
+      "charged_tokens": "10",
+      "first_entry": "37",
+      "last_entry": "44"
+    }
+  ],
+  "usage": {
+    "models": {
+      "spike-double/double-reporting": {
+        "input": 6,
+        "output": 6,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 12,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "spike-double/double-silent": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    "tools": {
+      "translate_anime_title": {
+        "input": 21,
+        "output": 9,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 30,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  },
+  "usageTotal": 42,
+  "entriesUsage": {
+    "total": 42,
+    "calls": [
+      {
+        "entry": 11,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "toolUse"
+      },
+      {
+        "entry": 13,
+        "role": "toolResult",
+        "totalTokens": 10
+      },
+      {
+        "entry": 15,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "stop"
+      },
+      {
+        "entry": 19,
+        "role": "assistant",
+        "totalTokens": 0,
+        "stopReason": "error"
+      },
+      {
+        "entry": 23,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "error"
+      },
+      {
+        "entry": 27,
+        "role": "assistant",
+        "totalTokens": 0,
+        "stopReason": "aborted"
+      },
+      {
+        "entry": 28,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "stop"
+      },
+      {
+        "entry": 32,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "toolUse"
+      },
+      {
+        "entry": 34,
+        "role": "toolResult",
+        "totalTokens": 10
+      },
+      {
+        "entry": 36,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "stop"
+      },
+      {
+        "entry": 40,
+        "role": "assistant",
+        "totalTokens": 0,
+        "stopReason": "toolUse"
+      },
+      {
+        "entry": 42,
+        "role": "toolResult",
+        "totalTokens": 10
+      },
+      {
+        "entry": 44,
+        "role": "assistant",
+        "totalTokens": 0,
+        "stopReason": "stop"
+      }
+    ]
+  },
+  "uncharged": {
+    "total": 2,
+    "calls": [
+      {
+        "entry": 19,
+        "role": "assistant",
+        "totalTokens": 0,
+        "stopReason": "error"
+      },
+      {
+        "entry": 23,
+        "role": "assistant",
+        "totalTokens": 2,
+        "stopReason": "error"
+      }
+    ]
+  },
+  "aborted": [
+    {
+      "model": [
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 "
+            }
+          ],
+          "api": "spike-double",
+          "provider": "spike-double",
+          "model": "double-reporting",
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 0,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "aborted",
+          "timestamp": 1795038458899
+        }
+      ],
+      "kind": "pi.assistant",
+      "id": 27,
+      "conversationId": 1,
+      "byTaskId": 26
+    }
+  ],
+  "failedEntries": [
+    {
+      "model": [
+        {
+          "role": "assistant",
+          "content": [],
+          "api": "spike-double",
+          "provider": "spike-double",
+          "model": "double-reporting",
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 0,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "error",
+          "errorMessage": "400 Bad Request: the gateway rejected the request shape",
+          "timestamp": 1795038458698,
+          "durationMs": 0,
+          "thinkingLevel": "off"
+        }
+      ],
+      "kind": "pi.assistant",
+      "id": 19,
+      "conversationId": 1,
+      "byTaskId": 18
+    },
+    {
+      "model": [
+        {
+          "role": "assistant",
+          "content": [],
+          "api": "spike-double",
+          "provider": "spike-double",
+          "model": "double-reporting",
+          "usage": {
+            "input": 1,
+            "output": 1,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "totalTokens": 2,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "error",
+          "timestamp": 1795038458790,
+          "errorMessage": "400 invalid_request_error: the gateway rejected the request",
+          "durationMs": 10,
+          "thinkingLevel": "off"
+        }
+      ],
+      "kind": "pi.assistant",
+      "id": 23,
+      "conversationId": 1,
+      "byTaskId": 22
+    }
+  ],
+  "entriesAtKill": 10,
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "text": "turn: the first completed turn"
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "text": ""
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "translate_anime_title",
+          "arguments": {
+            "title": "turn: the first completed turn",
+            "target_language": "zh"
+          }
+        }
+      ],
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "toolName": "translate_anime_title",
+      "isError": false,
+      "text": "{\"original\":\"turn: the first completed turn\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "text": "Answer to turn: the first completed turn",
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 16,
+      "kind": "pi.user",
+      "text": "fail-4xx: a request the gateway rejects"
+    },
+    {
+      "id": 19,
+      "kind": "pi.assistant",
+      "text": "",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 20,
+      "kind": "pi.user",
+      "text": "fail-frame: a failed attempt as an error frame"
+    },
+    {
+      "id": 23,
+      "kind": "pi.assistant",
+      "text": "",
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 24,
+      "kind": "pi.user",
+      "text": "interrupt: an answer cut off by a kill"
+    },
+    {
+      "id": 27,
+      "kind": "pi.assistant",
+      "text": "word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 ",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 28,
+      "kind": "pi.assistant",
+      "text": "word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20 word21 word22 word23 word24 word25 word26 word27 word28 word29 ",
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 29,
+      "kind": "pi.user",
+      "text": "turn: the second completed turn"
+    },
+    {
+      "id": 32,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "translate_anime_title",
+          "arguments": {
+            "title": "turn: the second completed turn",
+            "target_language": "zh"
+          }
+        }
+      ],
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 34,
+      "kind": "pi.tool-result",
+      "toolName": "translate_anime_title",
+      "isError": false,
+      "text": "{\"original\":\"turn: the second completed turn\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+    },
+    {
+      "id": 36,
+      "kind": "pi.assistant",
+      "text": "Answer to turn: the second completed turn",
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 37,
+      "kind": "pi.user",
+      "text": "turn: a turn on a gateway not asked for usage"
+    },
+    {
+      "id": 40,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "translate_anime_title",
+          "arguments": {
+            "title": "turn: a turn on a gateway not asked for usage",
+            "target_language": "zh"
+          }
+        }
+      ],
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 42,
+      "kind": "pi.tool-result",
+      "toolName": "translate_anime_title",
+      "isError": false,
+      "text": "{\"original\":\"turn: a turn on a gateway not asked for usage\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+    },
+    {
+      "id": 44,
+      "kind": "pi.assistant",
+      "text": "Answer to turn: a turn on a gateway not asked for usage",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "provider": "the ported provider double (q2/b-prime/double.ts); faux is not used in this case",
+  "checks": [
+    {
+      "name": "every operation settled once: op-1, op-4, op-5, op-6 done; op-2 (4xx thrown) and op-3 (error frame) unanswered, banked nothing",
+      "pass": true,
+      "observed": [
+        {
+          "operation_id": "op-1",
+          "outcome": "done",
+          "charged_tokens": "14",
+          "first_entry": "7",
+          "last_entry": "15"
+        },
+        {
+          "operation_id": "op-2",
+          "outcome": "unanswered",
+          "charged_tokens": "0",
+          "first_entry": "16",
+          "last_entry": null
+        },
+        {
+          "operation_id": "op-3",
+          "outcome": "unanswered",
+          "charged_tokens": "0",
+          "first_entry": "20",
+          "last_entry": null
+        },
+        {
+          "operation_id": "op-4",
+          "outcome": "done",
+          "charged_tokens": "2",
+          "first_entry": "24",
+          "last_entry": "28"
+        },
+        {
+          "operation_id": "op-5",
+          "outcome": "done",
+          "charged_tokens": "14",
+          "first_entry": "29",
+          "last_entry": "36"
+        },
+        {
+          "operation_id": "op-6",
+          "outcome": "done",
+          "charged_tokens": "10",
+          "first_entry": "37",
+          "last_entry": "44"
+        }
+      ]
+    },
+    {
+      "name": "op-1: charged exactly the usage inside its own entry range, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": "14",
+        "range": [
+          "7",
+          "15"
+        ],
+        "recomputed": {
+          "total": 14,
+          "calls": [
+            {
+              "entry": 11,
+              "role": "assistant",
+              "totalTokens": 2,
+              "stopReason": "toolUse"
+            },
+            {
+              "entry": 13,
+              "role": "toolResult",
+              "totalTokens": 10
+            },
+            {
+              "entry": 15,
+              "role": "assistant",
+              "totalTokens": 2,
+              "stopReason": "stop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "op-4: charged exactly the usage inside its own entry range, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": "2",
+        "range": [
+          "24",
+          "28"
+        ],
+        "recomputed": {
+          "total": 2,
+          "calls": [
+            {
+              "entry": 27,
+              "role": "assistant",
+              "totalTokens": 0,
+              "stopReason": "aborted"
+            },
+            {
+              "entry": 28,
+              "role": "assistant",
+              "totalTokens": 2,
+              "stopReason": "stop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "op-5: charged exactly the usage inside its own entry range, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": "14",
+        "range": [
+          "29",
+          "36"
+        ],
+        "recomputed": {
+          "total": 14,
+          "calls": [
+            {
+              "entry": 32,
+              "role": "assistant",
+              "totalTokens": 2,
+              "stopReason": "toolUse"
+            },
+            {
+              "entry": 34,
+              "role": "toolResult",
+              "totalTokens": 10
+            },
+            {
+              "entry": 36,
+              "role": "assistant",
+              "totalTokens": 2,
+              "stopReason": "stop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "op-6: charged exactly the usage inside its own entry range, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": "10",
+        "range": [
+          "37",
+          "44"
+        ],
+        "recomputed": {
+          "total": 10,
+          "calls": [
+            {
+              "entry": 40,
+              "role": "assistant",
+              "totalTokens": 0,
+              "stopReason": "toolUse"
+            },
+            {
+              "entry": 42,
+              "role": "toolResult",
+              "totalTokens": 10
+            },
+            {
+              "entry": 44,
+              "role": "assistant",
+              "totalTokens": 0,
+              "stopReason": "stop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "two completed turns, op-1 and op-5, are each charged only their own usage (14 each: two model calls of 2 and the tool's 10), never the session's running total",
+      "pass": true,
+      "observed": {
+        "op1": "14",
+        "op5": "14",
+        "usageTotal": 42
+      }
+    },
+    {
+      "name": "the identity: Pi's usage() total equals the stored entries' usage, which equals the completed operations' charges plus the usage outside them",
+      "pass": true,
+      "observed": {
+        "usageTotal": 42,
+        "entriesTotal": 42,
+        "charged": 40,
+        "uncharged": 2,
+        "unchargedCalls": [
+          {
+            "entry": 19,
+            "role": "assistant",
+            "totalTokens": 0,
+            "stopReason": "error"
+          },
+          {
+            "entry": 23,
+            "role": "assistant",
+            "totalTokens": 2,
+            "stopReason": "error"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the interrupted attempt: before the restart Postgres held op-4's streamed partial (a progress commit) and no answer to it; after it Pi kept an aborted entry inside op-4's range with the usage the partial carried (none: the double reports usage only in its final frame)",
+      "pass": true,
+      "observed": {
+        "partialRevisionsAtKill": 1,
+        "entriesAtKill": 10,
+        "aborted": [
+          {
+            "model": [
+              {
+                "role": "assistant",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "word0 word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 "
+                  }
+                ],
+                "api": "spike-double",
+                "provider": "spike-double",
+                "model": "double-reporting",
+                "usage": {
+                  "input": 0,
+                  "output": 0,
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "totalTokens": 0,
+                  "cost": {
+                    "input": 0,
+                    "output": 0,
+                    "cacheRead": 0,
+                    "cacheWrite": 0,
+                    "total": 0
+                  }
+                },
+                "stopReason": "aborted",
+                "timestamp": 1795038458899
+              }
+            ],
+            "kind": "pi.assistant",
+            "id": 27,
+            "conversationId": 1,
+            "byTaskId": 26
+          }
+        ],
+        "killedAt": 1795038461415,
+        "streamingAt": 1795038458899
+      }
+    },
+    {
+      "name": "op-6, on the model whose compat does not ask for usage: its model calls carry no usage, so it is charged only the tool's 10",
+      "pass": true,
+      "observed": {
+        "total": 10,
+        "calls": [
+          {
+            "entry": 40,
+            "role": "assistant",
+            "totalTokens": 0,
+            "stopReason": "toolUse"
+          },
+          {
+            "entry": 42,
+            "role": "toolResult",
+            "totalTokens": 10
+          },
+          {
+            "entry": 44,
+            "role": "assistant",
+            "totalTokens": 0,
+            "stopReason": "stop"
+          }
+        ]
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms A stdout: [spike] constructed instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+     3ms A stdout: [spike] start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   234ms A stdout: [spike] pi:opened instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   236ms A stdout: [spike] request:admit instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-1",
+    "+   238ms A stdout: [spike] wake:start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   357ms A stdout: [spike] wake:waiting instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   357ms A stdout: [spike] wake:end instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   418ms A stdout: [spike] wake:start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   436ms A stdout: [spike] wake:waiting instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   461ms A stdout: [spike] double:request instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   519ms A stdout: [spike] tool:translate instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   600ms A stdout: [spike] double:request instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   622ms A stdout: [spike] wake:end instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   648ms A stdout: [spike] settled instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-1",
+    "+   655ms A stdout: [spike] request:admit instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-2",
+    "+   659ms A stdout: [spike] wake:start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   680ms A stdout: [spike] wake:waiting instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   704ms A stdout: [spike] double:request instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   721ms A stdout: [spike] wake:end instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   729ms A stdout: [spike] settled instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-2",
+    "+   745ms A stdout: [spike] request:admit instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-3",
+    "+   749ms A stdout: [spike] wake:start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   769ms A stdout: [spike] wake:waiting instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   796ms A stdout: [spike] double:request instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   829ms A stdout: [spike] wake:end instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   837ms A stdout: [spike] settled instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-3",
+    "+   855ms A stdout: [spike] request:admit instance=4c7052d3-3106-49c0-9b99-964f1c66bbee op=op-4",
+    "+   859ms A stdout: [spike] wake:start instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   880ms A stdout: [spike] wake:waiting instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+   905ms A stdout: [spike] double:request instance=4c7052d3-3106-49c0-9b99-964f1c66bbee",
+    "+  3802ms B stdout: [spike] constructed instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  3806ms B stdout: [spike] start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  3976ms B stdout: [spike] pi:opened instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  3977ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  4072ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  4072ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  4077ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  4081ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  4081ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  5007ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  5017ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  5017ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  6087ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  6111ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+  6151ms B stdout: [spike] double:request instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10737ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10773ms B stdout: [spike] settled instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-4",
+    "+ 10774ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10776ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10776ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10791ms B stdout: [spike] request:admit instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-5",
+    "+ 10795ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10815ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10842ms B stdout: [spike] double:request instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10890ms B stdout: [spike] tool:translate instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10958ms B stdout: [spike] double:request instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10980ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 10993ms B stdout: [spike] settled instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-5",
+    "+ 11019ms B stdout: [spike] request:use-model instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11021ms B stdout: [spike] request:admit instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-6",
+    "+ 11025ms B stdout: [spike] wake:start instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11051ms B stdout: [spike] wake:waiting instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11081ms B stdout: [spike] double:request instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11131ms B stdout: [spike] tool:translate instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11213ms B stdout: [spike] double:request instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11239ms B stdout: [spike] wake:end instance=4ca18142-2691-4943-9957-d51794f0f57f",
+    "+ 11253ms B stdout: [spike] settled instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-6",
+    "+ 11761ms B stdout: [spike] request:report instance=4ca18142-2691-4943-9957-d51794f0f57f op=op-6"
+  ]
+}

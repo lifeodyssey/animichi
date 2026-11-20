@@ -1,0 +1,8 @@
+PASS a1: the crash landed where intended (read from Postgres before the restart): Pi committed the turn; no projection row; the killed process's connection was gone
+PASS a1: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)
+PASS a2: the crash landed where intended (read from Postgres before the restart): the projection's transaction, held before COMMIT, rolled back with the connection: no row; the killed process's connection was gone
+PASS a2: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)
+PASS a3: the crash landed where intended (read from Postgres before the restart): the projection row committed; the object had not noted it; the killed process's connection was gone
+PASS a3: after recovery with no request, exactly one row for the turn, equal to the projection recomputed from Pi's store (model, provider, per-call usage, tool calls and results, answer, status)
+PASS a3: the re-projection wrote nothing twice (its insert found the row) and cost the write's three statements
+PASS guard: no request other than the stubbed catalog left workerd
