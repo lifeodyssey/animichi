@@ -3,6 +3,7 @@
 - Status: ACTIVE (owner-approved plan; supersedes per-wave ordering of `2026-08-06-repo-restructure-spec.md` and `refactor-skeleton-2026-08/GOAL.md`)
 - Tracking: this spec + GOAL checkboxes + restructure §5 checks; ADRs 0003/0004/0005 record the architecture decisions
 - Definition of done: GOAL W0–W8 `[x]` · restructure §5 verification green · issues #829/#845 closed
+- Assessment of the 2026-08-06 structure-refactor corpus (index, five package designs, target layout, greenfield) and #829's 23 stories against today's tree: [docs/specs/2026-09-22-structure-refactor-assessment.md](2026-09-22-structure-refactor-assessment.md) — what is satisfied, what the designs exempt, and what remains dispatchable
 
 ## Confirmed decisions
 
