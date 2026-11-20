@@ -63,7 +63,7 @@ type FrameProps = Readonly<{
   children: ReactNode;
 }>;
 
-export function MapFrame({ basemap, role, label, children }: FrameProps) {
+function MapViewport({ basemap, role, label, children }: FrameProps) {
   return (
     <div className="chat-search-map" role={role} aria-label={label} aria-busy={basemap.status === "loading"}>
       {/* The important utilities beat maplibre-gl.css's `.maplibregl-map { position:
@@ -73,6 +73,20 @@ export function MapFrame({ basemap, role, label, children }: FrameProps) {
       {children}
     </div>
   );
+}
+
+function MapAttribution() {
+  const link = "rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-primary";
+  return (
+    <p className="m-0 text-right text-[10px] leading-4 text-fg-muted">
+      <a className={link} href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>
+      {" · "}<a className={link} href="https://protomaps.com" target="_blank" rel="noopener noreferrer">Protomaps</a>
+    </p>
+  );
+}
+
+export function MapFrame(props: FrameProps) {
+  return <div className="grid gap-1.5"><MapViewport {...props} /><MapAttribution /></div>;
 }
 
 export function percentStyle(placement: PointPlacement): CSSProperties {
