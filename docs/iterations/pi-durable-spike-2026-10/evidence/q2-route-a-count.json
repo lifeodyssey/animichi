@@ -1,0 +1,130 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "respond": {
+    "name": "ra-count-a828fe35",
+    "operationId": "op-count-1",
+    "statements": 3,
+    "otherApplications": 0,
+    "rows": [
+      {
+        "calls": 1,
+        "query": "BEGIN"
+      },
+      {
+        "calls": 1,
+        "query": "COMMIT"
+      },
+      {
+        "calls": 1,
+        "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+      }
+    ],
+    "stored": 423,
+    "sqliteBytesAfter": 147456
+  },
+  "twoRequests": {
+    "name": "ra-count-q1-0961e9ce",
+    "operationId": "op-count-q1",
+    "statements": 3,
+    "otherApplications": 0,
+    "rows": [
+      {
+        "calls": 1,
+        "query": "BEGIN"
+      },
+      {
+        "calls": 1,
+        "query": "COMMIT"
+      },
+      {
+        "calls": 1,
+        "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+      }
+    ],
+    "stored": 918,
+    "sqliteBytesAfter": 147456
+  },
+  "checks": [
+    {
+      "name": "a cold one-request turn costs Postgres only its projection: BEGIN, one INSERT, COMMIT (Pi's own writes go to the object's SQLite)",
+      "pass": true,
+      "observed": {
+        "name": "ra-count-a828fe35",
+        "operationId": "op-count-1",
+        "statements": 3,
+        "otherApplications": 0,
+        "rows": [
+          {
+            "calls": 1,
+            "query": "BEGIN"
+          },
+          {
+            "calls": 1,
+            "query": "COMMIT"
+          },
+          {
+            "calls": 1,
+            "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+          }
+        ],
+        "stored": 423,
+        "sqliteBytesAfter": 147456
+      }
+    },
+    {
+      "name": "the q1-shaped turn's projection costs the same three statements",
+      "pass": true,
+      "observed": {
+        "name": "ra-count-q1-0961e9ce",
+        "operationId": "op-count-q1",
+        "statements": 3,
+        "otherApplications": 0,
+        "rows": [
+          {
+            "calls": 1,
+            "query": "BEGIN"
+          },
+          {
+            "calls": 1,
+            "query": "COMMIT"
+          },
+          {
+            "calls": 1,
+            "query": "INSERT INTO proj_turns (session_id, seq, operation_id, record) VALUES ($1, $2, $3, $4) ON CONFLICT (session_id, seq) DO "
+          }
+        ],
+        "stored": 918,
+        "sqliteBytesAfter": 147456
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms count stdout: [spike] constructed instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b",
+    "+    31ms count stdout: [spike] request:submit instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b op=op-count-1",
+    "+    51ms count stdout: [spike] model:tool_call instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b",
+    "+    74ms count stdout: [spike] tool:respond instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b",
+    "+    92ms count stdout: [spike] job instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b",
+    "+   303ms count stdout: [spike] projected instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b op=op-count-1",
+    "+  1588ms count stdout: [spike] request:recompute instance=8243dd2a-6d05-49a2-9ff8-02f2d665ff0b op=op-count-1",
+    "+  2019ms count stdout: [spike] constructed instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2030ms count stdout: [spike] request:submit instance=344fc30c-803d-4dea-a9e1-9cf71d07374b op=op-count-q1",
+    "+  2037ms count stdout: [spike] model:tool_call instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2045ms count stdout: [spike] tool:start instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2047ms count stdout: [spike] job instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2054ms count stdout: [spike] tool:end instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2065ms count stdout: [spike] model:answer instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2072ms count stdout: [spike] job instance=344fc30c-803d-4dea-a9e1-9cf71d07374b",
+    "+  2250ms count stdout: [spike] projected instance=344fc30c-803d-4dea-a9e1-9cf71d07374b op=op-count-q1",
+    "+  3535ms count stdout: [spike] request:recompute instance=344fc30c-803d-4dea-a9e1-9cf71d07374b op=op-count-q1"
+  ]
+}

@@ -1,0 +1,3 @@
+PASS every row: today's validator and pi-durable's return the same outcome and the same arguments
+PASS every number sent for a string property reaches execute as the string "42", under both
+PASS the string "500" sent for search_nearby's integer radius_m reaches execute as 500, under both

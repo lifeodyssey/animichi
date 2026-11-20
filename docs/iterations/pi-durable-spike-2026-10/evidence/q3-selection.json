@@ -1,0 +1,277 @@
+{
+  "case": "selection",
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "session": "selection-f4c71f37",
+  "first": {
+    "status": 202,
+    "operationId": "op-sel",
+    "submission": 8,
+    "settled": "done"
+  },
+  "again": {
+    "status": 200,
+    "operationId": "op-sel",
+    "submission": 8,
+    "settled": "done"
+  },
+  "other": {
+    "status": 409,
+    "operationId": "op-sel"
+  },
+  "submissions": [
+    {
+      "status": "done",
+      "request_id": "\"op-sel\""
+    },
+    {
+      "status": "done",
+      "request_id": "\"op-after\""
+    }
+  ],
+  "admissions": [
+    {
+      "operation_id": "op-sel",
+      "kind": "selection",
+      "state": "settled"
+    },
+    {
+      "operation_id": "op-after",
+      "kind": "model",
+      "state": "settled"
+    }
+  ],
+  "settlements": [
+    {
+      "operation_id": "op-sel",
+      "outcome": "done",
+      "charged_tokens": "0",
+      "first_entry": "7",
+      "last_entry": null
+    },
+    {
+      "operation_id": "op-after",
+      "outcome": "done",
+      "charged_tokens": "14",
+      "first_entry": "9",
+      "last_entry": "17"
+    }
+  ],
+  "selectionEntries": [
+    {
+      "kind": "animichi.selection",
+      "data": {
+        "choice": "itinerary A"
+      },
+      "id": 7,
+      "conversationId": 1
+    }
+  ],
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "animichi.selection",
+      "text": ""
+    },
+    {
+      "id": 9,
+      "kind": "pi.user",
+      "text": "turn: a model turn after the selection"
+    },
+    {
+      "id": 12,
+      "kind": "pi.system",
+      "text": ""
+    },
+    {
+      "id": 13,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "translate_anime_title",
+          "arguments": {
+            "title": "turn: a model turn after the selection",
+            "target_language": "zh"
+          }
+        }
+      ],
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 15,
+      "kind": "pi.tool-result",
+      "toolName": "translate_anime_title",
+      "isError": false,
+      "text": "{\"original\":\"turn: a model turn after the selection\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+    },
+    {
+      "id": 17,
+      "kind": "pi.assistant",
+      "text": "Answer to turn: a model turn after the selection",
+      "usage": {
+        "input": 1,
+        "output": 1,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "provider": "none for the selection; the ported double for the model turn after it",
+  "checks": [
+    {
+      "name": "first selection: admitted (202), Pi settled the write done at once, no model request",
+      "pass": true,
+      "observed": {
+        "first": {
+          "status": 202,
+          "operationId": "op-sel",
+          "submission": 8,
+          "settled": "done"
+        },
+        "modelRequestsBeforeTheModelTurn": 0
+      }
+    },
+    {
+      "name": "the same id and content again: the existing admission (200) and Pi's same submission; one selection entry",
+      "pass": true,
+      "observed": {
+        "again": {
+          "status": 200,
+          "operationId": "op-sel",
+          "submission": 8,
+          "settled": "done"
+        },
+        "selectionEntries": 1
+      }
+    },
+    {
+      "name": "the same id with other content: 409 at admission; Pi never sees it",
+      "pass": true,
+      "observed": {
+        "other": {
+          "status": 409,
+          "operationId": "op-sel"
+        },
+        "submissions": [
+          {
+            "status": "done",
+            "request_id": "\"op-sel\""
+          },
+          {
+            "status": "done",
+            "request_id": "\"op-after\""
+          }
+        ]
+      }
+    },
+    {
+      "name": "settled through the same settlement, charging nothing: one row, done, 0 tokens",
+      "pass": true,
+      "observed": [
+        {
+          "operation_id": "op-sel",
+          "outcome": "done",
+          "charged_tokens": "0",
+          "first_entry": "7",
+          "last_entry": null
+        },
+        {
+          "operation_id": "op-after",
+          "outcome": "done",
+          "charged_tokens": "14",
+          "first_entry": "9",
+          "last_entry": "17"
+        }
+      ]
+    },
+    {
+      "name": "a model turn after it runs and settles as usual",
+      "pass": true,
+      "observed": {
+        "admissions": [
+          {
+            "operation_id": "op-sel",
+            "kind": "selection",
+            "state": "settled"
+          },
+          {
+            "operation_id": "op-after",
+            "kind": "model",
+            "state": "settled"
+          }
+        ],
+        "banked": [
+          {
+            "operation_id": "op-sel",
+            "outcome": "done",
+            "charged_tokens": "0",
+            "first_entry": "7",
+            "last_entry": null
+          },
+          {
+            "operation_id": "op-after",
+            "outcome": "done",
+            "charged_tokens": "14",
+            "first_entry": "9",
+            "last_entry": "17"
+          }
+        ]
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms S stdout: [spike] constructed instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+    17ms S stdout: [spike] start instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+   614ms S stdout: [spike] pi:opened instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+   623ms S stdout: [spike] request:select instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-sel",
+    "+   628ms S stdout: [spike] wake:start instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+   880ms S stdout: [spike] wake:waiting instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+   880ms S stdout: [spike] wake:end instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  1056ms S stdout: [spike] settled instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-sel",
+    "+  1081ms S stdout: [spike] settled instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-sel",
+    "+  1100ms S stdout: [spike] request:select instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-sel",
+    "+  1137ms S stdout: [spike] request:select instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-sel",
+    "+  1172ms S stdout: [spike] request:admit instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-after",
+    "+  1186ms S stdout: [spike] wake:start instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  1307ms S stdout: [spike] wake:waiting instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  1470ms S stdout: [spike] double:request instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  1734ms S stdout: [spike] tool:translate instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2010ms S stdout: [spike] double:request instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2085ms S stdout: [spike] wake:end instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2138ms S stdout: [spike] settled instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-after",
+    "+  2140ms S stdout: [spike] wake:start instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2149ms S stdout: [spike] wake:waiting instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2149ms S stdout: [spike] wake:end instance=223f97ab-3e0b-446e-9488-497fda0b77db",
+    "+  2157ms S stdout: [spike] request:report instance=223f97ab-3e0b-446e-9488-497fda0b77db op=op-after"
+  ]
+}

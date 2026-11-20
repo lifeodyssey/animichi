@@ -1,0 +1,694 @@
+{
+  "case": "restart",
+  "noRetry": {
+    "receipt": {
+      "operationId": "op-no-retry",
+      "session": "1",
+      "accepted": true
+    },
+    "inFlightAt": null,
+    "killedAt": 1795024097793,
+    "restartedAt": 1795024098028,
+    "doneLoggedAt": 1795024125342,
+    "firstRequestAt": 1795024125342,
+    "catalogCalls": [],
+    "result": {
+      "operationId": "op-no-retry",
+      "session": "1",
+      "status": "unanswered",
+      "reason": "interrupted"
+    },
+    "usage": {
+      "models": {
+        "faux/faux-1": {
+          "input": 0,
+          "output": 154,
+          "cacheRead": 0,
+          "cacheWrite": 6,
+          "totalTokens": 160,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      "tools": {}
+    },
+    "live": {
+      "runFailure": {
+        "taskId": 9,
+        "inputs": [
+          8
+        ],
+        "reason": "interrupted",
+        "detail": "The host stopped while the model was answering, on attempt 1",
+        "first": 7
+      }
+    },
+    "fauxCallsOnB": 0,
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "role": "user",
+        "text": "Answer at length.",
+        "toolCalls": []
+      },
+      {
+        "id": 10,
+        "kind": "pi.assistant",
+        "role": "assistant",
+        "text": "Long answer: interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt i",
+        "toolCalls": [],
+        "stopReason": "aborted",
+        "usage": {
+          "input": 0,
+          "output": 154,
+          "cacheRead": 0,
+          "cacheWrite": 6,
+          "totalTokens": 160,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "killedInstance": "afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "eventsAfterKill": [
+      {
+        "instance": "594f1fa8",
+        "kind": "constructed",
+        "at": 27508,
+        "detail": {
+          "case": "restart-no-retry"
+        }
+      },
+      {
+        "instance": "594f1fa8",
+        "kind": "report",
+        "at": 27548,
+        "detail": {
+          "kind": "task_interrupted",
+          "reason": "interrupted",
+          "restarts": 1,
+          "error": "The host stopped while the model was answering, on attempt 1"
+        }
+      },
+      {
+        "instance": "594f1fa8",
+        "kind": "start",
+        "at": 27553,
+        "detail": null
+      },
+      {
+        "instance": "594f1fa8",
+        "kind": "job",
+        "at": 27555,
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        }
+      },
+      {
+        "instance": "594f1fa8",
+        "kind": "alarm",
+        "at": 27555,
+        "detail": null
+      },
+      {
+        "instance": "594f1fa8",
+        "kind": "request:report",
+        "at": 27559,
+        "detail": {
+          "operationId": "op-no-retry"
+        }
+      }
+    ]
+  },
+  "retry": {
+    "receipt": {
+      "operationId": "op-retry",
+      "session": "1",
+      "accepted": true
+    },
+    "inFlightAt": null,
+    "killedAt": 1795024128154,
+    "restartedAt": 1795024128339,
+    "doneLoggedAt": 1795024157726,
+    "firstRequestAt": 1795024157726,
+    "catalogCalls": [],
+    "result": {
+      "operationId": "op-retry",
+      "session": "1",
+      "status": "done",
+      "text": "Long answer: interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt "
+    },
+    "usage": {
+      "models": {
+        "faux/faux-1": {
+          "input": 0,
+          "output": 308,
+          "cacheRead": 0,
+          "cacheWrite": 12,
+          "totalTokens": 320,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      "tools": {}
+    },
+    "live": {},
+    "fauxCallsOnB": 1,
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "role": "user",
+        "text": "Answer at length.",
+        "toolCalls": []
+      },
+      {
+        "id": 10,
+        "kind": "pi.assistant",
+        "role": "assistant",
+        "text": "Long answer: interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt",
+        "toolCalls": [],
+        "stopReason": "aborted",
+        "usage": {
+          "input": 0,
+          "output": 154,
+          "cacheRead": 0,
+          "cacheWrite": 6,
+          "totalTokens": 160,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "role": "assistant",
+        "text": "Long answer: interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt interrupt ",
+        "toolCalls": [],
+        "stopReason": "stop",
+        "usage": {
+          "input": 0,
+          "output": 154,
+          "cacheRead": 0,
+          "cacheWrite": 6,
+          "totalTokens": 160,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "killedInstance": "dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "eventsAfterKill": [
+      {
+        "instance": "74df4c61",
+        "kind": "constructed",
+        "at": 27508,
+        "detail": {
+          "case": "restart-retry"
+        }
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "start",
+        "at": 27551,
+        "detail": null
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "alarm",
+        "at": 27552,
+        "detail": null
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "job",
+        "at": 29539,
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        }
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "alarm",
+        "at": 29542,
+        "detail": null
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "model:request",
+        "at": 29571,
+        "detail": {
+          "callCount": 1,
+          "messages": 1
+        }
+      },
+      {
+        "instance": "74df4c61",
+        "kind": "request:report",
+        "at": 29584,
+        "detail": {
+          "operationId": "op-retry"
+        }
+      }
+    ]
+  },
+  "limit": {
+    "receipt": {
+      "operationId": "op-limit",
+      "session": "1",
+      "accepted": true
+    },
+    "inFlightAt": 1795024166307,
+    "killedAt": 1795024167310,
+    "restartedAt": 1795024168103,
+    "doneLoggedAt": 1795024196366,
+    "firstRequestAt": 1795024196367,
+    "catalogCalls": [
+      {
+        "at": 1795024166307,
+        "title": "Limit Probe",
+        "held": true
+      }
+    ],
+    "result": {
+      "operationId": "op-limit",
+      "session": "1",
+      "status": "done",
+      "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>"
+    },
+    "usage": {
+      "models": {
+        "faux/faux-1": {
+          "input": 0,
+          "output": 36,
+          "cacheRead": 0,
+          "cacheWrite": 175,
+          "totalTokens": 211,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      "tools": {}
+    },
+    "live": {},
+    "fauxCallsOnB": 1,
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "role": "user",
+        "text": "Resolve the anime titled \"Limit Probe\".",
+        "toolCalls": []
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "role": "system",
+        "text": "",
+        "toolCalls": []
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "role": "assistant",
+        "text": "",
+        "toolCalls": [
+          {
+            "name": "resolve_anime",
+            "arguments": {
+              "title": "Limit Probe"
+            }
+          }
+        ],
+        "stopReason": "toolUse",
+        "usage": {
+          "input": 0,
+          "output": 10,
+          "cacheRead": 0,
+          "cacheWrite": 67,
+          "totalTokens": 77,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "role": "toolResult",
+        "text": "<harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>",
+        "toolCalls": [],
+        "toolName": "resolve_anime",
+        "isError": true
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "role": "assistant",
+        "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>",
+        "toolCalls": [],
+        "stopReason": "stop",
+        "usage": {
+          "input": 0,
+          "output": 26,
+          "cacheRead": 0,
+          "cacheWrite": 108,
+          "totalTokens": 134,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "killedInstance": "e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "eventsAfterKill": [
+      {
+        "instance": "266e9f55",
+        "kind": "constructed",
+        "at": 29002,
+        "detail": {
+          "case": "restart-limit"
+        }
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "report",
+        "at": 29038,
+        "detail": {
+          "kind": "task_interrupted",
+          "reason": "restart_limit",
+          "restarts": 1,
+          "error": "Tool resolve_anime was interrupted once; it is not run again"
+        }
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "model:answer",
+        "at": 29056,
+        "detail": {
+          "title": "Limit Probe",
+          "sawToolResult": {
+            "isError": true,
+            "text": "<harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>"
+          }
+        }
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "start",
+        "at": 29064,
+        "detail": null
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "job",
+        "at": 29066,
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        }
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "alarm",
+        "at": 29066,
+        "detail": null
+      },
+      {
+        "instance": "266e9f55",
+        "kind": "request:report",
+        "at": 29069,
+        "detail": {
+          "operationId": "op-limit"
+        }
+      }
+    ]
+  },
+  "retryWaitedMs": 2063,
+  "provider": "faux, tokensPerSecond 20 for the two mid-stream kills; the aborted entry's usage is faux's whole up-front estimate (faux.js:234, :356)",
+  "workerdLog": [
+    "+     0ms restart-no-retry:A stdout: [spike] constructed instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+    31ms restart-no-retry:A stdout: [spike] start instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+    33ms restart-no-retry:A stdout: [spike] request:submit instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+    61ms restart-no-retry:A stdout: [spike] model:request instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+    75ms restart-no-retry:A stdout: [spike] job instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+    75ms restart-no-retry:A stdout: [spike] alarm instance=afbee804-eca1-4804-a67f-65c5dc424e4e",
+    "+ 30071ms restart-no-retry:B stdout: [spike] constructed instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30111ms restart-no-retry:B stdout: [spike] report instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30115ms restart-no-retry:B stdout: [spike] start instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30117ms restart-no-retry:B stdout: [spike] job instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30118ms restart-no-retry:B stdout: [spike] alarm instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30121ms restart-no-retry:B stdout: [spike] request:report instance=594f1fa8-357b-4fc5-848b-2c637134bb68",
+    "+ 30376ms restart-retry:A stdout: [spike] constructed instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 30401ms restart-retry:A stdout: [spike] start instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 30403ms restart-retry:A stdout: [spike] request:submit instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 30421ms restart-retry:A stdout: [spike] model:request instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 30425ms restart-retry:A stdout: [spike] job instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 30425ms restart-retry:A stdout: [spike] alarm instance=dec5286c-571c-4af5-866f-624b60ccd5ea",
+    "+ 60432ms restart-retry:B stdout: [spike] constructed instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 60474ms restart-retry:B stdout: [spike] start instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 60475ms restart-retry:B stdout: [spike] alarm instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 62465ms restart-retry:B stdout: [spike] job instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 62465ms restart-retry:B stdout: [spike] alarm instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 62495ms restart-retry:B stdout: [spike] model:request instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 62509ms restart-retry:B stdout: [spike] request:report instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 70295ms restart-retry:B stdout: [spike] job instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 70295ms restart-retry:B stdout: [spike] alarm instance=74df4c61-b7bb-4dfa-9ea9-bcc3dd526546",
+    "+ 70719ms restart-limit:A stdout: [spike] constructed instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 70881ms restart-limit:A stdout: [spike] start instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 70884ms restart-limit:A stdout: [spike] request:submit instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 70911ms restart-limit:A stdout: [spike] model:tool_call instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 71059ms restart-limit:A stdout: [spike] tool:start instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 71077ms restart-limit:A stdout: [spike] job instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+ 71077ms restart-limit:A stdout: [spike] alarm instance=e9a2be0b-c4e5-4643-9d70-e3e9e0bbb535",
+    "+101083ms restart-limit:B stdout: [spike] constructed instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101117ms restart-limit:B stdout: [spike] report instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101135ms restart-limit:B stdout: [spike] model:answer instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101144ms restart-limit:B stdout: [spike] start instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101145ms restart-limit:B stdout: [spike] job instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101145ms restart-limit:B stdout: [spike] alarm instance=266e9f55-0a54-402c-8d29-87ad1e00321b",
+    "+101148ms restart-limit:B stdout: [spike] request:report instance=266e9f55-0a54-402c-8d29-87ad1e00321b"
+  ],
+  "checks": [
+    {
+      "name": "no retry left: the request was in flight at the kill, and its committed partial became an aborted entry",
+      "pass": true,
+      "observed": {
+        "aborted": {
+          "chars": 144,
+          "usage": {
+            "input": 0,
+            "output": 154,
+            "cacheRead": 0,
+            "cacheWrite": 6,
+            "totalTokens": 160,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "no retry left: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there",
+      "pass": true,
+      "observed": [
+        "594f1fa8 constructed",
+        "594f1fa8 report",
+        "594f1fa8 start",
+        "594f1fa8 job",
+        "594f1fa8 alarm",
+        "594f1fa8 request:report"
+      ]
+    },
+    {
+      "name": "retry left: the request was in flight at the kill, and its committed partial became an aborted entry",
+      "pass": true,
+      "observed": {
+        "aborted": {
+          "chars": 152,
+          "usage": {
+            "input": 0,
+            "output": 154,
+            "cacheRead": 0,
+            "cacheWrite": 6,
+            "totalTokens": 160,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "retry left: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there",
+      "pass": true,
+      "observed": [
+        "74df4c61 constructed",
+        "74df4c61 start",
+        "74df4c61 alarm",
+        "74df4c61 job",
+        "74df4c61 alarm",
+        "74df4c61 model:request",
+        "74df4c61 request:report"
+      ]
+    },
+    {
+      "name": "no retry left (maxRetries 0): workerd B made no model request, and the run ended unanswered / interrupted",
+      "pass": true,
+      "observed": {
+        "fauxCallsOnB": 0,
+        "result": {
+          "operationId": "op-no-retry",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "interrupted"
+        },
+        "live": {
+          "runFailure": {
+            "taskId": 9,
+            "inputs": [
+              8
+            ],
+            "reason": "interrupted",
+            "detail": "The host stopped while the model was answering, on attempt 1",
+            "first": 7
+          }
+        }
+      }
+    },
+    {
+      "name": "no retry left: onReport received task_interrupted on B",
+      "pass": true,
+      "observed": [
+        {
+          "instance": "594f1fa8",
+          "kind": "report",
+          "at": 27548,
+          "detail": {
+            "kind": "task_interrupted",
+            "reason": "interrupted",
+            "restarts": 1,
+            "error": "The host stopped while the model was answering, on attempt 1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "retry left (default policy): workerd B made exactly one model request, no earlier than the 2,000 ms backoff after its instance started",
+      "pass": true,
+      "observed": {
+        "fauxCallsOnB": 1,
+        "waitedMs": 2063
+      }
+    },
+    {
+      "name": "retry left: the retry answered, after the aborted partial",
+      "pass": true,
+      "observed": [
+        "pi.user:",
+        "pi.assistant:aborted",
+        "pi.assistant:stop"
+      ]
+    },
+    {
+      "name": "restart limit lowered to 1 (default 5): the replay-safe tool cut off once is not run again",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795024166307,
+          "title": "Limit Probe",
+          "held": true
+        }
+      ]
+    },
+    {
+      "name": "restart limit: the model received the restart-limit error result and answered",
+      "pass": true,
+      "observed": {
+        "limitResult": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "role": "toolResult",
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>",
+          "toolCalls": [],
+          "toolName": "resolve_anime",
+          "isError": true
+        },
+        "settled": {
+          "operationId": "op-limit",
+          "session": "1",
+          "status": "done",
+          "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted once; it is not run again\n</harness>"
+        }
+      }
+    },
+    {
+      "name": "restart limit: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there",
+      "pass": true,
+      "observed": [
+        "266e9f55 constructed",
+        "266e9f55 report",
+        "266e9f55 model:answer",
+        "266e9f55 start",
+        "266e9f55 job",
+        "266e9f55 alarm",
+        "266e9f55 request:report"
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

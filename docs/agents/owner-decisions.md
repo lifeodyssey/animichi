@@ -95,7 +95,7 @@ rewritten: the door stays Access and is not self-verified, and the edge verifies
 assertion only to derive `service`, because Cloudflare requires an origin to validate that JWT
 before it trusts the claims.
 
-## pi version line (2026-10-03)
+## pi version line (2026-10-03 to 2026-11-20)
 
 pi-agent-core 1.0 removed the harness that the agent tier is built on; its successor
 `@earendil-works/pi-durable` calls itself experimental. The owner chose a time-boxed spike on
@@ -107,6 +107,24 @@ separate spec for the move off the harness whose first ticket is the spike ("剩
 reading, not an owner statement, and open to the owner's objection: staying on the 0.99 line until
 that spec lands is a migration in progress under the latest-dependencies rule in
 `docs/agents/code-standards.md`, not a pin around it.
+
+On 2026-11-18 the owner decided to start the pi-durable migration directly from 0.87.1, skipping
+the 0.99.2 step (#1995). That replaces the 0.99.2 step of 2026-10-04, and with it the author's
+reading above. The spike's record is `docs/iterations/pi-durable-spike-2026-10/README.md`.
+
+On 2026-11-20, after that record, the owner decided:
+
+1. Storage takes route (b′): a Neon backend for pi-durable's `Storage`, with our own wake.
+2. Pi follows the minor that the `agents` package supports, not Pi's latest. On that date
+   `agents` 0.33.0 declared its Pi peer dependencies as `~1.5.0`, while pi-durable 1.6.0 was
+   already out. This replaces the migration spec's rule of following latest without pinning, and
+   for the Pi packages it is an exception to the latest-dependencies rule in
+   `docs/agents/code-standards.md`.
+3. A deploy that moves to a new Pi minor is roll-forward only.
+4. Usage that an interrupted model attempt has already reported is charged. On that date the
+   agent tier runs 0.87.1, which records such an attempt as zero.
+5. Sessions that staging stored in the 0.87.1 format are converted to the new format during the
+   migration.
 
 ## Production waits; agents do not propose it (2026-08-15 to 2026-10-02)
 

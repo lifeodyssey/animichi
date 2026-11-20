@@ -1,0 +1,806 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "runs": [
+    {
+      "binding": "safe",
+      "operationId": "safe-alt-1",
+      "receipt": {
+        "operationId": "safe-alt-1",
+        "session": "1",
+        "accepted": true
+      },
+      "inFlightAt": 1795032906621,
+      "killedAt": 1795032907624,
+      "answerLoggedAt": 1795032936654,
+      "firstRequestAt": 1795032936654,
+      "catalogCalls": [
+        {
+          "at": 1795032906621,
+          "title": "Alt Safe",
+          "held": true
+        },
+        {
+          "at": 1795032936638,
+          "title": "Alt Safe",
+          "held": false
+        }
+      ],
+      "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+      "replay": "safe",
+      "piHarnessWait": {
+        "operationId": "safe-alt-1",
+        "session": "1",
+        "status": "unanswered",
+        "reason": "not_found"
+      },
+      "settledByPiFromAltStore": {
+        "status": "done"
+      },
+      "rows": {
+        "altSubmissions": 1,
+        "piSubmissions": 0,
+        "altEntries": 5,
+        "piEntries": 0
+      },
+      "tables": [
+        "alt_conversations",
+        "alt_document_revisions",
+        "alt_documents",
+        "alt_durable_metadata",
+        "alt_durable_schema",
+        "alt_entries",
+        "alt_record_ids",
+        "alt_submissions",
+        "alt_tasks",
+        "pi_conversations",
+        "pi_document_revisions",
+        "pi_documents",
+        "pi_durable_metadata",
+        "pi_durable_schema",
+        "pi_entries",
+        "pi_record_ids",
+        "pi_submissions",
+        "pi_tasks"
+      ],
+      "events": [
+        {
+          "seq": 1,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "constructed",
+          "detail": {
+            "replay": "safe"
+          },
+          "at": 1795032906575
+        },
+        {
+          "seq": 2,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "factory:opened-alt-store",
+          "detail": {
+            "prefix": "alt_"
+          },
+          "at": 1795032906584
+        },
+        {
+          "seq": 3,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "start",
+          "detail": null,
+          "at": 1795032906594
+        },
+        {
+          "seq": 4,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "request:submit",
+          "detail": {
+            "title": "Alt Safe",
+            "operationId": "safe-alt-1"
+          },
+          "at": 1795032906596
+        },
+        {
+          "seq": 5,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "model:tool_call",
+          "detail": {
+            "title": "Alt Safe"
+          },
+          "at": 1795032906605
+        },
+        {
+          "seq": 6,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "tool:start",
+          "detail": {
+            "title": "Alt Safe",
+            "replay": "safe"
+          },
+          "at": 1795032906613
+        },
+        {
+          "seq": 7,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "job",
+          "detail": {
+            "id": "pi-wake",
+            "fn": "wake"
+          },
+          "at": 1795032906615
+        },
+        {
+          "seq": 8,
+          "instance": "2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+          "kind": "alarm",
+          "detail": null,
+          "at": 1795032906616
+        },
+        {
+          "seq": 9,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "constructed",
+          "detail": {
+            "replay": "safe"
+          },
+          "at": 1795032936621
+        },
+        {
+          "seq": 10,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "factory:opened-alt-store",
+          "detail": {
+            "prefix": "alt_"
+          },
+          "at": 1795032936624
+        },
+        {
+          "seq": 11,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "tool:start",
+          "detail": {
+            "title": "Alt Safe",
+            "replay": "safe"
+          },
+          "at": 1795032936635
+        },
+        {
+          "seq": 12,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "start",
+          "detail": null,
+          "at": 1795032936637
+        },
+        {
+          "seq": 13,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "job",
+          "detail": {
+            "id": "pi-wake",
+            "fn": "wake"
+          },
+          "at": 1795032936638
+        },
+        {
+          "seq": 14,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "alarm",
+          "detail": null,
+          "at": 1795032936638
+        },
+        {
+          "seq": 15,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "tool:end",
+          "detail": {
+            "title": "Alt Safe",
+            "status": 200
+          },
+          "at": 1795032936639
+        },
+        {
+          "seq": 16,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "model:answer",
+          "detail": {
+            "title": "Alt Safe",
+            "sawToolResult": {
+              "isError": false,
+              "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Alt Safe\",\"title_cn\":\"巡礼\"}}"
+            }
+          },
+          "at": 1795032936653
+        },
+        {
+          "seq": 17,
+          "instance": "547723d6-25d2-4272-aa6e-2cdc6e38887f",
+          "kind": "request:report",
+          "detail": {
+            "operationId": "safe-alt-1"
+          },
+          "at": 1795032936657
+        }
+      ],
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Alt Safe\"."
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Alt Safe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 9,
+            "cacheRead": 0,
+            "cacheWrite": 66,
+            "totalTokens": 75,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Alt Safe\",\"title_cn\":\"巡礼\"}}"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Alt Safe\",\"title_cn\":\"巡礼\"}}",
+          "usage": {
+            "input": 0,
+            "output": 25,
+            "cacheRead": 0,
+            "cacheWrite": 106,
+            "totalTokens": 131,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ],
+      "timing": {
+        "killToAnswerMs": 29030
+      }
+    },
+    {
+      "binding": "unsafe",
+      "operationId": "unsafe-alt-1",
+      "receipt": {
+        "operationId": "unsafe-alt-1",
+        "session": "1",
+        "accepted": true
+      },
+      "inFlightAt": 1795032936786,
+      "killedAt": 1795032937789,
+      "answerLoggedAt": 1795032966820,
+      "firstRequestAt": 1795032966820,
+      "catalogCalls": [
+        {
+          "at": 1795032936786,
+          "title": "Alt Unsafe",
+          "held": true
+        }
+      ],
+      "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+      "replay": "unsafe",
+      "piHarnessWait": {
+        "operationId": "unsafe-alt-1",
+        "session": "1",
+        "status": "unanswered",
+        "reason": "not_found"
+      },
+      "settledByPiFromAltStore": {
+        "status": "done"
+      },
+      "rows": {
+        "altSubmissions": 1,
+        "piSubmissions": 0,
+        "altEntries": 5,
+        "piEntries": 0
+      },
+      "tables": [
+        "alt_conversations",
+        "alt_document_revisions",
+        "alt_documents",
+        "alt_durable_metadata",
+        "alt_durable_schema",
+        "alt_entries",
+        "alt_record_ids",
+        "alt_submissions",
+        "alt_tasks",
+        "pi_conversations",
+        "pi_document_revisions",
+        "pi_documents",
+        "pi_durable_metadata",
+        "pi_durable_schema",
+        "pi_entries",
+        "pi_record_ids",
+        "pi_submissions",
+        "pi_tasks"
+      ],
+      "events": [
+        {
+          "seq": 1,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "constructed",
+          "detail": {
+            "replay": "unsafe"
+          },
+          "at": 1795032936743
+        },
+        {
+          "seq": 2,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "factory:opened-alt-store",
+          "detail": {
+            "prefix": "alt_"
+          },
+          "at": 1795032936750
+        },
+        {
+          "seq": 3,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "start",
+          "detail": null,
+          "at": 1795032936759
+        },
+        {
+          "seq": 4,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "request:submit",
+          "detail": {
+            "title": "Alt Unsafe",
+            "operationId": "unsafe-alt-1"
+          },
+          "at": 1795032936760
+        },
+        {
+          "seq": 5,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "model:tool_call",
+          "detail": {
+            "title": "Alt Unsafe"
+          },
+          "at": 1795032936770
+        },
+        {
+          "seq": 6,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "tool:start",
+          "detail": {
+            "title": "Alt Unsafe",
+            "replay": "unsafe"
+          },
+          "at": 1795032936777
+        },
+        {
+          "seq": 7,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "job",
+          "detail": {
+            "id": "pi-wake",
+            "fn": "wake"
+          },
+          "at": 1795032936780
+        },
+        {
+          "seq": 8,
+          "instance": "2c4254b2-773f-4764-be35-ad24ad7619a6",
+          "kind": "alarm",
+          "detail": null,
+          "at": 1795032936780
+        },
+        {
+          "seq": 9,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "constructed",
+          "detail": {
+            "replay": "unsafe"
+          },
+          "at": 1795032966790
+        },
+        {
+          "seq": 10,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "factory:opened-alt-store",
+          "detail": {
+            "prefix": "alt_"
+          },
+          "at": 1795032966793
+        },
+        {
+          "seq": 11,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "model:answer",
+          "detail": {
+            "title": "Alt Unsafe",
+            "sawToolResult": {
+              "isError": true,
+              "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+            }
+          },
+          "at": 1795032966820
+        },
+        {
+          "seq": 12,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "start",
+          "detail": null,
+          "at": 1795032966822
+        },
+        {
+          "seq": 13,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "job",
+          "detail": {
+            "id": "pi-wake",
+            "fn": "wake"
+          },
+          "at": 1795032966823
+        },
+        {
+          "seq": 14,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "alarm",
+          "detail": null,
+          "at": 1795032966823
+        },
+        {
+          "seq": 15,
+          "instance": "8785b4f6-1c97-4078-815d-59c34a91ae42",
+          "kind": "request:report",
+          "detail": {
+            "operationId": "unsafe-alt-1"
+          },
+          "at": 1795032966824
+        }
+      ],
+      "transcript": [
+        {
+          "id": 7,
+          "kind": "pi.user",
+          "text": "Resolve the anime titled \"Alt Unsafe\"."
+        },
+        {
+          "id": 10,
+          "kind": "pi.system",
+          "text": ""
+        },
+        {
+          "id": 11,
+          "kind": "pi.assistant",
+          "toolCalls": [
+            {
+              "name": "resolve_anime",
+              "arguments": {
+                "title": "Alt Unsafe"
+              }
+            }
+          ],
+          "usage": {
+            "input": 0,
+            "output": 9,
+            "cacheRead": 0,
+            "cacheWrite": 66,
+            "totalTokens": 75,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        },
+        {
+          "id": 15,
+          "kind": "pi.assistant",
+          "text": "Lookup failed: <harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>",
+          "usage": {
+            "input": 0,
+            "output": 27,
+            "cacheRead": 0,
+            "cacheWrite": 108,
+            "totalTokens": 135,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        }
+      ],
+      "timing": {
+        "killToAnswerMs": 29031
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "safe (alt_ store): workerd A was SIGKILLed while the tool's catalog call was held",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795032906621,
+          "title": "Alt Safe",
+          "held": true
+        },
+        {
+          "at": 1795032936638,
+          "title": "Alt Safe",
+          "held": false
+        }
+      ]
+    },
+    {
+      "name": "safe (alt_ store): a new instance answered before any request, and the pi-wake job ran on it first",
+      "pass": true,
+      "observed": [
+        "547723d6 constructed",
+        "547723d6 factory:opened-alt-store",
+        "547723d6 tool:start",
+        "547723d6 start",
+        "547723d6 job",
+        "547723d6 alarm",
+        "547723d6 tool:end",
+        "547723d6 model:answer"
+      ]
+    },
+    {
+      "name": "safe (alt_ store): the factory reopened the alt store on the answering instance",
+      "pass": true,
+      "observed": null
+    },
+    {
+      "name": "safe (alt_ store): Pi settled the operation done, read through Pi from the alt store",
+      "pass": true,
+      "observed": {
+        "status": "done"
+      }
+    },
+    {
+      "name": "safe (alt_ store): Pi's rows are under alt_, none under PiHarness's pi_ prefix",
+      "pass": true,
+      "observed": {
+        "rows": {
+          "altSubmissions": 1,
+          "piSubmissions": 0,
+          "altEntries": 5,
+          "piEntries": 0
+        },
+        "tables": [
+          "alt_conversations",
+          "alt_document_revisions",
+          "alt_documents",
+          "alt_durable_metadata",
+          "alt_durable_schema",
+          "alt_entries",
+          "alt_record_ids",
+          "alt_submissions",
+          "alt_tasks",
+          "pi_conversations",
+          "pi_document_revisions",
+          "pi_documents",
+          "pi_durable_metadata",
+          "pi_durable_schema",
+          "pi_entries",
+          "pi_record_ids",
+          "pi_submissions",
+          "pi_tasks"
+        ]
+      }
+    },
+    {
+      "name": "safe (alt_ store): PiHarness's wait() still answers from its own empty store (unanswered, not_found)",
+      "pass": true,
+      "observed": {
+        "operationId": "safe-alt-1",
+        "session": "1",
+        "status": "unanswered",
+        "reason": "not_found"
+      }
+    },
+    {
+      "name": "unsafe (alt_ store): workerd A was SIGKILLed while the tool's catalog call was held",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795032936786,
+          "title": "Alt Unsafe",
+          "held": true
+        }
+      ]
+    },
+    {
+      "name": "unsafe (alt_ store): a new instance answered before any request, and the pi-wake job ran on it first",
+      "pass": true,
+      "observed": [
+        "8785b4f6 constructed",
+        "8785b4f6 factory:opened-alt-store",
+        "8785b4f6 model:answer",
+        "8785b4f6 start",
+        "8785b4f6 job",
+        "8785b4f6 alarm"
+      ]
+    },
+    {
+      "name": "unsafe (alt_ store): the factory reopened the alt store on the answering instance",
+      "pass": true,
+      "observed": null
+    },
+    {
+      "name": "unsafe (alt_ store): Pi settled the operation done, read through Pi from the alt store",
+      "pass": true,
+      "observed": {
+        "status": "done"
+      }
+    },
+    {
+      "name": "unsafe (alt_ store): Pi's rows are under alt_, none under PiHarness's pi_ prefix",
+      "pass": true,
+      "observed": {
+        "rows": {
+          "altSubmissions": 1,
+          "piSubmissions": 0,
+          "altEntries": 5,
+          "piEntries": 0
+        },
+        "tables": [
+          "alt_conversations",
+          "alt_document_revisions",
+          "alt_documents",
+          "alt_durable_metadata",
+          "alt_durable_schema",
+          "alt_entries",
+          "alt_record_ids",
+          "alt_submissions",
+          "alt_tasks",
+          "pi_conversations",
+          "pi_document_revisions",
+          "pi_documents",
+          "pi_durable_metadata",
+          "pi_durable_schema",
+          "pi_entries",
+          "pi_record_ids",
+          "pi_submissions",
+          "pi_tasks"
+        ]
+      }
+    },
+    {
+      "name": "unsafe (alt_ store): PiHarness's wait() still answers from its own empty store (unanswered, not_found)",
+      "pass": true,
+      "observed": {
+        "operationId": "unsafe-alt-1",
+        "session": "1",
+        "status": "unanswered",
+        "reason": "not_found"
+      }
+    },
+    {
+      "name": "safe: the tool ran again after the kill (two catalog calls), and its result reached the model",
+      "pass": true,
+      "observed": {
+        "calls": [
+          {
+            "at": 1795032906621,
+            "title": "Alt Safe",
+            "held": true
+          },
+          {
+            "at": 1795032936638,
+            "title": "Alt Safe",
+            "held": false
+          }
+        ],
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Alt Safe\",\"title_cn\":\"巡礼\"}}"
+        }
+      }
+    },
+    {
+      "name": "unsafe: the tool did not run again (one catalog call), and the model received the interrupted result",
+      "pass": true,
+      "observed": {
+        "calls": [
+          {
+            "at": 1795032936786,
+            "title": "Alt Unsafe",
+            "held": true
+          }
+        ],
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "toolName": "resolve_anime",
+          "isError": true,
+          "text": "<harness>\n[error] Tool resolve_anime was interrupted and may have partially run\n</harness>"
+        }
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms safe:A stdout: [spike] constructed instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+     8ms safe:A stdout: [spike] factory:opened-alt-store instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    18ms safe:A stdout: [spike] start instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    20ms safe:A stdout: [spike] request:submit instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    29ms safe:A stdout: [spike] model:tool_call instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    37ms safe:A stdout: [spike] tool:start instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    43ms safe:A stdout: [spike] job instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+    43ms safe:A stdout: [spike] alarm instance=2ff25c08-afa7-42e5-bc38-3f42d4ed414f",
+    "+ 30046ms safe:B stdout: [spike] constructed instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30049ms safe:B stdout: [spike] factory:opened-alt-store instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30060ms safe:B stdout: [spike] tool:start instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30063ms safe:B stdout: [spike] start instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30063ms safe:B stdout: [spike] job instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30063ms safe:B stdout: [spike] alarm instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30064ms safe:B stdout: [spike] tool:end instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30078ms safe:B stdout: [spike] model:answer instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30082ms safe:B stdout: [spike] request:report instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30085ms safe:B stdout: [spike] job instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30085ms safe:B stdout: [spike] alarm instance=547723d6-25d2-4272-aa6e-2cdc6e38887f",
+    "+ 30168ms unsafe:A stdout: [spike] constructed instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30174ms unsafe:A stdout: [spike] factory:opened-alt-store instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30183ms unsafe:A stdout: [spike] start instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30184ms unsafe:A stdout: [spike] request:submit instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30194ms unsafe:A stdout: [spike] model:tool_call instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30202ms unsafe:A stdout: [spike] tool:start instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30210ms unsafe:A stdout: [spike] job instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 30210ms unsafe:A stdout: [spike] alarm instance=2c4254b2-773f-4764-be35-ad24ad7619a6",
+    "+ 60215ms unsafe:B stdout: [spike] constructed instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60217ms unsafe:B stdout: [spike] factory:opened-alt-store instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60244ms unsafe:B stdout: [spike] model:answer instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60246ms unsafe:B stdout: [spike] start instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60247ms unsafe:B stdout: [spike] job instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60247ms unsafe:B stdout: [spike] alarm instance=8785b4f6-1c97-4078-815d-59c34a91ae42",
+    "+ 60248ms unsafe:B stdout: [spike] request:report instance=8785b4f6-1c97-4078-815d-59c34a91ae42"
+  ]
+}

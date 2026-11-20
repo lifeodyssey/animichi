@@ -1,0 +1,7 @@
+PASS count-3a4b31d8 op-count-1: one model request calling respond, which ended the run; settled done
+PASS count-3a4b31d8 op-count-2: one model request calling respond, which ended the run; settled done
+PASS count-streamed-3a4b31d8 op-count-s: one model request calling respond, which ended the run; settled done
+PASS q1-shaped turn: tool call, result, answer; settled done
+PASS every counted statement is the object's own connection (no other application in the database)
+PASS statements per commit are 4 (BEGIN, state read, write, COMMIT): begins = state reads = writes = commits in every count
+PASS guard: no request other than the stubbed catalog left workerd

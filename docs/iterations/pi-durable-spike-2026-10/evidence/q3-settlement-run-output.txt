@@ -1,0 +1,10 @@
+PASS every operation settled once: op-1, op-4, op-5, op-6 done; op-2 (4xx thrown) and op-3 (error frame) unanswered, banked nothing
+PASS op-1: charged exactly the usage inside its own entry range, recomputed from the stored entries
+PASS op-4: charged exactly the usage inside its own entry range, recomputed from the stored entries
+PASS op-5: charged exactly the usage inside its own entry range, recomputed from the stored entries
+PASS op-6: charged exactly the usage inside its own entry range, recomputed from the stored entries
+PASS two completed turns, op-1 and op-5, are each charged only their own usage (14 each: two model calls of 2 and the tool's 10), never the session's running total
+PASS the identity: Pi's usage() total equals the stored entries' usage, which equals the completed operations' charges plus the usage outside them
+PASS the interrupted attempt: before the restart Postgres held op-4's streamed partial (a progress commit) and no answer to it; after it Pi kept an aborted entry inside op-4's range with the usage the partial carried (none: the double reports usage only in its final frame)
+PASS op-6, on the model whose compat does not ask for usage: its model calls carry no usage, so it is charged only the tool's 10
+PASS guard: no request other than the stubbed catalog left workerd

@@ -1,0 +1,5 @@
+PASS PiHarness: a second submit under the same operationId with other content gets accepted: false, and Pi answers only the first
+PASS pi-durable: a submission of another type (a write) under that request id is rejected
+PASS covering layer: the same id with other content answers 409; the same id with the same content is the existing admission
+PASS Pi placed A and C only, and the faux model ran twice: B and D never reached the model
+PASS guard: no request other than the stubbed catalog left workerd

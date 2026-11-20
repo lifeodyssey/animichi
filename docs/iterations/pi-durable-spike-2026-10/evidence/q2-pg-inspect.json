@@ -1,0 +1,264 @@
+{
+  "database": "spike_pi_durable_counter",
+  "version": {
+    "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+  },
+  "sharedPreloadLibraries": {
+    "shared_preload_libraries": "anon,credcheck,pg_documentdb_core,pg_documentdb,pg_documentdb_gw_host,pg_cron,pg_duckdb,pg_durable,pg_failover_slots,pg_hint_plan,pg_net,pg_partman_bgw,pg_qualstats,pg_show_plans,pg_squeeze,pg_stat_monitor,pg_textsearch,pg_wait_sampling,pgaudit,pglogical,pgnodemx,pgsodium,plprofiler,set_user,timescaledb"
+  },
+  "extension": [
+    {
+      "extname": "pg_stat_monitor",
+      "extversion": "2.4"
+    }
+  ],
+  "functions": [
+    {
+      "proname": "decode_error_level",
+      "args": "elevel integer"
+    },
+    {
+      "proname": "get_cmd_type",
+      "args": "cmd_type integer"
+    },
+    {
+      "proname": "get_histogram_timings",
+      "args": ""
+    },
+    {
+      "proname": "histogram",
+      "args": "_bucket integer, _quryid bigint"
+    },
+    {
+      "proname": "pg_stat_monitor_internal",
+      "args": "showtext boolean, OUT bucket bigint, OUT userid oid, OUT username text, OUT dbid oid, OUT datname text, OUT client_ip bigint, OUT queryid bigint, OUT planid bigint, OUT query text, OUT query_plan text, OUT pgsm_query_id bigint, OUT top_queryid bigint, OUT top_query text, OUT application_name text, OUT relations text, OUT cmd_type integer, OUT elevel integer, OUT sqlcode text, OUT message text, OUT bucket_start_time timestamp with time zone, OUT calls bigint, OUT total_exec_time double precision, OUT min_exec_time double precision, OUT max_exec_time double precision, OUT mean_exec_time double precision, OUT stddev_exec_time double precision, OUT rows bigint, OUT plans bigint, OUT total_plan_time double precision, OUT min_plan_time double precision, OUT max_plan_time double precision, OUT mean_plan_time double precision, OUT stddev_plan_time double precision, OUT shared_blks_hit bigint, OUT shared_blks_read bigint, OUT shared_blks_dirtied bigint, OUT shared_blks_written bigint, OUT local_blks_hit bigint, OUT local_blks_read bigint, OUT local_blks_dirtied bigint, OUT local_blks_written bigint, OUT temp_blks_read bigint, OUT temp_blks_written bigint, OUT shared_blk_read_time double precision, OUT shared_blk_write_time double precision, OUT local_blk_read_time double precision, OUT local_blk_write_time double precision, OUT temp_blk_read_time double precision, OUT temp_blk_write_time double precision, OUT resp_calls text, OUT cpu_user_time double precision, OUT cpu_sys_time double precision, OUT wal_records bigint, OUT wal_fpi bigint, OUT wal_bytes numeric, OUT wal_buffers_full bigint, OUT comments text, OUT jit_functions bigint, OUT jit_generation_time double precision, OUT jit_inlining_count bigint, OUT jit_inlining_time double precision, OUT jit_optimization_count bigint, OUT jit_optimization_time double precision, OUT jit_emission_count bigint, OUT jit_emission_time double precision, OUT jit_deform_count bigint, OUT jit_deform_time double precision, OUT parallel_workers_to_launch integer, OUT parallel_workers_launched integer, OUT generic_plan_calls bigint, OUT custom_plan_calls bigint, OUT stats_since timestamp with time zone, OUT minmax_stats_since timestamp with time zone, OUT toplevel boolean, OUT bucket_done boolean"
+    },
+    {
+      "proname": "pg_stat_monitor_reset",
+      "args": ""
+    },
+    {
+      "proname": "pg_stat_monitor_version",
+      "args": ""
+    },
+    {
+      "proname": "pgsm_create_14_view",
+      "args": ""
+    },
+    {
+      "proname": "pgsm_create_15_view",
+      "args": ""
+    },
+    {
+      "proname": "pgsm_create_17_view",
+      "args": ""
+    },
+    {
+      "proname": "pgsm_create_18_view",
+      "args": ""
+    },
+    {
+      "proname": "pgsm_create_19_view",
+      "args": ""
+    },
+    {
+      "proname": "range",
+      "args": ""
+    }
+  ],
+  "views": [
+    {
+      "relname": "pg_stat_monitor"
+    }
+  ],
+  "columns": [
+    "bucket",
+    "bucket_start_time",
+    "userid",
+    "username",
+    "dbid",
+    "datname",
+    "client_ip",
+    "pgsm_query_id",
+    "queryid",
+    "toplevel",
+    "top_queryid",
+    "query",
+    "comments",
+    "planid",
+    "query_plan",
+    "top_query",
+    "application_name",
+    "relations",
+    "cmd_type",
+    "cmd_type_text",
+    "elevel",
+    "sqlcode",
+    "message",
+    "calls",
+    "total_exec_time",
+    "min_exec_time",
+    "max_exec_time",
+    "mean_exec_time",
+    "stddev_exec_time",
+    "rows",
+    "shared_blks_hit",
+    "shared_blks_read",
+    "shared_blks_dirtied",
+    "shared_blks_written",
+    "local_blks_hit",
+    "local_blks_read",
+    "local_blks_dirtied",
+    "local_blks_written",
+    "temp_blks_read",
+    "temp_blks_written",
+    "shared_blk_read_time",
+    "shared_blk_write_time",
+    "local_blk_read_time",
+    "local_blk_write_time",
+    "temp_blk_read_time",
+    "temp_blk_write_time",
+    "resp_calls",
+    "cpu_user_time",
+    "cpu_sys_time",
+    "wal_records",
+    "wal_fpi",
+    "wal_bytes",
+    "wal_buffers_full",
+    "bucket_done",
+    "plans",
+    "total_plan_time",
+    "min_plan_time",
+    "max_plan_time",
+    "mean_plan_time",
+    "stddev_plan_time",
+    "jit_functions",
+    "jit_generation_time",
+    "jit_inlining_count",
+    "jit_inlining_time",
+    "jit_optimization_count",
+    "jit_optimization_time",
+    "jit_emission_count",
+    "jit_emission_time",
+    "jit_deform_count",
+    "jit_deform_time",
+    "parallel_workers_to_launch",
+    "parallel_workers_launched",
+    "stats_since",
+    "minmax_stats_since"
+  ],
+  "settings": [
+    {
+      "name": "pg_stat_monitor.pgsm_bucket_time",
+      "setting": "60",
+      "unit": "s",
+      "short_desc": "Sets the time in seconds per bucket."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_enable_overflow",
+      "setting": "on",
+      "unit": null,
+      "short_desc": "Enable/Disable pg_stat_monitor to grow beyond shared memory into swap space."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_enable_pgsm_query_id",
+      "setting": "on",
+      "unit": null,
+      "short_desc": "Enable/disable PGSM specific query id calculation which is very useful in comparing same query across databases and clusters.."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_enable_query_plan",
+      "setting": "off",
+      "unit": null,
+      "short_desc": "Enable/Disable query plan monitoring."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_extract_comments",
+      "setting": "off",
+      "unit": null,
+      "short_desc": "Enable/Disable extracting comments from queries."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_histogram_buckets",
+      "setting": "20",
+      "unit": null,
+      "short_desc": "Sets the maximum number of histogram buckets."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_histogram_max",
+      "setting": "100000",
+      "unit": "ms",
+      "short_desc": "Sets the time in millisecond."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_histogram_min",
+      "setting": "1",
+      "unit": "ms",
+      "short_desc": "Sets the time in millisecond."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_max",
+      "setting": "256",
+      "unit": "MB",
+      "short_desc": "Sets the maximum size of shared memory in (MB) used for statement's metadata tracked by pg_stat_monitor."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_max_buckets",
+      "setting": "10",
+      "unit": null,
+      "short_desc": "Sets the maximum number of buckets."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_normalized_query",
+      "setting": "off",
+      "unit": null,
+      "short_desc": "Selects whether save query in normalized format."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_query_max_len",
+      "setting": "2048",
+      "unit": "B",
+      "short_desc": "Sets the maximum length of query."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_query_shared_buffer",
+      "setting": "20",
+      "unit": "MB",
+      "short_desc": "Sets the maximum size of shared memory in (MB) used for query tracked by pg_stat_monitor."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_track",
+      "setting": "top",
+      "unit": null,
+      "short_desc": "Selects which statements are tracked by pg_stat_monitor."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_track_application_names",
+      "setting": "on",
+      "unit": null,
+      "short_desc": "Deprecated, has no effect. Application names are always tracked."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_track_planning",
+      "setting": "off",
+      "unit": null,
+      "short_desc": "Selects whether planning statistics are tracked."
+    },
+    {
+      "name": "pg_stat_monitor.pgsm_track_utility",
+      "setting": "on",
+      "unit": null,
+      "short_desc": "Selects whether utility commands are tracked."
+    }
+  ],
+  "trackUtility": [
+    {
+      "name": "compute_query_id",
+      "setting": "auto"
+    },
+    {
+      "name": "track_activities",
+      "setting": "on"
+    }
+  ]
+}

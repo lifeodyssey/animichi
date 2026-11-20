@@ -1,0 +1,560 @@
+{
+  "source": "evidence/q2-baseline-count.json",
+  "total": 310,
+  "test": 17,
+  "history": {
+    "total": 8,
+    "ownershipChecks": 2,
+    "firstGetReads": {
+      "getValue": 3,
+      "scanValues": 2,
+      "scanBranch": 1
+    }
+  },
+  "turn": {
+    "total": 285,
+    "piStore": {
+      "total": 199,
+      "commits": {
+        "count": 16,
+        "statements": 148,
+        "perCommit": 9.25,
+        "writes": 36
+      },
+      "readsOutsideCommits": 50,
+      "sessionCreation": 1
+    },
+    "business": {
+      "total": 77,
+      "transactions": 9,
+      "transactionsInAll": 25
+    },
+    "prisma": 9
+  },
+  "checks": [
+    {
+      "name": "the copied test patterns select exactly the rows the count runner set aside",
+      "pass": true,
+      "observed": {
+        "selected": 15,
+        "setAside": 15
+      }
+    },
+    {
+      "name": "both history GETs' ownership checks, and no other call of that statement",
+      "pass": true,
+      "observed": 2
+    },
+    {
+      "name": "BEGIN and COMMIT pair up",
+      "pass": true,
+      "observed": {
+        "begin": 25,
+        "commit": 25
+      }
+    },
+    {
+      "name": "every call is allocated once",
+      "pass": true,
+      "observed": 310
+    }
+  ],
+  "rows": [
+    {
+      "statement": "CREATE FUNCTION host_test_settled() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_notify('",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "CREATE FUNCTION host_test_terminal() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_notify(",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "CREATE TRIGGER host_test_settled AFTER UPDATE ON agent_settlements FOR EACH ROW WHEN (OLD.settled_at",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "CREATE TRIGGER host_test_terminal AFTER INSERT OR UPDATE ON pi_scalar_values FOR EACH ROW WHEN (NEW.",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "DELETE FROM anon_daily_message_count",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "DELETE FROM daily_usage",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "DELETE FROM sessions WHERE id = $1",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "LISTEN host_test_settled",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "SELECT a.state,s.last_usage_seq,s.settled_at FROM agent_admissions a JOIN agent_settlements s USING(",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "SELECT cost_usd FROM daily_usage WHERE scope='anon'",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "SELECT message_count FROM anon_daily_message_count WHERE anon_id=$1",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "SELECT payload->'message' AS payload FROM pi_records WHERE kind='entry' AND session_id=$1",
+      "calls": 2,
+      "parts": {
+        "test": 2
+      }
+    },
+    {
+      "statement": "TRUNCATE pi_sessions CASCADE",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "UNLISTEN *",
+      "calls": 2,
+      "parts": {
+        "test": 2
+      }
+    },
+    {
+      "statement": "UPDATE sessions SET user_id='another-owner' WHERE id=$1",
+      "calls": 1,
+      "parts": {
+        "test": 1
+      }
+    },
+    {
+      "statement": "BEGIN",
+      "calls": 25,
+      "parts": {
+        "pi.commit": 16,
+        "business": 9
+      }
+    },
+    {
+      "statement": "COMMIT",
+      "calls": 25,
+      "parts": {
+        "pi.commit": 16,
+        "business": 9
+      }
+    },
+    {
+      "statement": "DELETE FROM \"public\".\"agent_open_operations\" WHERE \"agent_open_operations\".\"operation_id\" = $1 RETUR",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "DELETE FROM \"public\".\"pi_list_values\" WHERE (\"pi_list_values\".\"session_id\" = $1 AND \"pi_list_values\"",
+      "calls": 1,
+      "parts": {
+        "pi.commit": 1
+      }
+    },
+    {
+      "statement": "DELETE FROM \"public\".\"pi_scalar_values\" WHERE (\"pi_scalar_values\".\"session_id\" = '01992000-0000-7000",
+      "calls": 4,
+      "parts": {
+        "pi.commit": 4
+      }
+    },
+    {
+      "statement": "INSERT INTO anon_daily_message_count (usage_date, anon_id, message_count) VALUES ($1::date, $2, 1) O",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO daily_usage (usage_date, scope, requests, input_tokens, output_tokens, cost_usd, updated",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"agent_admissions\" (\"session_id\", \"identity_id\", \"payer\", \"client_message_id\", ",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"agent_open_operations\" (\"operation_id\") VALUES ($1) RETURNING \"agent_open_oper",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"agent_settlements\" (\"operation_id\") VALUES ($1) RETURNING \"agent_settlements\".",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"pi_list_values\" (\"session_id\", \"namespace\", \"key\", \"seq\", \"value\") VALUES ($1,",
+      "calls": 4,
+      "parts": {
+        "pi.commit": 4
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"pi_records\" (\"session_id\", \"id\", \"seq\", \"kind\", \"payload\") VALUES ($1, $2, $3,",
+      "calls": 4,
+      "parts": {
+        "pi.commit": 4
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"pi_scalar_values\" (\"session_id\", \"namespace\", \"key\", \"seq\", \"value\") VALUES ($",
+      "calls": 23,
+      "parts": {
+        "pi.commit": 23
+      }
+    },
+    {
+      "statement": "INSERT INTO \"public\".\"pi_sessions\" (\"id\", \"metadata\", \"next_seq\") VALUES ($1, $2::jsonb, $3) RETURNI",
+      "calls": 1,
+      "parts": {
+        "pi.creation": 1
+      }
+    },
+    {
+      "statement": "INSERT INTO sessions (id, user_id, first_query) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET u",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 6,
+      "parts": {
+        "business": 6
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 6,
+      "parts": {
+        "business": 6
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"id\" AS \"id\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"i",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"agent_admissions\".\"id\" AS \"id\" FROM \"public\".\"agent_admissions\" WHERE \"agent_admissions\".\"id",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"agent_open_operations\".\"created_at\" AS \"created_at\", \"agent_open_operations\".\"operation_id\" ",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"agent_settlements\".\"last_usage_seq\" AS \"last_usage_seq\", \"agent_settlements\".\"operation_id\" ",
+      "calls": 5,
+      "parts": {
+        "business": 5
+      }
+    },
+    {
+      "statement": "SELECT \"agent_settlements\".\"last_usage_seq\" AS \"last_usage_seq\", \"agent_settlements\".\"operation_id\" ",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"agent_settlements\".\"operation_id\" AS \"operation_id\" FROM \"public\".\"agent_settlements\" WHERE ",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT coalesce(sum(cost_usd), 0) < $1::numeric AS available FROM daily_usage WHERE usage_date = $2:",
+      "calls": 4,
+      "parts": {
+        "business": 4
+      }
+    },
+    {
+      "statement": "select column_name from information_schema.columns where table_schema = 'prisma_contract' and table_",
+      "calls": 3,
+      "parts": {
+        "prisma": 3
+      }
+    },
+    {
+      "statement": "SELECT jsonb_build_object( 'messageCount', (SELECT count(*) FROM pi_records WHERE session_id = $1 AN",
+      "calls": 17,
+      "parts": {
+        "pi.commit": 16,
+        "pi.read": 1
+      }
+    },
+    {
+      "statement": "SELECT key, seq, value FROM pi_scalar_values WHERE session_id = $1 AND namespace = $2 AND starts_wit",
+      "calls": 11,
+      "parts": {
+        "history": 2,
+        "pi.read": 9
+      }
+    },
+    {
+      "statement": "SELECT \"marker\".\"core_hash\" AS \"core_hash\", \"marker\".\"profile_hash\" AS \"profile_hash\", \"marker\".\"con",
+      "calls": 3,
+      "parts": {
+        "prisma": 3
+      }
+    },
+    {
+      "statement": "SELECT next_seq FROM pi_sessions WHERE id = $1 FOR UPDATE",
+      "calls": 16,
+      "parts": {
+        "pi.commit": 16
+      }
+    },
+    {
+      "statement": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"p",
+      "calls": 13,
+      "parts": {
+        "pi.commit": 13
+      }
+    },
+    {
+      "statement": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"p",
+      "calls": 1,
+      "parts": {
+        "pi.commit": 1
+      }
+    },
+    {
+      "statement": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"p",
+      "calls": 2,
+      "parts": {
+        "pi.commit": 2
+      }
+    },
+    {
+      "statement": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"payload\" AS \"payload\" FROM \"public\".\"pi_records\" WHE",
+      "calls": 11,
+      "parts": {
+        "pi.read": 11
+      }
+    },
+    {
+      "statement": "SELECT \"pi_records\".\"payload\" AS \"payload\" FROM \"public\".\"pi_records\" WHERE ((\"pi_records\".\"session_",
+      "calls": 2,
+      "parts": {
+        "pi.read": 2
+      }
+    },
+    {
+      "statement": "SELECT \"pi_scalar_values\".\"session_id\" AS \"session_id\", \"pi_scalar_values\".\"namespace\" AS \"namespace",
+      "calls": 5,
+      "parts": {
+        "pi.read": 5
+      }
+    },
+    {
+      "statement": "SELECT \"pi_scalar_values\".\"value\" AS \"value\", \"pi_scalar_values\".\"seq\" AS \"seq\" FROM \"public\".\"pi_sc",
+      "calls": 16,
+      "parts": {
+        "history": 3,
+        "pi.read": 13
+      }
+    },
+    {
+      "statement": "SELECT \"pi_sessions\".\"id\" AS \"id\" FROM \"public\".\"pi_sessions\" WHERE \"pi_sessions\".\"id\" = $1 LIMIT 1",
+      "calls": 16,
+      "parts": {
+        "pi.commit": 16
+      }
+    },
+    {
+      "statement": "SELECT \"pi_sessions\".\"id\" AS \"id\", \"pi_sessions\".\"metadata\" AS \"metadata\", \"pi_sessions\".\"next_seq\" ",
+      "calls": 1,
+      "parts": {
+        "pi.read": 1
+      }
+    },
+    {
+      "statement": "SELECT \"pi_sessions\".\"metadata\" AS \"metadata\" FROM \"public\".\"pi_sessions\" WHERE \"pi_sessions\".\"id\" =",
+      "calls": 1,
+      "parts": {
+        "pi.read": 1
+      }
+    },
+    {
+      "statement": "SELECT s.operation_id FROM agent_settlements s JOIN agent_admissions a USING (operation_id) WHERE s.",
+      "calls": 2,
+      "parts": {
+        "business": 2
+      }
+    },
+    {
+      "statement": "SELECT \"tables\".\"table_schema\" AS \"table_schema\" FROM \"information_schema\".\"tables\" WHERE (\"tables\".",
+      "calls": 3,
+      "parts": {
+        "prisma": 3
+      }
+    },
+    {
+      "statement": "SELECT user_id AS owner FROM sessions WHERE id = $1",
+      "calls": 2,
+      "parts": {
+        "history": 2
+      }
+    },
+    {
+      "statement": "SELECT user_id AS owner FROM sessions WHERE id = $1 FOR UPDATE",
+      "calls": 6,
+      "parts": {
+        "business": 6
+      }
+    },
+    {
+      "statement": "UPDATE \"public\".\"agent_admissions\" SET \"quota_usage_date\" = $1::date, \"quota_reserved_at\" = $2 WHERE",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "UPDATE \"public\".\"agent_admissions\" SET \"state\" = $1 WHERE \"agent_admissions\".\"id\" = '01a1f03d-e59b-7",
+      "calls": 3,
+      "parts": {
+        "business": 3
+      }
+    },
+    {
+      "statement": "UPDATE \"public\".\"agent_settlements\" SET \"last_usage_seq\" = $1, \"settled_at\" = $2 WHERE \"agent_settle",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "UPDATE \"public\".\"agent_settlements\" SET \"last_usage_seq\" = $1 WHERE \"agent_settlements\".\"operation_i",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "UPDATE \"public\".\"pi_sessions\" SET \"next_seq\" = $1 WHERE \"pi_sessions\".\"id\" = '01992000-0000-7000-800",
+      "calls": 16,
+      "parts": {
+        "pi.commit": 16
+      }
+    },
+    {
+      "statement": "UPDATE sessions SET title = LEFT(first_query, 20) WHERE id = $1 AND title IS NULL AND first_query IS",
+      "calls": 1,
+      "parts": {
+        "business": 1
+      }
+    },
+    {
+      "statement": "WITH RECURSIVE ancestors AS ( SELECT id, seq, payload FROM pi_records WHERE session_id = $1 AND kind",
+      "calls": 8,
+      "parts": {
+        "history": 1,
+        "pi.read": 7
+      }
+    }
+  ]
+}

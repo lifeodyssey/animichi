@@ -1,0 +1,17 @@
+PASS c1: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi has no submission; nothing settled; the killed process's backends were gone
+PASS c1: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row
+PASS c1: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries
+PASS c1: the recovery path: the scan submitted the admitted operation again under its id
+PASS c2: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi's held commit rolled back with the connection: no submission, no entry; nothing settled; the killed process's backends were gone
+PASS c2: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row
+PASS c2: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries
+PASS c2: the recovery path: the scan submitted the admitted operation again under its id
+PASS c3: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi's submission committed; no tool result yet; nothing settled; the killed process's backends were gone
+PASS c3: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row
+PASS c3: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries
+PASS c3: the recovery path: no resubmission; Pi resumed or had settled
+PASS c4: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi settled the submission done; nothing settled by us; the killed process's backends were gone
+PASS c4: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row
+PASS c4: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries
+PASS c4: the recovery path: no resubmission; Pi resumed or had settled
+PASS guard: no request other than the stubbed catalog left workerd

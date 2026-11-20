@@ -1,0 +1,247 @@
+{
+  "binding": "safe",
+  "title": "Evict Safe",
+  "operationId": "safe-evict-1",
+  "receipt": {
+    "operationId": "safe-evict-1",
+    "session": "1",
+    "accepted": true
+  },
+  "inFlightAt": 1795016298012,
+  "armedAt": 1795016298012,
+  "killedAt": 1795016299013,
+  "restartedAt": 1795016299083,
+  "answerLoggedAt": 1795016328064,
+  "firstRequestAt": 1795016328064,
+  "catalogCalls": [
+    {
+      "at": 1795016298012,
+      "title": "Evict Safe",
+      "held": true
+    },
+    {
+      "at": 1795016328045,
+      "title": "Evict Safe",
+      "held": false
+    }
+  ],
+  "result": {
+    "operationId": "safe-evict-1",
+    "session": "1",
+    "status": "done",
+    "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+  },
+  "pending": [],
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "text": "Resolve the anime titled \"Evict Safe\"."
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "text": ""
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "resolve_anime",
+          "arguments": {
+            "title": "Evict Safe"
+          }
+        }
+      ],
+      "usage": {
+        "input": 0,
+        "output": 9,
+        "cacheRead": 0,
+        "cacheWrite": 66,
+        "totalTokens": 75,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "toolName": "resolve_anime",
+      "isError": false,
+      "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}",
+      "usage": {
+        "input": 0,
+        "output": 25,
+        "cacheRead": 0,
+        "cacheWrite": 107,
+        "totalTokens": 132,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "constructed",
+      "detail": {
+        "replay": "safe"
+      },
+      "at": 1795016297990
+    },
+    {
+      "seq": 2,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "start",
+      "detail": null,
+      "at": 1795016297999
+    },
+    {
+      "seq": 3,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "request:submit",
+      "detail": {
+        "title": "Evict Safe",
+        "operationId": "safe-evict-1"
+      },
+      "at": 1795016298000
+    },
+    {
+      "seq": 4,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "model:tool_call",
+      "detail": {
+        "title": "Evict Safe",
+        "args": {
+          "title": "Evict Safe"
+        },
+        "sawRole": "user"
+      },
+      "at": 1795016298006
+    },
+    {
+      "seq": 5,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "tool:start",
+      "detail": {
+        "title": "Evict Safe",
+        "replay": "safe"
+      },
+      "at": 1795016298011
+    },
+    {
+      "seq": 6,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016298012
+    },
+    {
+      "seq": 7,
+      "instance": "960829c8-8e12-402e-adf2-b24b5cbad50d",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016298012
+    },
+    {
+      "seq": 8,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "constructed",
+      "detail": {
+        "replay": "safe"
+      },
+      "at": 1795016328019
+    },
+    {
+      "seq": 9,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "tool:start",
+      "detail": {
+        "title": "Evict Safe",
+        "replay": "safe"
+      },
+      "at": 1795016328041
+    },
+    {
+      "seq": 10,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "start",
+      "detail": null,
+      "at": 1795016328043
+    },
+    {
+      "seq": 11,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016328044
+    },
+    {
+      "seq": 12,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016328044
+    },
+    {
+      "seq": 13,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "tool:end",
+      "detail": {
+        "title": "Evict Safe",
+        "status": 200
+      },
+      "at": 1795016328047
+    },
+    {
+      "seq": 14,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "model:answer",
+      "detail": {
+        "title": "Evict Safe",
+        "sawToolResult": {
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Evict Safe\",\"title_cn\":\"巡礼\"}}"
+        }
+      },
+      "at": 1795016328064
+    },
+    {
+      "seq": 15,
+      "instance": "1ec39450-14c8-4a6f-bc6e-96d4ba8c711e",
+      "kind": "request:report",
+      "detail": {
+        "operationId": "safe-evict-1"
+      },
+      "at": 1795016328071
+    }
+  ],
+  "timing": {
+    "killToRestartedInstanceMs": 29006,
+    "killToAnswerMs": 29051,
+    "workerdBStartMs": 70
+  }
+}

@@ -191,6 +191,14 @@ Animichi 的对外 API 只为浏览器里的聊天界面设计。程序调用者
 - span 的出口用 pi 的接口：实现 `@earendil-works/pi-telemetry` 的 `TelemetryContext`，把 span 交给 Workers Traces，
   再用 pi 的 `withTelemetryContext` 挂到每个 session 上。pi-agent-core 0.87.1 本来就依赖这个包，今天挂的是 no-op；
   pi 1.0 的 pi-ai 收的也是同一个类型（pi-durable 没有 telemetry 代码），换版本线时适配器不变。
+  > **2026-11-20 注**："pi-durable 没有 telemetry 代码"和下一条的"1.0 的包一个都不发"，对写 spec 时的 1.0.x 成立。
+  > pi-durable 1.4.0（2026-10-21）起，`HarnessOptions.telemetry` 接收宿主的 `TelemetryContext`，发上游称为不含内容的
+  > `DURABLE_TELEMETRY_SCHEMA`（失败阶段的诊断文本可能带调用方内容）：submit span 和任务阶段 span；entry、
+  > submission、checkpoint、replay 等事件；阶段时长、活跃任务数等指标。适配器带 propagation 能力时，pi-durable 把
+  > trace carrier 存进 submission 和任务的 JSON，逐出后重新打开的任务接着原来的 trace，第一次调用带 `resumed: true`。
+  > 出处：`@earendil-works/pi-durable@1.5.2` 的 `CHANGELOG.md:223`（`## [1.4.0]`）和 `README.md:82-90`。这对下面
+  > 两条的影响还没定，留到票 6（span）决定：turn、模型、工具 span 是否还由我们自己发；一个 turn 跨逐出后是否还是
+  > 一条 trace。
 - span 的内容由我们发：pi 0.87.1 实际只发 `pi.harness.hook` 一种 span，1.0 的包一个都不发，也没有 `gen_ai.*`
   属性名。我们在自己的 turn 事件层上，经同一个 `TelemetryContext` 发：每次 Durable Object 调用里，这个 turn 有一个
   turn 级父 span（带 operation id），这次调用里的每次模型调用、每次工具调用各是它的一个子 span。属性只放 id、名字、计数、时长、状态、usage：session id（`gen_ai.conversation.id`）、

@@ -1,0 +1,15 @@
+PASS safe (alt_ store): workerd A was SIGKILLed while the tool's catalog call was held
+PASS safe (alt_ store): a new instance answered before any request, and the pi-wake job ran on it first
+PASS safe (alt_ store): the factory reopened the alt store on the answering instance
+PASS safe (alt_ store): Pi settled the operation done, read through Pi from the alt store
+PASS safe (alt_ store): Pi's rows are under alt_, none under PiHarness's pi_ prefix
+PASS safe (alt_ store): PiHarness's wait() still answers from its own empty store (unanswered, not_found)
+PASS unsafe (alt_ store): workerd A was SIGKILLed while the tool's catalog call was held
+PASS unsafe (alt_ store): a new instance answered before any request, and the pi-wake job ran on it first
+PASS unsafe (alt_ store): the factory reopened the alt store on the answering instance
+PASS unsafe (alt_ store): Pi settled the operation done, read through Pi from the alt store
+PASS unsafe (alt_ store): Pi's rows are under alt_, none under PiHarness's pi_ prefix
+PASS unsafe (alt_ store): PiHarness's wait() still answers from its own empty store (unanswered, not_found)
+PASS safe: the tool ran again after the kill (two catalog calls), and its result reached the model
+PASS unsafe: the tool did not run again (one catalog call), and the model received the interrupted result
+PASS guard: no request other than the stubbed catalog left workerd

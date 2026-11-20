@@ -55,6 +55,7 @@ wrappers.
 ## Latest dependencies, official usage, research before writing (owner, 2026-07-18)
 
 - Dependencies go to latest; a breaking change is migrated, not pinned around.
+  - Except the Pi packages: see the pi version line in `docs/agents/owner-decisions.md`.
 - A library is used the way its own documentation recommends today, and the overall shape follows
   current community practice plus clean code and clean architecture. When the standard is unknown,
   research it (context7, the official docs, the stack skills in `docs/agents/tool-routing.md`)
