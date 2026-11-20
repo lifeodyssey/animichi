@@ -50,6 +50,27 @@ in the same release would have failed every publish of the old catalog code in t
 may skip `main` commits, so each half also needs its own release in each environment: approving
 production for a snapshot that carries both halves is the same-release drop again.
 
+## The test template follows the emitted contract; a revert cannot undo a drop (2026-11-20)
+
+Read in the installed Prisma 8.0.0-rc.8 (CLI) and rc.9 (migrator) for the chain's first table
+drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
+
+- `prisma db migrate` without `--to`, which `packages/test-postgres` uses to seed its migrated
+  template, targets the emitted `src/contract.json`, not the newest migration. The template is
+  named after the migration directories alone, and seeding reads no marker. So a tree whose
+  `contract.json` lags its chain seeds the template at the old head under the new chain's name,
+  and every lane that clones it is green with nothing applied. The plan to run the old code on the
+  dropped schema restored the old `contract.json` to do it; review caught that before it ran. Seed
+  the template from the intact tree first, and check a clone's `prisma_contract.marker` before
+  trusting such a run.
+- One transaction covers a whole apply: every pending migration in every contract space, and
+  their markers. A drop that fails rolls back whole and leaves the marker where it was, so
+  reverting the PR unfreezes CD: the selected target equals the live marker. Once a drop has
+  applied, a revert does the opposite. The reverted chain has no path from the live marker, the
+  preflight refuses, and CD stays frozen until a forward fix or a PITR.
+  `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins the rollback for
+  that migration.
+
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
 `@neondatabase/serverless` (still an edge dependency in `workers/edge/package.json`) reaches
