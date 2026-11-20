@@ -49,7 +49,9 @@ export async function previewPrisma(dsn: string, ref: string, directory = PRISMA
   return { ok: true, value: { targetHash: ref, markerHash, migrations, usedLiveMarker } };
 }
 
-/** Prisma owns graph traversal, per-migration transactions, locking and markers. */
+/** Prisma owns graph traversal, locking and markers. Its runner wraps an apply in one transaction.
+ * pi-session-neon's `drop-cluster-version-tables.db.test.ts` pins the rollback for one migration;
+ * applies of several migrations or contract spaces are read from the runner, not tested. */
 export async function migratePrisma(dsn: string, ref: string, directory = PRISMA_MIGRATIONS_DIR): Promise<NativeResult<PrismaReceipt>> {
   assertDirectDsn(dsn);
   if (!validPrismaRef(ref)) return { ok: false, error: "invalid_prisma_ref" };

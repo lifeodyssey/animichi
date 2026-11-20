@@ -37,7 +37,6 @@ As in prior glossary; pipeline stages are not fan-facing nouns.
 | `PilgrimagePoint`, `Route` | `Point`, `Itinerary` |
 | `work_id`, `pointsByWorkId` | `bangumi_id`, `pointsByBangumiId` |
 | `POST /catalog/route` | `POST /catalog/itinerary` |
-| `route_snapshots`, column `work_id` | `itinerary_snapshots`, `bangumi_id` |
 
 ## Design
 

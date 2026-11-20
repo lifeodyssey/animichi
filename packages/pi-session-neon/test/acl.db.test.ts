@@ -4,6 +4,7 @@ import { uniqueDatabaseName } from "@animichi/test-postgres";
 import type pg from "pg";
 import { DATA_PLANE_ACCESS } from "../migrations/app/20260913T1711_data_plane_baseline/access.ts";
 import { contractClient } from "./contract-client.ts";
+import { HEAD_GRANT_STEPS } from "./head-state.ts";
 import { contractDsn, database, pool, SESSION_ID } from "./postgres.ts";
 
 type PostcheckStep = (typeof DATA_PLANE_ACCESS.postcheck)[number];
@@ -91,7 +92,7 @@ void test("the append-only postcheck passes on a database whose agent role is ne
     assert.deepEqual(await explicitGrants(client, "agent_svc", "pi_records"), ["INSERT", "SELECT"]);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'UPDATE') AS result"), true);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('agent_svc', 'pi_records', 'DELETE') AS result"), true);
-    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, HEAD_GRANT_STEPS), undefined);
   } finally { await rollbackAndRelease(client); }
 });
 
@@ -99,13 +100,13 @@ void test("an explicit UPDATE or DELETE grant on pi_records turns the postcheck 
   const client = await pool.connect();
   try {
     await beginNeonLayer(client, "agent_svc");
-    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, HEAD_GRANT_STEPS), undefined);
     await client.query("GRANT UPDATE, DELETE ON pi_records TO agent_svc");
     assert.deepEqual(await explicitGrants(client, "agent_svc", "pi_records"), ["DELETE", "INSERT", "SELECT", "UPDATE"]);
-    const violating = await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck);
+    const violating = await firstFailingStep(client, HEAD_GRANT_STEPS);
     assert.match(violating?.description ?? "", /pi_records are exactly INSERT, SELECT \(no UPDATE or DELETE grants\)/u);
     await client.query("REVOKE UPDATE, DELETE ON pi_records FROM agent_svc");
-    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, HEAD_GRANT_STEPS), undefined);
   } finally { await rollbackAndRelease(client); }
 });
 
@@ -127,9 +128,9 @@ void test("the neon_superuser layer alone cannot satisfy the postcheck for a cat
     await client.query("REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE public.aliases FROM catalog_svc");
     assert.deepEqual(await explicitGrants(client, "catalog_svc", "aliases"), []);
     assert.equal(await booleanValue(client, "SELECT has_table_privilege('catalog_svc', 'aliases', 'UPDATE') AS result"), true);
-    const violating = await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck);
+    const violating = await firstFailingStep(client, HEAD_GRANT_STEPS);
     assert.match(violating?.description ?? "", /verify catalog_svc's explicit grants on aliases are exactly DELETE, INSERT, SELECT, UPDATE/u);
     await client.query("GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public.aliases TO catalog_svc");
-    assert.equal(await firstFailingStep(client, DATA_PLANE_ACCESS.postcheck), undefined);
+    assert.equal(await firstFailingStep(client, HEAD_GRANT_STEPS), undefined);
   } finally { await rollbackAndRelease(client); }
 });

@@ -8,14 +8,14 @@
  *   3. cluster the points (clusterByLocation, 50m). The `points` table has NO
  *      cluster_id column (see remote_schema.sql), so clusters are COMPUTED and
  *      counted here, NOT persisted — route planning re-clusters at query time
- *      (O(n^2)/work). Persisting cluster_id (or centroids into route_snapshots)
- *      is a deliberate later-wave decision, not an oversight;
+ *      (O(n^2)/work). Persisting cluster_id is a deliberate later-wave
+ *      decision, not an oversight;
  *   4. build aliases from the bangumi title(s) -> rankAliases -> UPSERT. Only the
  *      Bangumi source is wired here; AniDB/Moegirl/Manual arrive via later ingest.
  *
  * The pass mints no version. Until 2026-11-19 it ended by writing a new
  * `cluster_version` row, a blue/green pointer that nothing read; the write is
- * gone, and a later migration drops the table.
+ * gone, and the `drop_cluster_version_tables` migration dropped the table.
  *
  * The whole pass runs in ONE transaction, which is what the deleted `db.batch`
  * was for: the work's bangumi row, points and aliases commit together, and a

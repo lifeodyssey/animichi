@@ -50,6 +50,29 @@ in the same release would have failed every publish of the old catalog code in t
 may skip `main` commits, so each half also needs its own release in each environment: approving
 production for a snapshot that carries both halves is the same-release drop again.
 
+## The test template follows the emitted contract; a revert cannot undo a drop (2026-11-20)
+
+Read in the installed Prisma 8.0.0-rc.8 (CLI) and rc.9 (migrator) for the chain's first table
+drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
+
+- `prisma db migrate` without `--to`, which `packages/test-postgres` uses to seed its migrated
+  template, targets the emitted `src/contract.json`, not the newest migration. The template is
+  named after the migration directories alone, and seeding reads no marker. So a tree whose
+  `contract.json` lags its chain seeds the template at the old head under the new chain's name,
+  and every lane that clones it is green with nothing applied. Restoring an older
+  `contract.json` to run old code against a new schema makes exactly such a tree. Seed the
+  template from the intact tree first, and check a clone's `prisma_contract.marker` before
+  trusting such a run.
+- Prisma's runner wraps an apply in one transaction, marker included
+  (`PostgresMigrationRunner.execute` in `@prisma/orm-target-postgres` 8.0.0-rc.9). For this one
+  migration in the app space,
+  `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins it: a drop that
+  fails rolls back whole and leaves the marker where it was. Applies of several migrations or
+  contract spaces are read from the runner's source, not tested. After a failed drop, reverting
+  the PR unfreezes CD, because the selected target equals the live marker. Once a drop has
+  applied, a revert does the opposite: the reverted chain has no path from the live marker, the
+  preflight refuses, and CD stays frozen until a forward fix or a PITR.
+
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
 `@neondatabase/serverless` (still an edge dependency in `workers/edge/package.json`) reaches

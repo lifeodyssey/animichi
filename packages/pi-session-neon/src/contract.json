@@ -32,16 +32,8 @@
       "model": "CatalogRun",
       "namespace": "public"
     },
-    "cluster_version": {
-      "model": "ClusterVersion",
-      "namespace": "public"
-    },
     "ingest_jobs": {
       "model": "IngestJob",
-      "namespace": "public"
-    },
-    "itinerary_snapshots": {
-      "model": "ItinerarySnapshot",
       "namespace": "public"
     },
     "leg_cache": {
@@ -853,67 +845,6 @@
               "table": "catalog_runs"
             }
           },
-          "ClusterVersion": {
-            "fields": {
-              "bangumiId": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "createdAt": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "kind": "scalar"
-                }
-              },
-              "id": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
-              "isCurrent": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/bool@1",
-                  "kind": "scalar"
-                }
-              },
-              "version": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/int4@1",
-                  "kind": "scalar"
-                }
-              }
-            },
-            "relations": {},
-            "storage": {
-              "fields": {
-                "bangumiId": {
-                  "column": "bangumi_id"
-                },
-                "createdAt": {
-                  "column": "created_at"
-                },
-                "id": {
-                  "column": "id"
-                },
-                "isCurrent": {
-                  "column": "is_current"
-                },
-                "version": {
-                  "column": "version"
-                }
-              },
-              "namespaceId": "public",
-              "table": "cluster_version"
-            }
-          },
           "IngestJob": {
             "fields": {
               "createdAt": {
@@ -1013,67 +944,6 @@
               },
               "namespaceId": "public",
               "table": "ingest_jobs"
-            }
-          },
-          "ItinerarySnapshot": {
-            "fields": {
-              "bangumiId": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "clusterVersion": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/int4@1",
-                  "kind": "scalar"
-                }
-              },
-              "createdAt": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "kind": "scalar"
-                }
-              },
-              "id": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
-              "payload": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/jsonb@1",
-                  "kind": "scalar"
-                }
-              }
-            },
-            "relations": {},
-            "storage": {
-              "fields": {
-                "bangumiId": {
-                  "column": "bangumi_id"
-                },
-                "clusterVersion": {
-                  "column": "cluster_version"
-                },
-                "createdAt": {
-                  "column": "created_at"
-                },
-                "id": {
-                  "column": "id"
-                },
-                "payload": {
-                  "column": "payload"
-                }
-              },
-              "namespaceId": "public",
-              "table": "itinerary_snapshots"
             }
           },
           "LegCache": {
@@ -2937,79 +2807,6 @@
               },
               "uniques": []
             },
-            "cluster_version": {
-              "columns": {
-                "bangumi_id": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": false
-                },
-                "created_at": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
-                  "nativeType": "timestamptz",
-                  "nullable": false
-                },
-                "id": {
-                  "codecId": "pg/uuid@1",
-                  "default": {
-                    "expression": "uuidv7()",
-                    "kind": "function"
-                  },
-                  "nativeType": "uuid",
-                  "nullable": false
-                },
-                "is_current": {
-                  "codecId": "pg/bool@1",
-                  "default": {
-                    "kind": "literal",
-                    "value": false
-                  },
-                  "nativeType": "bool",
-                  "nullable": false
-                },
-                "version": {
-                  "codecId": "pg/int4@1",
-                  "nativeType": "int4",
-                  "nullable": false
-                }
-              },
-              "foreignKeys": [],
-              "indexes": [
-                {
-                  "columns": [
-                    "bangumi_id",
-                    "is_current"
-                  ],
-                  "name": "idx_cluster_version_current",
-                  "unique": false
-                },
-                {
-                  "columns": [
-                    "bangumi_id"
-                  ],
-                  "name": "uq_cluster_version_one_current",
-                  "unique": true,
-                  "where": "is_current"
-                }
-              ],
-              "primaryKey": {
-                "columns": [
-                  "id"
-                ]
-              },
-              "uniques": [
-                {
-                  "columns": [
-                    "bangumi_id",
-                    "version"
-                  ]
-                }
-              ]
-            },
             "ingest_jobs": {
               "columns": {
                 "created_at": {
@@ -3071,60 +2868,6 @@
               "primaryKey": {
                 "columns": [
                   "work_id"
-                ]
-              },
-              "uniques": []
-            },
-            "itinerary_snapshots": {
-              "columns": {
-                "bangumi_id": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": false
-                },
-                "cluster_version": {
-                  "codecId": "pg/int4@1",
-                  "nativeType": "int4",
-                  "nullable": false
-                },
-                "created_at": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
-                  "nativeType": "timestamptz",
-                  "nullable": false
-                },
-                "id": {
-                  "codecId": "pg/uuid@1",
-                  "default": {
-                    "expression": "uuidv7()",
-                    "kind": "function"
-                  },
-                  "nativeType": "uuid",
-                  "nullable": false
-                },
-                "payload": {
-                  "codecId": "pg/jsonb@1",
-                  "nativeType": "jsonb",
-                  "nullable": false
-                }
-              },
-              "foreignKeys": [],
-              "indexes": [
-                {
-                  "columns": [
-                    "bangumi_id",
-                    "cluster_version"
-                  ],
-                  "name": "idx_itinerary_snapshots_bangumi_version",
-                  "unique": false
-                }
-              ],
-              "primaryKey": {
-                "columns": [
-                  "id"
                 ]
               },
               "uniques": []
@@ -4186,7 +3929,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "4890cb20ea2d530b31466b35757be8c25781f5e0d7fa1de46d36cc1cbf1bf5d2"
+    "storageHash": "efbac76665a59889ae66de0502ef143733f844ce2545017c54dfd4a8ff1e27c5"
   },
   "capabilities": {
     "postgres": {

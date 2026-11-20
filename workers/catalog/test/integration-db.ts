@@ -20,8 +20,6 @@ declare module "vitest" {
 export const CATALOG_TABLES = [
   "bangumi",
   "points",
-  "cluster_version",
-  "itinerary_snapshots",
   "aliases",
   "series_edges",
   "leg_cache",

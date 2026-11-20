@@ -155,10 +155,11 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | Table (today) | Owner service | Notes / greenfield |
 | --- | --- | --- |
 | `bangumi`, `points`, `aliases`, `series_edges` | **catalog** | Master data |
-| `ingest_jobs`, `cluster_version`, `raw_anitabi`, `raw_bangumi`, `media_assets` | **catalog** | Pipeline |
+| `ingest_jobs`, `raw_anitabi`, `raw_bangumi`, `media_assets` | **catalog** | Pipeline |
+| `cluster_version` | **catalog** | **Retired**: nothing read it, the publish stopped writing it (#2076), and the chain's `drop_cluster_version_tables` migration drops it |
 | `leg_cache` | **catalog** | Transit cache |
 | `locations`, `location_aliases` | **catalog** | Gazetteer |
-| `route_snapshots` | **catalog** | Target name `itinerary_snapshots` |
+| `itinerary_snapshots` (was `route_snapshots`) | **catalog** | **Retired**: no service called its store; dropped with `cluster_version` by the same migration |
 | `saved_routes` | **users** | Renamed from `routes` (#852 P1); user document |
 | `saved_route_anime` | **users** (FK to saved_routes) | Renamed from `route_anime` (#852 P1); SavedRoute–Bangumi link |
 | `sessions` | **agent** | Conversation ownership; the edge reads and writes it through bounded raw SQL. `conversations` / `conversation_messages` were never built |

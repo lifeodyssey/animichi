@@ -23,7 +23,7 @@ describe("the catalog isolation statement", () => {
   it("builds the exact no-CASCADE FK-closed TRUNCATE statement", () => {
     const statement = catalogTruncateSql();
 
-    expect(CATALOG_TABLES).toHaveLength(15);
+    expect(CATALOG_TABLES).toHaveLength(13);
     expect(statement).toContain('"saved_route_anime"');
     expect(statement).not.toMatch(/CASCADE/u);
     expect(statement).not.toMatch(/locations|location_aliases|prisma_contract/u);

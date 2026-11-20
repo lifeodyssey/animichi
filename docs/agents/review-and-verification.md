@@ -122,6 +122,13 @@ never walked. Technique:
   with `\b` or `\<…\>` matched nothing and exited 1 silently, where `-F`, `-wF` and `-P` found the
   name (checked 2026-11-20); a negative from such a search reads as "no caller". Search fixed
   strings (`-F`), in several shapes.
+- A pathspec can match nothing the same way. A wildcard pathspec must match the whole path, so
+  `git grep -F "builder.public[" -- 'workers/*/src'` names only paths that end in `/src` and found
+  nothing, while `-- workers` found `workers/catalog/src/import/switch.ts`. On 2026-11-20 that
+  emptied part of the reader search before the `cluster_version` and `itinerary_snapshots` drop
+  (the computed-access shapes) until a known hit was searched with the same pathspec. Pass
+  directories (`-- workers packages`),
+  `'workers/*/src/*'`, or `':(glob)workers/*/src/**'`, and check the pathspec against a known hit.
 - A selector that matches nothing passes, and one that is ignored runs everything. A
   `pnpm --filter` that matches no package prints `Scope: 0 of <n> workspace projects` and exits 0
   (pnpm 12.4.2); `--fail-if-no-match` makes it exit 1. The gate commands quoted in PR bodies have
