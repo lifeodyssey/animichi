@@ -20,7 +20,6 @@ export const ANITABI_POINTS = [
 export async function seed(pool: pg.Pool): Promise<void> {
   await insertSeedBangumi(pool);
   await insertSeedPoints(pool);
-  await insertSeedCluster(pool);
   await insertSeedAlias(pool);
   await seedOverviewWork(pool);
 }
@@ -38,10 +37,6 @@ function insertSeedPoints(pool: pg.Pool): Promise<unknown> {
     + ` ('washinomiya', 'lucky-star', '鷲宮神社', ${geography(139.6586, 36.1019)}, 1, 120),`
     + ` ('washinomiya-torii', 'lucky-star', '鷲宮神社 鳥居', ${geography(139.659, 36.1025)}, 1, 60)`,
   );
-}
-
-function insertSeedCluster(pool: pg.Pool): Promise<unknown> {
-  return pool.query("INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('lucky-star', 1, TRUE)");
 }
 
 function insertSeedAlias(pool: pg.Pool): Promise<unknown> {

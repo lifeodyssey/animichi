@@ -38,11 +38,14 @@ async function locationWkt(pointId: string): Promise<string | null> {
   return rows[0]?.wkt ?? null;
 }
 
-async function clusterVersionRows(workId: string): Promise<number> {
+/** The tables the chain has dropped; a publish must succeed on a plane without them. */
+const DROPPED_TABLES = ["cluster_version", "itinerary_snapshots"];
+
+async function presentTables(names: readonly string[]): Promise<string[]> {
   const rows = (
-    await pool.query("SELECT COUNT(*)::int AS n FROM cluster_version WHERE bangumi_id = $1", [workId])
-  ).rows as { n: number }[];
-  return rows[0]?.n ?? 0;
+    await pool.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY($1)", [names])
+  ).rows as { tablename: string }[];
+  return rows.map((row) => row.tablename);
 }
 
 beforeAll(async () => {
@@ -130,18 +133,17 @@ databaseDescribe("enrichWork composes raw zone -> enriched catalog -> publish", 
 
   it("writes normalized aliases from the bangumi titles", assertEnrichAliases);
 
-  it("writes no cluster_version row", async () => {
-    expect(await clusterVersionRows("lucky-star")).toBe(0);
+  it("publishes on a plane where cluster_version and itinerary_snapshots no longer exist", async () => {
+    expect(await presentTables(DROPPED_TABLES)).toEqual([]);
   });
 });
 
 databaseDescribe("re-enrich from raw is idempotent", () => {
-  it("does not duplicate points, leaves the golden rows, and writes no cluster_version row", async () => {
+  it("does not duplicate points and leaves the golden rows", async () => {
     const result = await enrichWork(query, "lucky-star");
     expect(result).toEqual({ pointCount: 3 });
     expect(await enrichedRows(pool, "lucky-star")).toEqual(LUCKY_STAR_ROWS);
     expect(await pointCount("lucky-star")).toBe(3);
-    expect(await clusterVersionRows("lucky-star")).toBe(0);
   });
 });
 

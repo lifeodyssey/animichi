@@ -49,7 +49,9 @@ export async function previewPrisma(dsn: string, ref: string, directory = PRISMA
   return { ok: true, value: { targetHash: ref, markerHash, migrations, usedLiveMarker } };
 }
 
-/** Prisma owns graph traversal, per-migration transactions, locking and markers. */
+/** Prisma owns graph traversal, locking and markers. One transaction covers the whole apply —
+ * every pending migration in every contract space, and their markers — so it commits or rolls
+ * back as a unit. */
 export async function migratePrisma(dsn: string, ref: string, directory = PRISMA_MIGRATIONS_DIR): Promise<NativeResult<PrismaReceipt>> {
   assertDirectDsn(dsn);
   if (!validPrismaRef(ref)) return { ok: false, error: "invalid_prisma_ref" };

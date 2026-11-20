@@ -35,7 +35,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'4890cb20ea2d530b31466b35757be8c25781f5e0d7fa1de46d36cc1cbf1bf5d2'>;
+  StorageHashBase<'efbac76665a59889ae66de0502ef143733f844ce2545017c54dfd4a8ff1e27c5'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -317,13 +317,6 @@ export type FieldOutputTypes = {
       readonly finishedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
-    readonly ClusterVersion: {
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly bangumiId: CodecTypes['pg/text@1']['output'];
-      readonly version: CodecTypes['pg/int4@1']['output'];
-      readonly isCurrent: CodecTypes['pg/bool@1']['output'];
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-    };
     readonly IngestJob: {
       readonly workId: CodecTypes['pg/text@1']['output'];
       readonly status: CodecTypes['pg/text@1']['output'];
@@ -333,13 +326,6 @@ export type FieldOutputTypes = {
       readonly negativeCachedUntil: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly startedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly finishedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-    };
-    readonly ItinerarySnapshot: {
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly bangumiId: CodecTypes['pg/text@1']['output'];
-      readonly clusterVersion: CodecTypes['pg/int4@1']['output'];
-      readonly payload: CodecTypes['pg/jsonb@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly LegCache: {
@@ -546,13 +532,6 @@ export type FieldInputTypes = {
       readonly finishedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
-    readonly ClusterVersion: {
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly bangumiId: CodecTypes['pg/text@1']['input'];
-      readonly version: CodecTypes['pg/int4@1']['input'];
-      readonly isCurrent: CodecTypes['pg/bool@1']['input'];
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
-    };
     readonly IngestJob: {
       readonly workId: CodecTypes['pg/text@1']['input'];
       readonly status: CodecTypes['pg/text@1']['input'];
@@ -562,13 +541,6 @@ export type FieldInputTypes = {
       readonly negativeCachedUntil: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly startedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly finishedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
-    };
-    readonly ItinerarySnapshot: {
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly bangumiId: CodecTypes['pg/text@1']['input'];
-      readonly clusterVersion: CodecTypes['pg/int4@1']['input'];
-      readonly payload: CodecTypes['pg/jsonb@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly LegCache: {
@@ -775,13 +747,6 @@ export type StorageColumnTypes = {
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly targets: CodecTypes['pg/jsonb@1']['output'] | null;
     };
-    readonly cluster_version: {
-      readonly bangumi_id: CodecTypes['pg/text@1']['output'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly is_current: CodecTypes['pg/bool@1']['output'];
-      readonly version: CodecTypes['pg/int4@1']['output'];
-    };
     readonly ingest_jobs: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly error: CodecTypes['pg/text@1']['output'] | null;
@@ -792,13 +757,6 @@ export type StorageColumnTypes = {
       readonly started_at: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly status: CodecTypes['pg/text@1']['output'];
       readonly work_id: CodecTypes['pg/text@1']['output'];
-    };
-    readonly itinerary_snapshots: {
-      readonly bangumi_id: CodecTypes['pg/text@1']['output'];
-      readonly cluster_version: CodecTypes['pg/int4@1']['output'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly payload: CodecTypes['pg/jsonb@1']['output'];
     };
     readonly leg_cache: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -1004,13 +962,6 @@ export type StorageColumnInputTypes = {
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly targets: CodecTypes['pg/jsonb@1']['input'] | null;
     };
-    readonly cluster_version: {
-      readonly bangumi_id: CodecTypes['pg/text@1']['input'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly is_current: CodecTypes['pg/bool@1']['input'];
-      readonly version: CodecTypes['pg/int4@1']['input'];
-    };
     readonly ingest_jobs: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly error: CodecTypes['pg/text@1']['input'] | null;
@@ -1021,13 +972,6 @@ export type StorageColumnInputTypes = {
       readonly started_at: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly status: CodecTypes['pg/text@1']['input'];
       readonly work_id: CodecTypes['pg/text@1']['input'];
-    };
-    readonly itinerary_snapshots: {
-      readonly bangumi_id: CodecTypes['pg/text@1']['input'];
-      readonly cluster_version: CodecTypes['pg/int4@1']['input'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly payload: CodecTypes['pg/jsonb@1']['input'];
     };
     readonly leg_cache: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -1636,57 +1580,6 @@ type ContractBase = Omit<
               ];
               foreignKeys: readonly [];
             };
-            readonly cluster_version: {
-              columns: {
-                readonly id: {
-                  readonly nativeType: 'uuid';
-                  readonly codecId: 'pg/uuid@1';
-                  readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'uuidv7()' };
-                };
-                readonly bangumi_id: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
-                };
-                readonly version: {
-                  readonly nativeType: 'int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                };
-                readonly is_current: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly created_at: {
-                  readonly nativeType: 'timestamptz';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                  readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
-                };
-              };
-              primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['bangumi_id', 'version'] }];
-              indexes: readonly [
-                {
-                  readonly name: 'idx_cluster_version_current';
-                  readonly columns: readonly ['bangumi_id', 'is_current'];
-                  readonly unique: false;
-                },
-                {
-                  readonly name: 'uq_cluster_version_one_current';
-                  readonly columns: readonly ['bangumi_id'];
-                  readonly where: 'is_current';
-                  readonly unique: true;
-                },
-              ];
-              foreignKeys: readonly [];
-            };
             readonly ingest_jobs: {
               columns: {
                 readonly work_id: {
@@ -1743,47 +1636,6 @@ type ContractBase = Omit<
               primaryKey: { readonly columns: readonly ['work_id'] };
               uniques: readonly [];
               indexes: readonly [];
-              foreignKeys: readonly [];
-            };
-            readonly itinerary_snapshots: {
-              columns: {
-                readonly id: {
-                  readonly nativeType: 'uuid';
-                  readonly codecId: 'pg/uuid@1';
-                  readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'uuidv7()' };
-                };
-                readonly bangumi_id: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
-                };
-                readonly cluster_version: {
-                  readonly nativeType: 'int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                };
-                readonly payload: {
-                  readonly nativeType: 'jsonb';
-                  readonly codecId: 'pg/jsonb@1';
-                  readonly nullable: false;
-                };
-                readonly created_at: {
-                  readonly nativeType: 'timestamptz';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                  readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
-                };
-              };
-              primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [];
-              indexes: readonly [
-                {
-                  readonly name: 'idx_itinerary_snapshots_bangumi_version';
-                  readonly columns: readonly ['bangumi_id', 'cluster_version'];
-                  readonly unique: false;
-                },
-              ];
               foreignKeys: readonly [];
             };
             readonly leg_cache: {
@@ -2626,17 +2478,9 @@ type ContractBase = Omit<
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'CatalogRun';
     };
-    readonly cluster_version: {
-      readonly namespace: 'public' & NamespaceId;
-      readonly model: 'ClusterVersion';
-    };
     readonly ingest_jobs: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'IngestJob';
-    };
-    readonly itinerary_snapshots: {
-      readonly namespace: 'public' & NamespaceId;
-      readonly model: 'ItinerarySnapshot';
     };
     readonly leg_cache: { readonly namespace: 'public' & NamespaceId; readonly model: 'LegCache' };
     readonly locations: { readonly namespace: 'public' & NamespaceId; readonly model: 'Location' };
@@ -3129,45 +2973,6 @@ type ContractBase = Omit<
               };
             };
           };
-          readonly ClusterVersion: {
-            readonly fields: {
-              readonly id: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly bangumiId: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly version: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly isCurrent: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly createdAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                };
-              };
-            };
-            readonly relations: Record<string, never>;
-            readonly storage: {
-              readonly table: 'cluster_version';
-              readonly namespaceId: 'public';
-              readonly fields: {
-                readonly id: { readonly column: 'id' };
-                readonly bangumiId: { readonly column: 'bangumi_id' };
-                readonly version: { readonly column: 'version' };
-                readonly isCurrent: { readonly column: 'is_current' };
-                readonly createdAt: { readonly column: 'created_at' };
-              };
-            };
-          };
           readonly IngestJob: {
             readonly fields: {
               readonly workId: {
@@ -3232,45 +3037,6 @@ type ContractBase = Omit<
                 readonly negativeCachedUntil: { readonly column: 'negative_cached_until' };
                 readonly startedAt: { readonly column: 'started_at' };
                 readonly finishedAt: { readonly column: 'finished_at' };
-                readonly createdAt: { readonly column: 'created_at' };
-              };
-            };
-          };
-          readonly ItinerarySnapshot: {
-            readonly fields: {
-              readonly id: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly bangumiId: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly clusterVersion: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly payload: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/jsonb@1' };
-              };
-              readonly createdAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                };
-              };
-            };
-            readonly relations: Record<string, never>;
-            readonly storage: {
-              readonly table: 'itinerary_snapshots';
-              readonly namespaceId: 'public';
-              readonly fields: {
-                readonly id: { readonly column: 'id' };
-                readonly bangumiId: { readonly column: 'bangumi_id' };
-                readonly clusterVersion: { readonly column: 'cluster_version' };
-                readonly payload: { readonly column: 'payload' };
                 readonly createdAt: { readonly column: 'created_at' };
               };
             };

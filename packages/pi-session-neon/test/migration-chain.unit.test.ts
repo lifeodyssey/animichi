@@ -32,19 +32,22 @@ void test("the package owns one contiguous migration chain ending at the contrac
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
-  assert.equal(names.length, 2);
+  assert.equal(names.length, 3);
   const manifests = await Promise.all(names.map(async (name) => {
     const path = join(migrationRoot, name, "migration.json");
     return JSON.parse(await readFile(path, "utf8")) as MigrationManifest;
   }));
   const first = manifests[0];
   const second = manifests[1];
+  const third = manifests[2];
   assert.ok(first);
   assert.ok(second);
+  assert.ok(third);
   assert.equal(first.from, null);
   assert.match(first.to, /^[a-f0-9]{64}$/);
   assert.equal(second.from, first.to);
-  assert.equal(second.to, contractJson.storage.storageHash);
+  assert.equal(third.from, second.to);
+  assert.equal(third.to, contractJson.storage.storageHash);
 });
 
 void test("the baseline owns extension checks and no retired coordinate synchronizer", async () => {

@@ -31,7 +31,7 @@ function declaredIndex(schema: Record<string, DeclaredTable>, table: string, nam
   return (schema[table]?.indexes ?? []).find((index) => index.name === name);
 }
 
-void test("the native contract contains exactly the seven native and 19 data-plane tables", () => {
+void test("the native contract contains exactly the seven native and 17 data-plane tables", () => {
   assert.deepEqual(Object.keys(contractJson.roots).sort(), [...NATIVE_TABLE_NAMES, ...DATA_PLANE_TABLE_NAMES].sort());
 });
 

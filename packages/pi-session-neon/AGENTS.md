@@ -2,7 +2,7 @@
 
 Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../../AGENTS.md`.
 Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
-`migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
+`migrations/`: the seven native agent tables plus the 17 catalog/users data-plane tables adopted
 from the retired chain this one replaced, and — as raw SQL rather than contract tables — the
 conversation ledger and the two usage meters `workers/edge/src` still writes
 (`conversation-ledger.ts`, `usage-meters.ts`). One authority owns the whole data plane (#1636).
