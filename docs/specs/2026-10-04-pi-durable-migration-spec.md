@@ -4,6 +4,11 @@
 spec吧，spec第一张卡写spike"）。决定记在 `docs/agents/owner-decisions.md` 的 pi version line 一节。依据是调研记录
 `docs/iterations/agent-platform-research-2026-10/PI-1.0-PACKAGES-RESEARCH.md`。升到 0.99.2 是 #1995，不在本 spec 内。
 
+> **2026-11-20 注**：owner 2026-11-18 定直接从 0.87.1 开始迁移，跳过升到 0.99.2 这一步（#1995）。下面几处写的是先升
+> 0.99.2 的安排，按这个决定读：问题 1 里"#1995 先升到这里"，spike 一节的"基线"，迁移票 4 的"0.99 的过渡"，测试决定表
+> "存储一致性套件"一行的"#1995 后在 0.99.2"，范围外第一条，以及"其他"里票的顺序第 2 条（那里另有一条注）。见
+> `docs/agents/owner-decisions.md` 的 pi version line 一节。
+
 术语：harness 指 pi-agent-core 0.87.1 到 0.99.2 里的 `AgentHarness`、session 和 session 存储；业务层指我们自己的
 admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的投影、egress 限制。
 
@@ -110,6 +115,9 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
      `translate_anime_title` 是 `"never"`（被打断的调用不重跑，不重复计费），pi-durable 只有 `"safe"` 和默认的
      `"unsafe"`，要实测 `translate_anime_title` 用 `"unsafe"` 时被打断的那次尝试是否只给模型一个 interrupted 结果、
      是否会被计费两次（pi-durable 的 usage 连中断的尝试也算）。每处语义差异写明由哪一层兜住。
+     > **2026-11-20 注**：`agents` 0.33.0 没有 `session.events()`。`PiSession` 声明的是 `watch()`，没有 `events()`
+     > （`agents@0.33.0` 的 `dist/harness/pi/index.d.ts:279`、`:329`），这个名字只留在一段过时的类注释里（`:184`）。
+     > spike 第 3 问用的是 `session.watch()`。票 3 里 `PiHarness` 的 `events()` 同样不存在。
   4. 风险量化：pi-durable 和 `PiHarness` 的发版节奏（一个标 Experimental，一个标 beta），我们会用到的 API 面，其中标
      experimental 的部分，跟版的预估成本。
   5. 迁移面：按包列出要改的地方，给后续每张票一个规模估计；回答两份 pi-ai 能不能在一个包里共存，决定迁移能不能
@@ -135,6 +143,12 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 1. 存储：owner 选定的路线（Neon 后端、它的一致性套件和按 `SessionAgent` 隔开的键空间，或 `PiHarness` 的 SQLite 加
    按 `SessionAgent` 的 session id 落键、同步到 Neon 的记录）；历史、重连流、
    结算的读路径换到新的记录形状；`agents` 升到含 `PiHarness` 的版本。
+   > **2026-11-20 注**：owner 2026-11-20 定，staging 上已经按 0.87.1 格式存下的会话，迁移时转换成新格式。见
+   > `docs/agents/owner-decisions.md` 的 pi version line 一节。
+   >
+   > **2026-11-20 注**：路线 (b′) 不用 `PiHarness`，"`agents` 升到含 `PiHarness` 的版本"这一步不用做；edge 也已经声明
+   > `agents` `^0.33.0`（`workers/edge/package.json`）。见 spike 记录
+   > `docs/iterations/pi-durable-spike-2026-10/README.md` 的 "Record fields"。
 2. agent 的构造：工具换成 pi-durable 的工具形状，逐工具的重放语义按下面的映射搬过去，hooks 和 prompt 跟着换；eval 的进程内任务换成 pi-durable 的内存
    存储，prefix 数据集的录制和回放换到 pi-durable 的存储；冻结的 prefix 语料是转换还是重录，票里写明，并证明回放出的
    状态和迁移前一样。
@@ -142,6 +156,10 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
    `Harness.open`，并自建唤醒。业务层经一层适配接宿主，一份适配契约、两种实现：路线 (a)、(b) 接 `PiHarness` 的
    `submit`、`events()`、`abort`；路线 (b′) 没有 `PiHarness` 实例，接 pi-durable `Harness` 自己的 `submit`、
    `watchEvents`、`abort`；两种都接 pi-durable 层的 usage。platform spec 里碰 pi 的两处跟着换（见下）。
+   > **2026-11-20 注**：pi-durable 1.5.0（2026-11-02）删掉了 `watchEvents()` 和它的事件类型，接替它的是会话视图
+   > `watch()`（`@earendil-works/pi-durable@1.5.2` 的 `CHANGELOG.md:76`，`## [1.5.0]` 的 Breaking Changes；会话视图见
+   > 同包 `README.md:477`）。路线 (b′) 这里写的 `watchEvents` 已经没有了，用户故事 4 举的例子也一样。见 spike 记录
+   > `docs/iterations/pi-durable-spike-2026-10/README.md` 的 "Experimental parts"。
 4. 集成与收尾：把集成分支一次合进 main，删掉 harness 的 import 和 0.99 的过渡；pi-ai 升到 latest，pi-agent-core
    还有使用方就升到 latest，没有就移除依赖；文档同步。
 
@@ -152,15 +170,28 @@ admission、`x-turn-id` 幂等、配额与结算、turn 预算、AI SDK 流的�
 
 - 对外契约不变：`/v1`、AI SDK 流和 `data-*` part、`x-turn-id` 的语义、历史读取的形状。
 - 预算、配额、结算的数值不变：每轮只记这一轮的 usage，不拿 `usage()` 的会话累计值直接记账；egress 限制不变。
+  > **2026-11-20 注**：owner 2026-11-20 的计费决定修订了这一条（以及用户故事 5 里结算的数值一项），只涉及被打断的
+  > 模型尝试：它中断前已经报上来的 usage 要记账，迁移前的 0.87.1 把这部分记为 0。其余照旧。见
+  > `docs/agents/owner-decisions.md` 的 pi version line 一节。
 - 逐工具的重放语义不变：pi-agent-core 的 `replay: "safe"` 对应 pi-durable 的 `"safe"`；`"never"` 对应 `"unsafe"`
   （模型收到 interrupted 结果，工具不重跑，不重复计费）。授权和配额检查留在工具的 `execute` 里，因为重放路径不经过
   hook。一张逐工具矩阵钉住这个映射，沿用 bundle smoke 里现有的重放恢复测试。
 - platform spec 里碰 pi 的两处，迁移时由票 3 换掉：发 span 的事件层改成从 pi-durable 的事件取（`TelemetryContext`
   适配器由 platform spec 的 span 票实现，迁移不改它；pi-durable 没有 telemetry 代码）；turn 预算改成从 pi-durable 读这一轮的
   开始时间和工具调用（对应的 API 由 spike 第 3 问核对）。platform spec 的票先做，迁移票在它们之后接手这两处。
+  > **2026-11-20 注**："pi-durable 没有 telemetry 代码"对写 spec 时的 1.0.x 成立。1.4.0（2026-10-21）起，
+  > `HarnessOptions.telemetry` 接收宿主的 `TelemetryContext`，发 submit span、任务阶段 span、事件和指标；适配器带
+  > propagation 能力时，trace carrier 存进 submission 和任务的 JSON，逐出后重新打开的任务接着原来的 trace
+  > （`resumed: true`）。出处：`@earendil-works/pi-durable@1.5.2` 的 `CHANGELOG.md:223`（`## [1.4.0]`）和
+  > `README.md:82-90`，细节见 platform spec 可观测性一节的同日注。这对设计的影响还没定，留到 platform spec 的
+  > span 票决定：turn、模型、工具 span 是否还由我们自己发；一个 turn 跨逐出后是否还是一条 trace。
 
 版本：pi-durable 和 pi 的其他包一样跟 latest，不钉住。迁移票开工时取当时的 latest，lockfile 精确记录。之后每次
 pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的发版按迁移处理。
+
+> **2026-11-20 注**：这一段的"跟 latest，不钉住"和"取当时的 latest"已被 owner 2026-11-20 的决定取代：pi 跟着 `agents`
+> 包支持的 minor 走，不跟 pi 的 latest。当天 `agents` 0.33.0 对 pi 各包的 peer 是 `~1.5.0`，而 pi-durable 已发
+> 1.6.0。用户故事 9 和票 4 里的"latest"同此。见 `docs/agents/owner-decisions.md` 的 pi version line 一节。
 
 ## 测试决定
 
@@ -201,7 +232,14 @@ pi-durable 发版，依赖更新的 PR 要过下面全部接缝；破坏性的�
 2. 存储、agent 的构造、edge 的宿主三张迁移票：等 spike 报告判 go、owner 决定迁移，并等 #1995 已合并（迁移从
    0.99.2 出发，不在升级前后来回 rebase）。edge 的宿主那张还要等 platform spec 的长任务档和 span 两张票合并，
    因为它要接手这两处。
+   > **2026-11-20 注**：等 #1995 合并、从 0.99.2 出发这两条已不适用，owner 2026-11-18 定直接从 0.87.1 开始迁移（见文首
+   > 的注）。前两个条件已满足：spike 报告判 go（`docs/iterations/pi-durable-spike-2026-10/README.md` 的
+   > "Overall: go"），owner 决定了迁移（`docs/agents/owner-decisions.md` 的 pi version line 一节）。
 3. 集成与收尾：等前面三张迁移票。
 
 需要 owner 拍板：spike 交付后，迁不迁，以及存储走哪条路线；选 (a) 等于改决定 2 和 platform spec 的"不加第二份存储"；
 选 (b′) 要自建并维护唤醒，等于不用官方集成的这一半。
+
+> **2026-11-20 注**：已拍板。owner 2026-11-18 定迁移，2026-11-20 选路线 (b′)：Neon 后端，唤醒由我们自己做，不用
+> `PiHarness`。见 `docs/agents/owner-decisions.md` 的 pi version line 一节；(b′) 在各条判据上的结果见 spike 记录
+> `docs/iterations/pi-durable-spike-2026-10/README.md` 的 "Overall: go"。
