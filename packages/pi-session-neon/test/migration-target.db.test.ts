@@ -5,8 +5,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
 import pg from "pg";
-import { DATA_PLANE_ACCESS } from "../migrations/app/20260913T1711_data_plane_baseline/access.ts";
 import contractJson from "../src/contract.json" with { type: "json" };
+import { HEAD_GRANT_STEPS } from "./head-state.ts";
 import { droppedCatalogGrant, futureContract, tamperedContract } from "./migration-fixtures.ts";
 import { migrate, packageRoot, prisma, prismaCliOutput } from "./prisma-migration.ts";
 import { cluster } from "./postgres.ts";
@@ -15,9 +15,10 @@ const migrationRoot = fileURLToPath(new URL("../migrations/app/", import.meta.ur
 const markerQuery = "SELECT core_hash FROM prisma_contract.marker WHERE space = 'app'";
 const EXACT_SET_STEP = "information_schema.role_table_grants";
 
-/** Every exact-set grant step, each one coupled to the role and the table its failure text
- * names. The closing step reads schema and sequence privileges instead, so it is not one. */
-const grantSteps = DATA_PLANE_ACCESS.postcheck.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
+/** Every exact-set grant step the head still declares, each one coupled to the role and the
+ * table its failure text names. The closing step reads schema and sequence privileges instead,
+ * so it is not one. */
+const grantSteps = HEAD_GRANT_STEPS.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
 
 /** Each test migrates its own database created from pristine `template0` — never the
  * fixture's shared-suite database. The server is shared and outlives this run (#1663), so the
@@ -76,7 +77,7 @@ void test("a direct write to a derived scalar column is refused, not corrected",
   } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
-void test("a fresh database satisfies every exact-set grant postcheck the baseline declares", async () => {
+void test("a fresh database satisfies every exact-set grant postcheck the head declares", async () => {
   const { dsn, client, name } = await cleanTarget("native_chain_grants");
   try {
     await migrate(dsn);
