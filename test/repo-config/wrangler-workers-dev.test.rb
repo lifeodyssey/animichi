@@ -31,8 +31,8 @@
 # sub-table header (`[env.production.vars]`, `[[env.production.ratelimits]]`) ends the
 # environment's own key list, and keys after it belong to the sub-table — so reordering,
 # recommenting, or relocating a pin under a sub-table fails this guard rather than passing it.
-# The JSONC needs no hand-rolled stripper: the pinned Ruby's JSON.parse (json 2.18.0, a
-# Ruby 4.0.7 default gem) skips JSONC comments itself.
+# The JSONC needs no hand-rolled stripper: the pinned Ruby's JSON.parse (json 2.18.3, a
+# Ruby 4.0.10 default gem) skips JSONC comments itself.
 #
 # #1836 extends this contract to workers/users (must pin both keys off) and
 # workers/migrator (must assert the deliberate workers_dev = true). The SUT
