@@ -118,9 +118,11 @@ for (const line of WILDCARDS) {
 }
 
 // `main` with every read answered and every write recorded, in the order it reaches Neon; the
-// record goes to stderr because `ensure_backup` discards what `neonctl` prints.
+// record goes to stderr because `ensure_backup` discards what `neonctl` prints. No old chain's
+// record exists here, whatever the tree holds, so the rows are the Atlas path's to approve.
 const neonCalls = (stubs: string): string[] => sourcedResetScript(`
 NEON_API_KEY=stub
+APPROVED_OLD_CHAIN=/nonexistent/approved-old-chain
 load_target() { :; }
 record_pre_state() { :; }
 refuse_business_rows() { :; }
