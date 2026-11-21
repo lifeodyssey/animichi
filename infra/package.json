@@ -9,8 +9,8 @@
     "test:program-load": "bash ../scripts/local-gates/infra-check.sh"
   },
   "dependencies": {
-    "@pulumi/cloudflare": "^6.20.0",
-    "@pulumi/pulumi": "^3.262.0",
+    "@pulumi/cloudflare": "^6.24.0",
+    "@pulumi/pulumi": "^3.277.0",
     "@pulumi/random": "^4.21.1",
     "js-yaml": "^5.4.2"
   },

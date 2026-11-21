@@ -182,10 +182,10 @@ transactional. The
 [Wrangler container commands](https://developers.cloudflare.com/workers/wrangler/commands/containers/)
 define `containers delete` as application deletion, while image deletion is a separate command.
 Wrangler's `deployContainers` path — 4.114.0 when this was measured; re-check it against the
-current pin, which #1703 raised to 4.132.0 — only creates or updates applications that remain
-in configuration, so omission does not establish application deletion; `deleteCommand` invokes
-`ApplicationsService.deleteApplication` explicitly. Its generated application-list client uses
-`GET /containers/dash/applications`, sends `page_token`, and returns
+version `pnpm-lock.yaml` resolves for the catalog's wrangler range — only creates or updates
+applications that remain in configuration, so omission does not establish application deletion;
+`deleteCommand` invokes `ApplicationsService.deleteApplication` explicitly. Its generated
+application-list client uses `GET /containers/dash/applications`, sends `page_token`, and returns
 `result_info.next_page_token`; the JSON CLI path consumes only one such page. The CD helper uses the
 same pinned API contract with the existing account and bearer-token authority, following each
 non-empty cursor to a bounded exhaustion before it can prove absence. CD therefore deletes each old
