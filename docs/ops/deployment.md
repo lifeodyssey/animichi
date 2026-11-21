@@ -530,8 +530,8 @@ belong in Secrets Store through Pulumi, subject to #1370's required provisioning
 copied into artifact or job outputs.
 
 Each ESC opening is followed by a nonempty-value check because the action otherwise only warns.
-Its Pulumi CLI version is explicitly pinned. `CLOUDFLARE_ACCOUNT_ID` is a repository variable, not
-a secret.
+The action installs no Pulumi CLI; `pulumi/actions` installs the version `.pulumi.version` pins.
+`CLOUDFLARE_ACCOUNT_ID` is a repository variable, not a secret.
 
 Applies stay organization-qualified and use the sealed foundation sources/dependencies.
 `PULUMI_BACKEND_URL`, passphrase and R2 state keys are absent from the delivery lane. The old state

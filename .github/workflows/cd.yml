@@ -92,14 +92,10 @@ jobs:
           organization: lifeodyssey
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:lifeodyssey
-      - name: Resolve the pinned Pulumi CLI version
-        id: pulumi-cli
-        run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
         id: esc
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@eec71a90d9989af7ff14bd700b83fc72fae36119 # v4.0.0
         with:
-          version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/staging
           export-environment-variables: CLOUDFLARE_API_TOKEN,CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET
       - name: Require environment credentials
@@ -296,13 +292,9 @@ jobs:
           organization: lifeodyssey
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:lifeodyssey
-      - name: Resolve the pinned Pulumi CLI version
-        id: pulumi-cli
-        run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@eec71a90d9989af7ff14bd700b83fc72fae36119 # v4.0.0
         with:
-          version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/prod
           export-environment-variables: CLOUDFLARE_API_TOKEN
       - name: Require environment credentials

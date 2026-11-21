@@ -159,4 +159,6 @@ the run page (the authoring rule is in `.claude/rules/ci.md`):
   environment, not trust: any job that opens the environment can read all of them. Runtime secrets
   therefore live under `pulumiConfig` as `fn::secret`, which the action does not export
   (`docs/ops/secrets.md`).
-- `export-environment-variables` takes a comma-separated list; `keys` is the deprecated input.
+- `export-environment-variables` takes a comma-separated list. As of v4 the action declares only
+  `environment`, `cloud-url`, `export-environment-variables` and `pulumi-access-token`: `keys`,
+  `version` and the `oidc-*` inputs are removed.
