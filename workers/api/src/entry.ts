@@ -1,4 +1,4 @@
-// Composition root and the Worker's `main` (`workers/edge/wrangler.toml`); all
+// Composition root and the Worker's `main` (`workers/api/wrangler.toml`); all
 // logic lives in agent/ identity/ gateway/ protect/ proxy/.
 //
 // #1605 removed the container from this Worker: the `RuntimeContainer` class,

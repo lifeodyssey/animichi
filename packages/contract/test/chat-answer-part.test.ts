@@ -1,8 +1,8 @@
 /** The public contract validates chunks from the actual native view projection. */
 import { describe, expect, it } from "vitest";
 import { ChatResponseDataPart } from "../src/chat-data-parts.js";
-import { responseChunks, SAFE_FAILURE } from "../../../workers/edge/src/agent/views/public-content.ts";
-import { SecretScrub } from "../../../workers/edge/src/agent/egress/secret-scrub.ts";
+import { responseChunks, SAFE_FAILURE } from "../../../workers/api/src/agent/views/public-content.ts";
+import { SecretScrub } from "../../../workers/api/src/agent/egress/secret-scrub.ts";
 
 const MESSAGE = "A pilgrimage answer";
 const POINT = { id: "spot-1", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586 };

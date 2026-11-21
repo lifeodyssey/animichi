@@ -24,7 +24,7 @@
 ## 工作原理
 
 ```
-用户输入 → 原生 Pi Agent（workers/edge/src/agent/）
+用户输入 → 原生 Pi Agent（workers/api/src/agent/）
               ├── resolve_anime  → catalog Worker 标题解析; 未命中时 Bangumi 入库
               ├── search_bangumi → 已解析 bangumi_id 的 catalog 点位
               ├── search_nearby  → catalog 地理检索（Neon 上的 PostGIS）
@@ -110,10 +110,10 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/users/` — 用户域数据 Worker（`/v1/users/*`）
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
-- `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
+- `workers/api/` — Cloudflare Worker 入口：认证与 `/v1` 路由
 - `supabase/` — 旧版兼容迁移与 Supabase 项目资产（auth 已迁至 Neon Auth，AUTH-2 #950）
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Makefile`、`package.json` — 根目录工具入口；`workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
+- `Makefile`、`package.json` — 根目录工具入口；`workers/api/wrangler.toml`（edge Worker 配置）随代码存放
 
 ## 文档
 

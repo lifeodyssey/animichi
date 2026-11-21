@@ -13,14 +13,14 @@ require 'fileutils'
 class VerifyConfigTest < Minitest::Test
   REPOSITORY = File.expand_path('../../..', __dir__)
   VERIFIER = File.join(REPOSITORY, '.github/scripts/release/verify-config.mjs')
-  SOURCES = %w[workers/catalog/wrangler.toml workers/users/wrangler.toml workers/edge/wrangler.toml
+  SOURCES = %w[workers/catalog/wrangler.toml workers/users/wrangler.toml workers/api/wrangler.toml
                workers/migrator/wrangler.toml apps/web/wrangler.jsonc].freeze
   # The release build's own sealing: `build-worker.mjs` writes each Worker's file and
   # `release-build.yml` the web app's, both as `JSON.stringify(sealedConfig(unit, image), null, 2)`.
   SEAL = <<~JS
     import { mkdirSync, writeFileSync } from 'node:fs';
     import { sealedConfig } from #{File.join(REPOSITORY, '.github/lib/release/config.mjs').to_json};
-    for (const unit of ['catalog', 'users', 'edge', 'migrator', 'web']) {
+    for (const unit of ['catalog', 'users', 'api', 'migrator', 'web']) {
       mkdirSync(`release/${unit}`, { recursive: true });
       writeFileSync(`release/${unit}/wrangler.json`, JSON.stringify(sealedConfig(unit, ''), null, 2));
     }

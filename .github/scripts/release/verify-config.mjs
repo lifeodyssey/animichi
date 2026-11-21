@@ -8,7 +8,7 @@ import { sealedConfig } from '../../lib/release/config.mjs';
 const manifest = JSON.parse(readFileSync('release/release.json', 'utf8'));
 const scratch = mkdtempSync(`${tmpdir()}/release-config-`);
 try {
-  for (const unit of ['catalog', 'users', 'edge', 'migrator', 'web']) {
+  for (const unit of ['catalog', 'users', 'api', 'migrator', 'web']) {
     const source = unit === 'web' ? 'apps/web/wrangler.jsonc' : `workers/${unit}/wrangler.toml`;
     const config = `${scratch}/${source.split('/').at(-1)}`;
     writeFileSync(config, execFileSync('git', ['show', `${manifest.source_sha}:${source}`]));

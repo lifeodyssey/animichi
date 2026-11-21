@@ -6,7 +6,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/container-application-retirement.sh"
 
 environment="${1:-}"
-config="${2:-release/edge/wrangler.json}"
+config="${2:-release/api/wrangler.json}"
 
 # Wrangler resolves an environment ring's application name as
 # `<script name>-<class name lowercased>-<environment>`; both names below are what

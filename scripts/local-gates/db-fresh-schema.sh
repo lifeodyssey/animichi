@@ -37,7 +37,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 # The tag is declared once, in the shared test data plane (#1326): workers/
-# catalog and workers/edge boot the same image from TypeScript, and a copy of
+# catalog and workers/api boot the same image from TypeScript, and a copy of
 # the tag here is a copy that drifts without failing. That file is bash, and it
 # is read only once the two Docker checks above have passed — they run on a
 # PATH that may not even have `dirname`, so $ROOT is only trustworthy here.

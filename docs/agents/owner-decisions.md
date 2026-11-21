@@ -151,7 +151,7 @@ The same day the lane moved to osv-scanner v2.7.1, which reads the root `pnpm-lo
 there. The owner extended the decision to that lockfile: `osv-scanner.toml` at the repository root,
 the same advisory and expiry. In the root lockfile picomatch comes in through build, test and
 development tooling (vite, vitest, nitropack, Storybook, TanStack's build plugins, the Prisma CLI)
-and through three runtime dependencies (`agents` in `workers/edge`, `@tanstack/react-start` in
+and through three runtime dependencies (`agents` in `workers/api`, `@tanstack/react-start` in
 `apps/web`, `@prisma/orm-toolchain` in `workers/migrator`), but only by modules the bundles leave
 out: no tracked source imports it, and neither the four Workers' bundles nor the web build contains
 it, so it runs only in that tooling.

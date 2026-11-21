@@ -100,10 +100,10 @@ module DeployEvidenceHarness
   end
 
   def write_release
-    FileUtils.mkdir_p(File.join(@dir, 'release/edge'))
+    FileUtils.mkdir_p(File.join(@dir, 'release/api'))
     File.write(File.join(@dir, 'release/release.json'), { 'source_sha' => SOURCE, 'images' => { 'agent' => IMAGE } }.to_json)
     File.write(File.join(@dir, 'selection.json'), selection.to_json)
-    File.write(File.join(@dir, 'release/edge/wrangler.json'), wrangler_config.to_json)
+    File.write(File.join(@dir, 'release/api/wrangler.json'), wrangler_config.to_json)
     write_receipt([])
   end
 
@@ -118,7 +118,7 @@ module DeployEvidenceHarness
   end
 
   def receipt(containers, smoke: 'passed', observed_at: @observed_at)
-    edge = { 'unit' => 'edge', 'script_name' => 'animichi-staging', 'deployment_id' => DEPLOYMENT, 'version_id' => VERSION, 'containers' => containers }
+    edge = { 'unit' => 'api', 'script_name' => 'animichi-staging', 'deployment_id' => DEPLOYMENT, 'version_id' => VERSION, 'containers' => containers }
     { 'format' => 1, 'environment' => 'staging', 'selection' => selection, 'smoke' => smoke,
       'controller_run_id' => '9', 'controller_run_attempt' => '1', 'observed_at' => observed_at, 'workers' => [edge] }
   end

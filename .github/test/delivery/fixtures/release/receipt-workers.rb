@@ -7,7 +7,7 @@ module ReleaseReceiptWorkersFixture
   # every Worker a new snapshot deploys is observed with an empty container list. A Worker
   # that still reports one is built per test, to prove the receipt refuses it.
   def workers
-    %w[catalog edge migrator users web].map { |unit| worker(unit) }
+    %w[catalog api migrator users web].map { |unit| worker(unit) }
   end
 
   def worker(unit)

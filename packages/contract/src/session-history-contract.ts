@@ -10,7 +10,7 @@
  * It is its own module rather than a section of `agent-contract.ts` because it
  * is its own surface: the reads the browser makes of conversations it already
  * owns, each with one use case on each tier
- * (`workers/edge/src/agent/views/`). `agent-contract.ts` keeps the shapes that
+ * (`workers/api/src/agent/views/`). `agent-contract.ts` keeps the shapes that
  * have no such home — health, the BYOK probe, the turn request.
  *
  * `packages/contract/src/index.ts` re-exports these shapes so the root import
@@ -36,7 +36,7 @@ export type SessionHistoryMessage = z.infer<typeof SessionHistoryMessage>;
  * Why a turn ended `failed` — the `runs_failure_reason_check` vocabulary
  * verbatim (the retired `runs` table's status vocabulary). Bounded on
  * purpose: the reason reaches the browser, so it may name a lifecycle outcome
- * and never an internal detail. `workers/edge/test/agent-runs-schema.test.ts`
+ * and never an internal detail. `workers/api/test/agent-runs-schema.test.ts`
  * holds this list and the database's CHECK to each other.
  */
 export const RunFailureReason = z.enum([
@@ -118,7 +118,7 @@ export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse
 /**
  * One `sessions` row of the `GET /v1/conversations` index (Card E of the
  * #1317 decomposition): the summary the browser sidebar lists, read straight
- * from the table admission owns (`workers/edge/src/agent/admission/session-owner.ts`).
+ * from the table admission owns (`workers/api/src/agent/admission/session-owner.ts`).
  *
  * `title` and `first_query` are nullable, and the null is a real wire value
  * rather than defensiveness. #1608 taught the native tier to write both — the

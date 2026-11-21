@@ -1,7 +1,7 @@
 # Edge bundle smoke tests
 
-Run `pnpm --filter edge-worker run test:bundle-smoke` from the repository root.
-`pnpm --filter edge-worker test` and the existing affected edge lane include it.
+Run `pnpm --filter api run test:bundle-smoke` from the repository root.
+`pnpm --filter api test` and the existing affected edge lane include it.
 
 `pi-harness.test.ts` proves S1 (#1537) against the published
 `@earendil-works/pi-agent-core@0.87.1` and `@earendil-works/chord@0.87.1`.
@@ -19,7 +19,7 @@ graph for chord and the absence of esbuild, and checks the emitted bytes for the
 esbuild marker. `smol-toml`, the parser used by Wrangler, compares the fixture's
 compatibility settings with the deployed edge configuration.
 
-For the CLI import-and-call check, from `workers/edge`:
+For the CLI import-and-call check, from `workers/api`:
 
 ```sh
 pnpm exec wrangler dev --config bundle-smoke/pi-harness.wrangler.json --local

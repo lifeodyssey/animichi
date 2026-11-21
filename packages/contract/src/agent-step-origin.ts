@@ -5,7 +5,7 @@
  * it published the same shape for two different facts. A model tool call is the
  * model's own request, opened with the arguments it produced. A deterministic
  * bypass — `plan_selected`, `plan_multi`, the radius `search_nearby` a place
- * pick runs (`workers/edge/src/agent/selection/turn-selection.ts`) — is the
+ * pick runs (`workers/api/src/agent/selection/turn-selection.ts`) — is the
  * RUNTIME's step: it skips the model loop entirely, so it is opened with `{}`
  * because there are no model arguments to open it with.
  *
@@ -32,7 +32,7 @@
  * describing exactly the turn it described, and a reader of those frames keeps
  * scoring what it scored.
  *
- * Zod-free on purpose: `workers/edge` writes this member and cannot load zod
+ * Zod-free on purpose: `workers/api` writes this member and cannot load zod
  * into its bundle (`bundle-smoke/entry-bundle.test.ts`), while
  * `packages/eval`'s transcript shaper reads it. One declaration, both ends.
  */

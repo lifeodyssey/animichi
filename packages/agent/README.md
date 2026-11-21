@@ -17,7 +17,7 @@ selectedRouteMessage("en", 2); // Created a route with 2 selected stops.
 ## Current public modules
 
 These retain-domain files from #1536 moved without changing their behavior. The old paths
-below are relative to `workers/edge/src/agent/`; no forwarding modules remain there.
+below are relative to `workers/api/src/agent/`; no forwarding modules remain there.
 
 | Old path | Current source | Responsibility |
 |---|---|---|
@@ -98,16 +98,16 @@ The exhaustive historical source list and delete/rewrite obligations remain in
 [the #1536 disposition](../../docs/iterations/production-readiness-2026-08/AGENT-FILE-DISPOSITION.md).
 They are not copied here. The native Pi runtime switch (#1582, `b6cf74034`, 2026-09-11) replaced
 the old engine and its consumers: production composes `createPilgrimageHarness` in
-`workers/edge/src/agent/host/session-agent.ts`, no path the disposition marks delete is left in
-edge, and of its rewrite-domain paths only `workers/edge/src/agent/byok/byok-credential.ts`,
-`workers/edge/src/agent/byok/byok-headers.ts`, `workers/edge/src/agent/byok/byok-probe.ts` and
-`workers/edge/src/gateway/agent-turn.ts` remain.
+`workers/api/src/agent/host/session-agent.ts`, no path the disposition marks delete is left in
+edge, and of its rewrite-domain paths only `workers/api/src/agent/byok/byok-credential.ts`,
+`workers/api/src/agent/byok/byok-headers.ts`, `workers/api/src/agent/byok/byok-probe.ts` and
+`workers/api/src/gateway/agent-turn.ts` remain.
 
 The remaining retain-domain rules stay at their existing edge paths. The table records each
 current consumer boundary and its owning card. Several leaves already run without platform
 dependencies; their owners can relocate the plain rules when replacing those consumers.
 
-| Path under `workers/edge/src/agent/` | Current boundary / owner |
+| Path under `workers/api/src/agent/` | Current boundary / owner |
 |---|---|
 | `byok/byok-family.ts` | Browser/provider vocabulary still coupled to old credential construction; #1547 |
 | `egress/egress-decision.ts` | Current guard's error class; native transport policy in #1547 |
@@ -118,7 +118,7 @@ dependencies; their owners can relocate the plain rules when replacing those con
 | `intake/quota-reservation.ts` | Edge payer and business accounting; #1546 |
 
 Node eval consumers import this public package: `packages/eval` depends on `@animichi/agent`
-and has no `edge-worker` dependency. Node eval, conformance and test infrastructure must never
+and has no `api` dependency. Node eval, conformance and test infrastructure must never
 become production imports of this package or enter the Worker artifact.
 
 ## Verification

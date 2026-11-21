@@ -78,7 +78,7 @@ drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
 
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
-`@neondatabase/serverless` (still an edge dependency in `workers/edge/package.json`) reaches
+`@neondatabase/serverless` (still an edge dependency in `workers/api/package.json`) reaches
 Postgres over HTTP or over its WebSocket proxy, never over TCP. The installed 1.1.0 README states
 the split: a `neon()` query is carried by an https fetch request, while `Pool` and `Client`
 queries are carried by WebSockets ("https and WebSockets in place of TCP"). Only the WebSocket
@@ -86,7 +86,7 @@ path throws "No WebSocket proxy is configured" when no `wsProxy` is configured, 
 contains one `new WebSocket` and no `net` import. The offline Postgres image in
 `packages/test-postgres` runs no ws proxy, so nothing that goes through this driver can reach it;
 the edge's database lane runs the production Prisma client against that image instead
-(`workers/edge/agent-db-test/README.md`).
+(`workers/api/agent-db-test/README.md`).
 
 ## `neonctl` traps and remote writes (2026-09-08)
 

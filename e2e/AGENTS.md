@@ -44,7 +44,7 @@ spec out of the lane always names a repair card; whether that card exists or is 
 checked, because that means calling GitHub and this contract stays offline. Naming it in a table
 is what keeps an unrun spec visible instead of reading as green.
 After the emitted-Worker specifications, the same `test` command runs the native browser lane
-(`edge-worker test:native-browser`). It starts disposable Postgres, bundles the actual native
+(`api test:native-browser`). It starts disposable Postgres, bundles the actual native
 SessionAgent with Wrangler, and serves the real web app through Vite’s same-origin proxy.
 Chromium verifies leaving a running tool and returning through SDK GET resume, one admission /
 one quota reservation, and a real network heartbeat across controlled browser time. Only the
@@ -95,7 +95,7 @@ OS assigns one per lane — the same recipe `packages/agent`'s integration harne
 
 `pnpm run test:login` is the **live login lane**, kept out of `test` because its inputs are
 different in kind: it serves the emitted Worker pointed at a real Neon Auth branch
-(`NEON_AUTH_BASE_URL`, the staging branch `workers/edge/wrangler.toml` verifies) and drives the
+(`NEON_AUTH_BASE_URL`, the staging branch `workers/api/wrangler.toml` verifies) and drives the
 real password sign-in and `/auth/callback` redeem. Credentials come from a repo-root `.env.test`
 (Path A, `docs/ops/auth-migration-neon.md` §4), which the lane's own interpreter loads:
 

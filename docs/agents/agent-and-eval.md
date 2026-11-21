@@ -1,6 +1,6 @@
 # Agent tier and eval — what the specs do not say
 
-Read before touching `workers/edge/src/agent/`, `packages/agent/` or `packages/eval/`. The target
+Read before touching `workers/api/src/agent/`, `packages/agent/` or `packages/eval/`. The target
 architecture is `docs/specs/2026-09-09-agent-on-pi-harness-spec.md`; the runnable eval is
 `packages/eval/NATIVE.md`. This file keeps the owner's reasoning and the traps those documents do
 not record.
@@ -136,9 +136,9 @@ Every prefix-instability source audited, with its location and disposition:
 | Advertised tool order | `packages/agent/src/native-tools.ts:16` and `packages/agent/src/harness.ts:16` | Fixed: one tuple literal, never object-key or set iteration; `NATIVE_TOOL_ORDER` is the order the harness advertises. |
 | Eval tool-order provenance | `packages/eval/src/native/prefix-cases.ts` (`productionToolNames`) | Fixed: reads `NATIVE_TOOL_ORDER`, so recorded provenance cannot drift from the harness. |
 | `transform_context` tail | `packages/agent/src/native-context-hooks.ts:18-28` | Declined as prefix drift: the hooks return only `messages`; the appended `agent_status` user message, the frozen-summary substitution of prior tool results and the rendering of `web_search` results from their recorded details come after the stable transcript. The two-turn test asserts append-only growth and a summary equal to the tool result's declared `frozenSummary`; a result the current code wrote renders byte-identical (`packages/agent/test/native-web-render.test.ts`). |
-| Per-operation tool settings | `workers/edge/src/agent/host/operation-tool-settings.ts:28-36` | Declined: the operation scalar changes `PilgrimageToolContext` (`locale`, `origin`, translation models), never the advertised tool list or prompt. |
-| Per-session composition | `workers/edge/src/agent/host/native-bootstrap.ts:35` | Declined: `compose` supplies models and tool context; the prompt and the tools come from the shared `NATIVE_AGENT_OPTIONS` and `createPilgrimageHarness`. |
-| BYOK model swap | `workers/edge/src/agent/host/native-models.ts` (`nativeByokModels`) | Declined: a BYOK credential changes the model and transport, not the request prefix. |
+| Per-operation tool settings | `workers/api/src/agent/host/operation-tool-settings.ts:28-36` | Declined: the operation scalar changes `PilgrimageToolContext` (`locale`, `origin`, translation models), never the advertised tool list or prompt. |
+| Per-session composition | `workers/api/src/agent/host/native-bootstrap.ts:35` | Declined: `compose` supplies models and tool context; the prompt and the tools come from the shared `NATIVE_AGENT_OPTIONS` and `createPilgrimageHarness`. |
+| BYOK model swap | `workers/api/src/agent/host/native-models.ts` (`nativeByokModels`) | Declined: a BYOK credential changes the model and transport, not the request prefix. |
 | Translation sub-request | `packages/agent/src/translate-anime-title.ts:42` | Declined: its own short system prompt belongs to a separate `completeSimple` call, not the main transcript prefix. |
 | Entry timestamps and ids | system-message construction | Declined: the leading system message carries `timestamp: 0`; entry, tool-result and operation ids live after the prefix, and the guard allows only appended messages or a declared frozen summary. |
 

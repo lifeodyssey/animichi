@@ -6,7 +6,7 @@
  * `chat-data-parts.ts`. See `scripts/emit-tool-schemas.ts` for why this is the
  * repo's only zod↔JSON-Schema conversion (spec §二).
  *
- * This module imports no value, so `workers/edge` can load it under node:test.
+ * This module imports no value, so `workers/api` can load it under node:test.
  */
 
 import type { CatalogToolName, WebToolName } from "./agent-tool-parameters.js";

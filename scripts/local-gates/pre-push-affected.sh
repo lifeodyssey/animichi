@@ -56,8 +56,8 @@ packages/eval package
 packages/pi-session-neon package
 packages/prisma-geography package
 packages/test-postgres package
+workers/api package
 workers/catalog package
-workers/edge package
 workers/migrator package
 workers/users package
 '

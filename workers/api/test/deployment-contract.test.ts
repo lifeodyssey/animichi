@@ -25,7 +25,7 @@ import { URL, fileURLToPath } from "node:url";
  */
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-const CONFIG = `${ROOT}workers/edge/wrangler.toml`;
+const CONFIG = `${ROOT}workers/api/wrangler.toml`;
 const RETIRED_CLASS = "RuntimeContainer";
 const RINGS = ["default", "staging", "production"] as const;
 
@@ -106,7 +106,7 @@ void test("every ring declares no container and no binding to the retired class"
 void test("the edge still deploys its own entry with the two surviving Durable Objects", () => {
   for (const ring of RINGS) {
     const config = ringConfig(ring);
-    assert.equal(config.main.endsWith("workers/edge/src/entry.ts"), true, `${ring} main`);
+    assert.equal(config.main.endsWith("workers/api/src/entry.ts"), true, `${ring} main`);
     assert.deepEqual(
       config.bindings.map((binding) => binding.name).sort(),
       ["AGENT_SESSION", "EDGE_GUARD"],

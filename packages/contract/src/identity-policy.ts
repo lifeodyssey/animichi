@@ -1,16 +1,16 @@
 /**
  * The deployed identity matrix (AUTH-1 #945; extracted #1285).
  *
- * Values mirror `workers/edge/wrangler.toml [vars]` so the config surface
+ * Values mirror `workers/api/wrangler.toml [vars]` so the config surface
  * cannot diverge from the contract (pinned by
- * `workers/edge/test/identity-policy-matrix.test.ts`), and the edge reads this
+ * `workers/api/test/identity-policy-matrix.test.ts`), and the edge reads this
  * document at RUNTIME — `src/protect/rate-limiter.ts` takes its defaults off it
  * rather than repeating two numbers.
  *
  * It lives here, apart from `identity-contract.ts`, for that runtime read: the
  * document is plain data, its old home imports zod, and a value import from a
  * zod module pulls the whole of zod into the Worker bundle
- * (`workers/edge/bundle-smoke/entry-bundle.test.ts` is the gate). The schemas
+ * (`workers/api/bundle-smoke/entry-bundle.test.ts` is the gate). The schemas
  * that give it meaning stay in the contract and still parse it
  * (`test/identity-contract.test.ts`), so there is one declaration and no
  * mirror. **Keep this module free of runtime imports**

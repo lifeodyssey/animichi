@@ -31,6 +31,7 @@ const SCOPES = [
   'users',
   'auth',
   'edge',
+  'api',
   'contract',
   'db',
   'infra',

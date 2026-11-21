@@ -33,7 +33,7 @@ void test("the deployed entry includes the shared native agent tools and direct 
 
 void test("bundlers, eval and conformance implementations stay outside the Worker", () => {
   const inputs = Object.keys(bundle.metafile.inputs).join("\n");
-  assert.doesNotMatch(inputs, /node_modules\/esbuild\/|packages\/eval\/|packages\/test-postgres\/|harness\/session\/testing|edge\/api-test\//);
+  assert.doesNotMatch(inputs, /node_modules\/esbuild\/|packages\/eval\/|packages\/test-postgres\/|harness\/session\/testing|api\/api-test\//);
   assert.doesNotMatch(bundle.code, /esbuild\/lib\/main\.js|esbuild version/);
 });
 

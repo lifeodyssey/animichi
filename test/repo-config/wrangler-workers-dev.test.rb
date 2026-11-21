@@ -1,4 +1,4 @@
-# SUT: the production blocks of workers/edge/wrangler.toml ([env.production]),
+# SUT: the production blocks of workers/api/wrangler.toml ([env.production]),
 # apps/web/wrangler.jsonc (the top level — the same Worker as env.production,
 # `animichi-web` — and env.production itself), workers/users/wrangler.toml
 # ([env.production]), and workers/migrator/wrangler.toml ([env.production]).
@@ -43,7 +43,7 @@ require "minitest/autorun"
 
 class WranglerWorkersDevTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  EDGE_TOML = "workers/edge/wrangler.toml"
+  EDGE_TOML = "workers/api/wrangler.toml"
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
@@ -277,7 +277,7 @@ class WranglerWorkersDevTest < Minitest::Test
     end
 
     deployed = publish_services_deployed_units
-    covered  = %w[edge web users migrator]
+    covered  = %w[api web users migrator]
 
     uncovered_deployed = deployed - covered - DEPLOY_SCRIPT_EXCLUSIONS.keys
     assert_empty uncovered_deployed,

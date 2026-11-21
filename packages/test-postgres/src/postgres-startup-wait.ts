@@ -48,7 +48,7 @@ async function outcomeOf(probe: () => Promise<void>): Promise<Outcome> {
 }
 
 /** Class fields, not constructor parameter properties: Node's type stripping —
- * how `workers/edge`'s `node --test` lane loads this package — rejects the
+ * how `workers/api`'s `node --test` lane loads this package — rejects the
  * parameter-property form outright. */
 export class PostgresStartupWait {
   #limits: StartupWaitLimits;

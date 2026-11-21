@@ -3,7 +3,7 @@
 # wrangler.toml [[ratelimits]] namespace_id is a CHOSEN POSITIVE INTEGER
 # (per CF docs, not a dashboard/API-provisioned resource). A commit that
 # ships the retired placeholder token cannot deploy, so this check FAILS
-# CLOSED: it greps workers/edge/wrangler.toml for the placeholder and exits
+# CLOSED: it greps workers/api/wrangler.toml for the placeholder and exits
 # non-zero while it is present, making a deploy-blocked PR visibly red in
 # the edge build lane instead of silently failing (or silently deploying).
 # Choosing real, per-environment integer namespace_ids (distinct so counters
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-EDGE="workers/edge/wrangler.toml"
+EDGE="workers/api/wrangler.toml"
 PLACEHOLDER="REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"
 
 file="${ROOT}/${EDGE}"

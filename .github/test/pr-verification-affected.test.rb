@@ -10,7 +10,7 @@ class PrVerificationAffectedTest < Minitest::Test
   MATRIX_TOOLCHAINS = [
     ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/agent", "docker build -f packages/test-postgres/Dockerfile"],
-    ["edge-worker", "docker build -f packages/test-postgres/Dockerfile"],
+    ["api", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/test-postgres", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/pi-session-neon", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/prisma-geography", "docker build -f packages/test-postgres/Dockerfile"],

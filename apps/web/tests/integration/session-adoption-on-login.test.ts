@@ -161,9 +161,9 @@ describe("a login drives the session-adoption endpoint end to end", () => {
  * and a silent rename of either path would recreate it exactly.
  */
 describe("the posted path is the one the edge routes on", () => {
-  it("matches workers/edge/identity/session-adopt.ts's SESSION_ADOPT_PATH literal", () => {
+  it("matches workers/api/identity/session-adopt.ts's SESSION_ADOPT_PATH literal", () => {
     const edge = readFileSync(
-      resolve(import.meta.dirname, "../../../../workers/edge/src/identity/session-adopt.ts"),
+      resolve(import.meta.dirname, "../../../../workers/api/src/identity/session-adopt.ts"),
       "utf8",
     );
     expect(edge).toContain(`export const SESSION_ADOPT_PATH = "${SESSION_ADOPT_PATH}"`);

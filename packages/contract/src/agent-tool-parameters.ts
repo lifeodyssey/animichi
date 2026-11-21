@@ -13,7 +13,7 @@
  * zod↔JSON-Schema conversion is the thing that seam exists to prevent.
  *
  * Nothing here is a wire type: no oRPC procedure and no OpenAPI document
- * references it. It is the LLM-facing surface of `workers/edge`'s agent tier,
+ * references it. It is the LLM-facing surface of `workers/api`'s agent tier,
  * kept in this package for the single reason that this is where zod runs.
  */
 
@@ -28,7 +28,7 @@ import { Pacing } from "./models.js";
  * Schema has no way to carry: emitted alone it becomes `minLength: 1`, which a
  * model satisfies with a run of spaces the catalog would then reject. The
  * model-facing schema therefore states the same intent as a pattern, and
- * `workers/edge`'s `resolve_anime` trims before it calls the catalog.
+ * `workers/api`'s `resolve_anime` trims before it calls the catalog.
  */
 const NON_BLANK = /\S/;
 
@@ -163,7 +163,7 @@ export const ANSWER_TOOL_NAME = "respond";
  * derived `search_bangumi` vs `search_nearby` and `plan_route` vs
  * `plan_selected` from its own recorded steps rather than from the model
  * (`animichi_runner.runtime_stage`), so the model never gets to name a search it
- * did not run; `workers/edge` keeps that split, resolving a kind against the
+ * did not run; `workers/api` keeps that split, resolving a kind against the
  * turn's own stored results.
  */
 export const ANSWER_KINDS = ["search", "route", "clarify", "greeting", "qa"] as const;

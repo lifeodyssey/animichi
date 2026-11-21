@@ -29,7 +29,7 @@ class PrVerificationPlanTest < Minitest::Test
   # (`test/repo-config/pre-push-routing.test.rb`). Both are pinned whole.
   REVIEWED_PATHS_FILTERS = {
     "web" => ["apps/web/**"],
-    "e2e" => ["e2e/**", "packages/contract/**", "workers/edge/**", "packages/agent/**",
+    "e2e" => ["e2e/**", "packages/contract/**", "workers/api/**", "packages/agent/**",
               "packages/pi-session-neon/**", "packages/test-postgres/**"],
     "migrations" => ["packages/pi-session-neon/migrations/**", "packages/pi-session-neon/src/contract.prisma",
                      "infra/database-access/reset-staging-baseline*"],
@@ -71,7 +71,7 @@ class PrVerificationPlanTest < Minitest::Test
   end
 
   def test_workflow_and_action_changes_reach_the_edge_suite
-    assert_includes @source, '["edge-worker"] | unique'
+    assert_includes @source, '["api"] | unique'
     assert_equal "${{ steps.paths.outputs.workflows }}", @ci.dig("jobs", "plan", "outputs", "workflows")
   end
 end

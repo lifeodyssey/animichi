@@ -1,6 +1,6 @@
 import { experimental_readRawConfig } from 'wrangler';
 
-export const ENTRIES = { catalog: 'index.js', users: 'index.js', edge: 'entry.js', migrator: 'index.js' };
+export const ENTRIES = { catalog: 'index.js', users: 'index.js', api: 'entry.js', migrator: 'index.js' };
 
 export function sourceConfig(unit) {
   const config = unit === 'web' ? 'apps/web/wrangler.jsonc' : `workers/${unit}/wrangler.toml`;
