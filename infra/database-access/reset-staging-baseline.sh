@@ -61,28 +61,9 @@ required() {
   [[ -n "${!1:-}" ]] || fail "$1 is required"
 }
 
-# One value of a stack's own configuration, read by js-yaml — the YAML library `infra`
-# declares and reads these files with in its tests — so quoting is the parser's business; jq then
-# takes a non-empty string or refuses by key and file: unset, a number, a boolean, a `secure:`
-# object. The file goes in on stdin because `pnpm exec` runs js-yaml from `infra/`.
-yaml_value() {
-  local yaml="$1" key="animichi-neon-secrets:$2"
-  pnpm --dir "$ROOT/infra" exec js-yaml < "$yaml" \
-    | jq -er --arg key "$key" '.config[$key] | select(type == "string" and length > 0)' \
-    || fail "refusing reset: $yaml sets no string $key"
-}
-
-# `main` calls this as `load_target || fail`, where `set -e` does not act, and a refusal inside a
-# command substitution ends only that subshell, so each read returns on its own. An empty id still
-# refuses below: neonctl given no branch falls back to the project's default one.
-load_target() {
-  local production_branch
-  PROJECT_ID="$(yaml_value "$STAGING_YAML" neonProjectId)" || return 1
-  BRANCH_ID="$(yaml_value "$STAGING_YAML" neonBranchId)" || return 1
-  production_branch="$(yaml_value "$PRODUCTION_YAML" neonBranchId)" || return 1
-  [[ -n "$PROJECT_ID" && -n "$BRANCH_ID" && -n "$production_branch" ]] || return 1
-  [[ "$BRANCH_ID" != "$production_branch" ]] || return 1
-}
+# The Neon target, read out of the two stack files named above: `yaml_value` and `load_target`.
+# shellcheck source=infra/database-access/reset-staging-baseline.stack-config.sh
+. "$ROOT/infra/database-access/reset-staging-baseline.stack-config.sh"
 
 # neonctl at the version the root lockfile resolved for infra's catalog range, installed by
 # CD's root frozen install before this step, its analytics off; every Neon call goes through here.
@@ -286,7 +267,7 @@ reset_schema() {
 
 main() {
   required NEON_API_KEY
-  load_target || fail "refusing reset: staging target is invalid"
+  load_target "$STAGING_YAML" "$PRODUCTION_YAML" || fail "refusing reset: staging target is invalid"
   stranded_on_atlas || return 0
   record_pre_state
   refuse_business_rows
