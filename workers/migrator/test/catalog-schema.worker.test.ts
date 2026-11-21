@@ -5,6 +5,7 @@ import {
   REQUIRED_CATALOG_TABLES,
 } from "../src/catalog-tables";
 import { FIXED_NOW, makeApp, testEnv } from "./migrate.worker.helpers";
+import { dsnGivenToDriver } from "./neon-connection-string";
 import type { Hono } from "hono";
 import type { Env } from "../src/create-app";
 
@@ -130,7 +131,7 @@ describe("readMissingCatalogTables — the read behind the route", () => {
     expect(query).toBe(MISSING_CATALOG_TABLES_SQL);
     expect(headers.get("Neon-Batch-Read-Only")).toBe("true");
     expect(headers.get("Neon-Batch-Isolation-Level")).toBe("RepeatableRead");
-    expect(headers.get("Neon-Connection-String")).toBe(DSN);
+    expect(dsnGivenToDriver(headers)).toBe(DSN);
   });
 
   it("keeps one row per table in the statement itself", () => {

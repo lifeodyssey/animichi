@@ -67,7 +67,7 @@ export class BusinessHost extends NativeBusinessHost {
 
 export default {
   async fetch(request: Request, env: { SESSION: DurableObjectNamespace<BusinessHost> }) {
-    const input = await request.json() as ModelAdmissionRequest & SelectionSubmission;
+    const input = await request.json<ModelAdmissionRequest & SelectionSubmission>();
     const host = await sessionAgentStub(env.SESSION, input.sessionId);
     const path = new URL(request.url).pathname;
     if (path === "/arm-scan") { await host.armScanFailure(); return new Response("armed"); }

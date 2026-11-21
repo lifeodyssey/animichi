@@ -53,7 +53,7 @@ function countingEnv(reached: string[]): Env {
 }
 
 async function errorBody(response: Response): Promise<{ code: string; message?: string }> {
-  const body = (await response.json()) as { error: { code: string; message?: string } };
+  const body = await response.json<{ error: { code: string; message?: string } }>();
   return body.error;
 }
 

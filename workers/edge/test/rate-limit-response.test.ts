@@ -19,7 +19,7 @@ void test("rateLimitedResponse is a typed 429 with Retry-After and the documente
   assert.equal(res.status, 429);
   assert.equal(res.headers.get("Retry-After"), "42");
   assert.equal(res.headers.get("Content-Type"), "application/json");
-  const parsed = (await res.json()) as { error: { code: string; message: string; retry_after_seconds: number } };
+  const parsed = await res.json<{ error: { code: string; message: string; retry_after_seconds: number } }>();
   const err = parsed.error;
   assert.equal(err.code, "rate_limited");
   assert.ok(typeof err.message === "string" && err.message.length > 0);
@@ -63,7 +63,7 @@ void test("an anonymous burst 429 is typed rate_limited, distinct from the quota
   const cookie = String((await app.request("/v1/chat", { method: "POST" }, env, stubCtx)).headers.get("Set-Cookie")).split(";")[0] ?? "";
   const res = await app.request("/v1/chat", { method: "POST", headers: { Cookie: cookie } }, env, stubCtx);
   assert.equal(res.status, 429);
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "rate_limited", "burst rejection must be rate_limited, not a quota code");
 });
 
@@ -74,7 +74,7 @@ void test("the daily-budget breaker stays a DISTINCT 403 (quota), not a 429 (rat
   } as never;
   const res = await anonApp(() => Response.json({ error: { code: "anon_budget_exhausted" } }, { status: 403 })).request("/v1/chat", { method: "POST" }, env, stubCtx);
   assert.equal(res.status, 403);
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "anon_budget_exhausted", "daily quota exhaustion is a 403, not a rate-limit 429");
 });
 // AC5 (#1011): the EDGE applies the accepted user/write cost class to a users
@@ -104,7 +104,7 @@ void test("a limited users POST via the durable user/write class returns a typed
   const limited = await app.request("/v1/users/saved-routes", post, env, stubCtx);
   assert.equal(limited.status, 429);
   assert.ok(limited.headers.get("Retry-After"), "the typed 429 must carry Retry-After");
-  const body = (await limited.json()) as { error: { code: string; message: string; retry_after_seconds: number } };
+  const body = await limited.json<{ error: { code: string; message: string; retry_after_seconds: number } }>();
   assert.equal(body.error.code, "rate_limited", "a limited write must be rate_limited, never a quota 403");
   assert.ok(typeof body.error.message === "string" && body.error.message.length > 0);
   assert.ok(body.error.retry_after_seconds >= 1);

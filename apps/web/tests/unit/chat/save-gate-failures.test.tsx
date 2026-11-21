@@ -29,7 +29,7 @@ function renderCta(deps: SaveGateOptions, target: typeof TARGET | undefined) {
 }
 
 function saveButton(): HTMLButtonElement {
-  return screen.getByRole("button", { name: ja.route.saveCta }) as HTMLButtonElement;
+  return screen.getByRole<HTMLButtonElement>("button", { name: ja.route.saveCta });
 }
 
 describe("P2-6: mounting a card sweeps an abandoned intent", () => {

@@ -11,8 +11,8 @@
   "dependencies": {
     "@pulumi/cloudflare": "^6.24.0",
     "@pulumi/pulumi": "^3.277.0",
-    "@pulumi/random": "^4.21.1",
-    "js-yaml": "^5.4.2"
+    "@pulumi/random": "^4.21.6",
+    "js-yaml": "^5.5.0"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

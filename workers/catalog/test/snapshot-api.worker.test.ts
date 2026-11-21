@@ -25,9 +25,9 @@ describe("GET /catalog/snapshot (AC5)", () => {
     await publishTwoSnapshots(bucket);
     const res = await catalogRequest("/catalog/snapshot", {}, envOf(bucket));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    const body = await res.json<{
       snapshotId: string; sourceRunId: string; createdAt: string; counts: Record<string, number>; compatibility: { min: string; max: string };
-    };
+    }>();
     expect(body.snapshotId).toBe("snap-daily-2");
     expect(body.sourceRunId).toBe("daily-2");
     expect(body.createdAt).toBe("2026-08-15T00:00:00Z");
@@ -68,7 +68,7 @@ describe("POST /catalog/snapshot/rollback (AC5)", () => {
       envOf(bucket, "ops-token"),
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { snapshotId: string };
+    const body = await res.json<{ snapshotId: string }>();
     expect(body.snapshotId).toBe("snap-daily-1");
   });
 });

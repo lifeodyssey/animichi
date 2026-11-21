@@ -129,7 +129,7 @@ void test("an invalid credential 401 carries the typed unauthorized code", async
   const response = await appWith({ ok: false, reason: "invalid" }, captured).request(
     "/v1/chat", { method: "POST" }, anonEnv(), stubCtx,
   );
-  const body = await response.json() as { error: { code: string } };
+  const body = await response.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "unauthorized");
 });
 

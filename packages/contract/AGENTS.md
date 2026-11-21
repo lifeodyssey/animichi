@@ -65,7 +65,7 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Conventions
 
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
-- `zod@^4.6.7` and `@orpc/*@^1.15.1` are one coupled pin set across this package,
+- `zod@^4.6.7` and `@orpc/*@^1.16.2` are one coupled pin set across this package,
   `workers/catalog`, `workers/users`, and `apps/web`: ranges in the catalog of
   `pnpm-workspace.yaml`, every `@orpc/*` package under the one range (`@orpc/zod` and
   `@orpc/tanstack-query` included), with `pnpm-lock.yaml` pinning the versions.

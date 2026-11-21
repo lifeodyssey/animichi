@@ -53,11 +53,12 @@ criterion of the form "turn X off and the score must drop", confirm the evaluato
 high score to doing nothing. The metrics that did discriminate were categorical
 (`max_tool_calls`, `data_keys_present`, `nonempty_results`); prefer those shapes.
 
-Two `logfire/evals` (0.22.x) traps, 2026-09-08: `task_duration` is a `performance.now()`
-difference around the task call, so any queueing the task awaits is counted in it; and
-`setEvalAttribute` after the task's first `await` may not land, because the run state is loaded
-lazily. Capture the task run state at the start of `run()` and write `state.attributes` directly.
-An attribute set the late way silently vanished across a multi-case run.
+Two `logfire/evals` traps, found on 0.22.x on 2026-09-08 and still in 0.26.2's code on
+2026-11-21: `task_duration` is a `performance.now()` difference around the task call, so any
+queueing the task awaits is counted in it; and `setEvalAttribute` after the task's first `await`
+may not land, because the run state is loaded lazily. Capture the task run state at the start of
+`run()` and write `state.attributes` directly. An attribute set the late way silently vanished
+across a multi-case run.
 
 ## Model facts (re-probe before relying on them)
 

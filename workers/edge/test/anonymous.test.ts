@@ -93,7 +93,7 @@ void test("exceeding the burst limit returns a friendly 429, not a bare status",
   const res = await anonApp(captured).request("/v1/chat", chat({ Cookie: cookie }), env, stubCtx);
   assert.equal(res.status, 429);
   assert.equal(res.headers.get("Retry-After"), "60");
-  const body = (await res.json()) as { error: { code: string; message: string } };
+  const body = await res.json<{ error: { code: string; message: string } }>();
   assert.equal(body.error.code, "rate_limited");
   assert.match(body.error.message, /少し待ってね/);
 });
@@ -118,7 +118,7 @@ void test("the native tier's breaker verdict becomes login guidance at the edge"
   const captured: NativeAgentCall[] = [];
   const res = await anonApp(captured, breakerTripped).request("/v1/chat", chat(), anonEnv(), stubCtx);
   assert.equal(res.status, 403);
-  const body = (await res.json()) as { error: { code: string; action: string } };
+  const body = await res.json<{ error: { code: string; action: string } }>();
   assert.equal(body.error.code, ANON_BUDGET_EXHAUSTED_CODE);
   assert.equal(body.error.action, "login");
 });

@@ -5,7 +5,7 @@ export function operationToolsNetwork(translate: boolean, nearby = false) {
   let mainRequests = 0;
   return { catalog: () => Response.json({ rows: [{ ...selectedPoint, city: "Tokyo" }], synced_at: "2026-09-10", partial: false }),
     model: async (request: Request) => {
-      const body = await request.json() as { tools?: unknown[] };
+      const body = await request.json<{ tools?: unknown[] }>();
       if (!body.tools?.length) return completion({ content: "Official translated title" }, "stop");
       mainRequests += 1;
       if (mainRequests > 1) return completion({ tool_calls: [call(0, "respond", { kind: "greeting", message: "Finished" })] });
