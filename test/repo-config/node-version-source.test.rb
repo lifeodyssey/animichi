@@ -20,7 +20,7 @@ class NodeVersionSourceTest < Minitest::Test
   ACTION_GLOB = ".github/actions/**/action.yml"
   SETUP_NODE = %r{\Aactions/setup-node@}.freeze
   LOCAL_ACTION = %r{\A(?:\$|\.)/(\.github/actions/[^@\s]+)\z}.freeze
-  RUNS_NODE = /(?:^|[\s;&|(])(?:node|pnpm|npx)(?=\s|$)/.freeze
+  RUNS_NODE = /(?:^|[\s;&|(])(?:node|npm|npx|pnpm|corepack)(?=\s|$)/.freeze
   VERSION_FILE_KEY = "node-version-file"
   LITERAL_KEY = "node-version"
   DOCKERFILE_GLOB = "{apps,packages,workers}/*/Dockerfile"
@@ -87,8 +87,8 @@ class NodeVersionSourceTest < Minitest::Test
     end
   end
 
-  # Each `<workflow>#<job>` that runs node, pnpm or npx before any setup-node step reading the
-  # .nvmrc, and so on whatever Node the runner image ships.
+  # Each `<workflow>#<job>` that runs node, npm, npx, pnpm or corepack before any setup-node step
+  # reading the .nvmrc, and so on whatever Node the runner image ships.
   def jobs_on_the_runner_node
     paths(WORKFLOW_GLOB).flat_map do |relative|
       document(relative).fetch("jobs").filter_map do |id, job|
@@ -162,7 +162,7 @@ class NodeVersionSourceTest < Minitest::Test
   def test_every_job_that_runs_node_sets_it_up_from_the_nvmrc
     offenders = jobs_on_the_runner_node
     assert_empty offenders,
-                 "a job runs node, pnpm or npx before an actions/setup-node step that reads #{NVMRC} " \
+                 "a job runs node, npm, npx, pnpm or corepack before an actions/setup-node step that reads #{NVMRC} " \
                  "(#{offenders.join(', ')}); it would run on whatever Node the runner image ships"
   end
 

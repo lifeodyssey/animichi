@@ -23,12 +23,13 @@ class NodeVersionSourceMutationTest < Minitest::Test
   ENGINES = "engines.node is"
   TYPES = "@types/node describes the runtime's API surface"
   IMAGE = "a service image builds or runs on a Node major"
-  RUNNER_NODE = "a job runs node, pnpm or npx before an actions/setup-node step that reads .nvmrc"
+  RUNNER_NODE = "a job runs node, npm, npx, pnpm or corepack before an actions/setup-node step that reads .nvmrc"
   # The text the probes rewrite, found by shape rather than by version or pin, so a
   # Dependabot bump or the next major move leaves the probes as they are.
   TYPES_LINE = /^[ \t]*["']?@types\/node["']?:.*\n/.freeze
   RUNTIME_STAGE = /^FROM[ \t]+node:\S+\n/.freeze
   SETUP_STEP = /^([ \t]*)- uses: actions\/setup-node@.*\n(?:\1[ \t]+\S.*\n)*/.freeze
+  NODE_RUN_LINE = /^[ \t]*node .*\n/.freeze
   DIGITS = /\d+/.freeze
 
   def importer_paths
@@ -130,6 +131,30 @@ class NodeVersionSourceMutationTest < Minitest::Test
       step = needle_in(root, EVIDENCE, SETUP_STEP, "evidence setup-node step")
       rewrite(root, EVIDENCE, step, "", "evidence setup-node step")
       reject_tree(root, "the evidence job on the runner's Node", RUNNER_NODE, "#{EVIDENCE}#evidence")
+    end
+  end
+
+  # A setup-node step placed after the step that runs node fails: the evidence job keeps its
+  # setup-node step, but below the judge's `node` line, so the judge runs on the runner's Node.
+  def test_rejects_a_setup_node_step_below_the_step_that_runs_node
+    with_tree do |root|
+      step = needle_in(root, EVIDENCE, SETUP_STEP, "evidence setup-node step")
+      rewrite(root, EVIDENCE, step, "", "evidence setup-node step")
+      judge = needle_in(root, EVIDENCE, NODE_RUN_LINE, "evidence node line")
+      rewrite(root, EVIDENCE, judge, judge + step, "evidence node line")
+      reject_tree(root, "the evidence job's setup-node step below its judge", RUNNER_NODE, "#{EVIDENCE}#evidence")
+    end
+  end
+
+  # A job that runs npm, or corepack, before its setup-node step fails: both are Node programs,
+  # so either would run on the runner image's Node.
+  { "npm" => "npm ci", "corepack" => "corepack enable" }.each do |program, command|
+    define_method("test_rejects_#{program}_ahead_of_the_setup_node_step") do
+      with_tree do |root|
+        step = needle_in(root, EVIDENCE, SETUP_STEP, "evidence setup-node step")
+        rewrite(root, EVIDENCE, step, "#{step[/\A[ \t]*/]}- run: #{command}\n#{step}", "evidence setup-node step")
+        reject_tree(root, "`#{command}` ahead of the evidence job's setup-node step", RUNNER_NODE, "#{EVIDENCE}#evidence")
+      end
     end
   end
 
