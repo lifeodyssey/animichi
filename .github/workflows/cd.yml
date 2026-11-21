@@ -118,8 +118,13 @@ jobs:
       # the `staging-before-prisma-baseline` branch; a marker beside the Atlas ledger, or rows
       # anywhere else, is a named refusal unless `reset-staging-baseline.approved-marker` names
       # that marker, when the rebuild drops its whole `prisma_contract` schema (three tables)
-      # after the backup; every other run is a named no-op (#1781). The Neon key comes from the
-      # ESC step's output, so it reaches this step alone.
+      # after the backup; every other run is a named no-op (#1781). An app marker that is no node
+      # of the repository's migration graph, as a regenerated chain leaves it (the migrator refuses
+      # it as MIGRATION.MARKER_MISMATCH), is a named refusal ending with every marker row and every
+      # table in `public` with its row count, unless `reset-staging-baseline.approved-old-chain`
+      # names each of those lines; the rebuild then drops the whole `prisma_contract` schema and
+      # `public` after a backup named after that marker.
+      # The Neon key comes from the ESC step's output, so it reaches this step alone.
       - name: Rebuild a staging schema stranded on the Atlas chain
         env:
           NEON_API_KEY: ${{ steps.esc.outputs.NEON_API_KEY }}

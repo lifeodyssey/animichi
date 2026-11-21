@@ -3,7 +3,18 @@
 # anything (#1625). CD runs it on every staging deploy, so its own gate is what keeps it from
 # destroying a database it was never approved to rebuild:
 #
-#   app marker present, no Atlas ledger         -> named no-op, exit 0
+#   app marker the committed migration graph
+#     carries, no Atlas ledger                  -> named no-op, exit 0
+#   app marker no node of that graph, no ledger -> named refusal ending with every marker row and
+#                                                  every table in `public` with its rows, exit 1
+#   ... and reset-staging-baseline
+#       .approved-old-chain names every line    -> pre-state, a backup named after that marker,
+#                                                  then the same two-transaction rebuild; every
+#                                                  later run a named no-op
+#   ... but the owner's step fails after the
+#       migrator's drop has committed           -> a half-reset the record's `public` lines finish
+#   app marker, no ledger, and a migration
+#     manifest that is not exactly one edge     -> named refusal naming it, exit 1, nothing touched
 #   app marker beside the Atlas ledger          -> named refusal, exit 1, nothing touched
 #   the marker reset-staging-baseline
 #     .approved-marker names, beside the ledger -> pre-state, backup branch, then the rebuild
@@ -29,13 +40,15 @@
 # that database and recording the branch calls that would reach the Neon API. Fails closed without
 # Docker or the offline image, like scripts/local-gates/db-fresh-schema.sh.
 #
-# One suite, four files split by responsibility, sourced into this shell so the one container
+# One suite, five files split by responsibility, sourced into this shell so the one container
 # serves the whole run: this file owns the seeds every case runs on and the no-marker cutover
 # states the reset exists for, reset-staging-baseline.marker-cases.sh owns the marker beside the
 # ledger and the owner's record that may approve it (#1781),
 # reset-staging-baseline.half-reset-cases.sh owns the half-reset a failed owner step strands and
-# the re-run that finishes it (#1949), and reset-staging-baseline.stack-config-cases.sh owns how
-# the Neon target is read out of the stack configuration.
+# the re-run that finishes it (#1949), reset-staging-baseline.old-chain-cases.sh owns the marker
+# the committed graph does not carry and the owner's record of the lines its refusal prints, and
+# reset-staging-baseline.stack-config-cases.sh owns how the Neon target is read out of the stack
+# configuration.
 set -euo pipefail
 
 # shellcheck source=infra/database-access/reset-staging-baseline.test.harness.sh
@@ -44,12 +57,14 @@ set -euo pipefail
 # Prisma 8's marker carries updated_at; the one staging held was written 2026-09-12 (#1781).
 # The chain's schema is the chain's own: every seed below creates it under SET ROLE migrator, the
 # ownership staging's reset ran against (#1949) — and which the ownership assertions in
-# reset-staging-baseline.marker-cases.sh show.
+# reset-staging-baseline.marker-cases.sh show. A database the chain migrated carries the head of the
+# committed graph, which is what the migrator's apply writes: the reset leaves such a marker to it.
+CHAIN_HEAD="$(jq -r .to "$(printf '%s\n' "$ROOT"/packages/pi-session-neon/migrations/app/*/migration.json | tail -1)")"
 MARKER="SET ROLE migrator;
   CREATE SCHEMA prisma_contract;
   CREATE TABLE prisma_contract.marker (space text PRIMARY KEY, core_hash text NOT NULL,
     updated_at timestamptz NOT NULL);
-  INSERT INTO prisma_contract.marker VALUES ('app', repeat('a', 64), '2026-09-12 06:49:00+00');
+  INSERT INTO prisma_contract.marker VALUES ('app', '$CHAIN_HEAD', '2026-09-12 06:49:00+00');
   RESET ROLE;"
 # What staging carries (spec §2.6): PostGIS's own populated spatial_ref_sys, the Atlas ledger
 # with its nine revisions, and the chain's tables, empty.
@@ -61,12 +76,9 @@ ATLAS="CREATE EXTENSION postgis;
 # The owner approved the rows staging held on 2026-09-18 by table (#1781).
 APPROVED="CREATE TABLE public.sessions (id text); INSERT INTO public.sessions VALUES ('qa');
   CREATE TABLE public.ingest_jobs (id int); INSERT INTO public.ingest_jobs VALUES (276);"
-# #1781: the owner's record names staging's stale marker, and the rebuild drops its schema itself.
-# The cases seed the very marker the committed record names inside the three tables a real
-# `prisma db migrate` writes (dumped from one on 2026-09-18), rows in each, as staging holds them.
-RECORDED="$(grep -vE '^(#|$)' "$ROOT/infra/database-access/reset-staging-baseline.approved-marker")"
-RECORDED_AT="${RECORDED##* updated_at=}"
-recorded_marker() { # recorded_marker <interval added to the recorded instant>
+# The three tables a real `prisma db migrate` writes (dumped from one on 2026-09-18), as migrator,
+# rows in each: the contract and two ledger entries at the instant, the marker the interval after it.
+prisma_contract() { # prisma_contract <core_hash> <instant> <interval added to the instant for the marker>
   echo "SET ROLE migrator;
     CREATE SCHEMA prisma_contract;
     CREATE TABLE prisma_contract.contract (core_hash text PRIMARY KEY,
@@ -75,12 +87,20 @@ recorded_marker() { # recorded_marker <interval added to the recorded instant>
       created_at timestamptz DEFAULT now() NOT NULL, space text NOT NULL, migration_name text NOT NULL);
     CREATE TABLE prisma_contract.marker (space text DEFAULT 'app' PRIMARY KEY, core_hash text NOT NULL,
       profile_hash text NOT NULL, updated_at timestamptz DEFAULT now() NOT NULL);
-    INSERT INTO prisma_contract.contract VALUES (repeat('a', 64), '$RECORDED_AT', '{}');
+    INSERT INTO prisma_contract.contract VALUES ('$1', '$2', '{}');
     INSERT INTO prisma_contract.ledger (created_at, space, migration_name)
-      VALUES ('$RECORDED_AT', 'app', 'baseline'), ('$RECORDED_AT', 'app', 'second');
+      VALUES ('$2', 'app', 'baseline'), ('$2', 'app', 'second');
     INSERT INTO prisma_contract.marker
-      VALUES ('app', repeat('a', 64), repeat('b', 64), '$RECORDED_AT'::timestamptz + interval '$1');
+      VALUES ('app', '$1', repeat('b', 64), '$2'::timestamptz + interval '$3');
     RESET ROLE;"
+}
+# #1781: the owner's record names staging's stale marker, and the rebuild drops its schema itself.
+# The cases seed the very marker the committed record names inside those three tables, as staging
+# held them.
+RECORDED="$(grep -vE '^(#|$)' "$ROOT/infra/database-access/reset-staging-baseline.approved-marker")"
+RECORDED_AT="${RECORDED##* updated_at=}"
+recorded_marker() { # recorded_marker <interval added to the recorded instant>
+  prisma_contract "$(printf 'a%.0s' {1..64})" "$RECORDED_AT" "$1"
 }
 
 new_case "a database the Prisma chain already migrated" "$MARKER CREATE TABLE public.bangumi (id text); INSERT INTO public.bangumi VALUES ('kept');"
@@ -136,12 +156,14 @@ run_script 1
 expect "and it refuses to guess" yes "$(said "cannot confirm staging state")"
 expect "and it takes no backup" no "$(backup_taken)"
 
-# The marker's cases, the half-reset's and the stack configuration's, in this shell and against
-# the same container.
+# The marker's cases, the half-reset's, the old chain's and the stack configuration's, in this
+# shell and against the same container.
 # shellcheck source=infra/database-access/reset-staging-baseline.marker-cases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.marker-cases.sh"
 # shellcheck source=infra/database-access/reset-staging-baseline.half-reset-cases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.half-reset-cases.sh"
+# shellcheck source=infra/database-access/reset-staging-baseline.old-chain-cases.sh
+. "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.old-chain-cases.sh"
 # shellcheck source=infra/database-access/reset-staging-baseline.stack-config-cases.sh
 . "$(dirname "${BASH_SOURCE[0]}")/reset-staging-baseline.stack-config-cases.sh"
 

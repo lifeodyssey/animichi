@@ -9,18 +9,20 @@ import { type Outcome, sourcedResetScript, withRecordFile } from "./reset-stagin
 const answer = (present: boolean): string => (present ? "return 0" : "return 1");
 
 // Under a marker, the one Atlas leftover that can tell the chains apart is the ledger: a
-// Prisma-owned `public` holds tables too. Without one, any table the chain left counts.
+// Prisma-owned `public` holds tables too. Without one, any table the chain left counts. The marker
+// here is a node of the repository's graph; staging-baseline-old-chain.test.ts owns one that is not.
 const ownership = (marker: boolean, leftovers: boolean): Outcome => sourcedResetScript(`
 APPROVED_MARKER=/nonexistent/approved-marker
 app_marker_present() { ${answer(marker)}; }
 atlas_ledger_present() { ${answer(leftovers)}; }
 atlas_leftovers_present() { ${answer(leftovers)}; }
+app_marker_in_graph() { return 0; }
 describe_marker_beside_ledger() {
   ROWS="prisma_contract.marker space=app updated_at=2026-09-12T06:49:00Z; 10 Atlas revisions, 42 tables in public"
 }
 if stranded_on_atlas; then echo REBUILD; else echo NO_OP; fi`);
 
-void test("a marker with no Atlas ledger is Prisma's: a named no-op", () => {
+void test("a marker the graph carries, with no Atlas ledger, is Prisma's: a named no-op", () => {
   const outcome = ownership(true, false);
   assert.equal(outcome.status, 0);
   assert.equal(outcome.stdout, "skip: the staging baseline is already applied\nNO_OP\n");
