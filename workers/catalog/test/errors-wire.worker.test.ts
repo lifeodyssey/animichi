@@ -128,7 +128,7 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
     const rows = routeRows(51);
     const point_ids = rows.map((r) => r.id);
     const res = await call("itinerary", { point_ids }, context(rows));
-    const body = await res.json() as Itinerary;
+    const body = await res.json<Itinerary>();
     expect(res.status).toBe(200);
     expect(body.ordered_points).toHaveLength(50);
     expect(body.timed_itinerary.stops).toHaveLength(50);

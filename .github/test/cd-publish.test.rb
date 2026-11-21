@@ -1,23 +1,31 @@
-# SUT: cd.yml invokes pinned native Wrangler with selected source tags and sealed environment configs.
+# SUT: cd.yml invokes the lockfile-pinned native Wrangler with selected source tags and sealed
+# environment configs.
 require "minitest/autorun"
-require "json"
 require_relative "repository-yaml"
 
 class CdPublishTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   TARGETS = { "stage" => "staging", "promote-production" => "production" }.freeze
+  FROZEN_INSTALL = "pnpm install --frozen-lockfile --ignore-scripts"
+  PUBLISH = /wrangler deploy|publish-services/
 
   def setup
     @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
-  # cd.yml runs the workspace's own `pnpm exec wrangler`. An exact pin is what
-  # makes a deploy reproducible; since #1672 it lives in the default catalog and
-  # the manifest reaches it through `catalog:`.
-  def test_native_wrangler_is_pinned_in_the_installed_workspace
-    declared = JSON.parse(File.read(File.join(ROOT, "package.json"))).dig("devDependencies", "wrangler")
-    catalog = RepositoryYaml.load_file(File.join(ROOT, "pnpm-workspace.yaml")).fetch("catalog")
-    assert_match(/\A\d+\.\d+\.\d+\z/, declared == "catalog:" ? catalog.fetch("wrangler") : declared)
+  # cd.yml runs the workspace's own `pnpm exec wrangler`, so a deploy is as reproducible as the
+  # wrangler that job installed. The catalog declares wrangler as a range and pnpm-lock.yaml pins
+  # the version (docs/agents/package-managers.md); the frozen install is what holds a publish to
+  # that version, because it installs exactly what the lockfile records or fails. It has to come
+  # before every publish step of the job, or that step runs whatever wrangler is on disk.
+  def test_every_publish_runs_the_wrangler_the_frozen_lockfile_installed
+    TARGETS.each_key do |job|
+      steps = @cd.dig("jobs", job, "steps")
+      install = steps.index { |step| step["run"] == FROZEN_INSTALL }
+      publishes = steps.each_index.select { |index| steps[index]["run"].to_s.match?(PUBLISH) }
+      refute_nil install, "cd.yml:#{job}: no `#{FROZEN_INSTALL}`, so no lockfile decides the wrangler it runs"
+      assert_operator publishes.min, :>, install, "cd.yml:#{job}: a publish step runs before the frozen install"
+    end
   end
 
   def test_migrator_publication_uses_sealed_config_and_selected_source

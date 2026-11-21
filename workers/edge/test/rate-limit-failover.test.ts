@@ -43,7 +43,7 @@ void test("a chat turn FAILS CLOSED (503) when the durable limiter is down", asy
   const env = { EDGE_SHOWCASE_MODE: "false", EDGE_GUARD: downGuard() } as never;
   const res = await app.request("/v1/chat", { method: "POST", headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(res.status, 503);
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "rate_limit_unavailable");
 });
 
@@ -58,7 +58,7 @@ void test("a users MUTATION FAILS CLOSED (503) when the durable limiter is down"
   const app = authedApp();
   const res = await app.request("/v1/users/saved-routes", { method: "POST", headers: { Authorization: "Bearer jwt" } }, usersEnv(), stubCtx);
   assert.equal(res.status, 503);
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "rate_limit_unavailable");
 });
 
@@ -106,7 +106,7 @@ void test("a denied native damper on a public read returns a typed 429", async (
   const app = createWorkerApp({});
   const res = await app.request("/catalog/public/anime-overview/123", {}, nativeEnv(binding), stubCtx);
   assert.equal(res.status, 429);
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "rate_limited");
 });
 

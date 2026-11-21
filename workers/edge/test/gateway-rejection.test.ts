@@ -24,7 +24,7 @@ function openEnv(extra: Record<string, unknown> = {}): never {
 }
 
 async function envelopeOf(response: Response): Promise<{ error?: { code?: string; message?: string } }> {
-  return (await response.json()) as { error?: { code?: string; message?: string } };
+  return await response.json<{ error?: { code?: string; message?: string } }>();
 }
 
 void test("a rejection is a coded error object, never a bare string", async () => {

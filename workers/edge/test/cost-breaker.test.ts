@@ -42,7 +42,7 @@ void test("a non-403 carrying the code is not a budget rejection", () => {
 void test("the guidance response is a 403 that points the visitor at login", async () => {
   const response = budgetGuidanceResponse();
   assert.equal(response.status, 403);
-  const body = (await response.json()) as { error: { code: string; action: string; message: string } };
+  const body = await response.json<{ error: { code: string; action: string; message: string } }>();
   assert.equal(body.error.code, ANON_BUDGET_EXHAUSTED_CODE);
   assert.equal(body.error.action, "login");
   assert.match(body.error.message, /ログイン/);
@@ -74,7 +74,7 @@ async function guardBudget(
 ): Promise<{ latched: boolean }> {
   const url = `https://edge-guard/budget?dayKey=${utcDayKey(nowMs)}`;
   const response = await handleGuardRequest(new Request(url, { method }), store, nowMs, FALLBACK);
-  return (await response.json()) as { latched: boolean };
+  return await response.json<{ latched: boolean }>();
 }
 
 void test("the guard shard reports the latch it was told to set", async () => {

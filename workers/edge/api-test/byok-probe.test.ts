@@ -52,7 +52,7 @@ function probe(headers: Record<string, string>, authorized = true): Promise<Resp
 }
 
 async function errorCode(response: Response): Promise<string> {
-  const body = (await response.json()) as { error: { code: string } };
+  const body = await response.json<{ error: { code: string } }>();
   return body.error.code;
 }
 

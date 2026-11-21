@@ -69,7 +69,7 @@ export class BusinessHost extends NativeBusinessHost {
 
 export default {
   async fetch(request: Request, env: { SESSION: DurableObjectNamespace<BusinessHost> }) {
-    const input = await request.json() as ModelAdmissionRequest;
+    const input = await request.json<ModelAdmissionRequest>();
     const host = await sessionAgentStub(env.SESSION, input.sessionId);
     const path = new URL(request.url).pathname;
     if (path === "/schedule") { await host.queueRecovery(); return new Response("scheduled"); }

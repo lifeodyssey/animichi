@@ -114,7 +114,7 @@ void test("the turn is readable back by conversation id, with its run's terminal
     signal: AbortSignal.timeout(READ_DEADLINE_MS),
   });
   assert.equal(response.status, 200);
-  const history = (await response.json()) as { messages: { role: string }[]; run: { status: string } | null };
+  const history = await response.json<{ messages: { role: string }[]; run: { status: string } | null }>();
   assert.deepEqual(history.messages.map((message) => message.role).slice(0, 1), ["user"]);
   assert.equal(history.run?.status, "succeeded");
 });

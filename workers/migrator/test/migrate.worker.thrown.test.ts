@@ -63,7 +63,7 @@ describe("what a thrown failure may not carry", () => {
   it("redacts the connection string and the password out of the response and the log", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const response = await dispatchThrowing(`connect ${FIXTURE_DSN} failed, password=${PLACEHOLDER}`);
-    const body = await response.json() as { cause: string };
+    const body = await response.json<{ cause: string }>();
     expect(body.cause).toBe("connect postgresql://[redacted] failed, password=[redacted]");
     expect(logged.mock.calls.flat().join(" ")).toBe("[migrator] apply dispatch failed: connect postgresql://[redacted] failed, password=[redacted]");
   });

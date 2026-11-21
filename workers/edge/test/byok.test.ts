@@ -68,7 +68,7 @@ void test("a happy-path authenticated /v1/chat request is allowed and counted; a
   const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   assert.equal(res.status, 429);
   assert.equal(res.headers.get("Retry-After"), "60");
-  const body = (await res.json()) as { error: { code: string } };
+  const body = await res.json<{ error: { code: string } }>();
   assert.equal(body.error.code, "rate_limited");
 });
 
@@ -137,7 +137,7 @@ for (const [label, guard] of OUTAGES) {
   void test(`the limiter fails CLOSED when the shard answers with ${label}`, async () => {
     const res = await authedApp().request("/v1/chat", req("/v1/chat"), env(guard()), stubCtx);
     assert.equal(res.status, 503, "a high-cost turn must not execute on a limiter outage (AC4)");
-    const body = (await res.json()) as { error: { code: string } };
+    const body = await res.json<{ error: { code: string } }>();
     assert.equal(body.error.code, "rate_limit_unavailable");
   });
 }
