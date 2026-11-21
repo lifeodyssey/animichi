@@ -27,6 +27,9 @@ function requireUsableContainerImage(unit, image, original) {
   if (!declaresContainer && image !== '') throw new Error(`${unit} declares no container; refusing the image ${image}`);
 }
 
+// Returned as the sealed wrangler.json holds it, plain JSON data, so that a strict comparison
+// with the file judges content alone: Wrangler's raw reader builds each TOML table with a
+// null prototype.
 export function sealedConfig(unit, image, original = sourceConfig(unit)) {
   requireUsableContainerImage(unit, image, original);
   const sealed = sealEnvironment(original, image);
@@ -36,5 +39,5 @@ export function sealedConfig(unit, image, original = sourceConfig(unit)) {
     no_bundle: true, find_additional_modules: true, preserve_file_names: true, base_dir: 'bundle',
     rules: [...(original.rules ?? []), { type: 'Text', globs: ['contract.json', 'migrations/**/*'], fallthrough: true }],
   });
-  return sealed;
+  return JSON.parse(JSON.stringify(sealed));
 }
