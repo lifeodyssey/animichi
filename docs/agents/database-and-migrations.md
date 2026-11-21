@@ -70,8 +70,11 @@ drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
   fails rolls back whole and leaves the marker where it was. Applies of several migrations or
   contract spaces are read from the runner's source, not tested. After a failed drop, reverting
   the PR unfreezes CD, because the selected target equals the live marker. Once a drop has
-  applied, a revert does the opposite: the reverted chain has no path from the live marker, the
-  preflight refuses, and CD stays frozen until a forward fix or a PITR.
+  applied, a revert does the opposite: the live marker is then no node of the reverted chain's
+  graph. On staging the rebuild step (`infra/database-access/reset-staging-baseline.sh`) refuses
+  first, naming the marker as an old chain's and offering the owner's rebuild record; in
+  production the preflight refuses. Either way CD stays frozen until a forward fix or a PITR:
+  that record is for a rebuild the owner decided, not a remedy for a revert.
 
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
