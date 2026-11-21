@@ -18,7 +18,7 @@
  * deleted `sql\`NOW()\`` expression asked for, and not the worker's.
  *
  * The payload is narrowed to the contract's `JsonValue` at this one boundary
- * ({@link ../lib/json}). `sources.ts` types what it fetches as
+ * ({@link ../db/json}). `sources.ts` types what it fetches as
  * `Record<string, unknown>` because it narrows an upstream response field by
  * field; by the time a payload reaches here it is a value `JSON.parse` produced,
  * which is a `JsonValue` by construction and by the jsonb column it is about to
@@ -28,7 +28,7 @@ import type { JsonValue } from "@prisma/orm-postgres/contract/types";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { upsert } from "../db/plans";
-import { asJsonValue } from "../lib/json";
+import { asJsonValue } from "../db/json";
 
 /** A JSON-serializable upstream payload (object or array at the top level). */
 export type RawPayload = Record<string, unknown> | unknown[];

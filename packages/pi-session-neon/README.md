@@ -1,8 +1,9 @@
 # Native Pi session storage
 
-Issue #1541 implements Pi 0.85.1 `Storage` and `SessionRepo` directly on the seven native tables of
-the Prisma 8 contract from #1539, which #1626 widened to also declare the 19 catalog/users data-plane
-tables. `NeonStorage` and `NeonSessionRepo` accept a native `PostgresClient<Contract>`; the caller
+Issue #1541 implements Pi's published `Storage` and `SessionRepo` (at the version the workspace
+catalog pins) directly on the seven native tables of
+the Prisma 8 contract from #1539, which #1626 widened to also declare the catalog/users data-plane
+tables (19 then, 17 since two were dropped). `NeonStorage` and `NeonSessionRepo` accept a native `PostgresClient<Contract>`; the caller
 owns its connection lifecycle. The repository returns upstream `StorageBackedSession`.
 Runtime admission, recovery and billing remain separate production writers.
 
@@ -24,11 +25,11 @@ Reservations remain on their admission row. The conversation ledger (`sessions`,
 built by this chain as raw-SQL objects rather than contract tables: the database-layer spec §4.12
 keeps the agent domain out of the contract, and `daily_usage.cost_usd` is `NUMERIC(14,6)`, which
 Prisma 8's PSL cannot spell at all. `migrations/app/.../conversation-ledger.ts` and
-`.../usage-meters.ts` install them and prove each object in `pg_catalog`. Native Pi tables receive only `agent_svc` grants; the 19 data-plane
+`.../usage-meters.ts` install them and prove each object in `pg_catalog`. Native Pi tables receive only `agent_svc` grants; the 17 data-plane
 tables follow the Atlas grant matrix in `access.ts`, and no role is created here — a disposable
 test plane creates them for the cluster it owns (`@animichi/test-postgres`, #1625). Pi entries
 and usage are append-only for that role; deleting a session removes its native rows by cascade.
-One Prisma chain owns every table this package builds: the seven native tables and the 19
+One Prisma chain owns every table this package builds: the seven native tables and the 17
 catalog/users data-plane tables rebuilt from the chain it replaced. No applied migration is
 altered, and no object has two owners. The migration-target ACs run against a per-test `template0`
 database migrated only by that chain, and the shared fixture installs nothing on top of it, so

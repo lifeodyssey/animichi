@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nearby } from "../src/api/nearby";
+import { nearby } from "../src/adapters/inbound/nearby";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { fakeCatalogPrisma } from "./fakes/fake-catalog-prisma";
 
@@ -65,7 +65,7 @@ const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 const run = (geo: GeoRow[], details: DetailRow[], prisma: CatalogPrisma = fakeCatalogPrisma(geo, details)) =>
   nearby(prisma, { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
 
-describe("nearby (api/nearby.ts) reads the geo plan first, in order", () => {
+describe("nearby (adapters/inbound/nearby.ts) reads the geo plan first, in order", () => {
   it("returns rows nearest-first with distance_m carried from the geo read", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows.map((r) => r.id)).toEqual(["washinomiya", "satte"]);
@@ -96,7 +96,7 @@ describe("nearby (api/nearby.ts) reads the geo plan first, in order", () => {
   });
 });
 
-describe("nearby (api/nearby.ts) fills in what the detail read omits", () => {
+describe("nearby (adapters/inbound/nearby.ts) fills in what the detail read omits", () => {
   it("defaults required fields when a detail row has nulls", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows[1]).toMatchObject({ bangumi_id: "lucky-star", screenshot_url: "" });
@@ -125,6 +125,17 @@ describe("nearby (api/nearby.ts) fills in what the detail read omits", () => {
     });
     expect(rows[1]?.name_cn).toBeUndefined();
     expect(rows[1]?.episode).toBeUndefined();
+  });
+
+  it.each([
+    { case: "a detail row whose columns are all null", details: [WASHINOMIYA, { ...SATTE, bangumi_id: null }] },
+    { case: "no detail row", details: [WASHINOMIYA] },
+  ])("puts only the required fields and distance_m on a point with $case", async ({ details }) => {
+    const { rows } = await run(GEO, details);
+    expect(rows[1]).toStrictEqual({
+      id: "satte", name: "幸手権現堂", bangumi_id: "", screenshot_url: "",
+      latitude: 36.0833, longitude: 139.725, distance_m: 4200,
+    });
   });
 
   it("answers an over-cap radius from the geo read, never widening it", async () => {

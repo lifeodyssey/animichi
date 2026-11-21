@@ -2,7 +2,9 @@
 
 Since 2026-09-29 the delivery orchestration mechanism is kept in the private repository
 `lifeodyssey/zdev` (local checkout `~/Documents/zdev`, written `$ZDEV` below). This repository
-keeps what a card must satisfy; zdev keeps how cards are driven.
+keeps what a card must satisfy; zdev keeps how cards are driven. A fault in the orchestration
+mechanism itself is fixed by whoever runs it, without asking the owner ("和编排有关的你自己修",
+2026-09-21).
 
 | Stays here (the rules) | Lives in zdev `orchestration/` (the mechanism) |
 |---|---|

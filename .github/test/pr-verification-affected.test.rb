@@ -1,7 +1,7 @@
 # SUT: pr-verification.yml selected-package gates and the workflow-wide Postgres
 # image tag, which every build step sources from packages/test-postgres/postgres-image.env.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class PrVerificationAffectedTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -18,7 +18,7 @@ class PrVerificationAffectedTest < Minitest::Test
     ["infra", "pulumi/actions"]
   ].freeze
   def setup
-    @ci = Psych.safe_load(File.read(CI_FILE), aliases: true)
+    @ci = RepositoryYaml.load_file(CI_FILE)
   end
 
   def test_matrix_guard
@@ -103,7 +103,7 @@ class PrVerificationPostgresImageTest < Minitest::Test
   DECLARED_IMAGE = File.read(File.join(ROOT, IMAGE_DECLARATION))[/^TEST_POSTGRES_IMAGE=(.+)$/, 1].to_s.strip
 
   def setup
-    @ci = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/pr-verification.yml")), aliases: true)
+    @ci = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/pr-verification.yml"))
   end
 
   def image_build_runs

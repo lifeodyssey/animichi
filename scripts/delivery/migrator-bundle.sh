@@ -2,6 +2,13 @@
 # Poll the selected executor's migration identity through HTTPS. One authority owns the
 # database now (#1634), so there is exactly one identity to wait for.
 
+# That identity: the storage hash of the selected native contract. The call-migrator action's
+# wait and the clients it runs read it here alike, so the bundle waited for is the one named.
+selected_prisma_ref() {
+  jq -er '.storage.storageHash | select(type == "string" and test("^[a-f0-9]{64}$"))' \
+    "${1:-release/migrator/bundle/contract.json}"
+}
+
 matches_migrator_bundle() {
   curl --proto '=https' --proto-redir '=https' -sS --max-time 15 "${MIGRATOR_URL%/}/healthz" |
     jq -e --arg prisma "$1" '.prismaTarget == $prisma' > /dev/null

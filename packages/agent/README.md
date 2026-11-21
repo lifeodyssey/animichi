@@ -66,6 +66,16 @@ current-turn search/route evidence and validates before requesting native termin
 `createCatalogClient` returns the existing oRPC contract client with native request/response
 validation, transient retries and bounded deadlines. `webSearch` uses `htmlparser2` for HTML
 and entity parsing, preserves ranked source attribution, and bounds untrusted result text.
+It keeps at most `WEB_SEARCH_PAGE_MAX_BYTES` (256 KiB) of the search response, counted in bytes as
+they arrive, and parses only a body that fits. The chunk that would pass the limit has already been
+handed over by the runtime but is neither decoded nor kept; the rest of the body is cancelled, best
+effort, and the call fails as an unavailable backend does, so no part of a larger page is parsed.
+Result text cannot end or reopen its `<untrusted_web_result>` wrapper. Before the byte bound, a
+`<` followed by the tag's letters, in any case and with any other characters between them, is
+recorded as `&#60;`; links arrive URL-serialised with `<` percent-encoded; other text is unchanged.
+Each model request renders every successful `web_search` result from its recorded details through the
+same escaping (`renderWebResults` from `@animichi/agent/harness`), so results recorded under an
+earlier escaping reach the model escaped; a result whose details do not parse is withheld.
 Provider/search failures use native SDK tool-error semantics; empty domain results remain data.
 
 `createOperationModels(model, key, fetch?)` returns native `MutableModels`. It uses
@@ -86,20 +96,16 @@ and real eval composition remain acceptance work for #1550 and the eval integrat
 
 The exhaustive historical source list and delete/rewrite obligations remain in
 [the #1536 disposition](../../docs/iterations/production-readiness-2026-08/AGENT-FILE-DISPOSITION.md).
-Its 47 delete and 43 rewrite-domain rows remain in edge until their owning stories replace
-their consumers. They are not copied here. #1545 owns SDK composition; #1547 owns native
-tools/credentials; #1548 owns domain memory hooks; #1551 owns deterministic selections;
-#1552 owns legacy history reads; #1553 removes the old engine after cutover.
+They are not copied here. The native Pi runtime switch (#1582, `b6cf74034`, 2026-09-11) replaced
+the old engine and its consumers: production composes `createPilgrimageHarness` in
+`workers/edge/src/agent/host/session-agent.ts`, no path the disposition marks delete is left in
+edge, and of its rewrite-domain paths only `workers/edge/src/agent/byok/byok-credential.ts`,
+`workers/edge/src/agent/byok/byok-headers.ts`, `workers/edge/src/agent/byok/byok-probe.ts` and
+`workers/edge/src/gateway/agent-turn.ts` remain.
 
-These native library exports alone do not complete every #1547 acceptance criterion. Direct
-production registration still depends on #1545, fact projections on #1548, and legacy wrapper
-deletion on the consumer migrations and #1553. Those gates need their own implementation and
-runtime evidence before the whole story can be called complete.
-
-The remaining retain-domain rules stay at their existing edge paths with the consumer migrations
-below. The table records each current consumer boundary and its owning card. Several leaves
-already run without platform dependencies; their owners can relocate the plain rules when
-replacing those consumers.
+The remaining retain-domain rules stay at their existing edge paths. The table records each
+current consumer boundary and its owning card. Several leaves already run without platform
+dependencies; their owners can relocate the plain rules when replacing those consumers.
 
 | Path under `workers/edge/src/agent/` | Current boundary / owner |
 |---|---|
@@ -108,22 +114,12 @@ replacing those consumers.
 | `egress/egress-policy.ts` | Current class-based guarded transport; #1547 |
 | `egress/provider-allowlist.ts` | Current guard's policy object; #1547 |
 | `egress/secret-scrub.ts` | Current credential scrubbing object; #1547 |
-| `egress/web-search-egress.ts` | Current GuardedFetch construction; #1547 |
 | `intake/anonymous-message-allowance.ts` | Edge identity and quota admission; #1546 |
 | `intake/quota-reservation.ts` | Edge payer and business accounting; #1546 |
-| `memory/rescued-entity.ts` | Current result/memory integration; #1548 |
-| `retrieval/issuing-run.ts` | Isolated historical decoder, never a new-session interface; #1552 |
-| `selection/merged-works.ts` | Current catalog result carrier; native selection in #1551 |
-| `selection/selection-request.ts` | Browser HTTP validation remains at the edge; #1551 |
-| `tools/catalog-title-translation.ts` | Current catalog client boundary; #1547 |
-| `tools/duckduckgo-result-page.ts` | Current WebResult carrier; #1547 |
-| `tools/search-result-payload.ts` | Current tool-result carrier; #1547 |
-| `tools/web-result-trust.ts` | Current WebResult carrier; #1547 |
 
-Future Node eval consumers import this public package. The existing `packages/eval` dependency
-on `edge-worker` still has API-test readers and is removed by their owning migration, not by
-this extraction. Node eval, conformance and test infrastructure must never become production
-imports of this package or enter the Worker artifact.
+Node eval consumers import this public package: `packages/eval` depends on `@animichi/agent`
+and has no `edge-worker` dependency. Node eval, conformance and test infrastructure must never
+become production imports of this package or enter the Worker artifact.
 
 ## Verification
 

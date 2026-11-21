@@ -66,3 +66,97 @@ The Prisma chain is the migration authority (`docs/DOCS_POLICY.md`). The first p
 (#1637) stays a separate, human-gated step: staging CD is green at every merge, and the
 production run is approved by the owner with the run number and the
 artefact checked (`docs/agents/delivery-flow.md`).
+
+## Agent API platform direction (2026-10-04)
+
+After three verified research records (`docs/iterations/agent-platform-research-2026-10/`), the owner
+approved the direction "one agent runtime, several surfaces, one contract" ("我感觉你的方案没啥问题")
+with four decisions, and one constraint: "记得 staging 和 production 不太一样". The decisions:
+
+1. Add a `service` principal kind; its first issuer is the Cloudflare Access service token.
+2. The complete per-turn record (model, provider, per-call usage, tool calls and results, structured
+   answer, status) is the single source of truth; the history read-back returns it.
+3. Runs that need more than the 100-second turn budget continue in the background and are read as
+   JSON by run id.
+4. "No private back door" binds the web app; the agent's tools and `/v1` share one contract, and a
+   contract-parity test keeps them aligned.
+
+The spec is `docs/specs/2026-10-04-agent-api-platform-spec.md`. The earlier proposal that the agent
+should call its own public capability API was withdrawn: no mature product does that.
+
+Four consequences of decision 1 are written into the spec and wait for the owner's objection, not
+for a new decision. Production has no Access application, so `service` exists in staging only;
+giving production one would be a separate owner decision. The existing staging CI token stays a
+door key only, because e2e, the smoke probe and the CD evidence recorder send it on every request;
+`service` comes from a second Access service token that the edge accepts by Client ID. `service`
+may run chat turns on staging, which adds `service` to `agent_admissions.payer` by a Prisma
+migration. ADR 0006's staging row is
+rewritten: the door stays Access and is not self-verified, and the edge verifies the Access
+assertion only to derive `service`, because Cloudflare requires an origin to validate that JWT
+before it trusts the claims.
+
+## pi version line (2026-10-03 to 2026-11-20)
+
+pi-agent-core 1.0 removed the harness that the agent tier is built on; its successor
+`@earendil-works/pi-durable` calls itself experimental. The owner chose a time-boxed spike on
+pi-durable before any migration ("能用pi的就用pi的"), and existing SDKs over hand-built pipelines
+("能用现成sdk就用现成sdk"). On 2026-10-04 the owner asked for two things, without ordering them: an
+issue to move to 0.99.2, the last line that still ships the harness (#1995, "0.99开个issue"), and a
+separate spec for the move off the harness whose first ticket is the spike ("剩下的做一个spec吧，spec
+第一张卡写spike"); that spec is `docs/specs/2026-10-04-pi-durable-migration-spec.md`. The author's
+reading, not an owner statement, and open to the owner's objection: staying on the 0.99 line until
+that spec lands is a migration in progress under the latest-dependencies rule in
+`docs/agents/code-standards.md`, not a pin around it.
+
+On 2026-11-18 the owner decided to start the pi-durable migration directly from 0.87.1, skipping
+the 0.99.2 step (#1995). That replaces the 0.99.2 step of 2026-10-04, and with it the author's
+reading above. The spike's record is `docs/iterations/pi-durable-spike-2026-10/README.md`.
+
+On 2026-11-20, after that record, the owner decided:
+
+1. Storage takes route (b′): a Neon backend for pi-durable's `Storage`, with our own wake.
+2. Pi follows the minor that the `agents` package supports, not Pi's latest. On that date
+   `agents` 0.33.0 declared its Pi peer dependencies as `~1.5.0`, while pi-durable 1.6.0 was
+   already out. This replaces the migration spec's rule of following latest without pinning, and
+   for the Pi packages it is an exception to the latest-dependencies rule in
+   `docs/agents/code-standards.md`.
+3. A deploy that moves to a new Pi minor is roll-forward only.
+4. Usage that an interrupted model attempt has already reported is charged. On that date the
+   agent tier runs 0.87.1, which records such an attempt as zero.
+5. Sessions that staging stored in the 0.87.1 format are converted to the new format during the
+   migration.
+
+## Production waits; agents do not propose it (2026-08-15 to 2026-10-02)
+
+No card goes to production for now: merged work stops in staging ("现在没有卡上生产，全部都是in
+staging", 2026-10-02). Do not propose a production deploy ("你为啥老要部署生产", the same day).
+Production work is collected under one tracking card and done last ("production的相关的东西等到最后再搞可以不，你可以搞一个track issue",
+2026-08-15). On 2026-09-23 the owner had the step they would take by hand written on the
+production release issue and the card under discussion closed ("你可以在production release的issue里留一下说我需要手动干嘛，然后把这个关了");
+that was the handling of that one card, not a rule that every card is closed this way. The production approval itself is in `docs/agents/delivery-flow.md`.
+
+## osv: the unfixed picomatch advisory (2026-11-18)
+
+[`GHSA-fc5q-39xc-vjpf`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (picomatch ReDoS through
+repeated extglobs) lists every version through 4.0.7, the latest, as affected. No picomatch issue
+tracked it on that date. No upgrade clears it, and the osv lane failed on `main` and on every pull
+request. The owner chose an ignore with an expiry date over waiting for upstream. It first went
+into `infra/database-access/osv-scanner.toml`, beside the lockfile osv flagged then. There picomatch
+arrives through Pulumi's package installer (`@pulumi/pulumi` → `@npmcli/arborist` →
+`@npmcli/run-script` → `node-gyp` → `tinyglobby`). node-gyp 12.4.0, the only tinyglobby caller,
+passes it two fixed patterns without extglobs (`build/*.sln`, `build/*.mk`, `lib/build.js:87,90`).
+
+The same day the lane moved to osv-scanner v2.7.1, which reads the root `pnpm-lock.yaml` whole
+(the earlier scanner read 15 of its packages), and it flagged picomatch 2.3.2, 4.0.5 and 4.0.7
+there. The owner extended the decision to that lockfile: `osv-scanner.toml` at the repository root,
+the same advisory and expiry. In the root lockfile picomatch comes in through build, test and
+development tooling (vite, vitest, nitropack, Storybook, TanStack's build plugins, the Prisma CLI)
+and through three runtime dependencies (`agents` in `workers/edge`, `@tanstack/react-start` in
+`apps/web`, `@prisma/orm-toolchain` in `workers/migrator`), but only by modules the bundles leave
+out: no tracked source imports it, and neither the four Workers' bundles nor the web build contains
+it, so it runs only in that tooling.
+The patterns the repository passes that tooling are committed literals, and their one extglob
+(Storybook's stories glob) is not repeated.
+
+Both ignores expire on 2026-12-18. Remove them when picomatch ships a fix. Extending them past that
+date is the owner's decision again (the exception rules in `docs/agents/code-standards.md`).

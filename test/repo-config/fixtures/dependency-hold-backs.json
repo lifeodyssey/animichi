@@ -26,7 +26,7 @@
     },
     {
       "package": "@vitest/coverage-istanbul",
-      "declared": "4.1.11",
+      "declared": "^4.1.12",
       "latest": "5.0.1",
       "declaredIn": "pnpm-workspace.yaml",
       "issue": 1742

@@ -1,4 +1,5 @@
-# SUT: schema-preflight.sh fails closed on unavailable or incompatible migration ledgers.
+# SUT: schema-preflight.sh fails closed on unavailable or incompatible migration ledgers, and on
+# a step handed no migrator token.
 # frozen_string_literal: true
 require 'minitest/autorun'
 require 'tmpdir'
@@ -7,6 +8,9 @@ require 'json'
 require 'open3'
 
 class ReleaseSchemaGateTest < Minitest::Test
+  # What the call-migrator action's mint step hands the preview as MIGRATOR_OIDC_TOKEN.
+  TOKEN = 'test-handed-token'
+
   def setup
     @directory = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(@directory, 'release/migrations'))
@@ -28,7 +32,7 @@ class ReleaseSchemaGateTest < Minitest::Test
     # `test_unavailable_ledger_is_not_success` proves the fail-closed branch
     # without burning nine real 15-second sleeps (#1770).
     { 'PATH' => "#{@directory}:#{ENV.fetch('PATH')}", 'MIGRATOR_URL' => 'https://migrator.example.invalid',
-                     'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'test-request-token', 'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://oidc.example.invalid?request=1',
+                     'MIGRATOR_OIDC_TOKEN' => TOKEN,
                      'PROBE_STATUS' => '200', 'BUNDLE_POLL_ATTEMPTS' => '2', 'BUNDLE_POLL_SECONDS' => '0', 'STALE_BUNDLE_ATTEMPTS' => '2',
                      'UNAVAILABLE_ATTEMPTS' => '2', 'UNAVAILABLE_POLL_SECONDS' => '0' }
   end
@@ -41,8 +45,8 @@ class ReleaseSchemaGateTest < Minitest::Test
     <<~'SH'
       #!/usr/bin/env bash
       set -euo pipefail
+      printf '%s\n' "$*" >> calls.log
       case "${@: -1}" in
-        https://oidc.example.invalid*) printf '{"value":"test-oidc-token"}' ;;
         https://migrator.example.invalid/healthz) cat served.json ;;
         https://migrator.example.invalid/preflight)
           count="$(cat post-count 2>/dev/null || printf '0')"
@@ -70,7 +74,20 @@ class ReleaseSchemaGateTest < Minitest::Test
     assert status.success?, error
     request = JSON.parse(File.read(File.join(@directory, 'preflight-request.json')))
     assert_equal %w[expectedPrismaRef], request.keys.sort
-    refute_includes output + error, 'test-oidc-token'
+    refute_includes output + error, TOKEN
+  end
+
+  # A step handed no token (no mint step before it, or an expression naming another step,
+  # which evaluates to '') stops before any request, in one line, rather than send an empty bearer.
+  # The token a step is handed is presented and never printed: schema-preflight-log-hygiene.test.sh.
+  { 'unset' => nil, 'empty' => '' }.each do |name, value|
+    define_method("test_a_step_handed_an_#{name}_token_stops_before_any_request") do
+      @environment['MIGRATOR_OIDC_TOKEN'] = value
+      output, error, status = preflight
+      refute status.success?
+      assert_equal "::error::MIGRATOR_OIDC_TOKEN is required for staging\n", output + error
+      refute File.exist?(File.join(@directory, 'calls.log'))
+    end
   end
 
   def test_native_preflight_binds_the_selected_prisma_contract
@@ -118,7 +135,7 @@ class ReleaseSchemaGateTest < Minitest::Test
     assert preflight.last.success?
   end
 
-  def test_missing_contract_refuses_before_identity_acquisition
+  def test_missing_contract_refuses_before_any_request
     File.unlink(File.join(@directory, 'release/migrator/bundle/contract.json'))
     refute preflight.last.success?
     refute File.exist?(File.join(@directory, 'preflight-request.json'))

@@ -11,4 +11,4 @@ runtime:
   name: nodejs
   options:
     typescript: false
-description: Cloudflare infrastructure (R2, routes, Hyperdrive, DNS, secrets) managed by Pulumi
+description: Cloudflare infrastructure (R2, routes, DNS, secrets) managed by Pulumi

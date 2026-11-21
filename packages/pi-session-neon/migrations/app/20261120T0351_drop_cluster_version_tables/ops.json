@@ -1,0 +1,76 @@
+[
+  {
+    "id": "dropTable.cluster_version",
+    "label": "Drop table \"cluster_version\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cluster_version"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"cluster_version\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop table \"cluster_version\"",
+        "sql": "DROP TABLE \"public\".\"cluster_version\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"cluster_version\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cluster_version\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dropTable.itinerary_snapshots",
+    "label": "Drop table \"itinerary_snapshots\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "itinerary_snapshots"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"itinerary_snapshots\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"itinerary_snapshots\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop table \"itinerary_snapshots\"",
+        "sql": "DROP TABLE \"public\".\"itinerary_snapshots\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"itinerary_snapshots\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"itinerary_snapshots\""
+        ]
+      }
+    ]
+  }
+]

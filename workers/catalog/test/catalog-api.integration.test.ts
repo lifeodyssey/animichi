@@ -1,9 +1,8 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import pg from "pg";
 import { databaseDescribe, directPoolConfig, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
-import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-integration-client";
+import { call, getPublic, type OverviewBody, type RouteBody } from "./catalog-integration-client";
 import { seed } from "./fixtures/integration-suite-seed";
-import { stubFetch, unresolvableResponse } from "./integration-upstream-stubs";
 
 // The Node integration pool has no workerd runtime; stub the runtime module so
 // `src/index.ts` (which now exports the `IngestEntrypoint` named entrypoint)
@@ -26,16 +25,15 @@ vi.mock("cloudflare:workers", () => ({
  * Boots the REAL Hono `app` (from src/index.ts) against the suite database on
  * the hermetic Docker arm, with `DATABASE_URL` set to it.
  * Each call goes through the
- * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> api/* handler
+ * full wire: HTTP POST -> OpenAPIHandler -> router (context.db) -> adapters/inbound/* handler
  * -> plan -> PostGIS query -> response. This is the integration that the
  * Worker-runtime test cannot do (workerd has no TCP sockets).
  *
  * The wire is PLAIN JSON / OpenAPI — exactly what packages/contract/openapi.json
  * speaks (the retired Python `backend/clients/catalog_client.py` spoke the same
  * wire; today's consumers are the edge's TS agent tier and apps/web): the request body IS
- * the raw input object (`{query}` / `{bangumi_id}` / `{lat,lng,radius_m}` /
- * `{point_ids}`) and the response IS the raw output (top-level `{rows}` /
- * `{point}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves
+ * the raw input object (`{lat,lng,radius_m}` / `{point_ids}`) and the response IS
+ * the raw output (top-level `{rows}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves
  * real contract conformance: it would FAIL against the old RPCHandler.
  *
  * Schema comes from the committed Prisma chain, cloned into the suite database.
@@ -59,32 +57,6 @@ afterEach(() => {
 afterAll(async () => {
   await pool.end();
 });
-
-async function assertSearchHit(): Promise<void> {
-  const out = await call<{ rows: ApiPoint[]; synced_at: string }>("search", { query: "らき☆すた" });
-  expect(out.rows.map((r) => r.id).sort()).toEqual(["washinomiya", "washinomiya-torii"]);
-  expect(out.rows.every((r) => r.bangumi_id === "lucky-star")).toBe(true);
-  expect(typeof out.synced_at).toBe("string");
-}
-
-/** An alias miss now calls Bangumi search (tiered ingest). Stub it to an empty
- * result so this asserts "unknown title -> no rows" instead of live upstream health. */
-async function assertSearchMiss(): Promise<void> {
-  stubFetch(unresolvableResponse);
-  const out = await call<{ rows: ApiPoint[] }>("search", { query: "no-such-anime" });
-  expect(out.rows).toHaveLength(0);
-}
-
-async function assertSpotsHit(): Promise<void> {
-  const out = await call<{ point: ApiPoint; distance_m?: number }>("spots", { bangumi_id: "lucky-star" });
-  expect(out.point.id).toBe("washinomiya");
-  expect(out.point.bangumi_id).toBe("lucky-star");
-}
-
-async function assertSpots404(): Promise<void> {
-  const body = await call<{ code?: string; status?: number }>("spots", { bangumi_id: "no-such-work" }, 404);
-  expect(body.code).toBe("WORK_NOT_FOUND");
-}
 
 /**
  * The nearby assertions drive the REAL endpoint: since #1628 the geo read runs
@@ -164,10 +136,6 @@ databaseDescribe("Catalog public animeOverview (anonymous GET, cache-tagged)", (
 });
 
 databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + PostGIS plans)", () => {
-  it("search resolves the seeded alias to the work's points (plain-JSON wire)", assertSearchHit);
-  it("search returns no rows for an unknown alias", assertSearchMiss);
-  it("spots returns a single representative point for the work (top-level {point})", assertSpotsHit);
-  it("spots 404s when the work has no points", assertSpots404);
   it("nearby returns points within the radius, nearest first with distance_m", assertNearbyHit);
   it("nearby excludes points outside the radius", assertNearbyMiss);
   it("planItinerary returns a timed itinerary over the selected points (top-level Itinerary)", assertRoute);

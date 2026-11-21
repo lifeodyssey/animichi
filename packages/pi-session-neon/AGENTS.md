@@ -2,7 +2,7 @@
 
 Native Pi Storage/SessionRepo and agent business obligations. Root guide: `../../AGENTS.md`.
 Prisma 8 owns every object this package's chain builds through `src/contract.prisma` and native
-`migrations/`: the seven native agent tables plus the 19 catalog/users data-plane tables adopted
+`migrations/`: the seven native agent tables plus the 17 catalog/users data-plane tables adopted
 from the retired chain this one replaced, and — as raw SQL rather than contract tables — the
 conversation ledger and the two usage meters `workers/edge/src` still writes
 (`conversation-ledger.ts`, `usage-meters.ts`). One authority owns the whole data plane (#1636).
@@ -36,7 +36,7 @@ loader reads exactly one contract source file (a directory path fails `CONTRACT.
 / `EISDIR`) and its 315 non-comment lines cannot be formatted under the cap. No other path is
 exempt: every other handwritten file in the package remains subject to that cap.
 
-The contract stores published Pi 0.87.1 `Entry`, `UsageRow` and `SessionMetadata` directly.
+The contract stores published Pi `Entry`, `UsageRow` and `SessionMetadata` directly.
 Do not create a custom Session, transcript converter, TurnStore or operation state machine.
 The public entry exports `NeonStorage` and `NeonSessionRepo`, accepting native
 `PostgresClient<Contract>`; the caller owns its lifecycle. All ten public conformance factories

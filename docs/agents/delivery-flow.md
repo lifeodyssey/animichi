@@ -16,8 +16,14 @@ call); a prose "Blocked by" line is not enough, because the pre-dispatch check r
 At the skill's step 4 ("Quiz the user") the advisor, the Fable seat, approves the breakdown; do
 not quiz the owner ("拆分方案，你直接advisor fable决定就可以了", 2026-09-24). An incident issue (an
 Orca or coordinator failure) uses the same template: the measure goes in `## What to build`, its
-verification in `## Acceptance criteria`, then `## Blocked by`, with the problem, the raw-record
-source (the session transcript path and time) and the root cause above them.
+verification in `## Acceptance criteria`, then `## Blocked by`, with the problem, a safe reference
+to the raw record and the root cause above them. The session transcript path and time are
+machine-local and stay on the private tracker card, not in the public issue
+(`docs/agents/infra-and-secrets.md`).
+
+Every open pull request has a card, Dependabot's included. When zdev's takeover found seven open
+PRs with none, the owner chose to card or close them, in the option that said "以后每个新的也要挂"
+(2026-10-31): each new Dependabot PR gets a card when it opens (#2019 got one the same day).
 
 ## Before dispatching a card (2026-09-19: four dispatched, three stale)
 
@@ -41,27 +47,30 @@ is allowed; the reason is what is required ("最好是e2e的，如果不是，�
 2026-09-24), and a mechanism forcing a second merge is one such reason: CD applies Pulumi before
 it publishes Workers, so a route cannot name a Worker the same run creates. The owner's earlier
 words, in order: "我感觉你 pr 拆分的太小了，大的好几个 issue，能够 e2e 的，作为一个 pr" (2026-09-15);
-"记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr" (2026-09-17); "每个story完成验收
-就是一个PR，不然的话，我们CI每次都阻隔太久了" and "你可以详细拆分issue,但是尽量把一个e2e的story写成一个pr"
+"记得用 stack pr，还有我之前说的，多个 issue 是一个 story 的就放一个 pr" (2026-09-17);
+"每个story完成验收就是一个PR，不然的话，我们CI每次都阻隔太久了" and "你可以详细拆分issue,但是尽量把一个e2e的story写成一个pr"
 (2026-09-23). Why: every PR pays a full CI gate, and the ruleset is squash + linear history +
 strict up-to-date, so every merge puts every other open PR BEHIND and reruns its CI (O(n²)):
 hot-file PRs measured 150–200 minutes each, one PR merged `main` five times, and fine-grained PR
-splitting kept the pipeline blocked.
+splitting kept the pipeline blocked. CI must be entirely green for a merge: an e2e that cannot
+run, or that fails for a reason outside the code (data, a credential), is reported in the body as
+it happened, with the reason, and it holds the merge — an e2e that cannot run is itself the
+reason the merge waits ("跑不了的 e2e 肯定要挡着合并啊…ci 一定要全绿了才能合并", owner, 2026-11-02, reversing
+the controller's October 2026 practice that had let such a merge through).
 
 - One brief, one branch, one PR whose body closes each ticket. GitHub's `Closes #a, #b, #c`
   closes only the first number; repeat the keyword before each one.
-- A story that depends on another story's in-flight branch is a stacked PR: start from that
-  branch head and open with `gh pr create --base <parent-branch>` (or `gh pr edit <n> --base`). No
-  third-party stack tools; `gh-stack` has known issues on squash-only repositories. Each layer is
-  reviewed and approved on its own; merge from the bottom, by literal number.
-- Measured 2026-09-17: after the bottom PR squash-merges, GitHub only repoints the upper PR's base
-  to `main`; the branch still carries the old bottom commits and reads DIRTY. Rebase it yourself:
-  `git rebase --onto origin/main <old-bottom-head>`, layer by layer, then push with lease. Every
-  merge costs one restack of the remaining layers, so keep stacks short and merge fast.
+- Updating a branch is a merge: `git merge origin/main` + a normal push, or `gh pr update-branch`
+  (ADR 0009, 2026-10-09) — never a rebase, never a force-push. A story that depends on another
+  story's in-flight branch waits for that story's PR to land on `main`, then takes the same merge
+  against the fresh head; stacked PRs are retired (owner, 2026-10-09, ADR 0009). Every merge
+  keeps every other open PR a plain update away from current.
 - Never chain a rebase and a dispatch in one command. A rebase that stopped on a conflict still let
   the dispatch fire, and the reviewer received a tree with 21 conflicted files. Require
   `git status --porcelain` empty and `git rebase --show-current-patch` silent first; a conflicted
-  restack goes to the writer, hunk by hunk.
+  restack goes to the writer, hunk by hunk. (Superseded as a step 2026-10-09, ADR 0009: the
+  branch update is a merge now. The guard is this incident's own lesson and stands: no chained
+  update-and-dispatch, `git status --porcelain` empty before a dispatch.)
 
 ## Review before the PR opens (owner, 2026-09-24)
 
@@ -70,6 +79,21 @@ GLM or DeepSeek reviews a candidate kimi wrote; no Claude model reviews a card (
 cross-lane review is separate, see `docs/agents/owner-decisions.md`).
 A PR opens only after a review seat on a model different from every model that wrote the
 candidate has approved its head, and the body carries `Review: APPROVE at <sha>`.
+
+## Four kinds of card the owner reviews before merge (owner, 2026-10-09)
+
+"就这么几类卡需要我来 review：一个是 UI 的卡，一个是涉及到改数据库的卡，一个是有一些异步或者时间序列操作的卡，然后还有一个是涉及到 secret 和 environment variable 的卡."
+Other PRs merge without the owner's approval. The review seat recognises the four kinds and posts
+an owner review packet on the PR: one Markdown comment with mermaid diagrams, tables, how to verify,
+and before/after screenshots for UI ("能不能不要 HTML，就 Markdown 嘛"). This is a merge-time
+acceptance requirement, separate from the escalation categories in `docs/agents/harness.md`: the
+five "must wait" categories govern who decides while work is in flight, while these four kinds
+gate the merge itself. A UI, database, async/time-series or secrets card does not merge until the
+owner accepts it, regardless of which escalation category it fell into. zdev's controller releases
+such a merge only on an `owner-accepted` label the owner adds by hand; that label is the
+controller's practice, not the owner's words, and whether it is the only form the owner's
+acceptance can take is still open. The terms are defined in zdev's `GLOSSARY.md` (四类卡, owner
+review 包, owner-accepted); the visible-UI rules are in `docs/agents/frontend.md`.
 
 ## Review rounds: what does and does not consume one (owner, 2026-09-18)
 
@@ -81,8 +105,12 @@ for the head they produce; any other post-PR change needs a fresh review within 
 rounds four and up on 2026-09-17 (one card reached round eleven) found
 wording ("here", "this file", a commit-body sentence) that the gates already covered; the seat's
 value is in the first three rounds. Round-one briefs ask the reviewer to sweep a whole class of
-problem in one pass. A failed round three goes to the owner with the must-fix list, never to a
-round four.
+problem in one pass. A failed round three goes to the owner with the must-fix list, not to a
+round four unless the owner grants one. A fourth round exists only when the owner grants it for
+that card ("1915特批第四轮", 2026-09-24), and it covers only the items named for it: the round the
+owner granted ZDEV-51 fixed three listed items, re-checked only those and declined the rest as
+outside the round (2026-10-09, the controller's practice under the owner's grant). Findings that
+arrive after round three are fixed only when they are major or security-related ("第三轮之后还有新的发现，只修复major和与security相关的", 2026-09-19).
 
 ## PR mechanics measured on this repository
 
@@ -108,6 +136,10 @@ round four.
   twice.
 - With several PRs open, merge the most-refreshed one first (the one repeatedly updated to `main`);
   every merge re-queues the rest.
+- A pile of open PRs is a process fault, not a concurrency limit: clear what can merge before
+  opening more ("放这么多出来是我们的流程有问题，pr没有及时去清理 而不是并发数量的问题",
+  2026-08-06). A PR that meets the merge conditions (`docs/ops/review-gate.md`) is merged, not watched
+  ("这五个我看着好像全绿了？你在盯什么？", 2026-09-19).
 
 ## Checks before a PR merges (single source)
 
@@ -141,6 +173,12 @@ rather than "should be fine". `wrangler deploy` returns before the new version s
 success with an unchanged head (#1332), so the migration step now polls the migrator's schema
 identity before it posts and re-polls on a 409 (`scripts/delivery/migrate-through-worker.sh`).
 
+A check that fails on `main` after a merge (the release snapshot, the staging deploy) becomes a new
+card at the highest priority; the merged PR is not reopened. A failure the pre-commit hooks could have
+caught should never get that far: "我们的 pre-commit 钩子就应该把这个东西所有都被发现，除非真的是说是因为环境不同"
+(owner, 2026-10-09). zdev's post-merge watch opens that card for the cards it drives (its
+owner-notification document describes the watch).
+
 ## The production approval (owner, 2026-09-23)
 
 A pending production approval is left alone; do not propose rejecting it. The 2026-09-01 rule ("a
@@ -160,6 +198,15 @@ incident is opened through `/to-tickets` like any issue (the template is in the 
 the raw record is the session transcript, and coordinator logs are corroboration. Bulk reading
 goes to a sub-agent (sonnet for research, fable for synthesis); scan for secrets before posting
 (`docs/agents/infra-and-secrets.md`).
+
+## Deferred, deleted or skipped work becomes a card (owner, 2026-08-24 to 2026-10-15)
+
+Whatever a decision defers, deletes or skips is recorded as a tech-debt or enhancement card; a
+sentence in the chat is forgotten. A card for a skipped review names the PR. The owner's words, in order: "加快进度
+不review，快速上线 记tech debt issue" and "你记得写一个issue，就是哪个pr没做好review" (2026-08-24,
+when #1195 merged without its independent review and #1198 named it); "3.删了吧，记一个tech debt
+issue" (2026-09-13); "qa记得记todo/enhance" (2026-10-09); "并且记一个ehance issue" (2026-10-15).
+A review thread answered "identified, owned by #<n>" is the same rule at thread scale.
 
 ## Dispatching sub-agents (2026-09-19)
 

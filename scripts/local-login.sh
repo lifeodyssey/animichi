@@ -15,7 +15,7 @@ set -euo pipefail
 #     value from `neonctl neon-auth status` — see docs/ops/auth-migration-neon.md)
 #   - NEON_DATABASE_URL (or DATABASE_URL) pointing at the SAME branch that runs
 #     Neon Auth — the magic-link token is read from its neon_auth.verification
-#   - psql on PATH
+#   - psql and jq on PATH
 #   - web app running on localhost:3000
 #
 # Usage: make local-login
@@ -49,29 +49,56 @@ if ! command -v psql >/dev/null 2>&1; then
   echo "   Path B (real inbox) of docs/ops/auth-migration-neon.md §4 instead." >&2
   exit 1
 fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "❌ jq not found on PATH. Install jq; it writes the magic-link request body." >&2
+  exit 1
+fi
 
 echo "Sending magic link to: $EMAIL"
 echo "  via: $BASE_URL"
 echo "  callback: $WEB_ORIGIN/auth/callback"
 
 # The web app sends this exact request shape (src/lib/auth/neon-auth.ts
-# `sendMagicLink`). `Origin` is required by Better Auth on POSTs.
+# `sendMagicLink`). jq writes it, so a quote or a backslash in the email stays
+# inside one JSON string.
+magic_link_request_body() {
+  jq -cn --arg email "$EMAIL" --arg callbackURL "$WEB_ORIGIN/auth/callback" \
+    '{email: $email, callbackURL: $callbackURL}'
+}
+
+# `Origin` is required by Better Auth on POSTs.
 curl -sS -X POST "$BASE_URL/sign-in/magic-link" \
   -H "Content-Type: application/json" \
   -H "Origin: $WEB_ORIGIN" \
-  -d "{\"email\":\"$EMAIL\",\"callbackURL\":\"$WEB_ORIGIN/auth/callback\"}" >/dev/null
+  -d "$(magic_link_request_body)" >/dev/null
 
 # --- Poll the branch's verification table for the token -----------------------
 # Better Auth stores each magic link as a neon_auth.verification row whose
-# `identifier` is the raw token and whose `value` JSON names the email. Read
-# the newest matching row; the row is consumed (deleted) once verified, so grab
-# it before the browser opens the link.
+# `identifier` is the raw token and whose `value` is the JSON {"email": …}.
+# Other flows share the table with values that are not JSON (an email OTP is
+# "<code>:<attempts>"), so only a value that opens with `{` is parsed. The email
+# reaches psql as the variable `email`, which `:'email'` quotes as a literal and
+# the query compares whole, ignoring case as the ILIKE it replaces did: a quote,
+# `%` or `_` in it cannot change the query or match another row, and an address
+# the auth service stored in another case is still found. psql interpolates
+# variables only in the input it reads itself, never in a `-c` string, so the
+# query comes in on stdin. Read the newest matching row; the row is consumed
+# (deleted) once verified, so grab it before the browser opens the link.
+newest_magic_link_token() {
+  psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v email="$EMAIL" <<'SQL'
+SELECT identifier FROM neon_auth.verification
+WHERE lower(CASE WHEN starts_with(value::text, '{')
+                 THEN value::text::jsonb ->> 'email' END) = lower(:'email')
+ORDER BY "createdAt" DESC
+LIMIT 1;
+SQL
+}
+
+# A query error ends the login with psql's own message; only an empty answer
+# (the row is not there yet) is polled again.
 TOKEN=""
 for _ in $(seq 1 20); do
-  TOKEN="$(psql "$DATABASE_URL" -tAc \
-    "SELECT identifier FROM neon_auth.verification \
-     WHERE identifier IS NOT NULL AND value::text ILIKE '%$EMAIL%' \
-     ORDER BY \"createdAt\" DESC LIMIT 1" 2>/dev/null || true)"
+  TOKEN="$(newest_magic_link_token)"
   [[ -n "$TOKEN" ]] && break
   sleep 1
 done

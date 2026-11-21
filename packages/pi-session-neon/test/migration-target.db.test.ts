@@ -1,50 +1,25 @@
 import assert from "node:assert/strict";
-import { readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { createCleanDatabase, dropCleanDatabase, uniqueDatabaseName } from "@animichi/test-postgres";
-import pg from "pg";
-import { DATA_PLANE_ACCESS } from "../migrations/app/20260913T1711_data_plane_baseline/access.ts";
 import contractJson from "../src/contract.json" with { type: "json" };
+import { cleanTarget, headOf, markerQuery, postcheckVerdict } from "./clean-target.ts";
+import { HEAD_GRANT_STEPS } from "./head-state.ts";
 import { droppedCatalogGrant, futureContract, tamperedContract } from "./migration-fixtures.ts";
 import { migrate, packageRoot, prisma, prismaCliOutput } from "./prisma-migration.ts";
 import { cluster } from "./postgres.ts";
 
-const migrationRoot = fileURLToPath(new URL("../migrations/app/", import.meta.url));
-const markerQuery = "SELECT core_hash FROM prisma_contract.marker WHERE space = 'app'";
 const EXACT_SET_STEP = "information_schema.role_table_grants";
 
-/** Every exact-set grant step, each one coupled to the role and the table its failure text
- * names. The closing step reads schema and sequence privileges instead, so it is not one. */
-const grantSteps = DATA_PLANE_ACCESS.postcheck.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
-
-/** Each test migrates its own database created from pristine `template0` — never the
- * fixture's shared-suite database. The server is shared and outlives this run (#1663), so the
- * database this test owns is named per call and dropped by the test that created it. */
-async function cleanTarget(suite: string) {
-  const name = uniqueDatabaseName(suite);
-  const dsn = await createCleanDatabase(cluster.adminDsn, name);
-  const client = new pg.Client({ connectionString: dsn });
-  await client.connect();
-  return { dsn, client, name };
-}
-
-async function baselineHead(): Promise<string> {
-  const manifest = await readFile(join(migrationRoot, "20260913T1711_data_plane_baseline/migration.json"), "utf8");
-  return (JSON.parse(manifest) as { to: string }).to;
-}
-
-/** What the runner answers on: the first column of the step's one row. */
-async function postcheckVerdict(client: pg.Client, sql: string): Promise<boolean> {
-  const { rows } = await client.query<{ result: boolean }>(sql);
-  return rows[0]?.result === true;
-}
+/** Every exact-set grant step the head still declares, each one coupled to the role and the
+ * table its failure text names. The closing step reads schema and sequence privileges instead,
+ * so it is not one. */
+const grantSteps = HEAD_GRANT_STEPS.filter(({ sql }) => sql.includes(EXACT_SET_STEP));
 
 void test("a fresh database applies the whole chain and the marker names the checkout head", async () => {
   const { dsn, client, name } = await cleanTarget("native_chain_head");
   try {
-    assert.match((await migrate(dsn)).stdout, /"migrationsApplied":2/);
+    assert.match((await migrate(dsn)).stdout, /"migrationsApplied":3/);
     assert.match((await prisma(["db", "verify", "--db", dsn])).stdout, /Database schema satisfies contract/);
     assert.deepEqual((await client.query(markerQuery)).rows, [{ core_hash: contractJson.storage.storageHash }]);
     assert.deepEqual((await client.query(`SELECT
@@ -55,9 +30,10 @@ void test("a fresh database applies the whole chain and the marker names the che
       (SELECT count(*) = 0 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'points' AND column_name = 'embedding') AS no_embedding,
       (SELECT count(*) = 0 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_points_embedding') AS no_embedding_index,
       (SELECT count(*) = 0 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'locations' AND column_name = 'location') AS no_location_column,
+      (SELECT to_regclass('public.cluster_version') IS NULL AND to_regclass('public.itinerary_snapshots') IS NULL) AS dropped,
       (SELECT count(*) = 4 FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('sessions', 'turn_reservations', 'daily_usage', 'anon_daily_message_count')) AS agent_ledger,
       (SELECT count(*) = 1 FROM pg_trigger WHERE tgname = 'trg_sessions_updated_at' AND NOT tgisinternal) AS sessions_stamped`)).rows,
-      [{ trigram: true, history: true, generated_coordinates: true, located: true, no_embedding: true, no_embedding_index: true, no_location_column: true, agent_ledger: true, sessions_stamped: true }]);
+      [{ trigram: true, history: true, generated_coordinates: true, located: true, no_embedding: true, no_embedding_index: true, no_location_column: true, dropped: true, agent_ledger: true, sessions_stamped: true }]);
     const written = await client.query(`INSERT INTO points (id, name, location)
       VALUES ('coordinate-proof', 'Kyoto', ST_SetSRID(ST_MakePoint(135.7681, 35.0116), 4326)::geography)
       RETURNING ST_Y(location::geometry) AS latitude, ST_X(location::geometry) AS longitude`);
@@ -76,7 +52,7 @@ void test("a direct write to a derived scalar column is refused, not corrected",
   } finally { await client.end(); await dropCleanDatabase(cluster.adminDsn, name); }
 });
 
-void test("a fresh database satisfies every exact-set grant postcheck the baseline declares", async () => {
+void test("a fresh database satisfies every exact-set grant postcheck the head declares", async () => {
   const { dsn, client, name } = await cleanTarget("native_chain_grants");
   try {
     await migrate(dsn);
@@ -125,11 +101,11 @@ void test("replaying the applied chain changes neither the marker nor committed 
 void test("an earlier head applies only up to itself and leaves the rest pending", async () => {
   const { dsn, client, name } = await cleanTarget("native_chain_earlier_head");
   try {
-    const baseline = await baselineHead();
+    const baseline = await headOf("20260913T1711_data_plane_baseline");
     assert.match((await migrate(dsn, packageRoot, baseline)).stdout, /"migrationsApplied":1/);
     assert.deepEqual((await client.query(markerQuery)).rows, [{ core_hash: baseline }]);
     assert.deepEqual((await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'agent_admissions' AND column_name = 'selection_request'")).rows, []);
-    assert.match((await migrate(dsn)).stdout, /"migrationsApplied":1/);
+    assert.match((await migrate(dsn)).stdout, /"migrationsApplied":2/);
     assert.deepEqual((await client.query(markerQuery)).rows, [{ core_hash: contractJson.storage.storageHash }]);
     const current = (await client.query("SELECT * FROM prisma_contract.marker ORDER BY 1")).rows;
     await assert.rejects(migrate(dsn, packageRoot, baseline), { stdout: /MIGRATION.PATH_UNREACHABLE/ });
@@ -142,7 +118,7 @@ void test("selecting artifact B while checkout is C applies only B and replay pr
   const directory = await futureContract();
   const { dsn, client, name } = await cleanTarget("native_artifact_target");
   try {
-    assert.match((await migrate(dsn, directory, contractJson.storage.storageHash)).stdout, /"migrationsApplied":2/);
+    assert.match((await migrate(dsn, directory, contractJson.storage.storageHash)).stdout, /"migrationsApplied":3/);
     assert.match((await prisma(["db", "verify", "--db", dsn])).stdout, /Database schema satisfies contract/);
     await client.query("INSERT INTO pi_sessions (id, metadata) VALUES ('preserved', '{\"id\":\"preserved\"}')");
     assert.deepEqual((await client.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'pi_sessions' ORDER BY 1")).rows,

@@ -1,6 +1,6 @@
 # SUT: cd.yml stage smoke probes public surfaces and makes a failed probe decisive.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdStageSmokeTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -14,7 +14,7 @@ class CdStageSmokeTest < Minitest::Test
   SMOKE_STEP = "Smoke the release"
 
   def setup
-    @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
+    @cd = RepositoryYaml.load_file(CD_FILE)
   end
 
   def smoke_step

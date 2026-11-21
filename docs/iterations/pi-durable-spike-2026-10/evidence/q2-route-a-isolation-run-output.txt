@@ -1,0 +1,4 @@
+PASS ra-iso-a-e7420041: its history, read by session id, holds exactly its own turn
+PASS ra-iso-b-cf2a741a: its history, read by session id, holds exactly its own turn
+PASS both turns carry the same operation id and the same seq (each object's own Pi numbering), side by side under their session ids
+PASS guard: no request other than the stubbed catalog left workerd

@@ -87,5 +87,5 @@ It fails closed and asserts each gate:
 
 `semgrep --test` is not used directly because the ruleset lives under `.semgrep/`
 (a dot-directory, which Semgrep's test-mode config discovery excludes by design);
-the mirror-scan script above is the equivalent fail-closed check and the one the
-CI/pre-commit wiring invokes.
+the mirror-scan script above is the equivalent fail-closed check, and CI's `semgrep`
+job runs it after its scan. The pre-commit hook runs the scan alone, not this script.

@@ -81,7 +81,7 @@ class AnitabiEgressDisclosureTest < Minitest::Test
   # which is not a credential.
   #
   # The list is the service's secrets, not one of them: `INGEST_SIGNING_KEY` is
-  # what the caller signs with, and `CEILING_STORE_URL` is where the counter
+  # what the caller signs with, and `CEILING_STORE_URL` is where the window
   # lives. `CEILING_STORE_TOKEN` was the second of those until #1824 and is gone
   # with the REST adapter that read it — a name left in this list would be a
   # scan watching a variable nothing sets any more, which reads exactly like

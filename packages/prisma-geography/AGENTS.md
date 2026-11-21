@@ -1,8 +1,11 @@
 # prisma-geography — AGENTS.md
 
 Private Prisma 8 extension pack for an SRID-constrained PostGIS geography point. Root guide:
-`../../AGENTS.md`. This package is independent infrastructure; no catalog or users consumer moves here
-until its owning migration card.
+`../../AGENTS.md`. Its consumers: `@animichi/prisma-geography/control` is loaded by the data-plane
+chain (`packages/pi-session-neon/prisma.config.ts`) and the migrator
+(`workers/migrator/src/prisma-control.ts`); `@animichi/prisma-geography/runtime` by
+`workers/catalog/src/db/prisma.ts`, `workers/users/src/db/prisma.ts` and
+`workers/edge/src/native-client.ts`; and the catalog builds its point values with `geographyPoint`.
 
 - `pnpm run contract:emit` — regenerate `src/contract.json` and `src/contract.d.ts`.
 - `pnpm exec prisma migration plan --name <snake_slug> --json` — plan a native migration after emission.

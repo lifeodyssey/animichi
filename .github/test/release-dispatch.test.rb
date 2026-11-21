@@ -1,13 +1,13 @@
 # SUT: release-build.yml dispatches the CD controller for its own main snapshot after a successful build.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class ReleaseDispatchTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   DISPATCH = "Dispatch CD for this snapshot"
 
   def setup
-    @build = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/release-build.yml")), aliases: true)
+    @build = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/release-build.yml"))
     @job = @build.fetch("jobs").fetch("dispatch-cd")
   end
 

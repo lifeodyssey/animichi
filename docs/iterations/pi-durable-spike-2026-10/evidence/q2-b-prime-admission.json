@@ -1,0 +1,1031 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "runs": [
+    {
+      "point": "c1",
+      "name": "adm-c1-ca980890",
+      "operationId": "op-c1",
+      "markerAt": 1795039211232,
+      "killedAt": 1795039211241,
+      "answerOnA": {
+        "error": "TypeError: fetch failed"
+      },
+      "backendGoneMs": {
+        "pi": 75,
+        "biz": 72
+      },
+      "atKill": {
+        "admission": "admitted",
+        "settlements": 0,
+        "charged": null,
+        "first_entry": null,
+        "last_entry": null,
+        "pi_submissions": 0,
+        "pi_status": null,
+        "user_entries": 0,
+        "tool_results": 0,
+        "entries": 0
+      },
+      "after": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      },
+      "charge": {
+        "total": 190,
+        "calls": [
+          {
+            "entry": 11,
+            "role": "assistant",
+            "totalTokens": 190,
+            "stopReason": "toolUse"
+          }
+        ]
+      },
+      "settledAfterKillMs": 2098,
+      "eventsOnB": [
+        {
+          "instance": "c86b34c6",
+          "kind": "constructed",
+          "at": 1768,
+          "detail": {
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "start",
+          "at": 1775,
+          "detail": null
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "pi:opened",
+          "at": 1873,
+          "detail": {
+            "key": "adm-c1-ca980890"
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:start",
+          "at": 1874,
+          "detail": null
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "recover:resubmit",
+          "at": 1934,
+          "detail": {
+            "operationId": "op-c1"
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:waiting",
+          "at": 1989,
+          "detail": {
+            "active": true
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "model:tool_call",
+          "at": 2017,
+          "detail": {
+            "tool": "respond"
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "tool:respond",
+          "at": 2049,
+          "detail": {
+            "chars": 21
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:end",
+          "at": 2074,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "settled",
+          "at": 2098,
+          "detail": {
+            "operationId": "op-c1",
+            "outcome": "done",
+            "charged": 190,
+            "banked": 1
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:start",
+          "at": 2098,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:waiting",
+          "at": 2100,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "wake:end",
+          "at": 2100,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c86b34c6",
+          "kind": "request:report",
+          "at": 2679,
+          "detail": {
+            "operationId": "op-c1"
+          }
+        }
+      ]
+    },
+    {
+      "point": "c2",
+      "name": "adm-c2-97ed6aea",
+      "operationId": "op-c2",
+      "markerAt": 1795039214316,
+      "killedAt": 1795039214337,
+      "answerOnA": {
+        "error": "TypeError: fetch failed"
+      },
+      "backendGoneMs": {
+        "pi": 74,
+        "biz": 72
+      },
+      "atKill": {
+        "admission": "admitted",
+        "settlements": 0,
+        "charged": null,
+        "first_entry": null,
+        "last_entry": null,
+        "pi_submissions": 0,
+        "pi_status": null,
+        "user_entries": 0,
+        "tool_results": 0,
+        "entries": 0
+      },
+      "after": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      },
+      "charge": {
+        "total": 190,
+        "calls": [
+          {
+            "entry": 11,
+            "role": "assistant",
+            "totalTokens": 190,
+            "stopReason": "toolUse"
+          }
+        ]
+      },
+      "settledAfterKillMs": 1991,
+      "eventsOnB": [
+        {
+          "instance": "6c184ec6",
+          "kind": "constructed",
+          "at": 1669,
+          "detail": {
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "start",
+          "at": 1674,
+          "detail": null
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "pi:opened",
+          "at": 1770,
+          "detail": {
+            "key": "adm-c2-97ed6aea"
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:start",
+          "at": 1771,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "recover:resubmit",
+          "at": 1830,
+          "detail": {
+            "operationId": "op-c2"
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:waiting",
+          "at": 1884,
+          "detail": {
+            "active": true
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "model:tool_call",
+          "at": 1911,
+          "detail": {
+            "tool": "respond"
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "tool:respond",
+          "at": 1942,
+          "detail": {
+            "chars": 21
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:end",
+          "at": 1968,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "settled",
+          "at": 1991,
+          "detail": {
+            "operationId": "op-c2",
+            "outcome": "done",
+            "charged": 190,
+            "banked": 1
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:start",
+          "at": 1991,
+          "detail": null
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:waiting",
+          "at": 1993,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "wake:end",
+          "at": 1993,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "6c184ec6",
+          "kind": "request:report",
+          "at": 2579,
+          "detail": {
+            "operationId": "op-c2"
+          }
+        }
+      ]
+    },
+    {
+      "point": "c3",
+      "name": "adm-c3-e7b35ccf",
+      "operationId": "op-c3",
+      "markerAt": 1795039217324,
+      "killedAt": 1795039217336,
+      "answerOnA": {
+        "status": 202,
+        "operationId": "op-c3"
+      },
+      "backendGoneMs": {
+        "pi": 74,
+        "biz": 71
+      },
+      "atKill": {
+        "admission": "admitted",
+        "settlements": 0,
+        "charged": null,
+        "first_entry": null,
+        "last_entry": null,
+        "pi_submissions": 1,
+        "pi_status": "placed",
+        "user_entries": 1,
+        "tool_results": 0,
+        "entries": 1
+      },
+      "after": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      },
+      "charge": {
+        "total": 190,
+        "calls": [
+          {
+            "entry": 11,
+            "role": "assistant",
+            "totalTokens": 190,
+            "stopReason": "toolUse"
+          }
+        ]
+      },
+      "settledAfterKillMs": 1915,
+      "eventsOnB": [
+        {
+          "instance": "c0095363",
+          "kind": "constructed",
+          "at": 1669,
+          "detail": {
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "start",
+          "at": 1672,
+          "detail": null
+        },
+        {
+          "instance": "c0095363",
+          "kind": "pi:opened",
+          "at": 1753,
+          "detail": {
+            "key": "adm-c3-e7b35ccf"
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:start",
+          "at": 1754,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:waiting",
+          "at": 1819,
+          "detail": {
+            "active": true
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "model:tool_call",
+          "at": 1827,
+          "detail": {
+            "tool": "respond"
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "tool:respond",
+          "at": 1860,
+          "detail": {
+            "chars": 21
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:end",
+          "at": 1891,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "settled",
+          "at": 1914,
+          "detail": {
+            "operationId": "op-c3",
+            "outcome": "done",
+            "charged": 190,
+            "banked": 1
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:start",
+          "at": 1915,
+          "detail": null
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:waiting",
+          "at": 1916,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "wake:end",
+          "at": 1916,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "c0095363",
+          "kind": "request:report",
+          "at": 2562,
+          "detail": {
+            "operationId": "op-c3"
+          }
+        }
+      ]
+    },
+    {
+      "point": "c4",
+      "name": "adm-c4-624e2659",
+      "operationId": "op-c4",
+      "markerAt": 1795039222012,
+      "killedAt": 1795039222022,
+      "answerOnA": {
+        "status": 202,
+        "operationId": "op-c4"
+      },
+      "backendGoneMs": {
+        "pi": 77,
+        "biz": 80
+      },
+      "atKill": {
+        "admission": "admitted",
+        "settlements": 0,
+        "charged": null,
+        "first_entry": null,
+        "last_entry": null,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      },
+      "after": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      },
+      "charge": {
+        "total": 190,
+        "calls": [
+          {
+            "entry": 11,
+            "role": "assistant",
+            "totalTokens": 190,
+            "stopReason": "toolUse"
+          }
+        ]
+      },
+      "settledAfterKillMs": 30160,
+      "eventsOnB": [
+        {
+          "instance": "057a794b",
+          "kind": "constructed",
+          "at": 29989,
+          "detail": {
+            "replay": "safe"
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "start",
+          "at": 29992,
+          "detail": null
+        },
+        {
+          "instance": "057a794b",
+          "kind": "pi:opened",
+          "at": 30074,
+          "detail": {
+            "key": "adm-c4-624e2659"
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:start",
+          "at": 30075,
+          "detail": null
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:waiting",
+          "at": 30135,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:end",
+          "at": 30135,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "settled",
+          "at": 30160,
+          "detail": {
+            "operationId": "op-c4",
+            "outcome": "done",
+            "charged": 190,
+            "banked": 1
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:start",
+          "at": 30160,
+          "detail": {
+            "wake": "pi"
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:waiting",
+          "at": 30162,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "wake:end",
+          "at": 30162,
+          "detail": {
+            "active": false
+          }
+        },
+        {
+          "instance": "057a794b",
+          "kind": "request:report",
+          "at": 30797,
+          "detail": {
+            "operationId": "op-c4"
+          }
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "c1: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi has no submission; nothing settled; the killed process's backends were gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "admission": "admitted",
+          "settlements": 0,
+          "charged": null,
+          "first_entry": null,
+          "last_entry": null,
+          "pi_submissions": 0,
+          "pi_status": null,
+          "user_entries": 0,
+          "tool_results": 0,
+          "entries": 0
+        },
+        "backendGoneMs": {
+          "pi": 75,
+          "biz": 72
+        }
+      }
+    },
+    {
+      "name": "c1: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row",
+      "pass": true,
+      "observed": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      }
+    },
+    {
+      "name": "c1: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": 190,
+        "recomputed": {
+          "total": 190,
+          "calls": [
+            {
+              "entry": 11,
+              "role": "assistant",
+              "totalTokens": 190,
+              "stopReason": "toolUse"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c1: the recovery path: the scan submitted the admitted operation again under its id",
+      "pass": true,
+      "observed": [
+        "c86b34c6 constructed",
+        "c86b34c6 start",
+        "c86b34c6 pi:opened",
+        "c86b34c6 wake:start",
+        "c86b34c6 recover:resubmit",
+        "c86b34c6 wake:waiting",
+        "c86b34c6 model:tool_call",
+        "c86b34c6 tool:respond",
+        "c86b34c6 wake:end",
+        "c86b34c6 settled",
+        "c86b34c6 wake:start",
+        "c86b34c6 wake:waiting",
+        "c86b34c6 wake:end",
+        "c86b34c6 request:report"
+      ]
+    },
+    {
+      "name": "c2: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi's held commit rolled back with the connection: no submission, no entry; nothing settled; the killed process's backends were gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "admission": "admitted",
+          "settlements": 0,
+          "charged": null,
+          "first_entry": null,
+          "last_entry": null,
+          "pi_submissions": 0,
+          "pi_status": null,
+          "user_entries": 0,
+          "tool_results": 0,
+          "entries": 0
+        },
+        "backendGoneMs": {
+          "pi": 74,
+          "biz": 72
+        }
+      }
+    },
+    {
+      "name": "c2: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row",
+      "pass": true,
+      "observed": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      }
+    },
+    {
+      "name": "c2: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": 190,
+        "recomputed": {
+          "total": 190,
+          "calls": [
+            {
+              "entry": 11,
+              "role": "assistant",
+              "totalTokens": 190,
+              "stopReason": "toolUse"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c2: the recovery path: the scan submitted the admitted operation again under its id",
+      "pass": true,
+      "observed": [
+        "6c184ec6 constructed",
+        "6c184ec6 start",
+        "6c184ec6 pi:opened",
+        "6c184ec6 wake:start",
+        "6c184ec6 recover:resubmit",
+        "6c184ec6 wake:waiting",
+        "6c184ec6 model:tool_call",
+        "6c184ec6 tool:respond",
+        "6c184ec6 wake:end",
+        "6c184ec6 settled",
+        "6c184ec6 wake:start",
+        "6c184ec6 wake:waiting",
+        "6c184ec6 wake:end",
+        "6c184ec6 request:report"
+      ]
+    },
+    {
+      "name": "c3: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi's submission committed; no tool result yet; nothing settled; the killed process's backends were gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "admission": "admitted",
+          "settlements": 0,
+          "charged": null,
+          "first_entry": null,
+          "last_entry": null,
+          "pi_submissions": 1,
+          "pi_status": "placed",
+          "user_entries": 1,
+          "tool_results": 0,
+          "entries": 1
+        },
+        "backendGoneMs": {
+          "pi": 74,
+          "biz": 71
+        }
+      }
+    },
+    {
+      "name": "c3: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row",
+      "pass": true,
+      "observed": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      }
+    },
+    {
+      "name": "c3: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": 190,
+        "recomputed": {
+          "total": 190,
+          "calls": [
+            {
+              "entry": 11,
+              "role": "assistant",
+              "totalTokens": 190,
+              "stopReason": "toolUse"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c3: the recovery path: no resubmission; Pi resumed or had settled",
+      "pass": true,
+      "observed": [
+        "c0095363 constructed",
+        "c0095363 start",
+        "c0095363 pi:opened",
+        "c0095363 wake:start",
+        "c0095363 wake:waiting",
+        "c0095363 model:tool_call",
+        "c0095363 tool:respond",
+        "c0095363 wake:end",
+        "c0095363 settled",
+        "c0095363 wake:start",
+        "c0095363 wake:waiting",
+        "c0095363 wake:end",
+        "c0095363 request:report"
+      ]
+    },
+    {
+      "name": "c4: the crash landed where intended (read from Postgres before the restart): the admission committed; Pi settled the submission done; nothing settled by us; the killed process's backends were gone",
+      "pass": true,
+      "observed": {
+        "atKill": {
+          "admission": "admitted",
+          "settlements": 0,
+          "charged": null,
+          "first_entry": null,
+          "last_entry": null,
+          "pi_submissions": 1,
+          "pi_status": "done",
+          "user_entries": 1,
+          "tool_results": 1,
+          "entries": 4
+        },
+        "backendGoneMs": {
+          "pi": 77,
+          "biz": 80
+        }
+      }
+    },
+    {
+      "name": "c4: with no request, recovery realigned all three: admission settled, one Pi submission (done) with one user entry, one settlement row",
+      "pass": true,
+      "observed": {
+        "admission": "settled",
+        "settlements": 1,
+        "charged": 190,
+        "first_entry": 7,
+        "last_entry": 11,
+        "pi_submissions": 1,
+        "pi_status": "done",
+        "user_entries": 1,
+        "tool_results": 1,
+        "entries": 4
+      }
+    },
+    {
+      "name": "c4: no double charge: settled once (banked [1]), charging exactly the operation's own usage, recomputed from the stored entries",
+      "pass": true,
+      "observed": {
+        "charged": 190,
+        "recomputed": {
+          "total": 190,
+          "calls": [
+            {
+              "entry": 11,
+              "role": "assistant",
+              "totalTokens": 190,
+              "stopReason": "toolUse"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c4: the recovery path: no resubmission; Pi resumed or had settled",
+      "pass": true,
+      "observed": [
+        "057a794b constructed",
+        "057a794b start",
+        "057a794b pi:opened",
+        "057a794b wake:start",
+        "057a794b wake:waiting",
+        "057a794b wake:end",
+        "057a794b settled",
+        "057a794b wake:start",
+        "057a794b wake:waiting",
+        "057a794b wake:end",
+        "057a794b request:report"
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms c1:A stdout: [spike] constructed instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+     1ms c1:A stdout: [spike] start instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+   132ms c1:A stdout: [spike] pi:opened instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+   133ms c1:A stdout: [spike] request:admit instance=76cad413-31df-49b0-9297-c6e35f327991 op=op-c1",
+    "+   134ms c1:A stdout: [spike] wake:start instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+   191ms c1:A stdout: [spike] wake:waiting instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+   191ms c1:A stdout: [spike] wake:end instance=76cad413-31df-49b0-9297-c6e35f327991",
+    "+   202ms c1:A stdout: [spike] marker:c1 instance=76cad413-31df-49b0-9297-c6e35f327991 op=op-c1",
+    "+  1980ms c1:B stdout: [spike] constructed instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  1986ms c1:B stdout: [spike] start instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2084ms c1:B stdout: [spike] pi:opened instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2085ms c1:B stdout: [spike] wake:start instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2145ms c1:B stdout: [spike] recover:resubmit instance=c86b34c6-86ac-4112-b58c-3d33080056d1 op=op-c1",
+    "+  2200ms c1:B stdout: [spike] wake:waiting instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2228ms c1:B stdout: [spike] model:tool_call instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2260ms c1:B stdout: [spike] tool:respond instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2285ms c1:B stdout: [spike] wake:end instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2309ms c1:B stdout: [spike] settled instance=c86b34c6-86ac-4112-b58c-3d33080056d1 op=op-c1",
+    "+  2309ms c1:B stdout: [spike] wake:start instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2311ms c1:B stdout: [spike] wake:waiting instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2311ms c1:B stdout: [spike] wake:end instance=c86b34c6-86ac-4112-b58c-3d33080056d1",
+    "+  2890ms c1:B stdout: [spike] request:report instance=c86b34c6-86ac-4112-b58c-3d33080056d1 op=op-c1",
+    "+  3062ms c2:A stdout: [spike] constructed instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3063ms c2:A stdout: [spike] start instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3191ms c2:A stdout: [spike] pi:opened instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3192ms c2:A stdout: [spike] request:admit instance=45d623ce-4812-41cb-846a-ea833a7d92f1 op=op-c2",
+    "+  3193ms c2:A stdout: [spike] wake:start instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3261ms c2:A stdout: [spike] wake:waiting instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3261ms c2:A stdout: [spike] wake:end instance=45d623ce-4812-41cb-846a-ea833a7d92f1",
+    "+  3286ms c2:A stdout: [spike] marker:c2 instance=45d623ce-4812-41cb-846a-ea833a7d92f1 op=op-c2",
+    "+  4976ms c2:B stdout: [spike] constructed instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  4981ms c2:B stdout: [spike] start instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5077ms c2:B stdout: [spike] pi:opened instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5078ms c2:B stdout: [spike] wake:start instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5137ms c2:B stdout: [spike] recover:resubmit instance=6c184ec6-01b5-4d8e-8886-272be2873a93 op=op-c2",
+    "+  5191ms c2:B stdout: [spike] wake:waiting instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5218ms c2:B stdout: [spike] model:tool_call instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5249ms c2:B stdout: [spike] tool:respond instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5275ms c2:B stdout: [spike] wake:end instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5298ms c2:B stdout: [spike] settled instance=6c184ec6-01b5-4d8e-8886-272be2873a93 op=op-c2",
+    "+  5298ms c2:B stdout: [spike] wake:start instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5300ms c2:B stdout: [spike] wake:waiting instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5300ms c2:B stdout: [spike] wake:end instance=6c184ec6-01b5-4d8e-8886-272be2873a93",
+    "+  5886ms c2:B stdout: [spike] request:report instance=6c184ec6-01b5-4d8e-8886-272be2873a93 op=op-c2",
+    "+  6056ms c3:A stdout: [spike] constructed instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6058ms c3:A stdout: [spike] start instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6200ms c3:A stdout: [spike] pi:opened instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6201ms c3:A stdout: [spike] request:admit instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0 op=op-c3",
+    "+  6202ms c3:A stdout: [spike] wake:start instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6258ms c3:A stdout: [spike] wake:waiting instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6258ms c3:A stdout: [spike] wake:end instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0",
+    "+  6294ms c3:A stdout: [spike] marker:c3 instance=9db5e2f2-2cab-4d33-9539-f948227fa7d0 op=op-c3",
+    "+  7975ms c3:B stdout: [spike] constructed instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  7978ms c3:B stdout: [spike] start instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8059ms c3:B stdout: [spike] pi:opened instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8060ms c3:B stdout: [spike] wake:start instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8125ms c3:B stdout: [spike] wake:waiting instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8133ms c3:B stdout: [spike] model:tool_call instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8166ms c3:B stdout: [spike] tool:respond instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8197ms c3:B stdout: [spike] wake:end instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8221ms c3:B stdout: [spike] settled instance=c0095363-ae23-4bbd-abf7-92db62c59d9f op=op-c3",
+    "+  8221ms c3:B stdout: [spike] wake:start instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8222ms c3:B stdout: [spike] wake:waiting instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8222ms c3:B stdout: [spike] wake:end instance=c0095363-ae23-4bbd-abf7-92db62c59d9f",
+    "+  8868ms c3:B stdout: [spike] request:report instance=c0095363-ae23-4bbd-abf7-92db62c59d9f op=op-c3",
+    "+  9037ms c4:A stdout: [spike] constructed instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9038ms c4:A stdout: [spike] start instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9189ms c4:A stdout: [spike] pi:opened instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9190ms c4:A stdout: [spike] request:admit instance=a2591f89-bc56-4779-add1-8ff4a4160579 op=op-c4",
+    "+  9191ms c4:A stdout: [spike] wake:start instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9256ms c4:A stdout: [spike] wake:waiting instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9256ms c4:A stdout: [spike] wake:end instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9312ms c4:A stdout: [spike] model:tool_call instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+  9353ms c4:A stdout: [spike] tool:respond instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+ 10971ms c4:A stdout: [spike] wake:start instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+ 10977ms c4:A stdout: [spike] wake:waiting instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+ 10977ms c4:A stdout: [spike] wake:end instance=a2591f89-bc56-4779-add1-8ff4a4160579",
+    "+ 10982ms c4:A stdout: [spike] marker:c4 instance=a2591f89-bc56-4779-add1-8ff4a4160579 op=op-c4",
+    "+ 40981ms c4:B stdout: [spike] constructed instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 40985ms c4:B stdout: [spike] start instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41066ms c4:B stdout: [spike] pi:opened instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41066ms c4:B stderr: Forcing reset of hung job IORNOgHZ5 (started 30s ago)",
+    "+ 41067ms c4:B stdout: [spike] wake:start instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41127ms c4:B stdout: [spike] wake:waiting instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41127ms c4:B stdout: [spike] wake:end instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41152ms c4:B stdout: [spike] settled instance=057a794b-735b-4bfc-ad99-3468efe7fb14 op=op-c4",
+    "+ 41152ms c4:B stdout: [spike] wake:start instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41154ms c4:B stdout: [spike] wake:waiting instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41154ms c4:B stdout: [spike] wake:end instance=057a794b-735b-4bfc-ad99-3468efe7fb14",
+    "+ 41789ms c4:B stdout: [spike] request:report instance=057a794b-735b-4bfc-ad99-3468efe7fb14 op=op-c4"
+  ]
+}

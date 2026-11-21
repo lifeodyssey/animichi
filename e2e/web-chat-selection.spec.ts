@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #273 (S1.7) Task 1 browser ACs — the E2 selection tray and the
@@ -54,20 +53,11 @@ const recomputeBody = chatStreamRecording("search")
   .replace('data: {"type":"start-step"}', `data: {"type":"start-step"}\n\n${planSelectedStepFrames}`)
   .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
 
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-}
-
 interface SentBody {
   readonly selected_point_ids?: readonly string[];
 }
 
-async function searchThenTickTwo(page: Page, bodies: SentBody[], failRecompute = false): Promise<void> {
+async function searchThenTickTwo(page: Page, visitor: AnonymousVisitor, bodies: SentBody[], failRecompute = false): Promise<void> {
   let calls = 0;
   await page.route("**/v1/chat", (route) => {
     bodies.push(route.request().postDataJSON() as SentBody);
@@ -76,7 +66,7 @@ async function searchThenTickTwo(page: Page, bodies: SentBody[], failRecompute =
     if (failRecompute) return route.fulfill({ status: 500, body: "" });
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: recomputeBody });
   });
-  await openChat(page);
+  await visitor.enterChat();
   await page.getByRole("textbox").fill("ユーフォ");
   await page.getByRole("button", { name: ja.send }).click();
   // Exact: the spot name also appears inside the pick checkbox's sr-only
@@ -87,9 +77,9 @@ async function searchThenTickTwo(page: Page, bodies: SentBody[], failRecompute =
   await page.getByRole("checkbox", { name: `${ja.search.select}: 宇治神社` }).check();
 }
 
-test("ticking two spots surfaces the tray; the recompute settles behind a footprint with its card", async ({ page }) => {
+test("ticking two spots surfaces the tray; the recompute settles behind a footprint with its card", async ({ page, anonymousVisitor }) => {
   const bodies: SentBody[] = [];
-  await searchThenTickTwo(page, bodies);
+  await searchThenTickTwo(page, anonymousVisitor, bodies);
   await expect(page.getByText(ja.search.traySelected.replace("{count}", "2"))).toBeVisible();
   await page.getByRole("button", { name: ja.search.trayAction }).click();
   const recomputeCard = page.locator('article[data-intent="plan_selected"]');
@@ -110,9 +100,9 @@ test("ticking two spots surfaces the tray; the recompute settles behind a footpr
   expect(bodies[1]?.selected_point_ids).toEqual(["p1", "p3"]);
 });
 
-test("a failed recompute retries inline on the tray and never escalates to TurnFailure", async ({ page }) => {
+test("a failed recompute retries inline on the tray and never escalates to TurnFailure", async ({ page, anonymousVisitor }) => {
   const bodies: SentBody[] = [];
-  await searchThenTickTwo(page, bodies, true);
+  await searchThenTickTwo(page, anonymousVisitor, bodies, true);
   await page.getByRole("button", { name: ja.search.trayAction }).click();
   await expect(page.getByRole("button", { name: ja.search.trayRetry })).toBeVisible();
   // The selection and the prior card survive; no full-page D4 surface appears.

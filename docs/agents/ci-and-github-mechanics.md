@@ -55,6 +55,26 @@ Report it as "CodeRabbit could not review because of its quota", never as "no bo
   `gh api repos/<o>/<r>/rulesets`, not the branch-protection endpoint, before concluding "no
   protection".
 - Never `--admin` past a governance gate; that decision is the owner's.
+- No merge queue: GitHub offers it to organisation-owned repositories (and Enterprise), and this
+  is a user repository, so do not propose it unless the repository moves to an organisation
+  (2026-09-15, when hot-file PRs churned 150–200 minutes each). Serialise the hot files instead.
+  The `merge_group` trigger stays declared in `pr-verification.yml` as a forward-looking trigger
+  that never fires on a user repository; the merged-commit lane is carried by the `push` trigger.
+- No GitHub Releases: nothing here ships as a downloadable artifact ("我觉得我们没有任何必要发布release吧 我们这又不是artifact",
+  owner, 2026-08-12). That decision is about GitHub Releases, not about CD's build output:
+  `release-build.yml` still builds an immutable snapshot and uploads it as a workflow artifact,
+  and staging and production are deployed from that artifact, so the CD delivery path is not
+  optional. Tags are kept as version backups and old ones deleted ("可以留着tag当版本备份",
+  "旧tag就删了"); how to keep a changelog is still open.
+
+## Speeding CI up starts with a profile (owner, 2026-09-15 and 2026-09-18)
+
+Measure before changing: which step, how many seconds, and why ("我感觉你一直都没有去去去做一个profiling来解决问题",
+2026-09-18, when nx, Turborepo and a slower test-container setup were weighed before anyone had timed
+the integration stages). Check every speed-up against the problem the slow step was there to solve
+("我们不能为了加速而忘了他一开始要解决的问题"). Test quality moves left ("测试质量肯定要左移",
+2026-09-15). Debt that slows development down is raised to a high priority ("我们一定要把这个东西提到一个比较高的优先级",
+2026-09-18).
 
 ## Workflow failures that surface only when GitHub compiles
 
@@ -80,6 +100,20 @@ the run page (the authoring rule is in `.claude/rules/ci.md`):
 - Run zizmor exactly as CI does (`.claude/rules/ci.md` pins the persona; its online audits need a
   token). A bare offline run does not gate at the same level and gives a local green the CI turns
   red.
+
+## Local actions (2026-11-18)
+
+- A committed local action is referenced as `$/.github/actions/<name>` (`.claude/rules/ci.md`):
+  GitHub resolves it from the workflow's own commit, not from the workspace, which in CD also holds
+  the hydrated `release/` tree. actionlint 1.7.12 does not know the form (rhysd/actionlint#711,
+  #732), so each `$/` action needs its own exact ignore in `.github/actionlint.yaml`, approved by
+  the owner like any other suppression.
+- A composite action's steps share a `steps` context of their own: an inner step's output leaves
+  the action only through a declared `outputs:` entry. The migrator-call action relies on that: the
+  token its mint step returns reaches only its client step, and the action declares no outputs.
+- Dependabot's `github-actions` ecosystem reads `.github/workflows` and a root `action.yml` only, so
+  `.github/dependabot.yml` lists `/.github/actions/*` in `directories` (which accepts globs) to keep
+  the pins inside local actions updated.
 
 ## "It works in my container / on my machine"
 
@@ -125,4 +159,6 @@ the run page (the authoring rule is in `.claude/rules/ci.md`):
   environment, not trust: any job that opens the environment can read all of them. Runtime secrets
   therefore live under `pulumiConfig` as `fn::secret`, which the action does not export
   (`docs/ops/secrets.md`).
-- `export-environment-variables` takes a comma-separated list; `keys` is the deprecated input.
+- `export-environment-variables` takes a comma-separated list. As of v4 the action declares only
+  `environment`, `cloud-url`, `export-environment-variables` and `pulumi-access-token`: `keys`,
+  `version` and the `oidc-*` inputs are removed.

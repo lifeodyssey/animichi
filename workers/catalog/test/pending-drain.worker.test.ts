@@ -6,7 +6,7 @@ import {
   type CronDependencies,
 } from "../src/scheduled/ingest-schedule";
 import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { runPendingDrainJob } from "../src/scheduled/cron-jobs";
+import { runPendingDrainJob, type PendingDrainJobDependencies } from "../src/scheduled/cron-jobs";
 
 /**
  * The cron's Prisma seam. Every dependency below is injected, so this seam is
@@ -16,7 +16,7 @@ import { runPendingDrainJob } from "../src/scheduled/cron-jobs";
 const query = unreachableCatalogPrisma();
 const DATABASE_URL = "postgresql://user:password@catalog.example/animichi";
 
-const INGESTED = { status: "ingested", version: 1, pointCount: 2 } as const;
+const INGESTED = { status: "ingested", pointCount: 2 } as const;
 const BASE_DEPENDENCIES: CronDependencies = {
   connectPrisma: () => Promise.resolve({ query, dispose: () => Promise.resolve() }),
   ingestBangumi: () => Promise.resolve(INGESTED),
@@ -76,15 +76,15 @@ describe("scheduled pending drain", () => {
 
   it("stops before a work that does not fit the shared budget", async () => {
     const ingestBangumi = ingestMock();
-    const deps = dependencies({
+    const deps: PendingDrainJobDependencies = {
       ingestBangumi,
       listDrainableBangumiIds: () => Promise.resolve(["pending-1", "pending-2"]),
-    });
-    const budget = new Budget({ workLimit: 1, requestLimit: 2, runtimeLimitMs: 60_000 });
+    };
+    const budget = new Budget({ workLimit: 1, requestLimit: 2 });
 
     const result = await runPendingDrainJob(query, deps, budget);
 
-    expect(result).toEqual({ attempted: 1, ingested: 1, skipped: 0 });
+    expect(result).toEqual({ attempted: 1, ingested: 1, skipped: 0, failed: 0 });
     expect(ingestBangumi).toHaveBeenCalledTimes(1);
   });
 });

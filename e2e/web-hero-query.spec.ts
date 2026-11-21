@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { RECORDING_SESSION_ID, SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { solveTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * The former landing hero is gone. These are the same entry-query contracts
@@ -14,12 +15,11 @@ test.use({
 
 const QUERY = "君の名は。 & #";
 
-async function openChat(page: Page, query?: string): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+/** The entry's stubs, then the document load alone: these cases pass the gate
+ * themselves, with their own token, because the query auto-sends on that pass. */
+async function loadChat(page: Page, visitor: AnonymousVisitor, query?: string): Promise<void> {
+  await visitor.stubSignedOutSession();
+  await visitor.stubEntryTransport();
   const path = query === undefined ? "/chat" : `/chat?q=${encodeURIComponent(query)}`;
   await page.goto(path);
 }
@@ -28,13 +28,13 @@ async function solveChallenge(page: Page): Promise<void> {
   await solveTurnstileEntry(page, "e2e-query-token");
 }
 
-test("a typed /chat query auto-sends with reserved characters intact", { tag: "@browser" }, async ({ page }) => {
+test("a typed /chat query auto-sends with reserved characters intact", { tag: "@browser" }, async ({ page, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   await page.route("**/v1/chat", (route) => {
     bodies.push(route.request().postDataJSON());
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
-  await openChat(page, QUERY);
+  await loadChat(page, anonymousVisitor, QUERY);
   await solveChallenge(page);
 
   await expect.poll(() => bodies.length).toBe(1);
@@ -43,13 +43,13 @@ test("a typed /chat query auto-sends with reserved characters intact", { tag: "@
   await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeVisible();
 });
 
-test("a plain /chat entry does not invent an auto-send query", { tag: "@browser" }, async ({ page }) => {
+test("a plain /chat entry does not invent an auto-send query", { tag: "@browser" }, async ({ page, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   await page.route("**/v1/chat", (route) => {
     bodies.push(route.request().postDataJSON());
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
-  await openChat(page);
+  await loadChat(page, anonymousVisitor);
   await solveChallenge(page);
   await expect(page.getByRole("textbox")).toBeVisible();
   expect(bodies).toEqual([]);
@@ -73,7 +73,7 @@ test("a plain /chat entry does not invent an auto-send query", { tag: "@browser"
  * page restored whole from the back/forward cache would keep the ref, pass this
  * for a reason that has nothing to do with the gate, and survive its mutation.
  */
-test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@browser" }, async ({ page }) => {
+test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@browser" }, async ({ page, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   const replays: string[] = [];
   await page.route("**/v1/chat", (route) => {
@@ -88,7 +88,7 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
     route.fulfill({ status: 204 }));
 
   await page.goto("/");
-  await openChat(page, QUERY);
+  await loadChat(page, anonymousVisitor, QUERY);
   await solveChallenge(page);
   await expect.poll(() => bodies.length).toBe(1);
   await expect(page).toHaveURL(new RegExp(`[?&]session=${RECORDING_SESSION_ID}(&|$)`, "u"));
@@ -110,7 +110,7 @@ test("Back then Forward to /chat?q= does not re-send the hero query", { tag: "@b
  * instead of asking again: exactly one request body to `/v1/chat`, and the
  * answer appears from the reconnected stream.
  */
-test("Back then Forward before the answer lands reattaches to the same answer", { tag: "@browser" }, async ({ page }) => {
+test("Back then Forward before the answer lands reattaches to the same answer", { tag: "@browser" }, async ({ page, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   const reconnects: string[] = [];
   let release: () => void = () => undefined;
@@ -128,7 +128,7 @@ test("Back then Forward before the answer lands reattaches to the same answer", 
     route.fulfill({ json: { messages: [], revision: 1, next_offset: null } }));
 
   await page.goto("/");
-  await openChat(page, QUERY);
+  await loadChat(page, anonymousVisitor, QUERY);
   await solveChallenge(page);
   await expect.poll(() => bodies.length).toBe(1);
   await expect(page).toHaveURL(/[?&]session=[0-9a-f-]{36}(&|$)/u);

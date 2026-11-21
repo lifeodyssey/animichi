@@ -15,7 +15,7 @@ import type { CeilingStore } from "../src/upstream-ceiling.ts";
  * catalog caller use — moves the bytes to the stub. No test reaches the real
  * anitabi API.
  *
- * The ceiling is injected here as a counter that grants, because this suite's
+ * The ceiling is injected here as a window that admits, because this suite's
  * subject is the route/sign/relay surface. What the service sends a real store
  * over real HTTP — and what it does when that store stops answering — is
  * `ceiling-store.integration.test.ts` (#1810).
@@ -53,7 +53,7 @@ function sign(path: string, at: number): string {
 
 /** A ceiling that grants: the store is not this suite's subject, and the limit here is 100. */
 function grantingStore(): CeilingStore {
-  return { increment: () => Promise.resolve(1) };
+  return { admit: () => Promise.resolve("admitted") };
 }
 
 /** The stub upstream, plus the fetch shim that serves anitabi URLs from it. */

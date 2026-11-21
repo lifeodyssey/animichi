@@ -1,0 +1,9 @@
+PASS the two turns ran at the same time (each started before the other ended)
+PASS iso-a-4b4d25b7: Pi settled op-iso done, and messages() hold only its own turn
+PASS iso-a-4b4d25b7: every row of its keyspace belongs to its own turn (the other title appears nowhere)
+PASS iso-b-4b4d25b7: Pi settled op-iso done, and messages() hold only its own turn
+PASS iso-b-4b4d25b7: every row of its keyspace belongs to its own turn (the other title appears nowhere)
+PASS both keyspaces hold the same entry ids, the same root conversation 1 and the same request id op-iso, side by side
+PASS no row was written by the other object: no transaction id appears in both keyspaces' row versions (xmin)
+PASS negative control: two objects on one session key collide (both turns land in one keyspace, or one of them fails)
+PASS guard: no request other than the stubbed catalog left workerd

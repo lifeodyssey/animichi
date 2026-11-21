@@ -8,8 +8,9 @@ import { countingCatalogPrisma, fakeCatalogPrisma } from "./fakes/fake-catalog-p
  * The two converted call sites whose routes had no wire test of their own
  * (#1631): `geocode` and `popular`.
  *
- * Every other route this card rewired (`search`, `resolve`, `spots`,
- * `points-by-bangumi-id`, `nearby`, `itinerary`, `anime-overview`) is driven
+ * Every other route this card rewired that is still served (`resolve`,
+ * `points-by-bangumi-id`, `nearby`, `itinerary`, `anime-overview`; `search` and
+ * `spots` were retired by #2075) is driven
  * through the router by the wire test that owns it — `errors-wire`,
  * `resolve-wire`, `work-points-wire`, `points-by-bangumi`, `plan-itinerary`.
  * These two were named only by `router-surface.worker.test.ts`, which

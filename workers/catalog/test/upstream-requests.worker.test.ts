@@ -10,7 +10,8 @@ import {
   validateBangumiId,
   type UpstreamRequest,
 } from "../src/ingest/upstream-requests";
-import { fetchJson, type FetchLike } from "../src/ingest/sources";
+import type { FetchLike } from "../src/ingest/sources";
+import { fetchJson } from "../src/ingest/upstream-call";
 import { mockFetch } from "./mock-fetch-sequence";
 
 /**

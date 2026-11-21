@@ -27,6 +27,7 @@ vi.mock("../../../src/features/chat/save/complete-deferred-save", () => ({ repla
 beforeEach(() => { replayDeferredSave.mockResolvedValue("none"); });
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -129,6 +130,27 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
       expect(router.state.location.pathname).toBe("/settings");
     });
     expect(router.state.location.hash).toBe("api-key");
+  });
+
+  /**
+   * #482 residual 2: the navigate-on-save-failure branch used to land the
+   * visitor on the deep link with no notice that their deferred save failed.
+   * The callback now arms a one-time notice the destination consumes — and the
+   * consume clears it, so a reload cannot resurrect it.
+   */
+  it("shows the failed-save notice on arrival, and not again after a reload", async () => {
+    setLanguages(["ja"]);
+    establishAuthSession.mockResolvedValue("jwt-callback");
+    replayDeferredSave.mockResolvedValue("failed");
+    const router = getRouter();
+    await router.navigate({ to: "/auth/callback", search: { next: "/settings#api-key" } });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => { expect(router.state.location.pathname).toBe("/settings"); });
+    expect(await screen.findByText(dictFor("ja").auth.callback_save_failed, { selector: "[role=status]" })).toBeTruthy();
+    cleanup();
+    render(<RouterProvider router={router} />);
+    await waitFor(() => { expect(router.state.location.pathname).toBe("/settings"); });
+    expect(screen.queryByText(dictFor("ja").auth.callback_save_failed)).toBeNull();
   });
 });
 

@@ -1,6 +1,7 @@
-# SUT: cd.yml opens only environment-bound publish credentials after trusted snapshot verification.
+# SUT: cd.yml opens only environment-bound credentials after trusted snapshot verification: the
+# publish credentials, and the migrator's OIDC token, which only call-migrator mints and presents.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdCredentialsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -9,10 +10,18 @@ class CdCredentialsTest < Minitest::Test
   RUNTIME = %w[MIMO_API_KEY ZEN_GO_API_KEY SUPABASE_DB_URL
                GOOGLE_MAPS_API_KEY LOGFIRE_TOKEN TURNSTILE_SECRET ANON_ID_SECRET
                INGEST_SIGNING_KEY].freeze
+  CALLER = "$/.github/actions/call-migrator"
+  # Every step that reaches the migrator, in job order, and the client each runs through the action.
+  MIGRATOR_CALLS = { "Preview the selected native migration graph" => "schema-preflight",
+                     "Apply the selected migration chain" => "migrate-through-worker",
+                     "Verify the promoted catalog schema" => "verify-catalog-schema",
+                     "Read the migrator's schema view for the receipt" => "schema-preflight" }.freeze
+  TARGETS = { "stage" => ["staging", "${{ vars.MIGRATOR_STAGING_URL }}"],
+              "promote-production" => ["production", "${{ vars.MIGRATOR_PRODUCTION_URL }}"] }.freeze
 
   def setup
     @source = File.read(File.join(ROOT, ".github/workflows/cd.yml"))
-    @cd = Psych.safe_load(@source, aliases: true)
+    @cd = RepositoryYaml.parse(@source)
   end
 
   def steps(job)
@@ -23,6 +32,46 @@ class CdCredentialsTest < Minitest::Test
     found = steps(job).select { |step| step["uses"].to_s.start_with?("#{prefix}@") }
     assert_equal 1, found.length
     found.first.fetch("with")
+  end
+
+  def calls(job)
+    steps(job).select { |step| step["uses"] == CALLER }
+  end
+
+  # The whole step, so a call carries no `if:` that could skip it, no `env:` that would reach
+  # the action's steps, and no `id` through which a later step could address it.
+  def test_each_migrator_call_names_its_own_environment_migrator_and_client
+    TARGETS.each do |job, (environment, url)|
+      assert_equal MIGRATOR_CALLS.keys, calls(job).map { |step| step["name"] }
+      calls(job).each do |step|
+        inputs = { "environment" => environment, "migrator-url" => url, "client" => MIGRATOR_CALLS.fetch(step["name"]) }
+        assert_equal({ "name" => step["name"], "uses" => CALLER, "with" => inputs }, step, "#{job}: #{step['name']}")
+      end
+      assert_equal environment, @cd.dig("jobs", job, "environment")
+    end
+  end
+
+  # The runner passes an empty value for an input a caller omits and only warns about one the
+  # action does not declare, so the two files must agree on the names.
+  def test_each_call_passes_exactly_the_inputs_the_action_declares
+    declared = RepositoryYaml.load_file(File.join(ROOT, ".github/actions/call-migrator/action.yml")).fetch("inputs").keys
+    TARGETS.each_key { |job| calls(job).each { |step| assert_equal declared.sort, step.fetch("with").keys.sort } }
+  end
+
+  # Only call-migrator mints the migrator's token and only its client step holds it, so no step
+  # here mints, holds or exports one: not the recorder after the receipt read (#1695), whatever
+  # its key would be called.
+  def test_no_cd_step_mints_holds_or_exports_a_migrator_token
+    refute_match(/github-script|getIDToken|MIGRATOR_OIDC_TOKEN|exportVariable|GITHUB_ENV|ACTIONS_ID_TOKEN_REQUEST/, @source)
+  end
+
+  def test_the_migrator_is_called_after_snapshot_verification_in_a_job_that_may_mint
+    TARGETS.each_key do |job|
+      verified = steps(job).index { |step| step["uses"] == "$/.github/actions/hydrate-release" }
+      assert_operator steps(job).index(calls(job).first), :>, verified
+      assert_equal "write", @cd.dig("jobs", job, "permissions", "id-token")
+    end
+    assert_equal TARGETS.keys, @cd.fetch("jobs").select { |_id, job| job.dig("permissions", "id-token") }.keys
   end
 
   def test_existing_personal_pulumi_token_exchange_remains_exact

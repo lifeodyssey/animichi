@@ -1,0 +1,445 @@
+{
+  "validation": {
+    "title": "Validation Probe",
+    "operationId": "validation-1",
+    "receipt": {
+      "operationId": "validation-1",
+      "session": "1",
+      "accepted": true
+    },
+    "result": {
+      "operationId": "validation-1",
+      "session": "1",
+      "status": "done",
+      "text": "Lookup failed: <harness>\n[error] Validation failed for tool \"resolve_anime\":\n  - title: missing\n\nReceived arguments:\n{}\n</harness>"
+    },
+    "catalogCalls": 0,
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "text": "Resolve the anime titled \"Validation Probe\"."
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "text": ""
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "resolve_anime",
+            "arguments": {}
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 4,
+          "cacheRead": 0,
+          "cacheWrite": 68,
+          "totalTokens": 72,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "resolve_anime",
+        "isError": true,
+        "text": "<harness>\n[error] Validation failed for tool \"resolve_anime\":\n  - title: missing\n\nReceived arguments:\n{}\n</harness>"
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "text": "Lookup failed: <harness>\n[error] Validation failed for tool \"resolve_anime\":\n  - title: missing\n\nReceived arguments:\n{}\n</harness>",
+        "usage": {
+          "input": 0,
+          "output": 33,
+          "cacheRead": 68,
+          "cacheWrite": 42,
+          "totalTokens": 143,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "events": [
+      {
+        "seq": 1,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "constructed",
+        "detail": {
+          "replay": "safe"
+        },
+        "at": 1795016297633
+      },
+      {
+        "seq": 2,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "start",
+        "detail": null,
+        "at": 1795016297644
+      },
+      {
+        "seq": 3,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "request:submit",
+        "detail": {
+          "title": "Validation Probe",
+          "operationId": "validation-1"
+        },
+        "at": 1795016297645
+      },
+      {
+        "seq": 4,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "model:tool_call",
+        "detail": {
+          "title": "Validation Probe",
+          "args": {},
+          "sawRole": "user"
+        },
+        "at": 1795016297653
+      },
+      {
+        "seq": 5,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "model:answer",
+        "detail": {
+          "title": "Validation Probe",
+          "sawToolResult": {
+            "isError": true,
+            "text": "<harness>\n[error] Validation failed for tool \"resolve_anime\":\n  - title: missing\n\nReceived arguments:\n{}\n</harness>"
+          }
+        },
+        "at": 1795016297664
+      },
+      {
+        "seq": 6,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "job",
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        },
+        "at": 1795016297667
+      },
+      {
+        "seq": 7,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "alarm",
+        "detail": null,
+        "at": 1795016297667
+      },
+      {
+        "seq": 8,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "request:wait",
+        "detail": {
+          "operationId": "validation-1"
+        },
+        "at": 1795016297672
+      },
+      {
+        "seq": 9,
+        "instance": "a6b70605-9457-4082-8dff-78635acac360",
+        "kind": "request:report",
+        "detail": {
+          "operationId": "validation-1"
+        },
+        "at": 1795016297679
+      }
+    ],
+    "probes": {
+      "moduleScope": {
+        "newFunction": {
+          "allowed": true
+        },
+        "abortSignalAny": "function"
+      },
+      "handler": {
+        "newFunction": {
+          "allowed": false,
+          "error": "EvalError: Code generation from strings disallowed for this context"
+        }
+      },
+      "abortSignalAnyCallsSinceLoad": {
+        "calls": 0,
+        "patched": true
+      },
+      "abortSignalAnyCallsAfterOwnCall": {
+        "calls": 1,
+        "patched": true
+      },
+      "abortSignalAny": {
+        "type": "function",
+        "abortedBefore": false,
+        "abortedAfter": true,
+        "reason": "second aborted"
+      },
+      "dateNowDuringSyncWork": {
+        "elapsedMs": 60,
+        "spin": 184
+      },
+      "setTimeout": {
+        "requestedMs": 25,
+        "elapsedMs": 26
+      }
+    }
+  },
+  "coercion": {
+    "title": "Coercion Probe",
+    "operationId": "coercion-1",
+    "receipt": {
+      "operationId": "coercion-1",
+      "session": "1",
+      "accepted": true
+    },
+    "result": {
+      "operationId": "coercion-1",
+      "session": "1",
+      "status": "done",
+      "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"42\",\"title_cn\":\"巡礼\"}}"
+    },
+    "catalogCalls": 0,
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "text": "Resolve the anime titled \"Coercion Probe\"."
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "text": ""
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "resolve_anime",
+            "arguments": {
+              "title": 42
+            }
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 7,
+          "cacheRead": 0,
+          "cacheWrite": 67,
+          "totalTokens": 74,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "resolve_anime",
+        "isError": false,
+        "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"42\",\"title_cn\":\"巡礼\"}}"
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"42\",\"title_cn\":\"巡礼\"}}",
+        "usage": {
+          "input": 0,
+          "output": 23,
+          "cacheRead": 67,
+          "cacheWrite": 37,
+          "totalTokens": 127,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "events": [
+      {
+        "seq": 1,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "constructed",
+        "detail": {
+          "replay": "safe"
+        },
+        "at": 1795016297830
+      },
+      {
+        "seq": 2,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "start",
+        "detail": null,
+        "at": 1795016297839
+      },
+      {
+        "seq": 3,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "request:submit",
+        "detail": {
+          "title": "Coercion Probe",
+          "operationId": "coercion-1"
+        },
+        "at": 1795016297840
+      },
+      {
+        "seq": 4,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "model:tool_call",
+        "detail": {
+          "title": "Coercion Probe",
+          "args": {
+            "title": 42
+          },
+          "sawRole": "user"
+        },
+        "at": 1795016297847
+      },
+      {
+        "seq": 5,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "tool:start",
+        "detail": {
+          "title": "42",
+          "replay": "safe"
+        },
+        "at": 1795016297853
+      },
+      {
+        "seq": 6,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "job",
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        },
+        "at": 1795016297855
+      },
+      {
+        "seq": 7,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "alarm",
+        "detail": null,
+        "at": 1795016297855
+      },
+      {
+        "seq": 8,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "tool:end",
+        "detail": {
+          "title": "42",
+          "status": 200
+        },
+        "at": 1795016297856
+      },
+      {
+        "seq": 9,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "model:answer",
+        "detail": {
+          "title": "Coercion Probe",
+          "sawToolResult": {
+            "isError": false,
+            "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"42\",\"title_cn\":\"巡礼\"}}"
+          }
+        },
+        "at": 1795016297861
+      },
+      {
+        "seq": 10,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "request:wait",
+        "detail": {
+          "operationId": "coercion-1"
+        },
+        "at": 1795016297863
+      },
+      {
+        "seq": 11,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "job",
+        "detail": {
+          "id": "pi-wake",
+          "fn": "wake"
+        },
+        "at": 1795016297864
+      },
+      {
+        "seq": 12,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "alarm",
+        "detail": null,
+        "at": 1795016297864
+      },
+      {
+        "seq": 13,
+        "instance": "4a432d55-c04a-4401-893f-0cc17cd27cd3",
+        "kind": "request:report",
+        "detail": {
+          "operationId": "coercion-1"
+        },
+        "at": 1795016297865
+      }
+    ],
+    "probes": {
+      "moduleScope": {
+        "newFunction": {
+          "allowed": true
+        },
+        "abortSignalAny": "function"
+      },
+      "handler": {
+        "newFunction": {
+          "allowed": false,
+          "error": "EvalError: Code generation from strings disallowed for this context"
+        }
+      },
+      "abortSignalAnyCallsSinceLoad": {
+        "calls": 0,
+        "patched": true
+      },
+      "abortSignalAnyCallsAfterOwnCall": {
+        "calls": 1,
+        "patched": true
+      },
+      "abortSignalAny": {
+        "type": "function",
+        "abortedBefore": false,
+        "abortedAfter": true,
+        "reason": "second aborted"
+      },
+      "dateNowDuringSyncWork": {
+        "elapsedMs": 51,
+        "spin": 184
+      },
+      "setTimeout": {
+        "requestedMs": 25,
+        "elapsedMs": 26
+      }
+    }
+  }
+}

@@ -7,6 +7,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-agents-refs.sh"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -31,8 +35,8 @@ run_check() {
 # ── Case 10: '..'-escape that resolves OUTSIDE the repo (parent dir) must not
 #    count as resolved — the canonicalized path must stay under the repo root ──
 test_parent_escape_not_resolved() {
-  local repo out=/tmp/agents-ref-case10.out rc esc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case10.out" rc esc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   esc="agents-ref-escape-$$.md"
   printf 'escape doc\n' > "${repo}/../${esc}"
   printf 'AGENTS.md\n`../%s`\n' "${esc}" > "${repo}/AGENTS.md"
@@ -46,8 +50,8 @@ test_parent_escape_not_resolved() {
 
 # ── Case 1: root-relative reference to an existing file -> passes ──────────
 test_root_relative_existing_passes() {
-  local repo out=/tmp/agents-ref-case1.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case1.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs"; printf 'root doc\n' > "${repo}/docs/root.md"
   printf 'AGENTS.md\n`docs/root.md`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
@@ -59,8 +63,8 @@ test_root_relative_existing_passes() {
 
 # ── Case 2: reference to a missing path -> fails, naming file + candidate ───
 test_missing_reference_fails() {
-  local repo out=/tmp/agents-ref-case2.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case2.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs"; printf 'root doc\n' > "${repo}/docs/root.md"
   printf 'AGENTS.md\n`docs/missing.md`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
@@ -73,8 +77,8 @@ test_missing_reference_fails() {
 # ── Case 3: URL, glob, <placeholder>, and bare command in backticks are all
 #    ignored (no false positives, like agnix's 63%) ─────────────────────────
 test_ignored_candidates_skipped() {
-  local repo out=/tmp/agents-ref-case3.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case3.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'AGENTS.md\n`https://example.com/x` `*.yml` `<placeholder>` `git status` `git`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -86,8 +90,8 @@ test_ignored_candidates_skipped() {
 # ── Case 4: reference resolvable only relative to the file's own directory
 #    (sibling file) -> passes ────────────────────────────────────────────────
 test_file_relative_sibling_passes() {
-  local repo out=/tmp/agents-ref-case4.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case4.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/nested"; printf 'sibling doc\n' > "${repo}/nested/sibling.md"
   printf 'AGENTS.md\n`sibling.md`\n' > "${repo}/nested/AGENTS.md"
   commit_fixture "${repo}"
@@ -99,8 +103,8 @@ test_file_relative_sibling_passes() {
 
 # ── Case 5: '@'-prefixed scoped npm package -> ignored ──────────────────────
 test_scoped_npm_package_skipped() {
-  local repo out=/tmp/agents-ref-case5.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case5.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'AGENTS.md\n`@animichi/contract`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -111,8 +115,8 @@ test_scoped_npm_package_skipped() {
 
 # ── Case 6: '/'-prefixed URL path -> ignored ────────────────────────────────
 test_absolute_url_path_skipped() {
-  local repo out=/tmp/agents-ref-case6.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case6.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'AGENTS.md\n`/.well-known/jwks.json`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -123,8 +127,8 @@ test_absolute_url_path_skipped() {
 
 # ── Case 7: bare filename without a '/' -> ignored (too ambiguous) ──────────
 test_bare_filename_skipped() {
-  local repo out=/tmp/agents-ref-case7.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case7.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'AGENTS.md\n`ci.yml`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -135,8 +139,8 @@ test_bare_filename_skipped() {
 
 # ── Case 8: extensionless last segment that is not a directory -> ignored ───
 test_extensionless_nondirectory_skipped() {
-  local repo out=/tmp/agents-ref-case8.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case8.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'AGENTS.md\n`drizzle-orm/pg-core` `rollback-backups/`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -149,8 +153,8 @@ test_extensionless_nondirectory_skipped() {
 #    resolution bases (root base for apps/web/.output/x.md, dir base for
 #    .output/ with trailing slash) ───────────────────────────────────────────
 test_gitignored_candidate_skipped() {
-  local repo out=/tmp/agents-ref-case9.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-case9.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/apps/web"
   printf 'docs\n' > "${repo}/apps/web/docs.md"
   printf '.output\n' > "${repo}/apps/web/.gitignore"
@@ -163,8 +167,8 @@ test_gitignored_candidate_skipped() {
 }
 
 test_deleted_context_doc_skipped() {
-  local repo out=/tmp/agents-ref-deleted.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/agents-ref-deleted.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/retired"
   printf 'AGENTS.md\n`missing/path.md`\n' > "${repo}/retired/AGENTS.md"
   commit_fixture "${repo}"

@@ -11,10 +11,28 @@
  * an empty upstream parks for a week (`emptySeconds`), a refusing upstream for
  * a day (`refusalSeconds`), any other failure for an hour (`failureSeconds`),
  * and the claim re-acquires once the TTL elapses. What kind of failure a row
- * records is `./ingest-failure`'s taxonomy.
+ * records is `./ingest-failure`'s taxonomy; which TTL a kind parks for, and the
+ * row it parks as, is `./parked-failure`'s.
  *
  * Pipeline callers funnel through {@link ingest}: it acquires the claim and
  * runs the pipeline, or reports the persisted guard without touching upstream.
+ *
+ * Only the two writes that settle the claim are fenced on it: the completion
+ * (`markDone`) and the failure (`markFailed`). When another invocation has
+ * taken the claim over, the fenced write changes nothing and the run reports
+ * `claim_lost`, because the work's outcome is the winner's to write; a lost
+ * failure parks nothing and raises no alarm. The raw writes and the publish are
+ * not fenced: whatever of them a losing run reached before its fenced write —
+ * both raw rows, then the work's enriched catalog rows — stays written.
+ *
+ * The caller's `signal` (a cron pass's deadline) aborts the upstream requests
+ * and nothing after them. An abort while the run still waits on them aborts
+ * them, and the run rethrows the caller's reason with nothing written but its
+ * claim. Once both have answered, an abort no longer stops the run: it goes on
+ * and settles the claim as usual, except that an error it then throws is
+ * rethrown rather than parked, and the rows written before it stay. A stopped
+ * run parks nothing behind the negative cache — a stop is not the upstream
+ * failing — and its claim lapses after RUNNING_TTL like any stopped holder's.
  *
  * The pipeline phases live as module-level functions over a bundled
  * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
@@ -23,11 +41,12 @@
  */
 import type { CatalogPrisma } from "../db/prisma";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";
-import { upstreamUnavailable } from "../lib/errors";
+import { upstreamUnavailable } from "../adapters/inbound/errors";
 import {
-  classifyIngestFailure, failedStage, IngestErrorCode, operatorRecord, type IngestFailure,
+  classifyIngestFailure, IngestErrorCode, operatorRecord, type IngestFailure,
 } from "./ingest-failure";
-import { JobStore, type FailureOptions, type IngestGuard } from "./jobs";
+import { JobStore, type ClaimWrite, type FailureOptions, type IngestGuard, type JobClaim } from "./jobs";
+import { parkedFailure, type IngestTtl } from "./parked-failure";
 import { consoleRefusalAlarm, type RefusalAlarm } from "./refusal-alarm";
 import { saveRawAnitabi as writeRawAnitabi, saveRawBangumi as writeRawBangumi, type RawPayload } from "./raw-store";
 import {
@@ -58,25 +77,33 @@ export const DEFAULT_INGEST_TTL = {
 /** Knobs for {@link IngestBangumi.ingest} (defaulted for prod; tests inject `fetchImpl`). */
 export interface IngestBangumiOptions {
   fetchImpl?: FetchLike;
+  /** The caller's cancellation: it aborts the upstream requests in flight; the module header says what a run it stops has written. */
+  signal?: AbortSignal;
 }
 
 /** Persisted singleflight + negative-cache marker for a bangumi id. */
 export type { IngestGuard } from "./jobs";
 
-/** The claim outcome: acquired for the singleflight winner, else the guard. */
-export type IngestClaim = "acquired" | Exclude<IngestGuard, "ready">;
+/** The claim outcome: this caller's claim when it won the singleflight, else the guard. */
+export type IngestClaim = JobClaim | Exclude<IngestGuard, "ready">;
 
-/** Discriminated union: the outcome of one {@link IngestBangumi.ingest} call. */
+/**
+ * Discriminated union: the outcome of one {@link IngestBangumi.ingest} call.
+ * `claim_lost` is a run whose claim another invocation took over before it
+ * finished: its fenced completion or failure write changed nothing, and the
+ * work's outcome is the winner's (the module header says what it did write).
+ */
 export type IngestResult =
-  | { status: "ingested"; version: number; pointCount: number }
+  | { status: "ingested"; pointCount: number }
   | { status: "in_progress" }
   | { status: "empty"; reason: string }
-  | { status: "failed"; reason: string };
+  | { status: "failed"; reason: string }
+  | { status: "claim_lost" };
 
-/** Upstream source port: fetch the Bangumi subject + Anitabi points. */
+/** Upstream source port: fetch the Bangumi subject + Anitabi points, under the run's fetch and signal. */
 export interface IngestSource {
-  fetchBangumi(bangumiId: string, fetchImpl?: FetchLike): Promise<BangumiSubject>;
-  fetchPoints(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiPoint[]>;
+  fetchBangumi(bangumiId: string, call: IngestBangumiOptions): Promise<BangumiSubject>;
+  fetchPoints(bangumiId: string, call: IngestBangumiOptions): Promise<AnitabiPoint[]>;
 }
 
 /** The narrow ingest-lifecycle surface read paths call (no pipeline internals). */
@@ -84,34 +111,25 @@ export interface IngestLifecycle {
   guard(bangumiId: string): Promise<IngestGuard>;
   ensurePending(bangumiId: string): Promise<void>;
   claim(bangumiId: string): Promise<IngestClaim>;
-  markDone(bangumiId: string): Promise<void>;
-  runClaimed(bangumiId: string, opts?: IngestBangumiOptions): Promise<IngestResult>;
+  runClaimed(claim: JobClaim, opts?: IngestBangumiOptions): Promise<IngestResult>;
 }
 
 /** Persistence store port: raw-zone writes + the ingest_jobs state machine. */
 export interface IngestStore {
-  acquire(bangumiId: string): Promise<boolean>;
+  acquire(bangumiId: string): Promise<JobClaim | null>;
   guard(bangumiId: string): Promise<IngestGuard>;
   ensurePending(bangumiId: string): Promise<void>;
-  markDone(bangumiId: string): Promise<void>;
-  markFailed(bangumiId: string, opts: FailureOptions): Promise<void>;
+  markDone(claim: JobClaim): Promise<ClaimWrite>;
+  markFailed(claim: JobClaim, opts: FailureOptions): Promise<ClaimWrite>;
   /** Whether a refusal from `upstream` is already parked behind a live negative cache. */
   hasLiveRefusal(upstream: UpstreamName): Promise<boolean>;
   saveRawBangumi(bangumiId: string, payload: RawPayload): Promise<void>;
   saveRawAnitabi(bangumiId: string, payload: RawPayload): Promise<void>;
 }
 
-/** Publisher port: enrich the raw zone and atomically publish a new version. */
+/** Publisher port: enrich the raw zone into the catalog rows, in one transaction. */
 export interface IngestPublisher {
   publish(bangumiId: string): Promise<EnrichResult>;
-}
-
-/** Negative-cache TTL policy for {@link IngestBangumi}. */
-export interface IngestTtl {
-  failureSeconds: number;
-  refusalSeconds: number;
-  emptySeconds: number;
-  egressSeconds: number;
 }
 
 /** The ports + TTL an ingest phase needs, bundled so module helpers stay small. */
@@ -145,81 +163,89 @@ export class IngestBangumi {
     return this.runtime.store.ensurePending(bangumiId);
   }
 
-  markDone(bangumiId: string): Promise<void> {
-    return this.runtime.store.markDone(bangumiId);
-  }
-
   /** Ingest a work end-to-end behind one singleflight gate; losers return the persisted outcome. */
   async ingest(bangumiId: string, opts: IngestBangumiOptions = {}): Promise<IngestResult> {
     const claim = await this.claim(bangumiId);
-    if (claim === "acquired") return this.runClaimed(bangumiId, opts);
+    if (typeof claim !== "string") return this.runClaimed(claim, opts);
     if (claim === "empty") return { status: "empty", reason: "no points" };
     return { status: "in_progress" };
   }
 
   /** Atomically reserve the claim; a loser reads the persisted marker. */
   async claim(bangumiId: string): Promise<IngestClaim> {
-    if (await this.runtime.store.acquire(bangumiId)) return "acquired";
+    const claim = await this.runtime.store.acquire(bangumiId);
+    if (claim !== null) return claim;
     const guard = await this.runtime.store.guard(bangumiId);
     return guard === "ready" ? "in_progress" : guard;
   }
 
   /** Run the full pipeline for a claim this caller already holds. */
-  runClaimed(bangumiId: string, opts: IngestBangumiOptions = {}): Promise<IngestResult> {
-    return runSafely(this.runtime, bangumiId, opts.fetchImpl);
+  runClaimed(claim: JobClaim, opts: IngestBangumiOptions = {}): Promise<IngestResult> {
+    return runSafely(this.runtime, claim, opts);
   }
 
 }
 
-/** Negative-cache every failure, then preserve typed upstream transport errors. */
-async function runSafely(runtime: IngestRuntime, bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
+/** Negative-cache every failure and preserve typed upstream transport errors; a caller's stop is rethrown unrecorded. */
+async function runSafely(runtime: IngestRuntime, claim: JobClaim, call: IngestBangumiOptions): Promise<IngestResult> {
   try {
-    return await runPipeline(runtime, bangumiId, fetchImpl);
+    return await runPipeline(runtime, claim, call);
   } catch (err) {
-    return handleError(runtime, bangumiId, err);
+    if (call.signal?.aborted === true) throw err;
+    return parkThrownFailure(runtime, claim, err);
   }
 }
 
-/** Park the classified failure; rethrow upstream failures as defined 502s. */
-async function handleError(runtime: IngestRuntime, bangumiId: string, err: unknown): Promise<IngestResult> {
-  const result = await fail(runtime, bangumiId, classifyIngestFailure(err));
+/** Park the classified failure; rethrow upstream failures as defined 502s, unless the claim was lost. */
+async function parkThrownFailure(runtime: IngestRuntime, claim: JobClaim, err: unknown): Promise<IngestResult> {
+  const result = await fail(runtime, claim, classifyIngestFailure(err));
   // An egress refusal is deliberately NOT rethrown as UPSTREAM_UNAVAILABLE: the
   // upstream never answered, our ceiling clears within the hour, and the
   // parked row's `egress_refused` code is the signal a human reads (#1792).
-  if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
+  if (err instanceof UpstreamFetchError && result.status !== "claim_lost") throw upstreamUnavailable(err.upstream, err);
   return result;
 }
 
 /** Fetch -> raw -> enrich -> publish -> completion for the held claim. */
-async function runPipeline(runtime: IngestRuntime, bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
-  const { subject, points } = await fetchUpstream(runtime.source, bangumiId, fetchImpl);
-  if (points.length === 0) return fail(runtime, bangumiId, { code: IngestErrorCode.NotFound, cause: "no points", upstream: null });
-  await runtime.store.saveRawBangumi(bangumiId, subject);
-  await runtime.store.saveRawAnitabi(bangumiId, points);
-  const enriched = await runtime.publisher.publish(bangumiId);
-  await runtime.store.markDone(bangumiId);
-  return { status: "ingested", version: enriched.version, pointCount: enriched.pointCount };
+async function runPipeline(runtime: IngestRuntime, claim: JobClaim, call: IngestBangumiOptions): Promise<IngestResult> {
+  const { subject, points } = await fetchUpstream(runtime.source, claim.workId, call);
+  if (points.length === 0) return fail(runtime, claim, { code: IngestErrorCode.NotFound, cause: "no points", upstream: null });
+  await runtime.store.saveRawBangumi(claim.workId, subject);
+  await runtime.store.saveRawAnitabi(claim.workId, points);
+  const enriched = await runtime.publisher.publish(claim.workId);
+  if (await runtime.store.markDone(claim) === "claim_lost") return claimLost(claim);
+  return { status: "ingested", pointCount: enriched.pointCount };
+}
+
+/**
+ * The run's outcome is not this caller's to record: another invocation took the
+ * claim over, and the fenced write changed nothing. Logged so the overlap is
+ * visible; the caller counts the work as held elsewhere, never as done.
+ */
+function claimLost(claim: JobClaim): IngestResult {
+  console.warn(`[ingest] claim lost for work ${claim.workId}: another invocation took the job over, so this run's outcome was not recorded`);
+  return { status: "claim_lost" };
 }
 
 /** Fetch both upstream sources in parallel. */
 async function fetchUpstream(
   source: IngestSource,
   bangumiId: string,
-  fetchImpl?: FetchLike,
+  call: IngestBangumiOptions,
 ): Promise<{ subject: BangumiSubject; points: AnitabiPoint[] }> {
   const [subject, points] = await Promise.all([
-    source.fetchBangumi(bangumiId, fetchImpl),
-    source.fetchPoints(bangumiId, fetchImpl),
+    source.fetchBangumi(bangumiId, call),
+    source.fetchPoints(bangumiId, call),
   ]);
   return { subject, points };
 }
 
 /** Negative-cache the failure (clears the 'running' row), alarm a new refusal, report it. */
-async function fail(runtime: IngestRuntime, bangumiId: string, failure: IngestFailure): Promise<IngestResult> {
+async function fail(runtime: IngestRuntime, claim: JobClaim, failure: IngestFailure): Promise<IngestResult> {
   const alarmDue = await refusalAlarmDue(runtime.store, failure);
-  await runtime.store.markFailed(bangumiId, parkedFailure(runtime.ttl, failure));
+  if (await runtime.store.markFailed(claim, parkedFailure(runtime.ttl, failure)) === "claim_lost") return claimLost(claim);
   if (alarmDue && failure.upstream !== null) {
-    runtime.alarm.upstreamRefused({ upstream: failure.upstream, workId: bangumiId, detail: operatorRecord(failure) });
+    runtime.alarm.upstreamRefused({ upstream: failure.upstream, workId: claim.workId, detail: operatorRecord(failure) });
   }
   const status = failure.code === IngestErrorCode.NotFound ? "empty" : "failed";
   return { status, reason: failure.cause };
@@ -231,21 +257,6 @@ async function refusalAlarmDue(store: IngestStore, failure: IngestFailure): Prom
   return !(await store.hasLiveRefusal(failure.upstream));
 }
 
-function parkedFailure(ttl: IngestTtl, failure: IngestFailure): FailureOptions {
-  return {
-    errorCode: failure.code, ttlSeconds: parkedSeconds(ttl, failure.code),
-    error: operatorRecord(failure), stage: failedStage(failure),
-  };
-}
-
-/** How long each kind parks before the work is claimable again. */
-function parkedSeconds(ttl: IngestTtl, code: IngestErrorCode): number {
-  if (code === IngestErrorCode.NotFound) return ttl.emptySeconds;
-  if (code === IngestErrorCode.UpstreamRefused) return ttl.refusalSeconds;
-  if (code === IngestErrorCode.EgressRefused) return ttl.egressSeconds;
-  return ttl.failureSeconds;
-}
-
 /** The production `IngestBangumi` over this request's Prisma seam (#1792: egress required for anitabi). */
 export function catalogIngestBangumi(
   query: CatalogPrisma,
@@ -255,15 +266,15 @@ export function catalogIngestBangumi(
   const jobs = new JobStore(query);
   return new IngestBangumi(
     {
-      fetchBangumi: (bangumiId, fetchImpl) => fetchBangumiSubject(bangumiId, { fetchImpl }),
-      fetchPoints: (bangumiId, fetchImpl) => fetchAnitabiPoints(bangumiId, { fetchImpl, egressSigningKey }),
+      fetchBangumi: (bangumiId, call) => fetchBangumiSubject(bangumiId, call),
+      fetchPoints: (bangumiId, call) => fetchAnitabiPoints(bangumiId, { ...call, egressSigningKey }),
     },
     {
       acquire: (bangumiId) => jobs.acquire(bangumiId),
       guard: (bangumiId) => jobs.guard(bangumiId),
       ensurePending: (bangumiId) => jobs.ensurePending(bangumiId),
-      markDone: (bangumiId) => jobs.markDone(bangumiId),
-      markFailed: (bangumiId, opts) => jobs.markFailed(bangumiId, opts),
+      markDone: (claim) => jobs.markDone(claim),
+      markFailed: (claim, opts) => jobs.markFailed(claim, opts),
       hasLiveRefusal: (upstream) => jobs.hasLiveRefusal(upstream),
       saveRawBangumi: (bangumiId, payload) => writeRawBangumi(query, bangumiId, payload),
       saveRawAnitabi: (bangumiId, payload) => writeRawAnitabi(query, bangumiId, payload),

@@ -1,12 +1,12 @@
 # SUT: cd.yml consumers download one verified snapshot by immutable ID without rebuilding.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdArtifactTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   def steps(job)
@@ -31,7 +31,7 @@ class CdArtifactTest < Minitest::Test
   end
 
   def test_hydration_verifies_the_official_immutable_download_before_returning
-    action = Psych.safe_load(File.read(File.join(ROOT, ".github/actions/hydrate-release/action.yml")))
+    action = RepositoryYaml.load_file(File.join(ROOT, ".github/actions/hydrate-release/action.yml"))
     assert_equal "composite", action.dig("runs", "using")
     download, verify = action.dig("runs", "steps")
     assert_match %r{\Aactions/download-artifact@[0-9a-f]{40}\z}, download.fetch("uses")

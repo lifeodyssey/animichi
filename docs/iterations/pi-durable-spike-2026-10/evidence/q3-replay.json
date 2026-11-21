@@ -1,0 +1,410 @@
+{
+  "case": "replay",
+  "receipt": {
+    "operationId": "op-replay",
+    "session": "1",
+    "accepted": true
+  },
+  "inFlightAt": 1795024061473,
+  "killedAt": 1795024062473,
+  "restartedAt": 1795024062590,
+  "doneLoggedAt": 1795024091587,
+  "firstRequestAt": 1795024091587,
+  "catalogCalls": [
+    {
+      "at": 1795024061473,
+      "title": "Replay Probe",
+      "held": true
+    }
+  ],
+  "result": {
+    "operationId": "op-replay",
+    "session": "1",
+    "status": "done",
+    "text": "Lookup failed: <harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>"
+  },
+  "usage": {
+    "models": {
+      "faux/faux-1": {
+        "input": 0,
+        "output": 47,
+        "cacheRead": 0,
+        "cacheWrite": 210,
+        "totalTokens": 257,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    "tools": {}
+  },
+  "live": {},
+  "fauxCallsOnB": 1,
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "Translate the anime titled \"Replay Probe\".",
+      "toolCalls": []
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "role": "system",
+      "text": "",
+      "toolCalls": []
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "",
+      "toolCalls": [
+        {
+          "name": "translate_anime_title",
+          "arguments": {
+            "title": "Replay Probe",
+            "target_language": "zh"
+          }
+        }
+      ],
+      "stopReason": "toolUse",
+      "usage": {
+        "input": 0,
+        "output": 18,
+        "cacheRead": 0,
+        "cacheWrite": 78,
+        "totalTokens": 96,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "role": "toolResult",
+      "text": "<harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>",
+      "toolCalls": [],
+      "toolName": "translate_anime_title",
+      "isError": true
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Lookup failed: <harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>",
+      "toolCalls": [],
+      "stopReason": "stop",
+      "usage": {
+        "input": 0,
+        "output": 29,
+        "cacheRead": 0,
+        "cacheWrite": 132,
+        "totalTokens": 161,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "extra": {
+    "reservations": [
+      {
+        "seq": 1,
+        "call_id": "tool:1795024061439:awcgcfee47j",
+        "at": 1795024061457
+      }
+    ]
+  },
+  "killedInstance": "a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+  "eventsAfterKill": [
+    {
+      "instance": "83e7a9f8",
+      "kind": "constructed",
+      "at": 29012,
+      "detail": {
+        "case": "replay"
+      }
+    },
+    {
+      "instance": "83e7a9f8",
+      "kind": "model:answer",
+      "at": 29111,
+      "detail": {
+        "title": "Replay Probe",
+        "sawToolResult": {
+          "isError": true,
+          "text": "<harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>"
+        }
+      }
+    },
+    {
+      "instance": "83e7a9f8",
+      "kind": "start",
+      "at": 29164,
+      "detail": null
+    },
+    {
+      "instance": "83e7a9f8",
+      "kind": "job",
+      "at": 29176,
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      }
+    },
+    {
+      "instance": "83e7a9f8",
+      "kind": "alarm",
+      "at": 29177,
+      "detail": null
+    },
+    {
+      "instance": "83e7a9f8",
+      "kind": "request:report",
+      "at": 29184,
+      "detail": {
+        "operationId": "op-replay"
+      }
+    }
+  ],
+  "control": {
+    "result": {
+      "operationId": "op-control",
+      "session": "1",
+      "status": "done",
+      "text": "Resolved: {\"original\":\"Replay Control\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+    },
+    "usage": {
+      "models": {
+        "faux/faux-1": {
+          "input": 0,
+          "output": 38,
+          "cacheRead": 79,
+          "cacheWrite": 126,
+          "totalTokens": 243,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      "tools": {
+        "translate_anime_title": {
+          "input": 7,
+          "output": 3,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 10,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    "reservations": [
+      {
+        "seq": 1,
+        "call_id": "tool:1795024092011:3w0rh0vekbw",
+        "at": 1795024092030
+      }
+    ]
+  },
+  "provider": "faux",
+  "workerdLog": [
+    "+     0ms replay:A stdout: [spike] constructed instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    31ms replay:A stdout: [spike] start instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    34ms replay:A stdout: [spike] request:submit instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    54ms replay:A stdout: [spike] model:tool_call instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    72ms replay:A stdout: [spike] tool:start instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    86ms replay:A stdout: [spike] job instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+    86ms replay:A stdout: [spike] alarm instance=a57dd5fc-b2b1-4d26-87cf-f3dbff9eeff7",
+    "+ 30102ms replay:B stdout: [spike] constructed instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30202ms replay:B stdout: [spike] model:answer instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30254ms replay:B stdout: [spike] start instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30265ms replay:B stdout: [spike] job instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30265ms replay:B stdout: [spike] alarm instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30272ms replay:B stdout: [spike] request:report instance=83e7a9f8-b1a4-49cb-9776-a9393a037a11",
+    "+ 30575ms replay-control stdout: [spike] constructed instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30603ms replay-control stdout: [spike] start instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30605ms replay-control stdout: [spike] request:submit instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30626ms replay-control stdout: [spike] model:tool_call instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30645ms replay-control stdout: [spike] tool:start instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30652ms replay-control stdout: [spike] job instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30652ms replay-control stdout: [spike] alarm instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30654ms replay-control stdout: [spike] tool:end instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30676ms replay-control stdout: [spike] model:answer instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30683ms replay-control stdout: [spike] request:report instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30689ms replay-control stdout: [spike] job instance=13eaea67-3609-4d2d-b841-4178a3672d43",
+    "+ 30689ms replay-control stdout: [spike] alarm instance=13eaea67-3609-4d2d-b841-4178a3672d43"
+  ],
+  "checks": [
+    {
+      "name": "control: the same tool completing with no interruption is billed under tools, with its 10 tokens",
+      "pass": true,
+      "observed": {
+        "result": {
+          "operationId": "op-control",
+          "session": "1",
+          "status": "done",
+          "text": "Resolved: {\"original\":\"Replay Control\",\"translated\":\"巡礼\",\"target_language\":\"zh\"}"
+        },
+        "usage": {
+          "models": {
+            "faux/faux-1": {
+              "input": 0,
+              "output": 38,
+              "cacheRead": 79,
+              "cacheWrite": 126,
+              "totalTokens": 243,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0
+              }
+            }
+          },
+          "tools": {
+            "translate_anime_title": {
+              "input": 7,
+              "output": 3,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "totalTokens": 10,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": 0
+              }
+            }
+          }
+        },
+        "reservations": [
+          {
+            "seq": 1,
+            "call_id": "tool:1795024092011:3w0rh0vekbw",
+            "at": 1795024092030
+          }
+        ]
+      }
+    },
+    {
+      "name": "A was SIGKILLed while translate_anime_title's catalog call was held in flight",
+      "pass": true,
+      "observed": {
+        "inFlightAt": 1795024061473,
+        "killedAt": 1795024062473
+      }
+    },
+    {
+      "name": "replay: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there",
+      "pass": true,
+      "observed": [
+        "83e7a9f8 constructed",
+        "83e7a9f8 model:answer",
+        "83e7a9f8 start",
+        "83e7a9f8 job",
+        "83e7a9f8 alarm",
+        "83e7a9f8 request:report"
+      ]
+    },
+    {
+      "name": "the tool did not run again: one catalog call, no tool:start after the kill",
+      "pass": true,
+      "observed": [
+        {
+          "at": 1795024061473,
+          "title": "Replay Probe",
+          "held": true
+        }
+      ]
+    },
+    {
+      "name": "one reservation, made inside execute before the kill",
+      "pass": true,
+      "observed": {
+        "reservations": [
+          {
+            "seq": 1,
+            "call_id": "tool:1795024061439:awcgcfee47j",
+            "at": 1795024061457
+          }
+        ]
+      }
+    },
+    {
+      "name": "the model received an interrupted error result and answered from it",
+      "pass": true,
+      "observed": {
+        "result": {
+          "id": 13,
+          "kind": "pi.tool-result",
+          "role": "toolResult",
+          "text": "<harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>",
+          "toolCalls": [],
+          "toolName": "translate_anime_title",
+          "isError": true
+        },
+        "settled": {
+          "operationId": "op-replay",
+          "session": "1",
+          "status": "done",
+          "text": "Lookup failed: <harness>\n[error] Tool translate_anime_title was interrupted and may have partially run\n</harness>"
+        }
+      }
+    },
+    {
+      "name": "Pi's usage counts nothing for the interrupted call: no translate_anime_title entry under tools",
+      "pass": true,
+      "observed": {
+        "models": {
+          "faux/faux-1": {
+            "input": 0,
+            "output": 47,
+            "cacheRead": 0,
+            "cacheWrite": 210,
+            "totalTokens": 257,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          }
+        },
+        "tools": {}
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

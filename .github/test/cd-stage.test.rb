@@ -1,12 +1,12 @@
 # SUT: cd.yml keeps ordered foundation, migration, service publication and smoke in each environment lock.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdStageTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
 
   def setup
-    @cd = Psych.safe_load(File.read(File.join(ROOT, ".github/workflows/cd.yml")), aliases: true)
+    @cd = RepositoryYaml.load_file(File.join(ROOT, ".github/workflows/cd.yml"))
   end
 
   def steps(job)
@@ -87,7 +87,7 @@ class CdStageTest < Minitest::Test
   # because the label "Apply the database access stack" ≠ "Apply database access"
   # (#1866).
   def test_behaviour_matching_catches_lanes_regardless_of_step_name
-    payload = Psych.safe_load(<<~YAML)
+    payload = RepositoryYaml.parse(<<~YAML)
       jobs:
         promote-production:
           steps:
@@ -202,8 +202,7 @@ class CdStageTest < Minitest::Test
   def test_only_read_only_observation_and_receipt_upload_follow_smoke
     %w[stage promote-production].each do |job|
       after = steps(job).drop(position(job, "Smoke the release") + 1)
-      assert_equal 2, after.length
-      assert_equal "Record observed deployment identities", after.first["name"]
+      assert_equal ["Read the migrator's schema view for the receipt", "Record observed deployment identities"], after[0...-1].map { |item| item["name"] }
       assert_match %r{\Aactions/upload-artifact@}, after.last["uses"]
       refute_match(/wrangler deploy|publish-services|migrate-through-worker|command.*up/, after.to_s)
     end

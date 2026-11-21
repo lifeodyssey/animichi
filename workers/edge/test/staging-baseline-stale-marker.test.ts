@@ -32,7 +32,7 @@ app_marker_present() { return 0; }
 atlas_ledger_present() { return 0; }
 describe_marker_beside_ledger() { ROWS="${markerRows.join(", ")}; 10 Atlas revisions, 42 tables in public"; }
 staging_psql() {
-  printf 'INFO: Connecting to the database using psql...\\n' >&2
+  printf 'Connecting to the database; launching psql...\\n' >&2
   printf '%s\\n' ${markerRows.map((row) => `"${row}"`).join(" ")}
 }
 if stranded_on_atlas; then echo "REBUILD drop_marker_schema=$DROP_MARKER_SCHEMA"; else echo NO_OP; fi`);
@@ -72,7 +72,7 @@ void test("a connection diagnostic ahead of the row is read as the row alone", (
     const outcome = besideLedgerLive([STALE], record);
     assert.equal(outcome.status, 0);
     assert.equal(outcome.stdout, `stale marker approved by ${record}: ${STALE}\nREBUILD drop_marker_schema=true\n`);
-    assert.equal(outcome.stderr, "INFO: Connecting to the database using psql...\n");
+    assert.equal(outcome.stderr, "Connecting to the database; launching psql...\n");
   });
 });
 
@@ -80,7 +80,7 @@ void test("the diagnostic does not soften the match: one character off still ref
   const outcome = withRecordLive([STALE.replace("07.123456Z", "07.123457Z")], STALE);
   assert.equal(outcome.status, 1);
   assert.equal(outcome.stdout, "");
-  assert.match(outcome.stderr, /^INFO: Connecting to the database using psql\.\.\.\nrefusing reset: a Prisma app marker stands beside the Atlas ledger/);
+  assert.match(outcome.stderr, /^Connecting to the database; launching psql\.\.\.\nrefusing reset: a Prisma app marker stands beside the Atlas ledger/);
 });
 
 void test("no record is the refusal the rebuild already gave", () => {
@@ -118,13 +118,15 @@ for (const line of WILDCARDS) {
 }
 
 // `main` with every read answered and every write recorded, in the order it reaches Neon; the
-// record goes to stderr because `ensure_backup` discards what `neonctl` prints.
+// record goes to stderr because `ensure_backup` discards what `neonctl` prints. No old chain's
+// record exists here, whatever the tree holds, so the rows are the Atlas path's to approve.
 const neonCalls = (stubs: string): string[] => sourcedResetScript(`
 NEON_API_KEY=stub
+APPROVED_OLD_CHAIN=/nonexistent/approved-old-chain
 load_target() { :; }
 record_pre_state() { :; }
 refuse_business_rows() { :; }
-npx() { echo "CALL neonctl $*" >&2; }
+neonctl() { echo "CALL neonctl $*" >&2; }
 staging_psql() { echo "CALL psql $*" >&2; }
 ${stubs}
 main`).stderr.split("\n").filter((line) => line.startsWith("CALL "));
@@ -134,7 +136,7 @@ main`).stderr.split("\n").filter((line) => line.startsWith("CALL "));
 void test("the backup branch is taken before the reset that clears the marker schema", () => {
   const calls = neonCalls(`stranded_on_atlas() { DROP_MARKER_SCHEMA=true; }\nbackup_exists() { return 1; }`);
   assert.equal(calls.length, 3);
-  assert.match(calls[0] ?? "", /^CALL neonctl --yes neonctl@3\.6\.0 branches create /);
+  assert.match(calls[0] ?? "", /^CALL neonctl branches create /);
   assert.match(calls[1] ?? "", /^CALL psql migrator -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=true -v public_reset=false -f \S+\/reset-staging-baseline\.sql$/);
   assert.match(calls[2] ?? "", /^CALL psql neondb_owner -1 -v ON_ERROR_STOP=1 -v drop_marker_schema=false -v public_reset=true -f \S+\/reset-staging-baseline\.sql$/);
 });

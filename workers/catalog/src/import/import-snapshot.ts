@@ -12,6 +12,7 @@
  */
 import { COMPATIBILITY, MANIFEST_SCHEMA_VERSION, type SnapshotManifest } from "../publish/manifest";
 import { arrayBufferToText, textToArrayBuffer } from "../publish/bytes";
+import type { ValidationVerdict } from "../publish/snapshot";
 
 import type { CatalogPrisma } from "../db/prisma";
 import type { SnapshotSource } from "./snapshot-source";
@@ -46,7 +47,7 @@ export type ImportResult =
 export type ImportValidate = (
   candidate: ImportCandidate,
   manifest: SnapshotManifest,
-) => Promise<{ valid: boolean; reason?: string }>;
+) => Promise<ValidationVerdict>;
 
 /** Load + validate + atomically activate the current production snapshot. */
 export async function importSnapshot(
@@ -59,17 +60,16 @@ export async function importSnapshot(
   if (manifest === null) return { status: "invalid", reason: "no snapshot to import" };
   const objects = await loadObjects(source, manifest);
   if (objects === null) return { status: "invalid", reason: "snapshot objects unavailable" };
-  const candidate = {
-    snapshotId: manifest.snapshotId,
-    sourceRunId: manifest.sourceRunId,
-    createdAt: manifest.createdAt,
-    objects,
-  };
-  if (!(await validate(candidate, manifest)).valid) {
-    return { status: "invalid", reason: "import validation failed" };
-  }
+  const candidate = candidateOf(manifest, objects);
+  const verdict = await validate(candidate, manifest);
+  if (!verdict.valid) return { status: "invalid", reason: verdict.reason };
   await activate.switchCatalog(query, candidate);
   return { status: "imported", snapshotId: candidate.snapshotId };
+}
+
+/** The candidate dataset a manifest and its loaded objects describe. */
+function candidateOf(manifest: SnapshotManifest, objects: readonly ImportObject[]): ImportCandidate {
+  return { snapshotId: manifest.snapshotId, sourceRunId: manifest.sourceRunId, createdAt: manifest.createdAt, objects };
 }
 
 /** Read every object listed in the manifest; null when any object is missing. */
@@ -106,7 +106,7 @@ function parseRows(body: ArrayBuffer): readonly unknown[] {
 export async function validateImport(
   candidate: ImportCandidate,
   manifest: SnapshotManifest,
-): Promise<{ valid: boolean; reason?: string }> {
+): Promise<ValidationVerdict> {
   const verdict = firstInvalid([
     () => Promise.resolve(checkSchemaCompatibility(manifest)),
     () => Promise.resolve(checkKinds(candidate)),
@@ -120,8 +120,8 @@ export async function validateImport(
 
 /** Await each check in order and return the first rejection, else null. */
 async function firstInvalid(
-  checks: readonly (() => Promise<{ valid: boolean; reason?: string }>)[],
-): Promise<{ valid: boolean; reason?: string } | null> {
+  checks: readonly (() => Promise<ValidationVerdict>)[],
+): Promise<ValidationVerdict | null> {
   for (const check of checks) {
     const verdict = await check();
     if (!verdict.valid) return verdict;
@@ -130,7 +130,7 @@ async function firstInvalid(
 }
 
 /** The manifest schema/compat range must be readable by this Worker (AC3). */
-function checkSchemaCompatibility(manifest: SnapshotManifest): { valid: boolean; reason?: string } {
+function checkSchemaCompatibility(manifest: SnapshotManifest): ValidationVerdict {
   const min = manifest.compatibility.min;
   const max = manifest.compatibility.max;
   if (min !== COMPATIBILITY.min || max !== COMPATIBILITY.max) {
@@ -148,7 +148,7 @@ export const IMPORT_KINDS: readonly ImportKind[] = [
 ];
 
 /** Every object kind must be a known public catalog snapshot kind (AC1/AC3). */
-function checkKinds(candidate: ImportCandidate): { valid: boolean; reason?: string } {
+function checkKinds(candidate: ImportCandidate): ValidationVerdict {
   for (const object of candidate.objects) {
     if (!IMPORT_KINDS.includes(object.kind)) {
       return { valid: false, reason: "imported non-public table: " + object.kind };
@@ -158,7 +158,7 @@ function checkKinds(candidate: ImportCandidate): { valid: boolean; reason?: stri
 }
 
 /** Re-hash every object body and compare against the manifest hash/size (AC3). */
-async function checkHashes(candidate: ImportCandidate): Promise<{ valid: boolean; reason?: string }> {
+async function checkHashes(candidate: ImportCandidate): Promise<ValidationVerdict> {
   for (const object of candidate.objects) {
     const body = jsonRowsToBody(object.rows);
     const hash = await sha256Hex(body);
@@ -173,7 +173,7 @@ async function checkHashes(candidate: ImportCandidate): Promise<{ valid: boolean
 function checkCounts(
   candidate: ImportCandidate,
   manifest: SnapshotManifest,
-): { valid: boolean; reason?: string } {
+): ValidationVerdict {
   const counts = manifest.counts;
   for (const object of candidate.objects) {
     const expected = counts[object.kind as keyof typeof counts];
@@ -188,7 +188,7 @@ function checkCounts(
 function checkProvenance(
   candidate: ImportCandidate,
   manifest: SnapshotManifest,
-): { valid: boolean; reason?: string } {
+): ValidationVerdict {
   if (!isSourceRunId(manifest.sourceRunId)) {
     return { valid: false, reason: "snapshot missing a valid source run" };
   }

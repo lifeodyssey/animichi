@@ -12,9 +12,12 @@ thinnest layers that can actually hold it:
    be resolved before GitHub allows the squash merge. This is the owner's core
    requirement and it is one checkbox on GitHub's side, not custom code.
 2. **Required CI** — `PR Verification` and `Security` must be green on the
-   merge ref. Produced by `pr-verification.yml`; the merge-group trigger keeps
-   the queue fed. The contract is pinned by `docs/iterations/s0v2/ruleset-target.json`
-   (schema as code) and checked by `test_ci_contract_ruleset_migration*.rb`.
+   merge ref. Produced by `pr-verification.yml`. There is no merge queue (this
+   is a user repository), so the `merge_group` trigger declared there is a
+   forward-looking trigger that never fires; the merged-commit lane is the
+   `push` trigger. The contract is pinned by
+   `docs/iterations/s0v2/ruleset-target.json` (schema as code) and checked by
+   `test_ci_contract_ruleset_migration*.rb`.
 3. **Two-way comment discipline (local hook)** — `~/.claude/hooks/check-pr-comments.sh`
    blocks any `gh pr merge`: it requires zero unresolved threads **and** every
    top-level bot finding (qodo / SonarCloud) acknowledged by the human. It also

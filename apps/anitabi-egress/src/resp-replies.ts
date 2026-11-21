@@ -7,7 +7,7 @@
  *
  * WHY IT IS ITS OWN MODULE. What these functions read is BYTES; what the store
  * reads is REPLIES. The framing — the terminator, the length of a header, the
- * three reply types — is a thing the counter's conversation happens to need and
+ * three reply types — is a thing the window's conversation happens to need and
  * not a thing it is made of. The bound on a header also belongs beside the
  * decode it bounds: the buffer that grows, the limit that stops it growing, and
  * the read that has to stay inside that limit are one subject, and one file is
@@ -26,11 +26,12 @@ export type Reply =
 
 /**
  * The longest reply header this pipeline will read. Its whole conversation is
- * three small replies — `+OK`, the count, the expiry's answer — and Redis' own
- * longest error is far shorter than this, so a header that runs past it is bytes
- * that cannot be an answer. The bound is what stops an endpoint that never sends
- * a CRLF from growing the buffer without end, and it is what makes the decode
- * below a bounded read rather than one function argument per byte received.
+ * two small replies — `+OK` and the window's answer — and Redis' own longest
+ * error, the script's location included, is far shorter than this, so a header
+ * that runs past it is bytes that cannot be an answer. The bound is what stops
+ * an endpoint that never sends a CRLF from growing the buffer without end, and
+ * it is what makes the decode below a bounded read rather than one function
+ * argument per byte received.
  */
 const MAX_REPLY_HEADER_BYTES = 512;
 

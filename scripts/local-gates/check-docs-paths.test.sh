@@ -9,6 +9,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-docs-paths.sh"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -29,8 +33,8 @@ run_check() {
 
 # ── Case 1: good refs (backticked doc path + code comment) -> passes ────────
 test_good_refs_pass() {
-  local repo out=/tmp/docs-path-case1.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case1.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/ops" "${repo}/src"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf 'AGENTS.md\nsee `docs/ops/deployment.md`\n' > "${repo}/AGENTS.md"
@@ -44,8 +48,8 @@ test_good_refs_pass() {
 
 # ── Case 2: missing path -> fails, naming file + line + candidate ───────────
 test_missing_ref_fails() {
-  local repo out=/tmp/docs-path-case2.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case2.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs"
   printf 'AGENTS.md\n`docs/missing.md`\n' > "${repo}/AGENTS.md"
   commit_fixture "${repo}"
@@ -57,8 +61,8 @@ test_missing_ref_fails() {
 
 # ── Case 3: external URLs (https and host.tld/docs/...) -> skipped ──────────
 test_external_urls_skipped() {
-  local repo out=/tmp/docs-path-case3.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case3.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'README.md\nhttps://pulumi.com/docs/install and https://x.com/a?b=c\n' > "${repo}/README.md"
   printf 'docs/notes\nneon.tech/docs/introduction/branch-restore and motion.dev/docs/ai-kit\n' > "${repo}/docs-list.txt"
   commit_fixture "${repo}"
@@ -70,8 +74,8 @@ test_external_urls_skipped() {
 
 # ── Case 4: extensionless non-directory tail (branch name) -> skipped ───────
 test_branch_name_skipped() {
-  local repo out=/tmp/docs-path-case4.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case4.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'README.md\nbranch docs/frontend-rebuild-plan and docs/s0v2-F1-agents-refresh\n' > "${repo}/README.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -82,8 +86,8 @@ test_branch_name_skipped() {
 
 # ── Case 5: quoted path containing spaces -> resolves -> passes ─────────────
 test_quoted_space_path_passes() {
-  local repo out=/tmp/docs-path-case5.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case5.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/design"
   printf 'x\n' > "${repo}/docs/design/Landing - Hero.html"
   printf 'AGENTS.md\n`docs/design/Landing - Hero.html`\n' > "${repo}/AGENTS.md"
@@ -96,8 +100,8 @@ test_quoted_space_path_passes() {
 
 # ── Case 6: broken refs inside docs/archive/ are exempt (read-only history) ─
 test_archive_exempt() {
-  local repo out=/tmp/docs-path-case6.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case6.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/archive/old" "${repo}/docs/ops"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf 'was in `docs/archive/old/gone.md` but that file is gone\n' > "${repo}/docs/archive/old/report.md"
@@ -110,8 +114,8 @@ test_archive_exempt() {
 
 # ── Case 7: trailing punctuation, anchors, line refs, ?raw -> stripped ──────
 test_suffix_stripping() {
-  local repo out=/tmp/docs-path-case7.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case7.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/ops"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf 'x\n' > "${repo}/docs/ops/secrets.md"
@@ -126,8 +130,8 @@ test_suffix_stripping() {
 
 # ── Case 8: glob patterns -> skipped (unprovable by design) ─────────────────
 test_glob_skipped() {
-  local repo out=/tmp/docs-path-case8.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case8.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'README.md\n`docs/*.md` `docs/archive/frontend-*.md`\n' > "${repo}/README.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
@@ -137,8 +141,8 @@ test_glob_skipped() {
 
 # ── Case 9: '..'-escape resolving outside the repo -> fails ─────────────────
 test_parent_escape_fails() {
-  local repo out=/tmp/docs-path-case9.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case9.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs"
   esc="docs-escape-$$.md"
   printf 'escape\n' > "${repo}/../${esc}"
@@ -153,8 +157,8 @@ test_parent_escape_fails() {
 
 # ── Case 10: the gate's own test scripts are exempt (they need broken refs) ─
 test_test_script_exempt() {
-  local repo out=/tmp/docs-path-case10.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case10.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/.github/scripts"
   printf '#!/usr/bin/env bash\n# fixture: `docs/definitely-missing.md`\n' > "${repo}/.github/scripts/some.test.sh"
   commit_fixture "${repo}"
@@ -168,8 +172,8 @@ test_test_script_exempt() {
 # reported as a missing file. The count assertion also pins that the citation
 # was actually seen — skipping the token would pass the exit code alone.
 test_single_digit_line_suffix() {
-  local repo out=/tmp/docs-path-case11.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case11.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/specs"
   printf 'x\n' > "${repo}/docs/specs/2026-08-16-migration-executor-spec.md"
   printf 'AGENTS.md\n`docs/specs/2026-08-16-migration-executor-spec.md:4`\n' > "${repo}/AGENTS.md"
@@ -186,8 +190,8 @@ test_single_digit_line_suffix() {
 # allowlist (#1650) — and those keys are exactly the objects DOCS_POLICY rule 7
 # keeps in R2 instead of in the tree, so the string is an input, not a link.
 test_test_program_refs_are_fixtures() {
-  local repo out=/tmp/docs-path-case12.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case12.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/ops" "${repo}/workers/edge/test"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf 'const APPROVABLE = [\n  "docs/archive/a..b.png",\n  "docs/archive/A-Z_0.9.gif",\n];\n' \
@@ -207,8 +211,8 @@ test_test_program_refs_are_fixtures() {
 # the directory turns this case red instead of passing quietly, which is the
 # only way the gate can say how much of the tree it still reads.
 test_prose_under_test_dir_still_caught() {
-  local repo out=/tmp/docs-path-case13.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case13.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/workers/edge/test"
   printf 'the runbook moved to `docs/ops/gone.md`\n' > "${repo}/workers/edge/test/notes.md"
   printf 'const APPROVABLE = ["docs/archive/a..b.png"];\n' \
@@ -230,8 +234,8 @@ test_prose_under_test_dir_still_caught() {
 # file with no backticked `docs/` span had every bare token dropped. A broken
 # bare ref — the ordinary way prose cites a doc — went unseen entirely.
 test_bare_ref_in_file_without_quoted_span() {
-  local repo out=/tmp/docs-path-case14.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/docs-path-case14.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/docs/ops" "${repo}/src"
   printf 'x\n' > "${repo}/docs/ops/deployment.md"
   printf '// the procedure lives in docs/ops/never-written.md now\n' > "${repo}/src/bare.ts"

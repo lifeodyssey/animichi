@@ -1,29 +1,27 @@
 /**
  * Budget ledger for the daily discovery+ingest run (#1006 AC3).
  *
- * Three independent budgets constrain a run — work count, upstream request
- * count, and wall-clock runtime. Every limit comes from the caller-supplied
- * config; there are no source-code magic numbers here. The ledger is a pure
- * counter so it is deterministic and unit-testable, and the run orchestrator
- * stops cleanly the moment any dimension is exhausted.
+ * Two independent budgets constrain a run — work count and upstream request
+ * count. Every limit comes from the caller-supplied config; there are no
+ * source-code magic numbers here. The ledger is a pure counter so it is
+ * deterministic and unit-testable, and the run orchestrator stops cleanly the
+ * moment either dimension is exhausted. Wall-clock time is not a dimension: a
+ * cron pass is bounded by its own deadline (`CRON_PASS_DEADLINE_MS`).
  */
 export interface BudgetLimits {
   /** Maximum works the run may ingest. */
   workLimit: number;
   /** Maximum upstream requests (bangumi + anitabi combined) the run may issue. */
   requestLimit: number;
-  /** Maximum wall-clock runtime the run may consume, in milliseconds. */
-  runtimeLimitMs: number;
 }
 
-/** The three budget dimensions; a short name for reports/messages. */
-export type BudgetKind = "work" | "request" | "runtime";
+/** The two budget dimensions; a short name for reports/messages. */
+export type BudgetKind = "work" | "request";
 
 /** Snapshot of budget consumption for run telemetry. */
 export interface BudgetUsage {
   workUsed: number;
   requestUsed: number;
-  runtimeUsedMs: number;
   limits: BudgetLimits;
 }
 
@@ -31,11 +29,10 @@ export interface BudgetUsage {
 export interface BudgetRow {
   work: number;
   requests: number;
-  runtimeMs: number;
 }
 
 /** The resource cost of one daily-run work ingest (fetch both sources). */
-export const INGEST_WORK_COST: BudgetRow = { work: 1, requests: 2, runtimeMs: 0 };
+export const INGEST_WORK_COST: BudgetRow = { work: 1, requests: 2 };
 
 /** True when the budget can still accommodate a single work ingest. */
 export function canSpendWork(budget: Budget): boolean {
@@ -43,18 +40,13 @@ export function canSpendWork(budget: Budget): boolean {
 }
 
 /** Record one ingested work against the budget; throws when exhausted. */
-export function spendWork(budget: Budget, requests: number, runtimeMs: number): void {
-  budget.spend({ work: 1, requests: nonNegative(requests), runtimeMs: nonNegative(runtimeMs) });
+export function spendWork(budget: Budget, requests: number): void {
+  budget.spend({ work: 1, requests: nonNegative(requests) });
 }
 
 /** Record upstream requests against the budget; throws when exhausted. */
 export function spendRequests(budget: Budget, requests: number): void {
-  budget.spend({ work: 0, requests: nonNegative(requests), runtimeMs: 0 });
-}
-
-/** Record elapsed wall-clock against the budget; throws when exhausted. */
-export function spendRuntime(budget: Budget, runtimeMs: number): void {
-  budget.spend({ work: 0, requests: 0, runtimeMs: nonNegative(runtimeMs) });
+  budget.spend({ work: 0, requests: nonNegative(requests) });
 }
 
 /** A pure counter: consume rows and report exhaustion in each dimension. */
@@ -62,13 +54,11 @@ export class Budget {
   private readonly limits: BudgetLimits;
   private workUsed = 0;
   private requestUsed = 0;
-  private runtimeUsedMs = 0;
 
   constructor(limits: BudgetLimits) {
     this.limits = limits;
     assertPositive(limits.workLimit, "workLimit");
     assertPositive(limits.requestLimit, "requestLimit");
-    assertPositive(limits.runtimeLimitMs, "runtimeLimitMs");
   }
 
   /** Consume a resource row; throws when any dimension exceeds its cap. */
@@ -77,7 +67,6 @@ export class Budget {
     assertWithin(next, this.limits);
     this.workUsed = next.workUsed;
     this.requestUsed = next.requestUsed;
-    this.runtimeUsedMs = next.runtimeUsedMs;
   }
 
   /** True when spending `row` now would exceed no limit (non-throwing). */
@@ -100,16 +89,10 @@ export class Budget {
     return this.requestUsed >= this.limits.requestLimit;
   }
 
-  /** True when the runtime cap has been reached or exceeded. */
-  runtimeExhausted(): boolean {
-    return this.runtimeUsedMs >= this.limits.runtimeLimitMs;
-  }
-
   /** First exhausted dimension, or null when still within every budget. */
   firstExhausted(): BudgetKind | null {
     if (this.workExhausted()) return "work";
     if (this.requestExhausted()) return "request";
-    if (this.runtimeExhausted()) return "runtime";
     return null;
   }
 
@@ -118,7 +101,6 @@ export class Budget {
     return {
       workUsed: this.workUsed,
       requestUsed: this.requestUsed,
-      runtimeUsedMs: this.runtimeUsedMs,
       limits: this.limits,
     };
   }
@@ -128,7 +110,6 @@ export class Budget {
     return {
       workUsed: this.workUsed + row.work,
       requestUsed: this.requestUsed + row.requests,
-      runtimeUsedMs: this.runtimeUsedMs + row.runtimeMs,
       limits: this.limits,
     };
   }
@@ -138,14 +119,12 @@ export class Budget {
 function assertWithin(next: BudgetUsage, limits: BudgetLimits): void {
   if (next.workUsed > limits.workLimit) throw new Error("work budget exhausted");
   if (next.requestUsed > limits.requestLimit) throw new Error("request budget exhausted");
-  if (next.runtimeUsedMs > limits.runtimeLimitMs) throw new Error("runtime budget exhausted");
 }
 
 /** The first limit `next` would exceed, or null when every dimension fits. */
 function firstBlocking(next: BudgetUsage, limits: BudgetLimits): BudgetKind | null {
   if (next.workUsed > limits.workLimit) return "work";
   if (next.requestUsed > limits.requestLimit) return "request";
-  if (next.runtimeUsedMs > limits.runtimeLimitMs) return "runtime";
   return null;
 }
 

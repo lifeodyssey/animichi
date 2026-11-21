@@ -14,7 +14,7 @@
  * `release()` and `destroy()` from what that returns.
  */
 import { vi } from "vitest";
-import type { CatalogRuntime } from "../../src/db/prisma";
+import type { CatalogPlanExecutor, CatalogRuntime } from "../../src/db/prisma";
 
 /** A runtime whose connection and transaction are observable. */
 export function fakeRuntime(): {
@@ -43,4 +43,37 @@ export function fakeRuntime(): {
     runtime: { connection: () => Promise.resolve(connection) } as unknown as CatalogRuntime,
     openTransaction, commit, rollback, release, destroy,
   };
+}
+
+/** A call of a transaction's own that a traced runtime can refuse. */
+export type LifecycleCall = "begin" | "commit" | "release";
+
+/** The one transaction call a traced runtime refuses, and what it rejects with. */
+export interface LifecycleRefusal {
+  readonly call: LifecycleCall;
+  readonly error: Error;
+}
+
+/**
+ * A runtime that runs every statement, outside a transaction and inside one, on
+ * `executor`, and writes each transaction call — `begin`, `commit`, `rollback`,
+ * `release`, `destroy` — into `trace` as it is made, beside the statements the
+ * executor traces there. Where {@link fakeRuntime} counts calls per spy, this
+ * keeps their order against the statements. Besides `connection()` it answers
+ * the runtime-level `query`, which `catalogPrisma` uses as the executor outside
+ * a transaction; the cast is the same seam-shaped one as above.
+ */
+export function tracedRuntime(executor: CatalogPlanExecutor, trace: string[], refusal?: LifecycleRefusal): CatalogRuntime {
+  const step = (call: string) => (): Promise<void> => {
+    trace.push(call);
+    return refusal?.call === call ? Promise.reject(refusal.error) : Promise.resolve();
+  };
+  const query: CatalogPlanExecutor["query"] = (plan) => executor.query(plan);
+  const transaction = { query, commit: step("commit"), rollback: step("rollback") };
+  const connection = {
+    transaction: () => step("begin")().then(() => transaction),
+    release: step("release"),
+    destroy: step("destroy"),
+  };
+  return { query, connection: () => Promise.resolve(connection) } as unknown as CatalogRuntime;
 }

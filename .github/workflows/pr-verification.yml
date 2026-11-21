@@ -66,6 +66,13 @@
 name: CI
 on:
   pull_request:
+    # A draft PR is the review phase (Linear spec ZDEV-48): the review happens
+    # on the draft PR and CI starts when it turns ready. `ready_for_review`
+    # re-runs the lanes that skipped while it was a draft, and every lane below
+    # carries the draft gate — `github.event_name != 'pull_request' ||
+    # github.event.pull_request.draft == false` — which keeps a draft PR off the
+    # runners while leaving push and merge_group open (`github.event.pull_request`
+    # is absent on both, so a bare `draft == false` gate would disable them).
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   merge_group:
     branches: [main]
@@ -88,6 +95,7 @@ jobs:
   # changed.
   plan:
     name: CI / plan
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -104,11 +112,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       # No `cache: pnpm` here: plan never installs, so on any lockfile-changing
       # PR the store path never exists and setup-node's save phase fails the
       # job. The cached installs live in the jobs that actually install.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       # The paths outside any pnpm project (migrations/, .github/) and the root
@@ -155,8 +163,9 @@ jobs:
               - '.github/scripts/release/**'
             # The delivery toolchain's own tests (#1776), selected by the roots
             # their subjects live in — `.github/lib`, `.github/scripts`,
-            # `scripts/delivery`, `scripts/local-gates` — plus the directory the
-            # moved Ruby suites sit in. Overlapping `workflows` on
+            # `scripts/delivery`, `scripts/local-gates`, and the local developer
+            # scripts at the top of `scripts/` — plus the directory the moved
+            # Ruby suites sit in. Overlapping `workflows` on
             # `.github/lib/**` and `.github/scripts/**` is deliberate: a change
             # there reaches both the edge suite's workflow-text guards and the
             # toolchain's own tests. The `workflows` filter's force-add of
@@ -165,6 +174,7 @@ jobs:
               - '.github/lib/**'
               - '.github/scripts/**'
               - '.github/test/delivery/**'
+              - 'scripts/*'
               - 'scripts/delivery/**'
               - 'scripts/local-gates/**'
       - id: pnpm
@@ -203,7 +213,7 @@ jobs:
     name: CI / affected (${{ matrix.package }})
     needs: plan
     # An empty array in strategy.matrix is a workflow error, not a skip.
-    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.packages != '[]' }}
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.packages != '[]' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -230,7 +240,7 @@ jobs:
       #                             the real language host, infra-check.sh:83-88)
       - name: Install the pinned Pulumi CLI for the infra program load
         if: ${{ matrix.package == 'infra' }}
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       # The tag has one declaration (packages/test-postgres/postgres-image.env),
@@ -282,7 +292,7 @@ jobs:
           echo "file=$file" >> "$GITHUB_OUTPUT"
       - name: Publish coverage
         if: ${{ steps.coverage.outputs.file != '' }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: ${{ steps.coverage.outputs.file }}
           flags: ${{ matrix.package }}
@@ -302,18 +312,20 @@ jobs:
   # exec` resolves on a developer's machine too (#1774).
   contracts:
     name: CI / repository contracts
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           bundler-cache: true
       - name: Verify workflow and action responsibilities
         run: |
           set -euo pipefail
+          bundle exec ruby .github/test/call-migrator-action.test.rb
           bundle exec ruby .github/test/cd-artifact.test.rb
           bundle exec ruby .github/test/cd-credentials.test.rb
           bundle exec ruby .github/test/cd-post-deploy-evidence.test.rb
@@ -332,6 +344,7 @@ jobs:
           bundle exec ruby .github/test/merged-commit-lane.test.rb
           bundle exec ruby .github/test/pr-verification-affected.test.rb
           bundle exec ruby .github/test/pr-verification-browser.test.rb
+          bundle exec ruby .github/test/pr-verification-draft.test.rb
           bundle exec ruby .github/test/pr-verification-gates.test.rb
           bundle exec ruby .github/test/pr-verification-login.test.rb
           bundle exec ruby .github/test/pr-verification-plan.test.rb
@@ -341,6 +354,7 @@ jobs:
           bundle exec ruby .github/test/pr-verification-zizmor.test.rb
           bundle exec ruby .github/test/release-build.test.rb
           bundle exec ruby .github/test/release-dispatch.test.rb
+          bundle exec ruby .github/test/repository-yaml.test.rb
           bundle exec ruby .github/test/setup-workspace-action.test.rb
           bundle exec ruby .github/test/workflow-credentials.test.rb
           bundle exec ruby .github/test/workflow-execution.test.rb
@@ -355,6 +369,7 @@ jobs:
           bundle exec ruby test/repo-config/anitabi-egress-ceiling.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-disclosure.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-fetch-sites.test.rb
+          bundle exec ruby test/repo-config/anitabi-egress-image-build.test.rb
           bundle exec ruby test/repo-config/anitabi-egress-surface.test.rb
           bundle exec ruby test/repo-config/contract-pin-set-mutation.test.rb
           bundle exec ruby test/repo-config/contract-pin-set.test.rb
@@ -365,6 +380,8 @@ jobs:
           bundle exec ruby test/repo-config/dependency-hold-backs.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage.test.rb
           bundle exec ruby test/repo-config/e2e-spec-coverage-mutation.test.rb
+          bundle exec ruby test/repo-config/force-push-policy-adrs.test.rb
+          bundle exec ruby test/repo-config/force-push-policy-delivery-docs.test.rb
           bundle exec ruby test/repo-config/gitleaks-mutation.test.rb
           bundle exec ruby test/repo-config/gitleaks-pin-mutation.test.rb
           bundle exec ruby test/repo-config/gitleaks.test.rb
@@ -382,6 +399,8 @@ jobs:
           bundle exec ruby test/repo-config/package-test-segments.test.rb
           bundle exec ruby test/repo-config/playwright.test.rb
           bundle exec ruby test/repo-config/pre-push-routing.test.rb
+          bundle exec ruby test/repo-config/pnpm-lock-one-version-mutation.test.rb
+          bundle exec ruby test/repo-config/pnpm-lock-one-version.test.rb
           bundle exec ruby test/repo-config/pnpm-workspace-settings-mutation.test.rb
           bundle exec ruby test/repo-config/pnpm-workspace-settings.test.rb
           bundle exec ruby test/repo-config/refresh-hold-backs.test.rb
@@ -399,7 +418,8 @@ jobs:
           bash .github/scripts/check-e2e-promotion.sh
 
   # The delivery toolchain's own tests (#1776): the unit and integration tests of
-  # `.github/lib`, `.github/scripts`, `scripts/delivery` and `scripts/local-gates`.
+  # `.github/lib`, `.github/scripts`, `scripts/delivery` and `scripts/local-gates`,
+  # and of the local developer scripts at the top of `scripts/`.
   # Each executes a committed script or library against fixtures and asserts real
   # exit codes, so each has a real SUT with a real path and none can be affected
   # by a change outside it — they are selected by the `delivery` filter above,
@@ -407,14 +427,14 @@ jobs:
   # ran all of them on every pull request whatever changed.
   #
   # Which files they are is the runner's business, not this file's: it enumerates
-  # the four homes, so a test joins the lane by landing in one rather than by
+  # the five homes, so a test joins the lane by landing in one rather than by
   # someone remembering to add a line. They are subprocess-bound rather than
   # compute-bound — real scripts in throwaway trees, real node origins — so the
   # runner runs four at a time; measured here at 195 s serial against 89 s at four.
   delivery-toolchain:
     name: CI / delivery toolchain
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.delivery == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.delivery == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -427,7 +447,7 @@ jobs:
       - uses: $/.github/actions/setup-workspace
       # `.ruby-version`'s interpreter and `Gemfile.lock`'s gems — the pair
       # `bundle exec` resolves on a developer's machine too (#1774).
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           bundler-cache: true
       - name: Run the delivery toolchain's tests
@@ -435,6 +455,7 @@ jobs:
 
   docs:
     name: CI / documentation hygiene
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -452,7 +473,7 @@ jobs:
   e2e:
     name: CI / browser
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.web == 'true' || needs.plan.outputs.e2e == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.web == 'true' || needs.plan.outputs.e2e == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -532,7 +553,7 @@ jobs:
   db:
     name: CI / schema
     needs: plan
-    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.migrations == 'true' || needs.plan.outputs.deps == 'true') }}
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.migrations == 'true' || needs.plan.outputs.deps == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -578,7 +599,7 @@ jobs:
   foundation-install:
     name: CI / foundation install
     needs: plan
-    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.foundation == 'true' }}
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.foundation == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -588,7 +609,7 @@ jobs:
       # The seal's install runs scripts, so it needs the real toolchain installed.
       - uses: $/.github/actions/setup-workspace
       - name: Install the pinned Pulumi CLI the release build seals under
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       # Lines 3–6 of the script are the unit under test; running the script also
@@ -612,6 +633,7 @@ jobs:
 
   gitleaks:
     name: CI / security (gitleaks)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -635,6 +657,7 @@ jobs:
 
   trufflehog:
     name: CI / security (trufflehog)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -642,19 +665,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
+      - uses: trufflesecurity/trufflehog@3bd2b5887eb0efb8fa18bfd1d296032924e4ffdc # v3.99.9
         with:
           extra_args: --results=verified --only-verified --exclude-detectors=Lob
 
   osv:
     name: CI / security (osv)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+      - uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           scan-args: |-
             --recursive
@@ -662,13 +686,14 @@ jobs:
 
   semgrep:
     name: CI / security (semgrep)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.14"
           enable-cache: false
@@ -682,8 +707,9 @@ jobs:
           set -euo pipefail
           uv tool install --no-build "semgrep==$SEMGREP_VERSION"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      # The repository's own three ORM-boundary rules only (#999): the public
-      # packs are CodeQL's job, and `semgrep ci` refuses `--config` anyway.
+      # The repository's own ORM-boundary ruleset under .semgrep/ only (#999,
+      # #1633): the public packs are CodeQL's job, and `semgrep ci` refuses
+      # `--config` anyway.
       - name: Run the repository's Semgrep ruleset
         run: |
           set -euo pipefail
@@ -692,6 +718,7 @@ jobs:
 
   zizmor:
     name: CI / security (zizmor)
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -719,7 +746,7 @@ jobs:
       # 34001151283). 1.30.0 accepts it, so a finding lands on the diff instead
       # of only in the job log. `advanced-security: false` above is the
       # precondition the action requires before it will honour the input.
-      - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           version: "1.30.0"
           persona: pedantic
@@ -745,7 +772,7 @@ jobs:
   # every other job keeps the workflow-level default.
   commits:
     name: CI / commits
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ github.event_name != 'push' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -770,7 +797,7 @@ jobs:
   security:
     name: Security
     needs: [gitleaks, trufflehog, osv, semgrep, zizmor]
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -781,7 +808,7 @@ jobs:
   aggregate:
     name: PR Verification
     needs: [plan, affected, contracts, delivery-toolchain, docs, e2e, db, foundation-install, commits, security]
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -811,7 +838,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       - name: Publish the failure alert
         env:
           GH_TOKEN: ${{ github.token }}

@@ -32,7 +32,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -63,7 +63,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -75,31 +75,27 @@ jobs:
         with:
           artifact-id: ${{ steps.selection.outputs.artifact_id }}
           run-id: ${{ steps.selection.outputs.run_id }}
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Verify selected deploy configurations
         run: node .github/scripts/release/verify-config.mjs
-      - uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Log into Pulumi Cloud
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        uses: pulumi/auth-actions@273044cc19e63ea565285da8edd4e059126a0bdb # v2.1.2
         with:
           organization: lifeodyssey
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:lifeodyssey
-      - name: Resolve the pinned Pulumi CLI version
-        id: pulumi-cli
-        run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
         id: esc
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@eec71a90d9989af7ff14bd700b83fc72fae36119 # v4.0.0
         with:
-          version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/staging
           export-environment-variables: CLOUDFLARE_API_TOKEN,CF_ACCESS_CLIENT_ID,CF_ACCESS_CLIENT_SECRET
       - name: Require environment credentials
@@ -122,16 +118,28 @@ jobs:
       # the `staging-before-prisma-baseline` branch; a marker beside the Atlas ledger, or rows
       # anywhere else, is a named refusal unless `reset-staging-baseline.approved-marker` names
       # that marker, when the rebuild drops its whole `prisma_contract` schema (three tables)
-      # after the backup; every other run is a named no-op (#1781). The Neon key comes from the
-      # ESC step's output, so it reaches this step alone.
+      # after the backup; every other run is a named no-op (#1781). An app marker that is no node
+      # of the repository's migration graph, as a regenerated chain leaves it (the migrator refuses
+      # it as MIGRATION.MARKER_MISMATCH), is a named refusal ending with every marker row and every
+      # table in `public` with its row count, unless `reset-staging-baseline.approved-old-chain`
+      # names each of those lines; the rebuild then drops the whole `prisma_contract` schema and
+      # `public` after a backup named after that marker.
+      # The Neon key comes from the ESC step's output, so it reaches this step alone.
       - name: Rebuild a staging schema stranded on the Atlas chain
         env:
           NEON_API_KEY: ${{ steps.esc.outputs.NEON_API_KEY }}
         run: bash infra/database-access/reset-staging-baseline.sh
+      # The migrator admits a GitHub OIDC token minted for its own audience
+      # (workers/migrator/src/policy.ts). Every call to it goes through the
+      # call-migrator action, which waits until the migrator serves the selected
+      # bundle, then mints that token from this job's identity and hands it to
+      # the named client alone; no step of this workflow holds it.
       - name: Preview the selected native migration graph
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash .github/scripts/release/schema-preflight.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: schema-preflight
       # The generated provider SDKs do not travel in git (#1865): the directory's
       # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
       # `packages:` with `pulumi install` — the CLI is already on PATH from the
@@ -148,28 +156,32 @@ jobs:
           pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
           pnpm install --dir release/foundation/infra/database-access --frozen-lockfile
       - name: Apply database access
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           command: up
           stack-name: lifeodyssey/staging
           work-dir: release/foundation/infra/database-access
       - name: Apply topology
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           command: up
           stack-name: lifeodyssey/staging
           work-dir: release/foundation/infra
       - name: Apply the selected migration chain
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash scripts/delivery/migrate-through-worker.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: migrate-through-worker
       # The chain applying is not the schema existing (#1230). Read the three
       # catalog tables back through the migrator before this release's
       # consumers are published onto them.
       - name: Verify the promoted catalog schema
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
-        run: bash scripts/delivery/verify-catalog-schema.sh staging
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: verify-catalog-schema
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh staging
@@ -182,9 +194,16 @@ jobs:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev https://animichi-web-staging.zhenjiazhou0127.workers.dev
+      # The receipt records the migrator's answer after the smoke. That read is a
+      # step of its own, so the token reaches it and not the recorder (#1695).
+      - name: Read the migrator's schema view for the receipt
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: staging
+          migrator-url: ${{ vars.MIGRATOR_STAGING_URL }}
+          client: schema-preflight
       - name: Record observed deployment identities
         env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
@@ -193,12 +212,11 @@ jobs:
           # origin is behind Cloudflare Access.
           EVIDENCE_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
         run: |
-          bash .github/scripts/release/schema-preflight.sh staging
           node .github/scripts/release/record-receipt.mjs staging
           node .github/scripts/release/record-evidence.mjs staging
       - name: Publish the immutable staging receipt
         id: receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           # One artifact, one digest: the platform read-back and the probe
@@ -236,7 +254,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       - name: Resolve the selected artifact
         id: selection
         env:
@@ -249,7 +267,7 @@ jobs:
           artifact-id: ${{ steps.selection.outputs.artifact_id }}
           run-id: ${{ steps.selection.outputs.run_id }}
       - name: Download the staging receipt
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           artifact-ids: ${{ needs.stage.outputs.receipt_id }}
           run-id: ${{ github.run_id }}
@@ -262,30 +280,26 @@ jobs:
           RECEIPT_ID: ${{ needs.stage.outputs.receipt_id }}
           RECEIPT_DIGEST: ${{ needs.stage.outputs.receipt_digest }}
         run: ruby .github/scripts/release/verify-receipt.rb
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Verify selected deploy configurations
         run: node .github/scripts/release/verify-config.mjs
-      - uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Log into Pulumi Cloud
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        uses: pulumi/auth-actions@273044cc19e63ea565285da8edd4e059126a0bdb # v2.1.2
         with:
           organization: lifeodyssey
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:lifeodyssey
-      - name: Resolve the pinned Pulumi CLI version
-        id: pulumi-cli
-        run: printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
       - name: Open the environment configuration
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        uses: pulumi/esc-action@eec71a90d9989af7ff14bd700b83fc72fae36119 # v4.0.0
         with:
-          version: ${{ steps.pulumi-cli.outputs.version }}
           environment: lifeodyssey/animichi/prod
           export-environment-variables: CLOUDFLARE_API_TOKEN
       - name: Require environment credentials
@@ -300,10 +314,14 @@ jobs:
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env production --tag "sha-$SOURCE_SHA"
+      # Every call to the migrator goes through the call-migrator action, as in
+      # the staging job.
       - name: Preview the selected native migration graph
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash .github/scripts/release/schema-preflight.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: schema-preflight
       # The generated provider SDKs do not travel in git (#1865): the directory's
       # `.gitignore` excludes `sdks/` and reproduces them from Pulumi.yaml's pinned
       # `packages:` with `pulumi install` — the CLI is already on PATH from the
@@ -320,28 +338,32 @@ jobs:
           pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
           pnpm install --dir release/foundation/infra/database-access --frozen-lockfile
       - name: Apply database access
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           command: up
           stack-name: lifeodyssey/prod
           work-dir: release/foundation/infra/database-access
       - name: Apply topology
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           command: up
           stack-name: lifeodyssey/prod
           work-dir: release/foundation/infra
       - name: Apply the selected migration chain
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash scripts/delivery/migrate-through-worker.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: migrate-through-worker
       # The promotion is what #1230 Phase 1 exists for: production held zero
       # catalog tables while staging held three. Verify the same three through
       # this environment's own migrator before its consumers are published.
       - name: Verify the promoted catalog schema
-        env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
-        run: bash scripts/delivery/verify-catalog-schema.sh production
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: verify-catalog-schema
       - name: Publish the selected services
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: bash .github/scripts/release/publish-services.sh production
@@ -350,18 +372,21 @@ jobs:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi.com https://animichi.com
+      - name: Read the migrator's schema view for the receipt
+        uses: $/.github/actions/call-migrator
+        with:
+          environment: production
+          migrator-url: ${{ vars.MIGRATOR_PRODUCTION_URL }}
+          client: schema-preflight
       - name: Record observed deployment identities
         env:
-          MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
           CONTAINER_ATTEMPTS: "12"
           CONTAINER_RETRY_DELAY: "15"
           CONTAINER_READ_TIMEOUT: "30"
-        run: |
-          bash .github/scripts/release/schema-preflight.sh production
-          node .github/scripts/release/record-receipt.mjs production
+        run: node .github/scripts/release/record-receipt.mjs production
       - name: Publish the immutable production receipt
         id: receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: production-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: receipt.json
@@ -390,7 +415,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
       - name: Publish the failure alert
         env:
           GH_TOKEN: ${{ github.token }}

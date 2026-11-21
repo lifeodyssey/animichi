@@ -7,6 +7,7 @@ import {
   type IngestStore,
 } from "../src/ingest/ingest-bangumi";
 import { UpstreamFetchError, UpstreamNotFoundError, type AnitabiPoint } from "../src/ingest/sources";
+import { claimOn } from "./fixtures/job-claim";
 
 const SUBJECT = { id: 1, name: "らき☆すた" };
 const POINTS: AnitabiPoint[] = [{ id: "o-washinomiya", name: "鷲宮神社" }];
@@ -30,21 +31,21 @@ function makeStore(rec: Recorder): IngestStore {
   return {
     acquire: (id) => {
       rec.calls.push(`acquire:${id}`);
-      if (held) return Promise.resolve(false);
+      if (held) return Promise.resolve(null);
       held = true;
-      return Promise.resolve(true);
+      return Promise.resolve(claimOn(id));
     },
     guard: () => Promise.resolve(held ? "in_progress" : "ready"),
     ensurePending: () => Promise.resolve(),
-    markDone: (id) => {
-      rec.calls.push(`done:${id}`);
+    markDone: (claim) => {
+      rec.calls.push(`done:${claim.workId}`);
       rec.done++;
       held = false;
-      return Promise.resolve();
+      return Promise.resolve("recorded");
     },
-    markFailed: (id, opts) => {
-      rec.failed.push({ bangumiId: id, errorCode: opts.errorCode, ttlSeconds: opts.ttlSeconds });
-      return Promise.resolve();
+    markFailed: (claim, opts) => {
+      rec.failed.push({ bangumiId: claim.workId, errorCode: opts.errorCode, ttlSeconds: opts.ttlSeconds });
+      return Promise.resolve("recorded");
     },
     hasLiveRefusal: () => Promise.resolve(false),
     saveRawBangumi: (id) => mark(rec, `save:bangumi:${id}`),
@@ -60,13 +61,11 @@ function makeSource(fetchPoints?: () => Promise<AnitabiPoint[]>): IngestSource {
 }
 
 function makePublisher(rec: Recorder): IngestPublisher {
-  let version = 0;
   return {
     publish: (id) => {
       rec.calls.push(`publish:${id}`);
       rec.publishes++;
-      version++;
-      return Promise.resolve({ version, pointCount: POINTS.length });
+      return Promise.resolve({ pointCount: POINTS.length });
     },
   };
 }
@@ -80,7 +79,7 @@ describe("IngestBangumi claim uniqueness (singleflight)", () => {
     const winner = ingest.ingest("10380");
     const loser = await ingest.ingest("10380");
     gate.resolve();
-    expect(await winner).toEqual({ status: "ingested", version: 1, pointCount: 1 });
+    expect(await winner).toEqual({ status: "ingested", pointCount: 1 });
     expect(loser.status).toBe("in_progress");
     expect(rec.publishes).toBe(1);
   });
@@ -90,7 +89,7 @@ describe("IngestBangumi claim pass-through", () => {
   it("passes a cached empty marker through without fetching or publishing", async () => {
     const rec = recorder();
     const store: IngestStore = {
-      ...makeStore(rec), acquire: () => Promise.resolve(false), guard: () => Promise.resolve("empty"),
+      ...makeStore(rec), acquire: () => Promise.resolve(null), guard: () => Promise.resolve("empty"),
     };
     const ingest = new IngestBangumi(makeSource(neverFetch), store, makePublisher(rec), DEFAULT_INGEST_TTL);
     await expect(ingest.ingest("10380")).resolves.toEqual({ status: "empty", reason: "no points" });
@@ -103,7 +102,7 @@ describe("IngestBangumi claim pass-through", () => {
       ...makeStore(rec),
       acquire: (id) => {
         rec.calls.push(`acquire:${id}`);
-        return Promise.resolve(false);
+        return Promise.resolve(null);
       },
       guard: () => Promise.resolve("in_progress"),
     };
@@ -159,7 +158,7 @@ describe("IngestBangumi atomic publish ordering", () => {
     const rec = recorder();
     const ingest = new IngestBangumi(makeSource(), makeStore(rec), makePublisher(rec), DEFAULT_INGEST_TTL);
     const result = await ingest.ingest("10380");
-    expect(result).toEqual({ status: "ingested", version: 1, pointCount: 1 });
+    expect(result).toEqual({ status: "ingested", pointCount: 1 });
     expect(rec.calls).toEqual([
       "acquire:10380",
       "save:bangumi:10380",
@@ -174,7 +173,7 @@ describe("IngestBangumi crash recovery + idempotent replay", () => {
   it("completes a claim that was left running by a crashed peer", async () => {
     const rec = recorder();
     const store: IngestStore = {
-      ...makeStore(rec), acquire: () => Promise.resolve(true), guard: () => Promise.resolve("in_progress"),
+      ...makeStore(rec), acquire: (id) => Promise.resolve(claimOn(id)), guard: () => Promise.resolve("in_progress"),
     };
     const ingest = new IngestBangumi(makeSource(), store, makePublisher(rec), DEFAULT_INGEST_TTL);
     await expect(ingest.ingest("10380")).resolves.toMatchObject({ status: "ingested" });

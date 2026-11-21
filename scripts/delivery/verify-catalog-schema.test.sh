@@ -15,12 +15,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT="$ROOT/scripts/delivery/verify-catalog-schema.sh"
 REAL_CURL="$(command -v curl)"
 export REAL_CURL
+# What the call-migrator action's mint step hands the schema check as MIGRATOR_OIDC_TOKEN.
+TOKEN="minted-token-canary"
 WORKSPACE=""
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# `curl` reaches two endpoints: the OIDC mint, and /catalog-schema with `-o`
-# which receives the canned body below while stdout carries the canned code.
+# `curl` reaches one endpoint: /catalog-schema with `-o`, which receives the
+# canned body below while stdout carries the canned code, and whose bearer goes
+# to BEARER_LOG. Any other call, a token request among them, is one the script
+# must not make, and fails.
 make_curl_stub() {
   cat > "$WORKSPACE/bin/curl" <<'STUB'
 #!/usr/bin/env bash
@@ -38,14 +42,12 @@ fi
 case "$args" in
   *"/catalog-schema"*)
     echo catalog-schema >> "${CALL_LOG:?}"
+    bearer="${args#*Authorization: Bearer }"; echo "${bearer%% *}" >> "${BEARER_LOG:?}"
     out="${args#*-o }"; out="${out%% *}"
     printf '%s' "${STUB_BODY:?}" > "$out"
     printf '%s' "${STUB_CODE:?}"
     ;;
-  *)
-    echo token >> "${CALL_LOG:?}"
-    echo '{"value":"oidc-token"}'
-    ;;
+  *) echo "curl stub: an unexpected call: $args" >&2; exit 1 ;;
 esac
 STUB
   chmod +x "$WORKSPACE/bin/curl"
@@ -58,8 +60,7 @@ setup() {
   export PATH="$WORKSPACE/bin:$PATH"
   export CALL_LOG="$WORKSPACE/calls" RUNNER_TEMP="$WORKSPACE"
   export MIGRATOR_URL="https://127.0.0.1:1"
-  export ACTIONS_ID_TOKEN_REQUEST_URL="https://127.0.0.1:1/token?a=1"
-  export ACTIONS_ID_TOKEN_REQUEST_TOKEN="request-token"
+  export MIGRATOR_OIDC_TOKEN="$TOKEN" BEARER_LOG="$WORKSPACE/bearers"
   export STUB_CODE=200 STUB_BODY='{"status":"ok","tables":{"bangumi":true,"points":true,"ingest_jobs":true},"missing":[]}'
   : > "$CALL_LOG"
 }
@@ -74,7 +75,17 @@ case_green_when_all_three_tables_exist() {
   setup
   run_script > "$WORKSPACE/out" || fail "a complete catalog must pass"
   grep -q "catalog schema verified in production: bangumi points ingest_jobs" "$WORKSPACE/out" || fail "wrong message: $(cat "$WORKSPACE/out")"
-  [ "$(calls)" = "token catalog-schema " ] || fail "wrong calls: $(calls)"
+  [ "$(calls)" = "catalog-schema " ] || fail "wrong calls: $(calls)"
+  teardown
+}
+
+# The catalog read carries the token the call-migrator action's mint step handed it; the script
+# asks for no other, and no line it prints carries the token.
+case_presents_the_token_its_step_was_handed() {
+  setup
+  run_script > "$WORKSPACE/out" || fail "a complete catalog must pass"
+  [ "$(cat "$BEARER_LOG")" = "$TOKEN" ] || fail "the catalog read carried another bearer"
+  grep -qF "$TOKEN" "$WORKSPACE/out" && fail "the token reached the log"
   teardown
 }
 
@@ -131,8 +142,8 @@ case_refuses_an_unknown_environment() {
   teardown
 }
 
-# CWE-319: the minted OIDC token rides this call, so a plain-http migrator URL
-# must stop the release before the token is even minted.
+# CWE-319: the token rides this call, so a plain-http migrator URL must stop the
+# release before the call is made.
 case_refuses_a_plaintext_migrator_url() {
   setup
   MIGRATOR_URL="http://127.0.0.1:1"
@@ -142,20 +153,32 @@ case_refuses_a_plaintext_migrator_url() {
   teardown
 }
 
-# The same property on the other leg: the request token is itself a credential,
-# so a plain-http token endpoint is refused by the SHIPPED curl with its own
-# words, and the catalog is never asked.
-case_refuses_a_plaintext_token_endpoint() {
+# A step handed no token (no mint step before it, or an expression naming another step, which
+# evaluates to '') stops before any call, in one line, rather than send an empty bearer.
+refused_without_a_token() {
+  run_script > "$WORKSPACE/out" && fail "a step handed no token must fail the release"
+  [ "$(cat "$WORKSPACE/out")" = "::error title=catalog-schema::MIGRATOR_OIDC_TOKEN is required for production" ] \
+    || fail "wrong refusal: $(cat "$WORKSPACE/out")"
+  [ -z "$(calls)" ] || fail "nothing may be dialled without a token: $(calls)"
+}
+
+case_refuses_an_unset_token() {
   setup
-  ACTIONS_ID_TOKEN_REQUEST_URL="http://127.0.0.1:1/token?a=1"
-  run_script > "$WORKSPACE/out" && fail "a plain-http token endpoint must fail the release"
-  grep -q 'Protocol "http"' "$WORKSPACE/out" || fail "wrong refusal: $(cat "$WORKSPACE/out")"
-  grep -q catalog-schema "$CALL_LOG" && fail "must never ask the catalog after the refusal"
+  unset MIGRATOR_OIDC_TOKEN
+  refused_without_a_token
+  teardown
+}
+
+case_refuses_an_empty_token() {
+  setup
+  MIGRATOR_OIDC_TOKEN=""
+  refused_without_a_token
   teardown
 }
 
 for test_case in \
   case_green_when_all_three_tables_exist \
+  case_presents_the_token_its_step_was_handed \
   case_names_a_table_the_migrator_reports_false \
   case_names_a_table_the_migrator_never_reports \
   case_fails_on_an_unreadable_answer \
@@ -163,7 +186,8 @@ for test_case in \
   case_ignores_an_ok_status_over_an_incomplete_map \
   case_refuses_an_unknown_environment \
   case_refuses_a_plaintext_migrator_url \
-  case_refuses_a_plaintext_token_endpoint; do
+  case_refuses_an_unset_token \
+  case_refuses_an_empty_token; do
   "$test_case"
 done
 

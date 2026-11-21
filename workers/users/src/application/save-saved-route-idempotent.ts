@@ -56,12 +56,25 @@ export interface IdempotencyStore {
   read(params: { ownerUserId: string; op: string; key: string }): Promise<IdempotencyRow | undefined>;
 }
 
-/** Injectable clock + bounded re-read so concurrency is deterministic in tests. */
+/** Injectable clock and pause, so concurrency is deterministic in tests. */
 export interface IdempotentSaveOptions {
   now?: () => number;
-  retries?: number;
-  awaitMs?: (attempt: number) => Promise<void>;
+  /** Pauses for `ms` between re-reads of an in-flight claim; a real timer by default. */
+  sleep?: (ms: number) => Promise<void>;
 }
+
+/**
+ * The wait a duplicate save gives the request holding its claim (N6). The
+ * holder's remaining work is one transaction of four round trips (BEGIN, the
+ * route INSERT, the ledger UPDATE, COMMIT); re-reading every 250 ms sees that
+ * commit at most one pause after it lands, and 2 s of pauses (eight re-reads)
+ * ends well inside the 10 s liveness window (IDEMPOTENCY_EXECUTION_TIMEOUT_MS)
+ * after which the claim counts as abandoned. Neither the edge's service-binding
+ * call nor the web client sets a deadline of its own on this request.
+ */
+const IN_FLIGHT_POLL_INTERVAL_MS = 250;
+const IN_FLIGHT_WAIT_BOUND_MS = 2_000;
+const IN_FLIGHT_POLLS = IN_FLIGHT_WAIT_BOUND_MS / IN_FLIGHT_POLL_INTERVAL_MS;
 
 /** Claim-key identity plus the write facts the action carries through. */
 interface ClaimConfig {
@@ -137,7 +150,7 @@ async function replay(
 ): Promise<SavedRoute> {
   if (row.state === "committed" && row.result !== null) return row.result;
   if (!isInFlight(row.createdAt, now)) return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, now);
-  return waitForCommit(idempotencyStore, claim, userId, input, opts, atomicStore, now);
+  return waitForCommit(idempotencyStore, claim, userId, input, opts, atomicStore);
 }
 
 /** Reclaim an expired/orphaned row as this caller's fresh claim and execute. */
@@ -154,8 +167,11 @@ async function reclaimOrExecute(
   throw savedRouteIdempotencyInFlight();
 }
 
-/** Bounded re-read of an in-flight claim; give a deterministic retryable error
- * if the winner does not reconcile within the re-read budget. */
+/** Pause, then re-read the in-flight claim, at most IN_FLIGHT_POLLS times. Each
+ * re-read is judged at the time it is read, so a claim whose liveness window
+ * lapses during the wait is reclaimed rather than waited out. A claim that never
+ * commits — its holder failed — ends in the retryable IDEMPOTENCY_IN_FLIGHT at
+ * the bound; the count, not a clock, ends the loop. */
 async function waitForCommit(
   idempotencyStore: IdempotencyStore,
   claim: ClaimConfig,
@@ -163,20 +179,20 @@ async function waitForCommit(
   input: SaveSavedRouteInput,
   opts: IdempotentSaveOptions,
   atomicStore: AtomicCommitStore,
-  now: number,
 ): Promise<SavedRoute> {
-  const retries = opts.retries ?? 3;
-  const awaitMs = opts.awaitMs ?? immediate;
-  for (let attempt = 0; attempt < retries; attempt++) {
-    await awaitMs(attempt);
+  const { sleep = timerSleep, now: clock = realNow } = opts;
+  for (let poll = 0; poll < IN_FLIGHT_POLLS; poll++) {
+    await sleep(IN_FLIGHT_POLL_INTERVAL_MS);
     const row = await idempotencyStore.read({ ownerUserId: userId, op: claim.op, key: claim.key });
-    const resolution = classifyRead(row, claim.fingerprint, now);
+    const resolution = classifyRead(row, claim.fingerprint, clock());
     if (resolution.kind === "committed") return resolution.result;
     if (resolution.kind === "conflict") throw savedRouteIdempotencyConflict();
-    if (resolution.kind === "stale") return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, now);
+    if (resolution.kind === "stale") return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, clock());
   }
   throw savedRouteIdempotencyInFlight();
 }
 
 const realNow = () => Date.now();
-const immediate = () => Promise.resolve();
+const timerSleep = (ms: number): Promise<void> => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});

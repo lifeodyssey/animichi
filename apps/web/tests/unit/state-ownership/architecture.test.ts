@@ -20,7 +20,8 @@
 
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAP_PRIMITIVE_EDGES, SHARED_UI_FEATURE, dependencyViolations } from "./checker";
+import { dependencyViolations } from "./checker";
+import { MAP_PRIMITIVE_EDGES, SHARED_UI_FEATURE } from "./gate-policy";
 import { importEdges, layerOf, resolveImportTarget, sourceLangOf, srcRoot, walkSourceFiles, withoutExtension } from "./scan";
 
 const SRC = srcRoot();

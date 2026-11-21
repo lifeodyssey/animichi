@@ -2,10 +2,12 @@
  * Run persistence over catalog_runs (#1006 AC1).
  *
  * A run row keyed by a STABLE run id records the discovered targets, per-source
- * outcomes, budget use, failures, completion state, and published versions as
- * JSONB snapshots. readRun / beginRun / recordRun are the idempotent gate +
- * transitions; every statement is a builder plan on the request's runtime
- * ({@link CatalogPrisma}), so retries never issue raw SQL.
+ * outcomes, budget use, failures, completion state, and a numeric "published"
+ * marker per work as JSONB snapshots. The marker sits in `published_versions`,
+ * named for the version it held until the publish stopped minting one; rows
+ * written before then still hold versions. readRun / beginRun / recordRun are
+ * the idempotent gate + transitions; every statement is a builder plan on the
+ * request's runtime ({@link CatalogPrisma}), so retries never issue raw SQL.
  *
  * `beginRun` is the run's singleflight gate, and it is the one write here the
  * conflict clause does not serve: the gate has to leave a live run untouched,
@@ -14,17 +16,19 @@
  * row when it is claimable, else INSERT it — with the unique key deciding the
  * race between two callers that both found no row.
  */
+import type { JsonValue } from "@prisma/orm-postgres/contract/types";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow } from "../db/plans";
-import { asJsonValue } from "../lib/json";
-import { isUniqueViolation } from "../lib/pg-error";
-import type { RunSnapshot } from "./daily-run";
+import { asJsonValue } from "../db/json";
+import { isUniqueViolation } from "../db/pg-error";
+import type { RunFailure, RunLedgerEntry, RunSnapshot } from "./daily-run";
 
 interface RunRow extends Record<string, unknown> {
   status: string;
   started_at: string | null;
   published_versions: unknown;
+  failures: unknown;
 }
 
 /** Read the recorded run snapshot, or null when no run exists for the id. */
@@ -34,10 +38,10 @@ export async function readRunRow(query: CatalogPrisma, runId: string): Promise<R
   return first === undefined ? null : snapshotOf(first);
 }
 
-/** The SELECT of status + reclaim signals for one run id. */
+/** The SELECT of status, reclaim signals and the failure ledger for one run id. */
 function readPlan(query: CatalogPrisma, runId: string): SqlOrmPlan<RunRow> {
   return query.builder.public.catalog_runs
-    .select("status", "started_at", "published_versions")
+    .select("status", "started_at", "published_versions", "failures")
     .where((fields, match) => match.eq(fields.run_id, runId))
     .build();
 }
@@ -99,10 +103,9 @@ function recordPlan(query: CatalogPrisma, runId: string, snapshot: RunSnapshot):
       budget_used: {
         workUsed: snapshot.budgetUsed.workUsed,
         requestUsed: snapshot.budgetUsed.requestUsed,
-        runtimeUsedMs: snapshot.budgetUsed.runtimeUsedMs,
         firstExhausted: snapshot.firstExhausted,
       },
-      failures: asJsonValue(snapshot.failures),
+      failures: recordedLedger(snapshot.failures),
       published_versions: asJsonValue(snapshot.published),
       finished_at: null,
     })
@@ -119,21 +122,28 @@ function isTerminal(status: RunSnapshot["status"]): boolean {
   return status !== "running" && status !== "pending";
 }
 
-/** Mark a run failed with a reason (stale reclaim before a retry re-runs it). */
-export async function markRunFailedRow(query: CatalogPrisma, runId: string, reason: string): Promise<void> {
-  await query.executor.query(failPlan(query, runId, reason));
+/** Mark a stale run failed before a retry re-runs it, recording the ledger the protocol carries. */
+export async function markRunFailedRow(query: CatalogPrisma, runId: string, failures: readonly RunLedgerEntry[]): Promise<void> {
+  await query.executor.query(failPlan(query, runId, failures));
 }
 
-/** UPDATE the run row to failed with a reclaim marker and a finished timestamp. */
-function failPlan(query: CatalogPrisma, runId: string, reason: string): SqlOrmPlan {
+/** UPDATE the run row to failed with its failure ledger and a finished timestamp. */
+function failPlan(query: CatalogPrisma, runId: string, failures: readonly RunLedgerEntry[]): SqlOrmPlan {
   const update = query.builder.public.catalog_runs
-    .update({
-      status: "failed",
-      failures: asJsonValue([{ bangumiId: runId, stage: "reclaim", reason }]),
-    })
+    .update({ status: "failed", failures: recordedLedger(failures) })
     .where((fields, match) => match.eq(fields.run_id, runId))
     .build();
   return atServerNow(update, ["finished_at"]);
+}
+
+/**
+ * The ledger as the `failures` column records it: an unrecognised element goes
+ * back as the value it was read as. The column is jsonb, so that value keeps no
+ * key order or whitespace, and its numbers pass through JavaScript: an integer
+ * above 2^53, a `-0` or a `1.0` may not come back as it was written.
+ */
+function recordedLedger(entries: readonly RunLedgerEntry[]): JsonValue {
+  return asJsonValue(entries.map((entry) => ("unrecognised" in entry ? entry.unrecognised : entry)));
 }
 
 /** Coerce a catalog_runs row into a snapshot for the protocol's read gate. */
@@ -143,21 +153,58 @@ function snapshotOf(row: RunRow): RunSnapshot | null {
     status: row.status as RunSnapshot["status"],
     targets: null,
     sources: {},
-    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    budgetUsed: { workUsed: 0, requestUsed: 0 },
     firstExhausted: null,
-    failures: [],
+    failures: parseFailures(row.failures),
     published: parsePublished(row.published_versions),
     startedAtMs: parseStartedAt(row.started_at),
   };
 }
 
-/** Read the recorded `published_versions` JSONB as a version map, else empty. */
+/** Read the recorded `failures` JSONB back as the run's ledger; a NULL column is an empty one. */
+function parseFailures(value: unknown): RunLedgerEntry[] {
+  return Array.isArray(value) ? value.map(ledgerEntry) : [];
+}
+
+/**
+ * One recorded ledger element. A failure in the shape this store writes is read
+ * as one, and a reclaim entry is read without the run id an older store wrote
+ * into its `bangumiId`, so the next write records the reclaim without it. Any
+ * other element is carried unread, to be written back as the value it was read
+ * as ({@link recordedLedger} says what that value keeps).
+ */
+function ledgerEntry(value: unknown): RunLedgerEntry {
+  return recognisedFailure(value) ?? { unrecognised: value };
+}
+
+/** The failure an element records when it has the shape this store writes; null for anything else. */
+function recognisedFailure(value: unknown): RunFailure | null {
+  if (!isRecord(value) || !hasOnlyFailureKeys(value) || typeof value.reason !== "string") return null;
+  if (value.stage === "reclaim") return { stage: "reclaim", reason: value.reason };
+  if (!isWorkStage(value.stage) || typeof value.bangumiId !== "string") return null;
+  return { bangumiId: value.bangumiId, stage: value.stage, reason: value.reason };
+}
+
+/** The keys a failure this store writes carries; a reclaim's `bangumiId` is the run id an older store put there. */
+const FAILURE_KEYS: ReadonlySet<string> = new Set(["bangumiId", "stage", "reason"]);
+
+/** Whether an element carries no key beyond those a failure this store writes carries. */
+function hasOnlyFailureKeys(value: Record<string, unknown>): boolean {
+  return Object.keys(value).every((key) => FAILURE_KEYS.has(key));
+}
+
+/** The stages a work's own failure is recorded at. */
+function isWorkStage(value: unknown): value is "fetch" | "enrich" | "quality" {
+  return value === "fetch" || value === "enrich" || value === "quality";
+}
+
+/** Read the recorded `published_versions` JSONB as the published-work map (any numeric value), else empty. */
 function parsePublished(value: unknown): Record<string, number> {
   if (!isRecord(value)) return {};
   const out: Record<string, number> = {};
   for (const key of Object.keys(value)) {
-    const version = value[key];
-    if (typeof version === "number") out[key] = version;
+    const marker = value[key];
+    if (typeof marker === "number") out[key] = marker;
   }
   return out;
 }

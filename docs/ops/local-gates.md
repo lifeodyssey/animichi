@@ -39,7 +39,7 @@ pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre
 - `shellcheck --severity=warning` over **every** shell file in the repository
 - `actionlint` over `.github/workflows/*.{yml,yaml}`
 - `ruff --fix` + `ruff-format` over staged Python (`scripts/git-squash-daily.py`)
-- `semgrep` over the repository's own three ORM-boundary rules (`.semgrep/`)
+- `semgrep` over the repository's own ORM-boundary ruleset (`.semgrep/`)
 - `oxlint --type-aware --deny-warnings` for the staged workspace packages, dispatched by
   `scripts/local-gates/oxlint-changed.sh`
 
@@ -53,9 +53,12 @@ that starts with anything but a lowercase verb, an issue reference in the subjec
 exemption is the ` (#N)` GitHub's squash merge appends to the title it uses as that subject, which no
 author writes and no author can remove (#1804) — and Claude/Anthropic/Codex/OpenAI `Co-Authored-By`
 or `Generated with` trailers. Legitimate human and Dependabot co-authors survive, and `Merge …` /
-`Revert "…"` subjects are exempt. Body and footer lines over 100 characters are rejected too — that
-pair comes from `@commitlint/config-conventional`, which the config extends, not from a rule written
-here.
+`Revert "…"` subjects are exempt. A commit whose footer carries Dependabot's sign-off,
+`Signed-off-by: dependabot[bot] <support@github.com>`, as a whole line is not held to the 72 (owner,
+2026-11-21), because a grouped update's header runs to about 90 characters; every other rule still
+judges it, and a PR title has no footer, so the title a squash merge uses as the subject is still
+held to 72. Body and footer lines over 100 characters are rejected too — that pair comes from
+`@commitlint/config-conventional`, which the config extends, not from a rule written here.
 
 Two ways to check a message without committing:
 
@@ -199,8 +202,8 @@ pnpm project, which would otherwise be invisible to the join:
 | Changed path | Bucket |
 |---|---|
 | `packages/pi-session-neon/migrations/**` | `prisma migration check` — artifact integrity and a connected graph, no container. The disposable fresh-schema apply lives in CI's `db` job and in `make check-full`. |
-| `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every pull request. |
-| `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s four delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 38 s serial and 15 s at four (`--list` through `xargs -P4`, 2026-09-23, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
+| `docs/**`, `.claude/**`, root-level `*.md`, an `AGENTS.md`, `CLAUDE.md` or `CONTEXT.md` at any depth, and the spec-reference gate's own three files (`check-spec-references.sh`, `check-spec-references.test.sh`, `spec-reference-exceptions.txt`) | `check-agents-refs.sh`, `check-docs-paths.sh`, `check-root-allowlist.sh`, `check-spec-references.sh` — the same four the CI `docs` job runs on every non-draft pull request. |
+| `.github/**`, `scripts/**`, `test/repo-config/**` | CI's `contracts` job, through its own registry (#1883). `scripts/local-gates/repository-contracts.sh` reads the commands out of that job in `pr-verification.yml` and runs them, so the two sides read one list rather than two that have to agree — a contract joins the local gate by the same line that puts it in CI. These are the three families the job owns and no workspace package does: `.github/**` is what every `.github/test/*.test.rb` reads, `test/repo-config/**` is the contracts' own home, and `scripts/**` holds the two Orca runners the job runs, `delivery-test-naming.test.rb`'s five delivery homes and `pre-push-routing.test.rb`'s subject. 74 commands, measured at 38 s serial and 15 s at four (`--list` through `xargs -P4`, 2026-09-23, 10 cores); serial because CI runs the job serially and a local gate reproduces CI's verdict rather than a different execution shape. |
 | `pnpm-lock.yaml`, root `package.json`, `pnpm-workspace.yaml`, `.npmrc` | Every workspace package. A root dependency change belongs to no project directory, and pnpm answers it with the root project alone — `...` adds none of its dependents — so "affected" has to mean everything. CI's `plan` job routes it the same way, through its `deps` paths-filter, and like CI's matrix this path drops the `...` closure: with every package already selected, the prefix would only re-run each one's dependents once per selected package. `.npmrc` was deleted with the pnpm 12 settings move (#1672) but stays in the pattern: `test/repo-config/pnpm-workspace-settings.test.rb` refuses a non-auth key there, and a re-added one still selects every package. |
 
 ### docs/specs liveness (#1649)
@@ -216,7 +219,8 @@ that it is named. An entry with no owner, outside `docs/specs/`, naming an untra
 written without the `|` separator fails the gate closed, and the gate's own files are never a
 reference, so an entry cannot justify itself. Those three files — the gate, its behavioral test
 and the owner table — fire the docs bucket on their own: `scripts/**` needs no package gate (it
-selects the contracts bucket, above), and CI's `docs` job runs the same gate on every pull request.
+selects the contracts bucket, above), and CI's `docs` job runs the same gate on every non-draft
+pull request (a draft PR skips it, and it runs once the draft is marked ready).
 
 ### The whitelist, and failing closed
 
@@ -224,7 +228,7 @@ Paths that need no package gate, because another hook or a CI job already owns t
 
 ```text
 docs/**  .claude/**  .semgrep*
-root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  supabase/**
+root-level *.md  codecov.yml  .codacy.yml  .sonarcloud.properties  osv-scanner.toml  supabase/**
 .pre-commit-config.yaml  commitlint.config.js  Makefile  .gitignore
 Gemfile  Gemfile.lock  .ruby-version  .nvmrc  .env.example  .env.test.example
 ```
@@ -237,7 +241,8 @@ and the `@types/node` major — the same single-root-pin shape, so it needs no p
 
 `.gitignore` is consumed by the repository secret scan and tracked-file checks; its exact root
 path needs no package gate. A sibling such as `.gitignore-extra` remains unowned and fails closed.
-`.codacy.yml` and `.sonarcloud.properties` configure CI-side analyzers with no local gate;
+`.codacy.yml`, `.sonarcloud.properties` and `osv-scanner.toml` (read only by the `CI / security
+(osv)` lane) configure CI-side analyzers with no local gate;
 `supabase/**` is the archived historical migration directory (#1000), not a live surface, so
 nothing in it is gated locally.
 
@@ -311,8 +316,10 @@ failed with `ERR_CONNECTION_REFUSED` while the same suite passed 43/43 on its ow
   `delivery-toolchain` lane owns them and runs them only when the plan's `delivery` or `deps`
   output is true: its runner, `.github/scripts/delivery-toolchain-tests.sh`, enumerates every
   `scripts/local-gates/*.test.sh` — the four docs-hygiene `check-*.test.sh` suites included —
-  plus `.github/test/delivery/`, `scripts/delivery/` and `.github/scripts/`. The `docs` job runs
-  the four docs-hygiene `check-*.sh` gates themselves.
+  plus `.github/test/delivery/`, `scripts/delivery/`, `.github/scripts/` and the
+  `scripts/*.test.sh` of the local developer scripts beside them (login, e2e setup, the web dev
+  server that `make dev-local` starts). The `docs` job runs the four docs-hygiene `check-*.sh`
+  gates themselves.
   `workflow-invocations.test.rb` asserts that every Ruby test in those directories and every
   shell check under `scripts/` and `.github/scripts/` is invoked by its exact path, and that every invoked
   repository script still exists. Deleting a check also requires deleting its CI invocation.

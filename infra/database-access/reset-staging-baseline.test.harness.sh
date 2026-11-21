@@ -2,9 +2,11 @@
 # The disposable PostgreSQL the reset-staging-baseline behaviour tests run each case against
 # (#1625). Source it, call `new_case <label> <seed SQL>` and `run_script <want-exit>`, and read
 # the outcome back with `expect` and the observations below. One container serves the whole run,
-# each case gets a database of its own, and `npx neonctl` is stubbed so the branch calls are
-# recorded instead of reaching the Neon API. The cases, the fixtures and the assertions belong
-# to the test file; what it takes a database, a container and a stub to offer it is here.
+# each case gets a database of its own, and neonctl — which the reset reaches only as
+# `pnpm --dir <repo>/infra exec neonctl --no-analytics` — is stubbed so the branch calls are
+# recorded instead of reaching the Neon API; `npx` refuses. The cases, the fixtures and the
+# assertions belong to the test file; what it takes a database, a container and a stub to offer it
+# is here.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -49,13 +51,32 @@ admin postgres "CREATE ROLE migrator LOGIN PASSWORD 'gate'" >/dev/null
 admin postgres "CREATE ROLE jobs_svc NOLOGIN" >/dev/null
 
 mkdir -p "$WORK/bin"
+REAL_PNPM="$(command -v pnpm)"
+INFRA_DIR="$ROOT/infra"
+export REAL_PNPM INFRA_DIR
 cat > "$WORK/bin/npx" <<'STUB'
 #!/usr/bin/env bash
-# `npx --yes neonctl@3.6.0 <command> …`: psql reaches the case's database as `--role-name`, branch
-# calls are recorded, and the branch list answers BRANCH_LIST, by default that no backup exists
-# yet. Taking a backup also records whether the marker schema was still there for it to copy.
+# The reset runs the neonctl infra's lockfile pins; a CLI fetched at run time is the regression
+# this refuses, before it can reach the registry or the Neon API.
+echo "npx stub: the reset must not run npx: $*" >&2
+exit 97
+STUB
+cat > "$WORK/bin/pnpm" <<'STUB'
+#!/usr/bin/env bash
+# `pnpm --dir <repo>/infra exec neonctl --no-analytics <command> …`, the one shape the reset
+# reaches neonctl in: psql reaches the case's database as `--role-name`, branch calls are recorded,
+# and the branch list answers BRANCH_LIST, by default that no backup exists yet. Taking a backup
+# also records whether the marker schema was still there for it to copy. neonctl in any other
+# shape refuses — analytics left on among them — so a drifted call never reaches the Neon API;
+# every other pnpm call is the real pnpm's — the stack-config read runs js-yaml through it.
 set -euo pipefail
-shift 2
+case " $* " in
+  *" neonctl "*) ;;
+  *) exec "${REAL_PNPM:?}" "$@" ;;
+esac
+[ "$1 $2 $3 $4 $5" = "--dir ${INFRA_DIR:?} exec neonctl --no-analytics" ] \
+  || { echo "pnpm stub: neonctl reached in an unexpected shape: $*" >&2; exit 97; }
+shift 5
 if [ "$1" = psql ]; then
   role=""; prev=""
   while [ "$1" != "--" ]; do [ "$prev" != "--role-name" ] || role="$1"; prev="$1"; shift; done
@@ -68,10 +89,11 @@ if [ "$1" = psql ]; then
     echo "neonctl: the owner's reset step fails, as the half-reset case requires" >&2
     exit 3
   fi
-  # neonctl announces every psql connection on stderr (#1793) — "INFO: Connecting to the
-  # database using psql..." — and the reset script's reads swallow stderr, so the rehearsal
-  # reads back the real shape: diagnostic ahead of the rows, on every call.
-  printf 'INFO: Connecting to the database using psql...\n' >&2
+  # neonctl announces every psql connection on stderr (#1793) — "Connecting to the database;
+  # launching psql..." when psql is given arguments, as every call here is (`connectionSummary`
+  # in its utils/psql.js) — and the reset script's reads swallow stderr, so the rehearsal reads
+  # back the real shape: diagnostic ahead of the rows, on every call.
+  printf 'Connecting to the database; launching psql...\n' >&2
   # The role is who psql connects as, not a label on the call log: `public` belongs to whoever
   # recreates it, and what that owner grants the migrator is this rehearsal's subject (#1896).
   PGPASSWORD=gate exec psql -h 127.0.0.1 -p "${PORT:?}" -U "${role:?}" -d "${CASE_DB:?}" "$@"
@@ -81,7 +103,7 @@ echo "branches $2" >> "${CALL_LOG:?}"
   "SELECT coalesce(to_regnamespace('prisma_contract')::text, 'absent')" > "$CALL_LOG.backup-saw"
 [ "$2" != list ] || echo "${BRANCH_LIST:-[]}"
 STUB
-chmod +x "$WORK/bin/npx"
+chmod +x "$WORK/bin/npx" "$WORK/bin/pnpm"
 
 # new_case <label> <seed SQL>: a database of its own, seeded, and the call log emptied.
 new_case() {
@@ -103,6 +125,18 @@ new_case() {
 run_script() { # run_script <want-exit>
   local rc=0
   OUT="$(PATH="$WORK/bin:$PATH" NEON_API_KEY=stub-neon-key bash "$SCRIPT" 2>&1)" || rc=$?
+  expect "$LABEL exits $1" "$1" "$rc"
+}
+
+# run_script_recorded <want-exit> <record> [<graph dir>]: the shipped `main`, reading the case's own
+# record of an old chain instead of the committed one, and the case's own migration graph when one
+# is given — sourced, the script only defines its functions, so the case points those paths
+# elsewhere, as the stack-config cases point the stack files.
+run_script_recorded() {
+  local rc=0
+  OUT="$(PATH="$WORK/bin:$PATH" NEON_API_KEY=stub-neon-key bash -c \
+    'set -euo pipefail; source "$1"; APPROVED_OLD_CHAIN="$2"; GRAPH_DIR="${3:-$GRAPH_DIR}"; main' \
+    _ "$SCRIPT" "$2" "${3:-}" 2>&1)" || rc=$?
   expect "$LABEL exits $1" "$1" "$rc"
 }
 

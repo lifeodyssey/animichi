@@ -8,9 +8,10 @@ set -euo pipefail
 unset "${!GIT_@}"
 cd "$(git rev-parse --show-toplevel)"
 
-# Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`)
-# name CI-side scanners with no local gate; `.gitleaks.toml` is the one whose
-# scanner already ran on this change at pre-commit, which reads the staged diff;
+# Root analyzer configs (`codecov.yml`, `.codacy.yml`, `.sonarcloud.properties`,
+# `osv-scanner.toml`) name CI-side scanners with no local gate; `.gitleaks.toml`
+# is the one whose scanner already ran on this change at pre-commit, which reads
+# the staged diff;
 # `Gemfile`, `Gemfile.lock` and `.ruby-version` pin the Ruby the `contracts` job
 # runs, and `.github/test/workflow-ruby-toolchain.test.rb` there is their gate;
 # `.nvmrc` is the repository's one Node version source (#716) and
@@ -21,7 +22,7 @@ cd "$(git rev-parse --show-toplevel)"
 # contents, and a credential pasted into one is caught by the pre-commit secret
 # scan, which reads the staged diff and does not route (#1813);
 # `supabase/` is the archived historical migration dir (#1000), not a live surface.
-NO_PACKAGE='^(docs/|\.claude/|\.semgrep|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.nvmrc$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
+NO_PACKAGE='^(docs/|\.claude/|\.semgrep|codecov\.yml$|\.codacy\.yml$|\.sonarcloud\.properties$|osv-scanner\.toml$|\.gitleaks\.toml$|supabase/|\.pre-commit-config\.yaml$|commitlint\.config\.js$|Makefile$|\.gitignore$|Gemfile$|Gemfile\.lock$|\.ruby-version$|\.nvmrc$|\.env\.example$|\.env\.test\.example$|[^/]+\.md$)'
 ROOT_MANIFEST='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|\.npmrc)$'
 # The contracts bucket (#1883): the three families CI's `contracts` job owns and
 # no workspace package does — `.github/**` is what every `.github/test/*.test.rb`

@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { NATIVE_SYSTEM_PROMPT } from '@animichi/agent';
-import { planRoute, resolveAnime, respond, searchBangumi, searchNearby, translateAnimeTitle, webSearch } from '@animichi/agent/tools';
+import { NATIVE_TOOL_ORDER } from '@animichi/agent/tools';
 import type { PrefixRecordingPlan } from './prefix-record.ts';
 
 const CANONICAL_SELECTION = fileURLToPath(new URL('../../datasets/canonical/phase1c_selection_v1.json', import.meta.url));
@@ -22,9 +22,9 @@ export function promptIdentity(): string {
   return `sha256:${createHash('sha256').update(NATIVE_SYSTEM_PROMPT).digest('hex').slice(0, 12)}`;
 }
 
-/** The seven production tools, in the order the harness advertises them. */
+/** The seven production tools, in the order the harness advertises them. The order is the agent's pinned list, so provenance cannot drift from the harness. */
 export function productionToolNames(): string[] {
-  return [resolveAnime, searchBangumi, searchNearby, planRoute, translateAnimeTitle, webSearch, respond].map((tool) => tool.name);
+  return [...NATIVE_TOOL_ORDER];
 }
 
 export interface CanonicalCandidate {

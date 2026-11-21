@@ -4,7 +4,8 @@ import { ANITABI_THUMBNAIL_PLAN, ANITABI_USER_AGENT } from "@animichi/contract/a
 import { serveImage, type ImgDeps } from "../src/media/img";
 import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma, type CatalogRuntime } from "../src/db/prisma";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
-import { pointInsert, pointSeed, workInsert, workSeed } from "./fixtures/catalog-seed";
+import { workSeed } from "./fixtures/catalog-seed";
+import { mediaAssetOf, seedImagePoint, seedMediaWork } from "./fixtures/media-seed";
 import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
 
 /**
@@ -16,10 +17,10 @@ import { makeCountingImageFetch, makeImageBucketStub } from "./media-doubles";
  * pull: first request fetches the origin once + stores it in R2 + writes the
  * media_assets row; the second serves from R2 without re-fetching; an origin-404
  * tombstones and serves the fallback on this and every later request without
- * re-fetching.
+ * re-fetching. Every test states the one URL its pull fetched.
  *
- * Seeding and asserting go through the pool rather than the seam under test, so
- * a plan that wrote the wrong row cannot also be the thing that reads it back.
+ * How long a pull may run and what ends it is `media-pull-bounds.integration.test.ts`;
+ * which origin it is pulled from is `media-origin.integration.test.ts`.
  */
 
 let pool: pg.Pool;
@@ -28,25 +29,10 @@ let query: CatalogPrisma;
 
 const MEDIA_WORK = workSeed("3701", "らき☆すた");
 
-/** Seed one point carrying an origin image URL, on its own work. */
-async function seedPoint(id: string, image: string | null): Promise<void> {
-  const point = pointInsert([pointSeed(id, MEDIA_WORK, "spot", 36.1, 139.6)]);
-  await pool.query(point.text, point.values);
-  await pool.query("UPDATE points SET image = $1 WHERE id = $2", [image, id]);
-}
-
-async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombstoned: boolean } | undefined> {
-  const { rows } = await pool.query(
-    "SELECT r2_key, tombstoned FROM media_assets WHERE point_id = $1", [pointId],
-  );
-  return (rows as { r2_key: string | null; tombstoned: boolean }[])[0];
-}
-
 beforeAll(async () => {
   pool = new pg.Pool({ connectionString: planeDatabaseUrl(), connectionTimeoutMillis: 10_000 });
   await truncateCatalogPool(pool);
-  const work = workInsert([MEDIA_WORK]);
-  await pool.query(work.text, work.values);
+  await seedMediaWork(pool, MEDIA_WORK);
   runtime = await acquireCatalogRuntime(planeDatabaseUrl());
   query = catalogPrisma(runtime);
 }, 120_000);
@@ -58,7 +44,7 @@ afterAll(async () => {
 
 databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
   it("first request fetches origin once, stores in R2, writes media_assets, serves bytes", async () => {
-    await seedPoint("ok-1", "https://image.anitabi.cn/ok-1.png");
+    await seedImagePoint(pool, MEDIA_WORK, "ok-1", "https://image.anitabi.cn/ok-1.png");
     const { bucket, store } = makeImageBucketStub();
     const { fetchImpl, calls, urls, agents } = makeCountingImageFetch(200, new Uint8Array([1, 2, 3]));
     const deps: ImgDeps = { query, bucket, fetchImpl };
@@ -67,44 +53,47 @@ databaseDescribe("serveImage lazy-R2 one-shot pull", () => {
     expect(res.headers.get("Cache-Control")).toContain("public");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
     expect(calls()).toBe(1);
-    expect(urls[0]).toBe("https://image.anitabi.cn/ok-1.png?plan=h160");
+    expect(urls).toEqual(["https://image.anitabi.cn/ok-1.png?plan=h160"]);
     expect(agents[0]).toBe(ANITABI_USER_AGENT);
     expect(store.has("points/ok-1")).toBe(true);
-    expect((await assetOf("ok-1"))?.r2_key).toBe("points/ok-1");
+    expect((await mediaAssetOf(pool, "ok-1"))?.r2_key).toBe("points/ok-1");
   });
 
   it("second request serves from R2 without re-fetching the origin", async () => {
-    await seedPoint("ok-2", "https://image.anitabi.cn/ok-2.png");
+    await seedImagePoint(pool, MEDIA_WORK, "ok-2", "https://image.anitabi.cn/ok-2.png");
     const { bucket } = makeImageBucketStub();
-    const { fetchImpl, calls } = makeCountingImageFetch(200, new Uint8Array([9, 9]));
+    const { fetchImpl, calls, urls } = makeCountingImageFetch(200, new Uint8Array([9, 9]));
     const deps: ImgDeps = { query, bucket, fetchImpl };
     await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
     const res = await serveImage(deps, "ok-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(200);
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([9, 9]));
     expect(calls()).toBe(1);
+    expect(urls).toEqual(["https://image.anitabi.cn/ok-2.png?plan=h160"]);
   });
 });
 
 databaseDescribe("serveImage tombstone path", () => {
   it("origin 404 tombstones the asset and serves the fallback", async () => {
-    await seedPoint("gone-1", "https://image.anitabi.cn/gone-1.png");
+    await seedImagePoint(pool, MEDIA_WORK, "gone-1", "https://image.anitabi.cn/gone-1.png");
     const { bucket, store } = makeImageBucketStub();
-    const { fetchImpl, calls } = makeCountingImageFetch(404, new Uint8Array());
+    const { fetchImpl, calls, urls } = makeCountingImageFetch(404, new Uint8Array());
     const res = await serveImage({ query, bucket, fetchImpl }, "gone-1", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
+    expect(urls).toEqual(["https://image.anitabi.cn/gone-1.png?plan=h160"]);
     expect(store.size).toBe(0);
-    expect((await assetOf("gone-1"))?.tombstoned).toBe(true);
+    expect((await mediaAssetOf(pool, "gone-1"))?.tombstoned).toBe(true);
   });
 
   it("a tombstoned asset serves the fallback on later requests without re-fetching", async () => {
-    await seedPoint("gone-2", "https://image.anitabi.cn/gone-2.png");
+    await seedImagePoint(pool, MEDIA_WORK, "gone-2", "https://image.anitabi.cn/gone-2.png");
     const { bucket } = makeImageBucketStub();
-    const { fetchImpl, calls } = makeCountingImageFetch(404, new Uint8Array());
+    const { fetchImpl, calls, urls } = makeCountingImageFetch(404, new Uint8Array());
     await serveImage({ query, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
     const res = await serveImage({ query, bucket, fetchImpl }, "gone-2", ANITABI_THUMBNAIL_PLAN);
     expect(res.status).toBe(404);
     expect(calls()).toBe(1);
+    expect(urls).toEqual(["https://image.anitabi.cn/gone-2.png?plan=h160"]);
   });
 });

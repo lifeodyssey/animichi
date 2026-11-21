@@ -36,7 +36,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | Path | Holds | Write policy |
 |---|---|---|
 | `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
-| `docs/adr/` | Registered ADRs 0001–0008 (canonical) | Amend via a new ADR |
+| `docs/adr/` | Registered ADRs 0001–0009 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
 | `docs/archive/` | `specs/` · `plans/` · `ops/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
@@ -90,13 +90,13 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Agent entry | `workers/edge/src/gateway/agent-turn.ts` → `workers/edge/src/agent/host/session-agent.ts` | Authenticated native Pi host |
 | Agent shared types | Public Pi Session/AgentLane/results and `packages/agent/src/` domain schemas | No custom execution envelope |
 | Agent tools | `packages/agent/src/harness.ts` + `tools.ts` | Seven native tools shared by serving and Eval |
-| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
+| Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `adapters/inbound/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC service over Neon, `/v1/users/*`; no token verification of its own — it trusts the edge-forwarded identity (AUTH-2 #950) |
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
 | Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data (data plane) | **Neon Postgres**; one Prisma 8 chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1626, #1636). Since #1633 every catalog/users query is a builder plan over the contract that chain generates, run on a per-request runtime | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
-| DB — private geography extension | `packages/prisma-geography/` + `packages/prisma-geography/AGENTS.md` | Prisma 8 control/runtime extension for `geography(Point,4326)` and metre/KNN operations; no consumer migration in #1623 |
+| DB — private geography extension | `packages/prisma-geography/` + `packages/prisma-geography/AGENTS.md` | Prisma 8 control/runtime extension for `geography(Point,4326)` and metre/KNN operations; the chain's Prisma config and the migrator load its control descriptor, and the catalog, users and edge Workers its runtime descriptor (#1623 shipped the pack without moving them) |
 | DB — auth | **Neon Auth (Better Auth)** integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950) | `docs/ops/auth-migration-neon.md` runbook |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
 | Design tokens / system | `apps/web/` (animal-island-ui-tailwind); ref `docs/design/animal-island-ref/` | |

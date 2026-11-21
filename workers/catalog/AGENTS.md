@@ -11,18 +11,20 @@ Root guide: `../../AGENTS.md`.
 - `pnpm test` (`test:worker` then `test:node` — hermetic, boots no container) ·
   `pnpm run test:integration`
   (Docker; deliberately not chained into `test`, see Test pools) · `pnpm run typecheck`
-  (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+  (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
   ESLint is gone.
 - `pnpm run test:smoke` — boots the real deploy bundle in workerd and asserts
   `/healthz` 200. The worker pool evaluates unbundled modules, so bundle-only
   startup failures (the StringChunk TDZ, 2026-08-05) are invisible to it — this
-  gate exists for exactly that class of bug. Runs in CI as `catalog-startup-smoke`.
+  check exists for exactly that class of bug. No CI job runs it: the bundled-boot job
+  (`catalog-startup-smoke`, later `startup-smoke`) was removed in `eb6fccd60` (2026-08-25),
+  and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
 
 ## Stack (per the ADR)
 
 - **Hono** HTTP; SSE via native `ReadableStream` (no buffering middleware).
 - **One query path.** Every read and write crosses the Prisma data plane (spec §4.2) — the
-  **nearby** read (#1628), the `src/api` handlers (#1631), the cron/daily queries, the
+  **nearby** read (#1628), the `src/adapters/inbound` handlers (#1631), the cron/daily queries, the
   **ingest → enrich → publish writes** (#1630) and, since #1633, the staging **import**
   (`src/import/switch.ts`) and **media** (`src/media/img.ts`). `src/db/prisma.ts` builds the
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
@@ -56,11 +58,12 @@ Root guide: `../../AGENTS.md`.
 
 - `src/ingest/` (per-work TTL; singleflight via the `ingest_jobs` unique constraint — never stampede
   Anitabi) · `src/enrich/` (dedup / clustering / city backfill / attribution) · `src/publish/`.
-- Route ordering is unified **here** (`src/lib/route.ts`, haversine × 1.3, SD-28) — the old Python
-  `route_optimizer.py` is retired.
+- Route ordering is unified **here** (`src/domain/itinerary/plan.ts`: greedy nearest-neighbour
+  order by haversine distance, walking time scaled by the `WALK_DETOUR_COEFFICIENT` declared in
+  the same file, SD-28) — the old Python `route_optimizer.py` is retired.
 - Data-quality gate (X15): coordinate validation / dedup / episode completeness / volume-drift.
 - Geocode API resolves normalized aliases exact-first; only an exact miss runs strict pg_trgm fuzzy
-  matching, then deterministic collapse/limit (`src/api/geocode.ts`).
+  matching, then deterministic collapse/limit (`src/adapters/inbound/geocode.ts`).
 - Gazetteer source lock: `data/gazetteer-sources.json`; generator:
   `scripts/build-gazetteer.ts`; review output: `data/gazetteer-audit.csv`. The canonical invocation and
   provenance live in `docs/data-sources.md`.
@@ -84,7 +87,8 @@ Root guide: `../../AGENTS.md`.
   rejects ``db.raw.sql`…` `` and a hand-built `new RawExpr(...)` everywhere but `src/db/`; the
   `fns.raw` / `match.raw` fragment form is the sanctioned shape and the query layer is full of it.
 - **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
-  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see `src/api/search.ts`).
+  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see
+  `src/application/list-points-for-bangumi.ts`, `syncedAt`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).
@@ -93,7 +97,12 @@ Root guide: `../../AGENTS.md`.
 
 ## Test pools
 
-- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
+- `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed, and
+  so is its network: the pool refuses every `fetch` a test did not stub, answering 500 with a body
+  that names the method and URL and logging the same line, because on 2026-11-14 a test reached
+  api.bgm.tv before it stubbed `fetch`. The guard covers `fetch` only: Miniflare passes a raw
+  `connect()` socket through, and nothing in the pool opens one (`pg` is the stub, see Stack).
+  Stub `fetch` in the test; never widen the guard.
 - `*.node.test.ts` runs in the plain Node pool via `vitest.node.config.ts`: filesystem, a child
   process, a Miniflare bucket, a fake seam — everything workerd cannot host that needs **no**
   database. It boots no container and `pnpm test` chains it after `test:worker` (#1771).
@@ -129,4 +138,10 @@ Root guide: `../../AGENTS.md`.
   via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes
   into it).
   See `test/wrangler-private.worker.test.ts`.
+- Both Node pools load `test/setup/loopback-only-fetch.ts`: the global `fetch` reaches loopback
+  only, and a request to any other host is refused before anything is sent, thrown and logged
+  with its method and URL. It is defined on `globalThis`, not stubbed, so a test's
+  `vi.unstubAllGlobals()` or `vi.restoreAllMocks()` brings the refusal back, not the network. It
+  guards `fetch` only: `pg` and testcontainers use their own sockets, and no suite in these lanes
+  sends a request through `node:http` itself. Stub `fetch` in the test; never widen the guard.
 - TDD via `vitest-pool-workers`; keep `test/contract-parity.worker.test.ts` green.

@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { handleEgressRequest, type EgressDeps, type UpstreamResponseLike } from "../src/egress-service.ts";
+import { handleEgressRequest, type EgressDeps } from "../src/egress-service.ts";
 import type { EgressConfig } from "../src/egress-config.ts";
 import type { CeilingDecision } from "../src/upstream-ceiling.ts";
+import type { UpstreamResponseLike } from "../src/upstream-relay.ts";
 
 /**
  * The request handler contract (#1792): exactly two operations; a verified
@@ -104,7 +105,7 @@ void describe("no input can name another destination", () => {
     }
   });
 
-  void it("never lets a non-GET method through to the upstream", async () => {
+  void it("refuses a non-GET method with 405 and Allow: GET, and never lets it through to the upstream", async () => {
     const upstream = recordingUpstream();
     for (const method of ["POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]) {
       const res = await handleEgressRequest(
@@ -114,7 +115,7 @@ void describe("no input can name another destination", () => {
         }),
         deps(upstream.fetch),
       );
-      assert.equal(res.status, 405);
+      assert.deepEqual([res.status, res.headers.get("allow")], [405, "GET"]);
       assert.equal(upstream.urls.length, 0, `${method} must not reach the upstream`);
     }
   });
@@ -336,14 +337,14 @@ void describe("a failed upstream answer is our marked refusal, never silence", (
 
   void it("refuses when the upstream body fails to read AFTER its headers arrived", async () => {
     // Headers arriving is not the answer arriving: a reset or stalled body
-    // stream rejects in `arrayBuffer()`. That must land in the same marked
+    // stream rejects while it is read. That must land in the same marked
     // refusal, not escape into the detached server promise and leave the
     // caller with no response at all.
     const facts = await refusalFacts(signedRequest("/anitabi/lite/2461"), {
       upstreamFetch: () => Promise.resolve({
         status: 200,
         headers: new Headers({ "content-type": "application/json" }),
-        arrayBuffer: () => Promise.reject(new Error("body stream reset")),
+        body: new ReadableStream<Uint8Array>({ pull: (controller) => { controller.error(new Error("body stream reset")); } }),
       }),
     });
     assert.equal(facts.status, 504);

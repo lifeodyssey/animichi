@@ -10,7 +10,10 @@ import { unreachableCatalogPrisma } from "./fakes/fake-catalog-prisma";
 // routing behaviour itself stays covered in cron.worker.test.ts.
 const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "production" };
 const STAGING_ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "staging" };
-const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
+const INGESTED: IngestResult = { status: "ingested", pointCount: 4 };
+const IN_PROGRESS: IngestResult = { status: "in_progress" };
+const EMPTY: IngestResult = { status: "empty", reason: "no points" };
+const FAILED: IngestResult = { status: "failed", reason: "enrich failed" };
 /**
  * The cron's Prisma seam. Every dependency in these cases is injected, so this
  * seam is never reached — building it unreachable is what proves the wiring used
@@ -81,7 +84,7 @@ describe("dailyImport cron result signal", () => {
 });
 
 describe("cron completion summary", () => {
-  it("logs attempted/ingested/skipped for the seed cron", async () => {
+  it("logs attempted/ingested/skipped/failed for the seed cron", async () => {
     const deps = dependencies({
       listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(
         new Set(SEED_BANGUMI_IDS.slice(0, 3)),
@@ -91,17 +94,45 @@ describe("cron completion summary", () => {
     await createScheduledHandler(deps)({ cron: SEED_CRON }, ENV);
 
     expect(logSpy).toHaveBeenCalledWith(
-      `seed cron: attempted=${String(SEED_BANGUMI_IDS.length - 3)} ingested=${String(SEED_BANGUMI_IDS.length - 3)} skipped=0`,
+      `seed cron: attempted=${String(SEED_BANGUMI_IDS.length - 3)} ingested=${String(SEED_BANGUMI_IDS.length - 3)} skipped=0 failed=0`,
     );
   });
 
-  it("logs attempted/ingested/skipped for the TTL cron", async () => {
+  it("logs attempted/ingested/skipped/failed for the TTL cron", async () => {
     const deps = dependencies({
       listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(["1", "2"]),
     });
 
     await createScheduledHandler(deps)({ cron: TTL_REFRESH_CRON }, ENV);
 
-    expect(logSpy).toHaveBeenCalledWith("ttl cron: attempted=2 ingested=2 skipped=0");
+    expect(logSpy).toHaveBeenCalledWith("ttl cron: attempted=2 ingested=2 skipped=0 failed=0");
+  });
+
+  it("counts failures apart from skips across both halves of the hourly pass", async () => {
+    const deps = dependencies({
+      listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue(["1", "2"]),
+      listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(["3", "4", "5"]),
+      ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>()
+        .mockResolvedValueOnce(FAILED)
+        .mockResolvedValueOnce(INGESTED)
+        .mockRejectedValueOnce(new Error("upstream exploded"))
+        .mockResolvedValueOnce(IN_PROGRESS)
+        .mockResolvedValueOnce(EMPTY),
+    });
+
+    await createScheduledHandler(deps)({ cron: TTL_REFRESH_CRON }, ENV);
+
+    expect(logSpy).toHaveBeenCalledWith("ttl cron: attempted=5 ingested=1 skipped=2 failed=2");
+  });
+
+  it("reports a pass in which every ingest throws as failed=attempted", async () => {
+    const deps = dependencies({
+      listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(["1", "2", "3"]),
+      ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockRejectedValue(new Error("upstream exploded")),
+    });
+
+    await createScheduledHandler(deps)({ cron: TTL_REFRESH_CRON }, ENV);
+
+    expect(logSpy).toHaveBeenCalledWith("ttl cron: attempted=3 ingested=0 skipped=0 failed=3");
   });
 });

@@ -1,0 +1,7 @@
+PASS the operation answered
+PASS the first value is a window of the newest 50 of the 60 seeded entries, with `before` set
+PASS before the late attach, the first watcher had received at least three changes carrying a growing partial
+PASS the late watcher's first value already holds the partial so far, as state, and it receives fewer changes than the first watcher
+PASS both watchers end on the same view: the answer entry, no run, no partial
+PASS the operation's end shows as pi.live.run leaving the view; no other end marker exists in the watch
+PASS guard: no request other than the stubbed catalog left workerd

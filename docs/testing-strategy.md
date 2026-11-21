@@ -358,7 +358,7 @@ workspace project whose files changed plus every dependent, and each selected pa
 (`apps/web`, the migration chain, `e2e`, the root dependency files) are routed by
 `dorny/paths-filter` into dedicated jobs, and a root dependency change means every package.
 `PR Verification` blocks merge unless every lane succeeds; the direct `Security` context separately
-fail-closes the six always-on security jobs.
+fail-closes the six security jobs, which no path filter gates and a draft pull request skips.
 
 **No pull request runs a model-backed eval.** The `CI / agent eval (L0 smoke)` lane — 80 capped
 trajectories against MiMo through `https://opencode.ai/zen/go/v1` — was deleted with the

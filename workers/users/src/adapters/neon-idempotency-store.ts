@@ -30,9 +30,9 @@
  * same outcome the upsert produced when its `DO UPDATE … WHERE` matched nothing.
  */
 import { SavedRoute } from "@animichi/contract";
-import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { IdempotencyRow, IdempotencyStore } from "../application/save-saved-route-idempotent";
-import type { UsersPrisma, UsersStatementBuilder } from "../db/prisma";
+import type { RowOf, UsersPrisma, UsersStatementBuilder } from "../db/prisma";
+import { iso, nullableIso } from "../db/timestamptz";
 import { IDEMPOTENCY_EXECUTION_TIMEOUT_MS } from "../domain/saved-route-idempotency";
 import { firstRow } from "./neon-saved-route-repo";
 
@@ -40,18 +40,6 @@ const IDEMPOTENCY_TABLE = "saved_route_idempotency";
 
 /** Columns every idempotency read/returning path selects. */
 const IDEMPOTENCY_COLUMNS = ["state", "fingerprint", "result", "created_at", "expires_at"] as const;
-
-/** The row a plan resolves to, read back off the plan rather than re-declared. */
-type RowOf<Plan> = Plan extends SqlOrmPlan<infer Row> ? Row : never;
-
-/** Normalize a Postgres timestamptz (a Date under Node, text under workerd). */
-function iso(value: Date | string): string {
-  return new Date(value).toISOString();
-}
-
-function nullableIso(value: Date | string | null): string | null {
-  return value === null ? null : iso(value);
-}
 
 /** The contract's own schema owns the snapshot's shape — jsonb carries none. */
 function parseSavedRouteResult(value: unknown): SavedRoute | null {

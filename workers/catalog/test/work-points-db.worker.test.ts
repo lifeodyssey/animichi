@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { workPointsDb } from "../src/api/work-points";
+import { workPointsDb } from "../src/adapters/inbound/work-points";
 import { countingCatalogPrisma } from "./fakes/fake-catalog-prisma";
-import { ROW } from "./in-memory-search-db";
+import { PUBLISHED } from "./work-points.fixtures";
 
 /**
  * The `workPointsDb` production binding (#1630).
@@ -15,10 +15,10 @@ import { ROW } from "./in-memory-search-db";
 
 describe("workPointsDb production binding", () => {
   it("binds the published-row reader to this request's runtime", async () => {
-    const counter = countingCatalogPrisma([ROW]);
+    const counter = countingCatalogPrisma([PUBLISHED]);
 
     await expect(workPointsDb(counter.query).pointsForBangumi("115908"))
-      .resolves.toEqual([ROW]);
+      .resolves.toEqual([PUBLISHED]);
     expect(counter.statements()).toBe(1);
   });
 

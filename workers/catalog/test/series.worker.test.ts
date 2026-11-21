@@ -3,7 +3,7 @@ import {
   SAME_SERIES_RELATIONS,
   walkSeries,
   type SeriesEdge,
-} from "../src/lib/series";
+} from "../src/domain/series";
 
 /**
  * Graph-walker tests for series-aware resolve.

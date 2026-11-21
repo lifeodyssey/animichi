@@ -17,7 +17,7 @@
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerNow, upsert } from "../db/plans";
-import { asJsonValue } from "../lib/json";
+import { asJsonValue } from "../db/json";
 import { TABLE_BY_KIND, tableRows } from "./snapshot-rows";
 import { type ImportCandidate, type ImportKind } from "./import-snapshot";
 

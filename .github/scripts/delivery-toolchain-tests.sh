@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # The delivery toolchain's own test suite (#1776): the behavioral tests of
 # everything under .github/lib, .github/scripts, scripts/delivery and
-# scripts/local-gates. pr-verification.yml's `delivery` filter selects this
-# suite by those paths — the tests run when the toolchain (or the tests
-# themselves) change and not otherwise — and this runner is the only thing
-# that has to know the files: the suite is enumerated, never listed, so a new
-# test joins it by landing in one of the four homes.
+# scripts/local-gates, and of the local developer scripts at the top of
+# scripts/ (login, e2e setup, the web dev server). pr-verification.yml's
+# `delivery` filter selects this suite by those paths — the tests run when the
+# toolchain (or the tests themselves) change and not otherwise — and this
+# runner is the only thing that has to know the files: the suite is
+# enumerated, never listed, so a new test joins it by landing in one of the
+# five homes.
 #
 # The tests are subprocess-bound (real scripts against fixture trees, real
 # node origins), so they run in parallel; four at a time is the default and
@@ -33,6 +35,7 @@ EXCLUSIVE_MARK='^# EXCLUSIVE:'
 suite() {
   {
     printf '%s\n' .github/test/delivery/*.test.rb \
+                  scripts/*.test.sh \
                   scripts/local-gates/*.test.sh \
                   scripts/delivery/*.test.sh
     find .github/scripts -type f -name '*.test.sh'
@@ -46,7 +49,7 @@ fi
 
 count=$(suite | wc -l)
 if [ "$count" -eq 0 ]; then
-  echo 'no delivery-toolchain tests matched the four homes' >&2
+  echo 'no delivery-toolchain tests matched the five homes' >&2
   exit 1
 fi
 

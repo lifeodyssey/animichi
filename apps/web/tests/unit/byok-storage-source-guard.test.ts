@@ -35,7 +35,11 @@ const BYOK_STORAGE_RELATIVE = "lib/byok/byok-storage.ts";
  * *component* to this list would gut the guard.
  */
 const CHAT_DRAFT_STORAGE_RELATIVE = "features/chat/lib/draft-storage.ts";
-const STORAGE_MODULES = [BYOK_STORAGE_RELATIVE, CHAT_DRAFT_STORAGE_RELATIVE];
+/** #482: the one-time save-failure flash, armed by the auth callback and
+ * consumed by the settings destination. Tab-scoped by design, so it is a
+ * storage module, not a component reaching for the API. */
+const SAVE_FAILURE_NOTICE_RELATIVE = "lib/auth/save-failure-notice.ts";
+const STORAGE_MODULES = [BYOK_STORAGE_RELATIVE, CHAT_DRAFT_STORAGE_RELATIVE, SAVE_FAILURE_NOTICE_RELATIVE];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 
 function isSourceFile(name: string): boolean {

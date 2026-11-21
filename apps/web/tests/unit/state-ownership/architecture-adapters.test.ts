@@ -11,7 +11,8 @@
 
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { STORAGE_ADAPTERS, storageViolations, transportViolations } from "./checker";
+import { storageViolations, transportViolations } from "./checker";
+import { STORAGE_ADAPTERS } from "./gate-policy";
 import { srcRoot, withoutComments } from "./scan";
 
 const SRC = srcRoot();

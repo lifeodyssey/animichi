@@ -7,6 +7,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK_SH="${SCRIPT_DIR}/check-e2e-promotion.sh"
+# This run's own directory: every fixture repo and output file lives under it,
+# so two copies running at once never share a path, and nothing outlives the run.
+TMPROOT="$(mktemp -d)"
+trap 'rm -rf "${TMPROOT}"' EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -27,8 +31,8 @@ run_check() {
 
 # ── Case 1: clean tree (no staged spec anywhere) -> passes ─────────────────
 test_clean_tree_passes() {
-  local repo out=/tmp/e2e-promo-case1.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/e2e-promo-case1.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/e2e/generated" "${repo}/e2e/agent-discovered"
   printf 'gate doc\n' > "${repo}/e2e/generated/README.md"
   printf 'gate doc\n' > "${repo}/e2e/agent-discovered/README.md"
@@ -43,8 +47,8 @@ test_clean_tree_passes() {
 
 # ── Case 2: spec committed under e2e/generated/ -> fails, names the file ───
 test_generated_spec_fails() {
-  local repo out=/tmp/e2e-promo-case2.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/e2e-promo-case2.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/e2e/generated"
   printf 'import { test } from "@playwright/test";\n' > "${repo}/e2e/generated/checkout.spec.ts"
   commit_fixture "${repo}"
@@ -56,8 +60,8 @@ test_generated_spec_fails() {
 
 # ── Case 3: spec committed under e2e/agent-discovered/ -> fails ────────────
 test_agent_discovered_spec_fails() {
-  local repo out=/tmp/e2e-promo-case3.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/e2e-promo-case3.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/e2e/agent-discovered"
   printf 'import { test } from "@playwright/test";\n' > "${repo}/e2e/agent-discovered/search.spec.ts"
   commit_fixture "${repo}"
@@ -71,8 +75,8 @@ test_agent_discovered_spec_fails() {
 #    (the guard inspects the committed tree; generated work-in-progress is
 #    allowed locally and by design) ───────────────────────────────────────────
 test_uncommitted_spec_passes() {
-  local repo out=/tmp/e2e-promo-case4.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/e2e-promo-case4.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   mkdir -p "${repo}/e2e/generated"
   printf 'gate doc\n' > "${repo}/e2e/generated/README.md"
   commit_fixture "${repo}"
@@ -84,8 +88,8 @@ test_uncommitted_spec_passes() {
 
 # ── Case 5: no e2e/ dir at all -> passes (script must not crash) ────────────
 test_no_e2e_dir_passes() {
-  local repo out=/tmp/e2e-promo-case5.out rc
-  repo="$(mktemp -d)"
+  local repo out="${TMPROOT}/e2e-promo-case5.out" rc
+  repo="$(mktemp -d "${TMPROOT}/repo.XXXXXX")"
   printf 'hello\n' > "${repo}/README.md"
   commit_fixture "${repo}"
   rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"

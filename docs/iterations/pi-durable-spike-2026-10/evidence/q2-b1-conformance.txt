@@ -1,0 +1,42 @@
+✔ Storage: reserves ID 1 for the immutable root conversation (450.079958ms)
+✔ Storage: receives a durable commit once before resolving, and never a refused one (134.347792ms)
+✔ Storage: commits mixed table writes atomically and rolls all of them back on failure (146.417417ms)
+✔ Storage: detaches retained writes and every returned record (132.484875ms)
+✔ Storage: detaches prototype-like JSON keys without changing object prototypes (122.562375ms)
+✔ Storage: indexes entries committed out of ID order (127.378459ms)
+✔ Storage: continues an entry cursor below its last item after a newer commit (130.492584ms)
+✔ Storage: paginates conversations by opaque cursor in ascending ID order (124.650542ms)
+✔ Storage: filters and pages conversations by durable owner edges (127.615792ms)
+✔ Storage: scans deep fork history newest-first through every ancestor cap (270.390459ms)
+✔ Storage: scans tables in either ID order and continues a cursor in its order (163.615625ms)
+✔ Storage: replaces complete task records and pages filtered task scans (136.304125ms)
+✔ Storage: stores owners and scans waiting and completing tasks by status (127.852459ms)
+✔ Storage: stores and scans sleeping tasks by status (127.090333ms)
+✔ Storage: indexes request IDs per conversation and replaces complete submission records (148.253417ms)
+✔ Storage: stores passive write submissions without input-only lifecycle states (126.4405ms)
+✔ Storage: stores continue submissions, which have no entry and are never queued (137.483875ms)
+✔ Storage: reconstructs rewindable documents and preserves half-open incarnations (185.825917ms)
+✔ Storage: streams long document tails across root replacement deltas (413.308ms)
+✔ Storage: copies stored document bases independently and rejects ambiguous sources (207.618875ms)
+✔ Storage: uses bases for version transitions and rejects historical reads of current-only documents (153.044ms)
+✔ Storage: indexes logical addresses and exact-scope scans independently (137.11475ms)
+✔ Storage: keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime (141.394542ms)
+✔ Storage: refuses a creation and a change of one document in one commit, in either order (121.886042ms)
+✔ Storage: rolls back record tables and secondary indexes when a document command fails (146.865541ms)
+✔ Storage: keeps indexed string identities lossless (146.36225ms)
+✔ Storage: keeps one global record ID namespace and rejects exhausted ID minting (130.895917ms)
+✔ Storage: commits batches in order, each with its seq, checked against the earlier ones (136.760625ms)
+✔ Storage: stores the batches before the first one refused, and none after it (131.540375ms)
+✔ Storage: refuses a later batch its own malformed actions fail, keeping the batches before it (136.130958ms)
+✔ Storage: resolves a batched copy against the state the earlier batches left (148.59525ms)
+✔ Storage: rejects every operation after close (105.2405ms)
+✔ keyspace: two session keys hold the same ids, request ids and roots, and each reads back only its own (246.806459ms)
+✔ keyspace, negative control: two storages on one session key collide on the root conversation (202.962417ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6018.442125

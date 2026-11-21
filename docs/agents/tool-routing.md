@@ -38,3 +38,4 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
   | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
   | `better-auth:create-auth-skill` · `better-auth:better-auth-best-practices` | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
   | `ai-sdk` | Frontend AI SDK streaming/UI in the TanStack rebuild (`apps/web`). |
+  | `maplibre-*` (source wiring, tile sources, fonts and glyphs, cartography) | Any map in `apps/web`: use the real MapLibre style, not a hand-drawn stand-in (owner, 2026-09-09: "记得涉及到map相关的 用map lira的skill"). |

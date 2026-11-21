@@ -2,7 +2,8 @@
  * The in-memory data plane the users Prisma double executes against (#1632).
  *
  * It holds two tables, reads each plan's AST, evaluates the WHERE tree against
- * the rows it holds, applies the write and projects the `returning(...)` list.
+ * the rows it holds, orders a SELECT by its ORDER BY, applies the write and
+ * projects the `returning(...)` list.
  * That is what makes `rowCount`, "exactly one statement" and "scoped to the
  * owning user" assertions still mean something now that no SQL text exists to
  * capture — and it is strictly more honest than the old fake, which matched
@@ -17,7 +18,7 @@ import type { AnyQueryAst } from "@prisma/orm-postgres/relational-core/ast";
 import type { FakeLedgerRow, FakeSavedRouteRow } from "./fake-users-rows";
 import { ledgerKey } from "./fake-users-rows";
 import {
-  insertValues, matches, project, projectionOf, tableOf, updateValues, type Row,
+  insertValues, matches, orderedRows, project, projectionOf, tableOf, updateValues, type Row,
 } from "./prisma-plan-ast";
 
 /** The instant this data plane's column defaults speak, so nothing depends on a clock. */
@@ -133,13 +134,19 @@ function runUpdate(ast: AnyQueryAst, tables: FakeUsersTables): Row[] {
   return touched.map((row) => project(row, returningOf(ast)));
 }
 
+/** A SELECT's answer: the matched rows in its ORDER BY, projected. */
+function selected(ast: AnyQueryAst, matched: readonly Row[]): Row[] {
+  const { orderBy, projection } = ast as { orderBy?: readonly unknown[]; projection?: readonly unknown[] };
+  return orderedRows(matched, orderBy).map((row) => project(row, projectionOf(projection)));
+}
+
 /** One SELECT or DELETE against the in-memory tables. */
 function runRead(ast: AnyQueryAst, tables: FakeUsersTables): Row[] {
   const table = tableOf(ast);
   const where = (ast as { where?: unknown }).where;
   const rows = table === SAVED_ROUTE_TABLE ? (tables.routes as unknown as Row[]) : [...tables.ledger.values()] as unknown as Row[];
   const matched = rows.filter((row) => matches(where, row));
-  if (ast.kind === "select") return matched.map((row) => project(row, projectionOf((ast as { projection?: readonly unknown[] }).projection)));
+  if (ast.kind === "select") return selected(ast, matched);
   for (const row of matched) tables.routes.splice(tables.routes.indexOf(row as unknown as FakeSavedRouteRow), 1);
   return matched.map((row) => project(row, returningOf(ast)));
 }

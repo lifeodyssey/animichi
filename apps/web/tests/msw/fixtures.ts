@@ -3,7 +3,8 @@ import type { Itinerary, Point, SearchResult } from "@animichi/contract";
 /** Base origin the unit MSW swimlane serves; matches the jsdom `location.origin`. */
 export const TEST_ORIGIN = "http://localhost:3000";
 
-export const CATALOG_SEARCH_URL = `${TEST_ORIGIN}/catalog/search`;
+/** The pointsByBangumiId endpoint the typed-error handler answers. */
+export const CATALOG_POINTS_BY_BANGUMI_ID_URL = `${TEST_ORIGIN}/catalog/points-by-bangumi-id`;
 
 const hakoneStation = {
   id: "point-1",
@@ -14,8 +15,8 @@ const hakoneStation = {
   longitude: 139.1069,
 } satisfies Point;
 
-/** A valid, contract-shaped catalog search payload. */
-export const searchSuccessFixture = {
+/** A valid, contract-shaped points-by-bangumi-id payload. */
+export const bangumiPointsFixture = {
   rows: [hakoneStation],
   synced_at: "2026-07-18T00:00:00.000Z",
 } satisfies SearchResult;
@@ -55,4 +56,3 @@ export const plannedItineraryFixture = {
 
 /** The planItinerary endpoint a route-detail read journey calls. */
 export const CATALOG_ITINERARY_URL = `${TEST_ORIGIN}/catalog/itinerary`;
-

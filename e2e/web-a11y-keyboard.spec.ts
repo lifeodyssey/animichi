@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { focusLanding, focusPaintSettled, tabPath } from "./helpers/tab-order";
 import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
@@ -23,12 +23,9 @@ test.use({
  * critical surface at mobile and desktop widths. Transport is stubbed so the
  * scan stays hermetic.
  */
-async function anonymousChat(page: Page): Promise<void> {
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
-  await stubTurnstileEntry(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+async function anonymousChat(page: Page, visitor: AnonymousVisitor): Promise<void> {
+  await visitor.stubSignedOutSession();
+  await visitor.stubEntryTransport();
   await page.goto("/chat");
   await solveTurnstileEntry(page);
   // Wait for the splash to clear and the real content to mount, so a Tab/click
@@ -44,8 +41,8 @@ async function anonymousChat(page: Page): Promise<void> {
 }
 
 test.describe("AC2 keyboard navigation", () => {
-  test("skip-to-content link is first in tab order, visible on focus, and jumps to main", async ({ page }) => {
-    await anonymousChat(page);
+  test("skip-to-content link is first in tab order, visible on focus, and jumps to main", async ({ page, anonymousVisitor }) => {
+    await anonymousChat(page, anonymousVisitor);
     await page.keyboard.press("Tab");
     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
     await expect(skip).toBeFocused();
@@ -53,8 +50,8 @@ test.describe("AC2 keyboard navigation", () => {
     await expect(page.locator("#main-content")).toBeFocused();
   });
 
-  test("tab order stays within interactive controls and exposes a visible focus indicator", async ({ page }) => {
-    await anonymousChat(page);
+  test("tab order stays within interactive controls and exposes a visible focus indicator", async ({ page, anonymousVisitor }) => {
+    await anonymousChat(page, anonymousVisitor);
     // The field autofocused on mount and the focus reset above blurred it, so
     // the pill's border is still animating back: the resting read has to wait
     // for that paint, not sample the middle of it.
@@ -82,12 +79,10 @@ test.describe("AC2 keyboard navigation", () => {
 });
 
 test.describe("Turnstile entry keyboard recovery", () => {
-  test("a failed verification is focusable and retries from the keyboard", async ({ page }) => {
+  test("a failed verification is focusable and retries from the keyboard", async ({ page, anonymousVisitor }) => {
     await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 204 }));
     await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }), { times: 1 });
-    await page.route("**/api/auth/get-session", (route) =>
-      route.fulfill({ status: 401, json: { error: "no session" } }),
-    );
+    await anonymousVisitor.stubSignedOutSession();
     await stubTurnstileSdk(page);
     await page.goto("/chat");
     await solveTurnstileEntry(page, "rejected-token");
@@ -109,19 +104,19 @@ test.describe("Turnstile entry keyboard recovery", () => {
  * independent settings Drawer.
  */
 test.describe("AC2 login modal focus management", () => {
-  async function openLogin(page: Page): Promise<void> {
-    await anonymousChat(page);
+  async function openLogin(page: Page, visitor: AnonymousVisitor): Promise<void> {
+    await anonymousChat(page, visitor);
     await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
     await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
   }
 
-  test("opening the modal moves focus inside and onto the email field", async ({ page }) => {
-    await openLogin(page);
+  test("opening the modal moves focus inside and onto the email field", async ({ page, anonymousVisitor }) => {
+    await openLogin(page, anonymousVisitor);
     await expect(page.getByRole("textbox", { name: /メール|email/i })).toBeFocused();
   });
 
-  test("tab traps inside the modal and never leaks into the page behind", async ({ page }) => {
-    await openLogin(page);
+  test("tab traps inside the modal and never leaks into the page behind", async ({ page, anonymousVisitor }) => {
+    await openLogin(page, anonymousVisitor);
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       const inside = await page.evaluate(() => {
@@ -132,8 +127,8 @@ test.describe("AC2 login modal focus management", () => {
     }
   });
 
-  test("escape closes the modal and restores focus to the trigger", async ({ page }) => {
-    await anonymousChat(page);
+  test("escape closes the modal and restores focus to the trigger", async ({ page, anonymousVisitor }) => {
+    await anonymousChat(page, anonymousVisitor);
     const trigger = page.getByRole("button", { name: /^(ログイン|sign in)$/i });
     await trigger.click();
     const login = page.getByRole("dialog", { name: /ログイン|sign in/i });
@@ -162,21 +157,15 @@ test.describe("AC2/AC4 error recovery by keyboard", () => {
 });
 
 test.describe("AC4 no-pointer / reduced-motion states", () => {
-  const healthy = async (page: Page): Promise<void> => {
-    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  };
-
-  test("the chat page exposes a polite live region for async updates", async ({ page }) => {
-    await stubTurnstileEntry(page);
-    await healthy(page);
+  test("the chat page exposes a polite live region for async updates", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubEntryTransport();
     await page.goto("/chat");
     await solveTurnstileEntry(page);
     await expect(page.locator('[aria-live="polite"]').first()).toBeAttached();
   });
 
-  test("reduced-motion keeps the page operable (main renders, no blocking motion)", async ({ page }) => {
-    await stubTurnstileEntry(page);
-    await healthy(page);
+  test("reduced-motion keeps the page operable (main renders, no blocking motion)", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubEntryTransport();
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/chat");
     await solveTurnstileEntry(page);

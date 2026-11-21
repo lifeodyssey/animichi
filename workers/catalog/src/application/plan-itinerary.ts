@@ -23,7 +23,7 @@ import type { ClusterablePoint, LocationCluster } from "../domain/clustering/clu
 import { clusterByLocation } from "../domain/clustering/cluster";
 import type { Origin as KernelOrigin, TimedItinerary } from "../domain/itinerary/plan";
 import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../domain/itinerary/plan";
-import { optional } from "../lib/optional";
+import { optional } from "./optional";
 import type { Origin, Pacing, Point, Itinerary } from "../types";
 
 /** An itinerary point: the contract `Point` + the geo fields clustering needs. */

@@ -143,7 +143,7 @@
 - **唤醒延迟 <1s**（477/803ms），对比 Python 容器睡醒 28–32s、部署后 74s——重写的核心收益成立。
 - mimo-v2.5 直连一次回合 **52s**，是模型侧响应时长而非平台开销（同一 Worker 上 Gemini 3.5s）；S2（#1245）定方言时必须把这个数字当基线，若 zen 网关路由显著更快应改路由。
 - 三处 abort 均无残留状态，S1 的 abort 验收通过。
-- Anthropic 在 workerd 上的往返**仍未证实**（本地无 key）；拿到 key 后跑 `scripts/spike/pi-s1-measure.sh turn --provider anthropic` 补一行即可，不阻塞 S2/S4/S5。
+- Anthropic 在 workerd 上的往返**仍未证实**（本地无 key），不阻塞 S2/S4/S5。spike Worker 与附录 A–D 的测量脚本 `scripts/spike/*.sh` 都已删除（脚本最后一版在 `be822d444`），这一行不再补测。
 - 已知未覆盖：`enable_request_signal` 开/关对照（8/29 报告 S1 清单项）被 Q1"回合独立于连接"的决定取代，未做。
 
 ## 附录 B · W0-S2 实测（2026-09-02，#1245 / PR #1266）
@@ -167,7 +167,7 @@
 结论（S2 定版）：
 - **mimo 直连不需要任何 compat 覆盖**：pi-ai 的 `detectCompat()` 不认识 `api.xiaomimimo.com`，按 `api.openai.com` 的默认集处理，19 个取值全部完成工具往返且带流式 usage。W1 的 mimo Model 保持"无 `compat`"即可；`maxTokensField` 两种字段名都被接受，沿用默认 `max_completion_tokens`。
 - 单轮 wall **4–12s，中位数约 6.5s**，唯一离群值 28.7s（`max_completion_tokens` 那轮）。附录 A 记录的 52s 未复现，按偶发慢响应处理，不作基线。
-- zen 路由（`opencode.ai/zen/go`）落在 pi 的 `isNonStandard` 默认集，与直连不同；拿到 `ZEN_GO_API_KEY` 后跑 `--route zen` 补齐即可，不阻塞 W1（W1 用直连）。
+- zen 路由（`opencode.ai/zen/go`）落在 pi 的 `isNonStandard` 默认集，与直连不同；它没有测过，不阻塞 W1（W1 用直连），spike 删除后也不再补测。
 
 ## 附录 C · W0-S4 实测（2026-09-02，#1247 / PR #1268）
 

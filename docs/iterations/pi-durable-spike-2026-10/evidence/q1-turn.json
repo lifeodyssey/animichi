@@ -1,0 +1,248 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "title": "Turn Probe",
+  "operationId": "turn-1",
+  "receipt": {
+    "operationId": "turn-1",
+    "session": "1",
+    "accepted": true
+  },
+  "result": {
+    "operationId": "turn-1",
+    "session": "1",
+    "status": "done",
+    "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}"
+  },
+  "catalogCalls": 1,
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "text": "Resolve the anime titled \"Turn Probe\"."
+    },
+    {
+      "id": 10,
+      "kind": "pi.system",
+      "text": ""
+    },
+    {
+      "id": 11,
+      "kind": "pi.assistant",
+      "toolCalls": [
+        {
+          "name": "resolve_anime",
+          "arguments": {
+            "title": "Turn Probe"
+          }
+        }
+      ],
+      "usage": {
+        "input": 0,
+        "output": 9,
+        "cacheRead": 0,
+        "cacheWrite": 66,
+        "totalTokens": 75,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    {
+      "id": 13,
+      "kind": "pi.tool-result",
+      "toolName": "resolve_anime",
+      "isError": false,
+      "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}"
+    },
+    {
+      "id": 15,
+      "kind": "pi.assistant",
+      "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}",
+      "usage": {
+        "input": 0,
+        "output": 25,
+        "cacheRead": 66,
+        "cacheWrite": 41,
+        "totalTokens": 132,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "constructed",
+      "detail": {
+        "replay": "safe"
+      },
+      "at": 1795016297315
+    },
+    {
+      "seq": 2,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "start",
+      "detail": null,
+      "at": 1795016297357
+    },
+    {
+      "seq": 3,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "request:submit",
+      "detail": {
+        "title": "Turn Probe",
+        "operationId": "turn-1"
+      },
+      "at": 1795016297362
+    },
+    {
+      "seq": 4,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "model:tool_call",
+      "detail": {
+        "title": "Turn Probe",
+        "args": {
+          "title": "Turn Probe"
+        },
+        "sawRole": "user"
+      },
+      "at": 1795016297387
+    },
+    {
+      "seq": 5,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "tool:start",
+      "detail": {
+        "title": "Turn Probe",
+        "replay": "safe"
+      },
+      "at": 1795016297406
+    },
+    {
+      "seq": 6,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016297415
+    },
+    {
+      "seq": 7,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016297415
+    },
+    {
+      "seq": 8,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "tool:end",
+      "detail": {
+        "title": "Turn Probe",
+        "status": 200
+      },
+      "at": 1795016297428
+    },
+    {
+      "seq": 9,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "model:answer",
+      "detail": {
+        "title": "Turn Probe",
+        "sawToolResult": {
+          "isError": false,
+          "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Turn Probe\",\"title_cn\":\"巡礼\"}}"
+        }
+      },
+      "at": 1795016297454
+    },
+    {
+      "seq": 10,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "request:wait",
+      "detail": {
+        "operationId": "turn-1"
+      },
+      "at": 1795016297460
+    },
+    {
+      "seq": 11,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "job",
+      "detail": {
+        "id": "pi-wake",
+        "fn": "wake"
+      },
+      "at": 1795016297462
+    },
+    {
+      "seq": 12,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "alarm",
+      "detail": null,
+      "at": 1795016297463
+    },
+    {
+      "seq": 13,
+      "instance": "c857d8e4-df5a-43e6-92b5-0053e387bd04",
+      "kind": "request:report",
+      "detail": {
+        "operationId": "turn-1"
+      },
+      "at": 1795016297467
+    }
+  ],
+  "probes": {
+    "moduleScope": {
+      "newFunction": {
+        "allowed": true
+      },
+      "abortSignalAny": "function"
+    },
+    "handler": {
+      "newFunction": {
+        "allowed": false,
+        "error": "EvalError: Code generation from strings disallowed for this context"
+      }
+    },
+    "abortSignalAnyCallsSinceLoad": {
+      "calls": 0,
+      "patched": true
+    },
+    "abortSignalAnyCallsAfterOwnCall": {
+      "calls": 1,
+      "patched": true
+    },
+    "abortSignalAny": {
+      "type": "function",
+      "abortedBefore": false,
+      "abortedAfter": true,
+      "reason": "second aborted"
+    },
+    "dateNowDuringSyncWork": {
+      "elapsedMs": 63,
+      "spin": 184
+    },
+    "setTimeout": {
+      "requestedMs": 25,
+      "elapsedMs": 26
+    }
+  }
+}

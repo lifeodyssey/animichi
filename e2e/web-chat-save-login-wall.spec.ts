@@ -1,10 +1,9 @@
-import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { dictFor } from "../apps/web/src/i18n/dictionaries";
 import { DEFERRED_SAVE_KEY, DEFERRED_SAVE_TTL_MS } from "../apps/web/src/features/chat/save/deferred-save";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #273 (S1.7) Task 2 browser ACs: the 「保存する」 CTA is the only proactive
@@ -49,16 +48,6 @@ function routeStream(): string {
   });
 }
 
-async function openChat(page: Page): Promise<void> {
-  await stubTurnstileEntry(page);
-  await stubAnonymousSession(page);
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto("/chat");
-  await solveTurnstileEntry(page);
-  await hydrated;
-}
-
 async function send(page: Page, text: string): Promise<void> {
   await page.getByRole("textbox").fill(text);
   await page.getByRole("button", { name: ja.send }).click();
@@ -87,14 +76,6 @@ async function captureSaves(context: BrowserContext, bodies: unknown[]): Promise
       },
     });
   });
-}
-
-/** The suite's anonymous answer on the SDK session probe, same 401 as
- * `web-hero-query.spec.ts`: "anonymous", or the 保存する tap would skip the wall. */
-async function stubAnonymousSession(page: Page): Promise<void> {
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
 }
 
 /** The JWT the callback redeems. Three segments, because `neon-auth-client.ts`
@@ -157,20 +138,24 @@ async function stashIntent(page: Page, createdAt: number): Promise<void> {
   );
 }
 
-async function planRoute(page: Page): Promise<void> {
+/** Signed out on purpose, here and in the first case below: the session probe
+ * must answer "anonymous", or the 保存する tap would skip the wall. */
+async function planRoute(page: Page, visitor: AnonymousVisitor): Promise<void> {
   await page.route("**/v1/chat", (route) =>
     route.fulfill({ status: 200, headers: SSE_HEADERS, body: routeStream() }),
   );
-  await openChat(page);
+  await visitor.stubSignedOutSession();
+  await visitor.enterChat();
   await sendRoute(page, "ユーフォのルートを組んで");
   await expect(page.getByRole("list", { name: ja.route.timelineLabel })).toBeVisible();
 }
 
-test("no happy-path step opens the login dialog before the 保存する tap", async ({ page }) => {
+test("no happy-path step opens the login dialog before the 保存する tap", async ({ page, anonymousVisitor }) => {
   await page.route("**/v1/chat", (route) =>
     route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("clarify") }),
   );
-  await openChat(page);
+  await anonymousVisitor.stubSignedOutSession();
+  await anonymousVisitor.enterChat();
   await send(page, "ユーフォ");
   // The click returns before this turn's POST leaves the browser, so the
   // no-dialog assertion alone is no barrier: `unroute`/`route` land while the
@@ -195,8 +180,8 @@ test("no happy-path step opens the login dialog before the 保存する tap", as
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("an anonymous 保存する tap opens the magic-link login dialog", async ({ page }) => {
-  await planRoute(page);
+test("an anonymous 保存する tap opens the magic-link login dialog", async ({ page, anonymousVisitor }) => {
+  await planRoute(page, anonymousVisitor);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -218,10 +203,10 @@ async function sendLinkAndDismiss(page: Page): Promise<void> {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
-test("closing the wall after the link is sent keeps the intent — the mainline", async ({ page, context }) => {
+test("closing the wall after the link is sent keeps the intent — the mainline", async ({ page, context, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await planRoute(page);
+  await planRoute(page, anonymousVisitor);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await sendLinkAndDismiss(page);
@@ -235,10 +220,10 @@ test("closing the wall after the link is sent keeps the intent — the mainline"
   await expect.poll(() => bodies.length).toBe(1);
 });
 
-test("closing the wall before sending anything cancels the save", async ({ page, context }) => {
+test("closing the wall before sending anything cancels the save", async ({ page, context, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await planRoute(page);
+  await planRoute(page, anonymousVisitor);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await page.getByRole("button", { name: /閉じる|Close/i }).click();
   expect(await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
@@ -249,10 +234,10 @@ test("closing the wall before sending anything cancels the save", async ({ page,
   expect(bodies).toEqual([]);
 });
 
-test("the deferred intent survives a new tab of the same profile and replays once", async ({ page, context }) => {
+test("the deferred intent survives a new tab of the same profile and replays once", async ({ page, context, anonymousVisitor }) => {
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
-  await planRoute(page);
+  await planRoute(page, anonymousVisitor);
   await page.getByRole("button", { name: ja.route.saveCta }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 

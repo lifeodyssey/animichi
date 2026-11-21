@@ -9,9 +9,10 @@
  * with correct ESM order, so bundle-only startup failures are invisible to
  * every unit test. The StringChunk TDZ that blocked all staging deploys
  * (ef1f7369, 2026-08-05) was exactly such a failure — green CI, dead Worker.
- * Only a real boot of the bundled Worker catches this class of bug. Wired
- * into CI as the `catalog-startup-smoke` job (runs on every PR touching
- * workers/catalog).
+ * Only a real boot of the bundled Worker catches this class of bug. No CI job
+ * runs it: the `catalog-startup-smoke` job was removed in eb6fccd60
+ * (2026-08-25), and neither the affected matrix nor pre-push runs
+ * `test:smoke`. Run it by hand from workers/catalog: `pnpm run test:smoke`.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";

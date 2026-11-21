@@ -4,7 +4,8 @@
 # commits reached main during a CD debugging session and left the script echoing
 # `schema-preflight.json` into the job log while the migrator's 503 body carried the driver
 # exception — so the log carried a DSN. Both ends of that are closed now, and this file holds
-# the log-hygiene half of the pin; the retry semantics are in schema-preflight.test.sh.
+# the log-hygiene half of the pin; the retry semantics are in schema-preflight.test.sh. Nor may
+# the migrator token the preflight presents reach the log.
 set -euo pipefail
 
 # shellcheck source=scripts/delivery/schema-preflight-testbed.sh
@@ -36,6 +37,16 @@ run "an unresolved stale bundle prints no response body" 1 \
   STUB_FAIL_UNTIL=999 STUB_FAIL_CODE=409
 expect_log "stale-bundle path is canary-free" 0 "$CANARY"
 expect_log "and the stale path did print its refusal" 1 "::error::"
+
+echo
+echo "=== the migrator token is presented, never printed ==="
+# The token the call-migrator action's mint step hands the preflight rides every request, the
+# stale-bundle retry included, and the script asks for no other.
+run "a stale bundle and then a 200 present the handed token" 0 \
+  STUB_FAIL_UNTIL=1 STUB_FAIL_CODE=409 BUNDLE_POLL_SECONDS=0
+expect_eq "and both preflight requests carried it as their bearer" 2 \
+  "$(grep -c -- "-H Authorization: Bearer $HANDED_TOKEN -H" "$LAST_STATE_DIR/argv")"
+expect_log "and no log line carries it" 0 "$HANDED_TOKEN"
 
 echo
 report_suite "schema-preflight log hygiene"

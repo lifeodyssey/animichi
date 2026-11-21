@@ -5,9 +5,10 @@ import { CATALOG_TABLES } from "../migrations/app/20260913T1711_data_plane_basel
 import { NATIVE_TABLES } from "../migrations/app/20260913T1711_data_plane_baseline/native-tables.ts";
 import { USER_TABLES } from "../migrations/app/20260913T1711_data_plane_baseline/user-tables.ts";
 import contractJson from "../src/contract.json" with { type: "json" };
+import { stillBuilt } from "./head-state.ts";
 
 const NATIVE_TABLE_NAMES = [...NATIVE_TABLES, ...AGENT_TABLES].map(({ table }) => table);
-const DATA_PLANE_TABLE_NAMES = [...CATALOG_TABLES, ...USER_TABLES].map(({ table }) => table);
+const DATA_PLANE_TABLE_NAMES = stillBuilt([...CATALOG_TABLES, ...USER_TABLES].map(({ table }) => table));
 
 interface DeclaredIndex {
   readonly name: string;
@@ -30,7 +31,7 @@ function declaredIndex(schema: Record<string, DeclaredTable>, table: string, nam
   return (schema[table]?.indexes ?? []).find((index) => index.name === name);
 }
 
-void test("the native contract contains exactly the seven native and 19 data-plane tables", () => {
+void test("the native contract contains exactly the seven native and 17 data-plane tables", () => {
   assert.deepEqual(Object.keys(contractJson.roots).sort(), [...NATIVE_TABLE_NAMES, ...DATA_PLANE_TABLE_NAMES].sort());
 });
 

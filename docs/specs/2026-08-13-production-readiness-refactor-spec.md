@@ -65,7 +65,7 @@ The finished repository has one current architecture story, one active execution
 31. As an operator, I want WAF protection to remain the outer staging control, so that bots and network abuse are rejected before application work begins.
 32. As a Catalog operator, I want only production to run the automatic upstream crawler, so that staging does not duplicate traffic or race the source of truth.
 33. As a Catalog operator, I want production discovery to combine Bangumi seasonal, popular, and historical coverage with Anitabi point and original-image enrichment, so that coverage grows sustainably.
-34. As an upstream provider, I want request, work, and runtime budgets with refresh tiers, so that Animichi does not crawl sources aggressively.
+34. As an upstream provider, I want request and work budgets with refresh tiers, so that Animichi does not crawl sources aggressively.
 35. As a Catalog maintainer, I want provenance retained for each source-derived field and only the latest and previous raw payload retained, so that changes remain diagnosable without unlimited storage.
 36. As a Catalog reader, I want only fully validated snapshots published atomically, so that partial ingest never becomes visible.
 37. As an operator, I want the latest two Catalog snapshots retained behind a versioned manifest and atomic latest pointer, so that rollback remains simple.
@@ -172,7 +172,7 @@ The finished repository has one current architecture story, one active execution
 
 - Production runs one automatic Catalog ingestion schedule, initially daily. Staging deploys the same worker code but has no automatic upstream crawler schedule.
 - Discovery combines Bangumi current-season lists, popularity surfaces, and historical coverage. Anitabi supplies pilgrimage points, source mapping, and original images. Coverage grows gradually under explicit daily budgets.
-- Refresh policy is tiered by volatility and value. Budgets cap works, upstream requests, and runtime; exhaustion records a partial run without publishing an invalid snapshot.
+- Refresh policy is tiered by volatility and value. Budgets cap works and upstream requests; exhaustion records a partial run without publishing an invalid snapshot.
 - Source provenance is retained per field or record. Raw upstream payload retention is bounded to the latest and previous versions needed for diagnosis.
 - Ingest writes an isolated candidate dataset, validates quality and referential integrity, then atomically publishes a complete snapshot. Readers never observe half-published data.
 - Object storage retains the latest two immutable catalog snapshots. A versioned manifest and atomic latest pointer identify the active snapshot and its predecessor.

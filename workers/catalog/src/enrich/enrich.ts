@@ -8,15 +8,18 @@
  *   3. cluster the points (clusterByLocation, 50m). The `points` table has NO
  *      cluster_id column (see remote_schema.sql), so clusters are COMPUTED and
  *      counted here, NOT persisted — route planning re-clusters at query time
- *      (O(n^2)/work). Persisting cluster_id (or centroids into route_snapshots)
- *      is a deliberate later-wave decision, not an oversight;
+ *      (O(n^2)/work). Persisting cluster_id is a deliberate later-wave
+ *      decision, not an oversight;
  *   4. build aliases from the bangumi title(s) -> rankAliases -> UPSERT. Only the
- *      Bangumi source is wired here; AniDB/Moegirl/Manual arrive via later ingest;
- *   5. publish a new cluster_version, bumping the blue/green pointer.
+ *      Bangumi source is wired here; AniDB/Moegirl/Manual arrive via later ingest.
+ *
+ * The pass mints no version. Until 2026-11-19 it ended by writing a new
+ * `cluster_version` row, a blue/green pointer that nothing read; the write is
+ * gone, and the `drop_cluster_version_tables` migration dropped the table.
  *
  * The whole pass runs in ONE transaction, which is what the deleted `db.batch`
- * was for: a reader never sees the new rows against the old version pointer, and
- * the version flip never survives a failed enrich.
+ * was for: the work's bangumi row, points and aliases commit together, and a
+ * failed enrich leaves none of them written.
  *
  * Statements are builder plans run on the request's runtime ({@link
  * CatalogPrisma}). The UPSERTs add the conflict clause the builder does not model
@@ -38,33 +41,30 @@ import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { upsert } from "../db/plans";
 import { clusterByLocation } from "../domain/clustering/cluster";
-import { rankAliases, Source, type RawAlias } from "../lib/alias";
-import { publishVersion } from "../publish/versioning";
+import { rankAliases, Source, type RawAlias } from "../domain/alias";
 import { parseAnitabiPoints, parseBangumi, type BangumiRow, type PointRow } from "./parse";
 
-/** Outcome of enriching one work: the published version + point count. */
+/** Outcome of enriching one work: how many points it wrote. */
 export interface EnrichResult {
-  version: number;
   pointCount: number;
 }
 
-/** Enrich one work from its raw zone, then publish a new catalog version. */
+/** Enrich one work from its raw zone into the catalog, in one transaction. */
 export async function enrichWork(query: CatalogPrisma, bangumiId: string): Promise<EnrichResult> {
   const bangumi = parseBangumi(bangumiId, await readRaw(query, "raw_bangumi", bangumiId));
   const points = parseAnitabiPoints(bangumiId, await readRaw(query, "raw_anitabi", bangumiId));
   logClusters(bangumiId, points);
-  const version = await query.transaction((tx) => writeWork(tx, bangumiId, bangumi, points));
-  return { version, pointCount: points.length };
+  await query.transaction((tx) => writeWork(tx, bangumiId, bangumi, points));
+  return { pointCount: points.length };
 }
 
 /** Every write the pass owns, in its mandatory order, inside the caller's transaction. */
 async function writeWork(
   query: CatalogPrisma, bangumiId: string, bangumi: BangumiRow, points: PointRow[],
-): Promise<number> {
+): Promise<void> {
   await query.executor.query(upsertBangumi(query, bangumi));
   if (points.length > 0) await query.executor.query(upsertPoints(query, points));
   await query.executor.query(upsertAliases(query, bangumiId, bangumi));
-  return publishVersion(query, bangumiId);
 }
 
 /** Read a raw-zone payload for the work; throw if the row is absent. */

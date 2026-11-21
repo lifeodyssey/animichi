@@ -35,6 +35,47 @@ precise GRANT is decoration.
 - A migration that fails freezes the whole CD chain: the stage's later jobs are skipped, nothing
   deploys, and the merged PR looks fine. Watch the migration step, not the merge.
 
+## CD migrates before it publishes (2026-11-19)
+
+Both CD stages run "Apply the selected migration chain" before "Publish the selected services"
+(`.github/workflows/cd.yml`; `.github/test/cd-stage.test.rb` pins the order). In run 44493870952
+the staging chain step started at 09:11:57Z and the publish step at 09:12:07Z: between them the
+new schema serves the old code. A migration that removes something the old code still writes
+breaks that window, so split it expand–contract across two PRs, or prove the old code survives
+it, with a case for the behaviour the proof rests on (`docs/agents/review-and-verification.md`).
+`docs/ops/deployment.md` states the rule under "Schema change policy" and the step order under
+"Migration promotion". #2076 is the first half of such a split, and its body gives this window as
+the reason: it stops writing `cluster_version` and leaves the drop to a second PR, because a drop
+in the same release would have failed every publish of the old catalog code in that window. CD
+may skip `main` commits, so each half also needs its own release in each environment: approving
+production for a snapshot that carries both halves is the same-release drop again.
+
+## The test template follows the emitted contract; a revert cannot undo a drop (2026-11-20)
+
+Read in the installed Prisma 8.0.0-rc.8 (CLI) and rc.9 (migrator) for the chain's first table
+drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
+
+- `prisma db migrate` without `--to`, which `packages/test-postgres` uses to seed its migrated
+  template, targets the emitted `src/contract.json`, not the newest migration. The template is
+  named after the migration directories alone, and seeding reads no marker. So a tree whose
+  `contract.json` lags its chain seeds the template at the old head under the new chain's name,
+  and every lane that clones it is green with nothing applied. Restoring an older
+  `contract.json` to run old code against a new schema makes exactly such a tree. Seed the
+  template from the intact tree first, and check a clone's `prisma_contract.marker` before
+  trusting such a run.
+- Prisma's runner wraps an apply in one transaction, marker included
+  (`PostgresMigrationRunner.execute` in `@prisma/orm-target-postgres` 8.0.0-rc.9). For this one
+  migration in the app space,
+  `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins it: a drop that
+  fails rolls back whole and leaves the marker where it was. Applies of several migrations or
+  contract spaces are read from the runner's source, not tested. After a failed drop, reverting
+  the PR unfreezes CD, because the selected target equals the live marker. Once a drop has
+  applied, a revert does the opposite: the live marker is then no node of the reverted chain's
+  graph. On staging the rebuild step (`infra/database-access/reset-staging-baseline.sh`) refuses
+  first, naming the marker as an old chain's and offering the owner's rebuild record; in
+  production the preflight refuses. Either way CD stays frozen until a forward fix or a PITR:
+  that record is for a rebuild the owner decided, not a remedy for a revert.
+
 ## The serverless driver has no TCP path (re-verify when the dependency changes)
 
 `@neondatabase/serverless` (still an edge dependency in `workers/edge/package.json`) reaches

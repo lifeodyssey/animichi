@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 /**
- * The `src/api` batch opens no query path of its own (#1631, #1633).
+ * The `src/adapters/inbound` batch opens no query path of its own (#1631, #1633).
  *
  * The query layer moved a batch at a time, so what has to hold is a property of
  * the API layer's own tree rather than of any one behaviour: a handler that kept
@@ -18,10 +18,10 @@ import { describe, expect, it } from "vitest";
  * module that reached a driver directly would be a second one.
  *
  * What this rule does NOT forbid: `import type { SqlOrmPlan } from
- * "@prisma/orm-postgres/relational-core/types"`, which `src/api/search.ts` and
- * `src/api/spots.ts` carry. That is the plan's TYPE — erased at compile time,
- * naming what the seam hands back — never a client. Constructing one is the
- * thing this batch stopped reaching for.
+ * "@prisma/orm-postgres/relational-core/types"`, which a module that builds its
+ * own plan carries (the outbound adapters do). That is the plan's TYPE — erased at
+ * compile time, naming what the seam hands back — never a client. Constructing
+ * one is the thing this batch stopped reaching for.
  */
 
 /**
@@ -37,7 +37,7 @@ const DRIVER_ENTRIES = [
 ];
 
 /** The batch this card owns: the read handlers and the router that wires them. */
-const BATCH = ["src/api/", "src/router.ts"];
+const BATCH = ["src/adapters/inbound/", "src/router.ts"];
 
 type TextTree = Readonly<Record<string, string>>;
 
@@ -83,30 +83,30 @@ export function driverImporters(tree: TextTree): string[] {
     .sort();
 }
 
-describe("the src/api batch constructs no database client (#1631, #1633)", () => {
+describe("the src/adapters/inbound batch constructs no database client (#1631, #1633)", () => {
   it("reaches the plane through the seam and nothing else", () => {
     expect(driverImporters(catalogTree())).toEqual([]);
   });
 
   it("reads the batch's own tree, not an empty one", () => {
-    expect(Object.keys(catalogTree())).toContain("src/api/search.ts");
+    expect(Object.keys(catalogTree())).toContain("src/adapters/inbound/work-points.ts");
     expect(Object.keys(catalogTree())).toContain("src/router.ts");
   });
 
   it("goes red when a batch module reaches a driver, however it is spelled", () => {
     expect(driverImporters({
       ...catalogTree(),
-      "src/api/probe.ts": 'import postgresServerless from "@prisma/orm-postgres/serverless";\n',
-      "src/api/lazy-probe.ts": 'const m = await import("pg");\n',
-      "src/api/neon-probe.ts": 'import { neon } from "@neondatabase/serverless";\n',
+      "src/adapters/inbound/probe.ts": 'import postgresServerless from "@prisma/orm-postgres/serverless";\n',
+      "src/adapters/inbound/lazy-probe.ts": 'const m = await import("pg");\n',
+      "src/adapters/inbound/neon-probe.ts": 'import { neon } from "@neondatabase/serverless";\n',
       "src/adapters/outbound/kept.ts": 'import pg from "pg";\n',
-    })).toEqual(["src/api/lazy-probe.ts", "src/api/neon-probe.ts", "src/api/probe.ts"]);
+    })).toEqual(["src/adapters/inbound/lazy-probe.ts", "src/adapters/inbound/neon-probe.ts", "src/adapters/inbound/probe.ts"]);
   });
 
-  it("allows the plan TYPE the handlers actually import", () => {
+  it("allows type-only imports of the plan and the seam", () => {
     expect(driverImporters({
-      "src/api/search.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
-      "src/api/spots.ts": 'import type { CatalogPrisma } from "../db/prisma";\n',
+      "src/adapters/inbound/nearby.ts": 'import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";\n',
+      "src/adapters/inbound/work-points.ts": 'import type { CatalogPrisma } from "../../db/prisma";\n',
     })).toEqual([]);
   });
 });

@@ -95,3 +95,81 @@ SD-19 in `docs/specs/2026-07-06-frontend-rebuild-spec.md` is the policy. The rat
    tool-result-parsing literature agree). The TS tier delimits web-search results
    (`packages/agent/src/web-search-results.ts`) and has no detection layer; a new free-text tool
    brings its own guard.
+4. A channel the model trusts unconditionally, such as the `agent_status` message, escapes external
+   strings when it renders them. In the #1379 re-review (2026-09-06) a seat put `</agent_status>`
+   inside a work title and closed the tag, forging server state; `packages/agent/src/status-value.ts`
+   is the fix.
+
+## Measuring a change (owner, 2026-07-07 to 2026-10-15)
+
+- A report of an eval run carries its scores, accuracy and token spend ("刚刚测试花了多少token 准确率如何",
+  "所以现在还是没有分数是吧", 2026-07-07).
+- Cases that improved after tuning get at least three new cases of each kind to show the gain
+  is not overfitting ("我们需要多写一些同类的case来证明不是过拟合了", "每类至少三个新 case", 2026-07-20).
+- For zdev's skill-retrieval eval the owner chose (2026-10-15): tune on a development set,
+  measure the test set once at the end, never tune against its misses. The same discipline applies
+  to the agent eval because the reason is the same (tuning against the test set's misses is
+  fitting the test set); that is the controller's reading, not an owner statement.
+- The owner agreed that zdev's eval set, which holds the owner's conversations, stays on this
+  machine (2026-10-15). Keeping every eval set that holds the owner's conversations out of the
+  repository, which then keeps only the eval commands and small synthetic fixtures, is the
+  controller's reading of that agreement, not an owner statement.
+
+## Model request prefix stability (#546, 2026-10-02)
+
+Chapter 2's KV-cache discipline above is now machine-checked. The prefix is the leading system
+message's prompt plus its tool declarations, in the order `createPilgrimageHarness` advertises
+them. `packages/agent/src/native-request-prefix.ts` replays the transcript a provider actually
+received (`requestPrefixOf`), serializes it (`serializePrefix`), and names every drift
+(`prefixDrift`, `assertPrefixStable`); `assertPrefixPinned` compares a sent prefix to the production
+advertisement. The guard runs in `packages/agent/test/native-request-prefix.test.ts` (timestamp,
+session id, request id, tool reorder and declaration mutations) and
+`packages/agent/test/native-prefix-drift.test.ts` (two turns of one session; two sessions under
+different mocked clocks, locales and ids).
+
+Every prefix-instability source audited, with its location and disposition:
+
+| Source | Location | Disposition |
+| --- | --- | --- |
+| System prompt | `packages/agent/src/native-configuration.ts:2` | Fixed: a constant with no clock, session or request value; `assertPrefixPinned` fails when it moves. |
+| Advertised tool order | `packages/agent/src/native-tools.ts:16` and `packages/agent/src/harness.ts:16` | Fixed: one tuple literal, never object-key or set iteration; `NATIVE_TOOL_ORDER` is the order the harness advertises. |
+| Eval tool-order provenance | `packages/eval/src/native/prefix-cases.ts` (`productionToolNames`) | Fixed: reads `NATIVE_TOOL_ORDER`, so recorded provenance cannot drift from the harness. |
+| `transform_context` tail | `packages/agent/src/native-context-hooks.ts:18-28` | Declined as prefix drift: the hooks return only `messages`; the appended `agent_status` user message, the frozen-summary substitution of prior tool results and the rendering of `web_search` results from their recorded details come after the stable transcript. The two-turn test asserts append-only growth and a summary equal to the tool result's declared `frozenSummary`; a result the current code wrote renders byte-identical (`packages/agent/test/native-web-render.test.ts`). |
+| Per-operation tool settings | `workers/edge/src/agent/host/operation-tool-settings.ts:28-36` | Declined: the operation scalar changes `PilgrimageToolContext` (`locale`, `origin`, translation models), never the advertised tool list or prompt. |
+| Per-session composition | `workers/edge/src/agent/host/native-bootstrap.ts:35` | Declined: `compose` supplies models and tool context; the prompt and the tools come from the shared `NATIVE_AGENT_OPTIONS` and `createPilgrimageHarness`. |
+| BYOK model swap | `workers/edge/src/agent/host/native-models.ts` (`nativeByokModels`) | Declined: a BYOK credential changes the model and transport, not the request prefix. |
+| Translation sub-request | `packages/agent/src/translate-anime-title.ts:42` | Declined: its own short system prompt belongs to a separate `completeSimple` call, not the main transcript prefix. |
+| Entry timestamps and ids | system-message construction | Declined: the leading system message carries `timestamp: 0`; entry, tool-result and operation ids live after the prefix, and the guard allows only appended messages or a declared frozen summary. |
+
+Not measured here: the production cache hit rate and each provider's caching semantics. They need
+production telemetry access and stay with the owner.
+
+## Observability and eval research (2026-10-03)
+
+The owner asked whether the whole observability and evaluation design was wrong ("我感觉是我们一整个
+可观测性和评测设计的有问题"). `docs/iterations/agent-platform-research-2026-10/OBSERVABILITY-AND-EVAL-RESEARCH.md`
+records what pi itself provides and recommends, the consensus of mature projects on both topics, the
+thirteen gaps between that consensus and this repository, four candidate directions and the nine owner
+questions they raise. Read it before proposing observability or eval work; its §6 questions are open
+until a decision lands in `docs/agents/owner-decisions.md`.
+
+## Agent API shape research (2026-10-04)
+
+The owner asked whether splitting the API into a base capability layer with our chat agent as one of
+its consumers is best practice, and how mature vertical agent products shape their APIs.
+`docs/iterations/agent-platform-research-2026-10/AGENT-API-SHAPE-RESEARCH.md` records, with cited
+sources, how Anthropic's own products, the AI platforms, mature vertical products and the published
+guidance shape agent APIs; a consensus-and-dissent table over eleven design questions; the comparison
+with our current `/v1` (checked against the code) and with the proposed split (its parts have
+precedent, the whole has none found); four candidate directions and the open owner questions. See it
+before changing the shape of `/v1`; its §7 questions are open until a decision lands in
+`docs/agents/owner-decisions.md`.
+
+## pi 1.0 packages research (2026-10-04)
+
+The owner asked what the packages released with pi 1.0 could replace among our hand-written parts.
+`docs/iterations/agent-platform-research-2026-10/PI-1.0-PACKAGES-RESEARCH.md` maps each pi 1.0 package
+(pi-durable, pi-telemetry, pi-ai, pi-mcp, pi-server and the rest) against the agent runtime we wrote:
+what is usable now (pi-ai's OpenCode Go provider, pi-telemetry's `TelemetryContext`), what pi-durable
+takes over (the harness's part, not our business layer), what does not fit, and the questions a
+migration has to answer. Read it before touching the pi version line.

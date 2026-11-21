@@ -5,17 +5,6 @@ import type pg from "pg";
 export const NEW_WORK_ID = "10380"; // Bangumi subject id (K-On!)
 export const NEW_TITLE = "けいおん！";
 
-// A second uncovered work, reached via the search MISS path (Bangumi search ->
-// resolve id -> ingest -> return). Distinct from NEW_WORK_ID so the two ingest
-// E2Es don't collide in the shared suite database.
-export const MISS_WORK_ID = "100020"; // Bangumi subject id (Hibike! Euphonium)
-export const MISS_TITLE = "響け！ユーフォニアム";
-
-export const MISS_POINTS = [
-  { id: "uji-bridge", name: "宇治橋", lat: 34.8915, lng: 135.8078, ep: 1, s: 45 },
-  { id: "keihan-uji", name: "京阪宇治駅", lat: 34.8908, lng: 135.8112, ep: 1, s: 80 },
-];
-
 export const ANITABI_POINTS = [
   { id: "sakuragaoka-gate", name: "桜が丘高校 正門", lat: 34.6571, lng: 135.9486, ep: 1, s: 30 },
   { id: "toyosato-hall", name: "豊郷小学校 講堂", lat: 35.205, lng: 136.2401, ep: 2, s: 90 },
@@ -31,7 +20,6 @@ export const ANITABI_POINTS = [
 export async function seed(pool: pg.Pool): Promise<void> {
   await insertSeedBangumi(pool);
   await insertSeedPoints(pool);
-  await insertSeedCluster(pool);
   await insertSeedAlias(pool);
   await seedOverviewWork(pool);
 }
@@ -49,10 +37,6 @@ function insertSeedPoints(pool: pg.Pool): Promise<unknown> {
     + ` ('washinomiya', 'lucky-star', '鷲宮神社', ${geography(139.6586, 36.1019)}, 1, 120),`
     + ` ('washinomiya-torii', 'lucky-star', '鷲宮神社 鳥居', ${geography(139.659, 36.1025)}, 1, 60)`,
   );
-}
-
-function insertSeedCluster(pool: pg.Pool): Promise<unknown> {
-  return pool.query("INSERT INTO cluster_version (bangumi_id, version, is_current) VALUES ('lucky-star', 1, TRUE)");
 }
 
 function insertSeedAlias(pool: pg.Pool): Promise<unknown> {

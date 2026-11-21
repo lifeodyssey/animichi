@@ -3,6 +3,7 @@ import type pg from "pg";
 import type { CatalogPrisma } from "../src/db/prisma";
 import { JobStore } from "../src/ingest/jobs";
 import { saveRawAnitabi, saveRawBangumi } from "../src/ingest/raw-store";
+import { acquired } from "./fixtures/job-claim";
 import {
   catalogTruncateSql,
   databaseDescribe,
@@ -70,8 +71,8 @@ databaseDescribe("JobStore singleflight over ingest_jobs", () => {
 
   it("markDone flips status to done", async () => {
     const store = new JobStore(query);
-    await store.acquire("done-1");
-    await store.markDone("done-1");
+    const claim = await acquired(store, "done-1");
+    expect(await store.markDone(claim)).toBe("recorded");
     expect(await statusOf("done-1")).toBe("done");
   });
 
@@ -87,7 +88,7 @@ databaseDescribe("JobStore singleflight over ingest_jobs", () => {
     const stale = await Promise.all([
       new JobStore(query).acquire("stale-running"), new JobStore(query).acquire("stale-running"),
     ]);
-    expect(fresh).toEqual([false, false]);
+    expect(fresh).toEqual([null, null]);
     expect(stale.filter(Boolean)).toHaveLength(1);
   });
 
@@ -100,7 +101,7 @@ databaseDescribe("JobStore singleflight over ingest_jobs", () => {
       VALUES ('running-expired-cache', 'running', NOW(), NOW() - INTERVAL '1 second')
     `);
 
-    expect(await new JobStore(query).acquire("running-expired-cache")).toBe(false);
+    expect(await new JobStore(query).acquire("running-expired-cache")).toBeNull();
     expect(await runningCount("running-expired-cache")).toBe(1);
   });
 });
@@ -108,18 +109,18 @@ databaseDescribe("JobStore singleflight over ingest_jobs", () => {
 databaseDescribe("JobStore negative cache", () => {
   it("blocks re-acquire while negative_cached_until is in the future", async () => {
     const store = new JobStore(query);
-    await store.acquire("neg-1");
-    await store.markFailed("neg-1", { errorCode: "upstream_500", ttlSeconds: 3600 });
-    expect(await store.acquire("neg-1")).toBe(false);
+    const claim = await acquired(store, "neg-1");
+    expect(await store.markFailed(claim, { errorCode: "upstream_500", ttlSeconds: 3600 })).toBe("recorded");
+    expect(await store.acquire("neg-1")).toBeNull();
     expect(await statusOf("neg-1")).toBe("failed");
   });
 
   it("re-acquires once the failure's negative_cached_until TTL has elapsed", async () => {
     const store = new JobStore(query);
-    await store.acquire("ttl-1");
-    await store.markFailed("ttl-1", { errorCode: "upstream_500", ttlSeconds: 3600 });
+    const claim = await acquired(store, "ttl-1");
+    await store.markFailed(claim, { errorCode: "upstream_500", ttlSeconds: 3600 });
     await backdateNegativeCache("ttl-1");
-    expect(await store.acquire("ttl-1")).toBe(true);
+    expect(await store.acquire("ttl-1")).not.toBeNull();
     expect(await statusOf("ttl-1")).toBe("running");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendRawHistory, cleanupRawHistory, DEFAULT_KEEP_COUNT } from "../src/ingest/raw_history";
+import { appendRawHistory, cleanupRawHistory, DEFAULT_KEEP_COUNT } from "../src/ingest/raw-history";
 import { recordingCatalogPrisma } from "./fakes/plan-inspection";
 
 /**

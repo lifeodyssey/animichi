@@ -1,12 +1,13 @@
 /**
  * Protected admin command routes (issue #1016, AC5).
  *
- * POST /catalog/admin/full-ingest and POST /catalog/admin/canary follow the
- * same SNAPSHOT_ADMIN_TOKEN bearer-guard convention as the snapshot rollback
- * surface: absent/wrong token is a 401/503, and a public caller never touches
- * the pipeline. Both delegate to the production daily pipeline via the
- * injectable admin runner so the API test can assert the exact pipeline is
- * used with a controlled epoch.
+ * POST /catalog/admin/full-ingest and POST /catalog/admin/canary sit behind the
+ * bearer guard the snapshot rollback uses (`../adapters/inbound/bearer-guard.ts`), with
+ * CATALOG_ADMIN_TOKEN as their token: a missing or wrong token, and any token
+ * while none is configured, answers 401 before the database is resolved, so a
+ * public caller never touches the pipeline. Both delegate to the production
+ * daily pipeline via the injectable admin runner so the API test can assert the
+ * exact pipeline is used with a controlled epoch.
  *
  * The routes own their Prisma runtime the same way `/catalog/*` does: one
  * acquired per request and disposed with `await using` when the handler
@@ -20,7 +21,7 @@ import type { Env } from "../index";
 import { fullIngest, runCanaryCommand } from "./admin-commands";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { ObjectStore } from "../publish/object-store";
-import { timingSafeEqual } from "../lib/timing";
+import { bearerGuard } from "../adapters/inbound/bearer-guard";
 
 /** The seam one admin command runs on, resolved from the environment. */
 export interface AdminSeams {
@@ -96,11 +97,12 @@ export function mountAdminRoutes(
   const resolveDb = options.resolveDb ?? null;
   const resolveStore = options.resolveStore ?? null;
   const acquire = options.acquirePrisma ?? defaultAdminPrisma;
-  app.post("/catalog/admin/full-ingest", adminHandler(deps.runFull, nowClock, resolveDb, resolveStore, acquire));
-  app.post("/catalog/admin/canary", adminHandler(deps.runCanary, nowClock, resolveDb, null, acquire));
+  const guard = bearerGuard((env) => env.CATALOG_ADMIN_TOKEN);
+  app.post("/catalog/admin/full-ingest", guard, adminHandler(deps.runFull, nowClock, resolveDb, resolveStore, acquire));
+  app.post("/catalog/admin/canary", guard, adminHandler(deps.runCanary, nowClock, resolveDb, null, acquire));
 }
 
-/** One protected admin route: guard, resolve deps, run the injected pipeline. */
+/** One admin route behind its guard: resolve deps, run the injected pipeline. */
 function adminHandler(
   runner: (seams: AdminSeams, epochMs: number, store: ObjectStore | null) => Promise<DailyRunOutcome>,
   nowClock: Clock,
@@ -109,10 +111,6 @@ function adminHandler(
   acquire: AcquirePrisma,
 ): (c: Context<{ Bindings: Env }>) => Promise<Response> {
   return async (c) => {
-    const token = await adminToken(c.env);
-    if (!authorizedAdmin(c.req.header("authorization"), token)) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
     const connection = resolveDb === null ? null : await resolveDb(c.env);
     if (connection === null) return c.json({ error: "catalog database not configured" }, 503);
     const store = resolveStore === null ? null : resolveStore(c.env);
@@ -125,18 +123,4 @@ function adminHandler(
       await prisma.dispose();
     }
   };
-}
-
-/** Resolve the admin token from the env, whether a plain string (tests/local
- *  dev) or a Secrets Store binding (system-health-audit 2026-08-26 §2.4). */
-async function adminToken(env: Env): Promise<string | undefined> {
-  const token = env.CATALOG_ADMIN_TOKEN;
-  if (token === undefined) return undefined;
-  return typeof token === "string" ? token : await token.get();
-}
-
-/** Constant-time bearer guard: absent/wrong admin token is unauthorized. */
-export function authorizedAdmin(header: string | undefined, token: string | undefined): boolean {
-  if (token === undefined || token.length === 0) return false;
-  return timingSafeEqual(header ?? "", "Bearer " + token);
 }

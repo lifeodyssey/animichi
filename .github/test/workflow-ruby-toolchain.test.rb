@@ -5,7 +5,7 @@
 # records, so CI runs the interpreter a developer's `bundle exec` runs rather than whichever
 # one the runner image ships.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowRubyToolchainTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -17,7 +17,7 @@ class WorkflowRubyToolchainTest < Minitest::Test
 
   def jobs
     WORKFLOWS.flat_map do |path|
-      Psych.safe_load(File.read(path), aliases: true).fetch("jobs").map do |id, job|
+      RepositoryYaml.load_file(path).fetch("jobs").map do |id, job|
         ["#{File.basename(path)}:#{id}", job.fetch("steps", [])]
       end
     end
@@ -27,7 +27,7 @@ class WorkflowRubyToolchainTest < Minitest::Test
     ref = step["uses"].to_s
     return [] unless ref.start_with?("./", "$/")
     manifest = %w[action.yml action.yaml].map { |name| File.join(ROOT, ref.delete_prefix("$/"), name) }.find { |path| File.file?(path) }
-    Psych.safe_load(File.read(manifest), aliases: true).dig("runs", "steps").to_a
+    RepositoryYaml.load_file(manifest).dig("runs", "steps").to_a
   end
 
   # The step itself, then every step of each local action it reaches, depth first; a nested

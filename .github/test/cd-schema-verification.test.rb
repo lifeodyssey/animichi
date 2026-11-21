@@ -4,17 +4,19 @@
 # release that verifies the wrong environment's schema would have reported that
 # as green.
 require "minitest/autorun"
-require "psych"
+require_relative "repository-yaml"
 
 class CdSchemaVerificationTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CD_FILE = File.join(ROOT, ".github", "workflows", "cd.yml")
-  SCRIPT = "scripts/delivery/verify-catalog-schema.sh"
+  # The check is verify-catalog-schema.sh, run by the action that mints the migrator's token.
+  CALLER = "$/.github/actions/call-migrator"
+  CLIENT = "verify-catalog-schema"
   TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
               "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
 
   def setup
-    @cd = Psych.safe_load(File.read(CD_FILE), aliases: true)
+    @cd = RepositoryYaml.load_file(CD_FILE)
   end
 
   def steps(job)
@@ -22,14 +24,14 @@ class CdSchemaVerificationTest < Minitest::Test
   end
 
   def verification_step(job, environment)
-    steps(job).find { |step| step["run"] == "bash #{SCRIPT} #{environment}" }
+    steps(job).find { |step| step["uses"] == CALLER && step["with"].to_h.values_at("client", "environment") == [CLIENT, environment] }
   end
 
   def test_every_environment_verifies_its_own_promoted_catalog_schema
     TARGETS.each do |job, (environment, variable)|
       step = verification_step(job, environment)
-      refute_nil step, "cd.yml:#{job}: must run `bash #{SCRIPT} #{environment}`"
-      assert step.dig("env", "MIGRATOR_URL").to_s.include?(variable),
+      refute_nil step, "cd.yml:#{job}: must call #{CALLER} with client #{CLIENT} for #{environment}"
+      assert step.dig("with", "migrator-url").to_s.include?(variable),
              "cd.yml:#{job}: the #{environment} catalog must be read through #{variable}, not another environment's"
     end
   end
@@ -39,9 +41,9 @@ class CdSchemaVerificationTest < Minitest::Test
       step = verification_step(job, environment)
       # Named here too, not left to the other test: a removed step would
       # otherwise fail this one with a bare NoMethodError on nil.
-      refute_nil step, "cd.yml:#{job}: must run `bash #{SCRIPT} #{environment}`"
+      refute_nil step, "cd.yml:#{job}: must call #{CALLER} with client #{CLIENT} for #{environment}"
       refute step.key?("if"), "cd.yml:#{job}: the #{environment} schema check must not be conditional"
-      assert_equal variable, step.dig("env", "MIGRATOR_URL").to_s[/vars\.[A-Z0-9_]+/],
+      assert_equal variable, step.dig("with", "migrator-url").to_s[/vars\.[A-Z0-9_]+/],
                    "cd.yml:#{job}: #{environment} must be the only migrator this step reads"
     end
   end

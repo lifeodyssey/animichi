@@ -35,8 +35,10 @@ revision rather than mutable checkout state.
   (`contracts`, `docs`, the security jobs behind `Security`) *and* the lanes `plan` routes by the
   merged diff (`affected`, `e2e`, `db`) — `plan` computes that diff from
   `github.event.before..github.sha`. Only `commits` is gated off with
-  `if: ${{ github.event_name != 'push' }}` — it has no subject on a merged commit (no PR title, a
-  zero-commit range). `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,
+  `github.event_name != 'push'`, joined by `&&` to the draft gate every lane carries (open on `push`
+  and `merge_group`, closed on a draft `pull_request`; `.github/test/pr-verification-draft.test.rb`
+  pins it) — it has no subject on a merged commit (no PR title, a zero-commit range).
+  `.github/test/merged-commit-lane.test.rb` pins the trigger and the selection,
   and its tables must cover every job so a new job cannot land there by default. A red merged commit
   is unattended, so it carries `alert-failure` like every other `push` workflow, gated to
   `github.event_name == 'push'`; a pending run the concurrency group supersedes alerts nothing, and
@@ -49,15 +51,23 @@ revision rather than mutable checkout state.
   the staging lock through foundation, migration, services, web, smoke and receipt. Production has
   its own approval and lock and promotes the same verified digest. Pending selections may be
   superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its
-  approval. No local or tag-triggered deploy path.
+  approval. No local or tag-triggered deploy path. The owner sees no need for a separate rollback
+  mechanism ("我一直觉得我们没有必要 roll back", 2026-09-05): going back is the manual dispatch of
+  ADR 0007, which selects an older artifact and re-deploys it
+  (`docs/adr/0007-selected-release-artifacts.md`), in any order, except for the database ("一定是可以回退的呀，就除了 SQL 之外",
+  the same day). Within one environment a deploy in progress finishes before the next one
+  starts; staging and production hold independent locks, so the two can overlap
+  (`docs/adr/0007-selected-release-artifacts.md`).
 - **Build and deploy jobs use uncached native setup steps.** Their environment credentials follow
   artifact/config verification. The PR-only cached composite and its exact approved actionlint
   diagnostic exception must not expand to CD or the builder. New builder OIDC identities require
   exact platform allowlists before activation.
 - **Tests follow the actual SUT and responsibility.** Workflow/action tests live in `.github/test/`;
   repository configuration tests live in `test/repo-config/`. Name each `*.test.rb` for its SUT and
-  state that SUT in the opening sentence. Use Minitest/Psych directly, keep files ≤200 lines and
-  assertions ≤10 lines, and avoid a custom assertion framework or generic workflow interpreter.
+  state that SUT in the opening sentence. Use Minitest directly. A test in `.github/test/` reads
+  YAML only through `.github/test/repository-yaml.rb`, the one place there that calls Psych and
+  the one statement of how a workflow's `on` key is read. Keep files ≤200 lines and assertions
+  ≤10 lines, and avoid a custom assertion framework or generic workflow interpreter.
 - **A check no job invokes is a check nothing runs.** `workflow-invocations.test.rb` requires a real
   interpreter invocation for every new Ruby test and every repository `*.test.sh`, verifies invoked
   paths exist, and rejects orphaned `.github/scripts` files. Pure release libraries live in

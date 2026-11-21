@@ -7,9 +7,9 @@
  * failed run never publishes (AC6 — no partial publishes). Driven through the
  * same injectable CronDependencies the scheduled handler uses.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
-import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snapshot";
+import { publishAfterRun, type DailyPublishPorts, type DailyRunOutcome } from "../src/publish/daily-snapshot";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { fakeTableRows } from "./fakes/fake-catalog-prisma";
@@ -31,7 +31,7 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connectPrisma: vi.fn<CronDependencies["connectPrisma"]>()
       .mockResolvedValue({ query, dispose: () => Promise.resolve() }),
-    ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
+    ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
@@ -126,5 +126,35 @@ describe("publishAfterRun unit gate", () => {
       publishRun: publish, gcSnapshots: gc,
     });
     expect(publish).toHaveBeenCalledWith(store, "daily-2026-08-30", "2026-08-30T04:00:00Z");
+  });
+});
+
+describe("publishAfterRun when the publish does not activate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    {
+      result: { status: "invalid", reason: "exported non-public table: users" },
+      line: "[dailyPublish] run daily-2026-08-14 not activated (invalid): exported non-public table: users",
+    },
+    {
+      result: { status: "stagingFailed", reason: "Error: R2 put failed" },
+      line: "[dailyPublish] run daily-2026-08-14 not activated (stagingFailed): Error: R2 put failed",
+    },
+  ] as const)("logs one line naming the run, $result.status and its reason, and runs no GC", async ({ result, line }) => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const gc = vi.fn<DailyPublishPorts["gcSnapshots"]>();
+
+    await publishAfterRun(inMemoryObjectStore().store, {
+      runDailyIngest: vi.fn<DailyPublishPorts["runDailyIngest"]>().mockResolvedValue(COMPLETE),
+      publishRun: vi.fn<DailyPublishPorts["publishRun"]>().mockResolvedValue(result),
+      gcSnapshots: gc,
+    });
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(line);
+    expect(gc).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/contex
 import { MemorySessionRepo } from "@earendil-works/pi-agent-core/harness/session";
 import { createModels, fauxAssistantMessage, fauxToolCall, fauxProvider, type FauxResponseStep } from "@earendil-works/pi-ai";
 import assert from "node:assert/strict";
+import { createPilgrimageHarness } from "@animichi/agent/harness";
 import { createCatalogClient, type PilgrimageToolContext } from "@animichi/agent/tools";
 
 export async function fixture(fetch: (request: Request) => Promise<Response>) {
@@ -16,7 +17,29 @@ export async function fixture(fetch: (request: Request) => Promise<Response>) {
 }
 
 export async function executeTool(toolContext: PilgrimageToolContext, name: string, args: Parameters<typeof fauxToolCall>[1], tools: Parameters<typeof harnessFor>[2]) {
-  const { harness } = await harnessFor(toolContext, [fauxAssistantMessage(fauxToolCall(name, args), { stopReason: "toolUse" }), fauxAssistantMessage("Finished.")], tools);
+  return toolResultOf(toolContext, name, (await harnessFor(toolContext, toolCallTurn(name, args), tools)).harness);
+}
+
+/** One tool call through the production composition, so the stored entry carries every production annotation. */
+export async function executePilgrimageTool(toolContext: PilgrimageToolContext, name: string, args: Parameters<typeof fauxToolCall>[1]) {
+  return toolResultOf(toolContext, name, (await pilgrimageHarnessFor(toolContext, toolCallTurn(name, args))).harness);
+}
+
+/** The production composition, `createPilgrimageHarness`, answering with scripted model responses. */
+export async function pilgrimageHarnessFor(toolContext: PilgrimageToolContext, responses: FauxResponseStep[]) {
+  const provider = fauxProvider();
+  provider.setResponses(responses);
+  const models = createModels();
+  models.setProvider(provider.provider);
+  return createPilgrimageHarness({ session: toolContext.session, toolContext, models, model: provider.getModel() }, BACKGROUND_CONTEXT);
+}
+
+function toolCallTurn(name: string, args: Parameters<typeof fauxToolCall>[1]): FauxResponseStep[] {
+  return [fauxAssistantMessage(fauxToolCall(name, args), { stopReason: "toolUse" }), fauxAssistantMessage("Finished.")];
+}
+
+/** Runs one request through `harness`, closes it, and returns the newest result of the named tool. */
+async function toolResultOf(toolContext: PilgrimageToolContext, name: string, harness: AgentHarness<PilgrimageToolContext>) {
   await (await harness.lane("main", BACKGROUND_CONTEXT)).prompt("Request", undefined, BACKGROUND_CONTEXT);
   const entries = await toolContext.session.findEntries({ type: "message" }, BACKGROUND_CONTEXT);
   await harness.close(BACKGROUND_CONTEXT);

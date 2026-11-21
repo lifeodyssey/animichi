@@ -20,19 +20,14 @@ import {
   ResolveOutcome,
 } from "./models.js";
 
-/** search(query, origin?) -> { rows, synced_at, partial? } */
-export const SearchInput = z.object({
-  query: z.string(),
-  origin: Origin.optional(),
-});
-export type SearchInput = z.infer<typeof SearchInput>;
-
+/** pointsByBangumiId's response; the name outlived the retired search procedure (#2075). */
 export const SearchResult = z.object({
   rows: z.array(Point),
   synced_at: z.string(),
-  // True when `rows` are an L1 preview (Anitabi `/lite`, first ~10 points)
-  // returned immediately on an alias miss while the full ingest runs in the
-  // background. Absent on a normal alias-hit (fully-published) response.
+  // True when `rows` are not the work's published set: an L1 preview (Anitabi
+  // `/lite`, first ~10 points) of a work whose full ingest was just parked, or
+  // empty while its ingest is in flight or recently attempted. Absent when
+  // `rows` are the published set.
   partial: z.boolean().optional(),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
@@ -44,19 +39,6 @@ export type ResolveInput = z.infer<typeof ResolveInput>;
 /** pointsByBangumiId(bangumi_id) -> the existing SearchResult shape */
 export const PointsByBangumiIdInput = z.object({ bangumi_id: z.string().regex(/^\d+$/) });
 export type PointsByBangumiIdInput = z.infer<typeof PointsByBangumiIdInput>;
-
-/** spots(bangumi_id, origin?) -> { point, distance_m? } */
-export const SpotsInput = z.object({
-  bangumi_id: z.string(),
-  origin: Origin.optional(),
-});
-export type SpotsInput = z.infer<typeof SpotsInput>;
-
-export const SpotsResult = z.object({
-  point: Point,
-  distance_m: z.number().optional(),
-});
-export type SpotsResult = z.infer<typeof SpotsResult>;
 
 /** nearby(lat, lng, radius_m) -> { rows } */
 export const NearbyInput = z.object({
@@ -131,11 +113,6 @@ export const PopularInput = z.object({
 export type PopularInput = z.infer<typeof PopularInput>;
 
 export const catalogContract = {
-  search: oc
-    .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
-    .input(SearchInput)
-    .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
-    .output(SearchResult),
   resolve: oc
     .route({ method: "POST", path: "/catalog/resolve", summary: "Resolve an anime title deterministically" })
     .input(ResolveInput)
@@ -149,11 +126,6 @@ export const catalogContract = {
     .input(PointsByBangumiIdInput)
     .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(SearchResult),
-  spots: oc
-    .route({ method: "POST", path: "/catalog/spots", summary: "Fetch a single pilgrimage point, optionally with distance" })
-    .input(SpotsInput)
-    .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
-    .output(SpotsResult),
   nearby: oc
     .route({ method: "POST", path: "/catalog/nearby", summary: "Find pilgrimage points within a radius" })
     .input(NearbyInput)

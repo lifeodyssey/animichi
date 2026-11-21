@@ -1,0 +1,8 @@
+PASS turn 1: after the tool ran, the model received the rebuilt text, not the stored text, although the status hook threw before it
+PASS turn 2: a later request rebuilds the earlier turn's result again, on the failed attempt (503) and on its retry
+PASS the rebuild ran once per model request attempt (hook calls = faux calls = status hook calls)
+PASS the hook read `details` from the stored message itself
+PASS the status hook's throw was reported (extension_error) and skipped on every request
+PASS turn 3: with the rebuild throwing, the model received the stored text, and the throw was reported
+PASS the transcript keeps the stored text: the rebuild changes the request, not the record
+PASS guard: no request other than the stubbed catalog left workerd

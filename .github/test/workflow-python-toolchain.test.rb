@@ -3,7 +3,7 @@
 # `apps/agent` tree; `uv` survives only as the installer of two pinned, named lint tools.
 require "minitest/autorun"
 require "open3"
-require "psych"
+require_relative "repository-yaml"
 
 class WorkflowPythonToolchainTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
@@ -27,7 +27,7 @@ class WorkflowPythonToolchainTest < Minitest::Test
   end
 
   def run_texts(path)
-    workflow = Psych.safe_load(File.read(path), aliases: true)
+    workflow = RepositoryYaml.load_file(path)
     workflow.fetch("jobs").flat_map do |id, job|
       job.fetch("steps", []).map { |step| ["#{File.basename(path)}:#{id}", step["run"].to_s] }
     end

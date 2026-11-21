@@ -1,0 +1,390 @@
+{
+  "case": "validation",
+  "rows": [
+    {
+      "tool": "resolve_anime",
+      "source": "packages/agent/src/resolve-anime.ts:7",
+      "property": "title",
+      "schemaSays": "string",
+      "sent": {
+        "title": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "title": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "title": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "translate_anime_title",
+      "source": "packages/agent/src/translate-anime-title.ts:8",
+      "property": "title",
+      "schemaSays": "string",
+      "sent": {
+        "title": 42,
+        "target_language": "zh"
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "title": "42",
+          "target_language": "zh"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "title": "42",
+          "target_language": "zh"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "web_search",
+      "source": "packages/agent/src/web-search.ts:6",
+      "property": "query",
+      "schemaSays": "string",
+      "sent": {
+        "query": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "query": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "query": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "search_bangumi",
+      "source": "packages/agent/src/search-bangumi.ts:6",
+      "property": "bangumi_id",
+      "schemaSays": "string",
+      "sent": {
+        "bangumi_id": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "bangumi_id": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "bangumi_id": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "search_nearby",
+      "source": "packages/agent/src/search-nearby.ts:8",
+      "property": "location",
+      "schemaSays": "string",
+      "sent": {
+        "location": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "location": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "location": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "plan_route",
+      "source": "packages/agent/src/plan-route.ts:6-7",
+      "property": "search_result_ref",
+      "schemaSays": "string",
+      "sent": {
+        "search_result_ref": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "search_result_ref": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "search_result_ref": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "respond",
+      "source": "packages/agent/src/respond.ts:9-10",
+      "property": "message",
+      "schemaSays": "string",
+      "sent": {
+        "kind": "qa",
+        "message": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "kind": "qa",
+          "message": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "kind": "qa",
+          "message": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "respond",
+      "source": "packages/agent/src/respond.ts:9-10",
+      "property": "reason",
+      "schemaSays": "string",
+      "sent": {
+        "kind": "qa",
+        "message": "Takayama.",
+        "reason": 42
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "kind": "qa",
+          "message": "Takayama.",
+          "reason": "42"
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "kind": "qa",
+          "message": "Takayama.",
+          "reason": "42"
+        }
+      },
+      "same": true
+    },
+    {
+      "tool": "search_nearby",
+      "source": "packages/agent/src/search-nearby.ts:8",
+      "property": "radius_m",
+      "schemaSays": "integer",
+      "sent": {
+        "radius_m": "500"
+      },
+      "today": {
+        "ok": true,
+        "value": {
+          "radius_m": 500
+        }
+      },
+      "piDurable": {
+        "ok": true,
+        "value": {
+          "radius_m": 500
+        }
+      },
+      "same": true
+    }
+  ],
+  "checks": [
+    {
+      "name": "every row: today's validator and pi-durable's return the same outcome and the same arguments",
+      "pass": true,
+      "observed": []
+    },
+    {
+      "name": "every number sent for a string property reaches execute as the string \"42\", under both",
+      "pass": true,
+      "observed": [
+        {
+          "tool": "resolve_anime",
+          "property": "title",
+          "today": {
+            "ok": true,
+            "value": {
+              "title": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "title": "42"
+            }
+          }
+        },
+        {
+          "tool": "translate_anime_title",
+          "property": "title",
+          "today": {
+            "ok": true,
+            "value": {
+              "title": "42",
+              "target_language": "zh"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "title": "42",
+              "target_language": "zh"
+            }
+          }
+        },
+        {
+          "tool": "web_search",
+          "property": "query",
+          "today": {
+            "ok": true,
+            "value": {
+              "query": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "query": "42"
+            }
+          }
+        },
+        {
+          "tool": "search_bangumi",
+          "property": "bangumi_id",
+          "today": {
+            "ok": true,
+            "value": {
+              "bangumi_id": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "bangumi_id": "42"
+            }
+          }
+        },
+        {
+          "tool": "search_nearby",
+          "property": "location",
+          "today": {
+            "ok": true,
+            "value": {
+              "location": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "location": "42"
+            }
+          }
+        },
+        {
+          "tool": "plan_route",
+          "property": "search_result_ref",
+          "today": {
+            "ok": true,
+            "value": {
+              "search_result_ref": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "search_result_ref": "42"
+            }
+          }
+        },
+        {
+          "tool": "respond",
+          "property": "message",
+          "today": {
+            "ok": true,
+            "value": {
+              "kind": "qa",
+              "message": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "kind": "qa",
+              "message": "42"
+            }
+          }
+        },
+        {
+          "tool": "respond",
+          "property": "reason",
+          "today": {
+            "ok": true,
+            "value": {
+              "kind": "qa",
+              "message": "Takayama.",
+              "reason": "42"
+            }
+          },
+          "piDurable": {
+            "ok": true,
+            "value": {
+              "kind": "qa",
+              "message": "Takayama.",
+              "reason": "42"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "the string \"500\" sent for search_nearby's integer radius_m reaches execute as 500, under both",
+      "pass": true,
+      "observed": {
+        "tool": "search_nearby",
+        "source": "packages/agent/src/search-nearby.ts:8",
+        "property": "radius_m",
+        "schemaSays": "integer",
+        "sent": {
+          "radius_m": "500"
+        },
+        "today": {
+          "ok": true,
+          "value": {
+            "radius_m": 500
+          }
+        },
+        "piDurable": {
+          "ok": true,
+          "value": {
+            "radius_m": 500
+          }
+        },
+        "same": true
+      }
+    }
+  ]
+}

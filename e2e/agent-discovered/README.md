@@ -59,13 +59,13 @@ planner ──> agent-discovered/*.md ──> human review ──> generator ─
 - One file per feature/flow; name `<feature>-plan.md`.
 - Plans must assume a blank/fresh starting state and list independent scenarios.
 - Never `git add` a plan without an accompanying review note in the PR.
-- The default `npx playwright test` run is exactly **113 tests in 21 files**
-  (the committed suite, per `playwright test --list` on 2026-09-05). `seed.spec.ts` and anything in `generated/` or
-  `agent-discovered/` never count toward that number — the seed is isolated
+- `seed.spec.ts` and anything in `generated/` or `agent-discovered/` never appear in
+  the default `npx playwright test --list` (the committed suite) — the seed is isolated
   behind a `seed` project that exists only in the Playwright MCP server process,
   and the `chromium` project `testIgnore`s the full union (`generated/**`,
-  `agent-discovered/**`, `seed.spec.ts`) because a project-level `testIgnore`
+  `agent-discovered/**`, `visual/**`, `seed.spec.ts`; the `visual` project collects
+  `visual/` itself) because a project-level `testIgnore`
   replaces the top-level one rather than merging with it
-  (`playwright.config.ts` + `generated/README.md` explain the mechanism). If the
-  default count changes, the suite gained or lost a case without going through
-  the promotion gate — stop and review.
+  (`playwright.config.ts` + `generated/README.md` explain the mechanism). If one of
+  them appears in that list, it reached the suite without going through the
+  promotion gate — stop and review.

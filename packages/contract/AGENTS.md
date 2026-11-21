@@ -13,7 +13,7 @@ Worker keeps a deliberate hand-mirror where bundling requires it. Root guide: `.
   default options and reports 10 false `no-unnecessary-condition` findings (indexed reads and `?.`
   that `noUncheckedIndexedAccess` makes necessary). Bringing the tests into the **typecheck** program
   stays a separate outcome — `tsc` reports 67 findings under them today.
-- `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
+- `pnpm run typecheck` — TypeScript 7 `tsc --noEmit`.
 - `pnpm test` — vitest, then the compat gate (`vet:baseline`) and the OpenAPI drift check
   (`test:openapi-drift`). One command, the same one CI runs (#1358).
 - `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.
@@ -65,7 +65,7 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Conventions
 
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
-- `zod@4.6.5` and `@orpc/*@1.15.1` are one coupled exact-pin set across this package,
+- `zod@^4.6.7` and `@orpc/*@1.15.1` are one coupled pin set across this package,
   `workers/catalog`, `workers/users`, and `apps/web` (the catalog entries in `pnpm-workspace.yaml`,
   which `test/repo-config/contract-pin-set.test.rb` holds to this line). Change them together.
 - Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle.
@@ -128,6 +128,6 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Pitfalls
 
 - Catalog errors move in two-mirror lockstep:
-  `src/errors.ts` ↔ `workers/catalog/src/lib/errors.ts`.
+  `src/errors.ts` ↔ `workers/catalog/src/adapters/inbound/errors.ts`.
 - Extend `workers/catalog/test/contract-parity.worker.test.ts` with any mirror change; do not rely on OpenAPI generation alone.
 - Do not introduce runtime value imports into the catalog's type mirror.

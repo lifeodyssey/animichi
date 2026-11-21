@@ -1,0 +1,23 @@
+PASS given: the first receipt is accepted and wait() answers done with Pi's text
+PASS given: the same operationId with different content gets accepted: false, and Pi ran only the first
+PASS given: PiHarness's own store holds the operation
+PASS given: abort(operationId) of the streaming operation returns true and Pi settles it unanswered (aborted)
+PASS given: sessions.list() sees the root session
+PASS wrapped: the first receipt is accepted and wait() answers done with Pi's text
+PASS wrapped: the same operationId with different content gets accepted: false, and Pi ran only the first
+PASS wrapped: PiHarness's own store holds the operation
+PASS wrapped: abort(operationId) of the streaming operation returns true and Pi settles it unanswered (aborted)
+PASS wrapped: sessions.list() sees the root session
+PASS given: Pi was opened on the very object PiHarness reads
+PASS wrapped: Pi committed through the wrapper (its commit count is above zero)
+PASS memory: Pi ran the first operation to done (read from MemoryStorage)
+PASS memory: PiHarness's own store has no record of it
+PASS memory: wait() answers unanswered / not_found for an operation Pi answered
+PASS memory: the duplicate submit is reported accepted: true, although Pi kept one submission
+PASS memory: abort(operationId) of the streaming operation returns false, and Pi answers it anyway (done)
+PASS memory: sessions.list() is empty while Pi streams in the root session
+PASS memory: pending() still sees the streaming operation (it reads Pi, not the store)
+PASS given: abort(operationId) of an id never submitted returns false
+PASS wrapped: abort(operationId) of an id never submitted returns false
+PASS memory: abort(operationId) of an id never submitted returns false
+PASS guard: no outbound request left workerd

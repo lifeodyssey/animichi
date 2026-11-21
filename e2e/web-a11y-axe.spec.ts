@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test, type AnonymousVisitor } from "./fixtures/anonymous-visitor";
 import { enterRoute } from "./helpers/route-entry";
-import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
+import { solveTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
 /**
  * Issue #1015 AC1: WCAG 2.2 AA on the five critical journeys. We inject
@@ -60,45 +60,30 @@ async function expectNoSeriousOrCritical(page: Page, label: string, scope?: stri
   expect(blocking, `${label}: axe serious/critical violations`).toEqual([]);
 }
 
-async function openChat(page: Page, path = "/chat"): Promise<void> {
-  await stubTurnstileEntry(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
-  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-  const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.goto(path);
-  await solveTurnstileEntry(page);
-  await healthy;
-  await expect(page.getByRole("textbox")).toBeVisible();
-}
-
-async function openTurnstileGate(page: Page): Promise<void> {
+async function openTurnstileGate(page: Page, visitor: AnonymousVisitor): Promise<void> {
   await stubTurnstileSdk(page);
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
+  await visitor.stubSignedOutSession();
   await page.goto("/chat");
   await expect(page.locator(".turnstile-entry[data-active='true']")).toBeVisible();
 }
 
 test.describe("WCAG 2.2 AA axe scan of Turnstile", () => {
-  test("Turnstile challenge gate", async ({ page }) => {
-    await openTurnstileGate(page);
+  test("Turnstile challenge gate", async ({ page, anonymousVisitor }) => {
+    await openTurnstileGate(page, anonymousVisitor);
     await expectNoSeriousOrCritical(page, "Turnstile challenge gate");
   });
 
-  test("Turnstile verifying gate", async ({ page }) => {
+  test("Turnstile verifying gate", async ({ page, anonymousVisitor }) => {
     await page.route("**/v1/turnstile/verify", () => new Promise(() => undefined));
-    await openTurnstileGate(page);
+    await openTurnstileGate(page, anonymousVisitor);
     await solveTurnstileEntry(page);
     await expect(page.locator(".turnstile-entry")).toHaveAttribute("aria-busy", "true");
     await expectNoSeriousOrCritical(page, "Turnstile verifying gate");
   });
 
-  test("Turnstile failure gate", async ({ page }) => {
+  test("Turnstile failure gate", async ({ page, anonymousVisitor }) => {
     await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }));
-    await openTurnstileGate(page);
+    await openTurnstileGate(page, anonymousVisitor);
     await solveTurnstileEntry(page);
     await expect(page.getByRole("alert")).toBeVisible();
     await expectNoSeriousOrCritical(page, "Turnstile failure gate");
@@ -115,18 +100,18 @@ test.describe("WCAG 2.2 AA axe scan of browser journeys", () => {
     await expectNoSeriousOrCritical(page, "doorway");
   });
 
-  test("login modal", async ({ page }) => {
-    await openChat(page);
+  test("login modal", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
     await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
     await expectNoSeriousOrCritical(page, "login modal");
   });
 
   /** The dedicated settings page and its shared Radix-backed controls. */
-  test("settings page", async ({ page }) => {
-    await page.route("**/api/auth/get-session", (route) =>
-      route.fulfill({ status: 401, json: { error: "no session" } }),
-    );
+  test("settings page", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubSignedOutSession();
     await page.goto("/settings#api-key");
     const splash = page.locator(".app-splash");
     await expect(splash).toHaveCount(1);
@@ -144,14 +129,16 @@ test.describe("WCAG 2.2 AA axe scan of browser journeys", () => {
     await expectNoSeriousOrCritical(page, "settings language menu", ".animal-select-content");
   });
 
-  test("chat", async ({ page }) => {
-    await openChat(page);
+  test("chat", async ({ page, anonymousVisitor }) => {
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await expectNoSeriousOrCritical(page, "chat");
   });
 });
 
 test.describe("WCAG 2.2 AA axe scan of catalog journeys", () => {
-  test("anime (empty overview)", async ({ page }) => {
+  test("anime (empty overview)", async ({ page, anonymousVisitor }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({
         json: {
@@ -163,7 +150,9 @@ test.describe("WCAG 2.2 AA axe scan of catalog journeys", () => {
         },
       }),
     );
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await enterRoute(page, "/anime/999", ".anime-empty");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoSeriousOrCritical(page, "anime empty");
@@ -171,7 +160,7 @@ test.describe("WCAG 2.2 AA axe scan of catalog journeys", () => {
 });
 
 test.describe("WCAG 2.2 AA axe scan of route journeys", () => {
-  test("route-detail (empty route)", async ({ page }) => {
+  test("route-detail (empty route)", async ({ page, anonymousVisitor }) => {
     await page.route("**/v1/users/saved-routes", (route) =>
       route.fulfill({
         json: {
@@ -198,7 +187,9 @@ test.describe("WCAG 2.2 AA axe scan of route journeys", () => {
         },
       });
     });
-    await openChat(page);
+    await anonymousVisitor.stubSignedOutSession();
+    await anonymousVisitor.enterChat();
+    await expect(page.getByRole("textbox")).toBeVisible();
     await enterRoute(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
     await expect(page.getByRole("main")).toBeVisible();
     await expectNoSeriousOrCritical(page, "route-detail empty");

@@ -7,16 +7,13 @@
  *   auth   — the signature is verified BEFORE the ceiling, so unauthenticated
  *            traffic cannot spend a single upstream slot
  *   ceiling— our promise to the upstream, enforced regardless of the caller,
- *            and counted in an external store since #1810 so a restart inside
- *            the upstream's hour cannot start a second one
+ *            over the last 3600 seconds in an external store since #1810, so
+ *            a restart cannot start a fresh budget
  *   relay  — the upstream's answer, verbatim, marked as the upstream's, asked
- *            from the one URL this service built and never redirected off it
- *
- * Our own refusals are unmistakable: header `x-egress-response: refused-here`
- * plus a `x-egress-refusal` reason. Upstream answers carry
- * `x-egress-response: relayed-upstream` and never a refusal reason. A caller
- * can tell the three failure worlds apart — upstream refused us, upstream
- * failed, this service refused — without parsing prose (#1792).
+ *            from the one URL this service built and never redirected off it;
+ *            an answer a response cannot carry is refused as `upstream-timeout`,
+ *            with a `detail` naming why: a body past the limit, or a status a
+ *            response cannot have
  */
 import type { EgressConfig } from "./egress-config.ts";
 import {
@@ -25,31 +22,17 @@ import {
   verifyRequestSignature,
   type SignatureHeaders,
 } from "./request-signature.ts";
+import { refusal } from "./response-marking.ts";
 import type { CeilingDecision } from "./upstream-ceiling.ts";
-import {
-  resolveOperation,
-  upstreamUrlFor,
-  UPSTREAM_USER_AGENT,
-  type EgressOperation,
-} from "./upstream-operations.ts";
+import { resolveOperation } from "./upstream-operations.ts";
+import { relay, type UpstreamFetch } from "./upstream-relay.ts";
 
-/** Which answer produced this response: the upstream's, or this service's refusal. */
-export const RESPONSE_MARKER_HEADER = "x-egress-response";
-export const RELAYED_MARKER = "relayed-upstream";
-export const REFUSED_MARKER = "refused-here";
-export const REFUSAL_HEADER = "x-egress-refusal";
-
-export type RefusalReason =
-  | "no-such-operation"
-  | "method-not-allowed"
-  | "auth"
-  | "ceiling"
-  | "configuration"
-  | "upstream-timeout";
+/** The one method this service serves, and the one a 405's `Allow` header names. */
+const SERVED_METHOD = "GET";
 
 /**
  * Why the ceiling refused, when the reason alone does not say: the store
- * holding this hour's count could not be reached, so the service refused
+ * holding the last hour's window could not be reached, so the service refused
  * rather than count in memory (#1810).
  *
  * It travels in the refusal body's `detail`, NOT as a second
@@ -61,33 +44,8 @@ export type RefusalReason =
  */
 export const CEILING_STORE_DETAIL = "ceiling-store-unavailable";
 
-/** The upstream fetch surface; the real service passes global `fetch`. */
-export type UpstreamFetch = (
-  url: string,
-  init?: {
-    headers?: Record<string, string>;
-    signal?: AbortSignal;
-    /**
-     * Required, and only ever `"error"`. Global `fetch` follows a `Location`
-     * by default, which would let the upstream turn the one URL this service
-     * builds into a second destination nobody reviewed; stating the policy in
-     * the seam's own type is what keeps a caller from omitting it and
-     * inheriting the permissive default. `"follow"` and `"manual"` are not
-     * accepted here at all (#1806).
-     */
-    redirect: "error";
-  },
-) => Promise<UpstreamResponseLike>;
-
-/** The part of a fetch Response the relay needs. */
-export interface UpstreamResponseLike {
-  readonly status: number;
-  readonly headers: { get(name: string): string | null };
-  arrayBuffer(): Promise<ArrayBuffer>;
-}
-
 /**
- * The hourly upstream-request budget; UpstreamRequestCeiling satisfies it.
+ * The upstream-request budget of the last hour; UpstreamRequestCeiling satisfies it.
  * Asynchronous because the count is not in this process any more (#1810): the
  * decision is the store's answer, and `store-unavailable` is a refusal.
  */
@@ -104,15 +62,13 @@ export interface EgressDeps {
   nowSeconds: () => number;
 }
 
-/** Give the upstream a fair chance to answer before we fail closed. */
-const UPSTREAM_TIMEOUT_MS = 10_000;
-
 /** Handle one request. The entire service surface is this function plus its modules. */
 export async function handleEgressRequest(request: Request, deps: EgressDeps): Promise<Response> {
-  if (request.method !== "GET") return refusal("method-not-allowed", 405);
+  const refused = methodRefusal(request.method);
+  if (refused !== null) return refused;
   const path = new URL(request.url).pathname;
   const operation = resolveOperation(path);
-  if (operation === null) return refusal("no-such-operation", 404);
+  if (operation === null) return noSuchOperation();
   if (deps.config === null || deps.ceiling === null) return refusal("configuration", 503);
 
   if (!authenticated(deps.config, request, path, deps.nowSeconds())) return refusal("auth", 401);
@@ -122,10 +78,34 @@ export async function handleEgressRequest(request: Request, deps: EgressDeps): P
 }
 
 /**
+ * The refusal a method this service does not serve gets, or null for the one
+ * it does. Exported for the request boundary, which has to ask before it lifts
+ * a request: a Web `Request` cannot be constructed for every method node:http
+ * delivers, so this one answer cannot wait for the handler. Both ask here, so
+ * there is one list of served methods and one answer for the rest, a 405 whose
+ * `Allow` names that list (RFC 9110 §15.5.6).
+ */
+export function methodRefusal(method: string | undefined): Response | null {
+  if (method === SERVED_METHOD) return null;
+  const refused = refusal("method-not-allowed", 405);
+  refused.headers.set("allow", SERVED_METHOD);
+  return refused;
+}
+
+/**
+ * The refusal a request naming no operation gets. Exported for the request
+ * boundary, which gives it to a target that is not a path (`*`, an absolute
+ * URL) without lifting it: only a path can name an operation.
+ */
+export function noSuchOperation(): Response {
+  return refusal("no-such-operation", 404);
+}
+
+/**
  * Our ceiling's refusal — one reason, two causes. The caller is told the same
  * thing either way: this service refused, do not read it as the upstream, do
- * not retry it in-request. Whether this hour's budget ran out or the counter
- * storing it was unreachable is an operator's question, and the body answers it.
+ * not retry it in-request. Whether the last hour's budget ran out or the store
+ * holding it was unreachable is an operator's question, and the body answers it.
  */
 function ceilingRefusal(decision: CeilingDecision): Response {
   const detail = decision === "store-unavailable" ? CEILING_STORE_DETAIL : undefined;
@@ -144,55 +124,4 @@ function authenticated(config: EgressConfig, request: Request, path: string, now
     path,
     nowSeconds,
   ).ok;
-}
-
-/** Fetch the one upstream URL the operation names and mark the answer as relayed. */
-async function relay(deps: EgressDeps, operation: EgressOperation): Promise<Response> {
-  const url = upstreamUrlFor(operation);
-  let upstream: UpstreamResponseLike;
-  let body: ArrayBuffer;
-  try {
-    upstream = await deps.upstreamFetch(url, {
-      headers: { "user-agent": UPSTREAM_USER_AGENT },
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-      // The one URL the service built, and no other: a `Location` header would
-      // otherwise move the connection to a host nothing here chose.
-      redirect: "error",
-    });
-    // Read the body here, inside the same guard: arriving headers are not a
-    // delivered answer, and a reset or stalled stream rejects on this line.
-    // Outside it, that rejection would escape the handler and the caller would
-    // get no response at all rather than our marked refusal.
-    body = await upstream.arrayBuffer();
-  } catch {
-    return refusal("upstream-timeout", 504);
-  }
-  const headers = new Headers({ [RESPONSE_MARKER_HEADER]: RELAYED_MARKER });
-  const contentType = upstream.headers.get("content-type");
-  const retryAfter = upstream.headers.get("retry-after");
-  if (contentType !== null) headers.set("content-type", contentType);
-  if (retryAfter !== null) headers.set("retry-after", retryAfter);
-  return new Response(body, { status: upstream.status, headers });
-}
-
-/** What a caller reads off our refusal without parsing prose: whose it is, why, and the detail when there is one. */
-interface RefusalBody {
-  readonly refusedBy: "anitabi-egress";
-  readonly reason: RefusalReason;
-  readonly detail?: string;
-}
-
-/** This service's own refusal: marked, reasoned, and never confusable with an upstream answer. */
-function refusal(reason: RefusalReason, status: number, detail?: string): Response {
-  const body: RefusalBody = detail === undefined
-    ? { refusedBy: "anitabi-egress", reason }
-    : { refusedBy: "anitabi-egress", reason, detail };
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      [RESPONSE_MARKER_HEADER]: REFUSED_MARKER,
-      [REFUSAL_HEADER]: reason,
-    },
-  });
 }

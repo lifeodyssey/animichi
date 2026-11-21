@@ -1,0 +1,10 @@
+# osv-scanner applies this file to infra/database-access/pnpm-lock.yaml only:
+# a config covers the lockfile in its own directory, not child directories.
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+# The pinned scanner (v2.7.1) reads an ignored vulnerability's expiry from
+# `effectiveUntil`; it still reads the older `ignoreUntil` but warns that the key
+# is deprecated, and v2.3.8 rejects this key as unknown.
+effectiveUntil = 2026-12-18
+reason = "picomatch ReDoS through repeated extglobs (https://github.com/advisories/GHSA-fc5q-39xc-vjpf): every version through 4.0.7, the latest, is affected, so no fix exists, and no picomatch issue tracked it on 2026-11-18. Here picomatch arrives only through Pulumi's package installer (@npmcli/arborist, @npmcli/run-script, node-gyp, tinyglobby). node-gyp 12.4.0, the only tinyglobby caller, passes two fixed patterns without extglobs, build/*.sln and build/*.mk (lib/build.js:87,90). Owner decision of 2026-11-18 in docs/agents/owner-decisions.md; remove it when picomatch ships a fix."

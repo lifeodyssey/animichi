@@ -1,0 +1,279 @@
+{
+  "database": "spike_pi_durable_control",
+  "method": "pg_stat_monitor 2.4, reset and read from spike_pi_durable_counter",
+  "verdict": {
+    "expected": 11,
+    "failedStatementsCounted": true,
+    "totals": [
+      11,
+      11
+    ],
+    "pass": true,
+    "afterDropTotal": 11,
+    "rowsStayNamedAfterDrop": true
+  },
+  "passes": [
+    {
+      "pass": 1,
+      "failedStatementError": "division by zero",
+      "total": 11,
+      "rows": [
+        {
+          "database": "spike_pi_durable_control",
+          "query": "BEGIN",
+          "cmd": "UTILITY",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "COMMIT",
+          "cmd": "UTILITY",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "INSERT INTO control_rows (id, note) VALUES ($1, $2)",
+          "cmd": "INSERT",
+          "relations": "public.control_rows",
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT $1::int + 1 AS next",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT $1::int AS value",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT 1",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT 1/0",
+          "cmd": "",
+          "relations": null,
+          "calls": 1,
+          "elevel": 21,
+          "sqlcode": "22012",
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "UPDATE control_rows SET note = $1 WHERE id = $2",
+          "cmd": "UPDATE",
+          "relations": "public.control_rows",
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        }
+      ]
+    },
+    {
+      "pass": 2,
+      "failedStatementError": "division by zero",
+      "total": 11,
+      "rows": [
+        {
+          "database": "spike_pi_durable_control",
+          "query": "BEGIN",
+          "cmd": "UTILITY",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "COMMIT",
+          "cmd": "UTILITY",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "INSERT INTO control_rows (id, note) VALUES ($1, $2)",
+          "cmd": "INSERT",
+          "relations": "public.control_rows",
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT $1::int + 1 AS next",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT $1::int AS value",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT 1",
+          "cmd": "SELECT",
+          "relations": null,
+          "calls": 2,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "SELECT 1/0",
+          "cmd": "",
+          "relations": null,
+          "calls": 1,
+          "elevel": 21,
+          "sqlcode": "22012",
+          "application": "pi-durable-spike-control"
+        },
+        {
+          "database": "spike_pi_durable_control",
+          "query": "UPDATE control_rows SET note = $1 WHERE id = $2",
+          "cmd": "UPDATE",
+          "relations": "public.control_rows",
+          "calls": 1,
+          "elevel": 0,
+          "sqlcode": null,
+          "application": "pi-durable-spike-control"
+        }
+      ]
+    }
+  ],
+  "afterDrop": {
+    "databases": [
+      "spike_pi_durable_control"
+    ],
+    "total": 11,
+    "rows": [
+      {
+        "database": "spike_pi_durable_control",
+        "query": "BEGIN",
+        "cmd": "UTILITY",
+        "relations": null,
+        "calls": 1,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "COMMIT",
+        "cmd": "UTILITY",
+        "relations": null,
+        "calls": 1,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "INSERT INTO control_rows (id, note) VALUES ($1, $2)",
+        "cmd": "INSERT",
+        "relations": "public.control_rows",
+        "calls": 2,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "SELECT $1::int + 1 AS next",
+        "cmd": "SELECT",
+        "relations": null,
+        "calls": 2,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "SELECT $1::int AS value",
+        "cmd": "SELECT",
+        "relations": null,
+        "calls": 1,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "SELECT 1",
+        "cmd": "SELECT",
+        "relations": null,
+        "calls": 2,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "SELECT 1/0",
+        "cmd": "",
+        "relations": null,
+        "calls": 1,
+        "elevel": 21,
+        "sqlcode": "22012",
+        "application": "pi-durable-spike-control"
+      },
+      {
+        "database": "spike_pi_durable_control",
+        "query": "UPDATE control_rows SET note = $1 WHERE id = $2",
+        "cmd": "UPDATE",
+        "relations": "public.control_rows",
+        "calls": 1,
+        "elevel": 0,
+        "sqlcode": null,
+        "application": "pi-durable-spike-control"
+      }
+    ]
+  }
+}

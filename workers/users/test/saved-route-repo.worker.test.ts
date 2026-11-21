@@ -28,6 +28,18 @@ describe("NeonSavedRouteRepo over the request's Prisma access", () => {
     expect((await repo.listOwned("user-a")).map((route) => route.id)).toEqual([ID]);
   });
 
+  it("asks for the newest update first, then the newest id on a tie", async () => {
+    const oldest = "00000000-0000-7000-8000-000000000001";
+    const tiedLow = "00000000-0000-7000-8000-000000000002";
+    const tiedHigh = "00000000-0000-7000-8000-000000000003";
+    const store = fakeUsersPrisma([
+      row({ id: oldest, updated_at: "2026-07-12T00:00:00.000Z" }),
+      row({ id: tiedLow }), row({ id: tiedHigh }),
+    ]);
+    const listed = await new NeonSavedRouteRepo(store.prisma).listOwned("user-a");
+    expect(listed.map((route) => route.id)).toEqual([tiedHigh, tiedLow, oldest]);
+  });
+
   it("creates a saved route through the action and returns the normalized row", async () => {
     const repo: SavedRouteStore = new NeonSavedRouteStore(fakeUsersPrisma().prisma);
     const route = await saveSavedRoute(repo, "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW);

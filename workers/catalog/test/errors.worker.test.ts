@@ -5,7 +5,7 @@ import {
   routeTooManyPoints,
   upstreamUnavailable,
   workNotFound,
-} from "../src/lib/errors";
+} from "../src/adapters/inbound/errors";
 
 /** Unit coverage for typed catalog oRPC error constructors. */
 describe("catalog error constructors", () => {

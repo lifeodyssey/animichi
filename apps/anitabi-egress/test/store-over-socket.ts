@@ -33,8 +33,11 @@ export const PRIVATE_URL = `redis://default:${PASSWORD}@fly-anitabi-test.upstash
 /** The same store reached by an address that carries no credential, so no AUTH reply is owed. */
 export const OPEN_URL = "redis://fly-anitabi-test.upstash.io:6379";
 
-/** The hour this adapter is asked to count in. */
-export const WINDOW = "anitabi-egress:upstream-requests:472222";
+/** The member these stores record an admission under: a constant, so the bytes on the wire can be pinned. */
+export const MEMBER = "the-tests-own-member";
+
+/** What the ceiling asks the store: its limit, and the egress's clock. */
+export const REQUEST = { nowSeconds: 1_700_000_000, limit: 100 } as const;
 
 /** What a connection does when it is not going to answer. */
 export type Ending = "hang-up" | "fail";
@@ -55,7 +58,7 @@ export interface SocketDouble {
  * own. Splitting `answer` into several chunks is how a reply that arrives in
  * pieces is reproduced.
  */
-function socketDouble(answer: readonly string[] = [], ending: Ending | null = null): SocketDouble {
+export function socketDouble(answer: readonly string[] = [], ending: Ending | null = null): SocketDouble {
   const chunks = answer.map((piece) => new TextEncoder().encode(piece));
   const written: string[] = [];
   const data: ((chunk: Uint8Array) => void)[] = [];
@@ -100,5 +103,5 @@ export function storeOverSocket(answer: readonly string[] = [], url = PRIVATE_UR
     dialled.push(target);
     return Promise.resolve(socket.socket);
   };
-  return { store: new RedisTcpCeilingStore({ url, connect }), socket, dialled };
+  return { store: new RedisTcpCeilingStore({ url, connect, newMember: () => MEMBER }), socket, dialled };
 }

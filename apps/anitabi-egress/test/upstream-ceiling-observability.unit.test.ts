@@ -74,7 +74,7 @@ function storeUnreachable(): RedisTcpCeilingStore {
 
 /** A store that fails without naming a code: a second implementation that does not speak the vocabulary. */
 function storeThatNamesNoCode(): CeilingStore {
-  return { increment: () => Promise.reject(new Error("the ceiling store did not answer")) };
+  return { admit: () => Promise.reject(new Error("the ceiling store did not answer")) };
 }
 
 /** A ceiling over `store`, whose store failures land in `lines` — the operator's surface, as the service writes it. */
@@ -101,9 +101,9 @@ function drained(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-/** The count a store answers with, as the reply set of an address that carries a credential. */
-function counted(count: number): string[] {
-  return [`+OK\r\n:${String(count)}\r\n:1\r\n`];
+/** The window's decision, as the reply set of an address that carries a credential. */
+function decided(decision: 0 | 1): string[] {
+  return [`+OK\r\n:${String(decision)}\r\n`];
 }
 
 /** One way the store fails: how it is driven, and what the operator must read. */
@@ -114,16 +114,16 @@ interface StoreFailure {
   readonly store: () => CeilingStore;
 }
 
-/** The four reply-set guards of #1825, each of which would otherwise read as a count. */
+/** The four reply-set guards of #1825, each of which would otherwise read as a decision. */
 const GUARDS: readonly StoreFailure[] = [
-  { what: "an answer the pipeline never asked for", code: "reply-count", message: /answered 3 commands for a pipeline of 2/,
-    store: () => storeOver([":7\r\n:1\r\n:1\r\n"], OPEN_URL) },
+  { what: "an answer the pipeline never asked for", code: "reply-count", message: /answered 2 commands for a pipeline of 1/,
+    store: () => storeOver([":1\r\n:1\r\n"], OPEN_URL) },
   { what: "a credential the store refused", code: "credential", message: /did not accept the credential/,
-    store: () => storeOver(["+PONG\r\n:7\r\n:1\r\n"]) },
+    store: () => storeOver(["+PONG\r\n:1\r\n"]) },
   { what: "a window the store left without an expiry", code: "expiry", message: /did not give the window an expiry/,
-    store: () => storeOver(["+OK\r\n:7\r\n:0\r\n"]) },
-  { what: "an increment that answered no count", code: "count", message: /increment answered with no positive count/,
-    store: () => storeOver(["+OK\r\n:0\r\n:1\r\n"]) },
+    store: () => storeOver(["+OK\r\n-EXPIRY the window was left without an expiry\r\n"]) },
+  { what: "a window that answered no decision", code: "decision", message: /answered no decision/,
+    store: () => storeOver(["+OK\r\n:2\r\n"]) },
 ];
 /** The other ways the real store fails, each with the address in its scope — the no-secret table below. */
 const TRANSPORT_FAILURES: readonly StoreFailure[] = [
@@ -153,7 +153,7 @@ void describe("a store failure reaches the operator", () => {
     }
     assert.deepEqual(
       observed,
-      ["reply-count", "credential", "expiry", "count"],
+      ["reply-count", "credential", "expiry", "decision"],
       "the four guards must be four findings: a refused credential that reads like a missing expiry is the store's " +
         "diagnostics unreachable again, one level up (#1833)",
     );
@@ -170,7 +170,7 @@ void describe("a store failure reaches the operator", () => {
   void it("reports a store that never answers, once its own timeout passes", async (context) => {
     context.mock.timers.enable({ apis: ["setTimeout"] });
     const lines: string[] = [];
-    const refused = ceilingOver(storeOver(["+OK\r\n:4"]), lines).tryAcquire();
+    const refused = ceilingOver(storeOver(["+OK\r\n:"]), lines).tryAcquire();
     await drained();
     context.mock.timers.tick(STORE_TIMEOUT_MS);
     assert.equal(await refused, "store-unavailable");
@@ -195,8 +195,8 @@ const CALLER_OUTCOMES: Record<CeilingDecision, true> = {
 void describe("the caller still reads exactly three outcomes", () => {
   void it("reaches all three, and reports no fourth", async () => {
     const observed = [
-      await ceilingOver(storeOver(counted(1)), []).tryAcquire(),
-      await ceilingOver(storeOver(counted(2)), [], 1).tryAcquire(),
+      await ceilingOver(storeOver(decided(1)), []).tryAcquire(),
+      await ceilingOver(storeOver(decided(0)), []).tryAcquire(),
       await ceilingOver(storeOver([], PRIVATE_URL, "fail"), []).tryAcquire(),
     ];
     assert.deepEqual(

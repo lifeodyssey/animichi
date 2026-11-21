@@ -5,7 +5,7 @@ import {
   type ExternalGeocoderPort,
   type GazetteerPort,
 } from "../src/application/geocode-place";
-import { normalizeAlias } from "../src/lib/alias";
+import { normalizeAlias } from "../src/domain/alias";
 import type { GeocodeHit } from "../src/domain/geocode/collapse";
 import type { GeocodeCandidate } from "../src/types";
 

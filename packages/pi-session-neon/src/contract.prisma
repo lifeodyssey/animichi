@@ -153,19 +153,6 @@ model CatalogRun {
   @@map("catalog_runs")
 }
 
-model ClusterVersion {
-  id        Uuid              @id @default(dbgenerated("uuidv7()"))
-  bangumiId String            @map("bangumi_id")
-  version   Int
-  isCurrent Boolean           @default(false) @map("is_current")
-  createdAt TimestamptzString @default(now()) @map("created_at")
-
-  @@unique([bangumiId, version])
-  @@index([bangumiId, isCurrent], map: "idx_cluster_version_current")
-  @@index([bangumiId], where: "is_current", unique: true, map: "uq_cluster_version_one_current")
-  @@map("cluster_version")
-}
-
 model IngestJob {
   workId             String             @id @map("work_id")
   status             String             @default("pending")
@@ -178,17 +165,6 @@ model IngestJob {
   createdAt          TimestamptzString  @default(now()) @map("created_at")
 
   @@map("ingest_jobs")
-}
-
-model ItinerarySnapshot {
-  id             Uuid              @id @default(dbgenerated("uuidv7()"))
-  bangumiId      String            @map("bangumi_id")
-  clusterVersion Int               @map("cluster_version")
-  payload        Jsonb
-  createdAt      TimestamptzString @default(now()) @map("created_at")
-
-  @@index([bangumiId, clusterVersion], map: "idx_itinerary_snapshots_bangumi_version")
-  @@map("itinerary_snapshots")
 }
 
 model LegCache {

@@ -8,8 +8,10 @@ A private, temporary Prisma 8 extension pack for PostGIS `geography(Point,4326)`
 - typed `pg_trgm` `trigramSimilarity` and `trigramMatches` operations for text fields.
 
 Load `@animichi/prisma-geography/control` in Prisma configuration and the distinct
-`@animichi/prisma-geography/runtime` descriptor in the Postgres client. Nothing in the current catalog or
-users runtime consumes the pack yet.
+`@animichi/prisma-geography/runtime` descriptor in the Postgres client. Both are in use: the
+data-plane chain (`@animichi/pi-session-neon`) and the migrator load the control descriptor, the
+catalog, users and edge Workers load the runtime descriptor, and the catalog builds its point
+values with `geographyPoint`.
 
 Run the package gates from the repository root:
 

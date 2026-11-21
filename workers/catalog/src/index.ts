@@ -7,7 +7,7 @@ import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
 import { serveImage } from "./media/img";
 import { parseAnitabiImagePlan } from "@animichi/contract/anitabi-display";
-import { mountSnapshotRoutes } from "./api/snapshot";
+import { mountSnapshotRoutes } from "./adapters/inbound/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes, type AdminConnection } from "./import/admin-routes";
@@ -24,8 +24,12 @@ export interface Env {
   MEDIA_BUCKET?: R2Bucket;
   /** R2 bucket for immutable public catalog snapshots (issue #1012, see publish/). */
   SNAPSHOT_BUCKET?: R2Bucket;
-  /** Operational secret guarding POST /catalog/snapshot/rollback (401 when wrong). */
-  SNAPSHOT_ADMIN_TOKEN?: string;
+  /**
+   * Operational secret guarding POST /catalog/snapshot/rollback: 503 while unset,
+   * 401 when a request's token is missing or wrong. A plain string (tests/local
+   * dev) or a Secrets Store binding, resolved as CATALOG_ADMIN_TOKEN is.
+   */
+  SNAPSHOT_ADMIN_TOKEN?: string | SecretsStoreSecret;
   /**
    * Private read-only binding to PRODUCTION's catalog Worker (staging import, AC2).
    * The wrangler binding MUST pin `entrypoint = "SnapshotReadEntrypoint"` (asserted by
@@ -35,8 +39,9 @@ export interface Env {
    */
   PROD_SNAPSHOT?: SnapshotReadService;
   /**
-   * Operational secret guarding POST /catalog/admin/* commands (AC5, 401 when
-   * wrong). Provisioned by the infra/database-access Pulumi stack as a
+   * Operational secret guarding POST /catalog/admin/* commands (AC5): 401 while
+   * unset, and when a request's token is missing or wrong. Provisioned by the
+   * infra/database-access Pulumi stack as a
    * Secrets Store binding (system-health-audit 2026-08-26 §2.4, #1217); the
    * plain-string form remains for tests/local dev, same as DATABASE_URL above.
    */
@@ -96,17 +101,6 @@ app.use("/catalog/public/*", async (c, next) => {
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
-function waitUntilFor(
-  c: { executionCtx: { waitUntil: (p: Promise<unknown>) => void } },
-): ((p: Promise<unknown>) => void) | undefined {
-  try {
-    const ctx = c.executionCtx;
-    return ctx.waitUntil.bind(ctx);
-  } catch {
-    return undefined;
-  }
-}
-
 app.get("/catalog/img/:pointId", async (c) => {
   const plan = parseAnitabiImagePlan(c.req.query("plan"));
   if (plan === null) return c.json({ error: "image plan required" }, 400);
@@ -120,7 +114,7 @@ app.get("/catalog/img/:pointId", async (c) => {
   // response survives the scope that gave the connection back.
   await using runtime = await acquireCatalogRuntime(connStr);
   return await serveImage(
-    { query: catalogPrisma(runtime), bucket, fetchImpl: fetch }, c.req.param("pointId"), plan,
+    { query: catalogPrisma(runtime), bucket, fetchImpl: fetch, signal: c.req.raw.signal }, c.req.param("pointId"), plan,
   );
 });
 
@@ -137,7 +131,6 @@ app.use("/catalog/*", async (c, next) => {
       prisma: catalogPrisma(runtime),
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
-      waitUntil: waitUntilFor(c),
     },
   });
   if (matched) {

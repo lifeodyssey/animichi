@@ -18,6 +18,13 @@
  * that both found no row race on the INSERT, and the loser reads `23505` and
  * reports "not acquired" instead of retrying into a second claim.
  *
+ * A claim is the `started_at` stamp its acquire wrote, so the completion and
+ * failure writes are fenced on that stamp as well as on `running`: a claim left
+ * past RUNNING_TTL can be reclaimed by another invocation, which restamps the
+ * row and keeps it `running`, and a fence on the status alone would let the
+ * stalled holder overwrite the winner's live claim. A fenced write that changes
+ * no row reports `claim_lost`, so the holder knows the result is not its own.
+ *
  * Statements are builder plans run on the request's runtime ({@link
  * CatalogPrisma}). The claimability predicate is stated once, as a `where`
  * callback shared by every write that has to respect it, and its two clock
@@ -27,7 +34,7 @@
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
 import { atServerClock, atServerNow } from "../db/plans";
-import { isUniqueViolation } from "../lib/pg-error";
+import { isUniqueViolation } from "../db/pg-error";
 import { fetchStage, IngestErrorCode } from "./ingest-failure";
 import type { UpstreamName } from "./upstream-failures";
 
@@ -40,6 +47,15 @@ interface GuardRow {
   running_live: boolean;
   cache_live: boolean;
 }
+
+/** A claim this invocation holds: the work and the `started_at` stamp its acquire wrote. */
+export interface JobClaim {
+  readonly workId: string;
+  readonly startedAt: string;
+}
+
+/** What a fenced write did: `claim_lost` when the row no longer carries the claim and nothing changed. */
+export type ClaimWrite = "recorded" | "claim_lost";
 
 /** Failure parameters for {@link JobStore.markFailed}. */
 export interface FailureOptions {
@@ -60,8 +76,8 @@ const PENDING = {
 export class JobStore {
   constructor(private readonly query: CatalogPrisma) {}
 
-  /** True if this caller won the singleflight; false if running or negative-cached. */
-  acquire(bangumiId: string): Promise<boolean> {
+  /** This caller's claim when it won the singleflight; null if running or negative-cached. */
+  acquire(bangumiId: string): Promise<JobClaim | null> {
     return acquireJob(this.query, bangumiId);
   }
 
@@ -76,15 +92,15 @@ export class JobStore {
     if (parked.length === 0) await createRow(this.query, bangumiId, PENDING);
   }
 
-  /** Mark the job done; clears any negative cache. */
-  async markDone(bangumiId: string): Promise<void> {
-    await this.query.executor.query(markDonePlan(this.query, bangumiId));
+  /** Mark the claimed job done and clear any negative cache, unless the claim was lost. */
+  async markDone(claim: JobClaim): Promise<ClaimWrite> {
+    return fencedOutcome(await this.query.executor.query(markDonePlan(this.query, claim)));
   }
 
-  /** Mark failed and park the work behind negative_cached_until = now()+ttl. */
-  async markFailed(bangumiId: string, opts: FailureOptions): Promise<void> {
+  /** Mark the claimed job failed and park it behind negative_cached_until = now()+ttl, unless the claim was lost. */
+  async markFailed(claim: JobClaim, opts: FailureOptions): Promise<ClaimWrite> {
     if (opts.ttlSeconds <= 0) throw new Error("ttlSeconds must be > 0");
-    await this.query.executor.query(markFailedPlan(this.query, bangumiId, opts));
+    return fencedOutcome(await this.query.executor.query(markFailedPlan(this.query, claim, opts)));
   }
 
   /** Whether `upstream` already has a refusal parked behind a live negative cache. */
@@ -95,10 +111,21 @@ export class JobStore {
 }
 
 /** The singleflight acquire: claim the existing row, else create it. */
-async function acquireJob(query: CatalogPrisma, bangumiId: string): Promise<boolean> {
-  const claimed = await query.executor.query(claimableUpdate(query, bangumiId, { status: "running" }));
-  if (claimed.length > 0) return true;
-  return createRow(query, bangumiId, { status: "running" });
+async function acquireJob(query: CatalogPrisma, bangumiId: string): Promise<JobClaim | null> {
+  const [claimed] = await query.executor.query(claimableUpdate(query, bangumiId, { status: "running" }));
+  const row = claimed ?? await createRow(query, bangumiId, { status: "running" });
+  return row === null ? null : claimOf(row);
+}
+
+/** The row a claim or a park returns: the work and the stamp it now carries. */
+interface StampedRow {
+  work_id: string;
+  started_at: string | null;
+}
+
+/** The claim a stamped row stands for; a row the write did not stamp is no claim. */
+function claimOf(row: StampedRow): JobClaim | null {
+  return row.started_at === null ? null : { workId: row.work_id, startedAt: row.started_at };
 }
 
 /**
@@ -107,7 +134,7 @@ async function acquireJob(query: CatalogPrisma, bangumiId: string): Promise<bool
  */
 function claimableUpdate(
   query: CatalogPrisma, bangumiId: string, values: JobValues,
-): SqlOrmPlan<{ work_id: string }> {
+): SqlOrmPlan<StampedRow> {
   const update = query.builder.public.ingest_jobs
     .update(values)
     .where((fields, fns) => fns.and(
@@ -123,7 +150,7 @@ function claimableUpdate(
         ),
       ),
     ))
-    .returning("work_id")
+    .returning("work_id", "started_at")
     .build();
   const stamps = startStamp(values);
   // A park clears the heartbeat rather than moving it, so there is nothing to
@@ -148,28 +175,34 @@ function startStamp(values: JobValues): readonly string[] {
 }
 
 /**
- * Insert the work's row and report whether this caller created it. A `23505`
+ * Insert the work's row and return it when this caller created it. A `23505`
  * means another caller created the row between our two statements — a lost
- * claim, not an error.
- *
- * The heartbeat rule is the UPDATE's: only a claim moves `started_at`. A parked
- * row is created with it cleared, so a pending work never reads as in flight.
+ * race for the claim, not an error.
  */
 async function createRow(
   query: CatalogPrisma, bangumiId: string, values: JobValues,
-): Promise<boolean> {
-  const insert = query.builder.public.ingest_jobs
-    .insert([{ work_id: bangumiId, ...values }])
-    .returning("work_id")
-    .build();
-  const stamps = startStamp(values);
-  const plan = stamps.length === 0 ? insert : atServerNow(insert, stamps);
+): Promise<StampedRow | null> {
   try {
-    return (await query.executor.query(plan)).length > 0;
+    const [created] = await query.executor.query(insertPlan(query, bangumiId, values));
+    return created ?? null;
   } catch (error) {
-    if (isUniqueViolation(error)) return false;
+    if (isUniqueViolation(error)) return null;
     throw error;
   }
+}
+
+/**
+ * The INSERT of the work's row. The heartbeat rule is the UPDATE's: only a claim
+ * moves `started_at`. A parked row is created with it cleared, so a pending work
+ * never reads as in flight.
+ */
+function insertPlan(query: CatalogPrisma, bangumiId: string, values: JobValues): SqlOrmPlan<StampedRow> {
+  const insert = query.builder.public.ingest_jobs
+    .insert([{ work_id: bangumiId, ...values }])
+    .returning("work_id", "started_at")
+    .build();
+  const stamps = startStamp(values);
+  return stamps.length === 0 ? insert : atServerNow(insert, stamps);
 }
 
 async function readGuard(query: CatalogPrisma, bangumiId: string): Promise<IngestGuard> {
@@ -192,38 +225,43 @@ function guardPlan(query: CatalogPrisma, bangumiId: string): SqlOrmPlan<GuardRow
     .build();
 }
 
-/** Mark the work done; a row that is not running is left alone. */
-function markDonePlan(query: CatalogPrisma, bangumiId: string): SqlOrmPlan {
-  const update = query.builder.public.ingest_jobs
-    .update({ status: "done", error: null, error_code: null, stage: null, negative_cached_until: null })
-    .where((fields, fns) => fns.and(
-      fns.eq(fields.work_id, bangumiId),
-      fns.eq(fields.status, "running"),
-    ))
-    .build();
-  return atServerNow(update, ["finished_at"]);
+/** Mark the claimed work done and clear its negative cache. */
+function markDonePlan(query: CatalogPrisma, claim: JobClaim): SqlOrmPlan<{ work_id: string }> {
+  const done = { status: "done", error: null, error_code: null, stage: null, negative_cached_until: null };
+  return atServerNow(fencedUpdate(query, claim, done), ["finished_at"]);
 }
 
-/** Mark the work failed and park it for the TTL. */
+/** Mark the claimed work failed and park it for the TTL. */
 function markFailedPlan(
-  query: CatalogPrisma, bangumiId: string, opts: FailureOptions,
-): SqlOrmPlan {
-  const update = query.builder.public.ingest_jobs
-    .update({
-      status: "failed",
-      error: opts.error ?? null,
-      error_code: opts.errorCode,
-      stage: opts.stage ?? null,
-    })
-    .where((fields, fns) => fns.and(
-      fns.eq(fields.work_id, bangumiId),
-      fns.eq(fields.status, "running"),
-    ))
-    .build();
-  return atServerClock(update, {
+  query: CatalogPrisma, claim: JobClaim, opts: FailureOptions,
+): SqlOrmPlan<{ work_id: string }> {
+  const failed = { status: "failed", error: opts.error ?? null, error_code: opts.errorCode, stage: opts.stage ?? null };
+  return atServerClock(fencedUpdate(query, claim, failed), {
     finished_at: 0,
     negative_cached_until: opts.ttlSeconds,
   });
+}
+
+/**
+ * UPDATE the work's row only while it still carries this claim: running, under
+ * the stamp the claim's acquire wrote. A reclaim restamps the row, so a stalled
+ * holder's write matches nothing and returns no row.
+ */
+function fencedUpdate(query: CatalogPrisma, claim: JobClaim, values: JobValues): SqlOrmPlan<{ work_id: string }> {
+  return query.builder.public.ingest_jobs
+    .update(values)
+    .where((fields, fns) => fns.and(
+      fns.eq(fields.work_id, claim.workId),
+      fns.eq(fields.status, "running"),
+      fns.eq(fields.started_at, claim.startedAt),
+    ))
+    .returning("work_id")
+    .build();
+}
+
+/** A fenced write that changed no row has lost its claim. */
+function fencedOutcome(rows: readonly unknown[]): ClaimWrite {
+  return rows.length > 0 ? "recorded" : "claim_lost";
 }
 
 /** One live refusal row for the source, if any: the refusal alarm's ledger. */
