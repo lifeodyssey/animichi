@@ -21,8 +21,8 @@
     "@earendil-works/chord": "catalog:",
     "@earendil-works/pi-agent-core": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
-    "@pydantic/logfire-node": "0.18.25",
-    "logfire": "0.22.9",
+    "@pydantic/logfire-node": "0.23.0",
+    "logfire": "0.26.1",
     "yaml": "catalog:",
     "zod": "catalog:"
   },

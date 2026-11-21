@@ -12,11 +12,11 @@
     "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },
   "devDependencies": {
-    "@commitlint/config-conventional": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.4",
     "@types/node": "catalog:",
-    "commitlint": "^21.2.2",
-    "oxlint": "~1.83.0",
-    "oxlint-tsgolint": "~7.0.2001",
+    "commitlint": "^21.2.4",
+    "oxlint": "~1.93.0",
+    "oxlint-tsgolint": "~7.0.2007",
     "tsx": "catalog:",
     "wrangler": "catalog:",
     "yaml": "catalog:"
