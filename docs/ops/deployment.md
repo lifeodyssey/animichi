@@ -392,10 +392,13 @@ with no pending migrations. Staging receipt verification compares that marker wi
 the same selected artifact. SQL and secret failures return stable codes, never internal exception
 messages.
 
-CD's staging job rebuilds staging once, for the Prisma flip (#1625). Before the migrator's preview,
-`infra/database-access/reset-staging-baseline.sh` reads the staging branch and acts only when there
-is no `prisma_contract.marker` `app` row and `public` still holds tables the retired Atlas chain
-left. It prints every `public` table with its row count, refuses by name if a table other than an
+CD's staging job rebuilds staging only when its schema is stranded on a retired chain and the
+owner's committed records approve what the rebuild drops. That happened once, for the Prisma flip
+(#1625). A regenerated Prisma chain, which leaves staging's marker outside the repository's
+migration graph, is refused by name until the owner records a rebuild. Before the migrator's preview,
+`infra/database-access/reset-staging-baseline.sh` reads the staging branch. For the flip it acts
+when there is no `prisma_contract.marker` `app` row and `public` still holds tables the retired
+Atlas chain left. It prints every `public` table with its row count, refuses by name if a table other than an
 extension's or the Atlas ledger holds a row and is not named in
 `infra/database-access/reset-staging-baseline.approved-rows` (the owner's dated approval, #1781),
 takes the `staging-before-prisma-baseline` branch, and drops and recreates `public` in one
@@ -412,7 +415,46 @@ rolls the migrator's transaction back, and a reused backup older than the schema
 refuses. If the owner's transaction fails after the migrator's has committed, the next run
 finishes the rebuild: with no marker schema left, it takes the leftovers path, whose reset is the
 owner's transaction alone. Every
-later run against a completed reset is a named no-op. The migrator
+later run against a completed reset is a named no-op.
+
+An `app` marker with no Atlas ledger is the Prisma chain's, and the script leaves it to the
+migrator while the repository's migration graph carries it, as it does today. The graph is read the
+way Prisma's planner builds it: every `packages/pi-session-neon/migrations/app/*/migration.json` is
+one edge, and its `from` and `to` are nodes. The marker's `core_hash` must equal one of them exactly.
+A graph directory with no manifest, or a manifest that is not exactly one JSON value with string
+hashes (an empty or blank file, two values, a file that does not parse), is a refusal by name, never
+a missing edge. A marker that is no node is an old chain's.
+Regenerating the chain changes every hash, which the Prisma 8 upgrade the owner decided on
+2026-11-21 does, and the migrator's Prisma then refuses the marker as `MIGRATION.MARKER_MISMATCH`
+before any DDL. The script refuses that state by name. Its output ends with one line for each
+marker row (`prisma_contract.marker space=… updated_at=… core_hash=…`) and one for each table in
+`public` (`public.<table> <n> rows`). The rebuild also drops the rest of the `prisma_contract`
+schema, its `ledger` and `contract` tables: the refusal's text names them without listing their
+rows, and the rebuild's `pre-state:` lines count them. The owner's
+dated decision to rebuild is a committed record, `infra/database-access/reset-staging-baseline.approved-old-chain`.
+It names every printed marker and table line exactly, beside comments; another count, instant, hash or table,
+or a line that is not one of them, refuses. With the record, the rebuild takes a backup branch named
+after the marker it replaces, `staging-before-rebuild-<first 12 hex of the hash>`: the Atlas
+rebuild's branch, or an earlier old chain's, predates the marker schema's last write and would
+refuse forever. It then drops the marker schema as `migrator` and rebuilds `public` as
+`neondb_owner`, in the same two transactions, and the Atlas path's approved rows play no part. A row
+count that changes before the CD run that reads the record (a cron, QA traffic) makes that run
+refuse again and print the current lines, which the record must name instead. If the owner's
+transaction fails after the migrator's, the next run finds no marker schema and finishes the rebuild
+when `public` is still exactly what the record's `public.` lines name. If `public` has changed, the
+record no longer stands for its rows, and the run falls through to the Atlas path's approved rows.
+It refuses, naming `reset-staging-baseline.approved-rows`, when a table holding rows is not one of
+that file's seven; otherwise it proceeds under that approval with the Atlas path's backup,
+`staging-before-prisma-baseline`, reusing the Atlas rebuild's branch if it still stands. To re-sign, replace
+the record's `public.` lines with that run's `pre-state:` lines, each without its `pre-state: `
+prefix, and keep the record's marker line, which names the backup. Once rebuilt, every run
+is a named no-op, and once the migrator has applied the chain, the marker is a node again. The
+record approves nothing that can recur; delete it after the rebuild. It is for a rebuild the owner
+decided: a migration that applied on staging and was then reverted leaves the marker outside the
+graph too, and draws the same refusal, but its remedy is still a forward fix or a PITR
+(`docs/agents/database-and-migrations.md`).
+
+The migrator
 refuses a database still carrying the Atlas ledger as `atlas_leftovers_present` on `/preflight` and
 `/migrate`, before any DDL, so a rebuild that did not happen fails by name rather than with 42710
 inside the apply; the preflight step's log then points back at the rebuild step's own account. Production has no such step: a missing, empty or native-baseline production

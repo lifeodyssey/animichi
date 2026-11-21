@@ -128,6 +128,18 @@ run_script() { # run_script <want-exit>
   expect "$LABEL exits $1" "$1" "$rc"
 }
 
+# run_script_recorded <want-exit> <record> [<graph dir>]: the shipped `main`, reading the case's own
+# record of an old chain instead of the committed one, and the case's own migration graph when one
+# is given — sourced, the script only defines its functions, so the case points those paths
+# elsewhere, as the stack-config cases point the stack files.
+run_script_recorded() {
+  local rc=0
+  OUT="$(PATH="$WORK/bin:$PATH" NEON_API_KEY=stub-neon-key bash -c \
+    'set -euo pipefail; source "$1"; APPROVED_OLD_CHAIN="$2"; GRAPH_DIR="${3:-$GRAPH_DIR}"; main' \
+    _ "$SCRIPT" "$2" "${3:-}" 2>&1)" || rc=$?
+  expect "$LABEL exits $1" "$1" "$rc"
+}
+
 expect() { # expect <label> <want> <got>
   if [ "$2" = "$3" ]; then printf 'PASS %s\n' "$1"; return; fi
   failures=$((failures + 1))

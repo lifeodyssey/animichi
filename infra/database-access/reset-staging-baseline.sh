@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Rebuild a staging schema stranded on the retired Atlas chain, once (#1625, spec §2.6).
+# Rebuild a staging schema stranded on a retired chain (#1625, spec §2.6): the Atlas chain, and a
+# Prisma chain the repository no longer carries.
 #
-# CD's staging job runs this on every deploy, before the migrator's preview. It acts on exactly
-# one state — Atlas leftovers in `public`, rows only in tables the owner approved by name, and no
-# Prisma app marker other than one the owner's record names as stale — and on every other state
-# it is a named no-op or a named refusal.
-# reset-staging-baseline.test.sh drives each.
+# CD's staging job runs this on every deploy, before the migrator's preview. It acts on two states
+# — Atlas leftovers in `public`, rows only in tables the owner approved by name, and no Prisma app
+# marker other than one the owner's record names as stale; or an app marker that is no node of
+# the repository's migration graph, when the owner's record names every marker row and every
+# table in `public` with its row count (reset-staging-baseline.old-chain.sh) — and on every other
+# state it is a named no-op or a named refusal. reset-staging-baseline.test.sh drives each.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -15,13 +17,14 @@ RESET_SQL="$ROOT/infra/database-access/reset-staging-baseline.sql"
 APPROVED_ROWS="$ROOT/infra/database-access/reset-staging-baseline.approved-rows"
 APPROVED_MARKER="$ROOT/infra/database-access/reset-staging-baseline.approved-marker"
 # The one schema identity the Prisma chain writes (#1636). A staging database that carries a
-# marker and no Atlas ledger has been migrated by the chain and must not be dropped; one that
-# carries none is either empty or still on the retired Atlas chain, and is what this reset exists
-# for. A marker beside the ledger is neither (#1781): the migrator refuses to migrate while the
-# ledger stands, so no CD migration wrote that marker, and nothing here may decide which is stale.
-# Only the owner's record of that exact marker may, and then the reset drops the whole schema —
-# its three tables, named in reset-staging-baseline.sql — as `migrator`, and rebuilds `public`
-# without it.
+# marker and no Atlas ledger has been migrated by a Prisma chain: by this one while the
+# repository's graph carries the marker, and then nothing here drops it, and otherwise by an older
+# one (reset-staging-baseline.old-chain.sh). One that carries none is either empty or still on the
+# retired Atlas chain, and is what this reset exists for. A marker beside the ledger is neither
+# (#1781): the migrator refuses to migrate while the ledger stands, so no CD migration wrote that
+# marker, and nothing here may decide which is stale. Only the owner's record of that exact marker
+# may, and then the reset drops the whole schema — its three tables, named in
+# reset-staging-baseline.sql — as `migrator`, and rebuilds `public` without it.
 MARKER_SCHEMA="prisma_contract"
 ATLAS_LEDGER="public.atlas_schema_revisions"
 DROP_MARKER_SCHEMA=false
@@ -29,6 +32,7 @@ DROP_MARKER_SCHEMA=false
 # whenever they are not zero, so no two instants share a rendering.
 MARKER_IDENTITY="'$MARKER_SCHEMA.marker space=' || space || ' updated_at=' || replace(to_char(
   updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US'), '.000000', '') || 'Z'"
+# The Atlas rebuild's backup; an old chain's rebuild names one of its own (approve_old_chain).
 BACKUP_NAME="staging-before-prisma-baseline"
 # The role that reads staging's state and rebuilds `public`. Neon gives every role it creates
 # `neon_superuser`, which reads all tables whoever owns them — and, staging proved on 2026-09-24
@@ -54,6 +58,8 @@ NOT_EXTENSION="NOT EXISTS (SELECT 1 FROM pg_depend d
   WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')"
 ROW_COUNT="(xpath('/row/n/text()', query_to_xml(
   format('SELECT count(*) AS n FROM %I.%I', n.nspname, c.relname), false, true, '')))[1]::text::bigint"
+# One table and its rows, as the pre-state records it and an old chain's record names it.
+TABLE_ROWS="n.nspname || '.' || c.relname || ' ' || $ROW_COUNT || ' rows'"
 
 fail() { printf '%s\n' "$@" >&2; exit 1; }
 
@@ -61,28 +67,14 @@ required() {
   [[ -n "${!1:-}" ]] || fail "$1 is required"
 }
 
-# One value of a stack's own configuration, read by js-yaml — the YAML library `infra`
-# declares and reads these files with in its tests — so quoting is the parser's business; jq then
-# takes a non-empty string or refuses by key and file: unset, a number, a boolean, a `secure:`
-# object. The file goes in on stdin because `pnpm exec` runs js-yaml from `infra/`.
-yaml_value() {
-  local yaml="$1" key="animichi-neon-secrets:$2"
-  pnpm --dir "$ROOT/infra" exec js-yaml < "$yaml" \
-    | jq -er --arg key "$key" '.config[$key] | select(type == "string" and length > 0)' \
-    || fail "refusing reset: $yaml sets no string $key"
-}
+# The Neon target, read out of the two stack files named above: `yaml_value` and `load_target`.
+# shellcheck source=infra/database-access/reset-staging-baseline.stack-config.sh
+. "$ROOT/infra/database-access/reset-staging-baseline.stack-config.sh"
 
-# `main` calls this as `load_target || fail`, where `set -e` does not act, and a refusal inside a
-# command substitution ends only that subshell, so each read returns on its own. An empty id still
-# refuses below: neonctl given no branch falls back to the project's default one.
-load_target() {
-  local production_branch
-  PROJECT_ID="$(yaml_value "$STAGING_YAML" neonProjectId)" || return 1
-  BRANCH_ID="$(yaml_value "$STAGING_YAML" neonBranchId)" || return 1
-  production_branch="$(yaml_value "$PRODUCTION_YAML" neonBranchId)" || return 1
-  [[ -n "$PROJECT_ID" && -n "$BRANCH_ID" && -n "$production_branch" ]] || return 1
-  [[ "$BRANCH_ID" != "$production_branch" ]] || return 1
-}
+# A marker the repository's migration graph does not carry, and the owner's record of the lines
+# its refusal prints: `stranded_on_old_chain` and `old_chain_rows_approved`.
+# shellcheck source=infra/database-access/reset-staging-baseline.old-chain.sh
+. "$ROOT/infra/database-access/reset-staging-baseline.old-chain.sh"
 
 # neonctl at the version the root lockfile resolved for infra's catalog range, installed by
 # CD's root frozen install before this step, its analytics off; every Neon call goes through here.
@@ -200,12 +192,13 @@ atlas_leftovers_present() {
   query_bool "SELECT EXISTS (SELECT 1 $PUBLIC_TABLES AND $NOT_EXTENSION)"
 }
 
-# Four states (#1781). Marker without ledger: Prisma owns it. Marker beside ledger: refused,
-# unless the owner's record names that marker as stale. No marker: the Atlas chain's tables are
-# what this reset exists for; none at all is a no-op.
+# Five states (#1781). Marker beside ledger: refused, unless the owner's record names that marker
+# as stale. Marker without ledger: Prisma's, a no-op while the repository's graph carries it, and an
+# old chain's when it does not, refused unless the owner's record of that rebuild matches. No
+# marker: the Atlas chain's tables are what this reset exists for; none at all is a no-op.
 stranded_on_atlas() {
   if app_marker_present; then
-    atlas_ledger_present || { echo "skip: the staging baseline is already applied"; return 1; }
+    atlas_ledger_present || { stranded_on_old_chain || return 1; DROP_MARKER_SCHEMA=true; return 0; }
     stale_marker_approved || refuse_marker_beside_ledger
     return 0
   fi
@@ -214,10 +207,10 @@ stranded_on_atlas() {
 }
 
 record_pre_state() {
-  query "SELECT 'pre-state: public.' || c.relname || ' ' || $ROW_COUNT || ' rows' $PUBLIC_TABLES ORDER BY c.relname"
+  query "SELECT 'pre-state: ' || $TABLE_ROWS $PUBLIC_TABLES ORDER BY c.relname"
   printf '%s\n' "$ROWS"
   [[ "$DROP_MARKER_SCHEMA" == true ]] || return 0
-  query "SELECT 'pre-state: $MARKER_SCHEMA.' || c.relname || ' ' || $ROW_COUNT || ' rows' $MARKER_TABLES ORDER BY c.relname"
+  query "SELECT 'pre-state: ' || $TABLE_ROWS $MARKER_TABLES ORDER BY c.relname"
   printf '%s\n' "$ROWS"
 }
 
@@ -286,10 +279,10 @@ reset_schema() {
 
 main() {
   required NEON_API_KEY
-  load_target || fail "refusing reset: staging target is invalid"
+  load_target "$STAGING_YAML" "$PRODUCTION_YAML" || fail "refusing reset: staging target is invalid"
   stranded_on_atlas || return 0
   record_pre_state
-  refuse_business_rows
+  old_chain_rows_approved || refuse_business_rows
   ensure_backup
   reset_schema
   echo "staging reset complete; backup=$BACKUP_NAME"
