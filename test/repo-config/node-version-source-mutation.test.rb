@@ -22,6 +22,11 @@ class NodeVersionSourceMutationTest < Minitest::Test
   ENGINES = "engines.node is"
   TYPES = "@types/node describes the runtime's API surface"
   IMAGE = "a service image builds or runs on a Node major"
+  # The lines the two version probes rewrite, found by shape rather than by version, so a
+  # Dependabot bump or the next major move leaves the probes as they are.
+  TYPES_LINE = /^[ \t]*["']?@types\/node["']?:.*\n/.freeze
+  RUNTIME_STAGE = /^FROM[ \t]+node:\S+\n/.freeze
+  DIGITS = /\d+/.freeze
 
   def importer_paths
     workspace = Psych.safe_load(File.read(File.join(ROOT, WORKSPACE)))
@@ -59,6 +64,19 @@ class NodeVersionSourceMutationTest < Minitest::Test
     changed = source.sub(needle, replacement)
     refute_equal source, changed, "mutation needle missing: #{label}"
     write(root, relative, changed)
+  end
+
+  # The text `pattern` finds in the tree's copy of `relative`: a probe reads its needle from
+  # the file it mutates, and a needle the file no longer holds fails by name.
+  def needle_in(root, relative, pattern, label)
+    needle = File.read(File.join(root, relative))[pattern]
+    refute_nil needle, "mutation needle missing: #{label}"
+    needle
+  end
+
+  # The same line naming the Node major two below the one it names.
+  def behind(line)
+    line.sub(DIGITS) { |major| (Integer(major) - 2).to_s }
   end
 
   def rewrite_json(root, relative)
@@ -111,7 +129,8 @@ class NodeVersionSourceMutationTest < Minitest::Test
 
   def test_rejects_a_types_node_major_behind_the_runtime
     with_tree do |root|
-      rewrite(root, WORKSPACE, '"@types/node": ^26.6.1', '"@types/node": ^24.0.0', "catalog @types/node")
+      line = needle_in(root, WORKSPACE, TYPES_LINE, "catalog @types/node")
+      rewrite(root, WORKSPACE, line, behind(line), "catalog @types/node")
       reject_tree(root, "a catalog @types/node behind the runtime", TYPES, MANIFEST)
     end
   end
@@ -125,8 +144,9 @@ class NodeVersionSourceMutationTest < Minitest::Test
 
   def test_rejects_a_service_image_behind_the_runtime
     with_tree do |root|
-      rewrite(root, EGRESS_IMAGE, "FROM node:26-bookworm-slim\n", "FROM node:24-bookworm-slim\n", "egress runtime stage")
-      reject_tree(root, "an egress runtime stage on node:24", IMAGE, EGRESS_IMAGE)
+      line = needle_in(root, EGRESS_IMAGE, RUNTIME_STAGE, "egress runtime stage")
+      rewrite(root, EGRESS_IMAGE, line, behind(line), "egress runtime stage")
+      reject_tree(root, "an egress runtime stage behind the runtime", IMAGE, EGRESS_IMAGE)
     end
   end
 end
