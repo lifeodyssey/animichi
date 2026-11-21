@@ -4,7 +4,10 @@
 // scripts/local-gates/commit-message.py, whose tables (`type-enum`,
 // `scope-enum`, `header-max-length` 72) and subject checks (GENERIC_OUTCOMES,
 // the lowercase-verb start, the issue-ref ban, the AI-attribution ban) are the
-// rules below. Merge/Revert subjects stay exempt, as they were there.
+// rules below. Merge/Revert subjects stay exempt, as they were there. The 72 is
+// now the local `header-max-length-except-dependabot`: the owner exempted
+// Dependabot's own commits from the header length alone (2026-11-21), and
+// DEPENDABOT_SIGN_OFF below is how such a commit is recognised.
 
 const TYPES = [
   'feat',
@@ -74,6 +77,22 @@ const AI_IDENTITY = /\b(?:claude|anthropic|codex|openai)\b/i;
 // the subject is still rejected.
 const SQUASH_MERGE_SUFFIX = / \(#\d+\)$/;
 
+// Dependabot signs every commit it writes with this trailer. A grouped update's
+// header runs to about 90 characters, so on 2026-11-21 the owner approved one
+// exemption: a commit whose footer carries this exact line is not held to the
+// header length, and every other rule still judges it. The global `ignores`
+// above would skip every rule for such a commit, which is wider than that.
+// commitlint's parser opens the footer at the first `Token: value` line, so the
+// line is footer wherever it stands below the header. A PR title is one line
+// with no footer, so the title lint still holds it to 72; the squash merge uses
+// it as `main`'s subject and appends ` (#N)`.
+const DEPENDABOT_SIGN_OFF = 'Signed-off-by: dependabot[bot] <support@github.com>';
+
+const signedByDependabot = (footer) =>
+  String(footer ?? '')
+    .split('\n')
+    .includes(DEPENDABOT_SIGN_OFF);
+
 module.exports = {
   extends: ['@commitlint/config-conventional'],
   ignores: [
@@ -84,7 +103,10 @@ module.exports = {
   rules: {
     'type-enum': [2, 'always', TYPES],
     'scope-enum': [2, 'always', SCOPES],
-    'header-max-length': [2, 'always', 72],
+    // Off, not deleted: a deleted line would inherit config-conventional's 100.
+    // The local rule below holds every other commit to the same 72.
+    'header-max-length': [0],
+    'header-max-length-except-dependabot': [2, 'always', 72],
     'subject-empty': [2, 'never'],
     'type-empty': [2, 'never'],
     'subject-case': [
@@ -100,6 +122,13 @@ module.exports = {
   plugins: [
     {
       rules: {
+        // commitlint's own header-max-length check and refusal text, skipped
+        // for a commit Dependabot signed.
+        'header-max-length-except-dependabot': ({ header, footer }, _when, max) => [
+          signedByDependabot(footer) ||
+            (typeof header === 'string' && header.length <= max),
+          `header must not be longer than ${max} characters, current length is ${header?.length}`,
+        ],
         'outcome-not-generic': ({ subject }) => {
           const outcome = String(subject ?? '')
             .toLowerCase()

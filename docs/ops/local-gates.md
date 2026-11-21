@@ -53,9 +53,12 @@ that starts with anything but a lowercase verb, an issue reference in the subjec
 exemption is the ` (#N)` GitHub's squash merge appends to the title it uses as that subject, which no
 author writes and no author can remove (#1804) — and Claude/Anthropic/Codex/OpenAI `Co-Authored-By`
 or `Generated with` trailers. Legitimate human and Dependabot co-authors survive, and `Merge …` /
-`Revert "…"` subjects are exempt. Body and footer lines over 100 characters are rejected too — that
-pair comes from `@commitlint/config-conventional`, which the config extends, not from a rule written
-here.
+`Revert "…"` subjects are exempt. A commit whose footer carries Dependabot's sign-off,
+`Signed-off-by: dependabot[bot] <support@github.com>`, as a whole line is not held to the 72 (owner,
+2026-11-21), because a grouped update's header runs to about 90 characters; every other rule still
+judges it, and a PR title has no footer, so the title a squash merge uses as the subject is still
+held to 72. Body and footer lines over 100 characters are rejected too — that pair comes from
+`@commitlint/config-conventional`, which the config extends, not from a rule written here.
 
 Two ways to check a message without committing:
 
