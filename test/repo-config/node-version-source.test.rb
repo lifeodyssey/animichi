@@ -3,9 +3,10 @@
 # The toolchain ran Node 24 while `@types/node` was on the 26 line, so the compiler
 # checked code against runtime APIs the toolchain may not have. The owner chose Node 26
 # (2026-10-02) and asked that the version live in one place `.nvmrc`. This contract is
-# the reader that makes a reintroduced literal, a drifting `engines.node` floor, or an
-# `@types/node` major that no longer matches the runtime a failure that names the file,
-# instead of a green run on the wrong interpreter.
+# the reader that makes a reintroduced literal, a job that runs Node before setting it up
+# from `.nvmrc`, a drifting `engines.node` floor, or an `@types/node` major that no longer
+# matches the runtime a failure that names the file, instead of a green run on the wrong
+# interpreter.
 require "minitest/autorun"
 require "json"
 require "psych"
@@ -18,6 +19,8 @@ class NodeVersionSourceTest < Minitest::Test
   WORKFLOW_GLOB = ".github/workflows/*.yml"
   ACTION_GLOB = ".github/actions/**/action.yml"
   SETUP_NODE = %r{\Aactions/setup-node@}.freeze
+  LOCAL_ACTION = %r{\A(?:\$|\.)/(\.github/actions/[^@\s]+)\z}.freeze
+  RUNS_NODE = /(?:^|[\s;&|(])(?:node|pnpm|npx)(?=\s|$)/.freeze
   VERSION_FILE_KEY = "node-version-file"
   LITERAL_KEY = "node-version"
   DOCKERFILE_GLOB = "{apps,packages,workers}/*/Dockerfile"
@@ -48,12 +51,8 @@ class NodeVersionSourceTest < Minitest::Test
     Psych.safe_load(read(relative), aliases: true) || {}
   end
 
-  def workflow_paths
-    Dir.glob(WORKFLOW_GLOB, base: ROOT).sort
-  end
-
-  def action_paths
-    Dir.glob(ACTION_GLOB, base: ROOT).sort
+  def paths(glob)
+    Dir.glob(glob, base: ROOT).sort
   end
 
   # Every step of a workflow's jobs, or of a composite action's `runs`.
@@ -65,25 +64,44 @@ class NodeVersionSourceTest < Minitest::Test
   end
 
   def setup_node_steps
-    (workflow_paths + action_paths).flat_map do |relative|
+    (paths(WORKFLOW_GLOB) + paths(ACTION_GLOB)).flat_map do |relative|
       steps(relative).select { |step| step["uses"].to_s.match?(SETUP_NODE) }
                      .map { |step| [relative, step] }
     end
   end
 
-  def node_version_literals
-    setup_node_steps.select { |_relative, step| step.fetch("with", {}).key?(LITERAL_KEY) }
-                    .map { |relative, _step| relative }.uniq
+  # The files holding an actions/setup-node step that `offends`.
+  def setup_node_files_where(&offends)
+    setup_node_steps.select { |_relative, step| offends.call(step) }.map(&:first).uniq
   end
 
-  def steps_without_the_nvmrc
-    setup_node_steps.reject { |_relative, step| step.fetch("with", {})[VERSION_FILE_KEY] == NVMRC }
-                    .map { |relative, _step| relative }.uniq
+  def reads_the_nvmrc?(step)
+    step["uses"].to_s.match?(SETUP_NODE) && step.fetch("with", {})[VERSION_FILE_KEY] == NVMRC
+  end
+
+  # A job's steps in the order they run, each local composite action's own steps in its place.
+  def run_order(job_steps)
+    job_steps.flat_map do |step|
+      local = step["uses"].to_s[LOCAL_ACTION, 1]
+      local ? run_order(steps(File.join(local, "action.yml"))) : [step]
+    end
+  end
+
+  # Each `<workflow>#<job>` that runs node, pnpm or npx before any setup-node step reading the
+  # .nvmrc, and so on whatever Node the runner image ships.
+  def jobs_on_the_runner_node
+    paths(WORKFLOW_GLOB).flat_map do |relative|
+      document(relative).fetch("jobs").filter_map do |id, job|
+        order = run_order(job.fetch("steps", []))
+        first = order.index { |step| step["run"].to_s.match?(RUNS_NODE) }
+        "#{relative}##{id}" if first && order.first(first).none? { |step| reads_the_nvmrc?(step) }
+      end
+    end
   end
 
   # Every `FROM node:<major>` stage of a service image, as [file, major].
   def node_image_stages
-    Dir.glob(DOCKERFILE_GLOB, base: ROOT).sort.flat_map do |relative|
+    paths(DOCKERFILE_GLOB).flat_map do |relative|
       read(relative).scan(NODE_IMAGE).map { |(major)| [relative, major] }
     end
   end
@@ -128,17 +146,24 @@ class NodeVersionSourceTest < Minitest::Test
   end
 
   def test_no_setup_node_step_pins_a_literal_version
-    offenders = node_version_literals
+    offenders = setup_node_files_where { |step| step.fetch("with", {}).key?(LITERAL_KEY) }
     assert_empty offenders,
                  "an actions/setup-node step pins a `#{LITERAL_KEY}` literal instead of reading #{NVMRC} " \
                  "(#{offenders.join(', ')}); the version belongs in #{NVMRC}, so the next move is one line"
   end
 
   def test_every_setup_node_step_reads_the_nvmrc
-    offenders = steps_without_the_nvmrc
+    offenders = setup_node_files_where { |step| !reads_the_nvmrc?(step) }
     assert_empty offenders,
                  "every actions/setup-node step must set `#{VERSION_FILE_KEY}: #{NVMRC}` " \
                  "(#{offenders.join(', ')}); a step without it runs whatever the runner image ships"
+  end
+
+  def test_every_job_that_runs_node_sets_it_up_from_the_nvmrc
+    offenders = jobs_on_the_runner_node
+    assert_empty offenders,
+                 "a job runs node, pnpm or npx before an actions/setup-node step that reads #{NVMRC} " \
+                 "(#{offenders.join(', ')}); it would run on whatever Node the runner image ships"
   end
 
   def test_the_engines_floor_matches_the_nvmrc_major

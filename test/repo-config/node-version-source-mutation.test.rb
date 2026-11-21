@@ -17,15 +17,18 @@ class NodeVersionSourceMutationTest < Minitest::Test
   PR_WORKFLOW = ".github/workflows/pr-verification.yml"
   SETUP_ACTION = ".github/actions/setup-workspace/action.yml"
   EGRESS_IMAGE = "apps/anitabi-egress/Dockerfile"
+  EVIDENCE = ".github/workflows/verify-deploy-evidence.yml"
   LITERAL = "pins a `node-version` literal"
   READS = "must set `node-version-file: .nvmrc`"
   ENGINES = "engines.node is"
   TYPES = "@types/node describes the runtime's API surface"
   IMAGE = "a service image builds or runs on a Node major"
-  # The lines the two version probes rewrite, found by shape rather than by version, so a
+  RUNNER_NODE = "a job runs node, pnpm or npx before an actions/setup-node step that reads .nvmrc"
+  # The text the probes rewrite, found by shape rather than by version or pin, so a
   # Dependabot bump or the next major move leaves the probes as they are.
   TYPES_LINE = /^[ \t]*["']?@types\/node["']?:.*\n/.freeze
   RUNTIME_STAGE = /^FROM[ \t]+node:\S+\n/.freeze
+  SETUP_STEP = /^([ \t]*)- uses: actions\/setup-node@.*\n(?:\1[ \t]+\S.*\n)*/.freeze
   DIGITS = /\d+/.freeze
 
   def importer_paths
@@ -116,7 +119,17 @@ class NodeVersionSourceMutationTest < Minitest::Test
   def test_rejects_a_node_version_literal_in_a_composite_action
     with_tree do |root|
       rewrite(root, SETUP_ACTION, "node-version-file: .nvmrc", 'node-version: "24"', "setup-workspace literal")
-      reject_tree(root, "a literal in setup-workspace", SETUP_ACTION, LITERAL, READS)
+      reject_tree(root, "a literal in setup-workspace", SETUP_ACTION, LITERAL, READS, RUNNER_NODE)
+    end
+  end
+
+  # The gap the job guard closed: the evidence job loses its setup-node step and would judge
+  # on whatever Node the runner image ships.
+  def test_rejects_a_job_that_runs_node_on_the_runner_node
+    with_tree do |root|
+      step = needle_in(root, EVIDENCE, SETUP_STEP, "evidence setup-node step")
+      rewrite(root, EVIDENCE, step, "", "evidence setup-node step")
+      reject_tree(root, "the evidence job on the runner's Node", RUNNER_NODE, "#{EVIDENCE}#evidence")
     end
   end
 
