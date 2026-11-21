@@ -27,8 +27,11 @@ contract suites.
   catalog, beside a test that asserted the string. A version held below the newest on purpose is a
   hold-back, not an exact pin: it is registered in `pnpm-workspace.yaml` as
   `# hold-back: <package>@<declared> -> <latest> fails <gate> — #<issue>`, naming the gate it fails
-  and the issue that retires it (the line has no expiry field). Exact versions that predate the rule
-  are still in the tree.
+  and the issue that retires it (the line has no expiry field). The exact versions left in the
+  catalog and the manifests are held where something else decides them: the Pi packages (the pi
+  version line in `docs/agents/owner-decisions.md`), the Prisma family, `@prisma/cli-engine`
+  included (#1741), and the eval package's `logfire` with `@pydantic/logfire-node`, which
+  `packages/eval/PINS.json` and `packages/eval/test/pins.test.ts` hold to one exact runtime.
 - **A scoped override retires itself** (#2058; written 2026-11-18, merged 2026-11-19). neonctl's
   `neon` package pins `diff` 5.2.0 exactly, which GHSA-73rr-hh4g-fpgx covers. The override
   `"neon>diff@5.2.0": "5.2.2"` in `pnpm-workspace.yaml` applies only while `neon`'s `diff` range

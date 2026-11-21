@@ -39,13 +39,6 @@
       "issue": 1744
     },
     {
-      "package": "miniflare",
-      "declared": "4.20260722.0",
-      "latest": "5.20260915.0-alpha",
-      "declaredIn": "pnpm-workspace.yaml",
-      "issue": 1742
-    },
-    {
       "package": "prisma",
       "declared": "8.0.0-rc.13",
       "latest": "8.0.0-rc.15",

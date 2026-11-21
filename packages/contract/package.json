@@ -40,7 +40,7 @@
   "dependencies": {
     "@orpc/contract": "catalog:",
     "@orpc/openapi": "catalog:",
-    "@orpc/zod": "1.15.1",
+    "@orpc/zod": "catalog:",
     "jose": "catalog:",
     "zod": "catalog:"
   },
