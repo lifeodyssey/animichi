@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { provisionServiceRoles, resolveRuntimePasswords, type RuntimeRolePasswords } from "../src/service-roles";
 import { redactedCause } from "../src/redacted-cause";
+import { dsnGivenToDriver } from "./neon-connection-string";
 
 /* What the provisioning step sends over the Neon HTTP boundary, and when it sends nothing.
  *
@@ -27,7 +28,7 @@ interface CapturedBatch {
 }
 
 /** Serve the driver's batches, capturing every statement. A probe (`SELECT 1`, the driver's
- * single-query shape) succeeds only when its Neon-Connection-String carries a role and
+ * single-query shape) succeeds only when the DSN it was handed carries a role and
  * password both listed here; a DDL batch is always accepted unless `batchError` is set, in
  * which case it fails with that message — the echo a driver or a DO-block CONTEXT hands back. */
 function serveNeonHttp(logins: readonly string[], batchError?: string): CapturedBatch[] {
@@ -44,8 +45,7 @@ function statementsOf(raw: string): readonly string[] {
 }
 
 function answerNeonHttp(logins: readonly string[], batches: CapturedBatch[], options: RequestInit | undefined, batchError?: string): Promise<Response> {
-  const headers = new Headers(options?.headers);
-  const dsn = headers.get("Neon-Connection-String") ?? "";
+  const dsn = dsnGivenToDriver(new Headers(options?.headers));
   const raw = options?.body;
   if (typeof raw !== "string") return Promise.reject(new Error("unexpected neon batch body"));
   const statements = statementsOf(raw);

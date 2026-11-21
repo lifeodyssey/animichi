@@ -4,7 +4,9 @@
 # The guide tells the next implementer which two pins move together, and nothing reads the guide: a
 # dependency refresh that lands in the catalog alone leaves it naming a set the workspace has not
 # installed for months (#1794), and a reader has no way to tell. `catalogMode: strict` keeps the
-# importers on the catalog; this keeps the sentence describing that catalog true.
+# importers on the catalog; this keeps the sentence describing that catalog true. The catalog holds
+# ranges and pnpm-lock.yaml pins the versions (docs/agents/package-managers.md), so the sentence
+# states the ranges, verbatim; every `@orpc/*` package is catalogued, single-importer ones included.
 require "minitest/autorun"
 require "psych"
 

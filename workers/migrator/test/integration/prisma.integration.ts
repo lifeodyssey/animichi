@@ -54,7 +54,7 @@ roleBootTest("previews native operations through authenticated HTTP without init
 });
 
 roleBootTest("applies the sealed native graph and replays with zero migrations while preserving data", async ({ roleBoot }) => {
-  const previewBody = (await (await app.preview()).json()) as { prisma: { migrations: unknown[] } };
+  const previewBody = await (await app.preview()).json<{ prisma: { migrations: unknown[] } }>();
   const sealedCount = previewBody.prisma.migrations.length;
   const first = await roleBoot.hold(async () => app.migrate());
   expect(first.status).toBe(200);

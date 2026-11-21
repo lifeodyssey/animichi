@@ -78,7 +78,7 @@ void test("a rejected challenge answers the retryable turnstile envelope", async
     "/v1/chat", chat({ [TURNSTILE_HEADER]: "forged" }), anonEnv(), stubCtx,
   );
   assert.equal(res.status, 403);
-  const body = (await res.json()) as { error: { code: string; retryable: boolean } };
+  const body = await res.json<{ error: { code: string; retryable: boolean } }>();
   assert.equal(body.error.code, "turnstile_required");
   assert.equal(body.error.retryable, true);
   assert.equal(captured.calls.length, 0);

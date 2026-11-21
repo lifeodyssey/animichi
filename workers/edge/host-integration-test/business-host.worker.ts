@@ -148,7 +148,7 @@ export class BusinessHost extends SessionAgent {
 
 export default {
   async fetch(request: Request, env: { SESSION: DurableObjectNamespace<BusinessHost> }) {
-    const input = await request.json() as ModelAdmissionRequest;
+    const input = await request.json<ModelAdmissionRequest>();
     const host = await sessionAgentStub(env.SESSION, input.sessionId);
     if (new URL(request.url).pathname === "/initialize") return new Response("initialized");
     if (new URL(request.url).pathname === "/retry-report") return Response.json(await host.retrySchedules());

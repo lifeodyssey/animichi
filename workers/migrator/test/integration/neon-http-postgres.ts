@@ -8,6 +8,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pg from "pg";
 import { expect, vi } from "vitest";
+import { dsnGivenToDriver } from "../neon-connection-string";
 
 interface NeonBatch {
   queries: { query: string; params: string[] }[];
@@ -17,7 +18,7 @@ export function servePostgres(dsn: string) {
   const captures: { readOnly: string | null; isolation: string | null; batch: NeonBatch }[] = [];
   const transport = vi.fn<typeof fetch>(async (_input, options) => {
     const headers = new Headers(options?.headers);
-    expect(headers.get("Neon-Connection-String")).toBe(dsn);
+    expect(dsnGivenToDriver(headers)).toBe(dsn);
     expect(typeof options?.body).toBe("string");
     const batch = JSON.parse(options?.body as string) as NeonBatch;
     captures.push({ readOnly: headers.get("Neon-Batch-Read-Only"), isolation: headers.get("Neon-Batch-Isolation-Level"), batch });

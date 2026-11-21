@@ -131,7 +131,7 @@ void test("an outage does not tell the client to clear the credential it could n
   const { mint } = await signingKey(host);
   const response = await appOverJwks(OUTAGE)
     .request("/v1/chat", authorized(await mint(LIVE)), appEnv(host), stubCtx);
-  const body = await response.json() as { error: { code: string } };
+  const body = await response.json<{ error: { code: string } }>();
   assert.equal(response.status, 503, "the client's D8 path clears and re-mints on a 401, and on nothing else");
   assert.equal(body.error.code, "verification_unavailable");
   assert.equal(response.headers.get("Retry-After"), "30", "the client must be told to back off, not to re-authenticate");

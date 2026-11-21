@@ -108,7 +108,7 @@ async function routeOut(): Promise<RouteBody> {
 async function assertOverviewHit(): Promise<void> {
   const res = await getPublic("anime-overview/3302");
   expect(res.headers.get("Cache-Control")).toContain("s-maxage");
-  const body = (await res.json()) as OverviewBody;
+  const body = await res.json<OverviewBody>();
   expect(body.points_length).toBe(3);
   expect(body.circles.map((c) => [c.region, c.count])).toEqual([["Kamakura", 2], ["Hakone", 1]]);
   expect(body.scenes[0]).toMatchObject({ id: "ov-kama-1", shot_count: 2, city: "Kamakura" });

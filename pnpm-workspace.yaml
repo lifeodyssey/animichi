@@ -39,9 +39,12 @@ catalogMode: strict
 
 # Hold-backs: a version this workspace keeps below its latest release on purpose, with the
 # gate its bump fails written on the same line, in one shape:
-#   `# hold-back: <package>@<declared> -> <latest> fails <gate>` then a dash and `#<issue>`,
-# the follow-up card that retires the pin. `dependency-hold-backs.json` records that number
-# per entry, so a line citing any other issue fails the contract.
+#   `# hold-back: <package>@<declared> -> <latest> fails <gate>` then a dash, `#<issue>` (the
+# follow-up card that retires the pin) and `, expires <YYYY-MM-DD>`. `dependency-hold-backs.json`
+# records the issue per entry, so a line citing any other issue fails the contract. A hold-back is
+# an exception to the latest-dependencies rule, so it lapses: from the expiry date
+# `test/repo-config/dependency-hold-back-expiry.test.rb` is red until the pin is retired or the
+# owner extends the date (docs/agents/code-standards.md).
 # `test/repo-config/dependency-hold-backs.test.rb` derives the set of below-latest pins from
 # `test/repo-config/fixtures/dependency-hold-backs.json` — refreshed by
 # `ruby test/repo-config/refresh-hold-backs.rb --write`, which reads `pnpm outdated -r
@@ -50,25 +53,30 @@ catalogMode: strict
 # at the end of this file, because JSON carries no comments; a specifier that already admits
 # the latest release is not a hold-back and gets no line.
 # Every external dependency declared by two or more workspace importers (the root
-# included) is defined once here; each manifest references it with `catalog:`.
+# included) is defined once here; each manifest references it with `catalog:`. Entries are
+# ranges and `pnpm-lock.yaml` pins the versions (docs/agents/package-managers.md). The
+# `@orpc/*` family is catalogued whole, single-importer members included, so the coupled
+# set `packages/contract/AGENTS.md` names moves as one range.
 # `catalogMode: strict` rejects a `pnpm add`/`pnpm update` that asks for a version
 # outside the entry, so the drift this consolidates cannot come back through the CLI.
 catalog:
-  "@cloudflare/vitest-pool-workers": "^0.22.0"
-  "@cloudflare/workers-types": "5.20260916.1"
+  "@cloudflare/vitest-pool-workers": "^0.23.0"
+  "@cloudflare/workers-types": "^5.20261120.1"
   "@earendil-works/chord": "0.87.1"
   "@earendil-works/pi-agent-core": "0.87.1"
   "@earendil-works/pi-ai": "0.87.1"
   "@modelcontextprotocol/sdk": "^1.32.2"
-  "@neondatabase/serverless": "^1.1.0"
-  "@orpc/client": "1.15.1"
-  "@orpc/contract": "1.15.1"
-  "@orpc/openapi": "1.15.1"
-  "@orpc/openapi-client": "1.15.1"
-  "@orpc/server": "1.15.1"
-  "@playwright/test": "^1.63.0"
+  "@neondatabase/serverless": "^1.2.0"
+  "@orpc/client": "^1.16.2"
+  "@orpc/contract": "^1.16.2"
+  "@orpc/openapi": "^1.16.2"
+  "@orpc/openapi-client": "^1.16.2"
+  "@orpc/server": "^1.16.2"
+  "@orpc/tanstack-query": "^1.16.2"
+  "@orpc/zod": "^1.16.2"
+  "@playwright/test": "^1.65.0"
   "@prisma/cli-engine": "0.3.0"
-  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
+  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
   "@prisma/orm-postgres": "8.0.0-rc.9"
   # TanStack ships the router/start family from one monorepo and pins the
   # packages to each other EXACTLY (router-generator@1.167.36 pins
@@ -82,35 +90,38 @@ catalog:
   # the version react-start 1.169.5 pins. Move the three together;
   # `test/repo-config/pnpm-lock-one-version.test.rb` fails on a lockfile that
   # resolves more than one @tanstack/router-core.
-  "@tanstack/nitro-v2-vite-plugin": "1.155.2"
-  "@tanstack/react-query": "5.103.1"
+  "@tanstack/nitro-v2-vite-plugin": "^1.155.2"
+  "@tanstack/react-query": "^5.107.1"
   "@tanstack/react-router": "^1.170.46"
-  "@tanstack/react-router-with-query": "1.130.17"
+  "@tanstack/react-router-with-query": "^1.130.17"
   "@tanstack/react-start": "^1.169.5"
   "@tanstack/router-generator": "^1.168.0"
-  "@types/node": ^26.6.1
+  "@types/node": ^26.6.6
   "@types/pg": "^8.23.1"
-  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742
+  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742, expires 2027-02-26
   "@vitest/coverage-istanbul": "^4.1.12"
   "ai": ^7.0.102
-  "esbuild": "0.28.2"
+  "esbuild": "^0.28.2"
   "hono": "^4.13.7"
-  "jose": "^6.2.12"
-  # hold-back: miniflare@4.20260722.0 -> 5.20260915.0-alpha fails workers/migrator typecheck and test:integration (miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`) — #1742
-  "miniflare": "4.20260722.0"
+  "jose": "^6.2.17"
+  # Not a hold-back: npm's `latest` for miniflare is 4.20260730.0, which the caret admits; 5 now
+  # ships on the `beta` tag. When 5 reaches `latest` this caret will hold it back, because
+  # miniflare 5 has no `createFetchMock` and takes `workers` instead of `modules`, which
+  # workers/migrator's typecheck and test:integration need (#1742).
+  "miniflare": "^4.20260730.0"
   "neonctl": "^9.5.2"
-  "pg": "^8.23.0"
-  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741
+  "pg": "^8.23.1"
+  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741, expires 2027-01-15
   "prisma": "8.0.0-rc.13"
   "smol-toml": "^1.9.1"
-  "testcontainers": "^12.1.0"
-  "tsx": "^4.23.13"
-  "typebox": 1.3.32
+  "testcontainers": "^12.2.1"
+  "tsx": "^4.23.15"
+  "typebox": "^1.4.7"
   "typescript": "^7.0.2"
   "vite": "^8.3.8"
-  # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742
+  # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742, expires 2027-02-26
   "vitest": "^4.1.11"
-  "wrangler": "4.132.0"
+  "wrangler": "^4.165.0"
   "yaml": "^2.9.1"
   "zod": "^4.6.7"
 
@@ -209,6 +220,6 @@ patchedDependencies:
 # Manifest pins: a `package.json` cannot carry a comment, so the register lines for the pins
 # declared there live in this block, in the same shape as the lines beside the catalog
 # entries above. Each line's gate is the gate that fails when the bump is attempted.
-# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
-# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741
-# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744
+# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
+# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741, expires 2027-01-15
+# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744, expires 2027-01-15

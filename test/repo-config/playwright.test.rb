@@ -1,7 +1,6 @@
-# SUT: e2e/playwright.config.ts and the wrangler pin its served-Worker lane runs on; tests check
-# service-token scope and the lane's server floor without starting a browser.
+# SUT: e2e/playwright.config.ts and the wrangler pnpm-lock.yaml installs for its served-Worker
+# lane; tests check service-token scope and the lane's server floor without starting a browser.
 require "minitest/autorun"
-require "json"
 require "psych"
 
 class PlaywrightConfigTest < Minitest::Test
@@ -36,19 +35,21 @@ class PlaywrightConfigTest < Minitest::Test
   # The KEY, not the word: the config's own comment quotes Playwright's advice
   # in order to reject it, and that must not read as setting it.
   REUSE_EXISTING_SERVER_KEY = /^\s*reuseExistingServer:/
-  # The lane's server is `wrangler dev`, so the root pin decides whether ONE
-  # dropped loopback connection is fatal to it. 4.114.0 exited on the first one:
+  # The lane's server is `wrangler dev`, so the wrangler the lockfile installs decides whether
+  # ONE dropped loopback connection is fatal to it. 4.114.0 exited on the first one:
   # the port went unbound with an empty `✘ [ERROR]`, and every spec after it
   # failed with ERR_CONNECTION_REFUSED — the shape #1703 records and #1711's CI
   # run reproduced (17 passed, 26 failed). cloudflare/workers-sdk#15252, first
   # released in 4.129.1, retries the affected GET/HEAD and keeps the server
-  # serving; 4.132.0 additionally makes the message name its cause. A pin below
+  # serving; 4.132.0 additionally makes the message name its cause. A wrangler below
   # this floor restores the red lane and the inscrutable failure, so the floor is
-  # part of what the pin must satisfy rather than an incidental number.
+  # part of what the installed version must satisfy rather than an incidental number.
+  # The catalog declares wrangler as a range and pnpm-lock.yaml pins the version
+  # (docs/agents/package-managers.md), so the floor is read where the version is
+  # decided: the lockfile's resolution for every importer that declares wrangler,
+  # apps/web's among them, whose `pnpm --filter web exec wrangler dev` is the lane's server.
   WRANGLER_DEV_SERVER_FLOOR = Gem::Version.new("4.129.1")
-  ROOT_PACKAGE = File.join(ROOT, "package.json")
-  WORKSPACE_MANIFEST = File.join(ROOT, "pnpm-workspace.yaml")
-  EXACT_VERSION = /\A\d+\.\d+\.\d+\z/
+  LOCKFILE = File.join(ROOT, "pnpm-lock.yaml")
 
   def test_the_lane_port_belongs_to_its_checkout
     config = File.read(PLAYWRIGHT_CONFIG)
@@ -69,14 +70,12 @@ class PlaywrightConfigTest < Minitest::Test
   end
 
   def test_the_lane_server_is_a_wrangler_whose_dev_server_survives_a_dropped_connection
-    declared = root_wrangler_pin
-    assert_match(EXACT_VERSION, declared,
-                 "package.json: the root wrangler pin must resolve to an exact version — see " \
-                 ".github/test/cd-publish.test.rb, which owns that contract")
-    assert_operator(Gem::Version.new(declared), :>=, WRANGLER_DEV_SERVER_FLOOR,
-                    "package.json: wrangler #{declared} predates #{WRANGLER_DEV_SERVER_FLOOR} — its dev " \
-                    "server exits when one proxied request loses its connection, and the rest of the " \
-                    "browser lane fails with ERR_CONNECTION_REFUSED (#1703)")
+    installed = installed_wranglers
+    refute_empty installed, "pnpm-lock.yaml: no importer resolves wrangler, so nothing decides the lane's server"
+    below = installed.reject { |version| Gem::Version.new(version) >= WRANGLER_DEV_SERVER_FLOOR }
+    assert_empty below, "pnpm-lock.yaml: wrangler #{below.uniq.join(', ')} predates #{WRANGLER_DEV_SERVER_FLOOR} — its " \
+                        "dev server exits when one proxied request loses its connection, and the rest of the " \
+                        "browser lane fails with ERR_CONNECTION_REFUSED (#1703)"
   end
 
   def test_the_lane_claims_its_port_before_playwright_can
@@ -166,11 +165,13 @@ class PlaywrightConfigTest < Minitest::Test
     literal.scan(/"([A-Z0-9_]+)"/).flatten
   end
 
-  # Since #1672 the root manifest reaches wrangler through `catalog:`.
-  def root_wrangler_pin
-    declared = JSON.parse(File.read(ROOT_PACKAGE)).dig("devDependencies", "wrangler").to_s
-    return declared unless declared == "catalog:"
-
-    Psych.safe_load(File.read(WORKSPACE_MANIFEST)).fetch("catalog").fetch("wrangler").to_s
+  # pnpm 12 writes two YAML documents and only the second lists the workspace's importers. An
+  # importer's `version` carries its peer suffix, `4.165.0(@cloudflare/workers-types@…)`; the
+  # version is what precedes it. A wrangler nested under another package is not an importer's.
+  def installed_wranglers
+    documents = File.read(LOCKFILE).split(/^---\n/).reject { |part| part.strip.empty? }
+    lock = documents.map { |part| Psych.safe_load(part) }.find { |document| document.fetch("importers", {}).length > 1 }
+    lock.fetch("importers").values.map { |importer| importer.dig("devDependencies", "wrangler", "version") }
+        .compact.map { |version| version[/\A[^(]+/] }
   end
 end

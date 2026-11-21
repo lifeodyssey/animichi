@@ -33,10 +33,8 @@ describe("/routes/$routeId loader", () => {
   it("prefetches the saved routes into the per-request QueryClient", async () => {
     const router = await openRoute(SAVED_ROUTE_ID);
     await screen.findByRole("heading", { level: 1 });
-    const cached = router.options.context.queryClient.getQueryData(listSavedRoutesOptions().queryKey) as {
-      readonly saved_routes: readonly { id: string }[];
-    };
-    expect(cached.saved_routes.map((route) => route.id)).toContain(SAVED_ROUTE_ID);
+    const cached = router.options.context.queryClient.getQueryData(listSavedRoutesOptions().queryKey);
+    expect(cached?.saved_routes.map((route) => route.id)).toContain(SAVED_ROUTE_ID);
   });
 
   it("renders the matched route's title in the hero", async () => {

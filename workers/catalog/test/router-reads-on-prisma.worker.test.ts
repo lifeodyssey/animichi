@@ -76,7 +76,7 @@ describe("geocode reads the gazetteer on the Prisma plane", () => {
 
     expect(response.status).toBe(200);
     expect(counter.statements()).toBe(1);
-    const body = await response.json() as GeocodeResult;
+    const body = await response.json<GeocodeResult>();
     expect(body.candidates).toHaveLength(1);
     expect(body.candidates[0]).toMatchObject({
       id: PLACE_ROW.id,

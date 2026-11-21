@@ -19,7 +19,7 @@ function chatRequest(headers: Record<string, string> = {}): Request {
 }
 
 async function body(response: Response): Promise<Record<string, unknown>> {
-  return (await response.json()) as Record<string, unknown>;
+  return await response.json<Record<string, unknown>>();
 }
 
 void test("the submission carries the named conversation, the dedupe key and the anonymous payer", async () => {

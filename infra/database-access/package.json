@@ -6,9 +6,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pulumi/cloudflare": "^6.19.0",
+    "@pulumi/cloudflare": "^6.24.0",
     "@pulumi/neon": "file:sdks/neon",
-    "@pulumi/pulumi": "^3.0.0",
+    "@pulumi/pulumi": "^3.277.0",
     "@pulumi/random": "^4.21.1"
   },
   "devDependencies": {

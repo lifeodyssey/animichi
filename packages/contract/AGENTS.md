@@ -65,9 +65,11 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 ## Conventions
 
 - Zod schemas and oRPC contracts live in `src/`; export public types through `src/index.ts`.
-- `zod@^4.6.7` and `@orpc/*@1.15.1` are one coupled pin set across this package,
-  `workers/catalog`, `workers/users`, and `apps/web` (the catalog entries in `pnpm-workspace.yaml`,
-  which `test/repo-config/contract-pin-set.test.rb` holds to this line). Change them together.
+- `zod@^4.6.7` and `@orpc/*@^1.16.2` are one coupled pin set across this package,
+  `workers/catalog`, `workers/users`, and `apps/web`: ranges in the catalog of
+  `pnpm-workspace.yaml`, every `@orpc/*` package under the one range (`@orpc/zod` and
+  `@orpc/tanstack-query` included), with `pnpm-lock.yaml` pinning the versions.
+  `test/repo-config/contract-pin-set.test.rb` holds the catalog to this line. Change them together.
 - Catalog internals use type-only hand-mirrors so Zod stays out of the Worker bundle.
 - Semantic contract freeze is the red line: do not change wire meaning without an approved story.
   Formatting churn is acceptable only when the OpenAPI drift check stays green.
