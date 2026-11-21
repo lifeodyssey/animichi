@@ -39,9 +39,12 @@ catalogMode: strict
 
 # Hold-backs: a version this workspace keeps below its latest release on purpose, with the
 # gate its bump fails written on the same line, in one shape:
-#   `# hold-back: <package>@<declared> -> <latest> fails <gate>` then a dash and `#<issue>`,
-# the follow-up card that retires the pin. `dependency-hold-backs.json` records that number
-# per entry, so a line citing any other issue fails the contract.
+#   `# hold-back: <package>@<declared> -> <latest> fails <gate>` then a dash, `#<issue>` (the
+# follow-up card that retires the pin) and `, expires <YYYY-MM-DD>`. `dependency-hold-backs.json`
+# records the issue per entry, so a line citing any other issue fails the contract. A hold-back is
+# an exception to the latest-dependencies rule, so it lapses: from the expiry date
+# `test/repo-config/dependency-hold-back-expiry.test.rb` is red until the pin is retired or the
+# owner extends the date (docs/agents/code-standards.md).
 # `test/repo-config/dependency-hold-backs.test.rb` derives the set of below-latest pins from
 # `test/repo-config/fixtures/dependency-hold-backs.json` — refreshed by
 # `ruby test/repo-config/refresh-hold-backs.rb --write`, which reads `pnpm outdated -r
@@ -73,7 +76,7 @@ catalog:
   "@orpc/zod": "^1.15.1"
   "@playwright/test": "^1.63.0"
   "@prisma/cli-engine": "0.3.0"
-  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
+  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
   "@prisma/orm-postgres": "8.0.0-rc.9"
   # TanStack ships the router/start family from one monorepo and pins the
   # packages to each other EXACTLY (router-generator@1.167.36 pins
@@ -95,7 +98,7 @@ catalog:
   "@tanstack/router-generator": "^1.168.0"
   "@types/node": ^26.6.1
   "@types/pg": "^8.23.1"
-  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742
+  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws "coverageFilesDirectory is required" under vitest 4, so coverage stays 0%) — #1742, expires 2027-02-26
   "@vitest/coverage-istanbul": "^4.1.12"
   "ai": ^7.0.102
   "esbuild": "^0.28.2"
@@ -108,7 +111,7 @@ catalog:
   "miniflare": "^4.20260722.0"
   "neonctl": "^9.5.2"
   "pg": "^8.23.0"
-  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741
+  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741, expires 2027-01-15
   "prisma": "8.0.0-rc.13"
   "smol-toml": "^1.9.1"
   "testcontainers": "^12.1.0"
@@ -116,7 +119,7 @@ catalog:
   "typebox": "^1.3.32"
   "typescript": "^7.0.2"
   "vite": "^8.3.8"
-  # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742
+  # hold-back: vitest@^4.1.11 -> 5.0.1 fails workers/users test:worker (@cloudflare/vitest-pool-workers supports only vitest ^4.1.0, so the pool loads 0 tests) — #1742, expires 2027-02-26
   "vitest": "^4.1.11"
   "wrangler": "^4.132.0"
   "yaml": "^2.9.1"
@@ -217,6 +220,6 @@ patchedDependencies:
 # Manifest pins: a `package.json` cannot carry a comment, so the register lines for the pins
 # declared there live in this block, in the same shape as the lines beside the catalog
 # entries above. Each line's gate is the gate that fails when the bump is attempted.
-# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741
-# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741
-# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744
+# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
+# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741, expires 2027-01-15
+# hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744, expires 2027-01-15

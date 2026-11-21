@@ -28,11 +28,11 @@ class DependencyHoldBacksMutationTest < Minitest::Test
   HONO_ENTRY = { "package" => "hono", "declared" => "^4.13.7", "latest" => "4.13.8", "declaredIn" => MANIFEST,
                  "issue" => 9999 }.freeze
   HONO_PIN = "  \"hono\": \"^4.13.7\""
-  HONO_LINE = "# hold-back: hono@^4.13.7 -> 4.13.8 fails nothing at all \u2014 #9999"
-  # The catalog's @vitest/coverage-istanbul line, verbatim, for the probes that move it and
-  # re-cite it. (Originally the zod line, until #1745 released that pin.)
-  ISTANBUL_LINE = "  # hold-back: @vitest/coverage-istanbul@^4.1.12 -> 5.0.1 fails workers/users test:worker (the provider throws \"coverageFilesDirectory is required\" under vitest 4, so coverage stays 0%) \u2014 #1742
-"
+  HONO_LINE = "# hold-back: hono@^4.13.7 -> 4.13.8 fails nothing at all \u2014 #9999, expires 2099-12-31"
+  # The catalog's @vitest/coverage-istanbul line, whole, for the probe that moves it. (Originally
+  # the zod line, until #1745 released that pin.) Found by everything but its expiry, which an
+  # owner's extension moves without making the line another line.
+  ISTANBUL_LINE = /^  # hold-back: @vitest\/coverage-istanbul@\^4\.1\.12 -> 5\.0\.1 fails workers\/users test:worker .* \u2014 #1742, expires \S+\n/
 
   def manifests
     Dir.glob(MANIFEST_GLOBS, base: ROOT).sort
@@ -97,8 +97,9 @@ class DependencyHoldBacksMutationTest < Minitest::Test
   # block instead of staying beside the entry it registers.
   def test_rejects_a_line_that_drifted_away_from_its_catalog_entry
     with_tree do |root|
+      line = File.read(File.join(root, MANIFEST))[ISTANBUL_LINE].to_s
       rewrite(root, MANIFEST, ISTANBUL_LINE, "", "the coverage-istanbul register line")
-      File.write(File.join(root, MANIFEST), ISTANBUL_LINE, mode: "a")
+      File.write(File.join(root, MANIFEST), line, mode: "a")
       reject_tree(root, "a register line moved away from its pin", MISPLACED)
     end
   end

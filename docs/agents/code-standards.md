@@ -46,6 +46,13 @@ cause, scope it to one directory, state the reason and link upstream, delete it 
 it) and the osv ignore (a dated window the owner extended). Applying them to every exception, with
 the expiry date required, is the controller's ruling of 2026-11-01.
 
+A dependency held below its latest release is such an exception, and its configuration is the
+register line in `pnpm-workspace.yaml`:
+`# hold-back: <package>@<declared> -> <latest> fails <gate> — #<issue>, expires <YYYY-MM-DD>`.
+The gate is the reason, the issue is the follow-up that retires the pin, and from the expiry date
+`test/repo-config/dependency-hold-back-expiry.test.rb` is red until the pin goes or the owner
+extends the date; a line without a date is refused (`docs/agents/package-managers.md`).
+
 ## No backward-compatibility shims (owner)
 
 "不需要考虑后向兼容，只要能够完成当前的功能不变 随便重构": refactor freely, keep current behaviour

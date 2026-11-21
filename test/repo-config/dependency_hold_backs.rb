@@ -13,14 +13,15 @@
 #
 # The human half is one line per entry, in one shape, beside the pin:
 #
-#   # hold-back: <package>@<declared> -> <latest> fails <gate> — #<issue>
+#   # hold-back: <package>@<declared> -> <latest> fails <gate> — #<issue>, expires <YYYY-MM-DD>
 #
 # A `package.json` cannot carry a comment, so an entry whose specifier lives in a
 # manifest registers in the `# Manifest pins:` block of `pnpm-workspace.yaml`, the
 # workspace manifest that owns every package in it; a catalog entry registers
 # immediately above its catalog line. `<issue>` is the follow-up card that retires the pin,
 # never the card that recorded the register, and the committed snapshot records that number
-# per entry, so a line citing any other issue fails the contract.
+# per entry, so a line citing any other issue fails the contract. The expiry is read, against the
+# calendar, by `dependency_hold_back_expiry.rb`.
 require "json"
 require "psych"
 
@@ -31,8 +32,8 @@ module HoldBacks
   DEPENDENCY_FIELDS = %w[dependencies devDependencies optionalDependencies peerDependencies].freeze
   MANIFEST_GLOBS = ["package.json", "apps/*/package.json", "workers/*/package.json",
                     "packages/*/package.json", "e2e/package.json"].freeze
-  # The register line, in its one shape. The gate is free text up to the issue ref.
-  REGISTER_LINE = /\A# hold-back: (?<package>\S+)@(?<declared>\S+) -> (?<latest>\S+) fails (?<gate>.+?) — #(?<issue>\d+)\z/
+  # The register line, in its one shape. The gate is free text up to the issue ref and the expiry.
+  REGISTER_LINE = /\A# hold-back: (?<package>\S+)@(?<declared>\S+) -> (?<latest>\S+) fails (?<gate>.+?) — #(?<issue>\d+), expires (?<expires>\d{4}-\d{2}-\d{2})\z/
   # The comment block manifest-declared entries register in, and the sentinel that opens it.
   MANIFEST_PINS_MARKER = "# Manifest pins:"
   MINIMUM_RELEASE_AGE_KEY = "minimumReleaseAge"
