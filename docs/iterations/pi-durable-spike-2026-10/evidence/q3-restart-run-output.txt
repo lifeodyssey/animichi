@@ -1,0 +1,12 @@
+PASS no retry left: the request was in flight at the kill, and its committed partial became an aborted entry
+PASS no retry left: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there
+PASS retry left: the request was in flight at the kill, and its committed partial became an aborted entry
+PASS retry left: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there
+PASS no retry left (maxRetries 0): workerd B made no model request, and the run ended unanswered / interrupted
+PASS no retry left: onReport received task_interrupted on B
+PASS retry left (default policy): workerd B made exactly one model request, no earlier than the 2,000 ms backoff after its instance started
+PASS retry left: the retry answered, after the aborted partial
+PASS restart limit lowered to 1 (default 5): the replay-safe tool cut off once is not run again
+PASS restart limit: the model received the restart-limit error result and answered
+PASS restart limit: the outcome arrived on a new instance in workerd B before any request, and the pi-wake job ran there
+PASS guard: no request other than the stubbed catalog left workerd

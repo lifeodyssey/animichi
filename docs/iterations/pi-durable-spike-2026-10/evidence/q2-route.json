@@ -1,0 +1,568 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "observations": [
+    {
+      "variant": "given",
+      "openedOn": "the storage PiHarness passed in",
+      "sameObjectPiHarnessReads": true,
+      "first": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        },
+        "settledByPi": {
+          "status": "done"
+        }
+      },
+      "duplicate": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": false
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        }
+      },
+      "userTextsInTranscript": [
+        "first"
+      ],
+      "recordsOfFirst": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": "done"
+      },
+      "slow": {
+        "receipt": {
+          "operationId": "op-2",
+          "session": "1",
+          "accepted": true
+        },
+        "pendingWhileStreaming": [
+          {
+            "operationId": "op-2",
+            "session": "1",
+            "status": "running"
+          }
+        ],
+        "sessionsWhileStreaming": [
+          {
+            "id": "1",
+            "busy": true
+          }
+        ],
+        "abortOfUnknownOperation": false,
+        "abortOfStreamingOperation": true,
+        "settledByPi": {
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "wait": {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "records": {
+          "inPisStorage": "unanswered",
+          "inPiHarnessStore": "unanswered"
+        }
+      },
+      "fauxCalls": 2
+    },
+    {
+      "variant": "wrapped",
+      "openedOn": "a Proxy delegating to the storage PiHarness passed in",
+      "sameObjectPiHarnessReads": false,
+      "first": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        },
+        "settledByPi": {
+          "status": "done"
+        }
+      },
+      "duplicate": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": false
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        }
+      },
+      "userTextsInTranscript": [
+        "first"
+      ],
+      "recordsOfFirst": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": "done"
+      },
+      "slow": {
+        "receipt": {
+          "operationId": "op-2",
+          "session": "1",
+          "accepted": true
+        },
+        "pendingWhileStreaming": [
+          {
+            "operationId": "op-2",
+            "session": "1",
+            "status": "running"
+          }
+        ],
+        "sessionsWhileStreaming": [
+          {
+            "id": "1",
+            "busy": true
+          }
+        ],
+        "abortOfUnknownOperation": false,
+        "abortOfStreamingOperation": true,
+        "settledByPi": {
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "wait": {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "records": {
+          "inPisStorage": "unanswered",
+          "inPiHarnessStore": "unanswered"
+        }
+      },
+      "fauxCalls": 2,
+      "wrapperCalls": {
+        "scanTasks": 5,
+        "scanSubmissions": 5,
+        "conversation": 1,
+        "findDocument": 5,
+        "mintId": 13,
+        "commit": 10,
+        "submissionByRequest": 7,
+        "scanEntries": 4
+      }
+    },
+    {
+      "variant": "memory",
+      "openedOn": "new MemoryStorage()",
+      "sameObjectPiHarnessReads": false,
+      "first": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "not_found"
+        },
+        "settledByPi": {
+          "status": "done"
+        }
+      },
+      "duplicate": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "not_found"
+        }
+      },
+      "userTextsInTranscript": [
+        "first"
+      ],
+      "recordsOfFirst": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": null
+      },
+      "slow": {
+        "receipt": {
+          "operationId": "op-2",
+          "session": "1",
+          "accepted": true
+        },
+        "pendingWhileStreaming": [
+          {
+            "operationId": "op-2",
+            "session": "1",
+            "status": "running"
+          }
+        ],
+        "sessionsWhileStreaming": [],
+        "abortOfUnknownOperation": false,
+        "abortOfStreamingOperation": false,
+        "settledByPi": {
+          "status": "done"
+        },
+        "wait": {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "not_found"
+        },
+        "records": {
+          "inPisStorage": "done",
+          "inPiHarnessStore": null
+        }
+      },
+      "fauxCalls": 2
+    }
+  ],
+  "checks": [
+    {
+      "name": "given: the first receipt is accepted and wait() answers done with Pi's text",
+      "pass": true,
+      "observed": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        },
+        "settledByPi": {
+          "status": "done"
+        }
+      }
+    },
+    {
+      "name": "given: the same operationId with different content gets accepted: false, and Pi ran only the first",
+      "pass": true,
+      "observed": {
+        "duplicate": {
+          "receipt": {
+            "operationId": "op-1",
+            "session": "1",
+            "accepted": false
+          },
+          "wait": {
+            "operationId": "op-1",
+            "session": "1",
+            "status": "done",
+            "text": "Answer to: first"
+          }
+        },
+        "userTexts": [
+          "first"
+        ]
+      }
+    },
+    {
+      "name": "given: PiHarness's own store holds the operation",
+      "pass": true,
+      "observed": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": "done"
+      }
+    },
+    {
+      "name": "given: abort(operationId) of the streaming operation returns true and Pi settles it unanswered (aborted)",
+      "pass": true,
+      "observed": {
+        "receipt": {
+          "operationId": "op-2",
+          "session": "1",
+          "accepted": true
+        },
+        "pendingWhileStreaming": [
+          {
+            "operationId": "op-2",
+            "session": "1",
+            "status": "running"
+          }
+        ],
+        "sessionsWhileStreaming": [
+          {
+            "id": "1",
+            "busy": true
+          }
+        ],
+        "abortOfUnknownOperation": false,
+        "abortOfStreamingOperation": true,
+        "settledByPi": {
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "wait": {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "records": {
+          "inPisStorage": "unanswered",
+          "inPiHarnessStore": "unanswered"
+        }
+      }
+    },
+    {
+      "name": "given: sessions.list() sees the root session",
+      "pass": true,
+      "observed": [
+        {
+          "id": "1",
+          "busy": true
+        }
+      ]
+    },
+    {
+      "name": "wrapped: the first receipt is accepted and wait() answers done with Pi's text",
+      "pass": true,
+      "observed": {
+        "receipt": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "wait": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "done",
+          "text": "Answer to: first"
+        },
+        "settledByPi": {
+          "status": "done"
+        }
+      }
+    },
+    {
+      "name": "wrapped: the same operationId with different content gets accepted: false, and Pi ran only the first",
+      "pass": true,
+      "observed": {
+        "duplicate": {
+          "receipt": {
+            "operationId": "op-1",
+            "session": "1",
+            "accepted": false
+          },
+          "wait": {
+            "operationId": "op-1",
+            "session": "1",
+            "status": "done",
+            "text": "Answer to: first"
+          }
+        },
+        "userTexts": [
+          "first"
+        ]
+      }
+    },
+    {
+      "name": "wrapped: PiHarness's own store holds the operation",
+      "pass": true,
+      "observed": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": "done"
+      }
+    },
+    {
+      "name": "wrapped: abort(operationId) of the streaming operation returns true and Pi settles it unanswered (aborted)",
+      "pass": true,
+      "observed": {
+        "receipt": {
+          "operationId": "op-2",
+          "session": "1",
+          "accepted": true
+        },
+        "pendingWhileStreaming": [
+          {
+            "operationId": "op-2",
+            "session": "1",
+            "status": "running"
+          }
+        ],
+        "sessionsWhileStreaming": [
+          {
+            "id": "1",
+            "busy": true
+          }
+        ],
+        "abortOfUnknownOperation": false,
+        "abortOfStreamingOperation": true,
+        "settledByPi": {
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "wait": {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "aborted"
+        },
+        "records": {
+          "inPisStorage": "unanswered",
+          "inPiHarnessStore": "unanswered"
+        }
+      }
+    },
+    {
+      "name": "wrapped: sessions.list() sees the root session",
+      "pass": true,
+      "observed": [
+        {
+          "id": "1",
+          "busy": true
+        }
+      ]
+    },
+    {
+      "name": "given: Pi was opened on the very object PiHarness reads",
+      "pass": true,
+      "observed": true
+    },
+    {
+      "name": "wrapped: Pi committed through the wrapper (its commit count is above zero)",
+      "pass": true,
+      "observed": {
+        "scanTasks": 5,
+        "scanSubmissions": 5,
+        "conversation": 1,
+        "findDocument": 5,
+        "mintId": 13,
+        "commit": 10,
+        "submissionByRequest": 7,
+        "scanEntries": 4
+      }
+    },
+    {
+      "name": "memory: Pi ran the first operation to done (read from MemoryStorage)",
+      "pass": true,
+      "observed": {
+        "settledByPi": {
+          "status": "done"
+        },
+        "records": {
+          "inPisStorage": "done",
+          "inPiHarnessStore": null
+        }
+      }
+    },
+    {
+      "name": "memory: PiHarness's own store has no record of it",
+      "pass": true,
+      "observed": {
+        "inPisStorage": "done",
+        "inPiHarnessStore": null
+      }
+    },
+    {
+      "name": "memory: wait() answers unanswered / not_found for an operation Pi answered",
+      "pass": true,
+      "observed": {
+        "first": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "not_found"
+        },
+        "again": {
+          "operationId": "op-1",
+          "session": "1",
+          "status": "unanswered",
+          "reason": "not_found"
+        }
+      }
+    },
+    {
+      "name": "memory: the duplicate submit is reported accepted: true, although Pi kept one submission",
+      "pass": true,
+      "observed": {
+        "duplicate": {
+          "operationId": "op-1",
+          "session": "1",
+          "accepted": true
+        },
+        "userTexts": [
+          "first"
+        ]
+      }
+    },
+    {
+      "name": "memory: abort(operationId) of the streaming operation returns false, and Pi answers it anyway (done)",
+      "pass": true,
+      "observed": {
+        "abort": false,
+        "settledByPi": {
+          "status": "done"
+        }
+      }
+    },
+    {
+      "name": "memory: sessions.list() is empty while Pi streams in the root session",
+      "pass": true,
+      "observed": []
+    },
+    {
+      "name": "memory: pending() still sees the streaming operation (it reads Pi, not the store)",
+      "pass": true,
+      "observed": [
+        {
+          "operationId": "op-2",
+          "session": "1",
+          "status": "running"
+        }
+      ]
+    },
+    {
+      "name": "given: abort(operationId) of an id never submitted returns false",
+      "pass": true,
+      "observed": false
+    },
+    {
+      "name": "wrapped: abort(operationId) of an id never submitted returns false",
+      "pass": true,
+      "observed": false
+    },
+    {
+      "name": "memory: abort(operationId) of an id never submitted returns false",
+      "pass": true,
+      "observed": false
+    },
+    {
+      "name": "guard: no outbound request left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

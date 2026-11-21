@@ -1,0 +1,73 @@
+{
+  "command": "cd workers/edge && node --import tsx --test --test-isolation=none --test-concurrency=1 --test-name-pattern \"production chat tier boots the default SessionAgent\" host-integration-test/default-host.test.ts",
+  "testExit": {
+    "code": 0,
+    "signal": null,
+    "ms": 8202,
+    "withinCounterBuckets": true
+  },
+  "databases": [
+    "native_host_contract_f7b06bea2df6"
+  ],
+  "total": 310,
+  "testOwn": 17,
+  "rest": 293,
+  "restByApplication": {
+    "(none)": 293
+  }
+}
+  25  UTILITY  []  BEGIN
+  25  UTILITY  []  COMMIT
+   1  DELETE  [public.agent_open_operations]  DELETE FROM "public"."agent_open_operations" WHERE "agent_open_operations"."operation_id" = $1 RETURNING "agent_open_operations"."created_at", "agent_open_opera
+   1  DELETE  [public.pi_list_values]  DELETE FROM "public"."pi_list_values" WHERE ("pi_list_values"."session_id" = $1 AND "pi_list_values"."namespace" = $2 AND "pi_list_values"."key" = $3) RETURNING
+   4  DELETE  [public.pi_scalar_values]  DELETE FROM "public"."pi_scalar_values" WHERE ("pi_scalar_values"."session_id" = '01992000-0000-7000-8000-000000001546' AND "pi_scalar_values"."namespace" = 'pi
+   1  INSERT  [public.anon_daily_message_count]  INSERT INTO anon_daily_message_count (usage_date, anon_id, message_count) VALUES ($1::date, $2, 1) ON CONFLICT (usage_date, anon_id) DO UPDATE SET message_count
+   1  INSERT  [public.daily_usage]  INSERT INTO daily_usage (usage_date, scope, requests, input_tokens, output_tokens, cost_usd, updated_at) SELECT $1::date, scope, sum(requests), sum(input_tokens
+   1  INSERT  []  INSERT INTO "public"."agent_admissions" ("session_id", "identity_id", "payer", "client_message_id", "kind", "operation_id", "request_digest") VALUES ($1, $2, $3
+   1  INSERT  []  INSERT INTO "public"."agent_open_operations" ("operation_id") VALUES ($1) RETURNING "agent_open_operations"."created_at", "agent_open_operations"."operation_id"
+   1  INSERT  []  INSERT INTO "public"."agent_settlements" ("operation_id") VALUES ($1) RETURNING "agent_settlements"."last_usage_seq", "agent_settlements"."operation_id", "agent
+   4  INSERT  []  INSERT INTO "public"."pi_list_values" ("session_id", "namespace", "key", "seq", "value") VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING "pi_list_values"."key", "p
+   4  INSERT  []  INSERT INTO "public"."pi_records" ("session_id", "id", "seq", "kind", "payload") VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING "pi_records"."id", "pi_records"."k
+  23  INSERT  [public.pi_scalar_values]  INSERT INTO "public"."pi_scalar_values" ("session_id", "namespace", "key", "seq", "value") VALUES ($1, $2, $3, $4, $5::jsonb) ON CONFLICT ("session_id", "namesp
+   1  INSERT  [public.pi_sessions]  INSERT INTO "public"."pi_sessions" ("id", "metadata", "next_seq") VALUES ($1, $2::jsonb, $3) RETURNING "pi_sessions"."id", "pi_sessions"."metadata", "pi_session
+   1  INSERT  [public.sessions]  INSERT INTO sessions (id, user_id, first_query) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET user_id = sessions.user_id RETURNING user_id AS owner
+   1  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   1  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   2  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   1  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   6  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   6  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   1  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."client_message_id" AS "client_message_id", "agent_admissions"."created_at" AS "created_at", "agent_admissions"."id" AS "id", "agent_a
+   2  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."id" AS "id" FROM "public"."agent_admissions" WHERE ("agent_admissions"."id" = $1::uuid AND "agent_admissions"."state" IN ($2, $3)) LI
+   2  SELECT  [public.agent_admissions]  SELECT "agent_admissions"."id" AS "id" FROM "public"."agent_admissions" WHERE "agent_admissions"."id" = $1::uuid LIMIT 1
+   2  SELECT  [public.agent_open_operations]  SELECT "agent_open_operations"."created_at" AS "created_at", "agent_open_operations"."operation_id" AS "operation_id" FROM "public"."agent_open_operations" WHER
+   5  SELECT  [public.agent_settlements]  SELECT "agent_settlements"."last_usage_seq" AS "last_usage_seq", "agent_settlements"."operation_id" AS "operation_id", "agent_settlements"."settled_at" AS "sett
+   2  SELECT  [public.agent_settlements,public.agent_admissions]  SELECT "agent_settlements"."last_usage_seq" AS "last_usage_seq", "agent_settlements"."operation_id" AS "operation_id", "agent_settlements"."settled_at" AS "sett
+   2  SELECT  [public.agent_settlements]  SELECT "agent_settlements"."operation_id" AS "operation_id" FROM "public"."agent_settlements" WHERE "agent_settlements"."operation_id" = $1 LIMIT 1
+   4  SELECT  [public.daily_usage]  SELECT coalesce(sum(cost_usd), 0) < $1::numeric AS available FROM daily_usage WHERE usage_date = $2::date AND scope = 'anon'
+   3  SELECT  [information_schema.columns*,pg_catalog.pg_attribute,pg_catalog.pg_attrdef,pg_catalog.pg_class,pg_catalog.pg_namespace,pg_catalog.pg_type,pg_catalog.pg_collation,pg_catalog.pg_depend,pg_catalog.pg_sequence]  select column_name from information_schema.columns where table_schema = 'prisma_contract' and table_name = 'marker'
+  17  SELECT  [public.pi_records]  SELECT jsonb_build_object( 'messageCount', (SELECT count(*) FROM pi_records WHERE session_id = $1 AND kind = 'entry' AND payload->>'type' = 'message'), 'usage',
+  11  SELECT  [public.pi_scalar_values]  SELECT key, seq, value FROM pi_scalar_values WHERE session_id = $1 AND namespace = $2 AND starts_with(key, $3) ORDER BY key COLLATE "C"
+   3  SELECT  [prisma_contract.marker]  SELECT "marker"."core_hash" AS "core_hash", "marker"."profile_hash" AS "profile_hash", "marker"."contract_json" AS "contract_json", "marker"."canonical_version"
+  16  SELECT  [public.pi_sessions]  SELECT next_seq FROM pi_sessions WHERE id = $1 FOR UPDATE
+  13  SELECT  [public.pi_records]  SELECT "pi_records"."id" AS "id", "pi_records"."kind" AS "kind" FROM "public"."pi_records" WHERE ("pi_records"."session_id" = $1 AND FALSE)
+   1  SELECT  [public.pi_records]  SELECT "pi_records"."id" AS "id", "pi_records"."kind" AS "kind" FROM "public"."pi_records" WHERE ("pi_records"."session_id" = $1 AND "pi_records"."id" IN ($2))
+   2  SELECT  [public.pi_records]  SELECT "pi_records"."id" AS "id", "pi_records"."kind" AS "kind" FROM "public"."pi_records" WHERE ("pi_records"."session_id" = $1 AND "pi_records"."id" IN ($2, $
+  11  SELECT  [public.pi_records]  SELECT "pi_records"."id" AS "id", "pi_records"."payload" AS "payload" FROM "public"."pi_records" WHERE (("pi_records"."session_id" = $1 AND "pi_records"."kind"
+   2  SELECT  [public.pi_records]  SELECT "pi_records"."payload" AS "payload" FROM "public"."pi_records" WHERE (("pi_records"."session_id" = $1 AND "pi_records"."kind" = $2) AND "pi_records"."seq
+   5  SELECT  [public.pi_scalar_values]  SELECT "pi_scalar_values"."session_id" AS "session_id", "pi_scalar_values"."namespace" AS "namespace", "pi_scalar_values"."key" AS "key" FROM "public"."pi_scala
+  16  SELECT  [public.pi_scalar_values]  SELECT "pi_scalar_values"."value" AS "value", "pi_scalar_values"."seq" AS "seq" FROM "public"."pi_scalar_values" WHERE ("pi_scalar_values"."session_id" = $1 AND
+  16  SELECT  [public.pi_sessions]  SELECT "pi_sessions"."id" AS "id" FROM "public"."pi_sessions" WHERE "pi_sessions"."id" = $1 LIMIT 1
+   1  SELECT  [public.pi_sessions]  SELECT "pi_sessions"."id" AS "id", "pi_sessions"."metadata" AS "metadata", "pi_sessions"."next_seq" AS "next_seq" FROM "public"."pi_sessions" WHERE "pi_sessions
+   1  SELECT  [public.pi_sessions]  SELECT "pi_sessions"."metadata" AS "metadata" FROM "public"."pi_sessions" WHERE "pi_sessions"."id" = $1 LIMIT 1
+   2  SELECT  [public.agent_settlements,public.agent_admissions]  SELECT s.operation_id FROM agent_settlements s JOIN agent_admissions a USING (operation_id) WHERE s.operation_id = $1 AND a.session_id = $2 FOR UPDATE OF a, s
+   3  SELECT  [information_schema.tables*,pg_catalog.pg_namespace,pg_catalog.pg_class,pg_catalog.pg_type]  SELECT "tables"."table_schema" AS "table_schema" FROM "information_schema"."tables" WHERE ("tables"."table_schema" = $1 AND "tables"."table_name" = $2)
+   2  SELECT  [public.sessions]  SELECT user_id AS owner FROM sessions WHERE id = $1
+   6  SELECT  [public.sessions]  SELECT user_id AS owner FROM sessions WHERE id = $1 FOR UPDATE
+   1  UPDATE  [public.agent_admissions]  UPDATE "public"."agent_admissions" SET "quota_usage_date" = $1::date, "quota_reserved_at" = $2 WHERE "agent_admissions"."id" = '01a1f03d-e59b-7cce-a9d5-71a9fdc4
+   3  UPDATE  [public.agent_admissions]  UPDATE "public"."agent_admissions" SET "state" = $1 WHERE "agent_admissions"."id" = '01a1f03d-e59b-7cce-a9d5-71a9fdc43d57' RETURNING "agent_admissions"."client_
+   1  UPDATE  []  UPDATE "public"."agent_settlements" SET "last_usage_seq" = $1, "settled_at" = $2 WHERE "agent_settlements"."operation_id" = 'fe20faad-14fa-4778-a614-6cb3d311548
+   1  UPDATE  [public.agent_settlements]  UPDATE "public"."agent_settlements" SET "last_usage_seq" = $1 WHERE "agent_settlements"."operation_id" = 'fe20faad-14fa-4778-a614-6cb3d3115486' RETURNING "agent
+  16  UPDATE  [public.pi_sessions]  UPDATE "public"."pi_sessions" SET "next_seq" = $1 WHERE "pi_sessions"."id" = '01992000-0000-7000-8000-000000001546' RETURNING "pi_sessions"."id", "pi_sessions".
+   1  UPDATE  [public.sessions]  UPDATE sessions SET title = LEFT(first_query, 20) WHERE id = $1 AND title IS NULL AND first_query IS NOT NULL
+   8  SELECT  [public.pi_records]  WITH RECURSIVE ancestors AS ( SELECT id, seq, payload FROM pi_records WHERE session_id = $1 AND kind = 'entry' AND id = $2 UNION ALL SELECT e.id, e.seq, e.paylo

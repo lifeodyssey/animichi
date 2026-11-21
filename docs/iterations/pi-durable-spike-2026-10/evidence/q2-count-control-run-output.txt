@@ -1,0 +1,2 @@
+PASS count control: expected 11 twice, counted 11 and 11; failed statements counted: true
+PASS after DROP DATABASE the second pass's 11 statements still read by name: 11

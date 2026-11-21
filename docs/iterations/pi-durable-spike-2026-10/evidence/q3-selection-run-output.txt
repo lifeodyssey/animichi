@@ -1,0 +1,6 @@
+PASS first selection: admitted (202), Pi settled the write done at once, no model request
+PASS the same id and content again: the existing admission (200) and Pi's same submission; one selection entry
+PASS the same id with other content: 409 at admission; Pi never sees it
+PASS settled through the same settlement, charging nothing: one row, done, 0 tokens
+PASS a model turn after it runs and settles as usual
+PASS guard: no request other than the stubbed catalog left workerd

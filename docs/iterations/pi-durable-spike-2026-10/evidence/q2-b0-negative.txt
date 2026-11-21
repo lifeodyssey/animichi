@@ -1,0 +1,12 @@
+{"defect":"empty request index","cases":32,"failed":["indexes request IDs per conversation and replaces complete submission records","stores passive write submissions without input-only lifecycle states","stores continue submissions, which have no entry and are never queued","rolls back record tables and secondary indexes when a document command fails","keeps indexed string identities lossless"]}
+{"defect":"conversation-blind request index","cases":32,"failed":["indexes request IDs per conversation and replaces complete submission records"]}
+✔ an empty request index fails the request-index case (628.908292ms)
+✔ a request index blind to the conversation fails the request-index case (148.720833ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3415.047042

@@ -1,0 +1,837 @@
+{
+  "case": "count",
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "cold": {
+    "name": "count-3a4b31d8",
+    "operationId": "op-count-1",
+    "text": "respond: Hello from route b-prime",
+    "receipt": {
+      "operationId": "op-count-1",
+      "submission": 8
+    },
+    "counted": {
+      "statements": 56,
+      "byKind": {
+        "begin": 10,
+        "commit": 10,
+        "open": 1,
+        "read": 15,
+        "stateRead": 10,
+        "write": 10
+      },
+      "commits": 10,
+      "otherApplications": 0,
+      "rows": [
+        {
+          "calls": 10,
+          "kind": "begin",
+          "relations": null,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 10,
+          "kind": "commit",
+          "relations": null,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "kind": "open",
+          "relations": "public.pd_meta",
+          "query": "INSERT INTO pd_meta (session_key, next_id, next_seq) VALUES ($1, 2, 1) ON CONFLICT (session_key) DO UPDATE SET session_key = excluded.sessio"
+        },
+        {
+          "calls": 2,
+          "kind": "read",
+          "relations": "public.pd_conversations",
+          "query": "SELECT record FROM pd_conversations WHERE session_key = $1 AND id = $2"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_documents",
+          "query": "SELECT record FROM pd_documents WHERE session_key = $1 AND kind = $2 AND scope_kind = $3 AND owner_id = $4 AND family = $5 AND key_value = $"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_entries",
+          "query": "SELECT record FROM pd_entries WHERE session_key = $1 AND conversation_id = $2 AND id <= $3 ORDER BY id DESC LIMIT $4"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND conversation_id = $2 AND request_id = $3"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_tasks",
+          "query": "SELECT record FROM pd_tasks WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 10,
+          "kind": "stateRead",
+          "relations": "public.pd_record_ids,public.pd_documents,public.pd_meta,public.pd_document_revisions",
+          "query": "WITH meta AS MATERIALIZED (SELECT next_id, next_seq FROM pd_meta WHERE session_key = $1 FOR UPDATE) SELECT 'meta' AS k, next_id::text AS a, "
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_conversations,public.pd_documents,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 2,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 4,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        }
+      ]
+    },
+    "settled": {
+      "status": "done",
+      "answer": 11
+    },
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "text": "respond: Hello from route b-prime"
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "text": ""
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "respond",
+            "arguments": {
+              "message": "Hello from route b-prime"
+            }
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 12,
+          "cacheRead": 0,
+          "cacheWrite": 180,
+          "totalTokens": 192,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "respond",
+        "isError": false,
+        "text": "Hello from route b-prime"
+      }
+    ],
+    "modelCalls": 1
+  },
+  "warm": {
+    "name": "count-3a4b31d8",
+    "operationId": "op-count-2",
+    "text": "respond: A second turn in the same session",
+    "receipt": {
+      "operationId": "op-count-2",
+      "submission": 15
+    },
+    "counted": {
+      "statements": 37,
+      "byKind": {
+        "begin": 9,
+        "commit": 9,
+        "read": 1,
+        "stateRead": 9,
+        "write": 9
+      },
+      "commits": 9,
+      "otherApplications": 0,
+      "rows": [
+        {
+          "calls": 9,
+          "kind": "begin",
+          "relations": null,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 9,
+          "kind": "commit",
+          "relations": null,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND conversation_id = $2 AND request_id = $3"
+        },
+        {
+          "calls": 9,
+          "kind": "stateRead",
+          "relations": "public.pd_record_ids,public.pd_documents,public.pd_meta,public.pd_document_revisions",
+          "query": "WITH meta AS MATERIALIZED (SELECT next_id, next_seq FROM pd_meta WHERE session_key = $1 FOR UPDATE) SELECT 'meta' AS k, next_id::text AS a, "
+        },
+        {
+          "calls": 2,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 5,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        }
+      ]
+    },
+    "settled": {
+      "status": "done",
+      "answer": 17
+    },
+    "transcript": [
+      {
+        "id": 14,
+        "kind": "pi.user",
+        "text": "respond: A second turn in the same session"
+      },
+      {
+        "id": 17,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "respond",
+            "arguments": {
+              "message": "A second turn in the same session"
+            }
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 14,
+          "cacheRead": 180,
+          "cacheWrite": 38,
+          "totalTokens": 232,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 19,
+        "kind": "pi.tool-result",
+        "toolName": "respond",
+        "isError": false,
+        "text": "A second turn in the same session"
+      }
+    ],
+    "modelCalls": 1
+  },
+  "idle": {
+    "name": "count-3a4b31d8",
+    "counted": {
+      "statements": 0,
+      "byKind": {},
+      "commits": 0,
+      "otherApplications": 0,
+      "rows": []
+    }
+  },
+  "streamed": {
+    "name": "count-streamed-3a4b31d8",
+    "operationId": "op-count-s",
+    "text": "respond: A streamed answer",
+    "receipt": {
+      "operationId": "op-count-s",
+      "submission": 8
+    },
+    "counted": {
+      "statements": 72,
+      "byKind": {
+        "begin": 14,
+        "commit": 14,
+        "open": 1,
+        "read": 15,
+        "stateRead": 14,
+        "write": 14
+      },
+      "commits": 14,
+      "otherApplications": 0,
+      "rows": [
+        {
+          "calls": 14,
+          "kind": "begin",
+          "relations": null,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 14,
+          "kind": "commit",
+          "relations": null,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "kind": "open",
+          "relations": "public.pd_meta",
+          "query": "INSERT INTO pd_meta (session_key, next_id, next_seq) VALUES ($1, 2, 1) ON CONFLICT (session_key) DO UPDATE SET session_key = excluded.sessio"
+        },
+        {
+          "calls": 2,
+          "kind": "read",
+          "relations": "public.pd_conversations",
+          "query": "SELECT record FROM pd_conversations WHERE session_key = $1 AND id = $2"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_documents",
+          "query": "SELECT record FROM pd_documents WHERE session_key = $1 AND kind = $2 AND scope_kind = $3 AND owner_id = $4 AND family = $5 AND key_value = $"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_entries",
+          "query": "SELECT record FROM pd_entries WHERE session_key = $1 AND conversation_id = $2 AND id <= $3 ORDER BY id DESC LIMIT $4"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND conversation_id = $2 AND request_id = $3"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_tasks",
+          "query": "SELECT record FROM pd_tasks WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 14,
+          "kind": "stateRead",
+          "relations": "public.pd_record_ids,public.pd_documents,public.pd_meta,public.pd_document_revisions",
+          "query": "WITH meta AS MATERIALIZED (SELECT next_id, next_seq FROM pd_meta WHERE session_key = $1 FOR UPDATE) SELECT 'meta' AS k, next_id::text AS a, "
+        },
+        {
+          "calls": 4,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_document_revisions (session_key, document_id, seq, kind, version, content) SELECT $1::text, * FROM unnest($2::big"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_conversations,public.pd_documents,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 2,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 4,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        }
+      ]
+    },
+    "settled": {
+      "status": "done",
+      "answer": 11
+    },
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "text": "respond: A streamed answer"
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "text": ""
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "respond",
+            "arguments": {
+              "message": "A streamed answer streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed "
+            }
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 235,
+          "cacheRead": 0,
+          "cacheWrite": 178,
+          "totalTokens": 413,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "respond",
+        "isError": false,
+        "text": "A streamed answer streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed streamed "
+      }
+    ],
+    "modelCalls": 1
+  },
+  "twoRequests": {
+    "name": "count-q1-3a4b31d8",
+    "operationId": "op-count-q1",
+    "text": "Resolve the anime titled \"Count Probe\"",
+    "receipt": {
+      "operationId": "op-count-q1",
+      "submission": 8
+    },
+    "counted": {
+      "statements": 68,
+      "byKind": {
+        "begin": 13,
+        "commit": 13,
+        "open": 1,
+        "read": 15,
+        "stateRead": 13,
+        "write": 13
+      },
+      "commits": 13,
+      "otherApplications": 0,
+      "rows": [
+        {
+          "calls": 13,
+          "kind": "begin",
+          "relations": null,
+          "query": "BEGIN"
+        },
+        {
+          "calls": 13,
+          "kind": "commit",
+          "relations": null,
+          "query": "COMMIT"
+        },
+        {
+          "calls": 1,
+          "kind": "open",
+          "relations": "public.pd_meta",
+          "query": "INSERT INTO pd_meta (session_key, next_id, next_seq) VALUES ($1, 2, 1) ON CONFLICT (session_key) DO UPDATE SET session_key = excluded.sessio"
+        },
+        {
+          "calls": 2,
+          "kind": "read",
+          "relations": "public.pd_conversations",
+          "query": "SELECT record FROM pd_conversations WHERE session_key = $1 AND id = $2"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_documents",
+          "query": "SELECT record FROM pd_documents WHERE session_key = $1 AND kind = $2 AND scope_kind = $3 AND owner_id = $4 AND family = $5 AND key_value = $"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_entries",
+          "query": "SELECT record FROM pd_entries WHERE session_key = $1 AND conversation_id = $2 AND id <= $3 ORDER BY id DESC LIMIT $4"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND conversation_id = $2 AND request_id = $3"
+        },
+        {
+          "calls": 1,
+          "kind": "read",
+          "relations": "public.pd_submissions",
+          "query": "SELECT record FROM pd_submissions WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 5,
+          "kind": "read",
+          "relations": "public.pd_tasks",
+          "query": "SELECT record FROM pd_tasks WHERE session_key = $1 AND id > $2 AND status = $3 ORDER BY id ASC LIMIT $4"
+        },
+        {
+          "calls": 13,
+          "kind": "stateRead",
+          "relations": "public.pd_record_ids,public.pd_documents,public.pd_meta,public.pd_document_revisions",
+          "query": "WITH meta AS MATERIALIZED (SELECT next_id, next_seq FROM pd_meta WHERE session_key = $1 FOR UPDATE) SELECT 'meta' AS k, next_id::text AS a, "
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_conversations,public.pd_documents,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 2,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 2,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_entries,public.pd_tasks,public.pd_submissions,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 6,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        },
+        {
+          "calls": 1,
+          "kind": "write",
+          "relations": "public.pd_meta,public.pd_record_ids,public.pd_tasks,public.pd_document_revisions",
+          "query": "WITH w0 AS (INSERT INTO pd_record_ids (session_key, id, record_type) SELECT $1::text, * FROM unnest($2::bigint[], $3::text[]) ON CONFLICT (s"
+        }
+      ]
+    },
+    "settled": {
+      "status": "done",
+      "answer": 15
+    },
+    "transcript": [
+      {
+        "id": 7,
+        "kind": "pi.user",
+        "text": "Resolve the anime titled \"Count Probe\""
+      },
+      {
+        "id": 10,
+        "kind": "pi.system",
+        "text": ""
+      },
+      {
+        "id": 11,
+        "kind": "pi.assistant",
+        "toolCalls": [
+          {
+            "name": "resolve_anime",
+            "arguments": {
+              "title": "Count Probe"
+            }
+          }
+        ],
+        "usage": {
+          "input": 0,
+          "output": 10,
+          "cacheRead": 0,
+          "cacheWrite": 181,
+          "totalTokens": 191,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      },
+      {
+        "id": 13,
+        "kind": "pi.tool-result",
+        "toolName": "resolve_anime",
+        "isError": false,
+        "text": "{\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Count Probe\",\"title_cn\":\"巡礼\"}}"
+      },
+      {
+        "id": 15,
+        "kind": "pi.assistant",
+        "text": "Resolved: {\"outcome\":\"resolved\",\"match\":{\"bangumi_id\":\"1556\",\"title\":\"Count Probe\",\"title_cn\":\"巡礼\"}}",
+        "usage": {
+          "input": 0,
+          "output": 25,
+          "cacheRead": 181,
+          "cacheWrite": 41,
+          "totalTokens": 247,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        }
+      }
+    ],
+    "modelCalls": 2
+  },
+  "checks": [
+    {
+      "name": "count-3a4b31d8 op-count-1: one model request calling respond, which ended the run; settled done",
+      "pass": true,
+      "observed": {
+        "settled": {
+          "status": "done",
+          "answer": 11
+        },
+        "modelCalls": 1,
+        "kinds": [
+          "pi.user",
+          "pi.system",
+          "pi.assistant",
+          "pi.tool-result"
+        ]
+      }
+    },
+    {
+      "name": "count-3a4b31d8 op-count-2: one model request calling respond, which ended the run; settled done",
+      "pass": true,
+      "observed": {
+        "settled": {
+          "status": "done",
+          "answer": 17
+        },
+        "modelCalls": 1,
+        "kinds": [
+          "pi.user",
+          "pi.assistant",
+          "pi.tool-result"
+        ]
+      }
+    },
+    {
+      "name": "count-streamed-3a4b31d8 op-count-s: one model request calling respond, which ended the run; settled done",
+      "pass": true,
+      "observed": {
+        "settled": {
+          "status": "done",
+          "answer": 11
+        },
+        "modelCalls": 1,
+        "kinds": [
+          "pi.user",
+          "pi.system",
+          "pi.assistant",
+          "pi.tool-result"
+        ]
+      }
+    },
+    {
+      "name": "q1-shaped turn: tool call, result, answer; settled done",
+      "pass": true,
+      "observed": [
+        "pi.user",
+        "pi.system",
+        "pi.assistant",
+        "pi.tool-result",
+        "pi.assistant"
+      ]
+    },
+    {
+      "name": "every counted statement is the object's own connection (no other application in the database)",
+      "pass": true,
+      "observed": null
+    },
+    {
+      "name": "statements per commit are 4 (BEGIN, state read, write, COMMIT): begins = state reads = writes = commits in every count",
+      "pass": true,
+      "observed": [
+        {
+          "begin": 10,
+          "commit": 10,
+          "open": 1,
+          "read": 15,
+          "stateRead": 10,
+          "write": 10
+        },
+        {
+          "begin": 9,
+          "commit": 9,
+          "read": 1,
+          "stateRead": 9,
+          "write": 9
+        },
+        {
+          "begin": 14,
+          "commit": 14,
+          "open": 1,
+          "read": 15,
+          "stateRead": 14,
+          "write": 14
+        },
+        {
+          "begin": 13,
+          "commit": 13,
+          "open": 1,
+          "read": 15,
+          "stateRead": 13,
+          "write": 13
+        }
+      ]
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ],
+  "workerdLog": [
+    "+     0ms count stdout: [spike] constructed instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+     2ms count stdout: [spike] start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   137ms count stdout: [spike] pi:opened instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   138ms count stdout: [spike] request:submit instance=dbe45dc8-3e4a-461d-a19f-2337c850696a op=op-count-1",
+    "+   139ms count stdout: [spike] wake:start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   140ms count stdout: [spike] wake:waiting instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   140ms count stdout: [spike] wake:end instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   157ms count stdout: [spike] wake:start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   157ms count stdout: [spike] wake:waiting instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   176ms count stdout: [spike] model:tool_call instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   204ms count stdout: [spike] tool:respond instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+   230ms count stdout: [spike] wake:end instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1873ms count stdout: [spike] request:report instance=dbe45dc8-3e4a-461d-a19f-2337c850696a op=op-count-1",
+    "+  1934ms count stdout: [spike] request:submit instance=dbe45dc8-3e4a-461d-a19f-2337c850696a op=op-count-2",
+    "+  1936ms count stdout: [spike] wake:start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1936ms count stdout: [spike] wake:waiting instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1936ms count stdout: [spike] wake:end instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1947ms count stdout: [spike] wake:start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1947ms count stdout: [spike] wake:waiting instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1963ms count stdout: [spike] model:tool_call instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  1989ms count stdout: [spike] tool:respond instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  2019ms count stdout: [spike] wake:end instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  3626ms count stdout: [spike] request:report instance=dbe45dc8-3e4a-461d-a19f-2337c850696a op=op-count-2",
+    "+  3690ms count stdout: [spike] request:arm-wake instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  3691ms count stdout: [spike] wake:start instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  3691ms count stdout: [spike] wake:waiting instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  3691ms count stdout: [spike] wake:end instance=dbe45dc8-3e4a-461d-a19f-2337c850696a",
+    "+  5342ms count stdout: [spike] constructed instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5343ms count stdout: [spike] start instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5467ms count stdout: [spike] pi:opened instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5467ms count stdout: [spike] request:submit instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2 op=op-count-s",
+    "+  5469ms count stdout: [spike] wake:start instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5469ms count stdout: [spike] wake:waiting instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5469ms count stdout: [spike] wake:end instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5482ms count stdout: [spike] wake:start instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5482ms count stdout: [spike] wake:waiting instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+  5500ms count stdout: [spike] model:tool_call instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+ 10325ms count stdout: [spike] tool:respond instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+ 10357ms count stdout: [spike] wake:end instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2",
+    "+ 11954ms count stdout: [spike] request:report instance=95cdd5a8-550f-4ea7-8e17-3bfef14c4ff2 op=op-count-s",
+    "+ 12016ms count stdout: [spike] constructed instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12016ms count stdout: [spike] start instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12133ms count stdout: [spike] pi:opened instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12133ms count stdout: [spike] request:submit instance=1d4614e0-155e-4736-8a52-88414aaeea0e op=op-count-q1",
+    "+ 12134ms count stdout: [spike] wake:start instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12134ms count stdout: [spike] wake:waiting instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12134ms count stdout: [spike] wake:end instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12147ms count stdout: [spike] wake:start instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12147ms count stdout: [spike] wake:waiting instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12167ms count stdout: [spike] model:tool_call instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12191ms count stdout: [spike] tool:start instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12193ms count stdout: [spike] tool:end instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12232ms count stdout: [spike] model:answer instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 12242ms count stdout: [spike] wake:end instance=1d4614e0-155e-4736-8a52-88414aaeea0e",
+    "+ 13836ms count stdout: [spike] request:report instance=1d4614e0-155e-4736-8a52-88414aaeea0e op=op-count-q1"
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "runtime": {
+    "compatibilityDate": "2026-07-22",
+    "compatibilityFlags": [
+      "nodejs_compat"
+    ]
+  },
+  "armedBy": "754704c3-32cd-4825-a593-387447419bac",
+  "alarmAt": 1795015644248,
+  "killedAt": 1795015642255,
+  "restartedAt": 1795015642281,
+  "alarmLoggedAt": 1795015644249,
+  "restartedInstances": [
+    "e9aa0283-129a-408a-961b-c8f977bc3de9"
+  ],
+  "restartedKinds": [
+    "constructed",
+    "alarm",
+    "request:read"
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "instance": "754704c3-32cd-4825-a593-387447419bac",
+      "kind": "constructed",
+      "at": 1795015642248
+    },
+    {
+      "seq": 2,
+      "instance": "754704c3-32cd-4825-a593-387447419bac",
+      "kind": "request:arm",
+      "at": 1795015642248
+    },
+    {
+      "seq": 3,
+      "instance": "e9aa0283-129a-408a-961b-c8f977bc3de9",
+      "kind": "constructed",
+      "at": 1795015644249
+    },
+    {
+      "seq": 4,
+      "instance": "e9aa0283-129a-408a-961b-c8f977bc3de9",
+      "kind": "alarm",
+      "at": 1795015644249
+    },
+    {
+      "seq": 5,
+      "instance": "e9aa0283-129a-408a-961b-c8f977bc3de9",
+      "kind": "request:read",
+      "at": 1795015644251
+    }
+  ],
+  "outboundViolations": [],
+  "log": [
+    {
+      "run": "A",
+      "at": 1795015642248,
+      "stream": "stdout",
+      "text": "[spike] alarm-probe constructed instance=754704c3-32cd-4825-a593-387447419bac"
+    },
+    {
+      "run": "A",
+      "at": 1795015642248,
+      "stream": "stdout",
+      "text": "[spike] alarm-probe request:arm instance=754704c3-32cd-4825-a593-387447419bac"
+    },
+    {
+      "run": "B",
+      "at": 1795015644249,
+      "stream": "stdout",
+      "text": "[spike] alarm-probe constructed instance=e9aa0283-129a-408a-961b-c8f977bc3de9"
+    },
+    {
+      "run": "B",
+      "at": 1795015644249,
+      "stream": "stdout",
+      "text": "[spike] alarm-probe alarm instance=e9aa0283-129a-408a-961b-c8f977bc3de9"
+    },
+    {
+      "run": "B",
+      "at": 1795015644251,
+      "stream": "stdout",
+      "text": "[spike] alarm-probe request:read instance=e9aa0283-129a-408a-961b-c8f977bc3de9"
+    }
+  ]
+}

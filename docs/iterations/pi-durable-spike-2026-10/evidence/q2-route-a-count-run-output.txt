@@ -1,0 +1,3 @@
+PASS a cold one-request turn costs Postgres only its projection: BEGIN, one INSERT, COMMIT (Pi's own writes go to the object's SQLite)
+PASS the q1-shaped turn's projection costs the same three statements
+PASS guard: no request other than the stubbed catalog left workerd

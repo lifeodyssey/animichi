@@ -1,0 +1,208 @@
+{
+  "case": "budget",
+  "armed": {
+    "receipt": {
+      "operationId": "op-budget",
+      "session": "1",
+      "accepted": true
+    },
+    "submittedAt": 1795024023419,
+    "start": {
+      "submission": 8,
+      "status": "placed",
+      "entry": 7,
+      "kind": "pi.user",
+      "timestamp": 1795024023421
+    },
+    "deadlineAt": 1795024025421
+  },
+  "result": {
+    "operationId": "op-budget",
+    "session": "1",
+    "status": "unanswered",
+    "reason": "aborted"
+  },
+  "fired": {
+    "firedAt": 1795024025423,
+    "lateByMs": 2,
+    "partialChars": 288,
+    "liveRunFields": [
+      "taskId",
+      "inputs",
+      "turns",
+      "first"
+    ],
+    "runTask": {
+      "kind": "pi.generation",
+      "startedAt": 1795024023437
+    }
+  },
+  "abort": {
+    "aborted": true,
+    "returnedAt": 1795024025504
+  },
+  "live": {
+    "runFailure": {
+      "taskId": 9,
+      "inputs": [
+        8
+      ],
+      "reason": "aborted",
+      "first": 7
+    }
+  },
+  "transcript": [
+    {
+      "id": 7,
+      "kind": "pi.user",
+      "role": "user",
+      "text": "Answer at length, please.",
+      "toolCalls": []
+    },
+    {
+      "id": 10,
+      "kind": "pi.assistant",
+      "role": "assistant",
+      "text": "Budget answer: budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget budget ",
+      "toolCalls": [],
+      "stopReason": "aborted",
+      "usage": {
+        "input": 0,
+        "output": 267,
+        "cacheRead": 0,
+        "cacheWrite": 8,
+        "totalTokens": 275,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    }
+  ],
+  "usage": {
+    "models": {
+      "faux/faux-1": {
+        "input": 0,
+        "output": 267,
+        "cacheRead": 0,
+        "cacheWrite": 8,
+        "totalTokens": 275,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      }
+    },
+    "tools": {}
+  },
+  "provider": "faux, tokensPerSecond 40: the aborted frame is faux's own (pi-ai@1.5.2 dist/providers/faux.js:277-281)",
+  "workerdLog": [
+    "+     0ms budget stdout: [spike] constructed instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+    80ms budget stdout: [spike] start instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+    94ms budget stdout: [spike] request:submit-with-budget instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+   123ms budget stdout: [spike] budget:armed instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+   146ms budget stdout: [spike] model:request instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+   173ms budget stdout: [spike] job instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+   173ms budget stdout: [spike] alarm instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+   189ms budget stdout: [spike] request:report instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+  2101ms budget stdout: [spike] budget:fired instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+  2182ms budget stdout: [spike] budget:abort instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+  2212ms budget stdout: [spike] job instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+  2212ms budget stdout: [spike] alarm instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b",
+    "+  2721ms budget stdout: [spike] request:report instance=5dc16b5e-1e1c-47a0-bca6-6a868cbc5f0b"
+  ],
+  "checks": [
+    {
+      "name": "the operation ended unanswered with reason aborted",
+      "pass": true,
+      "observed": {
+        "operationId": "op-budget",
+        "session": "1",
+        "status": "unanswered",
+        "reason": "aborted"
+      }
+    },
+    {
+      "name": "the host's timer fired within 250 ms after start + budget, and abort(operationId) returned true",
+      "pass": true,
+      "observed": {
+        "firedAt": 1795024025423,
+        "lateByMs": 2,
+        "partialChars": 288,
+        "liveRunFields": [
+          "taskId",
+          "inputs",
+          "turns",
+          "first"
+        ],
+        "runTask": {
+          "kind": "pi.generation",
+          "startedAt": 1795024023437
+        },
+        "aborted": true
+      }
+    },
+    {
+      "name": "the abort landed mid-answer: the stored answer is aborted and partial",
+      "pass": true,
+      "observed": {
+        "stopReason": "aborted",
+        "chars": 288,
+        "of": 1065
+      }
+    },
+    {
+      "name": "the start read from Pi is the placed pi.user entry's timestamp, stamped within 1 s of the submit",
+      "pass": true,
+      "observed": {
+        "receipt": {
+          "operationId": "op-budget",
+          "session": "1",
+          "accepted": true
+        },
+        "submittedAt": 1795024023419,
+        "start": {
+          "submission": 8,
+          "status": "placed",
+          "entry": 7,
+          "kind": "pi.user",
+          "timestamp": 1795024023421
+        },
+        "deadlineAt": 1795024025421
+      }
+    },
+    {
+      "name": "pi.live.run carries no time field (its fields at the abort)",
+      "pass": true,
+      "observed": [
+        "taskId",
+        "inputs",
+        "turns",
+        "first"
+      ]
+    },
+    {
+      "name": "after the run, pi.live.runFailure names the abort",
+      "pass": true,
+      "observed": {
+        "taskId": 9,
+        "inputs": [
+          8
+        ],
+        "reason": "aborted",
+        "first": 7
+      }
+    },
+    {
+      "name": "guard: no request other than the stubbed catalog left workerd",
+      "pass": true,
+      "observed": []
+    }
+  ]
+}

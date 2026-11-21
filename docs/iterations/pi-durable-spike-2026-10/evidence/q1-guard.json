@@ -1,0 +1,13 @@
+{
+  "response": {
+    "refused": false,
+    "status": 500
+  },
+  "violations": [
+    {
+      "at": 1795016358827,
+      "method": "GET",
+      "url": "https://upstream.invalid/spike-guard-self-test"
+    }
+  ]
+}

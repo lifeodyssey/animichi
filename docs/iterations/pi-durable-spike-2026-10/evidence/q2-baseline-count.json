@@ -1,0 +1,724 @@
+{
+  "summary": {
+    "command": "cd workers/edge && node --import tsx --test --test-isolation=none --test-concurrency=1 --test-name-pattern \"production chat tier boots the default SessionAgent\" host-integration-test/default-host.test.ts",
+    "testExit": {
+      "code": 0,
+      "signal": null,
+      "ms": 8202,
+      "withinCounterBuckets": true
+    },
+    "databases": [
+      "native_host_contract_f7b06bea2df6"
+    ],
+    "total": 310,
+    "testOwn": 17,
+    "rest": 293,
+    "restByApplication": {
+      "(none)": 293
+    }
+  },
+  "testOwnRows": [
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "CREATE FUNCTION host_test_settled() RETURNS trigger LANGUAGE plpgsql AS $$\n    BEGIN PERFORM pg_notify('host_test_settled', NEW.operation_id); RETURN NEW; END $$",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "CREATE FUNCTION host_test_terminal() RETURNS trigger LANGUAGE plpgsql AS $$\n    BEGIN PERFORM pg_notify('host_test_terminal', NEW.key); RETURN NEW; END $$",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "CREATE TRIGGER host_test_settled AFTER UPDATE ON agent_settlements FOR EACH ROW\n    WHEN (OLD.settled_at IS NULL AND NEW.settled_at IS NOT NULL) EXECUTE FUNCTION host_test_settled()",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "CREATE TRIGGER host_test_terminal AFTER INSERT OR UPDATE ON pi_scalar_values FOR EACH ROW\n    WHEN (NEW.namespace = 'pi.result') EXECUTE FUNCTION host_test_terminal()",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM anon_daily_message_count",
+      "cmd": "DELETE",
+      "relations": "public.anon_daily_message_count",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM daily_usage",
+      "cmd": "DELETE",
+      "relations": "public.daily_usage",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM sessions WHERE id = $1",
+      "cmd": "DELETE",
+      "relations": "public.sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "LISTEN host_test_settled",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT a.state,s.last_usage_seq,s.settled_at FROM agent_admissions a JOIN agent_settlements s USING(operation_id) WHERE operation_id=$1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions,public.agent_settlements",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT cost_usd FROM daily_usage WHERE scope='anon'",
+      "cmd": "SELECT",
+      "relations": "public.daily_usage",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT message_count FROM anon_daily_message_count WHERE anon_id=$1",
+      "cmd": "SELECT",
+      "relations": "public.anon_daily_message_count",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT payload->'message' AS payload FROM pi_records WHERE kind='entry' AND session_id=$1",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "TRUNCATE pi_sessions CASCADE",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UNLISTEN *",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE sessions SET user_id='another-owner' WHERE id=$1",
+      "cmd": "UPDATE",
+      "relations": "public.sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    }
+  ],
+  "restRows": [
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "BEGIN",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 25,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "COMMIT",
+      "cmd": "UTILITY",
+      "relations": null,
+      "calls": 25,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM \"public\".\"agent_open_operations\" WHERE \"agent_open_operations\".\"operation_id\" = $1 RETURNING \"agent_open_operations\".\"created_at\", \"agent_open_operations\".\"operation_id\"",
+      "cmd": "DELETE",
+      "relations": "public.agent_open_operations",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM \"public\".\"pi_list_values\" WHERE (\"pi_list_values\".\"session_id\" = $1 AND \"pi_list_values\".\"namespace\" = $2 AND \"pi_list_values\".\"key\" = $3) RETURNING \"pi_list_values\".\"key\", \"pi_list_values\".\"namespace\", \"pi_list_values\".\"seq\", \"pi_list_values\".\"session_id\", \"pi_list_values\".\"value\"",
+      "cmd": "DELETE",
+      "relations": "public.pi_list_values",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "DELETE FROM \"public\".\"pi_scalar_values\" WHERE (\"pi_scalar_values\".\"session_id\" = '01992000-0000-7000-8000-000000001546' AND \"pi_scalar_values\".\"namespace\" = 'pi.pending.entry' AND \"pi_scalar_values\".\"key\" = '01a1f03d-e605-77f7-9535-0ec484fca3c6') RETURNING \"pi_scalar_values\".\"key\", \"pi_scalar_values\".\"namespace\", \"pi_scalar_values\".\"seq\", \"pi_scalar_values\".\"session_id\", \"pi_scalar_values\".\"value\"",
+      "cmd": "DELETE",
+      "relations": "public.pi_scalar_values",
+      "calls": 4,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO anon_daily_message_count (usage_date, anon_id, message_count)\n    VALUES ($1::date, $2, 1) ON CONFLICT (usage_date, anon_id) DO UPDATE\n    SET message_count = anon_daily_message_count.message_count + 1\n    WHERE $3 = 0 OR anon_daily_message_count.message_count < $4\n    RETURNING message_count::integer AS count",
+      "cmd": "INSERT",
+      "relations": "public.anon_daily_message_count",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO daily_usage (usage_date, scope, requests, input_tokens, output_tokens, cost_usd, updated_at)\n    SELECT $1::date, scope, sum(requests), sum(input_tokens), sum(output_tokens), sum(cost_usd::numeric), $2::timestamptz\n    FROM (SELECT $3 AS scope, $4::bigint AS requests,\n    $5::bigint AS input_tokens, $6::bigint AS output_tokens, $7 AS cost_usd) AS native_calls GROUP BY scope\n    ON CONFLICT (usage_date, scope) DO UPDATE SET requests = daily_usage.requests + excluded.requests,\n    input_tokens = daily_usage.input_tokens + excluded.input_tokens, output_tokens = daily_usage.output_tokens + excluded.output_tokens,\n    cost_usd = daily_usage.cost_usd + excluded.cost_usd, updated_at = excluded.updated_at",
+      "cmd": "INSERT",
+      "relations": "public.daily_usage",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"agent_admissions\" (\"session_id\", \"identity_id\", \"payer\", \"client_message_id\", \"kind\", \"operation_id\", \"request_digest\") VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING \"agent_admissions\".\"client_message_id\", \"agent_admissions\".\"created_at\", \"agent_admissions\".\"id\", \"agent_admissions\".\"identity_id\", \"agent_admissions\".\"kind\", \"agent_admissions\".\"operation_id\", \"agent_admissions\".\"payer\", \"agent_admissions\".\"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\", \"agent_admissions\".\"rejection_reason\", \"agent_admissions\".\"request_digest\", \"agent_admissions\".\"selection_request\", \"agent_admissions\".\"session_id\", \"agent_admissions\".\"state\"",
+      "cmd": "INSERT",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"agent_open_operations\" (\"operation_id\") VALUES ($1) RETURNING \"agent_open_operations\".\"created_at\", \"agent_open_operations\".\"operation_id\"",
+      "cmd": "INSERT",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"agent_settlements\" (\"operation_id\") VALUES ($1) RETURNING \"agent_settlements\".\"last_usage_seq\", \"agent_settlements\".\"operation_id\", \"agent_settlements\".\"settled_at\"",
+      "cmd": "INSERT",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"pi_list_values\" (\"session_id\", \"namespace\", \"key\", \"seq\", \"value\") VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING \"pi_list_values\".\"key\", \"pi_list_values\".\"namespace\", \"pi_list_values\".\"seq\", \"pi_list_values\".\"session_id\", \"pi_list_values\".\"value\"",
+      "cmd": "INSERT",
+      "relations": null,
+      "calls": 4,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"pi_records\" (\"session_id\", \"id\", \"seq\", \"kind\", \"payload\") VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING \"pi_records\".\"id\", \"pi_records\".\"kind\", \"pi_records\".\"payload\", \"pi_records\".\"seq\", \"pi_records\".\"session_id\"",
+      "cmd": "INSERT",
+      "relations": null,
+      "calls": 4,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"pi_scalar_values\" (\"session_id\", \"namespace\", \"key\", \"seq\", \"value\") VALUES ($1, $2, $3, $4, $5::jsonb) ON CONFLICT (\"session_id\", \"namespace\", \"key\") DO UPDATE SET \"seq\" = $6, \"value\" = $7::jsonb RETURNING \"pi_scalar_values\".\"key\", \"pi_scalar_values\".\"namespace\", \"pi_scalar_values\".\"seq\", \"pi_scalar_values\".\"session_id\", \"pi_scalar_values\".\"value\"",
+      "cmd": "INSERT",
+      "relations": "public.pi_scalar_values",
+      "calls": 23,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO \"public\".\"pi_sessions\" (\"id\", \"metadata\", \"next_seq\") VALUES ($1, $2::jsonb, $3) RETURNING \"pi_sessions\".\"id\", \"pi_sessions\".\"metadata\", \"pi_sessions\".\"next_seq\"",
+      "cmd": "INSERT",
+      "relations": "public.pi_sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "INSERT INTO sessions (id, user_id, first_query) VALUES ($1, $2, $3)\n    ON CONFLICT (id) DO UPDATE SET user_id = sessions.user_id\n    RETURNING user_id AS owner",
+      "cmd": "INSERT",
+      "relations": "public.sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE \"agent_admissions\".\"id\" = $1::uuid LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"operation_id\" = $1 AND \"agent_admissions\".\"session_id\" = $2) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE \"agent_admissions\".\"operation_id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"session_id\" = $1 AND \"agent_admissions\".\"client_message_id\" = $2) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE ((\"agent_admissions\".\"session_id\" = $1 AND \"agent_admissions\".\"kind\" = $2) AND \"agent_admissions\".\"state\" IN ($3, $4)) ORDER BY \"agent_admissions\".\"id\" ASC LIMIT 50",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 6,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"session_id\" = $1 AND \"agent_admissions\".\"operation_id\" = $2) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 6,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"client_message_id\" AS \"client_message_id\", \"agent_admissions\".\"created_at\" AS \"created_at\", \"agent_admissions\".\"id\" AS \"id\", \"agent_admissions\".\"identity_id\" AS \"identity_id\", \"agent_admissions\".\"kind\" AS \"kind\", \"agent_admissions\".\"operation_id\" AS \"operation_id\", \"agent_admissions\".\"payer\" AS \"payer\", \"agent_admissions\".\"quota_refunded_at\" AS \"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\" AS \"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\" AS \"quota_usage_date\", \"agent_admissions\".\"rejection_reason\" AS \"rejection_reason\", \"agent_admissions\".\"request_digest\" AS \"request_digest\", \"agent_admissions\".\"selection_request\" AS \"selection_request\", \"agent_admissions\".\"session_id\" AS \"session_id\", \"agent_admissions\".\"state\" AS \"state\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"session_id\" = $1 AND \"agent_admissions\".\"state\" IN ($2, $3)) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"id\" AS \"id\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"id\" = $1::uuid AND \"agent_admissions\".\"state\" IN ($2, $3)) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_admissions\".\"id\" AS \"id\" FROM \"public\".\"agent_admissions\" WHERE \"agent_admissions\".\"id\" = $1::uuid LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_admissions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_open_operations\".\"created_at\" AS \"created_at\", \"agent_open_operations\".\"operation_id\" AS \"operation_id\" FROM \"public\".\"agent_open_operations\" WHERE \"agent_open_operations\".\"operation_id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_open_operations",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_settlements\".\"last_usage_seq\" AS \"last_usage_seq\", \"agent_settlements\".\"operation_id\" AS \"operation_id\", \"agent_settlements\".\"settled_at\" AS \"settled_at\" FROM \"public\".\"agent_settlements\" WHERE \"agent_settlements\".\"operation_id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_settlements",
+      "calls": 5,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_settlements\".\"last_usage_seq\" AS \"last_usage_seq\", \"agent_settlements\".\"operation_id\" AS \"operation_id\", \"agent_settlements\".\"settled_at\" AS \"settled_at\" FROM \"public\".\"agent_settlements\" WHERE (\"agent_settlements\".\"settled_at\" IS NULL AND EXISTS (SELECT \"agent_admissions\".\"operation_id\" AS \"_exists\" FROM \"public\".\"agent_admissions\" WHERE (\"agent_admissions\".\"operation_id\" = \"agent_settlements\".\"operation_id\" AND \"agent_admissions\".\"session_id\" = $1))) ORDER BY \"agent_settlements\".\"operation_id\" ASC LIMIT 50",
+      "cmd": "SELECT",
+      "relations": "public.agent_settlements,public.agent_admissions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"agent_settlements\".\"operation_id\" AS \"operation_id\" FROM \"public\".\"agent_settlements\" WHERE \"agent_settlements\".\"operation_id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.agent_settlements",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT coalesce(sum(cost_usd), 0) < $1::numeric AS available\n    FROM daily_usage WHERE usage_date = $2::date AND scope = 'anon'",
+      "cmd": "SELECT",
+      "relations": "public.daily_usage",
+      "calls": 4,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "select column_name\n         from information_schema.columns\n        where table_schema = 'prisma_contract'\n          and table_name = 'marker'",
+      "cmd": "SELECT",
+      "relations": "information_schema.columns*,pg_catalog.pg_attribute,pg_catalog.pg_attrdef,pg_catalog.pg_class,pg_catalog.pg_namespace,pg_catalog.pg_type,pg_catalog.pg_collation,pg_catalog.pg_depend,pg_catalog.pg_sequence",
+      "calls": 3,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT jsonb_build_object(\n    'messageCount', (SELECT count(*) FROM pi_records WHERE session_id = $1 AND kind = 'entry' AND payload->>'type' = 'message'),\n    'usage', jsonb_strip_nulls(jsonb_build_object(\n      'input', coalesce(sum((payload #>> $2::text[])::double precision ORDER BY seq), 0::double precision), 'output', coalesce(sum((payload #>> $3::text[])::double precision ORDER BY seq), 0::double precision),\n      'cacheRead', coalesce(sum((payload #>> $4::text[])::double precision ORDER BY seq), 0::double precision), 'cacheWrite', coalesce(sum((payload #>> $5::text[])::double precision ORDER BY seq), 0::double precision),\n      'cacheWrite1h', sum((payload #>> $6::text[])::double precision ORDER BY seq), 'reasoning', sum((payload #>> $7::text[])::double precision ORDER BY seq),\n      'totalTokens', coalesce(sum((payload #>> $8::text[])::double precision ORDER BY seq), 0::double precision),\n      'cost', jsonb_build_object('input', coalesce(sum((payload #>> $9::text[])::double precision ORDER BY seq), 0::double precision),\n        'output', coalesce(sum((payload #>> $10::text[])::double precision ORDER BY seq), 0::double precision), 'cacheRead', coalesce(sum((payload #>> $11::text[])::double precision ORDER BY seq), 0::double precision),\n        'cacheWrite', coalesce(sum((payload #>> $12::text[])::double precision ORDER BY seq), 0::double precision), 'total', coalesce(sum((payload #>> $13::text[])::double precision ORDER BY seq), 0::double precision))\n    ))) AS stats FROM pi_records WHERE session_id = $14 AND kind = 'usage'",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 17,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT key, seq, value FROM pi_scalar_values WHERE session_id = $1\n    AND namespace = $2 AND starts_with(key, $3) ORDER BY key COLLATE \"C\"",
+      "cmd": "SELECT",
+      "relations": "public.pi_scalar_values",
+      "calls": 11,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"marker\".\"core_hash\" AS \"core_hash\", \"marker\".\"profile_hash\" AS \"profile_hash\", \"marker\".\"contract_json\" AS \"contract_json\", \"marker\".\"canonical_version\" AS \"canonical_version\", \"marker\".\"updated_at\" AS \"updated_at\", \"marker\".\"app_tag\" AS \"app_tag\", \"marker\".\"meta\" AS \"meta\", \"marker\".\"invariants\" AS \"invariants\" FROM \"prisma_contract\".\"marker\" WHERE \"marker\".\"space\" = $1",
+      "cmd": "SELECT",
+      "relations": "prisma_contract.marker",
+      "calls": 3,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT next_seq FROM pi_sessions WHERE id = $1 FOR UPDATE",
+      "cmd": "SELECT",
+      "relations": "public.pi_sessions",
+      "calls": 16,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"pi_records\".\"session_id\" = $1 AND FALSE)",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 13,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"pi_records\".\"session_id\" = $1 AND \"pi_records\".\"id\" IN ($2))",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"kind\" AS \"kind\" FROM \"public\".\"pi_records\" WHERE (\"pi_records\".\"session_id\" = $1 AND \"pi_records\".\"id\" IN ($2, $3, $4))",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_records\".\"id\" AS \"id\", \"pi_records\".\"payload\" AS \"payload\" FROM \"public\".\"pi_records\" WHERE ((\"pi_records\".\"session_id\" = $1 AND \"pi_records\".\"kind\" = $2) AND \"pi_records\".\"id\" IN ($3))",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 11,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_records\".\"payload\" AS \"payload\" FROM \"public\".\"pi_records\" WHERE ((\"pi_records\".\"session_id\" = $1 AND \"pi_records\".\"kind\" = $2) AND \"pi_records\".\"seq\" >= $3 AND \"pi_records\".\"seq\" <= $4) ORDER BY \"pi_records\".\"seq\" ASC LIMIT 50",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_scalar_values\".\"session_id\" AS \"session_id\", \"pi_scalar_values\".\"namespace\" AS \"namespace\", \"pi_scalar_values\".\"key\" AS \"key\" FROM \"public\".\"pi_scalar_values\" WHERE (\"pi_scalar_values\".\"session_id\" = $1 AND \"pi_scalar_values\".\"namespace\" = $2 AND \"pi_scalar_values\".\"key\" = $3) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.pi_scalar_values",
+      "calls": 5,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_scalar_values\".\"value\" AS \"value\", \"pi_scalar_values\".\"seq\" AS \"seq\" FROM \"public\".\"pi_scalar_values\" WHERE (\"pi_scalar_values\".\"session_id\" = $1 AND \"pi_scalar_values\".\"namespace\" = $2 AND \"pi_scalar_values\".\"key\" = $3) LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.pi_scalar_values",
+      "calls": 16,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_sessions\".\"id\" AS \"id\" FROM \"public\".\"pi_sessions\" WHERE \"pi_sessions\".\"id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.pi_sessions",
+      "calls": 16,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_sessions\".\"id\" AS \"id\", \"pi_sessions\".\"metadata\" AS \"metadata\", \"pi_sessions\".\"next_seq\" AS \"next_seq\" FROM \"public\".\"pi_sessions\" WHERE \"pi_sessions\".\"id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.pi_sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"pi_sessions\".\"metadata\" AS \"metadata\" FROM \"public\".\"pi_sessions\" WHERE \"pi_sessions\".\"id\" = $1 LIMIT 1",
+      "cmd": "SELECT",
+      "relations": "public.pi_sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT s.operation_id FROM agent_settlements s JOIN agent_admissions a USING (operation_id)\n    WHERE s.operation_id = $1 AND a.session_id = $2 FOR UPDATE OF a, s",
+      "cmd": "SELECT",
+      "relations": "public.agent_settlements,public.agent_admissions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT \"tables\".\"table_schema\" AS \"table_schema\" FROM \"information_schema\".\"tables\" WHERE (\"tables\".\"table_schema\" = $1 AND \"tables\".\"table_name\" = $2)",
+      "cmd": "SELECT",
+      "relations": "information_schema.tables*,pg_catalog.pg_namespace,pg_catalog.pg_class,pg_catalog.pg_type",
+      "calls": 3,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT user_id AS owner FROM sessions WHERE id = $1",
+      "cmd": "SELECT",
+      "relations": "public.sessions",
+      "calls": 2,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "SELECT user_id AS owner FROM sessions\n    WHERE id = $1 FOR UPDATE",
+      "cmd": "SELECT",
+      "relations": "public.sessions",
+      "calls": 6,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE \"public\".\"agent_admissions\" SET \"quota_usage_date\" = $1::date, \"quota_reserved_at\" = $2 WHERE \"agent_admissions\".\"id\" = '01a1f03d-e59b-7cce-a9d5-71a9fdc43d57' RETURNING \"agent_admissions\".\"client_message_id\", \"agent_admissions\".\"created_at\", \"agent_admissions\".\"id\", \"agent_admissions\".\"identity_id\", \"agent_admissions\".\"kind\", \"agent_admissions\".\"operation_id\", \"agent_admissions\".\"payer\", \"agent_admissions\".\"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\", \"agent_admissions\".\"rejection_reason\", \"agent_admissions\".\"request_digest\", \"agent_admissions\".\"selection_request\", \"agent_admissions\".\"session_id\", \"agent_admissions\".\"state\"",
+      "cmd": "UPDATE",
+      "relations": "public.agent_admissions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE \"public\".\"agent_admissions\" SET \"state\" = $1 WHERE \"agent_admissions\".\"id\" = '01a1f03d-e59b-7cce-a9d5-71a9fdc43d57' RETURNING \"agent_admissions\".\"client_message_id\", \"agent_admissions\".\"created_at\", \"agent_admissions\".\"id\", \"agent_admissions\".\"identity_id\", \"agent_admissions\".\"kind\", \"agent_admissions\".\"operation_id\", \"agent_admissions\".\"payer\", \"agent_admissions\".\"quota_refunded_at\", \"agent_admissions\".\"quota_reserved_at\", \"agent_admissions\".\"quota_usage_date\", \"agent_admissions\".\"rejection_reason\", \"agent_admissions\".\"request_digest\", \"agent_admissions\".\"selection_request\", \"agent_admissions\".\"session_id\", \"agent_admissions\".\"state\"",
+      "cmd": "UPDATE",
+      "relations": "public.agent_admissions",
+      "calls": 3,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE \"public\".\"agent_settlements\" SET \"last_usage_seq\" = $1, \"settled_at\" = $2 WHERE \"agent_settlements\".\"operation_id\" = 'fe20faad-14fa-4778-a614-6cb3d3115486' RETURNING \"agent_settlements\".\"last_usage_seq\", \"agent_settlements\".\"operation_id\", \"agent_settlements\".\"settled_at\"",
+      "cmd": "UPDATE",
+      "relations": null,
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE \"public\".\"agent_settlements\" SET \"last_usage_seq\" = $1 WHERE \"agent_settlements\".\"operation_id\" = 'fe20faad-14fa-4778-a614-6cb3d3115486' RETURNING \"agent_settlements\".\"last_usage_seq\", \"agent_settlements\".\"operation_id\", \"agent_settlements\".\"settled_at\"",
+      "cmd": "UPDATE",
+      "relations": "public.agent_settlements",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE \"public\".\"pi_sessions\" SET \"next_seq\" = $1 WHERE \"pi_sessions\".\"id\" = '01992000-0000-7000-8000-000000001546' RETURNING \"pi_sessions\".\"id\", \"pi_sessions\".\"metadata\", \"pi_sessions\".\"next_seq\"",
+      "cmd": "UPDATE",
+      "relations": "public.pi_sessions",
+      "calls": 16,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "UPDATE sessions SET title = LEFT(first_query, 20)\n    WHERE id = $1 AND title IS NULL AND first_query IS NOT NULL",
+      "cmd": "UPDATE",
+      "relations": "public.sessions",
+      "calls": 1,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    },
+    {
+      "database": "native_host_contract_f7b06bea2df6",
+      "query": "WITH RECURSIVE ancestors AS (\n    SELECT id, seq, payload FROM pi_records WHERE session_id = $1 AND kind = 'entry' AND id = $2\n    UNION ALL SELECT e.id, e.seq, e.payload FROM pi_records e JOIN ancestors a ON e.id = a.payload->>'parentId'\n      WHERE e.session_id = $3 AND e.kind = 'entry'\n  ), stopped AS (\n    SELECT *, (SELECT CASE WHEN $4 THEN min(seq) ELSE max(seq) END FROM ancestors\n      WHERE id = $5 OR payload->>'type' = $6) AS stop_seq FROM ancestors\n  ) SELECT CASE WHEN $7 THEN jsonb_build_object('id', id, 'parentId', payload->'parentId', 'seq', seq,\n      'timestamp', payload->'timestamp', 'type', payload->'type')\n      || CASE WHEN payload ? 'customType' THEN jsonb_build_object('customType', payload->'customType') ELSE '{}'::jsonb END\n      ELSE payload END AS entry FROM stopped\n    WHERE (stop_seq IS NULL OR CASE WHEN $8 THEN seq <= stop_seq ELSE seq >= stop_seq END)\n      AND ($9::text IS NULL OR payload->>'type' = $10)\n      AND ($11::text IS NULL OR payload->>'customType' = $12)\n      AND ($13::bigint IS NULL OR CASE WHEN $14 THEN seq > $15 ELSE seq < $16 END)\n    ORDER BY CASE WHEN $17 THEN seq ELSE -seq END\n    LIMIT $18",
+      "cmd": "SELECT",
+      "relations": "public.pi_records",
+      "calls": 8,
+      "elevel": 0,
+      "sqlcode": null,
+      "application": null
+    }
+  ]
+}

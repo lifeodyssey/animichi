@@ -1,0 +1,23 @@
+PASS turn: the operation settles done
+PASS turn: user, system, one resolve_anime call, its successful result, the answer
+PASS turn: the stubbed catalog counted one call
+PASS probe: the AbortSignal.any counter is live (the probe's own call moves it by exactly one)
+PASS validation: pi-schema refused {} (no title) in a request context, before execute ran
+PASS coercion: pi-schema coerced { title: 42 } to "42" and execute ran with it
+PASS safe: workerd A was SIGKILLed while the tool's catalog call was held in flight
+PASS safe: a new instance in workerd B answered before any request reached the object
+PASS safe: the lifecycle job (pi-wake) ran on the answering instance before any request
+PASS safe: the operation settled done
+PASS safe: one tool call in the transcript, one tool result, then the answer
+PASS unsafe: workerd A was SIGKILLed while the tool's catalog call was held in flight
+PASS unsafe: a new instance in workerd B answered before any request reached the object
+PASS unsafe: the lifecycle job (pi-wake) ran on the answering instance before any request
+PASS unsafe: the operation settled done
+PASS unsafe: one tool call in the transcript, one tool result, then the answer
+PASS safe: the tool ran again after the eviction (two catalog calls, the second answered)
+PASS safe: the rerun's successful result reached the model, and the answer uses it
+PASS unsafe: the tool did not run again (one catalog call, no tool:start on the restarted instance)
+PASS unsafe: the model received the interrupted result and answered from it
+PASS PiHarness logged no missing-onWake warning
+PASS guard: the only refused request in the whole run is the negative control's, and the worker got no answer from it
+{"timing":{"safe":{"killToRestartedInstanceMs":29006,"killToAnswerMs":29051,"workerdBStartMs":70},"unsafe":{"killToRestartedInstanceMs":29012,"killToAnswerMs":29111,"workerdBStartMs":77}},"probes":{"moduleScope":{"newFunction":{"allowed":true},"abortSignalAny":"function"},"handler":{"newFunction":{"allowed":false,"error":"EvalError: Code generation from strings disallowed for this context"}},"abortSignalAnyCallsSinceLoad":{"calls":0,"patched":true},"abortSignalAnyCallsAfterOwnCall":{"calls":1,"patched":true},"abortSignalAny":{"type":"function","abortedBefore":false,"abortedAfter":true,"reason":"second aborted"},"dateNowDuringSyncWork":{"elapsedMs":63,"spin":184},"setTimeout":{"requestedMs":25,"elapsedMs":26}}}

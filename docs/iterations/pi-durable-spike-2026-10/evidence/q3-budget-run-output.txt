@@ -1,0 +1,7 @@
+PASS the operation ended unanswered with reason aborted
+PASS the host's timer fired within 250 ms after start + budget, and abort(operationId) returned true
+PASS the abort landed mid-answer: the stored answer is aborted and partial
+PASS the start read from Pi is the placed pi.user entry's timestamp, stamped within 1 s of the submit
+PASS pi.live.run carries no time field (its fields at the abort)
+PASS after the run, pi.live.runFailure names the abort
+PASS guard: no request other than the stubbed catalog left workerd
