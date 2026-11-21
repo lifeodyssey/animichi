@@ -12,7 +12,8 @@ form, and `docs/agents/delivery-flow.md` holds the PR mechanics measured on this
   commit instead of stacking repair commits; after a push, add fixes to the same PR and let GitHub
   squash-merge it.
 - Commit subjects and PR titles use `<type>(<scope>): <short outcome>` (scope optional), imperative
-  lowercase after the colon, preferably ≤50 characters and always ≤72. Put `Refs: #…` in the body,
+  lowercase after the colon, preferably ≤50 characters and always ≤72 (Dependabot's own commits are
+  the one exemption, in the `commitlint.config.js` entry below). Put `Refs: #…` in the body,
   never PR numbers in the subject. Generic `wip`, `checkpoint`, `fix`, `update`, `changes`, `review`,
   and `polish` subjects are invalid.
 - Types: `feat|fix|refactor|perf|test|docs|ci|build|ops|chore|revert`. Scopes:
@@ -29,8 +30,15 @@ form, and `docs/agents/delivery-flow.md` holds the PR mechanics measured on this
   (`docs/adr/0009-branch-updates-merge-only.md`).
 - `commitlint.config.js` is the machine source of truth for local commit messages and squash-merge
   PR titles: the commit-msg hook (`.pre-commit-config.yaml`) and CI's `commits` job read that one
-  file. It pins the type and scope tables above, `header-max-length` 72, and — inherited from
-  `@commitlint/config-conventional` — body and footer lines ≤100 characters. Install all hooks with
+  file. It pins the type and scope tables above, the 72-character header limit (the local rule
+  `header-max-length-except-dependabot`), and — inherited from `@commitlint/config-conventional` —
+  body and footer lines ≤100 characters. The header limit has one exemption, which the owner
+  approved on 2026-11-21 because a Dependabot grouped update's header runs to about 90 characters:
+  a commit whose footer carries `Signed-off-by: dependabot[bot] <support@github.com>` as a whole
+  line is not held to it. Every other rule still applies to that commit, and the PR title is still
+  held to 72. The squash merge uses that title as `main`'s subject and appends ` (#N)`, so the
+  coordinator shortens a Dependabot pull request's title to 64 characters or fewer before merging
+  it: 64 plus ` (#NNNN)` is 72. Install all hooks with
   `pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push`; never
   bypass them with `--no-verify`. Check a drafted message by hand with `pnpm exec commitlint --edit
   <file>`, or a whole branch with `pnpm exec commitlint --from origin/main` (both need
