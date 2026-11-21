@@ -47,7 +47,7 @@ void test("no worker maps the data plane with a schema of its own", () => {
 });
 
 // Both workflow-shape halves of this file are gone, for the same reason: a fact
-// about a workflow's shape asserted from the edge package made the edge lane
+// about a workflow's shape asserted from the `api` package made its lane
 // fail for a workflow's reasons. The PR lane's — which job validates, in what
 // order, and that no job applies — went to
 // .github/test/pr-verification-schema.test.rb with B5 (#1363); the CD lane's —

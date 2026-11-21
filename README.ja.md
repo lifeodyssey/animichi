@@ -116,7 +116,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/api/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
 - `supabase/` — 旧版互換マイグレーションと Supabase プロジェクト資産（auth は Neon Auth へ移行済み、AUTH-2 #950）
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Makefile`、`package.json` — ルートに残すツール入口。`workers/api/wrangler.toml`（edge Worker 設定）はコードの隣に配置
+- `Makefile`、`package.json` — ルートに残すツール入口。`workers/api/wrangler.toml`（API Worker 設定）はコードの隣に配置
 
 ## ドキュメント
 

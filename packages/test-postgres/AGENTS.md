@@ -91,7 +91,7 @@ offered `remainingMs()`, and each wait converts what survives into attempts.
 
 `SetupBudget` is the allowance; the two arms differ in exactly one number, and deliberately:
 
-| | catalog spike | edge agent-db |
+| | catalog spike | api agent-db |
 |---|---|---|
 | containers | one shared per host | one shared per host |
 | `deadlineMs` | 240 s | 240 s |
@@ -108,7 +108,7 @@ simply `await`s the setup with no timeout wrapper (checked in `node_modules/vite
 So `vitest.integration.config.ts`'s `hookTimeout` is unrelated to the data plane, and `deadlineMs` is
 the catalog arm's only bound. Do not wire one to the other.
 
-`test/setup-budget.test.ts` pins every number and checks the edge arm still derives
+`test/setup-budget.test.ts` pins every number and checks the api arm still derives
 `SETUP_DEADLINE_MS` / `SETUP_HOOK_TIMEOUT_MS` from the budget; `test/setup-deadline.test.ts` is
 #1318's own arithmetic, on a fake clock.
 
@@ -141,7 +141,7 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   no enums, no namespaces, and intra-package imports carry the `.ts` extension.
 - **The startup wait never swallows a failure that is not a startup symptom.** It retries `57P03`,
   `ECONNREFUSED` and `ECONNRESET`; anything else — a wrong password, a missing database — rethrows on
-  the first attempt. The pre-#1326 edge fixture retried everything for 60 s and then reported a
+  the first attempt. The pre-#1326 api fixture retried everything for 60 s and then reported a
   generic timeout; that is the behaviour that changed, on purpose.
 - **No chain is applied to the image's own database.** The image pre-initialises it with its own
   extension set — postgis, vector, documentdb and the objects those bring — so it is never the
@@ -169,7 +169,7 @@ and fails any build step that does not source it first and tag from `$TEST_POSTG
   same rows, so role creation and the one-time template seed run inside a session-level
   `pg_advisory_lock` on the admin connection (#1663): two callers that reach the role block together
   — two calls in one process, two arms, two worktrees — would otherwise both read an empty
-  `pg_roles` and the second would die on `pg_authid_rolname_index`, which is how CI's edge lane
+  `pg_roles` and the second would die on `pg_authid_rolname_index`, which is how CI's api lane
   failed. Cloning a database from the template does not take that lock. The cluster creates and
   asserts the roles in one turn; `startTestPostgres` clones after that turn has committed them. An
   arm that applies a chain of its own still takes the same turn (`ChainApplyTurn`) on the cluster's

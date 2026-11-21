@@ -2,8 +2,8 @@
  * store secret, in which environment, under which name.
  *
  * One table covers every Worker that carries a runtime binding, and one loop
- * asserts it for all of them, deliberately. This file used to read
- * `workers/api/wrangler.toml` and nothing else, so a runtime secret could be
+ * asserts it for all of them, deliberately. This file used to read the API
+ * Worker's wrangler.toml and nothing else, so a runtime secret could be
  * provisioned by the Pulumi program while the Worker that needs it declared no
  * binding at all — the state `INGEST_SIGNING_KEY` (#1792) arrived in, with
  * catalog's anitabi egress fail-closed behind it. A copy of this file for the

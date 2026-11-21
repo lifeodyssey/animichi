@@ -119,7 +119,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/api/` — Cloudflare Worker entrypoint for auth and `/v1` routing
 - `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Makefile`, `package.json` — root tooling entrypoints; `workers/api/wrangler.toml` (edge Worker config) lives beside its code
+- `Makefile`, `package.json` — root tooling entrypoints; `workers/api/wrangler.toml` (the API Worker's config) lives beside its code
 
 ## Docs
 

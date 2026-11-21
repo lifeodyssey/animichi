@@ -75,7 +75,7 @@ Consumers re-resolve these properties before credentials, including after produc
 The action downloads by ID/run/repository and treats a digest mismatch as an error. An unavailable
 artifact causes refusal; the controller never rebuilds it or substitutes another release.
 
-The immutable tar contains all five Worker deployments: web output/assets, catalog, users, edge
+The immutable tar contains all five Worker deployments: web output/assets, catalog, users, api
 and migrator bundles/configurations; the native Prisma contract and complete migration graph,
 carried inside the migrator bundle by `workers/migrator/scripts/prepare-migrations.ts`; and all
 tracked Pulumi sources with the generated pinned Neon SDK.
@@ -169,7 +169,7 @@ The environment-scoped CD job performs retirement in this order:
    failures fail closed.
 3. Deploy the selected migrator bundle and its `deleted_classes` migration, then wait for the native
    graph and continue the normal database and service chain.
-4. Publish the selected services — the edge bundle among them — so the edge's class deletion is
+4. Publish the selected services — the `api` bundle among them — so its class deletion is
    deployed only after its application is gone.
 
 This order is deliberate. Cloudflare's

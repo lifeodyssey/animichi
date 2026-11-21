@@ -10,7 +10,7 @@ import { gzipSync } from "node:zlib";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
 
-const directory = mkdtempSync(join(tmpdir(), "edge-entry-bundle-"));
+const directory = mkdtempSync(join(tmpdir(), "api-entry-bundle-"));
 after(() => { rmSync(directory, { recursive: true, force: true }); });
 const outfile = join(directory, "entry.js");
 const bundle = await bundleLikeWrangler(fileURLToPath(new URL("../src/entry.ts", import.meta.url)), outfile);

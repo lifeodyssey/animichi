@@ -6,7 +6,7 @@ It is the entry point and the index: what every task needs is inline, everything
 away — "Shared agent knowledge" below, the per-package `AGENTS.md` files, `.claude/rules/`.
 
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**:
-TypeScript Cloudflare Workers (the edge Worker's gateway + native Pi agent tier, catalog, users,
+TypeScript Cloudflare Workers (the API Worker's edge gateway + native Pi agent tier, catalog, users,
 migrator) + a TanStack web app. The Python PydanticAI agent was retired with its CI lane (#1607).
 Data plane = Neon;
 auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); the edge verifies Neon Auth
@@ -25,7 +25,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, the Prisma chain, the five service roles) shared by every database-backed suite. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `apps/anitabi-egress/` — the fixed-address egress service the catalog fetches anitabi through (#1792): one Fly app in TypeScript on Node, with two named operations, signed requests and an hourly upstream ceiling; deployed by hand under an owner-granted exemption. → `apps/anitabi-egress/README.md`, `docs/ops/anitabi-egress.md`
-- `workers/api/`      — CF edge worker (`workers/api/src/entry.ts`): the gateway (auth, `/v1` routing, the image/tile proxies incl. the private `docs-assets` arm at `/img/docs/*`; no page fallback — unmatched paths 404) **and**, the native Pi agent tier (`workers/api/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/api/AGENTS.md`
+- `workers/api/`       — the API Worker (`workers/api/src/entry.ts`), the edge gateway: auth, `/v1` routing, the image/tile proxies incl. the private `docs-assets` arm at `/img/docs/*` (no page fallback — unmatched paths 404), **and** the native Pi agent tier (`workers/api/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/api/AGENTS.md`
 - `workers/migrator/`  — TS Worker that applies the one Prisma chain (bundled into the Worker) behind GitHub OIDC; `supabase/` is an archived historical migration dir (issue #1000), not a live surface. → `workers/migrator/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
@@ -38,7 +38,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `make dev-local`     — the web app, one command (never start services individually). Login is Neon Auth (AUTH-2 #950).
 - `make local-login`   — browser magic-link login for local dev.
 - `make e2e-setup` then `make e2e` — Playwright E2E (details in `docs/testing-strategy.md`).
-- `pnpm run test:worker` — edge worker tests. Per-package commands live in that package's `AGENTS.md`.
+- `pnpm run test:worker` — API Worker tests. Per-package commands live in that package's `AGENTS.md`.
 
 ## Cross-stack guardrails (apply everywhere)
 

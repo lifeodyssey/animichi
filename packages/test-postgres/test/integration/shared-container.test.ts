@@ -104,7 +104,7 @@ async function assertFullChain(dsn: string): Promise<void> {
 /** The role block is cluster-global and not atomic — it reads `pg_roles` and then
  * creates — so two callers that reach it together both read an empty catalog and
  * the second one to commit dies on `pg_authid_rolname_index`. That is exactly
- * how CI's edge lane failed once every caller shared one container, and it is
+ * how CI's api lane failed once every caller shared one container, and it is
  * why the role block and every chain apply hold the cluster turn (#1663). */
 void test("three calls started at once each land a fully migrated database (#1663)", async () => {
   const landed: TestPostgres[] = [];

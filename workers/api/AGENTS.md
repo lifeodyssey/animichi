@@ -14,7 +14,7 @@ retired run engine and envelope paths have no forwarding modules.
 
 ## Commands (from `workers/api/`)
 
-- pnpm. `pnpm test` — the edge's whole deterministic gate set, in one command (#1358): the
+- pnpm. `pnpm test` — the Worker's whole deterministic gate set, in one command (#1358): the
   node:test suite under `test/*.test.ts` (doubles in `test/doubles/`), then `test:chat-answer-part`
   (`packages/contract/test/chat-answer-part.test.ts` — it guards THIS package's `data-response`
   projection, so it runs in this lane and not only when the contract changes), then

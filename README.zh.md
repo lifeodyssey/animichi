@@ -113,7 +113,7 @@ curl -N -X POST https://seichijunrei.zhenjia.org/v1/chat \
 - `workers/api/` — Cloudflare Worker 入口：认证与 `/v1` 路由
 - `supabase/` — 旧版兼容迁移与 Supabase 项目资产（auth 已迁至 Neon Auth，AUTH-2 #950）
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Makefile`、`package.json` — 根目录工具入口；`workers/api/wrangler.toml`（edge Worker 配置）随代码存放
+- `Makefile`、`package.json` — 根目录工具入口；`workers/api/wrangler.toml`（API Worker 配置）随代码存放
 
 ## 文档
 

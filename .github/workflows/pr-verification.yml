@@ -167,9 +167,9 @@ jobs:
             # scripts at the top of `scripts/` — plus the directory the moved
             # Ruby suites sit in. Overlapping `workflows` on
             # `.github/lib/**` and `.github/scripts/**` is deliberate: a change
-            # there reaches both the edge suite's workflow-text guards and the
-            # toolchain's own tests. The `workflows` filter's force-add of
-            # `api` is untouched by this table.
+            # there reaches both the API Worker suite's workflow-text guards and
+            # the toolchain's own tests. The `workflows` filter's force-add of
+            # the `api` package is untouched by this table.
             delivery:
               - '.github/lib/**'
               - '.github/scripts/**'
@@ -198,8 +198,8 @@ jobs:
           fi
           packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "animichi-e2e"]' <<< "$projects")"
           # `.github/**` lands in the root project, which is subtracted — so a
-          # workflow-only change selects nothing. `api`'s suite is where
-          # the tests that read deployment workflow text live, and some of them
+          # workflow-only change selects nothing. The `api` package's suite is
+          # where the tests that read deployment workflow text live, and some of them
           # extract shipped shell blocks and RUN them (the migrator DSN
           # redaction). Add it back explicitly, or a cd.yml rewrite ships with
           # those guards never run.

@@ -153,7 +153,7 @@ storeRuntimeRoleCredentials(
 // a Secrets Store binding the migrator Worker resolves at apply time
 // (`MIGRATOR_DATABASE_URL` in workers/migrator/wrangler.toml, both
 // environments), and the restriction is against a *runtime* Worker binding: no
-// catalog/users/edge Worker's environment carries it, which is what the
+// catalog/users/api Worker's environment carries it, which is what the
 // migrator-role-isolation contract test asserts. (An earlier revision said the
 // value was accessible only to the migration container; the container retired
 // with the wrangler v3 tag and the binding is the live shape, #1915.)

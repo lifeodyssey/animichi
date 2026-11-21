@@ -1,4 +1,4 @@
-// Shared doubles for the native adoption route's two edge suites (#1601):
+// Shared doubles for the native adoption route's two API Worker suites (#1601):
 // `test/session-adopt.test.ts` (route behaviour) and
 // `test/session-adopt-boundary.test.ts` (pre-write refusals). The anonymous
 // env, the default result and the store fake were copy-pasted into both; this

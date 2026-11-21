@@ -44,7 +44,7 @@ spec out of the lane always names a repair card; whether that card exists or is 
 checked, because that means calling GitHub and this contract stays offline. Naming it in a table
 is what keeps an unrun spec visible instead of reading as green.
 After the emitted-Worker specifications, the same `test` command runs the native browser lane
-(`api test:native-browser`). It starts disposable Postgres, bundles the actual native
+(the `api` package's `test:native-browser`). It starts disposable Postgres, bundles the actual native
 SessionAgent with Wrangler, and serves the real web app through Vite’s same-origin proxy.
 Chromium verifies leaving a running tool and returning through SDK GET resume, one admission /
 one quota reservation, and a real network heartbeat across controlled browser time. Only the

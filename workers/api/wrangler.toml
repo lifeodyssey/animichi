@@ -431,7 +431,7 @@ routes = []
 # service token. Production declares `workers_dev = false` explicitly
 # (#1524) and has no Access application: it has a real login.
 # `preview_urls` stays `false` — per-version preview URLs remain unexposed.
-# Main-only CD promotes the sealed edge bundle;
+# Main-only CD promotes the sealed api bundle;
 # local and Cloudflare Workers Builds deployment entrypoints are retired.
 workers_dev = true
 preview_urls = false

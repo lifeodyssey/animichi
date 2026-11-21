@@ -47,7 +47,7 @@ export const SPIKE_SETUP_BUDGET: SetupBudget = {
   chainMarginMs: CHAIN_MARGIN_MS,
 };
 
-/** The edge agent-db lane's budget: one database per lane fixture, on the
+/** The api agent-db lane's budget: one database per lane fixture, on the
  * shared container — and its first one may wait for that container to exist. */
 export const AGENT_DB_SETUP_BUDGET: SetupBudget = {
   deadlineMs: DEADLINE_MS,

@@ -22,7 +22,7 @@ Multi-context — one glossary per deployable / shared package:
 ├── docs/adr/                      ← system-wide ADRs
 ├── docs/agents/                   ← skill config (this file, issue-tracker, labels)
 ├── apps/web/CONTEXT.md            ← lazy
-├── workers/api/CONTEXT.md        ← lazy (package guide may still be missing)
+├── workers/api/CONTEXT.md         ← lazy (package guide may still be missing)
 ├── workers/catalog/CONTEXT.md     ← lazy
 ├── workers/users/CONTEXT.md       ← lazy
 ├── packages/contract/CONTEXT.md   ← lazy

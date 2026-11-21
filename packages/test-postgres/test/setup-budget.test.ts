@@ -2,7 +2,7 @@
  * The two arms' budgets, and the proof that each still spends its own.
  *
  * #1326 merged two data-plane fixtures onto one recipe. The numbers were NOT
- * merged with them — the catalog spike keeps 30 x 1 s (#1324), the edge
+ * merged with them — the catalog spike keeps 30 x 1 s (#1324), the api
  * agent-db lane keeps 60 x 1 s (#1318) because its first session can queue
  * behind the shared container's creation, by another lane or another worktree.
  * Pinning the values here is only half of it: the other
@@ -26,17 +26,17 @@ import { AGENT_DB_SETUP_BUDGET, hookTimeoutMs, SPIKE_SETUP_BUDGET } from "../src
 const ROOT = new URL("../../../", import.meta.url);
 const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8");
 
-const EDGE_DIR = "workers/api";
+const API_DIR = "workers/api";
 
-/** Every edge lane file that boots the shared postgres recipe, discovered from
+/** Every api lane file that boots the shared postgres recipe, discovered from
  * the `*-test` lane directories rather than listed by hand. */
-function edgePostgresFixtures(): string[] {
-  return readdirSync(new URL(`${EDGE_DIR}/`, ROOT), { withFileTypes: true })
+function apiPostgresFixtures(): string[] {
+  return readdirSync(new URL(`${API_DIR}/`, ROOT), { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.endsWith("-test"))
     .flatMap((lane) =>
-      readdirSync(new URL(`${EDGE_DIR}/${lane.name}/`, ROOT))
+      readdirSync(new URL(`${API_DIR}/${lane.name}/`, ROOT))
         .filter((file) => file.endsWith(".ts"))
-        .map((file) => `${EDGE_DIR}/${lane.name}/${file}`),
+        .map((file) => `${API_DIR}/${lane.name}/${file}`),
     )
     .filter((path) => read(path).includes("startTestPostgres"));
 }
@@ -49,7 +49,7 @@ void test("the catalog spike keeps the budget #1324 measured it on", () => {
   });
 });
 
-void test("the edge agent-db lane keeps the budget #1318 measured it on", () => {
+void test("the api agent-db lane keeps the budget #1318 measured it on", () => {
   assert.deepEqual(AGENT_DB_SETUP_BUDGET, {
     deadlineMs: 240_000,
     firstSession: { attemptCeiling: 60, pauseMs: 1_000 },
@@ -73,9 +73,9 @@ void test("both entry points derive the deadline from the budget they are given"
   assert.match(cluster, /withStartupTimeout\(deadline\.remainingMs\(\)\)/);
 });
 
-void test("every edge lane fixture hands the shared budget to the shared recipe", () => {
-  const fixtures = edgePostgresFixtures();
-  assert.ok(fixtures.length > 0, `no startTestPostgres fixture found under ${EDGE_DIR}`);
+void test("every api lane fixture hands the shared budget to the shared recipe", () => {
+  const fixtures = apiPostgresFixtures();
+  assert.ok(fixtures.length > 0, `no startTestPostgres fixture found under ${API_DIR}`);
   for (const fixture of fixtures) {
     assert.match(read(fixture), /budget: AGENT_DB_SETUP_BUDGET/, fixture);
   }
@@ -83,8 +83,8 @@ void test("every edge lane fixture hands the shared budget to the shared recipe"
 
 /** The budget owns the deadline; a fixture that writes its own number there is
  * back to the sum #1318 removed. */
-void test("no edge lane fixture writes its own setup deadline", () => {
-  for (const fixture of edgePostgresFixtures()) {
+void test("no api lane fixture writes its own setup deadline", () => {
+  for (const fixture of apiPostgresFixtures()) {
     assert.doesNotMatch(read(fixture), /timeout: 300_000|deadlineMs: [0-9_]+/, fixture);
   }
 });

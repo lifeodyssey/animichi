@@ -5,7 +5,7 @@
 # ships the retired placeholder token cannot deploy, so this check FAILS
 # CLOSED: it greps workers/api/wrangler.toml for the placeholder and exits
 # non-zero while it is present, making a deploy-blocked PR visibly red in
-# the edge build lane instead of silently failing (or silently deploying).
+# the API Worker's build lane instead of silently failing (or silently deploying).
 # Choosing real, per-environment integer namespace_ids (distinct so counters
 # stay independent) is the fix that turns this check green. The self-test
 # keeps injecting the placeholder to prove the fail-closed path. Bash

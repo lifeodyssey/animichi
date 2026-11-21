@@ -70,7 +70,7 @@ class PrVerificationPlanTest < Minitest::Test
     assert_includes @source, '--filter "...[$merge_base]"'
   end
 
-  def test_workflow_and_action_changes_reach_the_edge_suite
+  def test_workflow_and_action_changes_reach_the_api_suite
     assert_includes @source, '["api"] | unique'
     assert_equal "${{ steps.paths.outputs.workflows }}", @ci.dig("jobs", "plan", "outputs", "workflows")
   end

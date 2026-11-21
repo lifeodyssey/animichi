@@ -8,7 +8,7 @@
  * at all — and the arithmetic that fixes it is the part no Docker is needed to
  * prove.
  *
- * These are the cases #1318 wrote as the edge suite's own
+ * These are the cases #1318 wrote as the api suite's own
  * `agent-db-setup-budget.test.ts`, on the agent-db budget they were measured
  * against. That file is deleted, not merely moved past: the class it covered
  * now lives here, so its test does too.
