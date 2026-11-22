@@ -24,7 +24,9 @@ retired run engine and envelope paths have no forwarding modules.
   `pnpm --filter api test`; `make test-worker` likewise).
 - `pnpm run test:bundle-smoke` builds artifacts through the official Wrangler dry-run CLI and
   executes them in workerd. Entry tests reject esbuild, Node-only eval/conformance leakage,
-  and exercise the native tools' request and response validation. The old zero-Zod rule was
+  and exercise the native tools' request and response validation. `sealed-bundle.test.ts` starts
+  the release build of the whole Worker (`.github/scripts/release/build-worker.mjs api`), the
+  bytes CD uploads, and asserts an unknown path answers its 404. The old zero-Zod rule was
   replaced under the user's explicit 2026-09-10 native hard-cut authorization: validators used
   by the production SDK/oRPC contract are part of the runtime, not a forbidden library brand.
 - `pnpm run test:native-host` runs actual default/resource-fault SessionAgent calls with local

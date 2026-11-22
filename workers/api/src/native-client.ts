@@ -7,10 +7,14 @@
  */
 import type { PostgresClient } from "@prisma/orm-postgres/runtime";
 import postgres from "@prisma/orm-postgres/runtime";
+import { contractFromJson } from "@prisma/orm-postgres/static";
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
 import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
 import type { Contract } from "@animichi/pi-session-neon/types";
 
+/** The emitted contract as a typed value, validated once however many clients are built from it. */
+const contract = contractFromJson<Contract>(contractJson);
+
 export function nativeClient(url: string): PostgresClient<Contract> {
-  return postgres<Contract>({ contractJson, extensions: [geographyRuntimeDescriptor], url });
+  return postgres({ contract, extensions: [geographyRuntimeDescriptor], url });
 }

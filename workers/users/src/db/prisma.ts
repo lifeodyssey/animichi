@@ -7,29 +7,31 @@
  * worker never reads that column, but it builds its client from the same
  * contract the catalog does, so it carries the same descriptor.
  *
- * The client holds the contract and the execution stack — never a connection.
- * Closure-cached connections are unsafe in a stateless Worker (stale sockets
- * after isolate idle, concurrent-query races on a shared `pg.Client`, no clean
- * shutdown), so the shape is per request: the `/v1/users/*` boundary acquires a
- * `Runtime` with {@link acquireUsersRuntime} and disposes it with `await using`
- * on scope exit.
+ * The serverless client holds the contract and the execution stack — never a
+ * database connection. Closure-cached connections are unsafe in a stateless
+ * Worker (stale sockets after isolate idle, concurrent-query races on a shared
+ * `pg.Client`, no clean shutdown), so the shape is per request: the
+ * `/v1/users/*` boundary opens one connection with {@link acquireUsersRuntime}
+ * and disposes it with `await using` on scope exit. Since rc.14 `connect()`
+ * opens the socket before it returns, so an unreachable database fails there,
+ * not at the first query.
  *
- * The client itself is memoized because it is stateless: building it
+ * The serverless client itself is memoized because it is stateless: building it
  * deserializes and validates the contract, work that has nothing to do with a
  * request.
  */
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
 import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
 import type { Contract } from "@animichi/pi-session-neon/types";
-import { withTransaction } from "@prisma/orm-family-sql/runtime";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { PostgresServerlessClient } from "@prisma/orm-postgres/serverless";
 import postgresServerless from "@prisma/orm-postgres/serverless";
+import { contractFromJson } from "@prisma/orm-postgres/static";
 
 /** The serverless client shape for the shared contract. */
 type UsersClient = PostgresServerlessClient<Contract>;
 
-/** This request's runtime: what executes a built plan, and the thing `await using` disposes. */
+/** This request's connection: what executes a built plan, and the thing `await using` disposes. */
 export type UsersRuntime = Awaited<ReturnType<UsersClient["connect"]>>;
 
 /** The contract-bound statement builder (plan construction only — it never executes). */
@@ -72,22 +74,24 @@ export interface UsersPrisma {
 
 let client: UsersClient | undefined;
 
-/** The one users client, built on first use and reused for its lifetime. */
+/** The one users serverless client, built on first use and reused for its lifetime. */
 export function usersClient(): UsersClient {
-  client ??= postgresServerless<Contract>({ contractJson, extensions: [geographyRuntimeDescriptor] });
+  client ??= postgresServerless({
+    contract: contractFromJson<Contract>(contractJson), extensions: [geographyRuntimeDescriptor],
+  });
   return client;
 }
 
-/** Acquire this request's runtime. The caller disposes it on scope exit. */
+/** Open this request's connection. The caller disposes it on scope exit. */
 export function acquireUsersRuntime(url: string): Promise<UsersRuntime> {
   return usersClient().connect({ url });
 }
 
-/** Pair the shared builder with one request's runtime. */
-export function usersPrisma(runtime: UsersRuntime): UsersPrisma {
+/** Pair the shared builder with one request's connection; a transaction is the connection's own. */
+export function usersPrisma(db: UsersRuntime): UsersPrisma {
   return {
     builder: usersClient().sql,
-    executor: runtime,
-    transaction: (fn) => withTransaction(runtime, (tx) => fn(tx)),
+    executor: db,
+    transaction: (fn) => db.transaction((tx) => fn(tx)),
   };
 }

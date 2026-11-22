@@ -33,13 +33,14 @@ class PnpmWorkspaceSettingsTest < Minitest::Test
   FLAT_LAYOUT_SETTINGS = %w[nodeLinker shamefullyHoist].freeze
   PUBLIC_HOIST = "publicHoistPattern"
 
-  # The settings this card moved out of a `package.json#pnpm`: the root's `overrides`
-  # and `patchedDependencies`, and `infra/database-access`'s own `overrides` (not a
-  # member of this workspace; the `packages:` globs stop at `infra`). Pinned present
-  # only — the contents are the lockfile's business, and a frozen install already
-  # refuses a lockfile whose `overrides` the manifest no longer declares.
+  # The settings this card moved out of a `package.json#pnpm`: the root's `overrides`,
+  # and `infra/database-access`'s own `overrides` (not a member of this workspace; the
+  # `packages:` globs stop at `infra`). Pinned present only — the contents are the
+  # lockfile's business, and a frozen install already refuses a lockfile whose
+  # `overrides` the manifest no longer declares. The root's `patchedDependencies` moved
+  # with them and went with its one patch, which Prisma rc.15 made redundant.
   MOVED_SETTINGS = {
-    WORKSPACE_MANIFEST => %w[overrides patchedDependencies],
+    WORKSPACE_MANIFEST => %w[overrides],
     "infra/database-access/pnpm-workspace.yaml" => %w[overrides]
   }.freeze
 

@@ -5,9 +5,9 @@
  * in `nearby-metric.integration.test.ts` cannot run against a hand-written mirror
  * of the adapter's SQL, which drifts from it silently. The production serverless
  * client builds its own `pg.Client` with no seam to record, but it does accept a
- * middleware, and `beforeQuery` runs after lowering and before the driver: that
- * is the statement, from the same entry the Worker uses, with the parameters the
- * runtime was about to bind.
+ * middleware, and `beforeEncode` (rc.18's name for `beforeQuery`) runs after
+ * lowering and before the driver: that is the statement, from the same entry the
+ * Worker uses, with the parameters the runtime was about to bind.
  *
  * Parameters are re-rendered for `EXPLAIN`: scalars pass through, and a geography
  * point becomes the EWKT text its codec encodes to — the exact string the
@@ -21,11 +21,9 @@
  */
 import type { GeographyPoint } from "@animichi/prisma-geography";
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
 import postgresServerless from "@prisma/orm-postgres/serverless";
 import pg from "pg";
-import type { CatalogPrisma } from "../src/db/prisma";
+import { catalogContract, type CatalogPrisma } from "../src/db/prisma";
 import { withJoinedTransaction } from "./fakes/fake-catalog-prisma";
 
 /** One statement as the runtime lowered it, with its pre-encoding parameters. */
@@ -58,12 +56,12 @@ export interface PlanNode {
 /** Open the capture against `dsn`, and an `EXPLAIN` connection beside it. */
 export async function captureNearbyPlan(dsn: string): Promise<NearbyPlanCapture> {
   const recorded: RecordedStatement[] = [];
-  const client = postgresServerless<Contract>({
-    contractJson,
+  const client = postgresServerless({
+    contract: catalogContract,
     extensions: [geographyRuntimeDescriptor],
     middleware: [{
       name: "nearby-plan-capture",
-      beforeQuery: (plan) => {
+      beforeEncode: (plan) => {
         recorded.push({ text: plan.sql, params: plan.params });
       },
     }],

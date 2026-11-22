@@ -7,9 +7,12 @@ export function sourceConfig(unit) {
   return experimental_readRawConfig({ config }).rawConfig;
 }
 
+// A sealed config deploys a bundle that is already built, so the inputs of a build — a custom
+// build command, an `[alias]` whose paths are relative to the source config — do not belong in it.
 function sealEnvironment(config, image) {
   const sealed = { ...config };
   delete sealed.build;
+  delete sealed.alias;
   if (sealed.containers) sealed.containers = sealed.containers.map(({ image_build_context, ...container }) => ({ ...container, image }));
   return sealed;
 }

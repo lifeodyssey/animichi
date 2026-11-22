@@ -8,9 +8,10 @@
     "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:worker",
+    "test": "npm run test:worker && npm run test:node",
     "dev": "wrangler dev",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
+    "test:node": "vitest run --config vitest.node.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
@@ -19,7 +20,6 @@
     "@animichi/prisma-geography": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "@prisma/orm-family-sql": "8.0.0-rc.9",
     "@prisma/orm-postgres": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
@@ -30,6 +30,7 @@
     "@cloudflare/workers-types": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-istanbul": "catalog:",
+    "miniflare": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",

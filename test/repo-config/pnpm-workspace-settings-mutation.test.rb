@@ -138,10 +138,6 @@ class PnpmWorkspaceSettingsMutationTest < Minitest::Test
     reject_deleted_setting(MANIFEST, "overrides", "pnpm-workspace.yaml: overrides is missing")
   end
 
-  def test_rejects_deleted_patched_dependencies
-    reject_deleted_setting(MANIFEST, "patchedDependencies", "pnpm-workspace.yaml: patchedDependencies is missing")
-  end
-
   def test_rejects_deleted_overrides_in_the_nested_workspace
     reject_deleted_setting(NESTED_MANIFEST, "overrides", "#{NESTED_MANIFEST}: overrides is missing")
   end

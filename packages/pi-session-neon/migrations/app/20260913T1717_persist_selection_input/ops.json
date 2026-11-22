@@ -20,7 +20,11 @@
           "public",
           "agent_admissions",
           "selection_request"
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "column \"selection_request\" on \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -37,6 +41,20 @@
           "public",
           "agent_admissions",
           "selection_request"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "column \"selection_request\" on \"agent_admissions\""
+        }
+      },
+      {
+        "description": "verify column \"selection_request\" has type \"jsonb\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_attribute\" AS \"a\" INNER JOIN \"pg_class\" AS \"c\" ON \"c\".\"oid\" = \"a\".\"attrelid\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"relnamespace\" WHERE (\"n\".\"nspname\" = $1 AND \"c\".\"relname\" = $2 AND \"a\".\"attname\" = $3 AND (format_type(\"a\".\"atttypid\", \"a\".\"atttypmod\")) = $4 AND NOT (\"a\".\"attisdropped\"))) AS \"result\"",
+        "params": [
+          "public",
+          "agent_admissions",
+          "selection_request",
+          "jsonb"
         ]
       }
     ]
@@ -62,7 +80,11 @@
           "agent_admissions_selection_input_b6697af9",
           "public",
           "\"public\".\"agent_admissions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"agent_admissions_selection_input_b6697af9\" on \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -73,12 +95,13 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"agent_admissions_selection_input_b6697af9\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify check constraint \"agent_admissions_selection_input_b6697af9\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4)) AS \"result\"",
         "params": [
           "agent_admissions_selection_input_b6697af9",
           "public",
-          "\"public\".\"agent_admissions\""
+          "\"public\".\"agent_admissions\"",
+          "c"
         ]
       }
     ]

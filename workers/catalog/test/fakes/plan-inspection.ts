@@ -17,6 +17,7 @@
  * Semantic assertions — which rows a query returns, in what order, against a real
  * Postgres — belong to the integration pool and are not replaced here.
  */
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPlanExecutor, CatalogPrisma } from "../../src/db/prisma";
 import { catalogClient } from "../../src/db/prisma";
 
@@ -41,7 +42,7 @@ export interface RecordingCatalogPrisma {
   /** How many statements the module has executed so far. */
   statements(): number;
   /** The plans executed so far, in call order. */
-  plans(): readonly { readonly ast: unknown }[];
+  plans(): readonly SqlOrmPlan[];
   /** Every value bound by every executed plan, in order. */
   params(): unknown[];
   /** Every column named by every executed plan, in order. */
@@ -58,7 +59,7 @@ export function recordingCatalogPrisma(
   ...answers: readonly (readonly unknown[])[]
 ): RecordingCatalogPrisma {
   let calls = 0;
-  const executed: { readonly ast: unknown }[] = [];
+  const executed: SqlOrmPlan[] = [];
   const seam: CatalogPrisma = {
     builder: catalogClient().sql,
     executor: {

@@ -9,6 +9,7 @@ export const geographyRuntimeDescriptor: SqlRuntimeExtensionDescriptor<"postgres
   kind: "extension",
   id: geographyPackMeta.id,
   version: geographyPackMeta.version,
+  dataTypes: geographyPackMeta.dataTypes,
   familyId: "sql",
   targetId: "postgres",
   types: { codecTypes: { codecDescriptors } },

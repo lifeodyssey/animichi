@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node
-import type { Contract as End } from '../../snapshots/a365d7a592491ddc1c965b949b6b6d3b92f4a5b2eb0e482995efb268c3e29fbe/contract';
-import endContract from '../../snapshots/a365d7a592491ddc1c965b949b6b6d3b92f4a5b2eb0e482995efb268c3e29fbe/contract.json' with { type: 'json' };
+import type { Contract as End } from '../../snapshots/76631dc53cd456e89842c1028eebb1568d976bb8748c7e38fa278be878ff6dcd/contract';
+import endContract from '../../snapshots/76631dc53cd456e89842c1028eebb1568d976bb8748c7e38fa278be878ff6dcd/contract.json' with { type: 'json' };
 import { DATA_PLANE_ACCESS } from './access.ts';
 import { AGENT_TABLES } from './agent-tables.ts';
 import { CATALOG_TABLES } from './catalog-tables.ts';

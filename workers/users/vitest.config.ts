@@ -10,7 +10,7 @@ import { defineConfig } from "vitest/config";
  * `vitest.integration.config.ts`, because it needs a real TCP socket + the `pg`
  * driver — a Node-only integration check rather than a Worker-runtime check.
  * The suite runs as the `test:integration` script, not from `npm test`, which
- * is `test:worker` alone (#1473).
+ * is `test:worker` then the Docker-free `test:node` (#1473).
  */
 /** Resolved from `import.meta.url` as a string and `node:path`: this config is
  * type-checked with Cloudflare's DOM-shaped globals, where a `URL` object is not

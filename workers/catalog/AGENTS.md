@@ -19,6 +19,9 @@ Root guide: `../../AGENTS.md`.
   check exists for exactly that class of bug. No CI job runs it: the bundled-boot job
   (`catalog-startup-smoke`, later `startup-smoke`) was removed in `eb6fccd60` (2026-08-25),
   and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
+  The lane that does run in CI is `test/sealed-bundle.node.test.ts` in `test:node`: it builds
+  the sealed release bundle with `.github/scripts/release/build-worker.mjs catalog`, the bytes
+  CD uploads, starts it in workerd and asserts `/healthz` 200.
 
 ## Stack (per the ADR)
 
@@ -28,8 +31,10 @@ Root guide: `../../AGENTS.md`.
   **ingest → enrich → publish writes** (#1630) and, since #1633, the staging **import**
   (`src/import/switch.ts`) and **media** (`src/media/img.ts`). `src/db/prisma.ts` builds the
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
-  Hono `/catalog/*` boundary (or a cron pass) acquires ONE `Runtime` per request and disposes it
-  with `await using` — never a connection cached across requests. The second path Drizzle held
+  Hono `/catalog/*` boundary (or a cron pass) opens ONE connection per request and disposes it
+  with `await using` — never a connection cached across requests. Since Prisma rc.14 that
+  `connect()` opens the socket before it returns, so an unreachable database fails at the
+  boundary. The second path Drizzle held
   (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
@@ -71,9 +76,11 @@ Root guide: `../../AGENTS.md`.
 ## workerd gotchas (plans / timestamptz)
 
 - **A converted path builds PLANS.** With `CatalogPrisma` (`src/db/prisma.ts`): build with the
-  shared contract's builder, run on the request's runtime (`executor.query`), and group with
+  shared contract's builder, run on the request's connection (`executor.query`), and group with
   `transaction()`. Three facts that shape that code: the builder's surface stops at
-  `returning`/`build`, so an upsert and a server-clock write are plan repairs in `src/db/plans.ts`;
+  `returning`/`build`, so an upsert, a server-clock write and a write to a generated column are
+  plan repairs in `src/db/plans.ts` (the contract cannot declare `points.latitude`/`longitude`
+  generated, so since rc.20 the INSERT requires them, and `generatedByTheDatabase` sends DEFAULT);
   a projection's ALIAS is the key the row carries; and a raw fragment interpolates BOUND values
   (only a hand-built `RawExpr` renders text). `transaction()` inside an open transaction JOINS it —
   never a second connection.
@@ -86,9 +93,14 @@ Root guide: `../../AGENTS.md`.
 - **The escape hatch is one rule, guarded by path.** `.semgrep/ts-no-prisma-raw-escape.yaml`
   rejects ``db.raw.sql`…` `` and a hand-built `new RawExpr(...)` everywhere but `src/db/`; the
   `fns.raw` / `match.raw` fragment form is the sanctioned shape and the query layer is full of it.
-- **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
-  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see
-  `src/application/list-points-for-bangumi.ts`, `syncedAt`).
+- **timestamptz reads as an ISO 8601 UTC string, on workerd and Node alike** (Prisma rc.21). A
+  builder read of a `TimestamptzString` column goes through `pg/timestamptz-string@1`, which turns
+  the server's text into the UTC instant with every fractional digit it sent
+  (`2026-09-10T00:00:00.123456Z`). A public body that promises the millisecond form normalizes
+  at the boundary — `new Date(stamp).toISOString()` (see
+  `src/application/list-points-for-bangumi.ts`, `syncedAt`). The published snapshot carries the
+  codec's form as read (`test/snapshot-timestamps.integration.test.ts`), and the claim fence binds
+  the `started_at` it read back, every digit included (`src/ingest/jobs.ts`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).

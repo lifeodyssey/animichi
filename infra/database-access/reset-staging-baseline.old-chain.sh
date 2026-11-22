@@ -12,11 +12,11 @@
 
 APPROVED_OLD_CHAIN="$ROOT/infra/database-access/reset-staging-baseline.approved-old-chain"
 # The app space's graph, read as Prisma's planner builds it (`readMigrationsDir`, `reconstructGraph`
-# and the manifest's schema, read in the rc.23 toolchain): each directory holding a `migration.json`
-# is one edge, and its `from` and `to` are nodes — `from` is null on a baseline, which starts from
-# no marker at all. A directory without a manifest (rc.23's `refs/`) is no edge, and an extension's
-# space keeps a directory of its own beside this one. A regenerated chain keeps the manifest, with
-# new hashes under the same two keys, so this reads it unchanged.
+# and the manifest's schema, read in the rc.24 toolchain with CLI rc.34): each directory holding a
+# `migration.json` is one edge, and its `from` and `to` are nodes — `from` is null on a baseline,
+# which starts from no marker at all. A directory without a manifest (rc.24's `refs/`) is no edge,
+# and an extension's space keeps a directory of its own beside this one. A regenerated chain keeps
+# the manifest, with new hashes under the same two keys, so this reads it unchanged.
 GRAPH_DIR="$ROOT/packages/pi-session-neon/migrations/app"
 # Each manifest, slurped, must hold exactly one JSON value, whose non-null `from` and whose `to` are
 # strings. An empty or blank file, a second value or a missing hash is no edge to skip but a graph

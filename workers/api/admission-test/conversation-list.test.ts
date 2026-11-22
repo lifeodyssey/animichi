@@ -82,6 +82,20 @@ void test("an unstamped row sorts after every dated one instead of leading the l
   assert.deepEqual(ListConversationsResponse.parse(rows), rows, "an unstamped row is a row the declared body still admits");
 });
 
+void test("a conversation's timestamps read back as their UTC instant in ISO 8601, every digit kept", async () => {
+  await clearListRows();
+  // Written with a +09:00 offset and six fractional digits. Since Prisma rc.21
+  // `pg/timestamptz-string@1` turns the server's text into the UTC instant, so
+  // the body carries ISO 8601 whatever the session's time zone.
+  await insertSession("list-iso", "list-iso", "2026-09-10T09:00:00.123456+09:00");
+
+  const rows = await listConversations(database, "list-iso");
+  assert.deepEqual(rows.map(({ created_at, updated_at }) => ({ created_at, updated_at })), [
+    { created_at: "2026-09-10T00:00:00.123456Z", updated_at: "2026-09-10T00:00:00.123456Z" },
+  ]);
+  assert.deepEqual(ListConversationsResponse.parse(rows), rows, "the declared body admits the ISO form as it is");
+});
+
 void test("a conversation the native tier admitted lists untitled, then titled once it settles", async () => {
   const native = await nativeHarness();
   try {

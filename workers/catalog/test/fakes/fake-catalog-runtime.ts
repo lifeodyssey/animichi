@@ -1,17 +1,17 @@
 /**
- * A `CatalogRuntime` double whose connection and transaction are observable
- * (#1839).
+ * A `CatalogRuntime` double — a request's connection — whose pooled connection
+ * and transaction are observable (#1839).
  *
  * `inCatalogTransaction`'s contract is about the order and the fate of the
- * calls it makes on one request's runtime — open, commit or roll back, then
- * release or destroy — and about the error the caller receives when one of them
- * fails. The real runtime is a socket, so a test that wants a failing `release`
- * or `destroy` needs a connection it can break on purpose: this fake hands back
- * `vi.fn()`s and lets each test choose which one rejects.
+ * calls it makes through one request's connection — open, commit or roll back,
+ * then release or destroy — and about the error the caller receives when one of
+ * them fails. The real connection is a socket, so a test that wants a failing
+ * `release` or `destroy` needs a connection it can break on purpose: this fake
+ * hands back `vi.fn()`s and lets each test choose which one rejects.
  *
  * The cast is the seam's own shape rather than an escape hatch. The wrapper
- * reads only `connection()` from the runtime, and only `transaction()`,
- * `release()` and `destroy()` from what that returns.
+ * reads only `runtime().connection()` from the request's connection (rc.14), and
+ * only `transaction()`, `release()` and `destroy()` from what that returns.
  */
 import { vi } from "vitest";
 import type { CatalogPlanExecutor, CatalogRuntime } from "../../src/db/prisma";
@@ -40,7 +40,7 @@ export function fakeRuntime(): {
     destroy,
   };
   return {
-    runtime: { connection: () => Promise.resolve(connection) } as unknown as CatalogRuntime,
+    runtime: { runtime: () => ({ connection: () => Promise.resolve(connection) }) } as unknown as CatalogRuntime,
     openTransaction, commit, rollback, release, destroy,
   };
 }
@@ -59,9 +59,9 @@ export interface LifecycleRefusal {
  * `executor`, and writes each transaction call — `begin`, `commit`, `rollback`,
  * `release`, `destroy` — into `trace` as it is made, beside the statements the
  * executor traces there. Where {@link fakeRuntime} counts calls per spy, this
- * keeps their order against the statements. Besides `connection()` it answers
- * the runtime-level `query`, which `catalogPrisma` uses as the executor outside
- * a transaction; the cast is the same seam-shaped one as above.
+ * keeps their order against the statements. Besides `runtime().connection()` it
+ * answers the connection's own `query`, which `catalogPrisma` uses as the
+ * executor outside a transaction; the cast is the same seam-shaped one as above.
  */
 export function tracedRuntime(executor: CatalogPlanExecutor, trace: string[], refusal?: LifecycleRefusal): CatalogRuntime {
   const step = (call: string) => (): Promise<void> => {
@@ -75,5 +75,5 @@ export function tracedRuntime(executor: CatalogPlanExecutor, trace: string[], re
     release: step("release"),
     destroy: step("destroy"),
   };
-  return { query, connection: () => Promise.resolve(connection) } as unknown as CatalogRuntime;
+  return { query, runtime: () => ({ connection: () => Promise.resolve(connection) }) } as unknown as CatalogRuntime;
 }

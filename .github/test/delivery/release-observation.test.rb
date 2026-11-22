@@ -1,5 +1,6 @@
 # SUT: .github/lib/release/observations.mjs — observed Worker deployments identify
-# one fully deployed selected version.
+# one fully deployed selected version, and the migrator's schema view names the
+# packaged contract with nothing left to apply.
 # frozen_string_literal: true
 require 'minitest/autorun'
 require 'json'
@@ -39,5 +40,38 @@ class ReleaseObservationTest < Minitest::Test
   def test_refuses_a_version_from_a_different_deployment
     @version['id'] = '33333333-3333-4333-8333-333333333333'
     refute observe.last.success?
+  end
+
+  # The receipt's schema view: the migrator's `/preflight` answer read after the apply. The
+  # workerd suite feeds the same check the migrator's real answer
+  # (`workers/migrator/test/integration/prisma.workerd.integration.ts`).
+  def applied_view
+    { 'compatible' => true,
+      'prisma' => { 'targetHash' => PRISMA_REF, 'markerHash' => PRISMA_REF, 'migrations' => [], 'usedLiveMarker' => true } }
+  end
+
+  def observe_schema(schema)
+    file = File.expand_path('../../lib/release/observations.mjs', __dir__)
+    source = "import {appliedSchema} from #{file.to_json}; appliedSchema(JSON.parse(process.argv[1]), process.argv[2])"
+    Open3.capture3('node', '--input-type=module', '-e', source, schema.to_json, PRISMA_REF)
+  end
+
+  PRISMA_REF = 'd' * 64
+
+  def test_accepts_a_schema_view_naming_the_packaged_contract_with_nothing_pending
+    _output, error, status = observe_schema(applied_view)
+    assert status.success?, error
+  end
+
+  def test_refuses_a_schema_view_that_never_read_the_live_marker
+    view = applied_view
+    view['prisma']['usedLiveMarker'] = false
+    refute observe_schema(view).last.success?
+  end
+
+  def test_refuses_a_schema_view_with_migrations_still_pending
+    view = applied_view
+    view['prisma'] = view['prisma'].merge('markerHash' => 'empty', 'migrations' => [{ 'dirName' => 'baseline' }])
+    refute observe_schema(view).last.success?
   end
 end

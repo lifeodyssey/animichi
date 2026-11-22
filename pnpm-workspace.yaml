@@ -75,9 +75,9 @@ catalog:
   "@orpc/tanstack-query": "^1.16.2"
   "@orpc/zod": "^1.16.2"
   "@playwright/test": "^1.65.0"
-  "@prisma/cli-engine": "0.3.0"
-  # hold-back: @prisma/orm-postgres@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (ERR_PNPM_UNUSED_PATCH: the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
-  "@prisma/orm-postgres": "8.0.0-rc.9"
+  "@prisma/cli-engine": "0.10.0"
+  "@prisma/orm-postgres": "8.0.0-rc.24"
+  "@prisma/orm-toolchain": "8.0.0-rc.24"
   # TanStack ships the router/start family from one monorepo and pins the
   # packages to each other EXACTLY (router-generator@1.167.36 pins
   # router-core 1.171.30; everything from the same release event pins
@@ -111,8 +111,7 @@ catalog:
   "miniflare": "^4.20260730.0"
   "neonctl": "^9.5.2"
   "pg": "^8.23.1"
-  # hold-back: prisma@8.0.0-rc.13 -> 8.0.0-rc.15 fails `pnpm install` (kept level with @prisma/orm-postgres rc.9: the same ERR_PNPM_UNUSED_PATCH) — #1741, expires 2027-01-15
-  "prisma": "8.0.0-rc.13"
+  "prisma": "8.0.0-rc.34"
   "smol-toml": "^1.9.1"
   "testcontainers": "^12.2.1"
   "tsx": "^4.23.15"
@@ -174,6 +173,11 @@ overrides:
   # and `Pool` becomes three unrelated types: `packages/prisma-geography` fails
   # TS2769 importing the repo's own `pg` and prisma's. Types only, so one copy.
   "@types/pg": "8.23.1"
+  # The Prisma family declares `arktype` ^2.2.2 and `@prisma/cli-engine` ^2.2.7; pnpm resolved them
+  # to 2.2.3 and 2.2.10, and the two `@ark/util` copies each declare the global `ArkEnv`, so every
+  # package that typechecks against Prisma's types fails TS2320/TS2300 (Prisma rc.16 names the same
+  # split as an emit failure). One range for every edge keeps one copy.
+  arktype: "^2.2.10"
   lodash: ">=4.18.1 <5"
   # `vite` is an optional peer of the `@prisma/orm-*` family, and pnpm keys each
   # copy of a package by its resolved peers. `workers/api` never declares vite,
@@ -186,7 +190,7 @@ overrides:
 # `allowBuilds` replaces pnpm 10's `onlyBuiltDependencies` family. Under
 # `strictDepBuilds: true` every dependency that declares an install script must
 # appear here or the install fails, so this map is the complete set pnpm named in
-# `ERR_PNPM_IGNORED_BUILDS`, not a sample. All twelve are `false`: none of them
+# `ERR_PNPM_IGNORED_BUILDS`, not a sample. All eleven are `false`: none of them
 # has ever run here. pnpm 10 blocked dependency build scripts by default and CI
 # installs with `--ignore-scripts`, and `esbuild/bin/esbuild` and
 # `workerd/bin/workerd` under `node_modules/.pnpm/` are still the JS shims — proof
@@ -199,8 +203,7 @@ overrides:
 #   msw, protobufjs,
 #   @google/genai         — postinstall prints a notice or patches a sibling
 #                           package's metadata; no artifact depends on it.
-#   cpu-features, ssh2,
-#   msgpackr-extract      — native accelerators reached through optional edges;
+#   cpu-features, ssh2    — native accelerators reached through optional edges;
 #                           their prebuilt platform packages are installed.
 allowBuilds:
   "@google/genai": false
@@ -209,17 +212,11 @@ allowBuilds:
   core-js-pure: false
   cpu-features: false
   esbuild: false
-  msgpackr-extract: false
   msw: false
   protobufjs: false
   ssh2: false
   workerd: false
-patchedDependencies:
-  "@prisma/orm-target-postgres@8.0.0-rc.9": packages/pi-session-neon/patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch
-
 # Manifest pins: a `package.json` cannot carry a comment, so the register lines for the pins
 # declared there live in this block, in the same shape as the lines beside the catalog
 # entries above. Each line's gate is the gate that fails when the bump is attempted.
-# hold-back: @prisma/orm-family-sql@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (kept level with the rest of the rc.9 family: one version of the family per tree, and the rc.9 @prisma/orm-target-postgres patch matches no package) — #1741, expires 2027-01-15
-# hold-back: @prisma/orm-toolchain@8.0.0-rc.9 -> 8.0.0-rc.11 fails `pnpm install` (the rc.9 @prisma/orm-target-postgres patch matches no package, and the stored migration snapshots are rc.9-shaped) — #1741, expires 2027-01-15
 # hold-back: h3@^1.15.11 -> 2.0.1-rc.32 fails apps/web test:integration (h3 2 splits nitro 2.13.4's build: the nitro virtual modules resolve the app's h3 2 while nitropack's runtime keeps 1.15, and the built Worker answers 500 to every SSR request) — #1744, expires 2027-01-15

@@ -70,12 +70,12 @@
               "columns": {
                 "id": {
                   "codecId": "pg/text@1",
-                  "nativeType": "text",
+                  "dataType": "pg/text",
                   "nullable": false
                 },
                 "location": {
                   "codecId": "pg/geography@1",
-                  "nativeType": "geography",
+                  "dataType": "geo/geography",
                   "nullable": false,
                   "typeParams": {
                     "srid": 4326
@@ -83,7 +83,7 @@
                 },
                 "name": {
                   "codecId": "pg/text@1",
-                  "nativeType": "text",
+                  "dataType": "pg/text",
                   "nullable": false
                 }
               },
@@ -112,11 +112,13 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "6cdfc1078153225e73537bbbd91799f47f1ec9fb4bf2ae824bebd01bce63eb1f"
+    "storageHash": "fceeee3ce8771dd689472b5ce6e03eb56f14863fe75e801b43dfd1cfb15a8924"
   },
   "capabilities": {
     "postgres": {
       "distinctOn": true,
+      "forKeyShare": true,
+      "forNoKeyUpdate": true,
       "geo.geography": true,
       "jsonAgg": true,
       "lateral": true,
@@ -128,7 +130,15 @@
       "checkConstraint": true,
       "defaultInInsert": true,
       "enums": true,
+      "forShare": true,
+      "forUpdate": true,
+      "insertOnConflictSkip": true,
+      "insertOnConflictTarget": true,
+      "insertOnConflictWithoutTarget": true,
       "lateral": true,
+      "lockNowait": true,
+      "lockOf": true,
+      "lockSkipLocked": true,
       "returning": true,
       "scalarList": true
     }
@@ -150,14 +160,7 @@
             "alias": "GeoTypes",
             "named": "CodecTypes",
             "package": "@animichi/prisma-geography/codec-types"
-          },
-          "typeImports": [
-            {
-              "alias": "Geography",
-              "named": "Geography",
-              "package": "@animichi/prisma-geography/codec-types"
-            }
-          ]
+          }
         },
         "queryOperationTypes": {
           "import": {
@@ -165,15 +168,7 @@
             "named": "QueryOperationTypes",
             "package": "@animichi/prisma-geography/operation-types"
           }
-        },
-        "storage": [
-          {
-            "familyId": "sql",
-            "nativeType": "geography",
-            "targetId": "postgres",
-            "typeId": "pg/geography@1"
-          }
-        ]
+        }
       },
       "version": "0.1.0"
     }

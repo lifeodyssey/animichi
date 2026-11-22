@@ -13,7 +13,6 @@ interface BinaryOperationShape<Returns extends string> {
   readonly self: unknown;
   readonly other: unknown;
   readonly returns: Returns;
-  readonly strategy: "function" | "infix";
   readonly template: string;
 }
 
@@ -23,7 +22,7 @@ function binaryOperation<Returns extends string>(shape: BinaryOperationShape<Ret
     method: shape.method,
     args: [toExpr(shape.self, codec), toExpr(shape.other, codec)],
     returns: { codecId: shape.returns, nullable: false },
-    lowering: { targetFamily: "sql", strategy: shape.strategy, template: shape.template },
+    lowering: { targetFamily: "sql", template: shape.template },
   });
 }
 
@@ -34,7 +33,7 @@ function dwithinMeters(self: unknown, other: unknown, meters: unknown) {
     method: "dwithinMeters",
     args: [toExpr(self, geographyCodec), toExpr(other, geographyCodec), toExpr(meters, { codecId: FLOAT8_CODEC_ID })],
     returns: { codecId: BOOL_CODEC_ID, nullable: false },
-    lowering: { targetFamily: "sql", strategy: "function", template: "ST_DWithin({{self}}, {{arg0}}, {{arg1}})" },
+    lowering: { targetFamily: "sql", template: "ST_DWithin({{self}}, {{arg0}}, {{arg1}})" },
   });
 }
 
@@ -55,7 +54,6 @@ function distanceMeters(self: unknown, other: unknown) {
     self,
     other,
     returns: FLOAT8_CODEC_ID,
-    strategy: "function",
     template: "ST_Distance({{self}}, {{arg0}})",
   });
 }
@@ -66,7 +64,6 @@ function knnOrder(self: unknown, other: unknown) {
     self,
     other,
     returns: FLOAT8_CODEC_ID,
-    strategy: "infix",
     template: "{{self}} <-> {{arg0}}",
   });
 }
@@ -77,7 +74,6 @@ function trigramSimilarity(self: unknown, query: unknown) {
     self,
     other: query,
     returns: FLOAT4_CODEC_ID,
-    strategy: "function",
     template: "similarity({{self}}, {{arg0}})",
   });
 }
@@ -88,7 +84,6 @@ function trigramMatches(self: unknown, query: unknown) {
     self,
     other: query,
     returns: BOOL_CODEC_ID,
-    strategy: "infix",
     template: "({{self}} % {{arg0}})",
   });
 }

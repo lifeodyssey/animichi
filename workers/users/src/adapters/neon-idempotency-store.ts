@@ -78,8 +78,11 @@ function selectPlan(builder: UsersStatementBuilder, key: IdempotencyKey) {
 /** The row type every idempotency read and RETURNING path yields. */
 type IdempotencyRowShape = RowOf<ReturnType<typeof selectPlan>>;
 
+/** One saved_route_idempotency INSERT row, as the contract's builder types it. */
+type IdempotencyInsertRow = Parameters<UsersStatementBuilder["public"]["saved_route_idempotency"]["insert"]>[0][number];
+
 /** One INSERT … RETURNING over the ledger. */
-function insertPlan(builder: UsersStatementBuilder, values: Record<string, unknown>) {
+function insertPlan(builder: UsersStatementBuilder, values: IdempotencyInsertRow) {
   return builder.public.saved_route_idempotency
     .insert([values])
     .returning(...IDEMPOTENCY_COLUMNS)
@@ -191,7 +194,7 @@ export class NeonIdempotencyStore implements IdempotencyStore {
   /** INSERT the claim; the composite key's unique violation means it exists. */
   private async claimOrExisting(
     key: IdempotencyKey,
-    values: Record<string, unknown>,
+    values: IdempotencyInsertRow,
   ): Promise<{ kind: "claimed" } | { kind: "exists"; row: IdempotencyRow }> {
     if (await this.insertClaim(values)) return { kind: "claimed" };
     const row = await this.existing(key);
@@ -199,7 +202,7 @@ export class NeonIdempotencyStore implements IdempotencyStore {
   }
 
   /** True when this caller's INSERT is the one that created the row. */
-  private async insertClaim(values: Record<string, unknown>): Promise<boolean> {
+  private async insertClaim(values: IdempotencyInsertRow): Promise<boolean> {
     try {
       return (await firstRow(this.prisma.executor, insertPlan(this.prisma.builder, values))) !== undefined;
     } catch (error) {

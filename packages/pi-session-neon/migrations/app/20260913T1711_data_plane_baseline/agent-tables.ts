@@ -38,7 +38,7 @@ export const AGENT_TABLES = [{
 }, {
   schema: 'public', table: 'agent_settlements',
   columns: [
-    col('last_usage_seq', 'int8', { notNull: true, default: lit(-1), codecRef: { codecId: 'pg/int8number@1' } }),
+    col('last_usage_seq', 'int8', { notNull: true, default: lit('-1'), codecRef: { codecId: 'pg/int8number@1' } }),
     col('operation_id', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
     col('settled_at', 'timestamptz', { codecRef: { codecId: 'pg/timestamptz-string@1' } }),
   ],

@@ -9,13 +9,14 @@ import { databaseDescribe, emptySavedRoutes, openUsersPrisma, type UsersSeam } f
  * AC4 (#1632): identifiers are assigned by the database default, and the version
  * is the one the schema specifies.
  *
- * `saved_routes.id` is `@default(dbgenerated("uuidv7()"))`. Until #1632 the
- * atomic winner path had to mint the id in the worker instead, because Neon's
- * HTTP batch offered no round trip for the ledger's second statement to read
- * the first's `RETURNING`. The transaction removes that constraint, so this file
- * proves the consequence rather than the intent: the INSERT carries no id, the
- * value that comes back is a UUIDv7, and the ledger committed to THAT value —
- * which is only possible if statement 2 read statement 1's row.
+ * `saved_routes.id` defaults to the database's `uuidv7()` (`@default(sql…)` in
+ * the contract). Until #1632 the atomic winner path had to mint the id in the
+ * worker instead, because Neon's HTTP batch offered no round trip for the
+ * ledger's second statement to read the first's `RETURNING`. The transaction
+ * removes that constraint, so this file proves the consequence rather than the
+ * intent: the INSERT carries no id, the value that comes back is a UUIDv7, and
+ * the ledger committed to THAT value — which is only possible if statement 2
+ * read statement 1's row.
  */
 const ROUTE_ID_VERSION = 7;
 

@@ -4,12 +4,13 @@ import { build } from "esbuild";
 import { Miniflare, Log, LogLevel, Response as WorkerResponse, type Request as WorkerRequest } from "miniflare";
 import { issuedToken } from "./migrate.worker.helpers";
 import { metadata } from "./preflight-fixtures";
+import { WORKER_ALIAS } from "./wrangler-alias";
 
 let bundle: Promise<string> | undefined;
 
 async function workerBundle(): Promise<string> {
   const built = await build({ bundle: true, write: false, format: "esm", platform: "browser",
-    conditions: ["workerd", "worker"], external: ["cloudflare:workers", "node:*", ...builtinModules],
+    conditions: ["workerd", "worker"], external: ["cloudflare:workers", "node:*", ...builtinModules], alias: { ...WORKER_ALIAS },
     banner: { js: 'import { createRequire as createSelectedTestRequire } from "node:module"; const require = createSelectedTestRequire("/bundle/selected-worker.js");' },
     stdin: { contents: 'export { MigratorApplyLock } from "./apply-lock"; import { createMigratorApp } from "./create-app"; export default createMigratorApp();', resolveDir: resolve("src") },
   });
