@@ -1,15 +1,8 @@
 import { TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
 import { constantTimeEqual } from "./anonymous-id.ts";
+import { readCookie } from "./cookie-header.ts";
 
 const PASS_COOKIE = "turnstile_pass";
-
-function readCookie(request: Request, name: string): string | null {
-  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name && rest.length > 0) return rest.join("=");
-  }
-  return null;
-}
 
 async function hmacHex(secret: string, message: string): Promise<string> {
   const bytes = new TextEncoder();
