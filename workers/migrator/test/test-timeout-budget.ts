@@ -90,11 +90,11 @@ export const WORKERD_SLOW_APPLY_BUDGET_MS = 90_000;
  * `sealed-bundle.workerd.test.ts` runs the release script — a Wrangler dry-run build of the whole
  * Worker plus the copy of the sealed graph — and then boots that bundle in workerd, all inside
  * one test. Measured on 2026-11-22 on the same 10-core arm64 host at a 1-minute load average of
- * 160 to 240 (other lanes running): 6.9 s, 6.1 s and 4.6 s. 60 s is ~9x that 6.9 s worst case,
- * because a cold esbuild on a two-core CI runner is the slower half, and stays short enough that a
- * build that hangs fails its test rather than the lane.
+ * 160 to 240 (other lanes running): 6.9 s, 6.1 s and 4.6 s. The release script stops a Wrangler
+ * run at 60 s with its own diagnostic (`WRANGLER_BUILD_TIMEOUT_MS`, `.github/lib/release/`), so a
+ * build that hangs fails there; 90 s leaves that diagnostic 30 s to surface ahead of this budget.
  */
-export const SEALED_BUNDLE_BUDGET_MS = 60_000;
+export const SEALED_BUNDLE_BUDGET_MS = 90_000;
 
 /** Every budget a vitest config in this package may declare. */
 export const DECLARED_BUDGETS_MS: readonly number[] = [

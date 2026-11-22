@@ -57,8 +57,10 @@ async function bootSealedUsers(): Promise<Miniflare> {
 }
 
 // The release build is a Wrangler dry-run of the whole Worker, then a workerd start, in one test.
-// Vitest's default 5 s budget is below what that takes on a loaded host, so this suite states its own.
-describe("the sealed users bundle in workerd", { timeout: 60_000 }, () => {
+// The release script stops a Wrangler run at 60 s with its own diagnostic
+// (`WRANGLER_BUILD_TIMEOUT_MS`), so this suite's 90 s leaves that diagnostic 30 s to surface ahead
+// of the test's own timeout.
+describe("the sealed users bundle in workerd", { timeout: 90_000 }, () => {
   it("starts and answers /healthz", async () => {
     const response = await (await bootSealedUsers()).dispatchFetch("https://users.test/healthz");
     expect({ status: response.status, body: await response.json() })

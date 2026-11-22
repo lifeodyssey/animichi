@@ -56,9 +56,10 @@ async function bootSealedCatalog(): Promise<Miniflare> {
 }
 
 // The release build is a Wrangler dry-run of the whole Worker, then a workerd start, in one test:
-// 3.8 s and 3.9 s on a 10-core host at a one-minute load average of 14 (2026-11-22). The pool's
-// 20 s budget leaves a cold two-core runner little room, so this suite states its own.
-describe("the sealed catalog bundle in workerd", { timeout: 60_000 }, () => {
+// 3.8 s and 3.9 s on a 10-core host at a one-minute load average of 14 (2026-11-22). The release
+// script stops a Wrangler run at 60 s with its own diagnostic (`WRANGLER_BUILD_TIMEOUT_MS`), so
+// this suite's 90 s leaves that diagnostic 30 s to surface ahead of the test's own timeout.
+describe("the sealed catalog bundle in workerd", { timeout: 90_000 }, () => {
   it("starts and answers /healthz", async () => {
     const response = await (await bootSealedCatalog()).dispatchFetch("https://catalog.test/healthz");
     expect({ status: response.status, body: await response.json() })
