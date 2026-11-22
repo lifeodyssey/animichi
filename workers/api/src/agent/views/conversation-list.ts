@@ -8,8 +8,9 @@ const CONVERSATION_LIST_LIMIT = 30;
 
 /** The row this statement declares: the contract's own `ConversationListRow`,
  * so this query and the declared body cannot drift apart without a compile
- * error. Timestamps travel as the driver's own text, and every column but the
- * id is nullable in the table. */
+ * error. The timestamp codec reads the UTC instant in ISO 8601, every
+ * fractional digit kept (Prisma rc.21), and every column but the id is
+ * nullable in the table. */
 const CONVERSATION_LIST_ROW = {
   session_id: { codecId: "pg/text@1" },
   title: { codecId: "pg/text@1", nullable: true },
