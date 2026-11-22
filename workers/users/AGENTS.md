@@ -8,8 +8,12 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 ## Commands (from `workers/users/`)
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
-- `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck`
-  (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+- `pnpm test` (`test:worker`, the `vitest-pool-workers` suites, then `test:node`) ·
+  `pnpm run typecheck` (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+- `pnpm run test:node` — the plain-Node lane (`vitest.node.config.ts`): `test/sealed-bundle.node.test.ts`
+  builds the sealed release bundle with `.github/scripts/release/build-worker.mjs users`, the bytes
+  CD uploads, starts it in workerd and asserts `/healthz` 200. The worker pool evaluates unbundled
+  modules, so a failure that exists only in the bundle shows up in this lane alone.
 - `pnpm run test:integration` — the Docker Postgres arm (`vitest.integration.config.ts`), kept out of
   `test` per #1473; pre-push, the CI affected matrix and `make check-full` all run it for this package.
 

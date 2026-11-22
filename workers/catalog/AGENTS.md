@@ -19,6 +19,9 @@ Root guide: `../../AGENTS.md`.
   check exists for exactly that class of bug. No CI job runs it: the bundled-boot job
   (`catalog-startup-smoke`, later `startup-smoke`) was removed in `eb6fccd60` (2026-08-25),
   and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
+  The lane that does run in CI is `test/sealed-bundle.node.test.ts` in `test:node`: it builds
+  the sealed release bundle with `.github/scripts/release/build-worker.mjs catalog`, the bytes
+  CD uploads, starts it in workerd and asserts `/healthz` 200.
 
 ## Stack (per the ADR)
 

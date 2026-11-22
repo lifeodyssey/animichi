@@ -1052,6 +1052,9 @@ importers:
       '@vitest/coverage-istanbul':
         specifier: 'catalog:'
         version: 4.1.12(supports-color@10.2.2)(vitest@4.1.12)
+      miniflare:
+        specifier: 'catalog:'
+        version: 4.20260730.0(@types/node@26.6.6)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
