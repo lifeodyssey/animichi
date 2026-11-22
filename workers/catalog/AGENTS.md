@@ -93,9 +93,14 @@ Root guide: `../../AGENTS.md`.
 - **The escape hatch is one rule, guarded by path.** `.semgrep/ts-no-prisma-raw-escape.yaml`
   rejects ``db.raw.sql`…` `` and a hand-built `new RawExpr(...)` everywhere but `src/db/`; the
   `fns.raw` / `match.raw` fragment form is the sanctioned shape and the query layer is full of it.
-- **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
-  Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see
-  `src/application/list-points-for-bangumi.ts`, `syncedAt`).
+- **timestamptz reads as an ISO 8601 UTC string, on workerd and Node alike** (Prisma rc.21). A
+  builder read of a `TimestamptzString` column goes through `pg/timestamptz-string@1`, which turns
+  the server's text into the UTC instant with every fractional digit it sent
+  (`2026-09-10T00:00:00.123456Z`). A public body that promises the millisecond form normalizes
+  at the boundary — `new Date(stamp).toISOString()` (see
+  `src/application/list-points-for-bangumi.ts`, `syncedAt`). The published snapshot carries the
+  codec's form as read (`test/snapshot-timestamps.integration.test.ts`), and the claim fence binds
+  the `started_at` it read back, every digit included (`src/ingest/jobs.ts`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).

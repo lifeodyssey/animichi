@@ -58,8 +58,9 @@ export async function pointsByBangumi(
   return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
 }
 
-/** `synced_at` from the work's `bangumi.updated_at`, else now. Accepts a Date or
- * a raw timestamptz string (workerd's pg driver does not parse it to a Date). */
+/** `synced_at` from the work's `bangumi.updated_at`, else now. The builder's read
+ * is the codec's ISO UTC instant with every fractional digit (Prisma rc.21);
+ * `toISOString()` gives the public body its millisecond form. */
 function syncedAt(rows: PublishedPointRow[]): string {
   const stamp = rows[0]?.synced_at;
   return stamp ? new Date(stamp).toISOString() : new Date().toISOString();
