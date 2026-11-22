@@ -21,21 +21,25 @@ import { withImageOrigin } from "./doubles/docs-asset-doubles.ts";
 import { noHitCache, withCacheDouble, type CachePut } from "./doubles/cache-api-double.ts";
 import { edgeAppRequest } from "./doubles/edge-app-request.ts";
 
-async function withWarnSpy(run: () => Promise<unknown>): Promise<string[]> {
+async function withWarnSpy<T>(run: () => Promise<T>): Promise<{ value: T; lines: string[] }> {
   const lines: string[] = [];
   const original = console.warn;
   console.warn = (line: unknown) => { lines.push(String(line)); };
   try {
-    await run();
-    return lines;
+    return { value: await run(), lines };
   } finally { console.warn = original; }
+}
+
+/** The one record a case's lines carry under `event`. */
+function recordNamed(lines: string[], event: string): unknown {
+  return lines.map((line) => JSON.parse(line) as Record<string, unknown>).find((record) => record.event === event);
 }
 
 const rejectingPut: CachePut = () => Promise.reject(new RangeError("cache api down"));
 
 void test("a rejected cache write is recorded under the caller's own event name", async () => {
   const settled: Promise<unknown>[] = [];
-  const lines = await withWarnSpy(async () => {
+  const { lines } = await withWarnSpy(async () => {
     cacheWrite(collectingCtx(settled), Promise.reject(new RangeError("cache api down")), "test_cache_write_failed");
     await Promise.all(settled);
   });
@@ -46,7 +50,7 @@ void test("a rejected cache write is recorded under the caller's own event name"
 
 void test("a cache write that succeeds stays silent", async () => {
   const settled: Promise<unknown>[] = [];
-  const lines = await withWarnSpy(async () => {
+  const { lines } = await withWarnSpy(async () => {
     cacheWrite(collectingCtx(settled), Promise.resolve(), "test_cache_write_failed");
     await Promise.all(settled);
   });
@@ -58,23 +62,27 @@ void test("a tile whose cache write fails is still served, and the failure is lo
   const env = {
     MAP_TILES: { get: () => Promise.resolve({ body: new Response("mvt").body, etag: "t", size: 3 }) },
   };
-  const lines = await withWarnSpy(async () => {
+  const { value: requestId, lines } = await withWarnSpy(async () => {
     const response = await withCacheDouble(noHitCache(rejectingPut), () =>
       edgeAppRequest("/tiles/14/135/892.mvt", env, {}, collectingCtx(settled)));
     assert.equal(response.status, 200);
     await Promise.all(settled);
+    return response.headers.get("X-Request-Id");
   });
-  assert.equal(lines.includes('{"event":"edge_tile_cache_write_failed","error":"RangeError"}'), true);
+  assert.deepEqual(recordNamed(lines, "edge_tile_cache_write_failed"),
+    { event: "edge_tile_cache_write_failed", error: "RangeError", request_id: requestId });
 });
 
 void test("an image whose cache write fails is still served, and the failure is logged", async (t) => {
   const settled: Promise<unknown>[] = [];
   const upstreamFetch = () => Promise.resolve(new Response("jpeg-bytes", { status: 200 }));
-  const lines = await withWarnSpy(async () => {
+  const { value: requestId, lines } = await withWarnSpy(async () => {
     const response = await withCacheDouble(noHitCache(rejectingPut), () =>
       withImageOrigin(t, upstreamFetch, () => edgeAppRequest("/img/p1.jpg?plan=h160", {}, {}, collectingCtx(settled))));
     assert.equal(response.status, 200);
     await Promise.all(settled);
+    return response.headers.get("X-Request-Id");
   });
-  assert.equal(lines.includes('{"event":"edge_image_cache_write_failed","error":"RangeError"}'), true);
+  assert.deepEqual(recordNamed(lines, "edge_image_cache_write_failed"),
+    { event: "edge_image_cache_write_failed", error: "RangeError", request_id: requestId });
 });

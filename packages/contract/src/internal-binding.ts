@@ -20,5 +20,11 @@ export const USER_TYPE_HEADER = "X-User-Type";
 /** The caller-supplied credential the edge strips before forwarding. */
 export const AUTHORIZATION_HEADER = "Authorization";
 
+/** The gateway's ID for one request, sent to every service binding it forwards
+ * to and returned to the caller under the same name. The gateway mints it and
+ * overwrites any value a caller sent under this name, so a service reached only
+ * through a binding may log it as the gateway's. */
+export const REQUEST_ID_HEADER = "X-Request-Id";
+
 /** The only reachable Users surface: everything under this prefix. */
 export const USERS_BINDING_PREFIX = "/v1/users/";

@@ -173,15 +173,19 @@ void test("an outage is recorded so it is not read as a 401 storm", async () => 
   const warnings: string[] = [];
   const original = console.warn;
   console.warn = (line: unknown) => { warnings.push(String(line)); };
+  let response: Response | undefined;
   try {
-    await appOverJwks(OUTAGE)
+    response = await appOverJwks(OUTAGE)
       .request("/v1/chat", authorized(await mint(LIVE)), appEnv(host), stubCtx);
   } finally {
     console.warn = original;
   }
   const records = warnings.map((line) => JSON.parse(line) as { event: string });
   const outage = records.find((entry) => entry.event === "edge_auth_verification_unavailable");
-  assert.deepEqual(outage, { event: "edge_auth_verification_unavailable", path: "/v1/chat", detail: "status 500" });
+  assert.deepEqual(outage, {
+    event: "edge_auth_verification_unavailable", path: "/v1/chat", detail: "status 500",
+    request_id: response.headers.get("X-Request-Id"),
+  });
   assert.equal(
     records.find((entry) => entry.event === "edge_auth_invalid_credential"), undefined,
     "an outage must not be counted as a rejected credential",

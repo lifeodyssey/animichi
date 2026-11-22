@@ -11,8 +11,10 @@
  * for) and a failed write is never fatal: the caller has already answered. Only
  * the failure becomes a record — the caller's own event name and the error's
  * NAME, never a cache key, because cache keys are URLs and URLs carry
- * identifiers.
+ * identifiers. The record is written off the response path but inside the
+ * request's scope, so it carries that request's ID.
  */
+import { withRequestId } from "../gateway/request-id.ts";
 
 /** The `waitUntil` half of an execution context — all a cache write needs. */
 export interface CacheWriteContext {
@@ -24,5 +26,5 @@ export function cacheWrite(ctx: CacheWriteContext, write: Promise<unknown>, even
 }
 
 function logCacheWriteFailure(event: string, error: unknown): void {
-  console.warn(JSON.stringify({ event, error: error instanceof Error ? error.name : "unknown" }));
+  console.warn(JSON.stringify(withRequestId({ event, error: error instanceof Error ? error.name : "unknown" })));
 }

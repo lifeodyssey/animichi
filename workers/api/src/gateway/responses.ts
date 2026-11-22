@@ -1,4 +1,5 @@
 import type { AuthFailure } from "../identity/auth.ts";
+import { withRequestId } from "./request-id.ts";
 
 /**
  * The ONE envelope every edge rejection answers in (EG-05, issue #1343):
@@ -36,7 +37,7 @@ export function credentialsRequired(): Response {
  * invisible, so every `invalid` verdict is counted at the edge. The token, the
  * header and the identity are deliberately absent from the record. */
 function logInvalidCredential(pathname: string): void {
-  console.warn(JSON.stringify({ event: "edge_auth_invalid_credential", path: pathname }));
+  console.warn(JSON.stringify(withRequestId({ event: "edge_auth_invalid_credential", path: pathname })));
 }
 
 export function unauthorized(pathname: string): Response {
@@ -59,7 +60,7 @@ const VERIFICATION_RETRY_AFTER_SECONDS = 30;
  * the same event. `detail` says which acquisition failure it was, and no token,
  * header or identity is anywhere near it. */
 function logVerificationUnavailable(pathname: string, detail: string): void {
-  console.warn(JSON.stringify({ event: "edge_auth_verification_unavailable", path: pathname, detail }));
+  console.warn(JSON.stringify(withRequestId({ event: "edge_auth_verification_unavailable", path: pathname, detail })));
 }
 
 /** The credential could not be CHECKED (issue #452): the key set the verdict

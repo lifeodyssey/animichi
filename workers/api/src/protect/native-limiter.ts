@@ -1,4 +1,5 @@
 import type { Env } from "../env.ts";
+import { withRequestId } from "../gateway/request-id.ts";
 
 /**
  * Cloudflare-native `ratelimit` binding seam (issue #680).
@@ -28,7 +29,7 @@ export function nativeLimiterFrom(env: Env): NativeRateLimiter | null {
  * still hears about it. ONE event name lives here; every fail-open call
  * site routes through it (burst-guard's guardNativeRead included). */
 export function alertNativeRateLimitOutage(key: string): void {
-  console.warn(JSON.stringify({ event: "edge_native_rate_limit_alert", key }));
+  console.warn(JSON.stringify(withRequestId({ event: "edge_native_rate_limit_alert", key })));
 }
 
 /** Run one coarse native burst check, FAILING OPEN on any unavailability: a
