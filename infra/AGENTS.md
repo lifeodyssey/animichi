@@ -5,7 +5,10 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Commands (from `infra/`)
 
-- `pnpm test` — the topology tests (`topology-*.test.ts`), then `test:program-load`: the
+- `pnpm test` — the topology tests (`topology-*.test.ts`), then `test:neon-auth-parity`
+  (`packages/contract/test/neon-auth.test.ts`, which binds this package's Neon Auth copy to the
+  contract module it copies; pnpm selects `infra` for none of the contract's changes, so the
+  test must run here too), then `test:program-load`: the
   credential-free Pulumi program load (`../scripts/local-gates/infra-check.sh`), which is the only
   check that catches a loader/compiler incompatibility `tsc --noEmit` cannot see. It needs the
   Pulumi CLI and touches no cloud credentials.
@@ -68,7 +71,12 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   caller out with no red anywhere; `topology-staging-access.test.ts` pins both, along with the
   hostname list and both policies. Staging only: production has a real login, and
   `topology-prod.test.ts` pins that no application, policy or token is built there.
-- `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names); pinned by `topology-neon-auth.test.ts`.
+- `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names). The
+  two derivations are a copy of `packages/contract/src/neon-auth.ts`, the one the API Worker
+  imports: the sealed foundation carries `infra/` alone, so neither Pulumi program can depend on
+  the package, and `database-access/store-secrets.ts` imports this copy too.
+  `packages/contract/test/neon-auth.test.ts` binds it to the same literal outputs;
+  `topology-neon-auth.test.ts` pins the env-var names.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
 - `../.github/workflows/cd.yml` — the whole delivery path: one build, one artifact, five ordered

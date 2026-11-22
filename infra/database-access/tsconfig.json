@@ -16,6 +16,7 @@
   "include": [
     "index.ts",
     "store-secrets.ts",
-    "runtime-secrets.ts"
+    "runtime-secrets.ts",
+    "../src/neon-auth.ts"
   ]
 }

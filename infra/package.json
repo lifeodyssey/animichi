@@ -5,7 +5,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && pnpm run typecheck:database-access",
     "typecheck:database-access": "bash database-access/typecheck.sh",
-    "test": "node --test topology-*.test.ts && pnpm run test:program-load",
+    "test": "node --test topology-*.test.ts && pnpm run test:neon-auth-parity && pnpm run test:program-load",
+    "test:neon-auth-parity": "pnpm --filter @animichi/contract exec vitest run test/neon-auth.test.ts",
     "test:program-load": "bash ../scripts/local-gates/infra-check.sh"
   },
   "dependencies": {

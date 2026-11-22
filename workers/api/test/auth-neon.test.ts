@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
-import { authenticate, issuerFromJwksUrl } from "../src/identity/auth.ts";
+import { authenticate } from "../src/identity/auth.ts";
 
 const JWKS_SUFFIX = "/.well-known/jwks.json";
 
@@ -37,17 +37,6 @@ function jwks(jwk: JWK): Response {
 function neonEnv(host: string) {
   return { NEON_AUTH_JWKS_URL: `${host}${JWKS_SUFFIX}` };
 }
-
-void test("issuerFromJwksUrl is the Neon Auth host origin, not the /neondb/auth path", () => {
-  assert.equal(
-    issuerFromJwksUrl("https://auth.example.test/neondb/auth/.well-known/jwks.json"),
-    "https://auth.example.test",
-  );
-});
-
-void test("issuerFromJwksUrl uses origin when the URL has no well-known suffix", () => {
-  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth"), "https://auth.example.test");
-});
 
 // The staging input: the JWKS address carries the Better Auth base path, and the
 // issuer and audience are the host origin alone.

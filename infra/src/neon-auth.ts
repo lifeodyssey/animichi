@@ -7,8 +7,16 @@
 // config, preventing the split-var placeholder gap documented in
 // `docs/ops/auth-migration-neon.md` §8.
 //
-// Pure functions only — no resources, no side effects — so the topology tests
-// can pin the derivation without a Pulumi runtime.
+// The two derivations are a copy of `packages/contract/src/neon-auth.ts`, the
+// one the API Worker imports. CD applies this program and `database-access/`
+// from a sealed tree that carries `infra/` alone
+// (`.github/scripts/release/seal-foundation.sh`), so neither can take that
+// package as a dependency; `database-access/store-secrets.ts` imports this copy.
+// `packages/contract/test/neon-auth.test.ts` binds it to the same literal
+// outputs, and this package's `pnpm test` runs it as `test:neon-auth-parity`.
+//
+// Pure functions only — no resources, no side effects, no imports — so that
+// test can load them without a Pulumi runtime.
 
 const JWKS_SUFFIX = "/.well-known/jwks.json";
 
@@ -17,8 +25,7 @@ export function jwksUrlFromAuthBaseUrl(baseUrl: string): string {
   return `${baseUrl.replace(/[/]+$/, "")}${JWKS_SUFFIX}`;
 }
 
-/** Derive the issuer/audience (the Neon Auth host origin) from a JWKS URL — the mirror
- * of the edge's own `issuerFromJwksUrl` in `workers/api/src/identity/auth.ts`. */
+/** Derive the issuer/audience (the Neon Auth host origin) from a JWKS URL. */
 export function issuerFromJwksUrl(jwksUrl: string): string {
   return new URL(jwksUrl).origin;
 }

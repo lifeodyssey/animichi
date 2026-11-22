@@ -1,23 +1,31 @@
 /**
- * The Neon Auth JWKS address and issuer derivation, pinned by its literal outputs.
+ * The Neon Auth JWKS address and issuer: `src/neon-auth.ts` and the copy infra keeps.
  *
- * The API Worker verifies a Neon Auth JWT against `NEON_AUTH_JWKS_URL` and expects the token's
- * `iss` and `aud` to be that address's origin; infra derives the address from the branch's Better
- * Auth base URL (`infra/src/neon-auth.ts`). A derived value that moves by one character fails every
- * login, so each output below is a literal string, never computed by the code under test.
+ * The API Worker verifies a Neon Auth JWT against `NEON_AUTH_JWKS_URL` and reads the issuer it
+ * expects from `src/neon-auth.ts`. The two Pulumi programs cannot import this package: CD applies
+ * them from a sealed tree that carries `infra/` and the root manifests alone
+ * (`.github/scripts/release/seal-foundation.sh`). Both import one copy, `infra/src/neon-auth.ts`,
+ * and this file binds it to the same literal outputs as the original. A derived value that moves by
+ * one character fails every login, so no expectation here is computed by the code under test.
+ *
+ * pnpm selects neither this package nor `infra` for the other's change, so the file runs in both
+ * lanes: here, and in infra's `pnpm test` as `test:neon-auth-parity`.
  *
  * test-type: unit (pure functions; no network, no clock).
  */
 import { describe, expect, it } from "vitest";
 import * as infra from "../../../infra/src/neon-auth";
+import * as contract from "../src/neon-auth";
 
 type Derivation = (input: string) => string;
 
 const JWKS_COPIES: [string, Derivation][] = [
+  ["@animichi/contract", contract.jwksUrlFromAuthBaseUrl],
   ["infra", infra.jwksUrlFromAuthBaseUrl],
 ];
 
 const ISSUER_COPIES: [string, Derivation][] = [
+  ["@animichi/contract", contract.issuerFromJwksUrl],
   ["infra", infra.issuerFromJwksUrl],
 ];
 

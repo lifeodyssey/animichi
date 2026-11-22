@@ -24,6 +24,7 @@
     "./constants": "./src/constants.ts",
     "./anitabi-display": "./src/anitabi-display.ts",
     "./jwt": "./src/jwt.ts",
+    "./neon-auth": "./src/neon-auth.ts",
     "./oidc-github": "./src/oidc-github.ts"
   },
   "scripts": {

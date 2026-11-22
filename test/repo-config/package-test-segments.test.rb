@@ -25,7 +25,7 @@ class PackageTestSegmentsTest < Minitest::Test
     "packages/prisma-geography" => ["node --test", "test/*.unit.test.ts"],
     "packages/eval" => [TSX_LOADED_TEST_RUNNER],
     "packages/test-postgres" => ["node --test"],
-    "infra" => ["node --test", "test:program-load"],
+    "infra" => ["node --test", "test:neon-auth-parity", "test:program-load"],
     "apps/anitabi-egress" => [TSX_LOADED_TEST_RUNNER, "test/*.unit.test.ts"],
     "apps/web" => ["vitest run"],
     "e2e" => ["playwright test", "E2E_SERVE_EMITTED_WORKER=1",
@@ -55,6 +55,7 @@ class PackageTestSegmentsTest < Minitest::Test
     ["workers/users", "test:node"] => "vitest.node.config.ts",
     ["workers/users", "test:integration"] => "vitest.integration.config.ts",
     ["packages/contract", "test:openapi-drift"] => "contract-drift.sh",
+    ["infra", "test:neon-auth-parity"] => "test/neon-auth.test.ts",
     ["infra", "test:program-load"] => "infra-check.sh"
   }.freeze
 
