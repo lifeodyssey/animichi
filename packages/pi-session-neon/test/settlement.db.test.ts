@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { acceptedReservation, businessBalances, insertAdmission } from "./business-records.ts";
+import { acceptedReservation, businessBalances, insertAdmission, STAMP } from "./business-records.ts";
 import { settle } from "./business-transactions.ts";
 import { database, pool } from "./postgres.ts";
 
+/** The stamp `2026-09-09T09:00:00.123456+09:00` as the client reads it back. */
+const READ_BACK = "2026-09-09T00:00:00.123456Z";
 const RESERVED_BALANCES = [
   [{ operationId: "operation", lastUsageSeq: -1, settledAt: null }],
   [], [{ count: "1" }], [{ state: "accepted", quotaRefundedAt: null }],
@@ -21,10 +23,23 @@ void test("replaying settlement advances the cursor, cost and refund exactly onc
   await database.runtime().execute(settle());
   await database.runtime().execute(settle());
   assert.deepEqual(await businessBalances(), [
-    [{ operationId: "operation", lastUsageSeq: 4, settledAt: "2026-09-09 00:00:00+00" }],
+    [{ operationId: "operation", lastUsageSeq: 4, settledAt: STAMP }],
     [{ requests: "1", cost: "0.300000" }], [{ count: "0" }],
-    [{ state: "settled", quotaRefundedAt: "2026-09-09 00:00:00+00" }],
+    [{ state: "settled", quotaRefundedAt: STAMP }],
   ]);
+});
+
+// Since Prisma 8 rc.21 (`iso-string-date-time-values`) a `TimestamptzString` reads as its UTC instant in
+// ISO 8601, keeping every fractional digit the column holds, whatever offset wrote it. Consumers rely on
+// that form: the catalog's ingest claim binds the `started_at` it read back into its fenced update, which
+// matches only if the read kept the stored instant exactly.
+void test("a settlement stamp reads back as its UTC instant with every digit, and binding that text finds the row", async () => {
+  await acceptedReservation();
+  await database.orm.public.AgentSettlement.where((row) => row.operationId.eq("operation"))
+    .update({ settledAt: "2026-09-09T09:00:00.123456+09:00" });
+  assert.deepEqual(await database.orm.public.AgentSettlement.select("settledAt").all(), [{ settledAt: READ_BACK }]);
+  const fenced = database.orm.public.AgentSettlement.where((row) => row.settledAt.eq(READ_BACK));
+  assert.deepEqual(await fenced.select("operationId").all(), [{ operationId: "operation" }]);
 });
 
 void test("failed settlement rolls back its ledger cursor, charge and refund marker", async () => {

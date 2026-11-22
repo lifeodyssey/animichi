@@ -128,10 +128,12 @@ export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse
  * and every row created before #1608 has neither column. A key that is absent
  * instead of null is not a shape this route emits.
  *
- * `created_at`/`updated_at` travel as the database renders them (the driver's
- * own `pg/timestamptz-string@1` text, not a normalised ISO instant) and are
- * nullable because the columns are. The sidebar reads neither: what the
- * payload's order carries — newest `updated_at` first — is the semantic.
+ * `created_at`/`updated_at` travel as `pg/timestamptz-string@1` reads them:
+ * since Prisma rc.21 that is the UTC instant in ISO 8601, with every
+ * fractional digit the server sent (`2026-09-10T00:00:00.123456Z`), whatever
+ * the session's time zone. They are nullable because the columns are. The
+ * sidebar reads neither: what the payload's order carries — newest
+ * `updated_at` first — is the semantic.
  */
 export const ConversationListRow = z.object({
   session_id: z.string(),

@@ -39,6 +39,22 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = false
 
+# Prisma rc.24's control client shares a module chunk with the CLI's config loader,
+# which pulls in tinyglobby's file crawler, fdir. fdir calls
+# createRequire(import.meta.url) at module top level, and workerd leaves
+# import.meta.url undefined, so the bundle could not start. The Worker never
+# crawls a filesystem; src/fdir-unavailable.ts stands in and throws if asked to.
+# Top level only: Wrangler applies [alias] to every environment's build.
+# Delete the alias when either of these holds:
+# - Prisma stops pulling the CLI config loader into the control-api chunk. The
+#   stand-in then leaves the deployed entry's graph, and test/deployment-contract.test.ts
+#   ("bundles the deployed entry with fdir's stand-in in place of fdir") fails.
+# - fdir stops calling createRequire(import.meta.url) at module scope
+#   (fdir@6.5.0 dist/index.mjs:6). Nothing detects this today: check that line
+#   whenever tinyglobby or fdir moves.
+[alias]
+fdir = "./src/fdir-unavailable.ts"
+
 [vars]
 ENVIRONMENT = "development"
 

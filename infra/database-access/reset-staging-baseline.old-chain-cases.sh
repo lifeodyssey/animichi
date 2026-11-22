@@ -89,6 +89,17 @@ expect "and the marker is not taken for an old chain's" no "$(said "no node of t
 expect "and it takes no backup" no "$(backup_taken)"
 expect "and the marker schema stands" prisma_contract "$(marker_schema)"
 
+# Staging's marker on 2026-11-22 is the rc.9 chain's head. The Prisma rc.24 upgrade rewrote every
+# stored contract, so no committed edge names that hash, and the owner's rebuild is the way out. The
+# committed graph has to place it as an old chain's; a manifest the reader cannot parse would refuse
+# for the graph instead, and no record could clear that.
+STAGING_MARKER=efbac76665a59889ae66de0502ef143733f844ce2545017c54dfd4a8ff1e27c5
+new_case "staging's rc.9 marker against the committed graph" "$(prisma_contract "$STAGING_MARKER" "$OLD_AT" 0) $CHAIN_PUBLIC"
+run_script 1
+expect "and it refuses it as an old chain's marker" yes "$(said "refusing reset: the Prisma app marker is no node of the repository's migration graph")"
+expect "and every committed manifest is one edge" no "$(said "is not one migration edge")"
+expect "and it takes no backup" no "$(backup_taken)"
+
 # The ledger decides first (#1781), whatever the graph says.
 new_case "an old chain's marker beside the Atlas ledger" "$(prisma_contract "$OLD_HASH" "$OLD_AT" 0) $ATLAS"
 run_script 1

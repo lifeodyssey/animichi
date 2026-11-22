@@ -66,16 +66,22 @@ describe("saved-route row policy at the boundary", () => {
     expect((await repo.listOwned("user-a"))[0]?.title).toBe("");
   });
 
-  it("normalizes a raw Postgres timestamptz to ISO", async () => {
-    const store = fakeUsersPrisma([row({ saved_at: "2026-07-13 12:34:56+00", updated_at: "2026-07-13 12:34:56+00" })]);
+  it("normalizes the codec's microsecond ISO read to the public millisecond form", async () => {
+    const store = fakeUsersPrisma([row({ saved_at: "2026-07-13T12:34:56.123456Z", updated_at: "2026-07-13T12:34:56.123456Z" })]);
     const repo = new NeonSavedRouteRepo(store.prisma);
     const [listed] = await repo.listOwned("user-a");
-    expect(listed?.saved_at).toBe("2026-07-13T12:34:56.000Z");
-    expect(listed?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+    expect(listed?.saved_at).toBe("2026-07-13T12:34:56.123Z");
+    expect(listed?.updated_at).toBe("2026-07-13T12:34:56.123Z");
   });
 
   it("rejects a status outside the domain's union", async () => {
     const store = fakeUsersPrisma([row({ status: "bogus" })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
+    await expect(repo.listOwned("user-a")).rejects.toThrow("invalid saved route row");
+  });
+
+  it("rejects a point id list that holds a null element", async () => {
+    const store = fakeUsersPrisma([row({ point_ids: ["p1", null] })]);
     const repo = new NeonSavedRouteRepo(store.prisma);
     await expect(repo.listOwned("user-a")).rejects.toThrow("invalid saved route row");
   });

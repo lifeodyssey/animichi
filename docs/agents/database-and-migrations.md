@@ -52,8 +52,9 @@ production for a snapshot that carries both halves is the same-release drop agai
 
 ## The test template follows the emitted contract; a revert cannot undo a drop (2026-11-20)
 
-Read in the installed Prisma 8.0.0-rc.8 (CLI) and rc.9 (migrator) for the chain's first table
-drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
+Read in the installed Prisma 8.0.0-rc.34 (CLI) and 8.0.0-rc.24 (toolchain and migrator) for the
+rc.24 upgrade (2026-11-22); first read in rc.8 and rc.9 for the chain's first table drop,
+`drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
 
 - `prisma db migrate` without `--to`, which `packages/test-postgres` uses to seed its migrated
   template, targets the emitted `src/contract.json`, not the newest migration. The template is
@@ -64,7 +65,8 @@ drop, `drop_cluster_version_tables`. Re-read both after a Prisma upgrade.
   template from the intact tree first, and check a clone's `prisma_contract.marker` before
   trusting such a run.
 - Prisma's runner wraps an apply in one transaction, marker included
-  (`PostgresMigrationRunner.execute` in `@prisma/orm-target-postgres` 8.0.0-rc.9). For this one
+  (`PostgresMigrationRunner.execute` in `@prisma/orm-target-postgres` 8.0.0-rc.24, which
+  `runMigration` in `@prisma/orm-toolchain` calls once with every space). For this one
   migration in the app space,
   `packages/pi-session-neon/test/drop-cluster-version-tables.db.test.ts` pins it: a drop that
   fails rolls back whole and leaves the marker where it was. Applies of several migrations or

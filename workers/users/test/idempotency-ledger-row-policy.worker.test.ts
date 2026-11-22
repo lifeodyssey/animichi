@@ -73,10 +73,10 @@ describe("a ledger row the model cannot carry is not read as if it could", () =>
 });
 
 describe("a ledger row's instants arrive in the public ISO form", () => {
-  it("reads raw workerd timestamptz text on both instants as ISO", async () => {
+  it("reads the codec's microsecond ISO text on both instants in the millisecond form", async () => {
     const store = fakeUsersPrisma();
-    seed(store, { created_at: "2026-07-13 12:34:56+00", expires_at: "2026-07-14 12:34:56+00" });
+    seed(store, { created_at: "2026-07-13T12:34:56.123456Z", expires_at: "2026-07-14T12:34:56.123456Z" });
     const row = await new NeonIdempotencyStore(store.prisma).read({ ownerUserId: "user-a", op: OP, key: KEY });
-    expect(row).toMatchObject({ createdAt: "2026-07-13T12:34:56.000Z", expiresAt: "2026-07-14T12:34:56.000Z" });
+    expect(row).toMatchObject({ createdAt: "2026-07-13T12:34:56.123Z", expiresAt: "2026-07-14T12:34:56.123Z" });
   });
 });

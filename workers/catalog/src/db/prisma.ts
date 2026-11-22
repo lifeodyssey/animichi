@@ -5,16 +5,18 @@
  * the private geography pack's runtime descriptor, which the contract's
  * `points.location` column requires on every client built from it.
  *
- * The client holds the contract and the execution stack — never a connection.
- * Closure-cached connections are unsafe in a stateless Worker (stale sockets
- * after isolate idle, concurrent-query races on a shared `pg.Client`, no clean
- * shutdown), so the shape is per request: the `/catalog/*` boundary acquires a
- * `Runtime` with {@link acquireCatalogRuntime} and disposes it with `await using`
- * on scope exit. What the per-request boundary pays for that is one TCP+TLS
- * connect per catalog request — the price spec §4.2 names, with the staging
- * measurement owed by §6.2.
+ * The serverless client holds the contract and the execution stack — never a
+ * database connection. Closure-cached connections are unsafe in a stateless
+ * Worker (stale sockets after isolate idle, concurrent-query races on a shared
+ * `pg.Client`, no clean shutdown), so the shape is per request: the `/catalog/*`
+ * boundary opens a connection with {@link acquireCatalogRuntime} and disposes it
+ * with `await using` on scope exit. What the per-request boundary pays for that
+ * is one TCP+TLS connect per catalog request — the price spec §4.2 names, with
+ * the staging measurement owed by §6.2. Since rc.14 `connect()` opens the socket
+ * before it returns, so an unreachable database fails there, not at the first
+ * query.
  *
- * The client itself is memoized because it is stateless: building it
+ * The serverless client itself is memoized because it is stateless: building it
  * deserializes and validates the contract, work that has nothing to do with a
  * request.
  */
@@ -24,20 +26,24 @@ import type { Contract } from "@animichi/pi-session-neon/types";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { PostgresServerlessClient } from "@prisma/orm-postgres/serverless";
 import postgresServerless from "@prisma/orm-postgres/serverless";
+import { contractFromJson } from "@prisma/orm-postgres/static";
+
+/** The shared contract as a typed value; a client built on it validates it once. */
+export const catalogContract = contractFromJson<Contract>(contractJson);
 
 /** The serverless client shape for the shared contract. */
 type CatalogClient = PostgresServerlessClient<Contract>;
 
-/** This request's runtime: what executes a built plan, and the thing `await using` disposes. */
+/** This request's connection: what executes a built plan, and the thing `await using` disposes. */
 export type CatalogRuntime = Awaited<ReturnType<CatalogClient["connect"]>>;
 
 /** The contract-bound statement builder (plan construction only — it never executes). */
 export type CatalogStatementBuilder = CatalogClient["sql"];
 
 /**
- * The one execution call a query adapter makes on a request's runtime.
+ * The one execution call a query adapter makes on a request's connection.
  *
- * Stated structurally rather than as the runtime type itself, so the adapters
+ * Stated structurally rather than as the connection type itself, so the adapters
  * depend on the capability and not on the driver — the same inversion the
  * `DbExecutor` seam (#992) granted, with the implementation swapped.
  */
@@ -46,7 +52,7 @@ export interface CatalogPlanExecutor {
 }
 
 /**
- * One transaction on a request's runtime. Stated structurally for the same
+ * One transaction on a request's connection. Stated structurally for the same
  * reason as {@link CatalogPlanExecutor}: the batch depends on the capability,
  * not on the driver that provides it.
  */
@@ -72,25 +78,26 @@ export interface CatalogPrisma {
 
 let client: CatalogClient | undefined;
 
-/** The one catalog client, built on first use and reused for its lifetime. */
+/** The one catalog serverless client, built on first use and reused for its lifetime. */
 export function catalogClient(): CatalogClient {
-  client ??= postgresServerless<Contract>({ contractJson, extensions: [geographyRuntimeDescriptor] });
+  client ??= postgresServerless({ contract: catalogContract, extensions: [geographyRuntimeDescriptor] });
   return client;
 }
 
-/** Acquire this request's runtime. The caller disposes it on scope exit. */
+/** Open this request's connection. The caller disposes it on scope exit. */
 export function acquireCatalogRuntime(url: string): Promise<CatalogRuntime> {
   return catalogClient().connect({ url });
 }
 
-/** Pair the shared builder with one request's runtime. */
-export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
-  return { builder: catalogClient().sql, executor: runtime, transaction: (fn) => inCatalogTransaction(runtime, fn) };
+/** Pair the shared builder with one request's connection. */
+export function catalogPrisma(db: CatalogRuntime): CatalogPrisma {
+  return { builder: catalogClient().sql, executor: db, transaction: (fn) => inCatalogTransaction(db, fn) };
 }
 
 /**
- * Run `fn` in one transaction on this request's runtime: commit when it
- * resolves, roll back when it throws, and give the connection back either way.
+ * Run `fn` in one transaction on this request's connection: commit when it
+ * resolves, roll back when it throws, and give the pooled connection back
+ * either way.
  *
  * This is what the `db.batch` calls (§2.3 of the Prisma spec) become: neon-http
  * had no client transaction, so the atomic units were batches; a real
@@ -135,10 +142,10 @@ export function catalogPrisma(runtime: CatalogRuntime): CatalogPrisma {
  * `classifyIngestFailure` matches on.
  */
 export async function inCatalogTransaction<T>(
-  runtime: CatalogRuntime,
+  db: CatalogRuntime,
   fn: (query: CatalogPrisma) => PromiseLike<T>,
 ): Promise<T> {
-  const connection = await runtime.connection();
+  const connection = await db.runtime().connection();
   let transaction: CatalogTransaction;
   try {
     transaction = await connection.transaction();
@@ -205,8 +212,8 @@ async function settleFailed(
  * Nothing is owed after a failed eviction. The driver marks the connection
  * closed BEFORE it awaits the socket's `end()`, and the failure unwinds through
  * `finally` blocks that detach the connection from the driver and drop its
- * lease — so the runtime's own `await using` disposal finds no delegate left to
- * close.
+ * lease — so the request connection's own `await using` disposal finds no
+ * delegate left to close.
  */
 async function evict(
   connection: { destroy(reason?: unknown): Promise<void> },

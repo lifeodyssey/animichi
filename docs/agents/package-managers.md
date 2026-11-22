@@ -32,7 +32,10 @@ contract suites.
   owner extends the date (`docs/agents/code-standards.md`). The exact versions left in the
   catalog and the manifests are held where something else decides them: the Pi packages (the pi
   version line in `docs/agents/owner-decisions.md`), the Prisma family, `@prisma/cli-engine`
-  included (#1741), and the eval package's `logfire` with `@pydantic/logfire-node`, which
+  included, which moves as one set because each `prisma` CLI release depends on one exact
+  `@prisma/orm-toolchain` and engine (only CLI 8.0.0-rc.34 depends on toolchain 8.0.0-rc.24, and
+  a caret on the family would admit a second toolchain copy beside it), and the eval package's
+  `logfire` with `@pydantic/logfire-node`, which
   `packages/eval/PINS.json` and `packages/eval/test/pins.test.ts` hold to one exact runtime.
 - **A scoped override retires itself** (#2058; written 2026-11-18, merged 2026-11-19). neonctl's
   `neon` package pins `diff` 5.2.0 exactly, which GHSA-73rr-hh4g-fpgx covers. The override

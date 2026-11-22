@@ -74,7 +74,8 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    through `src/redacted-cause.ts` first, and log it as well as return it,
    because the answer itself can be lost on the way out. A failure Prisma
    REPORTED keeps its stable code and, when the failure stated fields beyond
-   that code (`summary`, `why` of `MigrateFailure`), carries them as a
+   that code (`why` and the summary of the `CliStructuredError` it reports,
+   the error's `message`, since Prisma rc.19), carries them as a
    redacted `cause` and logs the same line (#1891). Every other handled
    outcome keeps its own identity and no cause: `refused`, a code-only native
    failure, `prisma_marker_mismatch`, `stale_prisma_bundle`. The one #1915
@@ -117,9 +118,13 @@ policy verifies identity before any secret or preview; this endpoint also requir
 
 The preview is Prisma's public `executeMigrateShowPlan`, which reads the live marker without
 initializing its schema, and returns `prisma: {targetHash, markerHash, migrations, usedLiveMarker}`.
+rc.24 reports the live marker as `databaseMarkerHashBySpace`, present only when the preview read
+the database, so the app space's entry is the `markerHash` (`empty` for an unsigned database) and
+its presence is `usedLiveMarker`; a preview without it is refused as `prisma_marker_unavailable`.
 An identity the bundle does not carry returns retryable `409 stale_prisma_bundle`; an unusable
-live path returns `422` with a stable code and never a driver detail. Nothing here creates a
-schema, applies a migration or takes the apply lock. A database still carrying the retired Atlas
+live path returns `422` with a stable code and never a driver detail, Prisma's own
+`MIGRATION.MARKER_MISMATCH` (rc.21) for a marker outside the sealed graph included. Nothing here
+creates a schema, applies a migration or takes the apply lock. A database still carrying the retired Atlas
 chain's revisions ledger is refused on both routes as
 `atlas_leftovers_present` before Prisma reads it (`src/atlas-leftovers.ts`, #1625): the baseline
 would otherwise fail with 42710 inside the apply. CD's staging job rebuilds that state first.
@@ -150,6 +155,19 @@ filesystem APIs then read the graph at `/bundle/migrations`.
 
 Native requests select only a 64-character hash in a packaged snapshot. They
 cannot supply SQL, a graph, a path or a DSN.
+
+The bundle starts in workerd only because `wrangler.toml` aliases `fdir` to
+`src/fdir-unavailable.ts`. Prisma rc.24 has no entry for its control client
+apart from `@prisma/orm-toolchain/cli/control-api`, whose one chunk also loads
+the CLI's config loader, and through tinyglobby that reaches `fdir`, whose
+module top level calls `createRequire(import.meta.url)`. workerd leaves
+`import.meta.url` undefined, so the sealed bundle failed at start. The rest of
+that CLI-side graph is still in the bundle and starts. `build-worker.mjs`
+makes the alias path absolute for its scratch config, and the esbuild-built
+fixtures read the same table (`test/wrangler-alias.ts`).
+`test/sealed-bundle.workerd.test.ts` builds the sealed bundle with the release
+script and boots it, and `test/deployment-contract.test.ts` pins `fdir` out of
+the graph.
 
 Prisma alone owns every object in the data plane and the `prisma_contract`
 marker schema. The direct migrator role needs database `CREATE` to initialize

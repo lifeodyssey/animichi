@@ -61,6 +61,7 @@ void test("the declared row is the contract's five columns, nulls included", asy
   assert.ok(sql.includes('"title":{"codecId":"pg/text@1","nullable":true}'), "a conversation exists before its title does");
   assert.ok(sql.includes('"first_query":{"codecId":"pg/text@1","nullable":true}'), "first_query is null for pre-#1608 rows");
   assert.ok(sql.includes('"updated_at":{"codecId":"pg/timestamptz-string@1","nullable":true}'), "the ordering column can be null in the table");
+  assert.ok(sql.includes('"created_at":{"codecId":"pg/timestamptz-string@1","nullable":true}'), "both timestamps read through the ISO instant codec");
 });
 
 void test("a row's nulls stay nulls: the sidebar's own title fallback is not re-derived here", async () => {

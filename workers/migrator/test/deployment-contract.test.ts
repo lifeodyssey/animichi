@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
+import { WORKER_ALIAS } from "./wrangler-alias";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const CONFIG = `${ROOT}workers/migrator/wrangler.toml`;
@@ -58,6 +59,29 @@ function reintroducesRetiredClass(migration: Migration): boolean {
     .includes(RETIRED_CLASS);
 }
 
+let entry: ReturnType<typeof bundleDeployedEntry> | undefined;
+
+/** The production ring's entry bundled once, with the Worker's own `[alias]`, as Wrangler would. */
+function bundleDeployedEntry() {
+  return build({
+    entryPoints: [ringConfig("production").main],
+    alias: { ...WORKER_ALIAS },
+    bundle: true,
+    external: ["cloudflare:workers"],
+    format: "esm",
+    loader: { ".sql": "text", ".sum": "text" },
+    metafile: true,
+    outfile: "migrator-contract.js",
+    platform: "node",
+    write: false,
+  });
+}
+
+function deployedEntry(): ReturnType<typeof bundleDeployedEntry> {
+  entry ??= bundleDeployedEntry();
+  return entry;
+}
+
 describe("migrator deployment retirement contract", () => {
   it("keeps every ring free of the retired container and binding", () => {
     for (const ring of RINGS) {
@@ -83,20 +107,19 @@ describe("migrator deployment retirement contract", () => {
   });
 
   it("bundles the deployed entry without the container SDK or retired class export", async () => {
-    const result = await build({
-      entryPoints: [ringConfig("production").main],
-      bundle: true,
-      external: ["cloudflare:workers"],
-      format: "esm",
-      loader: { ".sql": "text", ".sum": "text" },
-      metafile: true,
-      outfile: "migrator-contract.js",
-      platform: "node",
-      write: false,
-    });
-    const inputs = Object.keys(result.metafile.inputs);
-    const exports = Object.values(result.metafile.outputs).flatMap((output) => output.exports);
+    const { metafile } = await deployedEntry();
+    const inputs = Object.keys(metafile.inputs);
+    const exports = Object.values(metafile.outputs).flatMap((output) => output.exports);
     expect(inputs.some((path) => path.includes("@cloudflare/containers"))).toBe(false);
     expect(exports).not.toContain(RETIRED_CLASS);
+  });
+
+  // Prisma rc.24's control client still reaches tinyglobby, so the stand-in is in the graph; the
+  // crawler whose top level cannot run in workerd is not. If Prisma stops importing it, the
+  // stand-in leaves the graph too, and the alias is dead configuration to delete.
+  it("bundles the deployed entry with fdir's stand-in in place of fdir", async () => {
+    const inputs = Object.keys((await deployedEntry()).metafile.inputs);
+    expect(inputs.filter((path) => path.includes("/fdir/"))).toEqual([]);
+    expect(inputs.filter((path) => path.endsWith("src/fdir-unavailable.ts"))).toHaveLength(1);
   });
 });

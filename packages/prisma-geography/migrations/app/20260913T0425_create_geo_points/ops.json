@@ -35,7 +35,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"geo_points\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"geo_points\""
+        }
       }
     ],
     "execute": [
@@ -48,10 +52,16 @@
     "postcheck": [
       {
         "description": "verify table \"geo_points\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"geo_points\""
-        ]
+          "\"public\".\"geo_points\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"geo_points\""
+        }
       }
     ]
   },
@@ -74,7 +84,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"geo_points_location_gist_fb41678c\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"geo_points_location_gist_fb41678c\""
+        }
       }
     ],
     "execute": [
@@ -86,10 +100,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"geo_points_location_gist_fb41678c\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"geo_points_location_gist_fb41678c\" exists on \"geo_points\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"geo_points_location_gist_fb41678c\""
+          "\"public\".\"geo_points_location_gist_fb41678c\"",
+          "i",
+          "I",
+          "\"public\".\"geo_points\"",
+          "gist",
+          "[\"location\"]"
         ]
       }
     ]

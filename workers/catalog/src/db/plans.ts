@@ -1,5 +1,5 @@
 /**
- * The two things a Prisma 8 builder plan cannot say (#1630).
+ * The three things a Prisma 8 builder plan cannot say (#1630).
  *
  * `db.sql.<ns>.<table>.insert(rows)` / `.update(set)` produce parameterised plans,
  * but the builder's surface stops at `returning`, `annotate` and `build`:
@@ -10,16 +10,19 @@
  *     claims (`ingest/jobs.ts`, `ingest/run-store.ts`) state their predicate on
  *     an `update(…)` instead;
  *   - a write value is a BOUND value, so a column cannot be assigned the
- *     database's own clock: `now()` is not something the worker can bind.
+ *     database's own clock: `now()` is not something the worker can bind;
+ *   - a column the database GENERATES cannot be written, yet since rc.20 the
+ *     INSERT's row type requires it: the contract has no form for a stored
+ *     generated column, so it types one as a plain required column.
  *
- * Both are plan-level repairs on an AST the builder already produced, and both
- * hand the same plan back through `planFromAst`, so the row values, their
+ * All three are plan-level repairs on an AST the builder already produced, and
+ * all hand the same plan back through `planFromAst`, so the row values, their
  * parameter binding, the projection and the result type are untouched. A repair
  * names columns; the only value one carries is the interval a clock stamp is
  * offset by, and that one is bound (`param`) rather than rendered, so there is
  * no path from caller input into SQL text here.
  */
-import { ColumnRef, InsertOnConflict, RawExpr, param } from "@prisma/orm-postgres/relational-core";
+import { ColumnRef, DefaultValueExpr, InsertOnConflict, RawExpr, param } from "@prisma/orm-postgres/relational-core";
 import type { AnyExpression, InsertAst, UpdateAst } from "@prisma/orm-postgres/relational-core";
 import { planFromAst } from "@prisma/orm-postgres/relational-core/plan";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
@@ -62,6 +65,26 @@ export function atServerClock<Row>(
     return planFromAst<Row>(withStampsRows(insertAstOf(plan), offsets), catalogClient().contract);
   }
   throw new Error(`expected an INSERT or UPDATE plan, received ${ast.kind}`);
+}
+
+/**
+ * The columns the database generates (`GENERATED ALWAYS … STORED`) on the tables a catalog
+ * INSERT writes. The data-plane baseline generates `points.latitude` / `longitude` over
+ * `location` (its `generated-columns.ts`), and Postgres refuses any value but DEFAULT for
+ * either (`428C9`).
+ */
+const GENERATED_COLUMNS = { points: ["latitude", "longitude"] } as const;
+
+/**
+ * Send DEFAULT for every generated column of a builder-built INSERT, so the database writes
+ * them. The builder has still checked each row against the contract, generated columns
+ * included; the caller hands it the row's own coordinates, the values the database derives
+ * from the same `location`, and those values are not sent.
+ */
+export function generatedByTheDatabase<Row>(insert: SqlOrmPlan<Row>, table: keyof typeof GENERATED_COLUMNS): SqlOrmPlan<Row> {
+  const defaults = Object.fromEntries(GENERATED_COLUMNS[table].map((name) => [name, new DefaultValueExpr()]));
+  const ast = insertAstOf(insert);
+  return planFromAst<Row>(ast.withRows(ast.rows.map((row) => ({ ...row, ...defaults }))), catalogClient().contract);
 }
 
 /** Every assignment copies the proposed row's own column — never a bound value. */

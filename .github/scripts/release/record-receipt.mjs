@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { unstable_readConfig } from 'wrangler';
-import { deploymentIdentity, containerIdentity, awaitContainerImage, containerWaitBudgetMs } from '../../lib/release/observations.mjs';
+import { appliedSchema, deploymentIdentity, containerIdentity, awaitContainerImage, containerWaitBudgetMs } from '../../lib/release/observations.mjs';
 
 // #1683: every staging CD failed because `containers info` was read once, before
 // the application's asynchronous rollout reported the selected image. The knobs
@@ -75,14 +75,8 @@ function observeWorker(unit, environment, manifest, applications) {
 const environment = process.argv[2];
 assert.ok(['staging', 'production'].includes(environment), 'unknown receipt environment');
 const manifest = JSON.parse(readFileSync('release/release.json', 'utf8'));
-const schema = JSON.parse(readFileSync('schema-preflight.json', 'utf8'));
-assert.equal(schema.compatible, true);
 const prismaRef = JSON.parse(readFileSync('release/migrator/bundle/contract.json', 'utf8')).storage.storageHash;
-assert.match(prismaRef, /^[a-f0-9]{64}$/);
-assert.equal(schema.prisma.targetHash, prismaRef);
-assert.equal(schema.prisma.markerHash, prismaRef);
-assert.equal(schema.prisma.usedLiveMarker, true);
-assert.deepEqual(schema.prisma.migrations, []);
+const schema = appliedSchema(JSON.parse(readFileSync('schema-preflight.json', 'utf8')), prismaRef);
 const applications = wrangler('containers', 'list', '--json');
 const workers = ['migrator', 'catalog', 'users', 'api', 'web'].map((unit) => observeWorker(unit, environment, manifest, applications));
 const selection = JSON.parse(readFileSync('selection.json', 'utf8'));

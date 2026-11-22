@@ -1,5 +1,6 @@
 import { AGENT_DB_SETUP_BUDGET, createCleanDatabase, dropCleanDatabase, startTestPostgresCluster, uniqueDatabaseName, type TestPostgresCluster } from "@animichi/test-postgres";
 import postgresClient, { type PostgresClient } from "@prisma/orm-postgres/runtime";
+import { contractFromJson } from "@prisma/orm-postgres/static";
 import pg from "pg";
 import contractJson from "../../src/contract.json" with { type: "json" };
 import type { Contract } from "../../src/contract.d.ts";
@@ -10,6 +11,7 @@ import { prisma } from "./prisma-cli.ts";
 import { QueryLog, recordingPool } from "./recording-pool.ts";
 
 const CHAIN_SUITE = "prisma_geography_chain";
+const contract = contractFromJson<Contract>(contractJson);
 
 /** This pack's migration declares a `geography(Point,4326)` column and no extension; the evidence
  * builds a `gin_trgm_ops` index. The data plane's chain creates both for the real tables, so a
@@ -96,8 +98,8 @@ function createPools(dsn: string): readonly [pg.Pool, pg.Pool] {
 }
 
 function createDatabaseClient(driverPool: pg.Pool, queryLog: QueryLog): PostgresClient<Contract> {
-  return postgresClient<Contract>({
-    contractJson,
+  return postgresClient({
+    contract,
     pg: recordingPool(driverPool, queryLog),
     extensions: [geographyRuntimeDescriptor],
   });

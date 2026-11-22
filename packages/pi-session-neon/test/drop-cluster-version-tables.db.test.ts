@@ -5,7 +5,7 @@ import type pg from "pg";
 import contractJson from "../src/contract.json" with { type: "json" };
 import { cleanTarget, headOf, markerQuery, postcheckVerdict } from "./clean-target.ts";
 import { HEAD_GRANT_STEPS } from "./head-state.ts";
-import { migrate, packageRoot, prisma, prismaCliOutput } from "./prisma-migration.ts";
+import { migrate, packageRoot, prisma, prismaFailure } from "./prisma-migration.ts";
 import { cluster } from "./postgres.ts";
 
 /** SUT: the chain's `drop_cluster_version_tables` migration, applied by `prisma db migrate` to a
@@ -71,9 +71,11 @@ void test("a view on the table dropped second fails the migration, and both tabl
     // The first drop has run when the second meets the view, so finding cluster_version afterwards
     // means the apply rolled back as one transaction, and a refusal means no CASCADE.
     await assert.rejects(migrate(dsn), (failure: unknown) => {
-      const output = prismaCliOutput(failure);
-      assert.match(output, /MIGRATION\.EXECUTION_FAILED/u);
-      assert.match(output, /Operation dropTable\.itinerary_snapshots failed during execution/u);
+      const { code, meta } = prismaFailure(failure);
+      assert.equal(code, "MIGRATION.EXECUTION_FAILED");
+      assert.equal(meta.operationId, "dropTable.itinerary_snapshots");
+      assert.deepEqual(meta.blockingObjects, [{ kind: "view", name: "snapshot_reader" }]);
+      assert.equal(meta.databaseUnchanged, true);
       return true;
     });
     assert.deepEqual((await client.query(markerQuery)).rows, [{ core_hash: previous }]);

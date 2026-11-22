@@ -10,6 +10,20 @@ export function deploymentIdentity(deployment, version, source) {
   return { deployment_id: deployment.id, version_id: version.id };
 }
 
+// The receipt's schema view (#1634): the migrator's `/preflight` answer read after the apply.
+// It names the contract hash the release packaged as both the target and the live marker,
+// with nothing left to apply; `ReleaseReceipt.validate_schema` checks the same five values
+// on the recorded receipt.
+export function appliedSchema(schema, prismaRef) {
+  assert.equal(schema.compatible, true);
+  assert.match(prismaRef, /^[a-f0-9]{64}$/);
+  assert.equal(schema.prisma.targetHash, prismaRef);
+  assert.equal(schema.prisma.markerHash, prismaRef);
+  assert.equal(schema.prisma.usedLiveMarker, true);
+  assert.deepEqual(schema.prisma.migrations, []);
+  return schema;
+}
+
 export function containerIdentity(application, version, container, image, scriptName) {
   const binding = version.resources.bindings.find((item) => item.type === 'durable_object_namespace' && item.class_name === container.class_name && (!item.script_name || item.script_name === scriptName));
   assert.match(application.id, UUID, 'missing actual container application ID');

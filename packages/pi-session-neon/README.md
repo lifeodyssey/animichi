@@ -55,18 +55,11 @@ do not certify that host behavior. PostgreSQL transactions use Prisma 8's public
 native query APIs. Direct `pg` queries in tests independently inspect constraints, grants and
 conflicting pre-existing tables. Worker connections use Prisma's supported request-scoped lifecycle.
 
-Prisma 8 rc.9 reparses JSON root strings after its PostgreSQL driver has already decoded them.
-The pinned [native runtime patch](patches/@prisma__orm-target-postgres@8.0.0-rc.9.patch) leaves
-JSON text decoding to Prisma's existing codecs. It changes only the runtime query parser for
-JSON/JSONB and their SQL arrays; application values, codecs, control queries and global pg
-parsers remain unchanged. `test/json-values.db.test.ts` retains the string regressions.
-
-This is a temporary dependency correction, not an official Prisma release. Raw driver consumers
-below the codec layer receive JSON wire text, and the distributed chunk's source map is not
-regenerated. This package uses Prisma's typed runtime APIs. Remove the patch and its native pnpm
-declaration together only after an exact official release passes the unchanged JSON-value,
-array, transaction, marker and Worker checks without it. Patch application must fail on drift;
-never disable the regression tests or convert root strings into another storage format.
+Prisma 8 rc.9 reparsed JSON root strings after its PostgreSQL driver had already decoded them, and
+a pinned patch to that driver corrected it. From rc.15 the runtime driver returns every column as
+the text PostgreSQL printed and the JSON codecs decode it once, so the patch left with the rc.24
+upgrade. `test/json-values.db.test.ts` keeps the string regressions it was written for; never
+disable them or convert root strings into another storage format.
 
 After editing `src/contract.prisma`, run `contract:emit` and plan a migration from the intended
 contract hash or ref. Release migration selection must use the chosen artifact's contract hash,

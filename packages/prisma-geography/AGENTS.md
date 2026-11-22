@@ -22,8 +22,11 @@ chain (`packages/pi-session-neon/prisma.config.ts`) and the migrator
 The public package surface has seven exports. `./control` is the authoring/control descriptor loaded by
 `prisma.config.ts`; `./runtime` is a distinct runtime descriptor loaded by a Postgres client. Do not
 collapse them. The `geo.Geography(4326)` author must remain the only way this package creates its
-`geography(Point,4326)` column. Runtime values are structured longitude/latitude Points carrying the
-declared SRID. `dwithinMeters` and `distanceMeters` use PostGIS geography metre semantics;
+`geography(Point,4326)` column. Its data type, `geo/geography`, declares no parameters and writes that
+one column type: Prisma 8 (rc.24) fills a type text's `{param}` only from an arktype parameter schema,
+which this package does not depend on, so the codec keeps the column's `srid` and refuses every SRID
+but 4326 (`src/geography/srid.ts`), and `contract emit` refuses `geo.Geography(3857)`. Runtime values
+are structured longitude/latitude Points carrying the declared SRID. `dwithinMeters` and `distanceMeters` use PostGIS geography metre semantics;
 `knnOrder` must lower to the true `<->` infix operator.
 
 Application and migration/query authoring code must not use a raw-SQL fallback. Raw PostgreSQL text is

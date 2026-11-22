@@ -16,9 +16,9 @@
  */
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
-import { atServerNow, upsert } from "../db/plans";
+import { atServerNow, generatedByTheDatabase, upsert } from "../db/plans";
 import { asJsonValue } from "../db/json";
-import { TABLE_BY_KIND, tableRows } from "./snapshot-rows";
+import { SNAPSHOT_ROWS, TABLE_BY_KIND } from "./snapshot-rows";
 import { type ImportCandidate, type ImportKind } from "./import-snapshot";
 
 /** The atomic-switch seam the import orchestrator calls (AC4). */
@@ -78,17 +78,23 @@ function clearTable(query: CatalogPrisma, kind: ImportKind): SqlOrmPlan {
 }
 
 /**
- * INSERT a validated row set into one public catalog table.
- *
- * The table is chosen at run time from the kind, so the builder's INSERT is the
- * union of all six and its row type widens to what they have in common — this
- * one call site does NOT get the per-column check a named table's insert gets.
- * What covers it instead is the round trip: `import-integration` exports,
- * imports, and reads the values back, and a mapper that drops or renames a
- * column fails there rather than in the type system.
+ * One INSERT per kind, each on its own named table. A table chosen at run time would make
+ * the builder's INSERT the union of all six, whose row type since rc.20 is every table's
+ * required columns at once; named, each insert checks the columns its own table requires.
+ * `import-integration` still owns the round trip of the values themselves.
  */
+const LOAD_BY_KIND = {
+  works: (query, rows) => query.builder.public.bangumi.insert(SNAPSHOT_ROWS.works(rows)).build(),
+  points: (query, rows) => generatedByTheDatabase(query.builder.public.points.insert(SNAPSHOT_ROWS.points(rows)).build(), "points"),
+  aliases: (query, rows) => query.builder.public.aliases.insert(SNAPSHOT_ROWS.aliases(rows)).build(),
+  series: (query, rows) => query.builder.public.series_edges.insert(SNAPSHOT_ROWS.series(rows)).build(),
+  provenance: (query, rows) => query.builder.public.catalog_provenance.insert(SNAPSHOT_ROWS.provenance(rows)).build(),
+  media: (query, rows) => query.builder.public.media_assets.insert(SNAPSHOT_ROWS.media(rows)).build(),
+} as const satisfies Record<ImportKind, (query: CatalogPrisma, rows: readonly unknown[]) => SqlOrmPlan>;
+
+/** INSERT a validated row set into the public catalog table its kind loads. */
 function loadTable(query: CatalogPrisma, kind: ImportKind, rows: readonly unknown[]): SqlOrmPlan {
-  return query.builder.public[TABLE_BY_KIND[kind]].insert(tableRows(kind, rows)).build();
+  return LOAD_BY_KIND[kind](query, rows);
 }
 
 /** INSERT (or re-mark) the staging import run so the environment has observable state. */

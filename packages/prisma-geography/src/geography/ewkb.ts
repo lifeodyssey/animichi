@@ -25,6 +25,17 @@ export function encodePointEwkt(value: GeographyPoint): string {
   return `SRID=${String(value.srid)};POINT(${String(longitude)} ${String(latitude)})`;
 }
 
+/** The 25-byte little-endian EWKB of a point carrying its SRID, as PostGIS prints it: upper-case hex. */
+export function encodePointEwkbHex(value: GeographyPoint): string {
+  const view = new DataView(new ArrayBuffer(25));
+  view.setUint8(0, 1);
+  view.setUint32(1, (TYPE_POINT | FLAG_SRID) >>> 0, true);
+  view.setUint32(5, value.srid, true);
+  view.setFloat64(9, value.coordinates[0], true);
+  view.setFloat64(17, value.coordinates[1], true);
+  return Array.from(new Uint8Array(view.buffer), (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 function bytesOf(hex: string): Uint8Array {
   if (hex.length !== 50 || !/^[0-9a-f]+$/iu.test(hex)) {
     throw new TypeError("geography decode: expected 25-byte hex EWKB Point with SRID");

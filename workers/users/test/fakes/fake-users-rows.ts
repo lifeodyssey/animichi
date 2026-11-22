@@ -8,12 +8,13 @@
  * a type error here before it can be a wrong answer anywhere.
  */
 
-/** One saved_routes row as the in-memory store holds it. */
+/** One saved_routes row as the in-memory store holds it. `point_ids` is `String?[]`
+ * in the contract (rc.19 dropped `@noCheck`), so a stored element may be null. */
 export interface FakeSavedRouteRow {
   id: string;
   user_id: string | null;
   title: string | null;
-  point_ids: string[];
+  point_ids: (string | null)[];
   status: string;
   saved_at: string | null;
   updated_at: string;

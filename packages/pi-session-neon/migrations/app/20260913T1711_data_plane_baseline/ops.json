@@ -119,7 +119,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"agent_admissions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -132,10 +136,16 @@
     "postcheck": [
       {
         "description": "verify table \"agent_admissions\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"agent_admissions\""
-        ]
+          "\"public\".\"agent_admissions\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"agent_admissions\""
+        }
       }
     ]
   },
@@ -158,7 +168,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"agent_open_operations\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"agent_open_operations\""
+        }
       }
     ],
     "execute": [
@@ -171,10 +185,16 @@
     "postcheck": [
       {
         "description": "verify table \"agent_open_operations\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"agent_open_operations\""
-        ]
+          "\"public\".\"agent_open_operations\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"agent_open_operations\""
+        }
       }
     ]
   },
@@ -197,7 +217,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"agent_settlements\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"agent_settlements\""
+        }
       }
     ],
     "execute": [
@@ -210,10 +234,16 @@
     "postcheck": [
       {
         "description": "verify table \"agent_settlements\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"agent_settlements\""
-        ]
+          "\"public\".\"agent_settlements\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"agent_settlements\""
+        }
       }
     ]
   },
@@ -236,7 +266,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"aliases\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"aliases\""
+        }
       }
     ],
     "execute": [
@@ -249,10 +283,16 @@
     "postcheck": [
       {
         "description": "verify table \"aliases\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"aliases\""
-        ]
+          "\"public\".\"aliases\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"aliases\""
+        }
       }
     ]
   },
@@ -275,7 +315,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"bangumi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"bangumi\""
+        }
       }
     ],
     "execute": [
@@ -288,10 +332,16 @@
     "postcheck": [
       {
         "description": "verify table \"bangumi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"bangumi\""
-        ]
+          "\"public\".\"bangumi\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"bangumi\""
+        }
       }
     ]
   },
@@ -314,7 +364,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"catalog_provenance\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"catalog_provenance\""
+        }
       }
     ],
     "execute": [
@@ -327,10 +381,16 @@
     "postcheck": [
       {
         "description": "verify table \"catalog_provenance\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"catalog_provenance\""
-        ]
+          "\"public\".\"catalog_provenance\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"catalog_provenance\""
+        }
       }
     ]
   },
@@ -353,7 +413,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"catalog_runs\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"catalog_runs\""
+        }
       }
     ],
     "execute": [
@@ -366,10 +430,16 @@
     "postcheck": [
       {
         "description": "verify table \"catalog_runs\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"catalog_runs\""
-        ]
+          "\"public\".\"catalog_runs\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"catalog_runs\""
+        }
       }
     ]
   },
@@ -392,7 +462,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"cluster_version\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"cluster_version\""
+        }
       }
     ],
     "execute": [
@@ -405,10 +479,16 @@
     "postcheck": [
       {
         "description": "verify table \"cluster_version\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"cluster_version\""
-        ]
+          "\"public\".\"cluster_version\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"cluster_version\""
+        }
       }
     ]
   },
@@ -431,7 +511,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"ingest_jobs\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"ingest_jobs\""
+        }
       }
     ],
     "execute": [
@@ -444,10 +528,16 @@
     "postcheck": [
       {
         "description": "verify table \"ingest_jobs\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"ingest_jobs\""
-        ]
+          "\"public\".\"ingest_jobs\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"ingest_jobs\""
+        }
       }
     ]
   },
@@ -470,7 +560,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"itinerary_snapshots\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"itinerary_snapshots\""
+        }
       }
     ],
     "execute": [
@@ -483,10 +577,16 @@
     "postcheck": [
       {
         "description": "verify table \"itinerary_snapshots\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"itinerary_snapshots\""
-        ]
+          "\"public\".\"itinerary_snapshots\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"itinerary_snapshots\""
+        }
       }
     ]
   },
@@ -509,7 +609,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"leg_cache\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"leg_cache\""
+        }
       }
     ],
     "execute": [
@@ -522,10 +626,16 @@
     "postcheck": [
       {
         "description": "verify table \"leg_cache\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"leg_cache\""
-        ]
+          "\"public\".\"leg_cache\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"leg_cache\""
+        }
       }
     ]
   },
@@ -548,7 +658,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"location_aliases\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"location_aliases\""
+        }
       }
     ],
     "execute": [
@@ -561,10 +675,16 @@
     "postcheck": [
       {
         "description": "verify table \"location_aliases\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"location_aliases\""
-        ]
+          "\"public\".\"location_aliases\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"location_aliases\""
+        }
       }
     ]
   },
@@ -587,7 +707,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"locations\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"locations\""
+        }
       }
     ],
     "execute": [
@@ -600,10 +724,16 @@
     "postcheck": [
       {
         "description": "verify table \"locations\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"locations\""
-        ]
+          "\"public\".\"locations\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"locations\""
+        }
       }
     ]
   },
@@ -626,7 +756,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"media_assets\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"media_assets\""
+        }
       }
     ],
     "execute": [
@@ -639,10 +773,16 @@
     "postcheck": [
       {
         "description": "verify table \"media_assets\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"media_assets\""
-        ]
+          "\"public\".\"media_assets\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"media_assets\""
+        }
       }
     ]
   },
@@ -665,7 +805,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"points\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"points\""
+        }
       }
     ],
     "execute": [
@@ -678,10 +822,16 @@
     "postcheck": [
       {
         "description": "verify table \"points\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"points\""
-        ]
+          "\"public\".\"points\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"points\""
+        }
       }
     ]
   },
@@ -704,7 +854,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"raw_anitabi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"raw_anitabi\""
+        }
       }
     ],
     "execute": [
@@ -717,10 +871,16 @@
     "postcheck": [
       {
         "description": "verify table \"raw_anitabi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"raw_anitabi\""
-        ]
+          "\"public\".\"raw_anitabi\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"raw_anitabi\""
+        }
       }
     ]
   },
@@ -743,7 +903,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"raw_bangumi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"raw_bangumi\""
+        }
       }
     ],
     "execute": [
@@ -756,10 +920,16 @@
     "postcheck": [
       {
         "description": "verify table \"raw_bangumi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"raw_bangumi\""
-        ]
+          "\"public\".\"raw_bangumi\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"raw_bangumi\""
+        }
       }
     ]
   },
@@ -782,7 +952,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"raw_payload_history\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"raw_payload_history\""
+        }
       }
     ],
     "execute": [
@@ -795,10 +969,16 @@
     "postcheck": [
       {
         "description": "verify table \"raw_payload_history\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"raw_payload_history\""
-        ]
+          "\"public\".\"raw_payload_history\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"raw_payload_history\""
+        }
       }
     ]
   },
@@ -821,7 +1001,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"series_edges\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"series_edges\""
+        }
       }
     ],
     "execute": [
@@ -834,10 +1018,16 @@
     "postcheck": [
       {
         "description": "verify table \"series_edges\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"series_edges\""
-        ]
+          "\"public\".\"series_edges\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"series_edges\""
+        }
       }
     ]
   },
@@ -860,7 +1050,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"pi_list_values\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"pi_list_values\""
+        }
       }
     ],
     "execute": [
@@ -873,10 +1067,16 @@
     "postcheck": [
       {
         "description": "verify table \"pi_list_values\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"pi_list_values\""
-        ]
+          "\"public\".\"pi_list_values\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"pi_list_values\""
+        }
       }
     ]
   },
@@ -899,7 +1099,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"pi_records\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"pi_records\""
+        }
       }
     ],
     "execute": [
@@ -912,10 +1116,16 @@
     "postcheck": [
       {
         "description": "verify table \"pi_records\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"pi_records\""
-        ]
+          "\"public\".\"pi_records\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"pi_records\""
+        }
       }
     ]
   },
@@ -938,7 +1148,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"pi_scalar_values\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"pi_scalar_values\""
+        }
       }
     ],
     "execute": [
@@ -951,10 +1165,16 @@
     "postcheck": [
       {
         "description": "verify table \"pi_scalar_values\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"pi_scalar_values\""
-        ]
+          "\"public\".\"pi_scalar_values\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"pi_scalar_values\""
+        }
       }
     ]
   },
@@ -977,7 +1197,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"pi_sessions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"pi_sessions\""
+        }
       }
     ],
     "execute": [
@@ -990,10 +1214,16 @@
     "postcheck": [
       {
         "description": "verify table \"pi_sessions\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"pi_sessions\""
-        ]
+          "\"public\".\"pi_sessions\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"pi_sessions\""
+        }
       }
     ]
   },
@@ -1016,7 +1246,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"saved_route_anime\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"saved_route_anime\""
+        }
       }
     ],
     "execute": [
@@ -1029,10 +1263,16 @@
     "postcheck": [
       {
         "description": "verify table \"saved_route_anime\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"saved_route_anime\""
-        ]
+          "\"public\".\"saved_route_anime\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"saved_route_anime\""
+        }
       }
     ]
   },
@@ -1055,7 +1295,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"saved_route_idempotency\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"saved_route_idempotency\""
+        }
       }
     ],
     "execute": [
@@ -1068,10 +1312,16 @@
     "postcheck": [
       {
         "description": "verify table \"saved_route_idempotency\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"saved_route_idempotency\""
-        ]
+          "\"public\".\"saved_route_idempotency\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"saved_route_idempotency\""
+        }
       }
     ]
   },
@@ -1094,7 +1344,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"saved_routes\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"saved_routes\""
+        }
       }
     ],
     "execute": [
@@ -1107,10 +1361,16 @@
     "postcheck": [
       {
         "description": "verify table \"saved_routes\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
         "params": [
-          "\"public\".\"saved_routes\""
-        ]
+          "\"public\".\"saved_routes\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"saved_routes\""
+        }
       }
     ]
   },
@@ -1135,7 +1395,11 @@
           "agent_admissions_operation_id_key",
           "public",
           "\"public\".\"agent_admissions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"agent_admissions_operation_id_key\" on \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -1146,12 +1410,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"agent_admissions_operation_id_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"agent_admissions_operation_id_key\" exists on (operation_id)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "agent_admissions_operation_id_key",
           "public",
-          "\"public\".\"agent_admissions\""
+          "\"public\".\"agent_admissions\"",
+          "u",
+          "[\"operation_id\"]"
         ]
       }
     ]
@@ -1177,7 +1443,11 @@
           "agent_admissions_session_id_client_message_id_key",
           "public",
           "\"public\".\"agent_admissions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"agent_admissions_session_id_client_message_id_key\" on \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -1188,12 +1458,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"agent_admissions_session_id_client_message_id_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"agent_admissions_session_id_client_message_id_key\" exists on (session_id, client_message_id)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "agent_admissions_session_id_client_message_id_key",
           "public",
-          "\"public\".\"agent_admissions\""
+          "\"public\".\"agent_admissions\"",
+          "u",
+          "[\"session_id\",\"client_message_id\"]"
         ]
       }
     ]
@@ -1219,7 +1491,11 @@
           "aliases_bangumi_id_alias_source_key",
           "public",
           "\"public\".\"aliases\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"aliases_bangumi_id_alias_source_key\" on \"aliases\""
+        }
       }
     ],
     "execute": [
@@ -1230,12 +1506,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"aliases_bangumi_id_alias_source_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"aliases_bangumi_id_alias_source_key\" exists on (bangumi_id, alias, source)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "aliases_bangumi_id_alias_source_key",
           "public",
-          "\"public\".\"aliases\""
+          "\"public\".\"aliases\"",
+          "u",
+          "[\"bangumi_id\",\"alias\",\"source\"]"
         ]
       }
     ]
@@ -1261,7 +1539,11 @@
           "catalog_provenance_scope_entity_id_key",
           "public",
           "\"public\".\"catalog_provenance\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"catalog_provenance_scope_entity_id_key\" on \"catalog_provenance\""
+        }
       }
     ],
     "execute": [
@@ -1272,12 +1554,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"catalog_provenance_scope_entity_id_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"catalog_provenance_scope_entity_id_key\" exists on (scope, entity_id)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "catalog_provenance_scope_entity_id_key",
           "public",
-          "\"public\".\"catalog_provenance\""
+          "\"public\".\"catalog_provenance\"",
+          "u",
+          "[\"scope\",\"entity_id\"]"
         ]
       }
     ]
@@ -1303,7 +1587,11 @@
           "cluster_version_bangumi_id_version_key",
           "public",
           "\"public\".\"cluster_version\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"cluster_version_bangumi_id_version_key\" on \"cluster_version\""
+        }
       }
     ],
     "execute": [
@@ -1314,12 +1602,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"cluster_version_bangumi_id_version_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"cluster_version_bangumi_id_version_key\" exists on (bangumi_id, version)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "cluster_version_bangumi_id_version_key",
           "public",
-          "\"public\".\"cluster_version\""
+          "\"public\".\"cluster_version\"",
+          "u",
+          "[\"bangumi_id\",\"version\"]"
         ]
       }
     ]
@@ -1345,7 +1635,11 @@
           "pi_records_session_id_seq_key",
           "public",
           "\"public\".\"pi_records\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"pi_records_session_id_seq_key\" on \"pi_records\""
+        }
       }
     ],
     "execute": [
@@ -1356,12 +1650,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"pi_records_session_id_seq_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"pi_records_session_id_seq_key\" exists on (session_id, seq)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "pi_records_session_id_seq_key",
           "public",
-          "\"public\".\"pi_records\""
+          "\"public\".\"pi_records\"",
+          "u",
+          "[\"session_id\",\"seq\"]"
         ]
       }
     ]
@@ -1387,7 +1683,11 @@
           "saved_route_anime_saved_route_id_position_key",
           "public",
           "\"public\".\"saved_route_anime\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "constraint \"saved_route_anime_saved_route_id_position_key\" on \"saved_route_anime\""
+        }
       }
     ],
     "execute": [
@@ -1398,12 +1698,14 @@
     ],
     "postcheck": [
       {
-        "description": "verify constraint \"saved_route_anime_saved_route_id_position_key\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify unique constraint \"saved_route_anime_saved_route_id_position_key\" exists on (saved_route_id, position)",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb)) AS \"result\"",
         "params": [
           "saved_route_anime_saved_route_id_position_key",
           "public",
-          "\"public\".\"saved_route_anime\""
+          "\"public\".\"saved_route_anime\"",
+          "u",
+          "[\"saved_route_id\",\"position\"]"
         ]
       }
     ]
@@ -1427,7 +1729,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"agent_admissions_unresolved_4731a1b2\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"agent_admissions_unresolved_4731a1b2\""
+        }
       }
     ],
     "execute": [
@@ -1439,10 +1745,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"agent_admissions_unresolved_4731a1b2\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"agent_admissions_unresolved_4731a1b2\" exists on \"agent_admissions\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"agent_admissions_unresolved_4731a1b2\""
+          "\"public\".\"agent_admissions_unresolved_4731a1b2\"",
+          "i",
+          "I",
+          "\"public\".\"agent_admissions\"",
+          "btree",
+          "[\"kind\",\"created_at\"]"
         ]
       }
     ]
@@ -1466,7 +1777,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"agent_settlements_unsettled_3325215f\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"agent_settlements_unsettled_3325215f\""
+        }
       }
     ],
     "execute": [
@@ -1478,10 +1793,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"agent_settlements_unsettled_3325215f\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"agent_settlements_unsettled_3325215f\" exists on \"agent_settlements\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"agent_settlements_unsettled_3325215f\""
+          "\"public\".\"agent_settlements_unsettled_3325215f\"",
+          "i",
+          "I",
+          "\"public\".\"agent_settlements\"",
+          "btree",
+          "[\"operation_id\"]"
         ]
       }
     ]
@@ -1505,7 +1825,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_aliases_normalized\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_aliases_normalized\""
+        }
       }
     ],
     "execute": [
@@ -1517,10 +1841,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_aliases_normalized\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_aliases_normalized\" exists on \"aliases\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_aliases_normalized\""
+          "\"public\".\"idx_aliases_normalized\"",
+          "i",
+          "I",
+          "\"public\".\"aliases\"",
+          "btree",
+          "[\"alias_normalized\"]"
         ]
       }
     ]
@@ -1544,7 +1873,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_catalog_provenance_work\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_catalog_provenance_work\""
+        }
       }
     ],
     "execute": [
@@ -1556,10 +1889,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_catalog_provenance_work\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_catalog_provenance_work\" exists on \"catalog_provenance\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_catalog_provenance_work\""
+          "\"public\".\"idx_catalog_provenance_work\"",
+          "i",
+          "I",
+          "\"public\".\"catalog_provenance\"",
+          "btree",
+          "[\"work_id\"]"
         ]
       }
     ]
@@ -1583,7 +1921,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_catalog_runs_status\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_catalog_runs_status\""
+        }
       }
     ],
     "execute": [
@@ -1595,10 +1937,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_catalog_runs_status\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_catalog_runs_status\" exists on \"catalog_runs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_catalog_runs_status\""
+          "\"public\".\"idx_catalog_runs_status\"",
+          "i",
+          "I",
+          "\"public\".\"catalog_runs\"",
+          "btree",
+          "[\"status\"]"
         ]
       }
     ]
@@ -1622,7 +1969,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_cluster_version_current\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_cluster_version_current\""
+        }
       }
     ],
     "execute": [
@@ -1634,10 +1985,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_cluster_version_current\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_cluster_version_current\" exists on \"cluster_version\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_cluster_version_current\""
+          "\"public\".\"idx_cluster_version_current\"",
+          "i",
+          "I",
+          "\"public\".\"cluster_version\"",
+          "btree",
+          "[\"bangumi_id\",\"is_current\"]"
         ]
       }
     ]
@@ -1661,7 +2017,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"uq_cluster_version_one_current\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"uq_cluster_version_one_current\""
+        }
       }
     ],
     "execute": [
@@ -1673,10 +2033,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"uq_cluster_version_one_current\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"uq_cluster_version_one_current\" exists on \"cluster_version\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND \"i\".\"indisunique\" AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"uq_cluster_version_one_current\""
+          "\"public\".\"uq_cluster_version_one_current\"",
+          "i",
+          "I",
+          "\"public\".\"cluster_version\"",
+          "btree",
+          "[\"bangumi_id\"]"
         ]
       }
     ]
@@ -1700,7 +2065,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_itinerary_snapshots_bangumi_version\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_itinerary_snapshots_bangumi_version\""
+        }
       }
     ],
     "execute": [
@@ -1712,10 +2081,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_itinerary_snapshots_bangumi_version\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_itinerary_snapshots_bangumi_version\" exists on \"itinerary_snapshots\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_itinerary_snapshots_bangumi_version\""
+          "\"public\".\"idx_itinerary_snapshots_bangumi_version\"",
+          "i",
+          "I",
+          "\"public\".\"itinerary_snapshots\"",
+          "btree",
+          "[\"bangumi_id\",\"cluster_version\"]"
         ]
       }
     ]
@@ -1739,7 +2113,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_location_aliases_norm\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_location_aliases_norm\""
+        }
       }
     ],
     "execute": [
@@ -1751,10 +2129,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_location_aliases_norm\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_location_aliases_norm\" exists on \"location_aliases\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_location_aliases_norm\""
+          "\"public\".\"idx_location_aliases_norm\"",
+          "i",
+          "I",
+          "\"public\".\"location_aliases\"",
+          "btree",
+          "[\"alias_normalized\"]"
         ]
       }
     ]
@@ -1778,7 +2161,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_points_bangumi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_points_bangumi\""
+        }
       }
     ],
     "execute": [
@@ -1790,10 +2177,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_points_bangumi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_points_bangumi\" exists on \"points\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_points_bangumi\""
+          "\"public\".\"idx_points_bangumi\"",
+          "i",
+          "I",
+          "\"public\".\"points\"",
+          "btree",
+          "[\"bangumi_id\"]"
         ]
       }
     ]
@@ -1817,7 +2209,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_points_location\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_points_location\""
+        }
       }
     ],
     "execute": [
@@ -1829,10 +2225,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_points_location\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_points_location\" exists on \"points\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_points_location\""
+          "\"public\".\"idx_points_location\"",
+          "i",
+          "I",
+          "\"public\".\"points\"",
+          "gist",
+          "[\"location\"]"
         ]
       }
     ]
@@ -1856,7 +2257,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_saved_route_anime_bangumi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_saved_route_anime_bangumi\""
+        }
       }
     ],
     "execute": [
@@ -1868,10 +2273,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_saved_route_anime_bangumi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_saved_route_anime_bangumi\" exists on \"saved_route_anime\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_saved_route_anime_bangumi\""
+          "\"public\".\"idx_saved_route_anime_bangumi\"",
+          "i",
+          "I",
+          "\"public\".\"saved_route_anime\"",
+          "btree",
+          "[\"bangumi_id\"]"
         ]
       }
     ]
@@ -1895,7 +2305,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_saved_route_idempotency_expires\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_saved_route_idempotency_expires\""
+        }
       }
     ],
     "execute": [
@@ -1907,10 +2321,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_saved_route_idempotency_expires\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_saved_route_idempotency_expires\" exists on \"saved_route_idempotency\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_saved_route_idempotency_expires\""
+          "\"public\".\"idx_saved_route_idempotency_expires\"",
+          "i",
+          "I",
+          "\"public\".\"saved_route_idempotency\"",
+          "btree",
+          "[\"expires_at\"]"
         ]
       }
     ]
@@ -1934,7 +2353,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_saved_routes_user\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_saved_routes_user\""
+        }
       }
     ],
     "execute": [
@@ -1946,10 +2369,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_saved_routes_user\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_saved_routes_user\" exists on \"saved_routes\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_saved_routes_user\""
+          "\"public\".\"idx_saved_routes_user\"",
+          "i",
+          "I",
+          "\"public\".\"saved_routes\"",
+          "btree",
+          "[\"user_id\"]"
         ]
       }
     ]
@@ -1973,7 +2401,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"idx_series_edges_to_bangumi\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"idx_series_edges_to_bangumi\""
+        }
       }
     ],
     "execute": [
@@ -1985,10 +2417,15 @@
     ],
     "postcheck": [
       {
-        "description": "verify index \"idx_series_edges_to_bangumi\" exists",
-        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "description": "verify index \"idx_series_edges_to_bangumi\" exists on \"series_edges\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
         "params": [
-          "\"public\".\"idx_series_edges_to_bangumi\""
+          "\"public\".\"idx_series_edges_to_bangumi\"",
+          "i",
+          "I",
+          "\"public\".\"series_edges\"",
+          "btree",
+          "[\"to_bangumi_id\"]"
         ]
       }
     ]
@@ -2043,7 +2480,11 @@
           "agent_admissions_session_id_fkey",
           "public",
           "\"public\".\"agent_admissions\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"agent_admissions_session_id_fkey\" on \"agent_admissions\""
+        }
       }
     ],
     "execute": [
@@ -2054,12 +2495,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"agent_admissions_session_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"agent_admissions_session_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "agent_admissions_session_id_fkey",
           "public",
-          "\"public\".\"agent_admissions\""
+          "\"public\".\"agent_admissions\"",
+          "f",
+          "[\"session_id\"]",
+          "\"public\".\"pi_sessions\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2085,7 +2532,11 @@
           "agent_open_operations_operation_id_fkey",
           "public",
           "\"public\".\"agent_open_operations\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"agent_open_operations_operation_id_fkey\" on \"agent_open_operations\""
+        }
       }
     ],
     "execute": [
@@ -2096,12 +2547,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"agent_open_operations_operation_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"agent_open_operations_operation_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "agent_open_operations_operation_id_fkey",
           "public",
-          "\"public\".\"agent_open_operations\""
+          "\"public\".\"agent_open_operations\"",
+          "f",
+          "[\"operation_id\"]",
+          "\"public\".\"agent_admissions\"",
+          "[\"operation_id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2127,7 +2584,11 @@
           "agent_settlements_operation_id_fkey",
           "public",
           "\"public\".\"agent_settlements\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"agent_settlements_operation_id_fkey\" on \"agent_settlements\""
+        }
       }
     ],
     "execute": [
@@ -2138,12 +2599,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"agent_settlements_operation_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"agent_settlements_operation_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "agent_settlements_operation_id_fkey",
           "public",
-          "\"public\".\"agent_settlements\""
+          "\"public\".\"agent_settlements\"",
+          "f",
+          "[\"operation_id\"]",
+          "\"public\".\"agent_admissions\"",
+          "[\"operation_id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2169,7 +2636,11 @@
           "location_aliases_location_id_fkey",
           "public",
           "\"public\".\"location_aliases\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"location_aliases_location_id_fkey\" on \"location_aliases\""
+        }
       }
     ],
     "execute": [
@@ -2180,12 +2651,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"location_aliases_location_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"location_aliases_location_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "location_aliases_location_id_fkey",
           "public",
-          "\"public\".\"location_aliases\""
+          "\"public\".\"location_aliases\"",
+          "f",
+          "[\"location_id\"]",
+          "\"public\".\"locations\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2211,7 +2688,11 @@
           "pi_list_values_session_id_fkey",
           "public",
           "\"public\".\"pi_list_values\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"pi_list_values_session_id_fkey\" on \"pi_list_values\""
+        }
       }
     ],
     "execute": [
@@ -2222,12 +2703,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"pi_list_values_session_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"pi_list_values_session_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "pi_list_values_session_id_fkey",
           "public",
-          "\"public\".\"pi_list_values\""
+          "\"public\".\"pi_list_values\"",
+          "f",
+          "[\"session_id\"]",
+          "\"public\".\"pi_sessions\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2253,7 +2740,11 @@
           "pi_records_session_id_fkey",
           "public",
           "\"public\".\"pi_records\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"pi_records_session_id_fkey\" on \"pi_records\""
+        }
       }
     ],
     "execute": [
@@ -2264,12 +2755,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"pi_records_session_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"pi_records_session_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "pi_records_session_id_fkey",
           "public",
-          "\"public\".\"pi_records\""
+          "\"public\".\"pi_records\"",
+          "f",
+          "[\"session_id\"]",
+          "\"public\".\"pi_sessions\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2295,7 +2792,11 @@
           "pi_scalar_values_session_id_fkey",
           "public",
           "\"public\".\"pi_scalar_values\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"pi_scalar_values_session_id_fkey\" on \"pi_scalar_values\""
+        }
       }
     ],
     "execute": [
@@ -2306,12 +2807,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"pi_scalar_values_session_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"pi_scalar_values_session_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "pi_scalar_values_session_id_fkey",
           "public",
-          "\"public\".\"pi_scalar_values\""
+          "\"public\".\"pi_scalar_values\"",
+          "f",
+          "[\"session_id\"]",
+          "\"public\".\"pi_sessions\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2337,7 +2844,11 @@
           "points_bangumi_id_fkey",
           "public",
           "\"public\".\"points\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"points_bangumi_id_fkey\" on \"points\""
+        }
       }
     ],
     "execute": [
@@ -2348,12 +2859,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"points_bangumi_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"points_bangumi_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "points_bangumi_id_fkey",
           "public",
-          "\"public\".\"points\""
+          "\"public\".\"points\"",
+          "f",
+          "[\"bangumi_id\"]",
+          "\"public\".\"bangumi\"",
+          "[\"id\"]",
+          "a",
+          "a"
         ]
       }
     ]
@@ -2379,7 +2896,11 @@
           "saved_route_anime_saved_route_id_fkey",
           "public",
           "\"public\".\"saved_route_anime\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"saved_route_anime_saved_route_id_fkey\" on \"saved_route_anime\""
+        }
       }
     ],
     "execute": [
@@ -2390,12 +2911,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"saved_route_anime_saved_route_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"saved_route_anime_saved_route_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "saved_route_anime_saved_route_id_fkey",
           "public",
-          "\"public\".\"saved_route_anime\""
+          "\"public\".\"saved_route_anime\"",
+          "f",
+          "[\"saved_route_id\"]",
+          "\"public\".\"saved_routes\"",
+          "[\"id\"]",
+          "c",
+          "a"
         ]
       }
     ]
@@ -2421,7 +2948,11 @@
           "saved_route_anime_bangumi_id_fkey",
           "public",
           "\"public\".\"saved_route_anime\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"saved_route_anime_bangumi_id_fkey\" on \"saved_route_anime\""
+        }
       }
     ],
     "execute": [
@@ -2432,12 +2963,18 @@
     ],
     "postcheck": [
       {
-        "description": "verify FK \"saved_route_anime_bangumi_id_fkey\" exists",
-        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "description": "verify FK \"saved_route_anime_bangumi_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
         "params": [
           "saved_route_anime_bangumi_id_fkey",
           "public",
-          "\"public\".\"saved_route_anime\""
+          "\"public\".\"saved_route_anime\"",
+          "f",
+          "[\"bangumi_id\"]",
+          "\"public\".\"bangumi\"",
+          "[\"id\"]",
+          "a",
+          "a"
         ]
       }
     ]

@@ -8,8 +8,12 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 ## Commands (from `workers/users/`)
 
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
-- `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck`
-  (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+- `pnpm test` (`test:worker`, the `vitest-pool-workers` suites, then `test:node`) ·
+  `pnpm run typecheck` (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
+- `pnpm run test:node` — the plain-Node lane (`vitest.node.config.ts`): `test/sealed-bundle.node.test.ts`
+  builds the sealed release bundle with `.github/scripts/release/build-worker.mjs users`, the bytes
+  CD uploads, starts it in workerd and asserts `/healthz` 200. The worker pool evaluates unbundled
+  modules, so a failure that exists only in the bundle shows up in this lane alone.
 - `pnpm run test:integration` — the Docker Postgres arm (`vitest.integration.config.ts`), kept out of
   `test` per #1473; pre-push, the CI affected matrix and `make check-full` all run it for this package.
 
@@ -35,17 +39,20 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   the contract-bound builder (`query.builder.public.<table>…`) and executed through one call,
   `query.executor.query(plan)`, which returns the plan's own `Row[]` — the result type comes from the
   builder, so no adapter re-derives a shape from `unknown`. Per request: the `/v1/users/*` boundary
-  acquires a runtime (`acquireUsersRuntime`) and disposes it with `await using` on scope exit; there
-  is no connection cached across requests (spec §4.2).
+  opens a connection (`acquireUsersRuntime`) and disposes it with `await using` on scope exit; there
+  is no connection cached across requests (spec §4.2). Since Prisma rc.14 that `connect()` opens the
+  socket before it returns, so an unreachable database fails at the boundary, before routing.
 - **Arrays**: the builder binds `text[]` as one parameter — the old `sql.param(arr)::text[]` rule is
   gone with the Drizzle lane.
-- **timestamptz** arrives as a `Date` under Node and text under workerd → normalize
-  `new Date(v).toISOString()` at the boundary (`title` null → `""` is the other half of the same
+- **timestamptz** arrives as the codec's ISO 8601 UTC string with every fractional digit the server
+  sent, on workerd and Node alike (Prisma rc.21) → the boundary still maps it through
+  `new Date(v).toISOString()` (`src/db/timestamptz.ts`), the millisecond form the public model
+  carries and `apps/web` sorts as text (`title` null → `""` is the other half of the same
   public-model mapping).
 - **Identifiers belong to the database**: `saved_routes.id` is `uuidv7()`; no INSERT supplies one.
-  The idempotent create's route INSERT and ledger commit ride ONE `withTransaction`, which is what
-  lets the second statement read the first's `RETURNING` (the old neon-http batch could not, and
-  minted the id in the worker instead).
+  The idempotent create's route INSERT and ledger commit ride ONE transaction, the connection's own
+  `transaction(fn)`, which is what lets the second statement read the first's `RETURNING` (the old
+  neon-http batch could not, and minted the id in the worker instead).
 - **The ledger's reclaim predicate rides an UPDATE's own `WHERE`.** Prisma 8 has no
   `ON CONFLICT … DO UPDATE … WHERE` (spec U2), so `claim` is an INSERT whose composite-key conflict
   is read as "already claimed", and `reclaim` is an UPDATE. The predicate must be evaluated against

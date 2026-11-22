@@ -9,6 +9,7 @@ import { requestMetadata, TARGET } from "./prisma-fixture";
 import { buildPrismaWorker } from "./prisma-bundle";
 import { startPrismaWorker } from "./prisma-workerd";
 import { openPrismaMigrationTarget, type PrismaMigrationTarget } from "./prisma-postgres";
+import { packagedPrismaRef, receiptVerdicts } from "./receipt-schema-view";
 import { grantDatabaseCreate, migratorDsn, migratorRole } from "./prisma-role";
 import { saveEvidence } from "./neon-http-postgres";
 import { roleBootTest, roleBootCluster } from "./role-boot";
@@ -27,6 +28,7 @@ const PAST_THE_CALLBACK_CAP_MS = 31_000;
 
 let runtime: Awaited<ReturnType<typeof startPrismaWorker>>;
 let token: string;
+let packagedRef: string;
 let target: PrismaMigrationTarget | undefined;
 let client: pg.Client | undefined;
 const resources: { runtime?: typeof runtime; directory?: string } = {};
@@ -40,6 +42,7 @@ function dataPlane(): { client: pg.Client; dsn: string } {
 beforeAll(async () => {
   const directory = resources.directory = await mkdtemp(join(tmpdir(), "native-migrator-worker-"));
   await buildPrismaWorker(directory);
+  packagedRef = await packagedPrismaRef(directory);
   const cluster = await roleBootCluster();
   target = await openPrismaMigrationTarget(cluster.adminDsn, "native_delivery_worker_contract");
   client = new pg.Client(target.dsn);
@@ -108,6 +111,22 @@ roleBootTest("runs authenticated preview and concurrent apply through the deploy
     replayMs: replayed - migrated, totalMs: replayed - started });
   await saveEvidence("native-workerd-fixed-lock", { applied, replay: replayBody });
 }, SPIKE_SETUP_BUDGET.chainMarginMs);
+
+/* CD's two reads after the apply, against the deployed entry: "Verify the promoted catalog schema"
+ * reads the three catalog tables back (#1230), and the receipt records `/preflight`'s answer, which
+ * `record-receipt.mjs` and `verify-receipt.rb` each check against the contract hash the bundle
+ * packages (#1634). The same answer against another hash is refused by both, so neither check
+ * passes for free. */
+roleBootTest("serves CD's post-apply reads: the promoted catalog schema and the receipt's schema view", async ({ roleBoot }) => {
+  expect((await roleBoot.hold(() => applyReceipt())).status).toBe(200);
+  const schema = await runtime.worker.dispatchFetch("https://migrator.test/catalog-schema", { headers: { authorization: `Bearer ${token}` } });
+  expect({ status: schema.status, body: await schema.json() }).toEqual({ status: 200,
+    body: { status: "ok", tables: { bangumi: true, points: true, ingest_jobs: true }, missing: [] } });
+  const view: unknown = await (await post("preflight")).json();
+  expect(await receiptVerdicts(view, packagedRef)).toEqual({ record: "accepted", verify: "accepted" });
+  const elsewhere = await receiptVerdicts(view, "f".repeat(64));
+  expect([elsewhere.record, elsewhere.verify].map((verdict) => verdict.startsWith("refused:"))).toEqual([true, true]);
+});
 
 /* The 2026-09-22 staging failure, against the real data plane (#1868). The apply here is the
  * deployed bundle's own — real graph, real Prisma control client, real PostgreSQL, real fixed

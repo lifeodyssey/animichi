@@ -60,7 +60,7 @@ void test("a marker no edge starts or ends at is no node", () => {
   assert.equal(placed(CHAIN, D), "OFF_GRAPH\n");
 });
 
-// rc.23 keeps named refs beside the migrations (`migrations/app/refs/db.json`); a directory without
+// rc.24 keeps named refs beside the migrations (`migrations/app/refs/db.json`); a directory without
 // a manifest is no edge, so the hash a ref points at is no node unless an edge names it.
 void test("a hash only a ref names is no node", () => {
   const outcome = withGraph(edges(CHAIN), (graph) => {

@@ -12,8 +12,9 @@
  * What survives is the narrow part that is a policy rather than a shape:
  * `title` is nullable in the contract but non-null in the public model (null
  * reads as ""), the contract types `status` as a plain String where the public
- * model wants the domain's union, and `timestamptz` is normalized to ISO at the
- * wire boundary — a deployment fact about workerd, not a guess about the shape.
+ * model wants the domain's union, and `timestamptz` is normalized at the wire
+ * boundary to the millisecond ISO form the public model carries (the codec's
+ * own read keeps every fractional digit; see src/db/timestamptz.ts).
  *
  * Owns statement building and row mapping. The newest-update-first order the
  * SavedRouteReader port promises (src/application/list-saved-routes.ts) is the
@@ -43,12 +44,23 @@ function savedRouteStatus(value: string): SavedRouteStatus {
   return value;
 }
 
+function isPointId(value: string | null): value is string {
+  return value !== null;
+}
+
+/** The contract types `point_ids` as `String?[]`; the public model has no null element. */
+function savedRoutePointIds(values: readonly (string | null)[]): string[] {
+  const pointIds = values.filter(isPointId);
+  if (pointIds.length !== values.length) throw new Error("invalid saved route row");
+  return pointIds;
+}
+
 /** Map one typed row onto the public saved-route model. */
 export function toSavedRoute(row: SavedRouteRow): SavedRoute {
   return {
     id: row.id,
     title: row.title ?? "",
-    point_ids: [...row.point_ids],
+    point_ids: savedRoutePointIds(row.point_ids),
     status: savedRouteStatus(row.status),
     saved_at: nullableIso(row.saved_at),
     updated_at: iso(row.updated_at),
@@ -79,6 +91,9 @@ function findOwnerPlan(builder: UsersStatementBuilder, id: string) {
     .build();
 }
 
+/** One saved_routes INSERT row, as the contract's builder types it. */
+export type SavedRouteInsertRow = Parameters<UsersStatementBuilder["public"]["saved_routes"]["insert"]>[0][number];
+
 /** The columns a create writes. `id` is absent on purpose: the column's
  * `uuidv7()` default assigns it, so the database owns identity (#1632, §4.2).
  * `updated_at` is absent too wherever the column default may speak. */
@@ -86,7 +101,7 @@ function createValues(
   userId: string,
   input: SaveSavedRouteInput,
   savedAt: string | null,
-): Record<string, unknown> {
+): SavedRouteInsertRow {
   return {
     user_id: userId, title: input.title, point_ids: input.point_ids,
     status: input.status, saved_at: savedAt,
@@ -96,7 +111,7 @@ function createValues(
 /** INSERT ... RETURNING from one already-built values record. */
 export function insertSavedRoutePlan(
   builder: UsersStatementBuilder,
-  values: Record<string, unknown>,
+  values: SavedRouteInsertRow,
 ): SqlOrmPlan<SavedRouteRow> {
   return builder.public.saved_routes
     .insert([values])
