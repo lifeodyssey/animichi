@@ -237,7 +237,7 @@ jobs:
       # out to it. `pr-verification-affected.test.rb` pins the pairing, so a
       # dropped step fails a test instead of that package's lane.
       #   infra          -> pulumi (test:program-load loads the program through
-      #                             the real language host, infra-check.sh:83-88)
+      #                             the real language host, infra-check.sh:87-92)
       - name: Install the pinned Pulumi CLI for the infra program load
         if: ${{ matrix.package == 'infra' }}
         uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
