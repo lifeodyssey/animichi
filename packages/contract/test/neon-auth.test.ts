@@ -1,12 +1,12 @@
 /**
- * The Neon Auth JWKS address and issuer: `src/neon-auth.ts` and the copy infra keeps.
+ * The Neon Auth JWKS address and issuer, pinned by their literal outputs.
  *
- * The API Worker verifies a Neon Auth JWT against `NEON_AUTH_JWKS_URL` and reads the issuer it
- * expects from `src/neon-auth.ts`. The two Pulumi programs cannot import this package: CD applies
- * them from a sealed tree that carries `infra/` and the root manifests alone
- * (`.github/scripts/release/seal-foundation.sh`). Both import one copy, `infra/src/neon-auth.ts`,
- * and this file binds it to the same literal outputs as the original. A derived value that moves by
- * one character fails every login, so no expectation here is computed by the code under test.
+ * The address has one definition, `jwksUrlFromAuthBaseUrl` in `infra/src/neon-auth.ts`: only the
+ * two Pulumi programs derive it, and both import it. The issuer has two: `src/neon-auth.ts`, which
+ * the API Worker reads, and infra's copy, kept because CD applies the Pulumi programs from a sealed
+ * tree that carries `infra/` and the root manifests alone (`.github/scripts/release/seal-foundation.sh`).
+ * A derived value that moves by one character fails every login, so no expectation here is
+ * computed by the code under test.
  *
  * pnpm selects neither this package nor `infra` for the other's change, so the file runs in both
  * lanes: here, and in infra's `pnpm test` as `test:neon-auth-parity`.
@@ -18,11 +18,6 @@ import * as infra from "../../../infra/src/neon-auth";
 import * as contract from "../src/neon-auth";
 
 type Derivation = (input: string) => string;
-
-const JWKS_COPIES: [string, Derivation][] = [
-  ["@animichi/contract", contract.jwksUrlFromAuthBaseUrl],
-  ["infra", infra.jwksUrlFromAuthBaseUrl],
-];
 
 const ISSUER_COPIES: [string, Derivation][] = [
   ["@animichi/contract", contract.issuerFromJwksUrl],
@@ -78,9 +73,9 @@ const UNPARSEABLE: [string, string][] = [
   ["the address an empty base URL derives", "/.well-known/jwks.json"],
 ];
 
-describe.each(JWKS_COPIES)("%s jwksUrlFromAuthBaseUrl", (_copy, derive) => {
+describe("infra jwksUrlFromAuthBaseUrl", () => {
   it.each(JWKS_ADDRESSES)("%s", (_input, baseUrl, address) => {
-    expect(derive(baseUrl)).toBe(address);
+    expect(infra.jwksUrlFromAuthBaseUrl(baseUrl)).toBe(address);
   });
 });
 

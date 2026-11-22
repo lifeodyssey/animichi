@@ -12,8 +12,7 @@
  */
 import * as pulumi from "@pulumi/pulumi";
 import * as cloudflare from "@pulumi/cloudflare";
-// infra's copy, not @animichi/contract's: CD applies this program from a sealed
-// tree that carries `infra/` alone.
+// The JWKS address's one definition, shared with infra's own program.
 import { jwksUrlFromAuthBaseUrl } from "../src/neon-auth.ts";
 
 /** Where the store lives and what a DSN composed against it needs. */

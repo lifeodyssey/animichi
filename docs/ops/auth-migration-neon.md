@@ -191,8 +191,9 @@ by that script's own `node --env-file-if-exists` and optional, #1813; PR CI repo
 it as `NOT RUN`, see above), and it is the strongest local evidence available without a deploy.
 
 **IaC declarations (no pulumi run yet):** the staging issuer/JWKS derivation and QA login creds are
-declared in `infra/src/neon-auth.ts` (pure derivation, a copy of the API Worker's
-`packages/contract/src/neon-auth.ts`, bound to it by `packages/contract/test/neon-auth.test.ts`),
+declared in `infra/src/neon-auth.ts` (pure derivation: the JWKS address's one definition, plus a
+copy of the API Worker's issuer in `packages/contract/src/neon-auth.ts`; both are pinned by
+`packages/contract/test/neon-auth.test.ts`),
 exported from `infra/index.ts` (`neonAuthJwksUrl`, `neonAuthIssuer`, `qaNeonUser*`), and provisioned
 as Cloudflare Secrets Store secrets in `infra/database-access`, which imports the same
 `infra/src/neon-auth.ts` — all config-gated, so stacks apply

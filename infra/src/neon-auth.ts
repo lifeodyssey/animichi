@@ -7,13 +7,15 @@
 // config, preventing the split-var placeholder gap documented in
 // `docs/ops/auth-migration-neon.md` §8.
 //
-// The two derivations are a copy of `packages/contract/src/neon-auth.ts`, the
-// one the API Worker imports. CD applies this program and `database-access/`
-// from a sealed tree that carries `infra/` alone
-// (`.github/scripts/release/seal-foundation.sh`), so neither can take that
-// package as a dependency; `database-access/store-secrets.ts` imports this copy.
-// `packages/contract/test/neon-auth.test.ts` binds it to the same literal
-// outputs, and this package's `pnpm test` runs it as `test:neon-auth-parity`.
+// `jwksUrlFromAuthBaseUrl` is the JWKS address's one definition: only this
+// program and `database-access/` derive the address, and
+// `database-access/store-secrets.ts` imports it from here. `issuerFromJwksUrl`
+// is a copy of `packages/contract/src/neon-auth.ts`, the one the API Worker
+// imports: CD applies both programs from a sealed tree that carries `infra/`
+// alone (`.github/scripts/release/seal-foundation.sh`), so neither can take that
+// package as a dependency. `packages/contract/test/neon-auth.test.ts` pins the
+// address and binds the issuer copy to the contract's, and this package's
+// `pnpm test` runs it as `test:neon-auth-parity`.
 //
 // Pure functions only — no resources, no side effects, no imports — so that
 // test can load them without a Pulumi runtime.

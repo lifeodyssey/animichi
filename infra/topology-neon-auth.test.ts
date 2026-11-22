@@ -2,9 +2,10 @@
  *
  * A separate file from the topology-*.test.ts files that import `index.ts`:
  * it pins the names the edge and the QA login depend on without constructing a
- * Pulumi stack. The JWKS/issuer derivation in `src/neon-auth.ts` is pinned with
- * the contract module it copies by `packages/contract/test/neon-auth.test.ts`,
- * which `pnpm test` runs as `test:neon-auth-parity`.
+ * Pulumi stack. The JWKS address and issuer derivations in `src/neon-auth.ts`
+ * are pinned by `packages/contract/test/neon-auth.test.ts`, the issuer beside
+ * the contract module it copies; `pnpm test` runs that file as
+ * `test:neon-auth-parity`.
  */
 
 import { test } from "node:test";
