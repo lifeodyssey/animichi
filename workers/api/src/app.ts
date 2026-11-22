@@ -8,6 +8,7 @@ import { HandleGatewayRequest, gatewayFailure, type GatewayDeps } from "./gatewa
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 import { neonAgentTurnTier, type AgentTurnTier } from "./gateway/agent-turn.ts";
+import { requestIdScope } from "./gateway/request-id.ts";
 import type { SessionAdoptionStore } from "./identity/session-adopt.ts";
 
 /** The main Worker app: a pure API and asset gateway. Every request —
@@ -50,6 +51,8 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
 export function createWorkerApp(deps: WorkerDeps): WorkerApp {
   const app = new Hono<{ Bindings: Env }>();
   const gates = resolveGates(deps);
+  // Outermost, so the request ID scopes everything below it, `onError` included.
+  app.use("*", requestIdScope);
   app.all("*", (c) => HandleGatewayRequest(c.env, c.req.raw, c.executionCtx, gates));
   // EG-06: without this an unexpected throw is Hono's plain-text 500, outside
   // every envelope and outside the request record.

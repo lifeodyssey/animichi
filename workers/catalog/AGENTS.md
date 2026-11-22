@@ -39,6 +39,11 @@ Root guide: `../../AGENTS.md`.
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
   `test/no-hyperdrive.worker.test.ts` is the tripwire.
+- **The gateway's request ID.** The `/catalog/*` boundary puts `X-Request-Id` into the request's
+  context through `acceptedRequestId` (`@animichi/contract/internal-binding`), which keeps only the
+  gateway's lowercase-UUID format; catalog has no public host, so the header can only have come
+  over the API Worker's binding. The request lines (`resolve`, `nearby`, `plan-itinerary`) write it
+  as `request_id=`, and `-` when none came, which is every SessionAgent catalog call today.
 - PostGIS via the geography pack's typed operations — do not vectorize structured geo (SD-29).
   Distances are reported AND ordered by the spheroid (`ST_Distance`), one metric, never `<->`
   (§4.11).

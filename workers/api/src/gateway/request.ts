@@ -19,6 +19,7 @@ import {
 import { publicReadKey } from "./read-key.ts";
 import { turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
+import { withRequestId } from "./request-id.ts";
 import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
@@ -31,27 +32,27 @@ import type { SessionAdoptionStore } from "../identity/session-adopt.ts";
 // order. app.ts delegates to it once.
 
 /** Structured, credential-free request record (EDGE-1 #963): identity kind
- * (class), upstream status and duration only — never a token, trusted
- * header, user identifier, path or payload. */
+ * (class), upstream status, duration and the request ID only — never a token,
+ * trusted header, user identifier, path or payload. */
 function observe(route: RequestClass, status: number, startedMs: number): void {
-  console.warn(JSON.stringify({
+  console.warn(JSON.stringify(withRequestId({
     event: "edge_gateway_request",
     class: route.kind,
     status,
     duration_ms: Date.now() - startedMs,
-  }));
+  })));
 }
 
 /** Entry-side counterpart to `observe`, logged BEFORE dispatch: without it a
  * request whose response never lands (mid-flight cancel) leaves no trace at
- * all. Route class + method only — pathnames carry
+ * all. Route class, method and request ID only — pathnames carry
  * identifiers (`/v1/conversations/{session_id}`), so they stay out of logs. */
 function observeEntry(route: RequestClass, request: Request): void {
-  console.warn(JSON.stringify({
+  console.warn(JSON.stringify(withRequestId({
     event: "edge_gateway_request_start",
     class: route.kind,
     method: request.method,
-  }));
+  })));
 }
 
 export interface GatewayDeps extends AgentTierGates {
@@ -101,12 +102,12 @@ const GATEWAY_FAILURE_STATUS = 500;
  * message, which is a server-side string that may carry a DSN or a stack — and
  * the same rejection envelope as every deliberate refusal. */
 export function gatewayFailure(error: unknown, request: Request): Response {
-  console.warn(JSON.stringify({
+  console.warn(JSON.stringify(withRequestId({
     event: "edge_gateway_error",
     class: classify(request).kind,
     status: GATEWAY_FAILURE_STATUS,
     error: error instanceof Error ? error.name : "unknown",
-  }));
+  })));
   return internalError();
 }
 

@@ -84,6 +84,11 @@ retired run engine and envelope paths have no forwarding modules.
   #950); `src/identity/auth.ts` resolves anonymous vs Neon-Auth JWT (the
   `sk_*` API-key path and the `agent` identity class are deleted, AUTH-1 #945), and
   `src/gateway/forward.ts` injects the identity headers.
+- Every request gets one ID at entry (`src/gateway/request-id.ts`): a minted UUID, never the
+  caller's `X-Request-Id` or `cf-ray`, held in the request's `AsyncLocalStorage` scope. The Users
+  and public catalog forwards send it on `X-Request-Id` (`@animichi/contract/internal-binding`) and
+  the response returns it under that name. A structured record wraps its fields in
+  `withRequestId(...)`, which adds `request_id` inside a request and nothing outside one.
 - Policy stays in pure functions (`routing-policy.ts`, `rate-policy.ts`) so it runs under
   node:test with no Cloudflare bindings; `app.ts` only wires them up. New public paths go in the
   policy tables, not in a forwarding module. The public catalog surface — its path matcher and the

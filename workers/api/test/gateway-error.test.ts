@@ -80,11 +80,14 @@ void test("the request that failed still leaves a completion record", async () =
   assert.equal(typeof completion.duration_ms, "number");
 });
 
-void test("the failure is logged once as a structured error naming class, status and error name", async () => {
-  const { lines } = await withWarnSpy(failingRequest);
+void test("the failure is logged once as a structured error naming class, status, error name and request ID", async () => {
+  const { response, lines } = await withWarnSpy(failingRequest);
   const failures = recordsIn(lines).filter((record) => record.event === "edge_gateway_error");
   assert.equal(failures.length, 1);
-  assert.deepEqual(failures[0], { event: "edge_gateway_error", class: "v1", status: 500, error: "TypeError" });
+  assert.deepEqual(failures[0], {
+    event: "edge_gateway_error", class: "v1", status: 500, error: "TypeError",
+    request_id: response.headers.get("X-Request-Id"),
+  });
 });
 
 void test("neither the answer nor the log repeats the thrown message", async () => {

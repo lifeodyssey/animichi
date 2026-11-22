@@ -21,20 +21,24 @@ export interface NearbyInput {
   radius_m: number;
 }
 
-/** Redacted observation line: radius bucket, count, outcome, duration — no coordinates. */
-const observer: NearbyObserverPort = {
-  record: (observation: NearbyObservation) => {
-    console.info(
-      `nearby ${observation.outcome} bucket=${observation.radius_bucket} `
-      + `count=${String(observation.count)} ${String(observation.duration_ms)}ms`,
-    );
-  },
-};
+/** Redacted observation line: radius bucket, count, outcome, duration and the
+ * gateway's request ID (`-` when none came) — no coordinates. */
+function nearbyObserver(requestId: string | undefined): NearbyObserverPort {
+  return {
+    record: (observation: NearbyObservation) => {
+      console.info(
+        `nearby ${observation.outcome} bucket=${observation.radius_bucket} `
+        + `count=${String(observation.count)} ${String(observation.duration_ms)}ms request_id=${requestId ?? "-"}`,
+      );
+    },
+  };
+}
 
 /** Points within `input.radius_m` meters of (lat,lng), nearest first, with `distance_m`. */
 export async function nearby(
   prisma: CatalogPrisma,
   input: NearbyInput,
+  requestId?: string,
 ): Promise<{ rows: Point[] }> {
-  return nearbyPoints(nearbyGeoPort(prisma), nearbyDetailsPort(prisma), input, { observer });
+  return nearbyPoints(nearbyGeoPort(prisma), nearbyDetailsPort(prisma), input, { observer: nearbyObserver(requestId) });
 }

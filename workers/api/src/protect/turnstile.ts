@@ -3,6 +3,7 @@
 import { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
 
 import { readStoreOrString } from "../env.ts";
+import { withRequestId } from "../gateway/request-id.ts";
 
 export { TURNSTILE_HEADER, TURNSTILE_WINDOW_MS };
 
@@ -64,7 +65,7 @@ const SITEVERIFY_UNAVAILABLE: TurnstileResult = { ok: false, errorCodes: ["sitev
 
 /** Structured, credential-free record of a verification outage. */
 function logSiteverifyUnavailable(reason: string): void {
-  console.error(JSON.stringify({ event: "edge_turnstile_siteverify_unavailable", reason }));
+  console.error(JSON.stringify(withRequestId({ event: "edge_turnstile_siteverify_unavailable", reason })));
 }
 
 function stringsOf(value: unknown): readonly string[] {
@@ -206,7 +207,7 @@ function rejection(): Response {
  * otherwise look exactly like a bot wave. Callers still get a plain 403 — the
  * record is edge-internal and names no token, identity or secret. */
 function logMissingSecret(): void {
-  console.error(JSON.stringify({ event: "edge_turnstile_secret_missing" }));
+  console.error(JSON.stringify(withRequestId({ event: "edge_turnstile_secret_missing" })));
 }
 
 async function turnstileSecret(env: TurnstileEnv): Promise<string | null> {

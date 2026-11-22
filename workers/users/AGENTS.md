@@ -28,6 +28,10 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   here. Cross-user access to an owned row → defined **403** `ROUTE_NOT_OWNED`.
 - There is no service-to-service secret beyond this no-public-route premise: the users worker has
   no route that is reachable outside the edge binding.
+- The gateway's request ID arrives on the same binding as `X-Request-Id`, and `admit` takes it with
+  the identity, through `acceptedRequestId` (`@animichi/contract/internal-binding`): only the
+  gateway's lowercase-UUID format is kept, so no other header text reaches a log line. The list
+  line writes it as `request_id=` (`-` when none came).
 
 ## Stack + workerd gotchas (mirrors catalog — read `../catalog/AGENTS.md` for the long form)
 

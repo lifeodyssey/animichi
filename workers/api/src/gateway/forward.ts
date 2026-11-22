@@ -1,16 +1,27 @@
 import type { Env } from "../env.ts";
-import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
+import {
+  AUTHORIZATION_HEADER, REQUEST_ID_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER,
+} from "@animichi/contract/internal-binding";
+import { currentRequestId } from "./request-id.ts";
 
 const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
 
-/** Rebuild anonymous catalog headers from a minimal, non-sensitive allowlist. */
+/** Rebuild anonymous catalog headers from a minimal, non-sensitive allowlist,
+ * plus this request's ID. */
 function publicCatalogHeaders(request: Request): Headers {
   const headers = new Headers();
   for (const name of PUBLIC_CATALOG_HEADERS) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  applyRequestId(headers);
   return headers;
+}
+
+/** Send this request's ID with the forward: the service logs the gateway's ID. */
+function applyRequestId(headers: Headers): void {
+  const requestId = currentRequestId();
+  if (requestId !== undefined) headers.set(REQUEST_ID_HEADER, requestId);
 }
 
 /** Forward an allowlisted anonymous GET to the private CATALOG binding. */
@@ -25,11 +36,13 @@ function applyIdentity(headers: Headers, auth: { userId: string; userType: strin
   headers.set(USER_TYPE_HEADER, auth.userType);
 }
 
-/** Client-supplied identity headers are anti-forgery: always stripped. */
+/** Client-supplied identity headers, and a client's own request ID, are
+ * anti-forgery: always stripped. */
 function stripUntrustedHeaders(headers: Headers): void {
   headers.delete(AUTHORIZATION_HEADER);
   headers.delete(USER_IDENTITY_HEADER);
   headers.delete(USER_TYPE_HEADER);
+  headers.delete(REQUEST_ID_HEADER);
   headers.delete("x-byok-endpoint");
   headers.delete("X-Anon-Id");
 }
@@ -55,5 +68,6 @@ export function forwardUsers(env: Env, request: Request, auth: { userId: string;
   const headers = new Headers(request.headers);
   stripUntrustedHeaders(headers);
   applyIdentity(headers, auth);
+  applyRequestId(headers);
   return env.USERS.fetch(new Request(request, { headers }));
 }

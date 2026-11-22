@@ -42,17 +42,17 @@ void test("exact public anime overview GET forwards anonymously, no auth called"
   assert.equal(wasAuthCalled, false);
 });
 
-void test("public catalog forwarding keeps only the minimal safe header allowlist", async () => {
+void test("public catalog forwarding keeps only the minimal safe header allowlist and the gateway's request ID", async () => {
   const app = createWorkerApp({});
   const cap: { req?: Request } = {};
   const headers = {
     Accept: "application/json", Authorization: "Bearer test-token-000",
     Cookie: "session=test-token-000", "X-API-Key": "test-token-000",
-    "X-User-Id": "forged",
+    "X-User-Id": "forged", "X-Request-Id": "forged",
   };
-  await app.request("/catalog/public/anime-overview/3302", { headers }, envWithCatalog(cap), stubCtx);
+  const res = await app.request("/catalog/public/anime-overview/3302", { headers }, envWithCatalog(cap), stubCtx);
   assert.ok(cap.req);
-  assert.deepEqual([...cap.req.headers], [["accept", "application/json"]]);
+  assert.deepEqual([...cap.req.headers], [["accept", "application/json"], ["x-request-id", res.headers.get("X-Request-Id")]]);
 });
 
 void test("public anime overview rejects unexpected query parameters", async () => {

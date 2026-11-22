@@ -41,10 +41,14 @@ async function bootSealedApi(): Promise<Miniflare> {
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound });
 }
 
-void test("the sealed API Worker starts in workerd and answers an unknown path with its 404", { timeout: 120_000 }, async (context) => {
+/** The request ID the gateway mints at entry (`src/gateway/request-id.ts`): a lowercase UUID. */
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+void test("the sealed API Worker starts in workerd and answers an unknown path with its 404 and a request ID", { timeout: 120_000 }, async (context) => {
   const worker = await bootSealedApi();
   context.after(() => worker.dispose());
   const response = await worker.dispatchFetch("https://api.test/not-a-route");
   assert.equal(response.status, 404);
   assert.equal((await response.json() as { error: { code: string } }).error.code, "not_found");
+  assert.match(response.headers.get("X-Request-Id") ?? "", REQUEST_ID);
 });

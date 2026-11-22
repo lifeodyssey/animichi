@@ -137,8 +137,9 @@ void test("an invalid credential is recorded so a 401 storm is visible", async (
   const warnings: string[] = [];
   const original = console.warn;
   console.warn = (line: unknown) => { warnings.push(String(line)); };
+  let response: Response | undefined;
   try {
-    await appWith({ ok: false, reason: "invalid" }).request(
+    response = await appWith({ ok: false, reason: "invalid" }).request(
       "/v1/chat", { method: "POST" }, anonEnv(), stubCtx,
     );
   } finally {
@@ -146,7 +147,9 @@ void test("an invalid credential is recorded so a 401 storm is visible", async (
   }
   const records = warnings.map((line) => JSON.parse(line) as { event: string; path?: string });
   const record = records.find((entry) => entry.event === "edge_auth_invalid_credential");
-  assert.deepEqual(record, { event: "edge_auth_invalid_credential", path: "/v1/chat" });
+  assert.deepEqual(record, {
+    event: "edge_auth_invalid_credential", path: "/v1/chat", request_id: response.headers.get("X-Request-Id"),
+  });
 });
 
 void test("an absent credential reaches the native tier with anonymous identity", async () => {
