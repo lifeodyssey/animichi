@@ -7,7 +7,7 @@
       "package": "@prisma/orm-family-sql",
       "declared": "8.0.0-rc.9",
       "latest": "8.0.0-rc.11",
-      "declaredIn": "workers/users/package.json",
+      "declaredIn": "pnpm-workspace.yaml",
       "issue": 1741
     },
     {
@@ -21,7 +21,7 @@
       "package": "@prisma/orm-toolchain",
       "declared": "8.0.0-rc.9",
       "latest": "8.0.0-rc.11",
-      "declaredIn": "workers/migrator/package.json",
+      "declaredIn": "pnpm-workspace.yaml",
       "issue": 1741
     },
     {
