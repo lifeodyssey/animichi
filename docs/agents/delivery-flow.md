@@ -65,6 +65,10 @@ the controller's October 2026 practice that had let such a merge through).
   story's in-flight branch waits for that story's PR to land on `main`, then takes the same merge
   against the fresh head; stacked PRs are retired (owner, 2026-10-09, ADR 0009). Every merge
   keeps every other open PR a plain update away from current.
+- A PR into an integration branch is retired the same way (ADR 0009). The `/to-tickets` skill's
+  integration branch for a wide refactor does not apply here: a story whose parts cannot each be
+  green is one PR into `main`. On 2026-11-22 the Prisma rc.24 upgrade went through an integration
+  branch (#2091 into it, #2092 from it into `main`), each PR paying a full CI gate.
 - Never chain a rebase and a dispatch in one command. A rebase that stopped on a conflict still let
   the dispatch fire, and the reviewer received a tree with 21 conflicted files. Require
   `git status --porcelain` empty and `git rebase --show-current-patch` silent first; a conflicted

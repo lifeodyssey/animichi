@@ -144,6 +144,20 @@ never walked. Technique:
   against head and classify every differing line. In #2077 (2026-11-19) 20 lines differed: 17
   esbuild module markers matching the move table, and 3 for one function rename.
 
+## A guard that never ran (2026-11-22)
+
+During a review, a multi-worker Miniflare probe set `outboundService`, the refuser meant to stop
+every outbound request, at the top level of a config that also had a `workers:` array. Miniflare
+reads worker options only from that array, and `outboundService` is a worker option, so the refuser
+never ran. Each cache miss on the API Worker's image proxy then went to the network: three requests
+to `image.anitabi.cn` from a development machine, which the root guide forbids. The probe's empty
+interception record is what exposed it.
+
+- **Configure the refuser per worker**, inside `workers:`.
+- **A guard proves itself only by recording a planted attempt.** Send one request the guard must
+  refuse, see it recorded and refused, and only then run the check.
+- **Pre-fill caches where the check allows,** so that the proxy has no reason to fetch at all.
+
 ## A scanner that read one lockfile document of two (2026-11-18)
 
 pnpm 12 (#1751, 2026-09-18) writes the root `pnpm-lock.yaml` as two YAML documents: pnpm's own
