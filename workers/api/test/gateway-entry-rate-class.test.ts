@@ -6,14 +6,17 @@
  * coarse damper alone; `none` asks neither. How each class answers a limiter
  * outage is pinned in `gateway-entry-limiter-outage.test.ts`.
  *
- * The routing table and the rate table are two different tables. The rate
- * table decodes and strips a trailing slash, classifies the public catalog for
- * every method, the `/v1/byok/` prefix as a whole and adoption for every
- * method, and fails an undecodable `/v1` path closed; routing matches the raw
- * path exactly and serves one method per route. The second half of the table
- * pins every route that is in only one of them: routing refuses each before
- * any limiter is asked. `/v1/turnstile/verify` is routed and in neither rate
- * table, so it is served unmetered.
+ * Routing and rate classification read one table: each entry of the route
+ * table (`src/gateway/route-table.ts`) carries its rate class, so a request is
+ * metered by the class of the entry the router matched, and the two cannot
+ * disagree. The second half of the table pins the requests refused before any
+ * limiter is asked, each with a 404 or, for adoption's GET, a 405: the
+ * spellings and methods a separate limiter-side path matcher used to meter
+ * before the route table replaced it (a trailing slash, an encoded or
+ * undecodable letter, any other path under `/v1/byok/`, the public catalog and
+ * adoption for other methods), the siblings of that `/v1/byok/` prefix, and
+ * retired and unknown `/v1` paths. `/v1/turnstile/verify` is routed with the
+ * unmanaged class, so it is served unmetered.
  *
  * test-type: characterization
  */
