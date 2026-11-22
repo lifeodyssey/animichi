@@ -126,6 +126,22 @@ class ReleaseSourceClosureTest < Minitest::Test
     assert_raises(ArgumentError) { validate }
   end
 
+  # The repository's last patch left with the Prisma rc.24 upgrade, so a selected source whose
+  # workspace manifest names none is what the seal and CD's verify now read.
+  def test_a_source_with_no_patch_seals_none_and_still_validates
+    write('pnpm-workspace.yaml', "packages: []\n")
+    FileUtils.rm_r(File.join(@repository, 'packages/pi-session-neon/patches'))
+    unpatched = commit('D without patches')
+    FileUtils.cp(File.join(@repository, 'pnpm-workspace.yaml'), File.join(@release, 'foundation'))
+    FileUtils.rm_r(File.join(@release, 'foundation/packages'))
+    FileUtils.cp_r(File.join(@repository, 'packages/pi-session-neon/migrations/app/C'), File.join(@release, 'migrator/bundle/migrations/app'))
+    script = File.expand_path('../../scripts/release/seal-pnpm-patches.mjs', __dir__)
+    _output, error, status = Open3.capture3('node', script, unpatched, File.join(@release, 'foundation'), chdir: @repository)
+    assert status.success?, error
+    refute File.exist?(File.join(@release, 'foundation/packages')), 'a source with no patch must seal no patch directory'
+    assert(Dir.chdir(@repository) { ReleaseSourceClosure.validate(unpatched, @release) })
+  end
+
   def test_native_archive_seals_selected_patch_bytes_after_the_checkout_changes
     write('packages/pi-session-neon/patches/native.patch', 'later patch C')
     commit('later patch')

@@ -11,9 +11,6 @@ WORKDIR /app
 RUN npm install -g corepack && corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/anitabi-egress/package.json apps/anitabi-egress/
-# A frozen install reads every patch pnpm-workspace.yaml names, even under
-# --filter (test/repo-config/anitabi-egress-image-build.test.rb).
-COPY packages/pi-session-neon/patches packages/pi-session-neon/patches
 RUN pnpm install --frozen-lockfile --filter anitabi-egress --ignore-scripts
 COPY apps/anitabi-egress apps/anitabi-egress
 RUN pnpm --filter anitabi-egress build
