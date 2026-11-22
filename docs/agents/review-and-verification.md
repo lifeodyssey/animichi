@@ -93,6 +93,15 @@ never walked. Technique:
    after the probe.
 7. Whether a surviving mutant is fixed now or filed: ask whether the card has slack and whether the
    surviving shape is the same class as the original bug, not what severity label it carries.
+8. Pins that freeze a swap must also hold its side outputs: log fields, alert events, headers,
+   everything an operator reads. On 2026-11-23 (#2101) four edits to the request-record `class`
+   survived all 1342 node tests. The pins asserted statuses, bodies and the doubles' call logs, and
+   the deleted unit test that had held the class was mapped to status codes, which do not carry
+   it. Twenty entry-level record rows closed it, each proven green on the old code first.
+9. A survivor can be equivalent by today's configuration. The same day, two budget-skip mutants
+   survived: the only caller's GET routes were all low cost and its POST routes all high cost, so
+   "GET" and "low cost" picked out the same requests. Prove that from the code and write it down. A
+   pin for it would freeze a coincidence of today's table, not a behaviour.
 
 ## Fake boundaries: tests green, real run fails
 
@@ -134,6 +143,19 @@ never walked. Technique:
   (the computed-access shapes) until a known hit was searched with the same pathspec. Pass
   directories (`-- workers packages`),
   `'workers/*/src/*'`, or `':(glob)workers/*/src/**'`, and check the pathspec against a known hit.
+- zsh, the default shell on macOS, reads three Bash habits differently (2026-11-23). Two of them
+  print nothing instead of failing:
+  - an unquoted variable holding several paths is not split, so `git diff -- $P` received one
+    pathspec that matched nothing, and a frozen-test check printed 0 added, 0 removed where 12
+    rows had been added;
+  - `$b[bot]` inside a double-quoted string is array subscripting, so a `jq` filter compared
+    against an empty string and printed not even its own header lines.
+
+  The third fails loudly, but takes the good results with it. When one glob matches nothing,
+  `nomatch` aborts the whole command with an error and exit status 1, even when the command's own
+  stderr is redirected. An `ls` over two patterns therefore listed neither.
+
+  Quote pathspec globs, brace variables (`${b}[bot]`), and check each search against a known hit.
 - A selector that matches nothing passes, and one that is ignored runs everything. A
   `pnpm --filter` that matches no package prints `Scope: 0 of <n> workspace projects` and exits 0
   (pnpm 12.4.2); `--fail-if-no-match` makes it exit 1. The gate commands quoted in PR bodies have
@@ -230,6 +252,12 @@ code" is not "I verified the attribution".
   reported a script that `main` had already replaced. Compare with `git show origin/main:AGENTS.md`.
 - Present-tense statements in a document must be greppable on `main`; pending work is written as
   "to be introduced by #<n>".
+- A sweep for deleted symbols misses prose that describes the deleted structure in plain words. On
+  2026-11-23 (#2101) the sweep for every deleted name was empty and the review passed. A PR review
+  bot then found a pin file's header still saying "The routing table and the rate table are two
+  different tables", with no deleted name in it. Sweep the old structure's vocabulary too, for
+  example `rate table|two tables|classif|dispatch`. The fix cost a new head, a re-review and a
+  second bot window.
 - A provider SDK's `.d.ts` enum names are per-language display names, not wire values
   (`nonIdentity` in the types, `non_identity` on the API); mocked infra tests never check them, CD
   did. Confirm against the provider's embedded schema or the vendor API.
