@@ -28,8 +28,9 @@ Root guide: `../../AGENTS.md`.
   **ingest → enrich → publish writes** (#1630) and, since #1633, the staging **import**
   (`src/import/switch.ts`) and **media** (`src/media/img.ts`). `src/db/prisma.ts` builds the
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
-  Hono `/catalog/*` boundary (or a cron pass) acquires ONE `Runtime` per request and disposes it
-  with `await using` — never a connection cached across requests. The second path Drizzle held
+  Hono `/catalog/*` boundary (or a cron pass) opens ONE connection per request and disposes it
+  with `await using` — never a connection cached across requests. Since Prisma rc.14 that
+  `connect()` opens the socket before it returns, so an unreachable database fails at the boundary. The second path Drizzle held
   (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
@@ -71,7 +72,7 @@ Root guide: `../../AGENTS.md`.
 ## workerd gotchas (plans / timestamptz)
 
 - **A converted path builds PLANS.** With `CatalogPrisma` (`src/db/prisma.ts`): build with the
-  shared contract's builder, run on the request's runtime (`executor.query`), and group with
+  shared contract's builder, run on the request's connection (`executor.query`), and group with
   `transaction()`. Three facts that shape that code: the builder's surface stops at
   `returning`/`build`, so an upsert and a server-clock write are plan repairs in `src/db/plans.ts`;
   a projection's ALIAS is the key the row carries; and a raw fragment interpolates BOUND values

@@ -7,10 +7,8 @@ import { popularBangumiDb } from "../src/adapters/outbound/popular-bangumi";
 import { pointsForRoute } from "../src/adapters/outbound/route-points";
 import { titleAlias } from "../src/adapters/outbound/title-alias";
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
-import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
-import type { Contract } from "@animichi/pi-session-neon/types";
 import postgresServerless from "@prisma/orm-postgres/serverless";
-import type { CatalogPrisma } from "../src/db/prisma";
+import { catalogContract, type CatalogPrisma } from "../src/db/prisma";
 import { withJoinedTransaction } from "./fakes/fake-catalog-prisma";
 import { databaseDescribe, planeDatabaseUrl, truncateCatalogPool } from "./integration-db";
 import {
@@ -132,12 +130,12 @@ interface PlanCapture {
  */
 async function capturePlan(dsn: string): Promise<PlanCapture> {
   const recorded: RecordedStatement[] = [];
-  const client = postgresServerless<Contract>({
-    contractJson,
+  const client = postgresServerless({
+    contract: catalogContract,
     extensions: [geographyRuntimeDescriptor],
     middleware: [{
       name: "outbound-plan-capture",
-      beforeQuery: (plan: { sql: string; params: readonly unknown[] }) => {
+      beforeEncode: (plan) => {
         recorded.push({ text: plan.sql, params: plan.params });
       },
     }],
