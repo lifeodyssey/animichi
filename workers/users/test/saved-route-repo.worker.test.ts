@@ -79,6 +79,12 @@ describe("saved-route row policy at the boundary", () => {
     const repo = new NeonSavedRouteRepo(store.prisma);
     await expect(repo.listOwned("user-a")).rejects.toThrow("invalid saved route row");
   });
+
+  it("rejects a point id list that holds a null element", async () => {
+    const store = fakeUsersPrisma([row({ point_ids: ["p1", null] })]);
+    const repo = new NeonSavedRouteRepo(store.prisma);
+    await expect(repo.listOwned("user-a")).rejects.toThrow("invalid saved route row");
+  });
 });
 
 describe("findOwner", () => {

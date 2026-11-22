@@ -19,7 +19,6 @@
     "@animichi/prisma-geography": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
-    "@prisma/orm-family-sql": "catalog:",
     "@prisma/orm-postgres": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
