@@ -48,7 +48,7 @@ async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare>
 
 async function bootSealedCatalog(): Promise<Miniflare> {
   await promisify(execFile)(process.execPath, [BUILD_WORKER, "catalog", "", root], {
-    cwd: REPOSITORY, env: { ...process.env, WRANGLER_SEND_METRICS: "false" }, maxBuffer: 16 * 1024 * 1024,
+    cwd: REPOSITORY, maxBuffer: 16 * 1024 * 1024,
   });
   const runtime = JSON.parse(await readFile(join(root, "catalog", "wrangler.json"), "utf8")) as SealedRuntime;
   worker = await start(join(root, "catalog", "bundle"), runtime);

@@ -33,7 +33,7 @@ after(() => rm(root, { recursive: true, force: true }));
 
 async function bootSealedApi(): Promise<Miniflare> {
   await promisify(execFile)(process.execPath, [BUILD_WORKER, "api", "", root], {
-    cwd: REPOSITORY, env: { ...process.env, WRANGLER_SEND_METRICS: "false" }, maxBuffer: 16 * 1024 * 1024,
+    cwd: REPOSITORY, maxBuffer: 16 * 1024 * 1024,
   });
   const runtime = JSON.parse(await readFile(join(root, "api", "wrangler.json"), "utf8")) as SealedRuntime;
   const bundle = join(root, "api", "bundle");

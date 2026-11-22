@@ -26,8 +26,11 @@ if (unit === 'migrator') {
   delete build.base_dir;
 }
 writeFileSync(`${scratch}/wrangler.json`, JSON.stringify(build));
+// A build asks no upstream for anything: no usage metrics, and no banner, whose update check
+// would ask registry.npmjs.org for Wrangler's latest version on every run.
+const wranglerEnv = { ...process.env, WRANGLER_SEND_METRICS: 'false', WRANGLER_HIDE_BANNER: 'true' };
 try {
-  execFileSync('pnpm', ['exec', 'wrangler', 'deploy', '--config', `${scratch}/wrangler.json`, '--dry-run', '--env', 'production', '--outdir', `${output}/bundle`], { stdio: 'inherit' });
+  execFileSync('pnpm', ['exec', 'wrangler', 'deploy', '--config', `${scratch}/wrangler.json`, '--dry-run', '--env', 'production', '--outdir', `${output}/bundle`], { stdio: 'inherit', env: wranglerEnv });
   if (!existsSync(`${output}/bundle/${ENTRIES[unit]}`)) throw new Error('release entrypoint is absent');
   if (unit === 'migrator') execFileSync('node', ['workers/migrator/scripts/prepare-migrations.ts', `${output}/bundle`], { stdio: 'inherit' });
 } finally {

@@ -27,7 +27,7 @@ interface SealedRuntime {
 
 async function buildSealed(root: string): Promise<string> {
   await promisify(execFile)(process.execPath, [BUILD_WORKER, "migrator", "", root], {
-    cwd: REPOSITORY, env: { ...process.env, WRANGLER_SEND_METRICS: "false" }, maxBuffer: 16 * 1024 * 1024,
+    cwd: REPOSITORY, maxBuffer: 16 * 1024 * 1024,
   });
   return join(root, "migrator");
 }
