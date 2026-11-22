@@ -16,8 +16,9 @@ import { databaseDescribe, emptySavedRoutes, openUsersPrisma, type UsersSeam } f
  *   ONE parameter (`sql.param(arr)::text[]`) because interpolating a JS array
  *   expands to a tuple. The Prisma builder owns that binding now, and a
  *   round trip is the only proof it still binds the same way.
- * - `timestamptz` comes back as a `Date` under Node and as text under workerd.
- *   The wire shape must be ISO either way.
+ * - `timestamptz` comes back as the codec's ISO 8601 UTC string, every
+ *   fractional digit kept (Prisma rc.21). The wire shape must be the public
+ *   model's millisecond ISO form.
  * - the schema's CHECK constraints (`saved_routes_status`) and the composite
  *   primary key must still refuse what they refused before.
  */

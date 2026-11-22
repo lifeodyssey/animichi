@@ -87,11 +87,11 @@ describe("user saved-route handlers", () => {
     expect(result).toMatchObject({ id: ID, title: "Renamed", point_ids: ["p2"], status: "saved" });
   });
 
-  it("normalizes raw workerd timestamp strings while listing", async () => {
-    const seeded = row({ saved_at: "2026-07-13 12:34:56+00", updated_at: "2026-07-13 12:34:56+00" });
+  it("lists the codec's microsecond ISO reads in the public millisecond form", async () => {
+    const seeded = row({ saved_at: "2026-07-13T12:34:56.123456Z", updated_at: "2026-07-13T12:34:56.123456Z" });
     const result = await listSavedRoutesAction(repo(fakeUsersPrisma([seeded]).prisma), "user-a");
-    expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
-    expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+    expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.123Z");
+    expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.123Z");
   });
 });
 

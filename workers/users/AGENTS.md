@@ -44,8 +44,10 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   socket before it returns, so an unreachable database fails at the boundary, before routing.
 - **Arrays**: the builder binds `text[]` as one parameter — the old `sql.param(arr)::text[]` rule is
   gone with the Drizzle lane.
-- **timestamptz** arrives as a `Date` under Node and text under workerd → normalize
-  `new Date(v).toISOString()` at the boundary (`title` null → `""` is the other half of the same
+- **timestamptz** arrives as the codec's ISO 8601 UTC string with every fractional digit the server
+  sent, on workerd and Node alike (Prisma rc.21) → the boundary still maps it through
+  `new Date(v).toISOString()` (`src/db/timestamptz.ts`), the millisecond form the public model
+  carries and `apps/web` sorts as text (`title` null → `""` is the other half of the same
   public-model mapping).
 - **Identifiers belong to the database**: `saved_routes.id` is `uuidv7()`; no INSERT supplies one.
   The idempotent create's route INSERT and ledger commit ride ONE transaction, the connection's own

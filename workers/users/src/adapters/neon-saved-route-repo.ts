@@ -12,8 +12,9 @@
  * What survives is the narrow part that is a policy rather than a shape:
  * `title` is nullable in the contract but non-null in the public model (null
  * reads as ""), the contract types `status` as a plain String where the public
- * model wants the domain's union, and `timestamptz` is normalized to ISO at the
- * wire boundary — a deployment fact about workerd, not a guess about the shape.
+ * model wants the domain's union, and `timestamptz` is normalized at the wire
+ * boundary to the millisecond ISO form the public model carries (the codec's
+ * own read keeps every fractional digit; see src/db/timestamptz.ts).
  *
  * Owns statement building and row mapping. The newest-update-first order the
  * SavedRouteReader port promises (src/application/list-saved-routes.ts) is the
