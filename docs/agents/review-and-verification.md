@@ -110,6 +110,11 @@ never walked. Technique:
   scanner or a guard, plant what it must catch and watch it fail.
 - A guard over a tool's configuration must cover every discovery path the tool has (a sibling
   config file, an environment variable, nested configs), each mutated.
+- A stub that never loaded runs the real tool. On 2026-11-23 a gate test sourced its stub
+  environment by a relative path. The stub links it made dangled, `PATH` fell through to the real
+  binaries, and the real `pulumi install` ran once outside the sandbox the check was meant to run
+  in. Source `scripts/local-gates/stub-env.sh` by an absolute path, as the existing tests do
+  (`source "$SCRIPT_DIR/stub-env.sh"`), and check that every stub link resolves before the run.
 - A read-only API under insufficient permissions may answer `200` with an empty list, not `403`
   (Cloudflare Access identity providers). "The list is empty" first asks "can this token see it?".
 - Zero-result outputs are the most dangerous shape: "No tests collected", "No errors found",
@@ -157,6 +162,30 @@ interception record is what exposed it.
 - **A guard proves itself only by recording a planted attempt.** Send one request the guard must
   refuse, see it recorded and refused, and only then run the check.
 - **Pre-fill caches where the check allows,** so that the proxy has no reason to fetch at all.
+
+## Tools that phone home on their own (2026-11-23)
+
+Tests stub what the code calls. A tool that a gate runs can call out by itself, and no test double
+sees that. Each tool below was run inside a sandbox that refuses every outbound connection, proven
+to refuse before it was relied on (#2099). Where a fact comes from the tool's source instead, the
+line says so.
+
+- **Wrangler:** in the sandbox, one `wrangler deploy --dry-run` attempted to send three usage
+  events, and none with `WRANGLER_SEND_METRICS=false`. Its installed source (4.165.0) adds what
+  the run did not exercise:
+  - telemetry is on by default wherever no choice was ever recorded, CI included;
+  - when Wrangler detects an AI agent from the environment, it also fetches a listing from
+    `api.github.com` and reads the agent's skills directory, behind the same switch;
+  - its banner starts an npm update check, which `WRANGLER_HIDE_BANNER=true` skips.
+- **Pulumi** asks `api.pulumi.com` for the latest CLI version on every command,
+  `--non-interactive` included, unless `PULUMI_SKIP_UPDATE_CHECK=true` is set.
+- **Semgrep** asks `semgrep.dev` for the latest version unless it is given
+  `--disable-version-check`; `--metrics=off` keeps its metrics off.
+
+The switches live in the code and the gates that start each tool, not in one machine's
+environment, so CI and every agent get them. Anything new that starts one of these tools takes the
+same switch. To prove a new switch, run the tool inside the sandbox twice: without the switch the
+attempt shows and is refused, and with it nothing is attempted.
 
 ## A scanner that read one lockfile document of two (2026-11-18)
 
@@ -270,6 +299,12 @@ Independent verification means running the same command the project enforces (th
 script, the `.pre-commit-config.yaml` entry, the commands in `docs/ops/local-gates.md`) with its
 targets, flags, cwd and file scope. A broad self-invented invocation once reported 343 errors
 against work the real gate accepted, because the real gate scoped the check on purpose.
+
+A subset chosen by hand fails the other way, with a false green. On #2097 (2026-11-22) the four
+documentation gates passed while `CI / repository contracts`, which pins documentation text
+verbatim, went red. A review seat later reported "all 42" contract suites green where the job runs
+84. Take the command list from the workflow file, and put the expected count in a brief (84
+`bundle exec ruby` lines plus `check-e2e-promotion.sh` on 2026-11-23), so that a short run shows.
 
 ## Before closing, deleting or merging anything
 
