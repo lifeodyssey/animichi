@@ -8,6 +8,7 @@
 // ANON_ACCESS_ENABLED and ANON_ID_SECRET the edge keeps its existing 401.
 
 import { readStoreOrString, type Env } from "../env.ts";
+import { readCookie } from "./cookie-header.ts";
 
 const ANON_COOKIE = "aid";
 const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
@@ -32,14 +33,6 @@ async function anonymousSecret(env: AnonymousEnv): Promise<string | undefined> {
 
 export async function anonymousEnabled(env: AnonymousEnv): Promise<boolean> {
   return await anonymousSecret(env) !== undefined;
-}
-
-function readCookie(request: Request, name: string): string | null {
-  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name && rest.length > 0) return rest.join("=");
-  }
-  return null;
 }
 
 async function hmacHex(secret: string, message: string): Promise<string> {

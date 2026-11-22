@@ -67,9 +67,9 @@ export async function guardNativeRead(env: Env, key: string): Promise<BurstGuard
  * `limiter` kind picks the guard and its `failure` mode is the guard's own
  * policy: durable cells guard via `guardDurable` (fail closed on outage),
  * native cells via `guardNativeRead` (fail open + alert), and unmanaged cells
- * ("none") never touch a binding. No routing branch hand-picks a guard; they
- * all classify with `classifyRatePolicy` and delegate here, so limiter choice
- * and failure mode live in exactly one place.
+ * ("none") never touch a binding. No routing branch hand-picks a guard; each
+ * passes the cell its route-table entry names and delegates here, so limiter
+ * choice and failure mode live in exactly one place.
  */
 export async function guardPolicy(env: Env, policy: RatePolicy, key: string, config: RateLimitConfig): Promise<BurstGuardResult> {
   if (policy.limiter === "durable") return guardDurable(env, key, config);

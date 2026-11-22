@@ -6,7 +6,7 @@
  * (#1285).
  *
  * The edge Worker serves this surface itself: its gateway answers `GET
- * /healthz` (`workers/api/src/gateway/request.ts`, the #1596 readiness
+ * /healthz` (`workers/api/src/gateway/route-services.ts`, the #1596 readiness
  * answer — a `{ status: "ok" }` body) and its native agent tier publishes
  * the `/v1/*` bodies (`workers/api/src/gateway/agent-turn-responses.ts`,
  * fed by `workers/api/src/agent/`). Consumers import these zod models from

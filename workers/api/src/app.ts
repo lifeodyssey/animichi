@@ -4,25 +4,24 @@ import { Hono } from "hono";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import type { AuthResult } from "./identity/auth.ts";
 import { authenticate as realAuthenticate } from "./identity/auth.ts";
-import { HandleGatewayRequest, gatewayFailure, type GatewayDeps } from "./gateway/request.ts";
+import type { GatewayDeps } from "./gateway/route-services.ts";
+import { routeGateway, routingPath, type GatewayApp, type GatewayEnv } from "./gateway/router.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 import { neonAgentTurnTier, type AgentTurnTier } from "./gateway/agent-turn.ts";
 import { requestIdScope } from "./gateway/request-id.ts";
 import type { SessionAdoptionStore } from "./identity/session-adopt.ts";
 
-/** The main Worker app: a pure API and asset gateway. Every request —
- * `/healthz`, the image and private R2 tile proxies, the one allowlisted
- * public catalog read, and the whole `/v1` surface — is delegated to the
- * composed gateway seam (HandleGatewayRequest), which owns route selection,
- * identity, protection, internal-identity construction, and forwarding.
+/** The main Worker app: a pure API and asset gateway. Every route it serves —
+ * `/healthz`, the image and private R2 tile proxies, the allowlisted public
+ * catalog reads, and the whole `/v1` surface — is a Hono route declared once in
+ * `gateway/route-table.ts` and mounted by `gateway/router.ts`, which owns the
+ * records, the showcase gate and the shared envelopes around them.
  *
  * Issue #537 removed the OpenNext catch-all that used to render the legacy
  * Next.js homepage here; `apps/web` owns every HTML surface now. Unmatched
  * paths answer `notFoundResponse()` instead of a page — see its comment for why
  * that is a hard 404 and not a friendly 200. */
-
-type WorkerApp = Hono<{ Bindings: Env }>;
 
 export interface WorkerDeps {
   authenticate?: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
@@ -48,14 +47,10 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
   };
 }
 
-export function createWorkerApp(deps: WorkerDeps): WorkerApp {
-  const app = new Hono<{ Bindings: Env }>();
-  const gates = resolveGates(deps);
-  // Outermost, so the request ID scopes everything below it, `onError` included.
+export function createWorkerApp(deps: WorkerDeps): GatewayApp {
+  const app = new Hono<GatewayEnv>({ getPath: routingPath });
+  // Outermost, so the request ID scopes every route below it, `onError` included.
   app.use("*", requestIdScope);
-  app.all("*", (c) => HandleGatewayRequest(c.env, c.req.raw, c.executionCtx, gates));
-  // EG-06: without this an unexpected throw is Hono's plain-text 500, outside
-  // every envelope and outside the request record.
-  app.onError((error, c) => gatewayFailure(error, c.req.raw));
+  routeGateway(app, resolveGates(deps));
   return app;
 }

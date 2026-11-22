@@ -27,10 +27,9 @@
  * (`identity/anonymous-id.ts`), so knowing a conversation id buys nothing.
  * Missing and forbidden collapse to the same 404.
  *
- * It lives beside `request.ts` instead of inside it because that file is the
- * whole-Worker dispatcher and is already at its size budget, and because these
- * three functions change for exactly one reason — how a turn reaches the agent
- * tier — which is not the dispatcher's reason to change.
+ * It lives beside `route-services.ts` instead of inside it because these
+ * functions change for exactly one reason — how a turn reaches the agent tier —
+ * which is not the reason the gateway's other routes change.
  */
 import type { Env, WorkerExecutionContext } from "../env.ts";
 import type { AuthResult } from "../identity/auth.ts";
@@ -38,9 +37,9 @@ import { handleAnonymousV1 } from "../identity/anonymous-flow.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
-import { classifyRatePolicy } from "./rate-policy.ts";
-import { authenticationRejection, credentialsRequired } from "./responses.ts";
-import type { EdgeTierRoute } from "./routing-policy.ts";
+import { rawParameter } from "./path-template.ts";
+import { authenticationRejection, credentialsRequired, notFoundResponse } from "./responses.ts";
+import type { RouteCall } from "./route-table.ts";
 import type { AgentTurnTier, TurnIdentity } from "./agent-turn.ts";
 
 /** What serving the agent tier needs from the gateway's composed gates — the
@@ -53,10 +52,18 @@ export interface AgentTierGates {
   agentTurns: AgentTurnTier;
 }
 
+/** Native agent routes are always served by this Worker. `list` is the
+ * conversation index (Card E of the #1317 decomposition) and carries no
+ * session of its own; `transcript`/`stream` name one in their path. */
+export type EdgeTierRoute =
+  | { readonly kind: "turn" }
+  | { readonly kind: "probe" }
+  | { readonly kind: "list" }
+  | { readonly kind: "transcript" | "stream"; readonly sessionId: string };
+
 /** One route of the agent tier, served for one already-verified identity. */
-function servedByTier(
-  env: Env, request: Request, identity: TurnIdentity, route: EdgeTierRoute, gates: AgentTierGates,
-): Promise<Response> {
+function servedByTier(call: RouteCall, identity: TurnIdentity, route: EdgeTierRoute): Promise<Response> {
+  const { env, request, gates } = call;
   switch (route.kind) {
     case "turn": return gates.agentTurns.chat(env, request, identity);
     case "probe": return gates.agentTurns.probe(request, identity);
@@ -68,16 +75,16 @@ function servedByTier(
 
 /** The authenticated limiter still runs first: moving a turn onto this tier
  * must not be a way to stop metering it (`#680` AC4 — a high-cost write that
- * cannot be metered does not run). */
+ * cannot be metered does not run). It meters by the matched entry's cell. */
 async function authenticatedTierResponse(
-  env: Env, request: Request, auth: { userId: string; userType: string }, pathname: string,
-  route: EdgeTierRoute, gates: AgentTierGates,
+  call: RouteCall, auth: { userId: string; userType: string }, route: EdgeTierRoute,
 ): Promise<Response> {
+  const { env } = call;
   const guarded = await guardPolicy(
-    env, classifyRatePolicy(request.method, pathname), authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env),
+    env, call.route.rate, authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env),
   );
   const identity = { userId: auth.userId, userType: auth.userType };
-  return guarded ?? servedByTier(env, request, identity, route, gates);
+  return guarded ?? servedByTier(call, identity, route);
 }
 
 /**
@@ -106,19 +113,36 @@ function admitsAnonymous(route: EdgeTierRoute): boolean {
  * the intake commits, and `admitsAnonymous` is the only thing that decides
  * whether an absent credential reaches the pipeline at all.
  */
-export async function agentTierResponse(
-  env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string,
-  route: EdgeTierRoute, gates: AgentTierGates,
-): Promise<Response> {
+export async function agentTierResponse(call: RouteCall, route: EdgeTierRoute): Promise<Response> {
+  const { env, request, ctx, gates } = call;
   const auth = await gates.authenticate(request, env, ctx);
-  if (auth.ok) return authenticatedTierResponse(env, request, auth, pathname, route, gates);
+  if (auth.ok) return authenticatedTierResponse(call, auth, route);
   // Only an ABSENT credential may reach the anonymous pipeline below (#441,
   // #452): a rejected one and one we could not check are never demoted into it.
   if (auth.reason !== "absent") return authenticationRejection(request, auth);
   if (!admitsAnonymous(route)) return credentialsRequired();
   const anonymous = await handleAnonymousV1(
-    env, request, Date.now(), gates.turnstileGate,
-    (identity) => servedByTier(env, request, { userId: identity.userId, userType: "anonymous" }, route, gates),
+    env, request, Date.now(), gates.turnstileGate, call.route.rate,
+    (identity) => servedByTier(call, { userId: identity.userId, userType: "anonymous" }, route),
   );
   return anonymous ?? credentialsRequired();
+}
+
+/** A conversation route names its session in the path. An id whose escapes do
+ * not decode names no session, so it answers the shared 404 before identity is
+ * consulted, as any `/v1` path nothing serves does. */
+export function sessionTierResponse(call: RouteCall, kind: "transcript" | "stream"): Promise<Response> {
+  const sessionId = decodedSessionId(call);
+  if (sessionId === null) return Promise.resolve(notFoundResponse());
+  return agentTierResponse(call, { kind, sessionId });
+}
+
+function decodedSessionId({ route, path }: RouteCall): string | null {
+  const raw = rawParameter(route.template, path, "session_id");
+  if (raw === undefined) return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
 }

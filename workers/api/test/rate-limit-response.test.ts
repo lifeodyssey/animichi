@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
-import { RATE_LIMIT_ENVELOPE_FIELDS, classifyRatePolicy } from "../src/gateway/rate-policy.ts";
+import { RATE_LIMIT_ENVELOPE_FIELDS } from "../src/gateway/rate-policy.ts";
 import { rateLimitedResponse, rateLimitUnavailableResponse } from "../src/gateway/responses.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { stubCtx, alwaysAllowGuard } from "./doubles/entry-env.ts";
@@ -33,14 +33,6 @@ void test("the fail-closed limiter outage response is a DISTINCT typed 503, not 
   assert.deepEqual(await res.json(), {
     error: { code: "rate_limit_unavailable", message: "Rate limiter temporarily unavailable. Please retry." },
   });
-});
-
-// Rate limit and daily quota are distinct in the ROUTE POLICY too (AC3 + AC1):
-// the policy names quota as a SEPARATE cell from the limiter.
-void test("the policy keeps rate limit and daily quota as SEPARATE cells", () => {
-  const p = classifyRatePolicy("POST", "/v1/chat");
-  assert.equal(p.limiter, "durable");
-  assert.equal(p.quota, "none");
 });
 
 // Through the composed app: anonymous burst 429 (rate-limited) is distinct

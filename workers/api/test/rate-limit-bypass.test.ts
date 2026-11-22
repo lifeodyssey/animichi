@@ -106,7 +106,7 @@ void test("another isolate cannot reset an identity's spent window", async () =>
 // authenticated /v1 class outside that list unguarded. #1604 deleted the
 // photo-search routes — the class this case used to probe — so the surviving
 // non-chat/BYOK durable class is session adoption: it is guarded only because
-// `classifyRatePolicy` puts it in the durable fail-closed cell, which is the
+// its route-table entry names the durable fail-closed cell, which is the
 // property under test.
 
 void test("authenticated POST /v1/sessions/adopt is guarded by the policy path", async () => {

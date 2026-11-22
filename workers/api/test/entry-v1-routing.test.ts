@@ -7,8 +7,8 @@ import { gatewayEnv, stubCtx } from "./doubles/entry-env.ts";
 // #1604 deleted the photo search surface, which was the last container-forwarded `/v1`
 // route; #1605 then deleted `forwardV1`, the `CONTAINER` binding and the class
 // behind it. Every `/v1` route that survives is answered by this Worker: either
-// selected by `turnRoutePolicy` for the native tier or 404 in the shared
-// envelope. What this file keeps is the identity wall both remaining receivers
+// an agent-tier entry of the route table (`src/gateway/route-table.ts`) or 404
+// in the shared envelope. What this file keeps is the identity wall both remaining receivers
 // still share: the edge verifies the caller itself, and a forged header never
 // survives to the far side.
 

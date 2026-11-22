@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWorkerApp } from "../src/app.ts";
-import { turnRoutePolicy } from "../src/gateway/routing-policy.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { latchBudget, utcDayKey } from "../src/protect/cost-breaker.ts";
@@ -10,12 +9,6 @@ const sessionId = "11111111-1111-4111-8111-111111111111";
 const path = `/v1/conversations/${sessionId}/stream`;
 const env = { EDGE_SHOWCASE_MODE: "false" } as never;
 const execution = { waitUntil(promise: Promise<unknown>) { void promise; }, passThroughOnException() { return undefined; } } as ExecutionContext;
-
-void test("the native reconnect endpoint is a GET that names an existing session", () => {
-  assert.deepEqual(turnRoutePolicy().select("GET", path), { kind: "stream", sessionId });
-  assert.equal(turnRoutePolicy().select("POST", path), null);
-  assert.equal(turnRoutePolicy().select("GET", "/v1/conversations/%ZZ/stream"), null);
-});
 
 void test("stream reconnection passes verified identity and query without submitting model input", async () => {
   const calls: NativeAgentCall[] = [];

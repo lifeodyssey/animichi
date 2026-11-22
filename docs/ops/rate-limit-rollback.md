@@ -19,11 +19,12 @@ operator-triggered action with a recorded outcome.
 | Durable exact | `EDGE_GUARD` DO (`workers/api/src/protect/rate-limiter.ts`, `edge-guard.ts`) | exact per-identity high-cost/write windows (chat, BYOK, session adoption, users mutations); fails closed on outage | stuck 503 `rate_limit_unavailable`, wrong identity key, a burst window that never resets |
 | Daily quota | $EDGE_GUARD budget latch + native admission (`daily_usage` / `anon_daily_message_count`) | anonymous daily cost/message ceilings | early budget lockout (403 `anon_budget_exhausted`) |
 
-Every tier's limiter selection and failure mode is decided by ONE route policy
-— `workers/api/src/gateway/rate-policy.ts` `classifyRatePolicy` — which
-classifies every public API operation by identity key, cost, quota, retry
-contract, and limiter-failure mode. Routing never hand-picks a guard: every
-branch classifies with the policy and delegates to the enforcement seam
+Every tier's limiter selection and failure mode is decided by ONE route policy:
+each route in the gateway's route table (`workers/api/src/gateway/route-table.ts`)
+names its rate cell from `workers/api/src/gateway/rate-policy.ts`, which
+classifies the operation by identity key, cost, quota, retry contract, and
+limiter-failure mode. Routing never hand-picks a guard: every route passes its
+cell to the enforcement seam
 (`workers/api/src/protect/burst-guard.ts` `guardPolicy`), which routes a
 durable cell to the fail-closed `EDGE_GUARD` shard and a cacheable-read cell
 to the native damper. **Policy changes are the dominant rollback cause** and
@@ -31,9 +32,10 @@ are governed by the first layer below.
 
 ## Layer 0 — policy / feature flag (seconds, no redeploy)
 
-The route classification (`rate-policy.ts`) is the single decision table. If a
-class is mis-mapped (e.g. a read got a `durable`/fail-closed limiter), the fix
-is a corrected classification, shipped and reviewed like any code change. For
+The route table (`route-table.ts`, each route's rate cell) is the single
+decision table. If a class is mis-mapped (e.g. a read got a `durable`/fail-closed
+limiter), the fix is a corrected cell on that route, shipped and reviewed like
+any code change. For
 an immediate stop without a code change, the per-identity coarse and durable
 windows are env-configurable in `wrangler.toml` `[vars]`:
 - `ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS` — anonymous coarse burst.
@@ -71,8 +73,8 @@ an owner decision (parent #1004). It is **never** a config flip done casually.
 ## Layer 4 — code/base rollback for the durable DO
 
 If a durable regression ships (wrong window, identity-key bug, 503 storm), the
-correct move is a Layer 1 Worker rollback of `EDGE_GUARD` + `rate-policy.ts`
-together. `EDGE_GUARD` uses SQLite-backed DO storage; a rollback that stops
+correct move is a Layer 1 Worker rollback of `EDGE_GUARD` + the rate cells
+(`route-table.ts`, `rate-policy.ts`) together. `EDGE_GUARD` uses SQLite-backed DO storage; a rollback that stops
 writing a window lets the reclaim alarm delete stale shards, so no manual DO
 state reset is required in normal operation. If an operator must force-pop
 state, the reclaim logic (`edge-guard.ts` `alarm`) is the documented seam.

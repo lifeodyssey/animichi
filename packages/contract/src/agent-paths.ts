@@ -3,17 +3,16 @@
  *
  * The edge Worker serves every entry, and no entry has a downstream runtime
  * left to mirror: most are the native agent tier's routes
- * (`workers/api/src/agent/`, selected by `turnRoutePolicy`), `GET /healthz`
- * is the gateway's own readiness answer (#1596), and the entries marked
- * `runtime: "edge"` carry the flag that used to divide the container's
- * mounts from this Worker's own additions.
+ * (`workers/api/src/agent/`, the agent-tier entries of the gateway's route
+ * table), `GET /healthz` is the gateway's own readiness answer (#1596), and
+ * the entries marked `runtime: "edge"` carry the flag that used to divide the
+ * container's mounts from this Worker's own additions.
  *
  * It is this table, not the flag, that is read at RUNTIME by the edge
- * gateway's routing and rate tables
- * (`workers/api/src/gateway/routing-policy.ts`, `rate-policy.ts`), which
- * match method + path against these entries and derive their allowlists
- * from it rather than hand-maintaining a second vocabulary — `agentRule`
- * never touches `runtime`. With the container gone (#1605) the flag
+ * gateway's route table (`workers/api/src/gateway/route-table.ts`), which
+ * refuses to load an agent-tier route whose path is not an entry here rather
+ * than hand-maintaining a second vocabulary — and never touches `runtime`.
+ * With the container gone (#1605) the flag
  * decides nothing at runtime: the emitter copies it into the emitted
  * `x-runtime` field (`scripts/emit-openapi.ts`), which exempts an
  * operation from the marker-less phantom-surface rule in

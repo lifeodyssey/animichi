@@ -5,9 +5,9 @@ import { nativeAgentReceiver } from "./doubles/native-agent-receiver.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { openStream } from "./doubles/open-stream.ts";
 
-// EDGE-1 #963 composed-seam tests: HandleGatewayRequest runs identity,
-// protection, route selection, internal-identity construction, and
-// forwarding in that order. These pin the composition itself — the order
+// EDGE-1 #963 composed-seam tests: each gateway route runs identity,
+// protection, internal-identity construction, and forwarding in that order,
+// after Hono has selected it. These pin the composition itself — the order
 // guards run relative to forwarding, upstream-failure pass-through, and
 // disconnect (SSE) pass-through — at the seam, not inside any one adapter.
 

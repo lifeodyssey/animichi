@@ -32,8 +32,8 @@ export type UserType = "human" | "anonymous";
  *  - `"authenticated"` — a verified human JWT: burst-limited on cost-bearing
  *                        paths only; no anonymous quota/budget.
  *
- * The path -> class classification stays in gateway/routing-policy.ts; this
- * module owns the classes and the policy document they consume.
+ * Which route a path is lives in gateway/route-table.ts; this module owns the
+ * classes and the policy document they consume.
  */
 export type { IdentityClass, IdentityClassPolicy, IdentityPolicy };
 
