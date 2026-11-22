@@ -1,7 +1,9 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
 import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, USERS_ERROR_DEFS } from "@animichi/contract";
-import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
+import {
+  AUTHORIZATION_HEADER, REQUEST_ID_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER, acceptedRequestId,
+} from "@animichi/contract/internal-binding";
 import { acquireUsersRuntime, usersPrisma, type UsersPrisma } from "./db/prisma";
 import { usersRouter, type UsersContext } from "./router";
 
@@ -64,8 +66,8 @@ function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
   return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 
-/** The identity and retry-safe key this request is admitted with. */
-interface Admission { userId: string; idempotencyKey?: string }
+/** The identity, retry-safe key and gateway request ID this request is admitted with. */
+interface Admission { userId: string; idempotencyKey?: string; requestId?: string }
 
 /** Admission, or the Response that refuses the request before any work. */
 function admit(c: Context<{ Bindings: Env }>): Admission | Response {
@@ -78,7 +80,9 @@ function admit(c: Context<{ Bindings: Env }>): Admission | Response {
   if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
     return c.json(idempotencyKeyInvalid, KEY_INVALID.status);
   }
-  return idempotencyKey === undefined ? { userId } : { userId, idempotencyKey };
+  // The gateway's request ID rides the same binding as the identity above.
+  const admitted = { userId, requestId: acceptedRequestId(c.req.header(REQUEST_ID_HEADER)) };
+  return idempotencyKey === undefined ? admitted : { ...admitted, idempotencyKey };
 }
 
 async function handleMatched(

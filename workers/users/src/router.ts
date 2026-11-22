@@ -14,7 +14,7 @@ import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-r
 import type { UsersPrisma } from "./db/prisma";
 
 /** Per-request dependencies established by authentication middleware. */
-export interface UsersContext { prisma: UsersPrisma; userId: string; idempotencyKey?: string }
+export interface UsersContext { prisma: UsersPrisma; userId: string; idempotencyKey?: string; requestId?: string }
 
 const os = implement(usersContract).$context<UsersContext>();
 
@@ -25,17 +25,21 @@ const idemStore = (context: UsersContext): IdempotencyStore => new NeonIdempoten
 const atomicStore = (context: UsersContext): AtomicCommitStore => new NeonAtomicCommitStore(context.prisma);
 const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.prisma);
 
-/** Redacted load observability: outcome, count, duration. Never route/actor ids. */
-function listSavedRoutesObserver(): ListSavedRoutesObserverPort {
+/** Redacted load observability: outcome, count, duration and the gateway's
+ * request ID (`-` when none came with the request). Never route/actor ids. */
+function listSavedRoutesObserver(requestId: string | undefined): ListSavedRoutesObserverPort {
   return {
     record: (o) => {
-      console.info(`list-saved-routes outcome=${o.outcome} count=${String(o.count)} duration_ms=${String(o.duration_ms)}`);
+      console.info(
+        `list-saved-routes outcome=${o.outcome} count=${String(o.count)} duration_ms=${String(o.duration_ms)}`
+        + ` request_id=${requestId ?? "-"}`,
+      );
     },
   };
 }
 
 const listSavedRoutes = os.listSavedRoutes.handler(async ({ context }) =>
-  listSavedRoutesAction(reader(context), context.userId, { observer: listSavedRoutesObserver() }),
+  listSavedRoutesAction(reader(context), context.userId, { observer: listSavedRoutesObserver(context.requestId) }),
 );
 
 /** A create (no id) under an Idempotency-Key is retry-safe; an update or a
