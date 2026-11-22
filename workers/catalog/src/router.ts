@@ -21,6 +21,8 @@ export interface CatalogContext {
   fetchImpl?: typeof fetch;
   /** The anitabi egress signing key (#1792); anitabi fetches refuse without it. */
   egressSigningKey?: string;
+  /** The gateway's request ID, for this request's lines; absent when none came. */
+  requestId?: string;
 }
 
 /**
@@ -37,7 +39,7 @@ const os = implement(catalogContract).$context<CatalogContext>();
 
 const resolve = os.resolve.handler(async ({ input, context, signal }) =>
   resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl, signal }), input, {
-    observer: resolveObserver(),
+    observer: resolveObserver(context.requestId),
   }),
 );
 
@@ -49,7 +51,7 @@ const pointsById = os.pointsByBangumiId.handler(async ({ input, context, signal 
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
-  nearbyHandler(context.prisma, input),
+  nearbyHandler(context.prisma, input, context.requestId),
 );
 
 const geocode = os.geocode.handler(async ({ input, context }) =>
@@ -69,7 +71,7 @@ function assertItineraryPointIdCap(count: number): Promise<void> {
 const planItinerary = os.planItinerary.handler(async ({ input, context }) => {
   await assertItineraryPointIdCap(input.point_ids.length);
   return planItineraryUseCase(pointsForRoute(context.prisma), input, {
-    observer: itineraryObserver(),
+    observer: itineraryObserver(context.requestId),
   });
 });
 
@@ -102,23 +104,27 @@ async function callAnimeOverview(prisma: CatalogPrisma, input: { bangumi_id: str
   }
 }
 
-/** Redacted resolve observability: outcome, candidate count, source class, duration. */
-function resolveObserver(): ResolveObserverPort {
+/** Redacted resolve observability: outcome, candidate count, source class,
+ * duration and the gateway's request ID (`-` when none came). */
+function resolveObserver(requestId: string | undefined): ResolveObserverPort {
   return {
     record: (o) => {
       console.info(
-        `resolve outcome=${o.outcome} candidates=${String(o.candidate_count)} source=${o.source_class} duration_ms=${String(o.duration_ms)}`,
+        `resolve outcome=${o.outcome} candidates=${String(o.candidate_count)} source=${o.source_class} duration_ms=${String(o.duration_ms)}`
+        + ` request_id=${requestId ?? "-"}`,
       );
     },
   };
 }
 
-/** Redacted itinerary observability: outcome, counts, truncation, duration. Never coordinates/titles. */
-function itineraryObserver(): ItineraryObserverPort {
+/** Redacted itinerary observability: outcome, counts, truncation, duration and
+ * the gateway's request ID (`-` when none came). Never coordinates/titles. */
+function itineraryObserver(requestId: string | undefined): ItineraryObserverPort {
   return {
     record: (o) => {
       console.info(
-        `plan-itinerary outcome=${o.outcome} point_count=${String(o.point_count)} cluster_count=${String(o.cluster_count)} truncated=${String(o.truncated)} duration_ms=${String(o.duration_ms)}`,
+        `plan-itinerary outcome=${o.outcome} point_count=${String(o.point_count)} cluster_count=${String(o.cluster_count)} truncated=${String(o.truncated)} duration_ms=${String(o.duration_ms)}`
+        + ` request_id=${requestId ?? "-"}`,
       );
     },
   };

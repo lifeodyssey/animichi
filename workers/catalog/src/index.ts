@@ -2,6 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
+import { REQUEST_ID_HEADER, acceptedRequestId } from "@animichi/contract/internal-binding";
 import { catalogRouter } from "./router";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
@@ -131,6 +132,8 @@ app.use("/catalog/*", async (c, next) => {
       prisma: catalogPrisma(runtime),
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
+      // Catalog has no public host, so this header came over the API Worker's binding.
+      requestId: acceptedRequestId(c.req.header(REQUEST_ID_HEADER)),
     },
   });
   if (matched) {
