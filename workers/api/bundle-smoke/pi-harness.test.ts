@@ -1,15 +1,14 @@
 // S1 (#1537): execute the exact Wrangler artifact, including the public harness constructor.
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after } from "node:test";
 import { URL, fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { createTestHarness } from "wrangler";
 import { parse } from "smol-toml";
 import type { Metafile } from "esbuild";
+import { runWrangler } from "./wrangler-bundle.ts";
 
 interface SmokeConfig {
   name: string;
@@ -26,9 +25,8 @@ after(() => {
   rmSync(output, { recursive: true, force: true });
 });
 
-const { stdout } = await promisify(execFile)("pnpm", ["exec", "wrangler", "deploy", "--dry-run",
-  "--config", configPath, "--outdir", output, "--metafile", join(output, "metafile.json")]);
 const bundle = join(output, "pi-harness.worker.js");
+const stdout = await runWrangler(configPath, output, bundle, join(output, "metafile.json"));
 const code = readFileSync(bundle, "utf8");
 const metadata = JSON.parse(readFileSync(join(output, "metafile.json"), "utf8")) as Metafile;
 
