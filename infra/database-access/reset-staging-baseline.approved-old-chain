@@ -1,0 +1,52 @@
+# The old chain's rows the staging rebuild may drop, each line exactly as the refusal printed it
+# (reset-staging-baseline.old-chain.sh).
+#
+# Why staging is stranded: converting the migration chain to Prisma rc.24's format changed every
+# migration hash. Staging's app marker is therefore no node of the repository's graph, and the
+# migrator refuses it (MIGRATION.MARKER_MISMATCH) before any DDL, so no migration can move it.
+#
+# What approving the lines below does:
+# - takes a backup branch named after the marker;
+# - drops the whole `prisma_contract` schema (marker, ledger, contract) in one transaction, as
+#   `migrator`;
+# - rebuilds `public` in a second transaction, as `neondb_owner`;
+# - applies the new chain from an empty database.
+#
+# What the guard checks: the lines below must be exactly the lines the refusal prints, in any
+# order. That is every marker row with its hash, and every table in `public` with its row count. If
+# a row was added or removed since, a table was added or dropped, or the marker is a different one,
+# the guard refuses as though this record were absent and prints the lines again.
+#
+# Recorded 2026-11-22 under the repository owner's decision of 2026-11-21 to rebuild staging
+# rather than migrate it, since staging holds no real user. The owner confirmed these lines on
+# 2026-11-22. The refusal that printed them: https://github.com/lifeodyssey/animichi/actions/runs/45019395460
+prisma_contract.marker space=app updated_at=2026-11-20T13:06:55.153840Z core_hash=efbac76665a59889ae66de0502ef143733f844ce2545017c54dfd4a8ff1e27c5
+public.agent_admissions 0 rows
+public.agent_open_operations 0 rows
+public.agent_settlements 0 rows
+public.aliases 0 rows
+public.anon_daily_message_count 0 rows
+public.bangumi 0 rows
+public.catalog_provenance 0 rows
+public.catalog_runs 0 rows
+public.daily_usage 0 rows
+public.ingest_jobs 0 rows
+public.leg_cache 0 rows
+public.location_aliases 0 rows
+public.locations 0 rows
+public.media_assets 0 rows
+public.pi_list_values 0 rows
+public.pi_records 0 rows
+public.pi_scalar_values 0 rows
+public.pi_sessions 0 rows
+public.points 0 rows
+public.raw_anitabi 0 rows
+public.raw_bangumi 0 rows
+public.raw_payload_history 0 rows
+public.saved_route_anime 0 rows
+public.saved_route_idempotency 0 rows
+public.saved_routes 0 rows
+public.series_edges 0 rows
+public.sessions 0 rows
+public.spatial_ref_sys 8500 rows
+public.turn_reservations 0 rows
