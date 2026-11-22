@@ -31,6 +31,9 @@ RULES="${REPO_ROOT}/.semgrep"
 # ruleset cannot pass the gate by making semgrep exit non-zero for its own
 # reasons.
 RULE_ID="ts-no-prisma-raw-escape"
+# Every scan here is of local rules. Without these switches each one would also
+# ask semgrep.dev for the latest version, and send usage metrics when logged in.
+SEMGREP_SERVERS_OFF=(--disable-version-check --metrics=off)
 
 if ! command -v "${SEMGREP_BIN}" >/dev/null 2>&1; then
   echo "ERROR: semgrep not found (SEMGREP_BIN=${SEMGREP_BIN})." >&2
@@ -61,7 +64,7 @@ scan_forbidden_case() {
   target="${root}/workers/catalog/src"
   mkdir -p "${target}"
   copy_into "${target}" "${fixture}" || { rm -rf "${root}"; return 1; }
-  findings="$(cd "${root}" && "${SEMGREP_BIN}" --config "${RULES}" --json . 2>/dev/null || true)"
+  findings="$(cd "${root}" && "${SEMGREP_BIN}" "${SEMGREP_SERVERS_OFF[@]}" --config "${RULES}" --json . 2>/dev/null || true)"
   rm -rf "${root}"
   grep -q "${RULE_ID}" <<<"${findings}"
 }
@@ -119,7 +122,7 @@ approved() {
     || { rm -rf "${root}"; return 1; }
   copy_into "${root}/workers/users/src/db" "${REPO_ROOT}/workers/users/src/db/prisma.ts" \
     || { rm -rf "${root}"; return 1; }
-  if ! (cd "${root}" && "${SEMGREP_BIN}" --config "${RULES}" --error . >/dev/null 2>&1); then
+  if ! (cd "${root}" && "${SEMGREP_BIN}" "${SEMGREP_SERVERS_OFF[@]}" --config "${RULES}" --error . >/dev/null 2>&1); then
     echo "FAIL: the rule flagged a sanctioned shape (expected zero findings)." >&2
     rm -rf "${root}"
     return 1
@@ -136,7 +139,7 @@ baseline() {
   # .semgrepignore still applies (test/ and tests/ are excluded). Scanning the
   # include dirs explicitly would scope the check to those subtrees and miss any
   # violation elsewhere in the repo.
-  if ! (cd "${REPO_ROOT}" && "${SEMGREP_BIN}" --config "${RULES}" --error . >/dev/null 2>&1); then
+  if ! (cd "${REPO_ROOT}" && "${SEMGREP_BIN}" "${SEMGREP_SERVERS_OFF[@]}" --config "${RULES}" --error . >/dev/null 2>&1); then
     echo "FAIL: existing runtime source already violates the raw-SQL policy." >&2
     return 1
   fi

@@ -72,11 +72,15 @@ PLAN_RE='^(Previewing update|View in Browser|Diagnostics:|Resources:|Outputs:|Du
 OUT="$WORK/preview.log"
 
 # Run a pulumi command in the infra program against the throwaway file://
-# backend. Exit status is the command's — callers decide green vs fail-closed.
+# backend, with the CLI's update check off: otherwise every command, a
+# non-interactive preview included, asks api.pulumi.com for the latest version
+# (measured on the pinned Pulumi 3.255.0). Exit status is the command's —
+# callers decide green vs fail-closed.
 pulumi_backend() {
   (
     cd "$ROOT/infra"
-    PULUMI_BACKEND_URL="file://$WORK/backend" PULUMI_CONFIG_PASSPHRASE=preflight "$@"
+    PULUMI_BACKEND_URL="file://$WORK/backend" PULUMI_CONFIG_PASSPHRASE=preflight \
+      PULUMI_SKIP_UPDATE_CHECK=true "$@"
   )
 }
 

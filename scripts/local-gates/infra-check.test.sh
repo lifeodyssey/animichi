@@ -8,8 +8,9 @@
 # (scripts/local-gates/infra-check.sh), AC4/AC7.
 #
 # The gate must fail on a Pulumi loader/compiler error (the class ordinary
-# tsc --noEmit misses), fail closed on an unknown preview failure, and pass
-# (non-blocking) when only credential/provider noise appears. Red → restore →
+# tsc --noEmit misses), fail closed on an unknown preview failure, pass
+# (non-blocking) when only credential/provider noise appears, and run every
+# Pulumi command with the CLI's update check off. Red → restore →
 # green probes exercise the allowlist boundary: a failure mode is red, then
 # the restored run is green. pulumi is stubbed (scripts/local-gates/
 # stub-env.sh + test-stub.sh); the pulumi binary never talks to a real backend.
@@ -163,6 +164,19 @@ test_clean_preview_is_green() {
   echo "ok: a clean preview exits green"
 }
 
+# The Pulumi CLI asks api.pulumi.com for its latest version on every command,
+# a non-interactive preview included. Every Pulumi command the gate runs must
+# switch that check off, whatever the caller's own environment says.
+test_every_pulumi_command_skips_the_update_check() {
+  local ran skipped
+  : >"$GATE_STUB_ROOT/log"
+  PULUMI_SKIP_UPDATE_CHECK=false run_gate >/dev/null
+  ran="$(grep -c ' :: pulumi ' "$GATE_STUB_ROOT/log" || true)"
+  skipped="$(grep -cx 'env PULUMI_SKIP_UPDATE_CHECK=true' "$GATE_STUB_ROOT/log" || true)"
+  [ "$ran" -gt 0 ] && [ "$skipped" = "$ran" ] || { echo "FAIL: $skipped of $ran pulumi commands skip the update check" >&2; exit 1; }
+  echo "ok: every pulumi command the gate runs skips the update check"
+}
+
 test_compile_failure_fails
 test_credential_noise_is_non_blocking
 test_stack_init_failure_fails
@@ -174,4 +188,5 @@ test_typeerror_red_restore_green
 test_unknown_plain_text_red_restore_green
 test_plan_without_diagnostic_red_restore_green
 test_clean_preview_is_green
+test_every_pulumi_command_skips_the_update_check
 echo "infra-check.test.sh: all green"

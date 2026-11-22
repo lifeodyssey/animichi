@@ -14,7 +14,9 @@
 # The install is credential-free: `PULUMI_BACKEND_URL` points at a throwaway
 # `file://` backend, which outranks `backend.url`, so no real state is read
 # (measured on the pinned Pulumi 3.255.0 — same preflight as
-# `scripts/local-gates/infra-check.sh`).
+# `scripts/local-gates/infra-check.sh`). `PULUMI_SKIP_UPDATE_CHECK` keeps the
+# CLI from asking api.pulumi.com for its latest version, which it otherwise
+# does on every command, a non-interactive one included.
 #
 # The compiler is the workspace's (catalog ^7.0.2), resolved from `infra/`
 # rather than this directory's own `typescript` pin, so the program is held to
@@ -27,7 +29,7 @@ BACKEND="$(mktemp -d)"
 trap 'rm -rf "$BACKEND"' EXIT
 
 cd "$DIR"
-PULUMI_BACKEND_URL="file://$BACKEND/backend" \
+PULUMI_BACKEND_URL="file://$BACKEND/backend" PULUMI_SKIP_UPDATE_CHECK=true \
   pulumi install --no-dependencies --non-interactive
 pnpm install --frozen-lockfile
 

@@ -84,6 +84,13 @@ cross-lane review is separate, see `docs/agents/owner-decisions.md`).
 A PR opens only after a review seat on a model different from every model that wrote the
 candidate has approved its head, and the body carries `Review: APPROVE at <sha>`.
 
+An update by merge changes the head, so the line must name the new head (2026-11-23). Confirm that
+the PR's diff against `main` has the same patch-id as the reviewed one
+(`git diff <merge-base> <reviewed> | git patch-id --stable` against
+`git diff origin/main HEAD | git patch-id --stable`). The review seat then re-approves the merge
+head; nobody but the seat writes the line's SHA. When `main` has moved before the review, merge it
+in first.
+
 ## Four kinds of card the owner reviews before merge (owner, 2026-10-09)
 
 "就这么几类卡需要我来 review：一个是 UI 的卡，一个是涉及到改数据库的卡，一个是有一些异步或者时间序列操作的卡，然后还有一个是涉及到 secret 和 environment variable 的卡."
@@ -220,3 +227,9 @@ full context, plan included. Every fork gets a private output path and a prompt 
 sibling roles and says what is not its job. Also: `a && b && c` stops silently at the first
 non-zero exit, and `grep` with no match is non-zero, so a "not found" conclusion is rerun on its own
 before it is reported.
+
+A brief states the constraint, not a solution (2026-11-23). One brief said to move an inline copy
+into a small module that imports no Pulumi, and the writer did exactly that: a third copy that
+nothing required. The constraint was that CD applies the two Pulumi programs from a sealed tree
+that carries `infra/` alone, which still let one program import the other's copy. The independent
+review read the deploy scripts rather than the brief, and caught it (#2098).
