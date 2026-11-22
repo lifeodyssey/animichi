@@ -13,9 +13,11 @@
  *   - `points.latitude` / `longitude` are GENERATED over `location` on this
  *     plane, so the exported pair is written back as the geography it was read
  *     from. Writing the scalars is `cannot insert a non-DEFAULT value into
- *     column "latitude"` (`428C9`).
- *   - `catalog_provenance.attribution` / `field_map` are jsonb, which the plan
- *     boundary takes as `JsonValue` (see `../db/json`).
+ *     column "latitude"` (`428C9`); the row still carries them for the
+ *     builder's rc.20 row check, and the import sends DEFAULT in their place
+ *     (`generatedByTheDatabase`, `../db/plans`).
+ *   - `catalog_provenance.field_map` is jsonb, which the plan boundary takes as
+ *     `JsonValue` (see `../db/json`); `attribution` beside it is text.
  *
  * Each row is read through its snapshot interface after `importSnapshot` has
  * verified the object's SHA-256 against the manifest, so what arrives here is
@@ -64,8 +66,8 @@ interface SnapshotSeriesEdge {
 /** The `catalog_provenance` row as `provenancePlan` exported it. */
 interface SnapshotProvenance {
   scope: string; entityId: string; workId: string | null; source: string;
-  upstreamId: string | null; attribution: object | null; license: string | null;
-  fieldMap: object | null; capturedAt: string | null;
+  upstreamId: string | null; attribution: string | null; license: string | null;
+  fieldMap: object | null; capturedAt: string;
 }
 
 /** The `media_assets` row as `mediaPlan` exported it. */
@@ -87,8 +89,8 @@ function bangumiColumns(row: SnapshotWork) {
 function pointColumns(row: SnapshotPoint) {
   return {
     id: row.id, bangumi_id: row.bangumiId, name: row.name, name_cn: row.nameCn,
-    location: geographyPoint(row.longitude, row.latitude), image: row.image,
-    episode: row.episode, time_seconds: row.timeSeconds, scene_desc: row.sceneDesc,
+    location: geographyPoint(row.longitude, row.latitude), latitude: row.latitude, longitude: row.longitude,
+    image: row.image, episode: row.episode, time_seconds: row.timeSeconds, scene_desc: row.sceneDesc,
     origin: row.origin, origin_url: row.originUrl, city: row.city,
   };
 }
@@ -108,11 +110,11 @@ function seriesEdgeColumns(row: SnapshotSeriesEdge) {
   };
 }
 
-/** One `catalog_provenance` row; its two jsonb columns cross the plan boundary. */
+/** One `catalog_provenance` row; its jsonb column crosses the plan boundary. */
 function provenanceColumns(row: SnapshotProvenance) {
   return {
     scope: row.scope, entity_id: row.entityId, work_id: row.workId, source: row.source,
-    upstream_id: row.upstreamId, attribution: jsonOrNull(row.attribution),
+    upstream_id: row.upstreamId, attribution: row.attribution,
     license: row.license, field_map: jsonOrNull(row.fieldMap), captured_at: row.capturedAt,
   };
 }
@@ -130,18 +132,15 @@ function jsonOrNull(value: object | null) {
   return value === null ? null : asJsonValue(value);
 }
 
-/** Every kind's reader, keyed by the kind whose rows it reads. */
-const COLUMNS_BY_KIND = {
-  works: (row: unknown) => bangumiColumns(row as SnapshotWork),
-  points: (row: unknown) => pointColumns(row as SnapshotPoint),
-  aliases: (row: unknown) => aliasColumns(row as SnapshotAlias),
-  series: (row: unknown) => seriesEdgeColumns(row as SnapshotSeriesEdge),
-  provenance: (row: unknown) => provenanceColumns(row as SnapshotProvenance),
-  media: (row: unknown) => mediaAssetColumns(row as SnapshotMediaAsset),
-} as const satisfies Record<ImportKind, (row: unknown) => object>;
-
-/** One kind's exported rows, as the values its table's INSERT takes. */
-export function tableRows(kind: ImportKind, rows: readonly unknown[]): object[] {
-  const columnsOf = COLUMNS_BY_KIND[kind];
-  return rows.map((row) => columnsOf(row));
-}
+/**
+ * Every kind's exported rows, read as the values its table's INSERT takes. Each reader keeps
+ * its own table's row type, so the INSERT it feeds checks every column that table requires.
+ */
+export const SNAPSHOT_ROWS = {
+  works: (rows: readonly unknown[]) => rows.map((row) => bangumiColumns(row as SnapshotWork)),
+  points: (rows: readonly unknown[]) => rows.map((row) => pointColumns(row as SnapshotPoint)),
+  aliases: (rows: readonly unknown[]) => rows.map((row) => aliasColumns(row as SnapshotAlias)),
+  series: (rows: readonly unknown[]) => rows.map((row) => seriesEdgeColumns(row as SnapshotSeriesEdge)),
+  provenance: (rows: readonly unknown[]) => rows.map((row) => provenanceColumns(row as SnapshotProvenance)),
+  media: (rows: readonly unknown[]) => rows.map((row) => mediaAssetColumns(row as SnapshotMediaAsset)),
+} as const satisfies Record<ImportKind, (rows: readonly unknown[]) => readonly object[]>;

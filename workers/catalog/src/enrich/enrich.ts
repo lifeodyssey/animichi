@@ -30,6 +30,9 @@
  * plane wrote the scalars and let the `sync_points_coordinates` trigger derive
  * the geography; on this plane a scalar write is refused by Postgres
  * (`428C9`), and writing the geometry is the one form correct on both planes.
+ * The builder's row type still requires the two coordinates (rc.20), so the row
+ * carries the point's own and {@link generatedByTheDatabase} sends DEFAULT for
+ * them.
  *
  * KNOWN GAP: enrich only UPSERTs; a point REMOVED upstream is not deleted and
  * lingers in the served catalog (delete-not-in-set is a later-wave fix).
@@ -39,7 +42,7 @@
 import { geographyPoint } from "@animichi/prisma-geography";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { CatalogPrisma } from "../db/prisma";
-import { upsert } from "../db/plans";
+import { generatedByTheDatabase, upsert } from "../db/plans";
 import { clusterByLocation } from "../domain/clustering/cluster";
 import { rankAliases, Source, type RawAlias } from "../domain/alias";
 import { parseAnitabiPoints, parseBangumi, type BangumiRow, type PointRow } from "./parse";
@@ -115,7 +118,7 @@ function upsertPoints(query: CatalogPrisma, rows: PointRow[]): SqlOrmPlan {
     .insert(rows.map(pointValues))
     .returning("id")
     .build();
-  return upsert(insert, { target: ["id"], update: POINT_UPDATE_COLUMNS });
+  return upsert(generatedByTheDatabase(insert, "points"), { target: ["id"], update: POINT_UPDATE_COLUMNS });
 }
 
 /** The columns a re-enrich overwrites on an existing point. */
@@ -125,13 +128,14 @@ const POINT_UPDATE_COLUMNS = [
 
 /**
  * A point row as the plane stores it: the coordinates become the geography
- * `location`, because `latitude` / `longitude` are generated columns here.
+ * `location`. `latitude` / `longitude` are generated over it, so they carry the
+ * same coordinates only for the builder's row check and are sent as DEFAULT.
  */
 function pointValues(row: PointRow) {
   return {
     id: row.id, bangumi_id: row.bangumi_id, name: row.name, name_cn: row.name_cn,
-    location: geographyPoint(row.longitude, row.latitude), image: row.image,
-    episode: row.episode, time_seconds: row.time_seconds, origin: row.origin, origin_url: row.origin_url,
+    location: geographyPoint(row.longitude, row.latitude), latitude: row.latitude, longitude: row.longitude,
+    image: row.image, episode: row.episode, time_seconds: row.time_seconds, origin: row.origin, origin_url: row.origin_url,
   };
 }
 

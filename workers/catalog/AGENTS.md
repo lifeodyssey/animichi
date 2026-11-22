@@ -30,7 +30,8 @@ Root guide: `../../AGENTS.md`.
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
   Hono `/catalog/*` boundary (or a cron pass) opens ONE connection per request and disposes it
   with `await using` — never a connection cached across requests. Since Prisma rc.14 that
-  `connect()` opens the socket before it returns, so an unreachable database fails at the boundary. The second path Drizzle held
+  `connect()` opens the socket before it returns, so an unreachable database fails at the
+  boundary. The second path Drizzle held
   (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
@@ -74,7 +75,9 @@ Root guide: `../../AGENTS.md`.
 - **A converted path builds PLANS.** With `CatalogPrisma` (`src/db/prisma.ts`): build with the
   shared contract's builder, run on the request's connection (`executor.query`), and group with
   `transaction()`. Three facts that shape that code: the builder's surface stops at
-  `returning`/`build`, so an upsert and a server-clock write are plan repairs in `src/db/plans.ts`;
+  `returning`/`build`, so an upsert, a server-clock write and a write to a generated column are
+  plan repairs in `src/db/plans.ts` (the contract cannot declare `points.latitude`/`longitude`
+  generated, so since rc.20 the INSERT requires them, and `generatedByTheDatabase` sends DEFAULT);
   a projection's ALIAS is the key the row carries; and a raw fragment interpolates BOUND values
   (only a hand-built `RawExpr` renders text). `transaction()` inside an open transaction JOINS it —
   never a second connection.
