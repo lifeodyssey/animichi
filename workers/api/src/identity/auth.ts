@@ -6,6 +6,7 @@ import {
   type IdentityPolicy,
 } from "@animichi/contract/identity";
 import { verifyEdDsaJwt } from "@animichi/contract/jwt";
+import { issuerFromJwksUrl } from "@animichi/contract/neon-auth";
 import { createRemoteJWKSet, customFetch } from "jose";
 
 /**
@@ -144,8 +145,8 @@ export const BEARER_SCHEME = /^bearer[ \t]+/i;
  * AUTH-2 #950: the edge verifies Neon Auth JWTs and nothing else. The
  * Supabase verifier, the `NEON_AUTH_ENABLED` activation flag and the split
  * `NEON_AUTH_ISSUER` var are deleted — the branch's JWKS URL is the single
- * source of truth, and the issuer/audience are derived from it (the same
- * derivation the retired `workers/users/src/auth/jwt.ts` used).
+ * source of truth, and the issuer/audience are derived from it by
+ * `@animichi/contract/neon-auth`, the derivation infra's copy is bound to.
  */
 export interface AuthEnv {
   NEON_AUTH_JWKS_URL?: string;
@@ -160,11 +161,6 @@ export {
   resolveAnonymousReadOnly,
   type AnonymousIdentity,
 } from "./anonymous-id.ts";
-
-/** Neon Auth JWTs set `iss`/`aud` to the auth host origin, not `/neondb/auth`. */
-export function issuerFromJwksUrl(jwksUrl: string): string {
-  return new URL(jwksUrl).origin;
-}
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 

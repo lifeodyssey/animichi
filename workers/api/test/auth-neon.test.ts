@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
-import { authenticate, issuerFromJwksUrl } from "../src/identity/auth.ts";
+import { authenticate } from "../src/identity/auth.ts";
 
 const JWKS_SUFFIX = "/.well-known/jwks.json";
 
-function stubFetch(handler: (url: string) => Response): typeof fetch {
+function stubFetch(handler: (url: string) => Response, urls: string[] = []): typeof fetch {
   return (input: RequestInfo | URL) => {
     const url = input instanceof Request ? input.url : input.toString();
+    urls.push(url);
     return Promise.resolve(handler(url));
   };
 }
@@ -37,15 +38,47 @@ function neonEnv(host: string) {
   return { NEON_AUTH_JWKS_URL: `${host}${JWKS_SUFFIX}` };
 }
 
-void test("issuerFromJwksUrl is the Neon Auth host origin, not the /neondb/auth path", () => {
-  assert.equal(
-    issuerFromJwksUrl("https://auth.example.test/neondb/auth/.well-known/jwks.json"),
-    "https://auth.example.test",
-  );
+// The staging input: the JWKS address carries the Better Auth base path, and the
+// issuer and audience are the host origin alone.
+void test("a JWKS address under /neondb/auth verifies a token the host origin issued", async () => {
+  const { jwk, token } = await fixture("https://neon-staging-shape.example.test");
+  const urls: string[] = [];
+  const env = { NEON_AUTH_JWKS_URL: "https://neon-staging-shape.example.test/neondb/auth/.well-known/jwks.json" };
+  const r = await authenticate(bearer(token), env, stubFetch(() => jwks(jwk), urls));
+  assert.deepEqual(r, { ok: true, userId: "fake-neon-user", userType: "human" });
+  assert.deepEqual(urls, ["https://neon-staging-shape.example.test/neondb/auth/.well-known/jwks.json"]);
 });
 
-void test("issuerFromJwksUrl uses origin when the URL has no well-known suffix", () => {
-  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth"), "https://auth.example.test");
+void test("a JWKS address under /neondb/auth rejects a token that base path issued", async () => {
+  const base = "https://neon-staging-path.example.test/neondb/auth";
+  const { jwk, token } = await fixture("https://neon-staging-path.example.test", { issuer: base, audience: base });
+  const env = { NEON_AUTH_JWKS_URL: "https://neon-staging-path.example.test/neondb/auth/.well-known/jwks.json" };
+  const r = await authenticate(bearer(token), env, stubFetch(() => jwks(jwk)));
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
+});
+
+void test("an uppercase host with an explicit default port expects the normalised origin", async () => {
+  const { jwk, token } = await fixture("https://neon-upper.example.test");
+  const env = { NEON_AUTH_JWKS_URL: "https://NEON-UPPER.Example.TEST:443/neondb/auth/.well-known/jwks.json" };
+  const r = await authenticate(bearer(token), env, stubFetch(() => jwks(jwk)));
+  assert.deepEqual(r, { ok: true, userId: "fake-neon-user", userType: "human" });
+});
+
+// Production leaves the address unset; an empty or malformed one fails closed the same way.
+void test("an empty JWKS address fails closed without a fetch", async () => {
+  const { token } = await fixture("https://neon-empty.example.test");
+  const urls: string[] = [];
+  const r = await authenticate(bearer(token), { NEON_AUTH_JWKS_URL: "" }, stubFetch(() => new Response("", { status: 500 }), urls));
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
+  assert.deepEqual(urls, []);
+});
+
+void test("a malformed JWKS address fails closed without a fetch", async () => {
+  const { token } = await fixture("https://neon-malformed.example.test");
+  const urls: string[] = [];
+  const r = await authenticate(bearer(token), { NEON_AUTH_JWKS_URL: "not a url" }, stubFetch(() => new Response("", { status: 500 }), urls));
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
+  assert.deepEqual(urls, []);
 });
 
 void test("a valid EdDSA token for the derived issuer/audience is accepted", async () => {

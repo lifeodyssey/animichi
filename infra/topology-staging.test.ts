@@ -17,6 +17,7 @@ const built: Built[] = await buildStack("staging", {
   stagingDomain: "staging.animichi.com",
   // Object config reaches the program as the JSON blob Pulumi stores it as.
   stagingAccessAllowedEmails: '["owner@example.test", "second@example.test"]',
+  neonAuthBaseUrl: "https://neon-auth.example.test/neondb/auth",
 });
 
 const CUSTOM_DOMAIN = "cloudflare:index/workersCustomDomain:WorkersCustomDomain";
@@ -112,4 +113,11 @@ test("staging buckets are isolated from production and stay private", () => {
   assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);
   const customDomains = ofType(built, "cloudflare:index/r2CustomDomain:R2CustomDomain");
   assert.deepEqual(customDomains, []);
+});
+
+test("staging derives the edge's JWKS address and issuer from its Neon Auth base URL", async () => {
+  // Read after the build: a static import would load the program before the mocks.
+  const program = await import("./index.ts");
+  assert.equal(program.neonAuthJwksUrl, "https://neon-auth.example.test/neondb/auth/.well-known/jwks.json");
+  assert.equal(program.neonAuthIssuer, "https://neon-auth.example.test");
 });

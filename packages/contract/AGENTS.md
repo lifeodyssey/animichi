@@ -100,6 +100,12 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
   neither of which should load zod to learn two
   header names. `test/access-service-token.test.ts` holds it; the values come from the
   `infra` stack output, never from anything checked in.
+- `src/neon-auth.ts` — the issuer of a Neon Auth JWKS address, which the API Worker's verifier
+  reads at runtime (import-free, in the gate above). The address itself is derived only in
+  `infra/src/neon-auth.ts`, which both sealed Pulumi programs import; infra also keeps a copy of
+  the issuer, since those programs cannot depend on this package. `test/neon-auth.test.ts` pins
+  the address and binds both issuers to literal outputs, and also runs in infra's lane as
+  `test:neon-auth-parity`.
 - `src/agent-step-origin.ts` — who asked for a step: native
   `workers/api/src/agent/views/selection-response.ts` writes `serverStepOrigin()` onto
   deterministic selection's `tool-input-start` and `tool-input-available` frames.
