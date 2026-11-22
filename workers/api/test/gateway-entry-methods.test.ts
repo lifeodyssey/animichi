@@ -116,6 +116,8 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PATCH", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
   ["DELETE", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
   ["OPTIONS", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
+  ["PROPFIND", USERS, 200, `users PROPFIND ${USERS}`, [...USER_CHARGE, `users PROPFIND ${USERS} as u1/human`]],
+  ["PROPFIND", "/v1/chat", 404, NOT_FOUND, []],
 ];
 
 for (const [method, path, status, body, log] of NEIGHBOURS) {

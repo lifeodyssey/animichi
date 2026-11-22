@@ -51,6 +51,13 @@ const GATED: readonly Gated[] = [
   ["false ", "GET", "/v1/conversations", "a verified caller", 403, SHOWCASE_DENIED, []],
   ["0", "GET", "/v1/conversations", "a verified caller", 403, SHOWCASE_DENIED, []],
   ["", "GET", "/v1/conversations", "a verified caller", 403, SHOWCASE_DENIED, []],
+  ["true", "GET", "/v1", "a verified caller", 404, NOT_FOUND, []],
+  ["true", "GET", "/v1/", "a verified caller", 403, SHOWCASE_DENIED, []],
+  ["true", "GET", "/v1/users", "a verified caller", 403, SHOWCASE_DENIED, []],
+  ["true", "HEAD", "/v1/conversations", "a verified caller", 403, "", []],
+  ["true", "GET", "/v1/conversations/%ZZ/messages", "a verified caller", 403, SHOWCASE_DENIED, []],
+  ["true", "HEAD", "/catalog/public/popular", "a caller with no credential", 404, "", []],
+  ["true", "GET", "/catalog/public/anime-overview/abc", "a caller with no credential", 404, NOT_FOUND, []],
 ];
 
 for (const [showcase, method, path, caller, status, body, log] of GATED) {

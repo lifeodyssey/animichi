@@ -79,6 +79,9 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["GET", "/v1/conversations/s-42/%73tream", 404, NOT_FOUND, []],
   ["GET", "/v1/conversations/%73-42/stream", 200, ...tier("stream", "s-42")],
   ["GET", "/v1/conversations/%ZZ/stream", 404, NOT_FOUND, []],
+  ["GET", "/v1/conversations/%25ZZ/messages", 200, ...tier("transcript", "%ZZ")],
+  ["GET", "/v1/conversations/%25ZZ/stream", 200, ...tier("stream", "%ZZ")],
+  ["GET", "/v1/conversations/a%2Fb%ZZ/messages", 404, NOT_FOUND, []],
 ];
 
 for (const [method, path, status, body, log] of NEIGHBOURS) {
