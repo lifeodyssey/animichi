@@ -1,3 +1,5 @@
+// use prisma-8
+
 // Agent-native storage and the catalog/users data plane share this Prisma contract.
 // The latter tables are adopted from the chain this one replaced; their write semantics remain
 // owned by the catalog/users services until their query cards move them.
@@ -11,25 +13,25 @@ enum RecordKind {
 model PiSession {
   id       String       @id
   metadata Jsonb
-  nextSeq  BigIntNumber @default(0) @map("next_seq")
+  nextSeq  BigInt(as: number) @default(0) @map("next_seq")
 
-  @@check(expression: "next_seq >= 0", name: "pi_sessions_next_seq")
-  @@check(expression: "(metadata->>'id') IS NOT DISTINCT FROM id", name: "pi_sessions_metadata_id")
+  @@check(expression: sql`next_seq >= 0`, name: "pi_sessions_next_seq")
+  @@check(expression: sql`(metadata->>'id') IS NOT DISTINCT FROM id`, name: "pi_sessions_metadata_id")
   @@map("pi_sessions")
 }
 
 model PiRecord {
   sessionId String       @map("session_id")
   id        String
-  seq       BigIntNumber
+  seq       BigInt(as: number)
   kind      RecordKind
   payload   Jsonb
   session   PiSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
 
   @@id([sessionId, id])
   @@unique([sessionId, seq])
-  @@check(expression: "(payload->>'id') IS NOT DISTINCT FROM id", name: "pi_records_payload_id")
-  @@check(expression: "((payload->>'seq')::bigint) IS NOT DISTINCT FROM seq", name: "pi_records_payload_seq")
+  @@check(expression: sql`(payload->>'id') IS NOT DISTINCT FROM id`, name: "pi_records_payload_id")
+  @@check(expression: sql`((payload->>'seq')::bigint) IS NOT DISTINCT FROM seq`, name: "pi_records_payload_seq")
   @@map("pi_records")
 }
 
@@ -37,7 +39,7 @@ model PiScalarValue {
   sessionId String       @map("session_id")
   namespace String
   key       String
-  seq       BigIntNumber
+  seq       BigInt(as: number)
   value     Jsonb?
   session   PiSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
 
@@ -49,7 +51,7 @@ model PiListValue {
   sessionId String       @map("session_id")
   namespace String
   key       String
-  seq       BigIntNumber
+  seq       BigInt(as: number)
   value     Jsonb?
   session   PiSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
 
@@ -58,7 +60,7 @@ model PiListValue {
 }
 
 model AgentAdmission {
-  id                Uuid               @id @default(dbgenerated("uuidv7()"))
+  id                Uuid               @id @default(sql`uuidv7()`)
   sessionId         String             @map("session_id")
   clientMessageId   String             @map("client_message_id")
   kind              String
@@ -76,15 +78,15 @@ model AgentAdmission {
   session           PiSession          @relation(fields: [sessionId], references: [id], onDelete: Cascade, index: false)
 
   @@unique([sessionId, clientMessageId])
-  @@check(expression: "kind IN ('model', 'selection')", name: "agent_admissions_kind")
-  @@check(expression: "payer IN ('anon', 'user', 'byok')", name: "agent_admissions_payer")
-  @@check(expression: "state IN ('pending', 'accepted', 'settled', 'void')", name: "agent_admissions_state")
-  @@check(expression: "(kind = 'selection') = (selection_request IS NOT NULL)", name: "agent_admissions_selection_input")
-  @@check(expression: "(kind = 'model') = (operation_id IS NOT NULL)", name: "agent_admissions_operation")
-  @@check(expression: "(quota_usage_date IS NULL) = (quota_reserved_at IS NULL)", name: "agent_admissions_reservation")
-  @@check(expression: "quota_reserved_at IS NULL OR (payer = 'anon' AND kind = 'model')", name: "agent_admissions_anon_reservation")
-  @@check(expression: "quota_refunded_at IS NULL OR quota_reserved_at IS NOT NULL", name: "agent_admissions_refund")
-  @@index([kind, createdAt], where: "state IN ('pending', 'accepted')", name: "agent_admissions_unresolved")
+  @@check(expression: sql`kind IN ('model', 'selection')`, name: "agent_admissions_kind")
+  @@check(expression: sql`payer IN ('anon', 'user', 'byok')`, name: "agent_admissions_payer")
+  @@check(expression: sql`state IN ('pending', 'accepted', 'settled', 'void')`, name: "agent_admissions_state")
+  @@check(expression: sql`(kind = 'selection') = (selection_request IS NOT NULL)`, name: "agent_admissions_selection_input")
+  @@check(expression: sql`(kind = 'model') = (operation_id IS NOT NULL)`, name: "agent_admissions_operation")
+  @@check(expression: sql`(quota_usage_date IS NULL) = (quota_reserved_at IS NULL)`, name: "agent_admissions_reservation")
+  @@check(expression: sql`quota_reserved_at IS NULL OR (payer = 'anon' AND kind = 'model')`, name: "agent_admissions_anon_reservation")
+  @@check(expression: sql`quota_refunded_at IS NULL OR quota_reserved_at IS NOT NULL`, name: "agent_admissions_refund")
+  @@index([kind, createdAt], where: sql`state IN ('pending', 'accepted')`, name: "agent_admissions_unresolved")
   @@map("agent_admissions")
 }
 
@@ -98,17 +100,17 @@ model AgentOpenOperation {
 
 model AgentSettlement {
   operationId  String             @id @map("operation_id")
-  lastUsageSeq BigIntNumber       @default(-1) @map("last_usage_seq")
+  lastUsageSeq BigInt(as: number)       @default(-1) @map("last_usage_seq")
   settledAt    TimestamptzString?  @map("settled_at")
   admission    AgentAdmission     @relation(fields: [operationId], references: [operationId], onDelete: Cascade, index: false)
 
-  @@check(expression: "last_usage_seq >= -1", name: "agent_settlements_last_usage_seq")
-  @@index([operationId], where: "settled_at IS NULL", name: "agent_settlements_unsettled")
+  @@check(expression: sql`last_usage_seq >= -1`, name: "agent_settlements_last_usage_seq")
+  @@index([operationId], where: sql`settled_at IS NULL`, name: "agent_settlements_unsettled")
   @@map("agent_settlements")
 }
 
 model Alias {
-  id              Uuid   @id @default(dbgenerated("uuidv7()"))
+  id              Uuid   @id @default(sql`uuidv7()`)
   bangumiId       String @map("bangumi_id")
   alias           String
   aliasNormalized  String @map("alias_normalized")
@@ -121,7 +123,7 @@ model Alias {
 }
 
 model CatalogProvenance {
-  id          Uuid              @id @default(dbgenerated("uuidv7()"))
+  id          Uuid              @id @default(sql`uuidv7()`)
   scope       String
   entityId    String            @map("entity_id")
   workId      String?           @map("work_id")
@@ -190,8 +192,8 @@ model Location {
   createdAt TimestamptzString? @default(now()) @map("created_at")
   updatedAt TimestamptzString? @default(now()) @map("updated_at")
 
-  @@check(expression: "kind IN ('station', 'city', 'ward', 'landmark', 'prefecture')", name: "locations_kind")
-  @@check(expression: "source IN ('seed', 'mlit', 'geonames', 'manual')", name: "locations_source")
+  @@check(expression: sql`kind IN ('station', 'city', 'ward', 'landmark', 'prefecture')`, name: "locations_kind")
+  @@check(expression: sql`source IN ('seed', 'mlit', 'geonames', 'manual')`, name: "locations_source")
   @@map("locations")
 }
 
@@ -222,7 +224,7 @@ model RawBangumi {
 }
 
 model RawPayloadHistory {
-  seq       BigIntNumber      @id @default(autoincrement())
+  seq       BigInt(as: number)      @id @default(autoincrement())
   workId    String            @map("work_id")
   source    String
   payload   Jsonb
@@ -254,7 +256,7 @@ model LocationAlias {
   @@id([aliasNormalized, locationId])
   @@index([aliasNormalized], map: "idx_location_aliases_norm")
   @@index([aliasNormalized], map: "idx_location_aliases_trgm", type: "gin")
-  @@check(expression: "lang IS NULL OR lang IN ('ja', 'zh', 'en')", name: "location_aliases_lang")
+  @@check(expression: sql`lang IS NULL OR lang IN ('ja', 'zh', 'en')`, name: "location_aliases_lang")
   @@map("location_aliases")
 }
 
@@ -266,7 +268,7 @@ model Bangumi {
   airDate      String?            @map("air_date")
   summary      String?
   epsCount     Int?               @map("eps_count")
-  rating       Real?
+  rating       Float(storage: float4)?
   pointsCount  Int?               @default(0) @map("points_count")
   primaryColor String?            @map("primary_color")
   city         String?
@@ -294,7 +296,7 @@ model Point {
   city        String?
   createdAt   TimestamptzString? @default(now()) @map("created_at")
   updatedAt   TimestamptzString? @default(now()) @map("updated_at")
-  bangumi     Bangumi            @relation(fields: [bangumiId], references: [id], onDelete: NoAction, index: false)
+  bangumi     Bangumi?           @relation(fields: [bangumiId], references: [id], onDelete: NoAction, index: false)
 
   @@index([bangumiId], map: "idx_points_bangumi")
   @@index([location], type: "gist", map: "idx_points_location")
@@ -314,13 +316,13 @@ model SavedRouteIdempotency {
 
   @@id([ownerUserId, op, key])
   @@index([expiresAt], map: "idx_saved_route_idempotency_expires")
-  @@check(expression: "state IN ('in_progress', 'committed')", name: "saved_route_idempotency_state")
+  @@check(expression: sql`state IN ('in_progress', 'committed')`, name: "saved_route_idempotency_state")
   @@map("saved_route_idempotency")
 }
 
 model SavedRoute {
-  id        Uuid               @id @default(dbgenerated("uuidv7()"))
-  pointIds  String[]           @noCheck(elementNotNull) @map("point_ids")
+  id        Uuid               @id @default(sql`uuidv7()`)
+  pointIds  String?[]          @map("point_ids")
   createdAt TimestamptzString? @default(now()) @map("created_at")
   userId    String?            @map("user_id")
   title     String?
@@ -328,7 +330,7 @@ model SavedRoute {
   savedAt   TimestamptzString? @map("saved_at")
   updatedAt TimestamptzString  @default(now()) @map("updated_at")
 
-  @@check(expression: "status IN ('draft', 'saved', 'completed')", name: "saved_routes_status")
+  @@check(expression: sql`status IN ('draft', 'saved', 'completed')`, name: "saved_routes_status")
   @@index([userId], map: "idx_saved_routes_user")
   @@map("saved_routes")
 }

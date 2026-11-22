@@ -40,7 +40,7 @@ export const NATIVE_TABLES = [{
   columns: [
     col('id', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
     col('metadata', 'jsonb', { notNull: true, codecRef: { codecId: 'pg/jsonb@1' } }),
-    col('next_seq', 'int8', { notNull: true, default: lit(0), codecRef: { codecId: 'pg/int8number@1' } }),
+    col('next_seq', 'int8', { notNull: true, default: lit('0'), codecRef: { codecId: 'pg/int8number@1' } }),
   ],
   constraints: [
     primaryKey(['id']),

@@ -9,11 +9,12 @@ import { test } from "node:test";
 const dependencies = fileURLToPath(new URL("../node_modules/", import.meta.url));
 const contract = fileURLToPath(new URL("../src/contract", import.meta.url));
 const imports = `import postgres from "@prisma/orm-postgres/runtime";
+import { contractFromJson } from "@prisma/orm-postgres/static";
 import type { Entry } from "@earendil-works/pi-agent-core/harness/session";
 import type { Contract } from "${contract}.d.ts";
 import type { FieldOutputTypes } from "${contract}.d.ts";
 import contractJson from "${contract}.json" with { type: "json" };
-const db = postgres<Contract>({ contractJson });
+const db = postgres({ contract: contractFromJson<Contract>(contractJson) });
 const entry: Entry = { id: "entry", parentId: null, seq: 0, timestamp: 123,
   type: "custom", customType: "choice", data: { city: "京都" } };`;
 

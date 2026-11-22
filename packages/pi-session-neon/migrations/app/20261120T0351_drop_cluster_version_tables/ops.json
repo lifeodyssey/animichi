@@ -17,7 +17,11 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"cluster_version\""
-        ]
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"cluster_version\""
+        }
       }
     ],
     "execute": [
@@ -32,7 +36,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"cluster_version\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"cluster_version\""
+        }
       }
     ]
   },
@@ -54,7 +62,11 @@
         "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
         "params": [
           "\"public\".\"itinerary_snapshots\""
-        ]
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"itinerary_snapshots\""
+        }
       }
     ],
     "execute": [
@@ -69,7 +81,11 @@
         "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
         "params": [
           "\"public\".\"itinerary_snapshots\""
-        ]
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"itinerary_snapshots\""
+        }
       }
     ]
   }

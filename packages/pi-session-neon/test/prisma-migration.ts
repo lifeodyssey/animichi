@@ -31,6 +31,29 @@ export function prismaCliOutput(failure: unknown): string {
   return `${stdout}\n${stderr}`;
 }
 
+/** The `error` of the result envelope a failed `--json` run prints last on stdout: its code,
+ * and the structured `meta` the runner fills (operation, blocking objects, `databaseUnchanged`).
+ * Assert these rather than the summary, whose wording each release rewrites. */
+export interface PrismaFailure {
+  readonly code: string;
+  readonly meta: Readonly<Record<string, unknown>>;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function prismaFailure(failure: unknown): PrismaFailure {
+  assert(isRecord(failure) && "stdout" in failure, "the CLI failure carries no stdout");
+  const line = String(failure.stdout).split("\n").reverse().find((value) => value.includes('"kind":"result"'));
+  assert(line !== undefined, `the CLI printed no result envelope\n${prismaCliOutput(failure)}`);
+  const parsed: unknown = JSON.parse(line);
+  assert(isRecord(parsed) && isRecord(parsed.envelope) && parsed.envelope.ok === false, line);
+  const { error } = parsed.envelope;
+  assert(isRecord(error) && typeof error.code === "string" && isRecord(error.meta), line);
+  return { code: error.code, meta: error.meta };
+}
+
 export function migrate(dsn: string, cwd = packageRoot, target?: string) {
   const selection = target === undefined ? [] : ["--to", target];
   return prisma(["db", "migrate", "--db", dsn, ...selection], cwd);
