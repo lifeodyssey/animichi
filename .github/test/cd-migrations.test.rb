@@ -132,7 +132,7 @@ class CdMigrationsTest < Minitest::Test
 
   # #1605 removes the edge container and deploys `deleted_classes = ["RuntimeContainer"]`.
   # Wrangler only retires applications that remain in configuration, so the same CD owns
-  # the edge's application deletion — and it has to happen before the edge bundle that
+  # the edge's application deletion — and it has to happen before the api bundle that
   # carries the class deletion reaches the platform.
   def test_each_environment_retires_the_edge_application_before_the_service_publication
     MIGRATION_TARGETS.each do |job, (environment, _url)|

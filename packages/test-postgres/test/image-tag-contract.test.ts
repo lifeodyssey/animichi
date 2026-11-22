@@ -1,11 +1,11 @@
 /**
  * Every consumer of the offline image must resolve the SAME tag (#1326).
  *
- * They used to carry three copies of it: the catalog spike fixture, the edge
+ * They used to carry three copies of it: the catalog spike fixture, the api
  * agent-db fixture and `scripts/local-gates/db-fresh-schema.sh`. A tag that
  * drifts in one of them does not fail — it silently boots a different (or a
  * missing) image, which is why this is a gate rather than a convention. The
- * native rewrite (#1582) retired the single edge arm file, so the edge side of
+ * native rewrite (#1582) retired the single api arm file, so the api side of
  * this contract is now the set of lane fixtures, discovered the same way the
  * setup-budget witness discovers them.
  *
@@ -36,17 +36,17 @@ const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8")
 const IMAGE_DECLARATION = "packages/test-postgres/postgres-image.env";
 const FRESH_SCHEMA_GATE = "scripts/local-gates/db-fresh-schema.sh";
 const CATALOG_FIXTURE = "workers/catalog/test/integration-db-global.ts";
-const EDGE_DIR = "workers/edge";
+const API_DIR = "workers/api";
 
-/** Every edge lane file that boots the shared postgres recipe, discovered from
+/** Every api lane file that boots the shared postgres recipe, discovered from
  * the `*-test` lane directories rather than listed by hand. */
-function edgePostgresFixtures(): string[] {
-  return readdirSync(new URL(`${EDGE_DIR}/`, ROOT), { withFileTypes: true })
+function apiPostgresFixtures(): string[] {
+  return readdirSync(new URL(`${API_DIR}/`, ROOT), { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name.endsWith("-test"))
     .flatMap((lane) =>
-      readdirSync(new URL(`${EDGE_DIR}/${lane.name}/`, ROOT))
+      readdirSync(new URL(`${API_DIR}/${lane.name}/`, ROOT))
         .filter((file) => file.endsWith(".ts"))
-        .map((file) => `${EDGE_DIR}/${lane.name}/${file}`),
+        .map((file) => `${API_DIR}/${lane.name}/${file}`),
     )
     .filter((path) => read(path).includes("startTestPostgres"));
 }
@@ -85,9 +85,9 @@ void test("the catalog integration fixture names no image and boots no container
   assert.match(fixture, SHARED_RECIPE_CALL);
 });
 
-void test("every edge lane fixture names no image and boots no container of its own", () => {
-  const fixtures = edgePostgresFixtures();
-  assert.ok(fixtures.length > 0, `no startTestPostgres fixture found under ${EDGE_DIR}`);
+void test("every api lane fixture names no image and boots no container of its own", () => {
+  const fixtures = apiPostgresFixtures();
+  assert.ok(fixtures.length > 0, `no startTestPostgres fixture found under ${API_DIR}`);
   for (const fixture of fixtures) {
     const source = read(fixture);
     assert.doesNotMatch(source, IMAGE_LITERAL, fixture);

@@ -44,24 +44,24 @@ class ReleaseConfigTest < Minitest::Test
   # [[containers]] block, so there is no image reference to seal — and an image the unit
   # cannot carry is refused rather than silently dropped.
   def test_edge_seals_container_free_and_refuses_an_image_it_cannot_carry
-    config = seal('edge')
+    config = seal('api')
     assert_equal 'bundle/entry.js', config.fetch('main')
     refute config.key?('containers')
     refute config.dig('env', 'staging').key?('containers')
     refute config.dig('env', 'production').key?('containers')
-    _output, error, status = seal_status('edge', "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}")
+    _output, error, status = seal_status('api', "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}")
     refute status.success?
-    assert_includes error, 'edge declares no container'
+    assert_includes error, 'api declares no container'
   end
 
   def test_a_unit_that_still_declares_a_container_needs_an_immutable_digest
     digest = "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}"
     original = { 'name' => 'animichi', 'main' => 'src/entry.ts',
                  'env' => { 'staging' => { 'containers' => [{ 'class_name' => 'RuntimeContainer' }] } } }
-    _output, error, status = seal_status('edge', 'animichi-runtimecontainer:build-1', original)
+    _output, error, status = seal_status('api', 'animichi-runtimecontainer:build-1', original)
     refute status.success?
     assert_includes error, 'immutable container image required'
-    output, error, status = seal_status('edge', digest, original)
+    output, error, status = seal_status('api', digest, original)
     assert status.success?, error
     assert_equal digest, JSON.parse(output).dig('env', 'staging', 'containers', 0, 'image')
   end

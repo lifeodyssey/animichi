@@ -91,6 +91,6 @@ revision rather than mutable checkout state.
   job's OIDC identity. Guard every exported name because the ESC action only warns on missing values.
 - **Validate actual consumers.** Run actionlint on workflows and zizmor with pedantic persona and
   strict collection on workflows/composite metadata. Run the native Ruby tests using the explicit
-  commands in the `contracts` job and `pnpm run test:worker`; the edge suite also reads deployment
+  commands in the `contracts` job and `pnpm run test:worker`; the API Worker's suite also reads deployment
   workflow behavior. Actionlint validates workflow syntax; it does not lint composite metadata as a
   standalone workflow. A real PR run verifies the required contexts after composition changes.

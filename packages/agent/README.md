@@ -1,6 +1,6 @@
 # Agent domain package
 
-`@animichi/agent` supplies platform-independent domain functions to the edge host. The root
+`@animichi/agent` supplies platform-independent domain functions to its host, the API Worker. The root
 entrypoint stays free of runtime schemas and SDK imports. Native tools and model composition
 are explicit opt-in subpaths, `@animichi/agent/tools`, `@animichi/agent/models` and
 `@animichi/agent/harness`. Public
@@ -17,7 +17,7 @@ selectedRouteMessage("en", 2); // Created a route with 2 selected stops.
 ## Current public modules
 
 These retain-domain files from #1536 moved without changing their behavior. The old paths
-below are relative to `workers/edge/src/agent/`; no forwarding modules remain there.
+below are relative to `workers/api/src/agent/`; no forwarding modules remain there.
 
 | Old path | Current source | Responsibility |
 |---|---|---|
@@ -98,16 +98,16 @@ The exhaustive historical source list and delete/rewrite obligations remain in
 [the #1536 disposition](../../docs/iterations/production-readiness-2026-08/AGENT-FILE-DISPOSITION.md).
 They are not copied here. The native Pi runtime switch (#1582, `b6cf74034`, 2026-09-11) replaced
 the old engine and its consumers: production composes `createPilgrimageHarness` in
-`workers/edge/src/agent/host/session-agent.ts`, no path the disposition marks delete is left in
-edge, and of its rewrite-domain paths only `workers/edge/src/agent/byok/byok-credential.ts`,
-`workers/edge/src/agent/byok/byok-headers.ts`, `workers/edge/src/agent/byok/byok-probe.ts` and
-`workers/edge/src/gateway/agent-turn.ts` remain.
+`workers/api/src/agent/host/session-agent.ts`, no path the disposition marks delete is left in
+`workers/api`, and of its rewrite-domain paths only `workers/api/src/agent/byok/byok-credential.ts`,
+`workers/api/src/agent/byok/byok-headers.ts`, `workers/api/src/agent/byok/byok-probe.ts` and
+`workers/api/src/gateway/agent-turn.ts` remain.
 
-The remaining retain-domain rules stay at their existing edge paths. The table records each
+The remaining retain-domain rules stay where they are under `workers/api`. The table records each
 current consumer boundary and its owning card. Several leaves already run without platform
 dependencies; their owners can relocate the plain rules when replacing those consumers.
 
-| Path under `workers/edge/src/agent/` | Current boundary / owner |
+| Path under `workers/api/src/agent/` | Current boundary / owner |
 |---|---|
 | `byok/byok-family.ts` | Browser/provider vocabulary still coupled to old credential construction; #1547 |
 | `egress/egress-decision.ts` | Current guard's error class; native transport policy in #1547 |
@@ -118,17 +118,17 @@ dependencies; their owners can relocate the plain rules when replacing those con
 | `intake/quota-reservation.ts` | Edge payer and business accounting; #1546 |
 
 Node eval consumers import this public package: `packages/eval` depends on `@animichi/agent`
-and has no `edge-worker` dependency. Node eval, conformance and test infrastructure must never
+and does not depend on the `api` package. Node eval, conformance and test infrastructure must never
 become production imports of this package or enter the Worker artifact.
 
 ## Verification
 
 `pnpm lint`, `pnpm typecheck` and `pnpm test` are the same package scripts selected by local
 and PR affected gates. Coverage is written to `coverage/lcov.info` and uploaded by the PR
-matrix. Root type-aware lint includes this package explicitly. Edge has a real `workspace:*`
-dependency, so pnpm's dependent closure selects its tests and the existing CD edge cohort.
+matrix. Root type-aware lint includes this package explicitly. The `api` package has a real `workspace:*`
+dependency on it, so pnpm's dependent closure selects its tests and the existing CD `api` cohort.
 
-The boundary test reads TypeScript's resolved graph and pnpm's consumer closure. Edge's
-bundle smoke checks the production artifact graph and runs public domain behavior in workerd.
+The boundary test reads TypeScript's resolved graph and pnpm's consumer closure. The API
+Worker's bundle smoke checks the production artifact graph and runs public domain behavior in workerd.
 Separating package subpaths keeps existing pure-domain consumers free of the tools' Zod and
 SDK modules; this is checked against parsed bundle inputs as well as emitted code.

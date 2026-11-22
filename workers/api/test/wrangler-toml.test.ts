@@ -22,7 +22,7 @@ import { URL, fileURLToPath } from "node:url";
 const WRANGLER_TOML_PATH = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 const observableWorkerConfigs = [
-  ["edge", "../wrangler.toml"],
+  ["api", "../wrangler.toml"],
   ["catalog", "../../catalog/wrangler.toml"],
   ["users", "../../users/wrangler.toml"],
   ["migrator", "../../migrator/wrangler.toml"],

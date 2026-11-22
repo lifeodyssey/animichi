@@ -17,7 +17,7 @@ form, and `docs/agents/delivery-flow.md` holds the PR mechanics measured on this
   never PR numbers in the subject. Generic `wip`, `checkpoint`, `fix`, `update`, `changes`, `review`,
   and `polish` subjects are invalid.
 - Types: `feat|fix|refactor|perf|test|docs|ci|build|ops|chore|revert`. Scopes:
-  `agent|web|chat|catalog|users|auth|edge|contract|db|infra|delivery|eval|e2e|repo|deps`.
+  `agent|web|chat|catalog|users|auth|edge|api|contract|db|infra|delivery|eval|e2e|repo|deps`.
 - Never add Claude/Anthropic/Codex/OpenAI `Co-Authored-By` trailers or a `Generated with Claude Code`
   footer. Human and Dependabot attribution remains valid. Branch names and PR comments do not carry
   a tool or model name either ("我发现你的分支和你的 comment 带着 codex 没必要…然后也不要写 co-author",

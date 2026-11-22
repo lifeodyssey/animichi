@@ -6,14 +6,14 @@ import { z } from "zod";
  * This is the single typed document for those cells. The deployed values
  * themselves are `DEFAULT_IDENTITY_POLICY` in `./identity-policy.ts` — one
  * declaration, parsed by the schemas here (`test/identity-contract.test.ts`)
- * and read by the edge (workers/edge/src/identity/auth.ts and
+ * and read by the edge (workers/api/src/identity/auth.ts and
  * protect/rate-limiter.ts), so a value can never drift between the contract,
  * the deployed config, and the enforcement code. It lives in its own
  * import-free module because this one imports zod and the edge is bundled
  * (#1285).
  *
  * The path -> class classification lives in the edge's
- * `workers/edge/src/gateway/routing-policy.ts` (ANON_V1); this
+ * `workers/api/src/gateway/routing-policy.ts` (ANON_V1); this
  * contract owns the classes and their numbers only.
  */
 

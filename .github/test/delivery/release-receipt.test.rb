@@ -67,15 +67,15 @@ class ReleaseReceiptTest < Minitest::Test
   end
 
   # #1606: the edge has no container to observe and the snapshot names no image for it.
-  # Reinstating the edge container expectation (`return 1 if unit == 'edge'`) turns this red.
+  # Reinstating the edge container expectation (`return 1 if unit == 'api'`) turns this red.
   def test_accepts_an_edge_worker_that_owns_no_container
-    edge = @receipt['workers'].find { |worker| worker['unit'] == 'edge' }
+    edge = @receipt['workers'].find { |worker| worker['unit'] == 'api' }
     assert_empty edge['containers']
     assert validate
   end
 
   def test_refuses_an_edge_container_observation_the_snapshot_does_not_name
-    @receipt['workers'].find { |worker| worker['unit'] == 'edge' }['containers'] << { 'application_id' => 'agent' }
+    @receipt['workers'].find { |worker| worker['unit'] == 'api' }['containers'] << { 'application_id' => 'agent' }
     assert_raises(ArgumentError) { validate }
   end
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import constantsSource from "../../../../../packages/contract/src/constants.ts?raw";
-import edgeTurnstileSource from "../../../../../workers/edge/src/protect/turnstile.ts?raw";
+import edgeTurnstileSource from "../../../../../workers/api/src/protect/turnstile.ts?raw";
 import tokenStoreSource from "../../../src/lib/turnstile/token-store.ts?raw";
 
 /**
  * The Turnstile header name and TTL/window relationship lived once in the edge
- * worker (`workers/edge/protect/turnstile.ts`) and once in this app's token store, kept in
+ * worker (`workers/api/protect/turnstile.ts`) and once in this app's token store, kept in
  * sync only by a comment cross-reference. Both now import
  * `TURNSTILE_HEADER` / `TURNSTILE_WINDOW_MS` / `TURNSTILE_TOKEN_TTL_MS` from
  * `@animichi/contract/constants` (fix(auth): share edge security primitives,
@@ -34,7 +34,7 @@ import tokenStoreSource from "../../../src/lib/turnstile/token-store.ts?raw";
  */
 export const READS = [
   "packages/contract/src/constants.ts",
-  "workers/edge/src/protect/turnstile.ts",
+  "workers/api/src/protect/turnstile.ts",
   "apps/web/src/lib/turnstile/token-store.ts",
 ] as const;
 

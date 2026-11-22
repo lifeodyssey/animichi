@@ -11,8 +11,8 @@ void test("the compiler resolves public domain code without edge or eval infrast
   assert.doesNotMatch(files, /\/workers\/|\/packages\/eval\/|\/harness\/session\/testing/);
 });
 
-void test("pnpm includes the real edge consumer", () => {
+void test("pnpm includes the real api consumer", () => {
   const names = execFileSync("pnpm", ["ls", "-r", "--depth", "-1", "--filter", "...@animichi/agent"], { cwd: PACKAGE, encoding: "utf8" });
   assert.match(names, /@animichi\/agent@0\.1\.0/);
-  assert.match(names, /edge-worker/);
+  assert.match(names, /^api\b/m);
 });

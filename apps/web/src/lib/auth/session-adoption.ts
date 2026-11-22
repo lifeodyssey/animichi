@@ -11,7 +11,7 @@ import { currentRuntimeConfig } from "../runtime-config/provider";
  *
  *  - the incoming real user, from the `Authorization` bearer the edge verifies;
  *  - the outgoing `anon_<hex>`, which the client **cannot** name. `aid` is an
- *    `HttpOnly`, worker-signed cookie (`workers/edge/identity/auth.ts`),
+ *    `HttpOnly`, worker-signed cookie (`workers/api/identity/auth.ts`),
  *    unreadable from JS by construction. `credentials: "include"` is therefore
  *    the whole mechanism: the browser attaches `aid`, and the edge resolves
  *    (never mints) it in-process for this route alone — #1601 moved adoption

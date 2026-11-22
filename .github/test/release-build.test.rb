@@ -52,7 +52,7 @@ class ReleaseBuildTest < Minitest::Test
     step = @steps.find { |item| item["name"] == "Bundle Workers and seal the container-free snapshot" }
     refute_nil step
     refute step.fetch("env", {}).key?("AGENT_IMAGE")
-    assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs edge"
+    assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs api"
     assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs migrator"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/seal.rb"
   end

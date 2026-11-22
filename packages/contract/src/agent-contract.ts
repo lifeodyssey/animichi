@@ -6,10 +6,10 @@
  * (#1285).
  *
  * The edge Worker serves this surface itself: its gateway answers `GET
- * /healthz` (`workers/edge/src/gateway/request.ts`, the #1596 readiness
+ * /healthz` (`workers/api/src/gateway/request.ts`, the #1596 readiness
  * answer — a `{ status: "ok" }` body) and its native agent tier publishes
- * the `/v1/*` bodies (`workers/edge/src/gateway/agent-turn-responses.ts`,
- * fed by `workers/edge/src/agent/`). Consumers import these zod models from
+ * the `/v1/*` bodies (`workers/api/src/gateway/agent-turn-responses.ts`,
+ * fed by `workers/api/src/agent/`). Consumers import these zod models from
  * `@animichi/contract` directly (`apps/web/src/features/chat/byok-probe.ts`,
  * `apps/web/src/features/chat/selection/candidate-pick.ts`) — one shared
  * declaration, no generated models and no handwritten wire mirrors. (The
@@ -38,7 +38,7 @@ export type ServiceMetadata = z.infer<typeof ServiceMetadata>;
 
 /** The `POST /v1/byok/probe` success body (D5, #953): one bounded
  * vision-capability probe's verdict. `error_code` is a null-or-opaque-string
- * field — the server (`workers/edge/src/agent/byok/byok-probe.ts`)
+ * field — the server (`workers/api/src/agent/byok/byok-probe.ts`)
  * deliberately collapses every non-auth failure to `provider_unreachable`,
  * so the field is nullable rather than optional (a `null` and an absent key
  * are different wires).
@@ -63,7 +63,7 @@ export type ByokProbeErrorBody = z.infer<typeof ByokProbeErrorBody>;
 /**
  * The `POST /v1/chat` turn request (TURN-4 #955): the post-envelope turn
  * carrier the edge gateway builds from the AI SDK message envelope plus
- * headers (`workers/edge/src/gateway/native-submission.ts`). Every field is
+ * headers (`workers/api/src/gateway/native-submission.ts`). Every field is
  * optional except `text` so one turn validates without the web shipping
  * defaults. Selection turns ride the AI SDK envelope (`chat-data-parts.ts`);
  * the typed turn kinds live in `packages/agent/src/selection-input.ts`, not
@@ -81,7 +81,7 @@ export const ChatTurnRequest = z.object({
   /**
    * Structured clarify-candidate pick (W1 #1220): sent in place of new free
    * text when the user selects a clarify-card option, so the turn resolves
-   * through the deterministic selection channel (`workers/edge/src/gateway/
+   * through the deterministic selection channel (`workers/api/src/gateway/
    * native-submission.ts` parses the fields into the typed
    * `SelectionRequest`; the native host's `submitSelection` runs
    * `packages/agent/src/selection.ts`' `executeSelection`) instead of a

@@ -42,7 +42,7 @@ export function searchResultsPatch(envelope: Record<string, unknown>): Record<st
 /** The real bypass step frames: the native selection tier emits one
  * `plan_selected` running/done step pair
  * (`packages/agent/src/selection-route.ts`), which the edge's stream
- * projection (`workers/edge/src/agent/views/selection-response.ts`)
+ * projection (`workers/api/src/agent/views/selection-response.ts`)
  * translates into exactly these tool chunks. The UI must prove it SUPPRESSES
  * them — a fixture without them would certify the wrong tree (#461 review
  * P1-1). */

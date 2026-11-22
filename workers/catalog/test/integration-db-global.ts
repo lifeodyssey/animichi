@@ -27,7 +27,7 @@ import type { TestProject } from "vitest/node";
  * container's migrated template (#1769), so it costs no chain apply of its own
  * and does not queue on the cluster turn.
  *
- * The recipe itself is `@animichi/test-postgres` (#1326), shared with the edge's
+ * The recipe itself is `@animichi/test-postgres` (#1326), shared with the API Worker's
  * agent-db arm and with `scripts/local-gates/db-fresh-schema.sh`. What stays this
  * arm's own is the database names and `SPIKE_SETUP_BUDGET`: one container serves
  * the whole suite, so it probes 30 × 1 s.

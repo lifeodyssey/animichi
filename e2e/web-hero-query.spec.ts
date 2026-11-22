@@ -64,7 +64,7 @@ test("a plain /chat entry does not invent an auto-send query", { tag: "@browser"
  * REPLACED entry, so the returning page reads a session and never re-sends.
  *
  * The stub serves the recording unpatched: every recording carries the id the
- * deployed agent always assigns (`workers/edge/src/agent/views/public-content.ts`
+ * deployed agent always assigns (`workers/api/src/agent/views/public-content.ts`
  * takes `sessionId: string` and writes it into the envelope), so the page's
  * publication into `?session=` is measured off the product's own frame rather
  * than off an id this spec chose (#1903).

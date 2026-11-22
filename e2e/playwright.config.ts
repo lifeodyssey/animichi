@@ -159,7 +159,7 @@ function otherConfiguredOrigins(targetHost: string): readonly string[] {
 // `global-setup.ts`, whose whole job was launching a browser before the run to
 // write the retired WAF gate's `animichi_staging` cookie into a storage state.
 //
-// It is scoped to the TARGET, the same asymmetry `workers/edge/api-test/lane-origin.ts`
+// It is scoped to the TARGET, the same asymmetry `workers/api/api-test/lane-origin.ts`
 // applies: a local `wrangler dev` or `make dev-local` is behind no Access
 // application, and `extraHTTPHeaders` is unconditional, so a config that spread
 // the pair regardless would put staging's real service token on every request

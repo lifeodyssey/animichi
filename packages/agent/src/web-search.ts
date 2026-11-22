@@ -10,7 +10,7 @@ const parameters = Type.Object({ query: Type.String({ pattern: "\\S", maxLength:
  * The most of a search response body `web_search` keeps: 256 KiB, counted in bytes as they arrive;
  * only a body that fits is parsed. The chunk that would pass the limit, already handed over by the
  * runtime, is neither decoded nor kept. Real pages need far less. The captured backend page in
- * `workers/edge/test/doubles/duckduckgo-result-markup.ts` holds three results in 3,643 bytes, the
+ * `workers/api/test/doubles/duckduckgo-result-markup.ts` holds three results in 3,643 bytes, the
  * largest 1,394, and the same 2026-09-04 measurement counted ten results a page (recorded in commit
  * 2f1102981): about 14 KB of results. The capture trimmed the rest of the page, so the limit leaves
  * eighteen times that. It is not higher because parsing builds the whole document: with this

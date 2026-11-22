@@ -16,7 +16,7 @@ require "tmpdir"
 class WranglerWorkersDevMutationTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   CONTRACT = "test/repo-config/wrangler-workers-dev.test.rb"
-  EDGE_TOML = "workers/edge/wrangler.toml"
+  EDGE_TOML = "workers/api/wrangler.toml"
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
@@ -206,8 +206,8 @@ class WranglerWorkersDevMutationTest < Minitest::Test
       # without updating CONTRACT_ONLY_UNITS — the missing_from_script
       # assertion must fire.
       changed = source.sub(
-        "covered  = %w[edge web users migrator]",
-        "covered  = %w[edge web users migrator payments]"
+        "covered  = %w[api web users migrator]",
+        "covered  = %w[api web users migrator payments]"
       )
       refute_equal source, changed, "mutation needle missing: sut_covered_units"
       File.write(path, changed)

@@ -374,5 +374,5 @@ Ruby with the Gemfile's gems installed (`bundle install`) — a push that runs t
 - `.pre-commit-config.yaml` — hook wiring for all three stages
 - This document — the contract
 
-The TypeScript `@animichi/agent` domain library participates in this matrix. Its `workspace:*`
-dependency from `edge-worker` makes domain changes select the real edge consumer as well.
+The TypeScript `@animichi/agent` domain library participates in this matrix. The `api` package's
+`workspace:*` dependency on it makes domain changes select its real consumer, the API Worker, as well.

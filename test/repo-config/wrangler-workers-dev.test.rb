@@ -1,9 +1,9 @@
-# SUT: the production blocks of workers/edge/wrangler.toml ([env.production]),
+# SUT: the production blocks of workers/api/wrangler.toml ([env.production]),
 # apps/web/wrangler.jsonc (the top level — the same Worker as env.production,
 # `animichi-web` — and env.production itself), workers/users/wrangler.toml
 # ([env.production]), and workers/migrator/wrangler.toml ([env.production]).
 #
-# edge, web, and users must declare `workers_dev = false` and
+# api, web, and users must declare `workers_dev = false` and
 # `preview_urls = false` explicitly. staging keeps `workers_dev = true` on
 # purpose (#1369, behind the Access application).
 #
@@ -15,7 +15,7 @@
 #   # workers.dev host (a public config, not a credential); stateful/private
 #   # Workers keep workers_dev = false (see catalog/users).
 #
-# — so "workers_dev is off in production" is a claim about the edge, web, and
+# — so "workers_dev is off in production" is a claim about the api, web, and
 # users Workers only. The migrator's `workers_dev = true` is intentional and
 # asserted (see test_migrator_production_declares_workers_dev_true_intentionally).
 #
@@ -43,7 +43,7 @@ require "minitest/autorun"
 
 class WranglerWorkersDevTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
-  EDGE_TOML = "workers/edge/wrangler.toml"
+  EDGE_TOML = "workers/api/wrangler.toml"
   WEB_JSONC = "apps/web/wrangler.jsonc"
   USERS_TOML = "workers/users/wrangler.toml"
   MIGRATOR_TOML = "workers/migrator/wrangler.toml"
@@ -277,7 +277,7 @@ class WranglerWorkersDevTest < Minitest::Test
     end
 
     deployed = publish_services_deployed_units
-    covered  = %w[edge web users migrator]
+    covered  = %w[api web users migrator]
 
     uncovered_deployed = deployed - covered - DEPLOY_SCRIPT_EXCLUSIONS.keys
     assert_empty uncovered_deployed,
@@ -327,7 +327,7 @@ class WranglerWorkersDevTest < Minitest::Test
     units.uniq
   end
 
-  # Shared TOML section parser. Structurally mirrors the edge test's header
+  # Shared TOML section parser. Structurally mirrors the API Worker test's header
   # scan. #1524 established the key scoping: a sub-table header ends the
   # environment's own key list, and keys after it belong to the sub-table —
   # they are never attributed to the parent.
@@ -344,7 +344,7 @@ class WranglerWorkersDevTest < Minitest::Test
   # that bare-word form (quoted or dotted quoted env names, whitespace inside
   # the brackets) are not recognized by this parser; no config this contract
   # reads uses them. Two hand-rolled implementations of this one rule exist by
-  # choice (see the edge test's matching scan): each guard lane stays
+  # choice (see the API Worker test's matching scan): each guard lane stays
   # single-runtime, and each carries its own red/green proof of the rule.
   #
   # #1854 closes the header's tail: TOML permits a comment after a header, so

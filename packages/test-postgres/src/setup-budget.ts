@@ -15,7 +15,7 @@
  * whole setup must allow.
  *
  * The two arms differ in exactly one number, and deliberately:
- * `workers/catalog`'s spike suite probes 30 × 1 s (#1324); `workers/edge`'s
+ * `workers/catalog`'s spike suite probes 30 × 1 s (#1324); `workers/api`'s
  * agent-db lane keeps 60 × 1 s (#1318) because its first session can queue
  * behind the shared container's creation, by another lane or another worktree.
  * Do not harmonise them.
@@ -47,7 +47,7 @@ export const SPIKE_SETUP_BUDGET: SetupBudget = {
   chainMarginMs: CHAIN_MARGIN_MS,
 };
 
-/** The edge agent-db lane's budget: one database per lane fixture, on the
+/** The api agent-db lane's budget: one database per lane fixture, on the
  * shared container — and its first one may wait for that container to exist. */
 export const AGENT_DB_SETUP_BUDGET: SetupBudget = {
   deadlineMs: DEADLINE_MS,

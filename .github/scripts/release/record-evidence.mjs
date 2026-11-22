@@ -40,7 +40,7 @@ function wrangler(...args) {
  * the receipt: the verifier holds the two against each other, so a receipt that
  * names a version the platform no longer serves is a mismatch, not a copy. */
 function deployedEdge(sourceSha, declared) {
-  const config = unstable_readConfig({ config: 'release/edge/wrangler.json', env: environment });
+  const config = unstable_readConfig({ config: 'release/api/wrangler.json', env: environment });
   const deployments = wrangler('deployments', 'list', '--name', config.name, '--json').sort((a, b) => b.created_on.localeCompare(a.created_on));
   const version = wrangler('versions', 'view', deployments[0].versions[0].version_id, '--name', config.name, '--json');
   // `deploymentIdentity` is the receipt's own assertion (release serves all
@@ -57,7 +57,7 @@ function containersBeforeSmoke() {
 }
 
 function declaredContainers() {
-  const config = unstable_readConfig({ config: 'release/edge/wrangler.json', env: environment });
+  const config = unstable_readConfig({ config: 'release/api/wrangler.json', env: environment });
   return (config.containers ?? []).map((container) => container.name);
 }
 

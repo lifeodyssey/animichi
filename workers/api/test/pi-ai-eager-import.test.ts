@@ -27,25 +27,25 @@ function typescriptSources(directory: string): string[] {
 }
 
 const BUNDLED_SOURCES = [
-  ...typescriptSources("workers/edge/src"),
-  ...typescriptSources("workers/edge/bundle-smoke"),
+  ...typescriptSources("workers/api/src"),
+  ...typescriptSources("workers/api/bundle-smoke"),
 ];
 // Quoted module specifiers only — these files discuss `.lazy` in prose on purpose.
 const LAZY_SUBPATH = /["']@earendil-works\/pi-ai\/[^"']*\.lazy["']/;
-const SMOKE_ENTRY = read("workers/edge/bundle-smoke/pi-kernel.worker.ts");
+const SMOKE_ENTRY = read("workers/api/bundle-smoke/pi-kernel.worker.ts");
 
-interface EdgePackageManifest {
+interface ApiPackageManifest {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 }
-const EDGE_PACKAGE = JSON.parse(read("workers/edge/package.json")) as EdgePackageManifest;
+const API_PACKAGE = JSON.parse(read("workers/api/package.json")) as ApiPackageManifest;
 
 /** W1-3 (#1252) put the pi kernel in `src/`, so it ships: a devDependency here
  * would be a Worker that fails to bundle its own agent loop. */
 void test("the pi kernel is a runtime dependency of the deployed Worker", () => {
-  assert.equal(typeof EDGE_PACKAGE.dependencies["@earendil-works/pi-ai"], "string");
-  assert.equal(typeof EDGE_PACKAGE.dependencies["@earendil-works/pi-agent-core"], "string");
-  assert.equal(EDGE_PACKAGE.devDependencies["@earendil-works/pi-ai"], undefined);
+  assert.equal(typeof API_PACKAGE.dependencies["@earendil-works/pi-ai"], "string");
+  assert.equal(typeof API_PACKAGE.dependencies["@earendil-works/pi-agent-core"], "string");
+  assert.equal(API_PACKAGE.devDependencies["@earendil-works/pi-ai"], undefined);
 });
 
 void test("the smoke entrypoint keeps the eager pi-ai import workaround", () => {

@@ -19,7 +19,7 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
   | Server | Use it for |
   |---|---|
   | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables). Prisma 8 owns the schema — one chain in `packages/pi-session-neon/migrations/` is the whole migration authority (#1636) — and since #1633 every catalog/users query is a builder plan over that contract. Branch/query Neon. |
-  | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
+  | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the api/catalog Workers. |
   | context7 | Current library docs for the exact stack (Hono, Prisma 8, oRPC, AI SDK, TanStack Start). Prefer over memory. |
   | serena | LSP-backed semantic code nav/edits when codegraph isn't enough. |
   | logfire | Observability — the agent and Workers share the Logfire dashboard. |
@@ -33,7 +33,7 @@ Read before picking a skill, an MCP server or a dispatch channel for a task.
   | Skill | Reach for it when |
   |---|---|
   | `logfire:logfire-instrumentation` · `logfire:logfire-query` | Instrumentation / querying observability. |
-  | `cloudflare:workers-best-practices` · `cloudflare:wrangler` · `cloudflare:durable-objects` | Catalog/edge Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
+  | `cloudflare:workers-best-practices` · `cloudflare:wrangler` · `cloudflare:durable-objects` | Catalog/api Worker code, `wrangler.toml`, bindings, local `wrangler dev`. |
   | `neon` / `neon-postgres` | Neon data-plane queries, branching, egress tuning. |
   | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
   | `better-auth:create-auth-skill` · `better-auth:better-auth-best-practices` | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |

@@ -153,7 +153,7 @@ storeRuntimeRoleCredentials(
 // a Secrets Store binding the migrator Worker resolves at apply time
 // (`MIGRATOR_DATABASE_URL` in workers/migrator/wrangler.toml, both
 // environments), and the restriction is against a *runtime* Worker binding: no
-// catalog/users/edge Worker's environment carries it, which is what the
+// catalog/users/api Worker's environment carries it, which is what the
 // migrator-role-isolation contract test asserts. (An earlier revision said the
 // value was accessible only to the migration container; the container retired
 // with the wrangler v3 tag and the binding is the live shape, #1915.)
@@ -209,7 +209,7 @@ storeCatalogAdminToken(placement, catalogAdminToken.result);
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
 // source since the hard cut). Declaring it here lets the deploy chain source
 // the edge binding from the Secrets Store instead of the checked-in literal in
-// workers/edge/wrangler.toml; it is DERIVED from the branch's Better Auth base
+// workers/api/wrangler.toml; it is DERIVED from the branch's Better Auth base
 // URL so the operator sets one value, never two.
 //
 // The QA login creds provision the password user the E2E suite + local-login

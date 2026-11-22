@@ -150,7 +150,7 @@ function bindingFailures(evidence, receipt, source) {
 }
 
 function identityFailures(evidence, receipt) {
-  const edge = receipt.workers?.find((worker) => worker.unit === 'edge') ?? {};
+  const edge = receipt.workers?.find((worker) => worker.unit === 'api') ?? {};
   const observed = evidence.deployed?.edge ?? {};
   const version = `the receipt names edge version ${edge.version_id ?? 'nothing'}, this transcript names ${observed.version_id ?? 'nothing'}`;
   const deployment = `the receipt names edge deployment ${edge.deployment_id ?? 'nothing'}, this transcript names ${observed.deployment_id ?? 'nothing'}`;

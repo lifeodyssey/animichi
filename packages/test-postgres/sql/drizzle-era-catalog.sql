@@ -792,7 +792,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE public.run_steps TO agent_svc;
 -- (interfaces/public_api.py::_server_title_translator) forces
 -- translate_anime_title off the caller's credential so the tool cannot inherit
 -- it, and the TypeScript tier wires the same rule (#1289,
--- workers/edge/src/agent/session/session-turn.ts::translationModel). Those
+-- workers/api/src/agent/session/session-turn.ts::translationModel). Those
 -- tokens are ours, not the caller's -- and runs.payer = 'byok' prices the whole
 -- run at zero, so without a scope of their own they would be metered at zero
 -- and vanish from the meter entirely.

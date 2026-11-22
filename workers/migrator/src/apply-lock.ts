@@ -18,7 +18,7 @@ import type { RuntimeRolePasswords } from "./service-roles";
  * The queue is instance state, so it is empty again if the object is evicted between requests
  * — which is exactly right: with no apply in flight there is nothing left to serialize.
  *
- * `SessionAgent.withSession` in `workers/edge` reached the same shape for the same reason: a
+ * `SessionAgent.withSession` in `workers/api` reached the same shape for the same reason: a
  * promise chain inside the object, because a Durable Object's own single thread does not
  * survive an `await`, and `blockConcurrencyWhile` costs more than it buys.
  */

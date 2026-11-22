@@ -1,7 +1,7 @@
-# Edge bundle smoke tests
+# API Worker bundle smoke tests
 
-Run `pnpm --filter edge-worker run test:bundle-smoke` from the repository root.
-`pnpm --filter edge-worker test` and the existing affected edge lane include it.
+Run `pnpm --filter api run test:bundle-smoke` from the repository root.
+`pnpm --filter api test` and the package's affected lane include it.
 
 `pi-harness.test.ts` proves S1 (#1537) against the published
 `@earendil-works/pi-agent-core@0.87.1` and `@earendil-works/chord@0.87.1`.
@@ -19,7 +19,7 @@ graph for chord and the absence of esbuild, and checks the emitted bytes for the
 esbuild marker. `smol-toml`, the parser used by Wrangler, compares the fixture's
 compatibility settings with the deployed edge configuration.
 
-For the CLI import-and-call check, from `workers/edge`:
+For the CLI import-and-call check, from `workers/api`:
 
 ```sh
 pnpm exec wrangler dev --config bundle-smoke/pi-harness.wrangler.json --local
@@ -47,16 +47,16 @@ Both entries were built directly with the official Wrangler CLI. The baseline
 drives a model turn; the new fixture constructs and inspects a harness. This is
 the requested smoke comparison, not the incremental cost of identical behavior.
 
-A separate comparison retains the new harness alongside the complete edge:
+A separate comparison retains the new harness alongside the complete API Worker entry:
 
 | Artifact | Bytes | Gzip bytes |
 |---|---:|---:|
-| Existing complete edge entry | 2,680,648 | 502,376 |
-| Edge entry plus retained harness fixture export | 3,144,082 | 588,069 |
+| Existing complete api entry | 2,680,648 | 502,376 |
+| api entry plus retained harness fixture export | 3,144,082 | 588,069 |
 | Increase | 463,434 | 85,693 |
 
-The size-only entry imports and re-exports the existing edge, adds the fixture as
-the named `harnessSmoke` export, and preserves the edge default export. It retains
+The size-only entry imports and re-exports the existing api entry, adds the fixture as
+the named `harnessSmoke` export, and preserves its default export. It retains
 both SDK versions, so this measures coexistence rather than predicting the later
 runtime replacement. Neither artifact contains an esbuild marker. The standalone fixture reported
 1,208.29 KiB / gzip 192.00 KiB from Wrangler at 0.85.1.

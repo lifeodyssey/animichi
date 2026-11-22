@@ -8,7 +8,7 @@
  * rows, so an apply ordered before the creation that would satisfy it fails its
  * precheck instead. A container per suite made both impossible; on the shared
  * one (#1663) every arm in every worktree on this host writes beside the
- * others, and the observed failure is CI's edge lane.
+ * others, and the observed failure is CI's api lane.
  *
  * The lock is PostgreSQL's own, so it holds across processes and worktrees, not
  * just across calls in one process. It is taken on the cluster's ADMIN database,

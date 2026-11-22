@@ -29,7 +29,7 @@ class ReleasePublishServicesTest < Minitest::Test
   def test_staging_publishes_every_sealed_service_with_the_selected_source_tag
     _out, error, status = publish("staging")
     assert status.success?, error
-    expected = %w[catalog users edge web].map do |unit|
+    expected = %w[catalog users api web].map do |unit|
       ["exec", "wrangler", "deploy", "--no-bundle", "--config", "release/#{unit}/wrangler.json", "--env", "staging", "--tag", "sha-#{SHA}"]
     end
     assert_equal expected, File.readlines(@calls).map { |line| JSON.parse(line) }

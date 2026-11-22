@@ -5,7 +5,7 @@
  * gateway serves `/catalog/public/*` (iter-5 S5.4, `docs/ops/deployment.md`),
  * and the zone route table declared neither — so the apex answered the catalog
  * path with the web Worker's 404 while every suite stayed green, because
- * `apps/web` mocks the path in MSW and the edge tests call the Worker object
+ * `apps/web` mocks the path in MSW and the API Worker's tests call the Worker object
  * directly. Nothing asked the deployed origin's own question.
  *
  * This test asks it against what Pulumi would actually send: the

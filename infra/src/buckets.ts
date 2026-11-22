@@ -35,7 +35,7 @@ export const mapTilesBucket = new cloudflare.R2Bucket(
 // like the map tiles there is intentionally no R2 public bucket/domain here, so
 // no client can read the bucket directly. The approved key form is `archive/**`
 // with an image extension; the allowlist is enforced in
-// `workers/edge/src/proxy/docs-assets.ts` and the canonical URL/object form is
+// `workers/api/src/proxy/docs-assets.ts` and the canonical URL/object form is
 // in `docs/DOCS_POLICY.md`.
 export const docsAssetsBucket = new cloudflare.R2Bucket(
   "docs-assets",

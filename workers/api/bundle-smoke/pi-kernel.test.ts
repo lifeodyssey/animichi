@@ -28,7 +28,7 @@ import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
 
 const ENTRY = fileURLToPath(new URL("./pi-kernel.worker.ts", import.meta.url));
-const OUT_DIR = mkdtempSync(join(tmpdir(), "edge-bundle-smoke-"));
+const OUT_DIR = mkdtempSync(join(tmpdir(), "api-bundle-smoke-"));
 const BUNDLE = join(OUT_DIR, "pi-kernel.js");
 
 after(() => {

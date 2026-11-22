@@ -8,15 +8,15 @@ owner ticks, deployment status or fabricated platform acceptance.
 
 | Product behavior | Native source | Behavioral evidence |
 |---|---|---|
-| Public identity, Turnstile and rate limits | `workers/edge/src/gateway/`, `identity/`, `protect/` | `workers/edge/test/operation-reachability.test.ts`, `turnstile-arm.test.ts` |
-| Ownership, idempotency and quota | `workers/edge/src/agent/admission/` | `workers/edge/admission-test/admit.test.ts`, `deleted-conversation.test.ts` |
-| Fault reattachment, durable recovery and lost BYOK | `workers/edge/src/agent/host/` | `workers/edge/host-integration-test/default-host.test.ts`, `policies.test.ts` |
-| Independent settlement obligation | `workers/edge/src/agent/settlement/native-settlement.ts` | `workers/edge/host-integration-test/independent-settlement.test.ts` |
+| Public identity, Turnstile and rate limits | `workers/api/src/gateway/`, `identity/`, `protect/` | `workers/api/test/operation-reachability.test.ts`, `turnstile-arm.test.ts` |
+| Ownership, idempotency and quota | `workers/api/src/agent/admission/` | `workers/api/admission-test/admit.test.ts`, `deleted-conversation.test.ts` |
+| Fault reattachment, durable recovery and lost BYOK | `workers/api/src/agent/host/` | `workers/api/host-integration-test/default-host.test.ts`, `policies.test.ts` |
+| Independent settlement obligation | `workers/api/src/agent/settlement/native-settlement.ts` | `workers/api/host-integration-test/independent-settlement.test.ts` |
 | Native replay and authorization | `packages/agent/src/tool-context.ts` | `packages/agent/test/native-replay.test.ts`, `native-replay-effects.test.ts` |
 | Catalog, routes and references | `packages/agent/src/tools.ts` | `packages/agent/test/native-result-refs.test.ts`, `native-route-integrity.test.ts` |
-| Clarifications and deterministic selection | `packages/agent/src/selection.ts` | `packages/agent/test/native-selection-replan.test.ts`, `workers/edge/selection-test/selection.test.ts` |
+| Clarifications and deterministic selection | `packages/agent/src/selection.ts` | `packages/agent/test/native-selection-replan.test.ts`, `workers/api/selection-test/selection.test.ts` |
 | Facts, frozen summaries and injection-safe context | `packages/agent/src/native-context-hooks.ts` | `packages/agent/test/native-executed-facts.test.ts`, `native-summary-reopen.test.ts`, `native-selection-context.test.ts` |
-| Native history, executed arguments and streaming | `workers/edge/src/agent/views/` | `workers/edge/test/native-history.test.ts`, `native-watch-response.test.ts` |
+| Native history, executed arguments and streaming | `workers/api/src/agent/views/` | `workers/api/test/native-history.test.ts`, `native-watch-response.test.ts` |
 | Raw native Eval output, observations and outcomes | `packages/eval/src/native/` | `packages/eval/test/native-production-composition.test.ts`, `native-task-observations.test.ts`, `native-task-outcomes.test.ts` |
 
 Run database lanes serially against disposable PostgreSQL, using the package guides.

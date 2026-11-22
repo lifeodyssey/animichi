@@ -57,7 +57,7 @@ check-full:
 	pnpm -r --workspace-concurrency=1 run --if-present test:integration
 	bash scripts/local-gates/db-fresh-schema.sh
 
-# ── Edge worker ───────────────────────────────────────────────
+# ── API Worker ────────────────────────────────────────────────
 
 test-worker:
 	pnpm run test:worker
