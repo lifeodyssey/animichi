@@ -12,8 +12,8 @@ import { z } from "zod";
  * import-free module because this one imports zod and the edge is bundled
  * (#1285).
  *
- * The path -> class classification lives in the edge's
- * `workers/api/src/gateway/routing-policy.ts` (ANON_V1); this
+ * Which route a path is lives in the edge's
+ * `workers/api/src/gateway/route-table.ts`; this
  * contract owns the classes and their numbers only.
  */
 

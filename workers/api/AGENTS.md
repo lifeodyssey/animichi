@@ -89,9 +89,12 @@ retired run engine and envelope paths have no forwarding modules.
   and public catalog forwards send it on `X-Request-Id` (`@animichi/contract/internal-binding`) and
   the response returns it under that name. A structured record wraps its fields in
   `withRequestId(...)`, which adds `request_id` inside a request and nothing outside one.
-- Policy stays in pure functions (`routing-policy.ts`, `rate-policy.ts`) so it runs under
-  node:test with no Cloudflare bindings; `app.ts` only wires them up. New public paths go in the
-  policy tables, not in a forwarding module. The public catalog surface — its path matcher and the
+- Routing is Hono's: each route is one entry of `src/gateway/route-table.ts` (method, path
+  template, record class, rate cell, service), mounted by `src/gateway/router.ts`; `app.ts` only
+  wires it up. A route's rate cell (`src/gateway/rate-policy.ts`) is part of its entry, so routing
+  and rate classification read one table. The table and the cells are pure, so they run under
+  node:test with no Cloudflare bindings. New public paths go in the route table, not in a
+  forwarding module. The public catalog surface — its path matcher and the
   query parameters each route accepts — is declared ONCE in `@animichi/contract/public-catalog`
   and read by this Worker's gateway and the catalog Worker's public middleware alike (#1691); an
   undeclared parameter is rejected before anything is forwarded.

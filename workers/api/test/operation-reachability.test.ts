@@ -5,7 +5,7 @@ import { URL, fileURLToPath } from "node:url";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
 import { alwaysAllowGuard, gatewayEnv, stubCtx } from "./doubles/entry-env.ts";
-import { turnRoutePolicy } from "../src/gateway/routing-policy.ts";
+import { AGENT_TIER_ROUTES } from "../src/gateway/route-table.ts";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 
 // Issue #1005 AC1: every operation advertised by a generated OpenAPI document
@@ -24,7 +24,7 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 // be forwarded into a downstream agent runtime: the native stream reaches the
 // edge's own agent tier, and the in-process adoption reaches no downstream
 // receiver at all. Their expected receiver is derived from the production route
-// policy, not a path list kept here.
+// table (`src/gateway/route-table.ts`), not a path list kept here.
 //
 // Issue #1596 added the edge's own readiness answer, which that marker cannot
 // express: the container kept its own richer `/healthz` and mounted it, so
@@ -102,10 +102,10 @@ function operationKey(operation: AdvertisedOperation): string {
   return `${operation.method} ${operation.path}`;
 }
 
-/** Whether the production route policy serves this operation on the edge's
- * own native agent tier (`/v1/chat`, the probe, the transcript and the stream). */
+/** Whether the production route table serves this operation on the edge's own
+ * native agent tier, whose entries carry the inventory's method and template. */
 function isNativeTierRoute(operation: AdvertisedOperation): boolean {
-  return turnRoutePolicy().select(operation.method, concretePath(operation.path)) !== null;
+  return AGENT_TIER_ROUTES.some((route) => route.method === operation.method && route.template === operation.path);
 }
 
 /** Who serves an advertised Agent operation, now that the edge carries no
@@ -173,7 +173,7 @@ void test("every marker-less advertised Agent operation is a native-tier route",
     assert.equal(
       isNativeTierRoute(operation),
       true,
-      `${operationKey(operation)} is advertised with no x-runtime marker and is not selected by turnRoutePolicy — the edge would 404 an advertised route`,
+      `${operationKey(operation)} is advertised with no x-runtime marker and is not an agent-tier route in the route table — the edge would 404 an advertised route`,
     );
   }
 });

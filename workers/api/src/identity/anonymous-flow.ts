@@ -3,7 +3,7 @@ import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, 
 import { readStoreOrString, type Env } from "../env.ts";
 import { rateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
-import { classifyRatePolicy } from "../gateway/rate-policy.ts";
+import type { RatePolicy } from "../gateway/rate-policy.ts";
 import { type TurnstileGate, guardTurnstile } from "../protect/turnstile.ts";
 import { verifyTurnstilePass } from "./turnstile-pass.ts";
 
@@ -25,8 +25,8 @@ async function guardBudget(env: Env, response: Response, dayKey: string): Promis
   return budgetGuidanceResponse();
 }
 
-async function limitedOrNull(env: Env, request: Request, identity: string): Promise<Response | null> {
-  return guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), identity, rateLimitConfigFrom(env));
+async function limitedOrNull(env: Env, rate: RatePolicy, identity: string): Promise<Response | null> {
+  return guardPolicy(env, rate, identity, rateLimitConfigFrom(env));
 }
 
 /**
@@ -51,10 +51,12 @@ async function servedAnonymously(
 /**
  * Mark this request as anonymously trusted and hand it to `serve`, or return
  * null when anonymous access is not enabled (leaving the caller on the 401
- * path). The durable limiter FAILS CLOSED (`#680` AC4): an anonymous chat turn
- * is a high-cost write, so one that cannot be metered is rejected (503) rather
- * than run unmetered on a limiter outage. The daily budget latch fails closed
- * only on an explicit budget verdict, and Turnstile stays the outer wall.
+ * path). `rate` is the matched route's cell: it picks the limiter, and a cheap
+ * GET skips the budget latch. The durable limiter FAILS CLOSED (`#680` AC4): an
+ * anonymous chat turn is a high-cost write, so one that cannot be metered is
+ * rejected (503) rather than run unmetered on a limiter outage. The daily budget
+ * latch fails closed only on an explicit budget verdict, and Turnstile stays the
+ * outer wall.
  *
  * Issue #447 arms the S1.9 Turnstile gate here, and the order is the point:
  *  - AFTER `resolveAnonymous`, so a challenge is only ever raised for a caller
@@ -66,7 +68,7 @@ async function servedAnonymously(
  *    (legitimate visitors would pay for their own challenges) nor a model call.
  */
 export async function handleAnonymousV1(
-  env: Env, request: Request, nowMs: number, gate: TurnstileGate,
+  env: Env, request: Request, nowMs: number, gate: TurnstileGate, rate: RatePolicy,
   serve: AnonymousV1Service,
 ): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
@@ -75,9 +77,9 @@ export async function handleAnonymousV1(
   const durablePass = await verifyTurnstilePass(request, identity.userId, secret, nowMs);
   const challenged = durablePass ? null : await guardTurnstile(request, env, gate, identity.userId);
   if (challenged !== null) return challenged;
-  const limited = await limitedOrNull(env, request, identity.userId);
+  const limited = await limitedOrNull(env, rate, identity.userId);
   if (limited !== null) return limited;
-  const readOnly = request.method === "GET" && classifyRatePolicy(request.method, new URL(request.url).pathname).cost === "low";
+  const readOnly = request.method === "GET" && rate.cost === "low";
   const served = readOnly ? await serve(identity) : await servedAnonymously(env, identity, nowMs, serve);
   return withAnonymousCookie(served, identity.setCookie);
 }
