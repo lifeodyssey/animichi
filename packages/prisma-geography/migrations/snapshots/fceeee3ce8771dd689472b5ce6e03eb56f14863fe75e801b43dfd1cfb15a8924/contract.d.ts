@@ -3,19 +3,15 @@
 // To regenerate, run: prisma contract emit
 import type { CodecTypes as GeoTypes, Geography } from '@animichi/prisma-geography/codec-types';
 import type { QueryOperationTypes as GeoQueryOperationTypes } from '@animichi/prisma-geography/operation-types';
-import type { QueryOperationTypes as PgAdapterQueryOps } from '@prisma/orm-postgres/adapter/operation-types';
+import type { QueryOperationTypes as PgAdapterQueryOps } from '@prisma/orm-postgres/target/operation-types';
 import type {
   Bit,
   Char,
   CodecTypes as PgTypes,
-  Interval,
   JsonValue,
   Numeric,
-  Time,
   TimeString,
-  Timestamp,
   TimestampString,
-  Timestamptz,
   TimestamptzString,
   Timetz,
   VarBit,
@@ -35,7 +31,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'6cdfc1078153225e73537bbbd91799f47f1ec9fb4bf2ae824bebd01bce63eb1f'>;
+  StorageHashBase<'fceeee3ce8771dd689472b5ce6e03eb56f14863fe75e801b43dfd1cfb15a8924'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -298,20 +294,23 @@ type ContractBase = Omit<
             readonly geo_points: {
               columns: {
                 readonly id: {
-                  readonly nativeType: 'text';
+                  readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                  readonly many: false;
                 };
                 readonly name: {
-                  readonly nativeType: 'text';
+                  readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                  readonly many: false;
                 };
                 readonly location: {
-                  readonly nativeType: 'geography';
+                  readonly dataType: 'geo/geography';
                   readonly codecId: 'pg/geography@1';
                   readonly nullable: false;
                   readonly typeParams: { readonly srid: 4326 };
+                  readonly many: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
@@ -426,14 +425,6 @@ type ContractBase = Omit<
             readonly package: '@animichi/prisma-geography/operation-types';
           };
         };
-        readonly storage: readonly [
-          {
-            readonly familyId: 'sql';
-            readonly nativeType: 'geography';
-            readonly targetId: 'postgres';
-            readonly typeId: 'pg/geography@1';
-          },
-        ];
       };
       readonly version: '0.1.0';
     };

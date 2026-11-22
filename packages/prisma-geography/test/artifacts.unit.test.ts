@@ -14,7 +14,7 @@ void test("the emitted contract retains the private extension and SRID", () => {
   assert.equal(contract.extensions.geo.types.codecTypes.import.package, "@animichi/prisma-geography/codec-types");
   assert.deepEqual(location, {
     codecId: "pg/geography@1",
-    nativeType: "geography",
+    dataType: "geo/geography",
     nullable: false,
     typeParams: { srid: 4326 },
   });

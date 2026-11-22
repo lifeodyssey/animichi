@@ -1,18 +1,24 @@
-import { CodecImpl, type CodecInstanceContext } from "@prisma/orm-postgres/components/codec";
-import type { JsonValue } from "@prisma/orm-postgres/contract/types";
+import { CodecImpl, readJsonString, type CodecInstanceContext, type DataTypeValue } from "@prisma/orm-postgres/components/codec";
+import { CastExpr, type ProjectionExpr } from "@prisma/orm-postgres/relational-core/ast";
 import { buildCodecDescriptorRegistry } from "@prisma/orm-postgres/relational-core/codec-descriptor-registry";
-import type { ProjectionExpr } from "@prisma/orm-postgres/relational-core/ast";
 import { PostgresCodecDescriptor, definePostgresCodecs } from "@prisma/orm-postgres/target/codec-descriptor";
 import { z } from "zod";
-import { GEOGRAPHY_CODEC_ID, GEOGRAPHY_NATIVE_TYPE } from "./constants.ts";
-import { decodePointEwkbHex, encodePointEwkt } from "./ewkb.ts";
+import { GEOGRAPHY_CODEC_ID, GEOGRAPHY_SRID } from "./constants.ts";
+import { geoGeography } from "./data-type.ts";
+import { decodePointEwkbHex, encodePointEwkbHex, encodePointEwkt } from "./ewkb.ts";
 import type { GeographyPoint } from "./geojson.ts";
+import { ONLY_WRITTEN_SRID, assertWrittenSrid } from "./srid.ts";
 
 export interface GeographyParams {
   readonly srid: number;
 }
 
-const geographyParamsSchema = z.object({ srid: z.number().int().nonnegative() });
+/** The application value of a column of the pack's data type, which holds SRID 4326 only. */
+type WrittenPoint = GeographyPoint<typeof GEOGRAPHY_SRID>;
+
+const geographyParamsSchema = z.object({
+  srid: z.number().int().nonnegative().refine((srid) => srid === GEOGRAPHY_SRID, { message: ONLY_WRITTEN_SRID }),
+});
 const finiteCoordinate = z.number().refine(Number.isFinite, { message: "coordinates must be finite" });
 const geographyPointSchema = z
   .object({
@@ -22,75 +28,56 @@ const geographyPointSchema = z
   })
   .strict();
 
-export class GeographyCodec<Srid extends number> extends CodecImpl<
-  typeof GEOGRAPHY_CODEC_ID,
-  readonly ["equality"],
-  string,
-  GeographyPoint<Srid>
-> {
-  readonly srid: Srid;
-
-  constructor(descriptor: GeographyDescriptor, srid: Srid) {
-    super(descriptor);
-    this.srid = srid;
+export class GeographyCodec extends CodecImpl<typeof GEOGRAPHY_CODEC_ID, readonly ["equality"], string, WrittenPoint> {
+  constructor(descriptor: GeographyDescriptor) {
+    super(descriptor, geoGeography);
   }
 
-  encode(value: GeographyPoint<Srid>): Promise<string> {
-    return Promise.resolve(value).then((point) => encodePointEwkt(validatePoint(point, this.srid)));
+  toWire(value: WrittenPoint): Promise<string> {
+    return Promise.resolve(value).then((point) => encodePointEwkt(validatePoint(point)));
   }
 
-  decode(wire: string): Promise<GeographyPoint<Srid>> {
-    return Promise.resolve(wire).then((encoded) => decodePointEwkbHex(encoded, this.srid));
+  fromWire(wire: string): Promise<WrittenPoint> {
+    return Promise.resolve(wire).then((encoded) => decodePointEwkbHex(encoded, GEOGRAPHY_SRID));
   }
 
-  encodeJson(value: GeographyPoint<Srid>): JsonValue {
-    return encodePointEwkt(validatePoint(value, this.srid));
+  toDataTypeValue(input: WrittenPoint): DataTypeValue {
+    return this.dataTypeValueOf(encodePointEwkbHex(validatePoint(input)));
   }
 
-  decodeJson(json: JsonValue): GeographyPoint<Srid> {
-    if (typeof json !== "string") {
-      throw new TypeError("geography decode: database JSON value must be hex EWKB");
-    }
-    return decodePointEwkbHex(json, this.srid);
+  /** The data type has already read the stored value as a hex EWKB point in SRID 4326. */
+  fromDataTypeValue(value: DataTypeValue): WrittenPoint {
+    return decodePointEwkbHex(readJsonString(geoGeography.id, value.value), GEOGRAPHY_SRID);
   }
 }
 
 export class GeographyDescriptor extends PostgresCodecDescriptor<GeographyParams> {
+  readonly jsonType = "object" as const;
+  readonly dataType = geoGeography.id;
   readonly codecId = GEOGRAPHY_CODEC_ID;
   readonly traits = ["equality"] as const;
-  readonly targetTypes = [GEOGRAPHY_NATIVE_TYPE] as const;
   readonly paramsSchema = geographyParamsSchema;
 
-  protected nativeType(): string {
-    return GEOGRAPHY_NATIVE_TYPE;
-  }
-
+  /** The hex EWKB text PostgreSQL prints for a geography, which `fromWire` reads as it reads a row. */
   protected jsonProjection(expression: ProjectionExpr): ProjectionExpr {
-    return expression;
+    return CastExpr.as(expression, "text");
   }
 
-  renderOutputType(params: GeographyParams): string {
-    return `Geography<${String(params.srid)}>`;
-  }
-
-  renderInputType(params: GeographyParams): string {
-    return `Geography<${String(params.srid)}>`;
-  }
-
-  factory<const Srid extends number>(params: { readonly srid: Srid }): (context: CodecInstanceContext) => GeographyCodec<Srid> {
-    return () => new GeographyCodec(this, params.srid);
+  factory(params: GeographyParams): (context: CodecInstanceContext) => GeographyCodec {
+    assertWrittenSrid(params.srid);
+    return () => new GeographyCodec(this);
   }
 }
 
-function assertSrid<const Srid extends number>(value: GeographyPoint, expected: Srid): asserts value is GeographyPoint<Srid> {
-  if (value.srid !== expected) {
-    throw new TypeError(`geography encode: expected SRID ${String(expected)}, received ${String(value.srid)}`);
+function assertSrid(value: GeographyPoint): asserts value is WrittenPoint {
+  if (value.srid !== GEOGRAPHY_SRID) {
+    throw new TypeError(`geography encode: expected SRID ${String(GEOGRAPHY_SRID)}, received ${String(value.srid)}`);
   }
 }
 
-function validatePoint<const Srid extends number>(value: unknown, expected: Srid): GeographyPoint<Srid> {
+function validatePoint(value: unknown): WrittenPoint {
   const point = geographyPointSchema.parse(value);
-  assertSrid(point, expected);
+  assertSrid(point);
   return point;
 }
 

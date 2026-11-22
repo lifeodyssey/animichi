@@ -2,19 +2,8 @@ import type { ControlExtensionDescriptor } from "@prisma/orm-postgres/components
 import { GEOGRAPHY_CODEC_ID } from "./constants.ts";
 import { geographyPackMeta } from "./pack-meta.ts";
 
-interface NativeTypeInput {
-  readonly nativeType: string;
-  readonly typeParams?: Readonly<Record<string, unknown>>;
-}
-
-function expandNativeType({ nativeType, typeParams }: NativeTypeInput): string {
-  const srid = typeParams?.srid;
-  if (typeof srid !== "number" || !Number.isInteger(srid) || srid < 0) return nativeType;
-  return `${nativeType}(Point,${String(srid)})`;
-}
-
+/** A geography column carries no identity value for the planner to derive. */
 export const geographyControlPlaneHooks = {
-  expandNativeType,
   resolveIdentityValue: () => null,
 };
 
