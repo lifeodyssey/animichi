@@ -142,7 +142,10 @@ repos:
         # pass_filenames:false so pre-commit does NOT append the changed files as
         # explicit targets (that bypasses .semgrepignore). The files regex still
         # gates the hook to commits that touch a TypeScript file.
-        entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error . --exclude '**/tests/**' --exclude '**/test/**'
+        # --disable-version-check and --metrics=off: otherwise every scan asks
+        # semgrep.dev for the latest version (cached for a day), and a logged-in
+        # user's scans also send usage metrics.
+        entry: uv tool run --no-build semgrep@1.172.0 --disable-version-check --metrics=off --config .semgrep --error . --exclude '**/tests/**' --exclude '**/test/**'
         language: system
         files: \.ts$
         pass_filenames: false

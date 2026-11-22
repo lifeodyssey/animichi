@@ -41,11 +41,15 @@ function timeoutDiagnostic(error: KilledChildError) {
   return `Wrangler did not finish its dry-run build within ${bound} seconds`;
 }
 
-async function runWrangler(config: string, directory: string, outfile: string, metafile: string) {
+/** No usage metrics, and no banner, whose update check would ask the npm registry for Wrangler's latest version. */
+const WRANGLER_ENV = { WRANGLER_SEND_METRICS: "false", WRANGLER_HIDE_BANNER: "true" };
+
+/** The official dry-run build of `config` into `directory`, bounded and run with `WRANGLER_ENV`; returns Wrangler's stdout. */
+export async function runWrangler(config: string, directory: string, outfile: string, metafile: string): Promise<string> {
   const args = ["exec", "wrangler", "deploy", "--dry-run", "--config", config, "--outdir", directory, "--metafile", metafile];
-  const env = { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: `${outfile}.build.log` };
+  const env = { ...process.env, ...WRANGLER_ENV, WRANGLER_LOG_PATH: `${outfile}.build.log` };
   try {
-    await promisify(execFile)("pnpm", args, { env, maxBuffer: 5 * 1024 * 1024, timeout: BUILD_TIMEOUT_MS });
+    return (await promisify(execFile)("pnpm", args, { env, maxBuffer: 5 * 1024 * 1024, timeout: BUILD_TIMEOUT_MS })).stdout;
   } catch (error) {
     if (!killedByTimeout(error)) throw error;
     throw new Error(timeoutDiagnostic(error), { cause: error });
