@@ -72,21 +72,27 @@ registerHooks({
       : nextResolve(specifier, context),
 });
 
-/** Every key the program requires, plus the three optional Auth keys that gate
- * `NEON_AUTH_JWKS_URL` / `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD` — set,
- * so the test pins the whole graph rather than the stacks' shared subset.
+/** The three optional Auth keys that gate `NEON_AUTH_JWKS_URL` /
+ * `QA_NEON_USER_EMAIL` / `QA_NEON_USER_PASSWORD`. Set by default, so a test
+ * pins the whole graph rather than the stacks' shared subset; a test of the
+ * unset state, production's today, passes none. */
+const NEON_AUTH_CONFIG: Record<string, string> = {
+  neonAuthBaseUrl: "https://branch.neonauth.example.test/neondb/auth",
+  qaNeonUserEmail: "qa-bot@animichi.test",
+  qaNeonUserPassword: "qa-password-fixture",
+};
+
+/** Every key the program requires, plus the given Auth keys.
  *
  * `index.ts` also re-exports `runtime-secrets.ts`, whose keys and fixtures the
  * other testing harness owns; its config is merged in rather than repeated. */
-function stackConfig(): Record<string, string> {
+function stackConfig(neonAuth: Record<string, string>): Record<string, string> {
   const own = Object.fromEntries(
     Object.entries({
       neonProjectId: "project-fixture",
       neonBranchId: "branch-fixture",
       neonApiKey: "neon-api-key-fixture",
-      neonAuthBaseUrl: "https://branch.neonauth.example.test/neondb/auth",
-      qaNeonUserEmail: "qa-bot@animichi.test",
-      qaNeonUserPassword: "qa-password-fixture",
+      ...neonAuth,
     }).map(([key, value]) => [`${PROJECT}:${key}`, value]),
   );
   return { ...runtimeConfig(), ...own };
@@ -101,7 +107,10 @@ function mockState(type: string, inputs: Record<string, unknown>): Record<string
 /** Build the program for `stack` under Pulumi mocks; returns every resource it
  * declared, in construction order. The process can load the program once, so a
  * test file builds exactly one stack — see `harness.ts`. */
-export async function buildDatabaseAccess(stack: string): Promise<Built[]> {
+export async function buildDatabaseAccess(
+  stack: string,
+  neonAuth: Record<string, string> = NEON_AUTH_CONFIG,
+): Promise<Built[]> {
   const built: Built[] = [];
   pulumi.runtime.setMocks(
     {
@@ -115,7 +124,7 @@ export async function buildDatabaseAccess(stack: string): Promise<Built[]> {
     stack,
     false,
   );
-  pulumi.runtime.setAllConfig(stackConfig());
+  pulumi.runtime.setAllConfig(stackConfig(neonAuth));
   // Non-literal on purpose: `@pulumi/neon` has no types on disk here, so a
   // static import would fail the test tsconfig's typecheck. The resolve hook
   // above is what makes this specifier loadable at all.
