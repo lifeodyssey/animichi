@@ -48,6 +48,7 @@ const WORKER_READ_MODULES = [
   "src/constants.ts",
   "src/identity-policy.ts",
   "src/internal-binding.ts",
+  "src/neon-auth.ts",
   "src/public-catalog.ts",
 ];
 

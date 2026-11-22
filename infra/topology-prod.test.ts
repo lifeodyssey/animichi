@@ -181,3 +181,9 @@ test("production has no Cloudflare Access door and mints no token for one", () =
   // zone-hardening assertions above exist to prevent.
   assert.deepEqual(ofType(built, ACCESS_IDP), []);
 });
+
+test("an unset Neon Auth base URL, production's state, derives no JWKS address or issuer", async () => {
+  const program = await import("./index.ts");
+  assert.equal(program.neonAuthJwksUrl, undefined);
+  assert.equal(program.neonAuthIssuer, undefined);
+});

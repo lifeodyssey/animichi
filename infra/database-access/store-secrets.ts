@@ -12,6 +12,8 @@
  */
 import * as pulumi from "@pulumi/pulumi";
 import * as cloudflare from "@pulumi/cloudflare";
+// The JWKS address's one definition, shared with infra's own program.
+import { jwksUrlFromAuthBaseUrl } from "../src/neon-auth.ts";
 
 /** Where the store lives and what a DSN composed against it needs. */
 export interface SecretsStorePlacement {
@@ -165,7 +167,7 @@ function storeNeonAuthJwks(placement: SecretsStorePlacement, baseUrl: string | u
     placement,
     "neon-auth-jwks-url",
     "NEON_AUTH_JWKS_URL",
-    `${baseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
+    jwksUrlFromAuthBaseUrl(baseUrl),
     "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
   );
 }

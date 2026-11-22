@@ -23,7 +23,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ofType, type Built } from "./testing/harness.ts";
+import { ofType, unseal, type Built } from "./testing/harness.ts";
 import { buildDatabaseAccess } from "./testing/database-access.ts";
 
 const STORE_SECRET_TYPE = "cloudflare:index/secretsStoreSecret:SecretsStoreSecret";
@@ -63,5 +63,14 @@ test("staging emits exactly these store secrets, logical name and real name apar
     "a store secret's logical name is Pulumi's state identity and its `name` is what every "
       + "wrangler binding resolves; conflating them renames the store secret, and Cloudflare "
       + "deletes on rename (#1940 deleted CATALOG_ADMIN_TOKEN this way)",
+  );
+});
+
+test("staging stores the JWKS address derived from its Neon Auth base URL", () => {
+  // The harness sets `neonAuthBaseUrl` to https://branch.neonauth.example.test/neondb/auth.
+  const jwks = ofType(built, STORE_SECRET_TYPE).filter((secret) => secret.name === "neon-auth-jwks-url");
+  assert.deepEqual(
+    jwks.map((secret) => unseal(secret.inputs.value).value),
+    ["https://branch.neonauth.example.test/neondb/auth/.well-known/jwks.json"],
   );
 });
