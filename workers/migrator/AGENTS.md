@@ -156,6 +156,19 @@ filesystem APIs then read the graph at `/bundle/migrations`.
 Native requests select only a 64-character hash in a packaged snapshot. They
 cannot supply SQL, a graph, a path or a DSN.
 
+The bundle starts in workerd only because `wrangler.toml` aliases `fdir` to
+`src/fdir-unavailable.ts`. Prisma rc.24 has no entry for its control client
+apart from `@prisma/orm-toolchain/cli/control-api`, whose one chunk also loads
+the CLI's config loader, and through tinyglobby that reaches `fdir`, whose
+module top level calls `createRequire(import.meta.url)`. workerd leaves
+`import.meta.url` undefined, so the sealed bundle failed at start. The rest of
+that CLI-side graph is still in the bundle and starts. `build-worker.mjs`
+makes the alias path absolute for its scratch config, and the esbuild-built
+fixtures read the same table (`test/wrangler-alias.ts`).
+`test/sealed-bundle.workerd.test.ts` builds the sealed bundle with the release
+script and boots it, and `test/deployment-contract.test.ts` pins `fdir` out of
+the graph.
+
 Prisma alone owns every object in the data plane and the `prisma_contract`
 marker schema. The direct migrator role needs database `CREATE` to initialize
 that schema plus its existing table/schema privileges. The disposable PostgreSQL suite proves this with a NOSUPERUSER

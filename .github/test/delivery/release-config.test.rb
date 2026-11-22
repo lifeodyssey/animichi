@@ -33,6 +33,9 @@ class ReleaseConfigTest < Minitest::Test
     assert_empty config.dig('env', 'staging').fetch('containers', [])
     assert_empty config.dig('env', 'production').fetch('containers', [])
     refute config.key?('build')
+    # The source's [alias] is a build input whose path is relative to workers/migrator; the
+    # sealed config deploys the bundle build-worker.mjs already built with it.
+    refute config.key?('alias')
     assert_equal true, config['no_bundle']
     assert_equal true, config['find_additional_modules']
     assert_equal true, config['preserve_file_names']
