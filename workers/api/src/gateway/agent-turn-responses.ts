@@ -16,18 +16,11 @@
  *    unified here: unifying them would be a wire change hiding inside a
  *    routing change.
  */
+import { ANON_QUOTA_EXHAUSTED_CODE, type AnonLimitErrorEnvelope } from "@animichi/contract";
 import type { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
 import type { ByokRejection } from "../agent/byok/byok-credential.ts";
 import type { ByokProbeVerdict } from "../agent/byok/byok-probe.ts";
 import type { ChatEnvelopeError } from "./chat-envelope.ts";
-
-/**
- * The per-identity quota rejection code, a local copy of the one
- * `packages/contract/src/error-registry.ts` exports;
- * `test/agent-turn-wire.test.ts` reads the contract file so the two literals
- * cannot drift silently.
- */
-const ANON_QUOTA_EXHAUSTED_CODE = "anon_quota_exhausted";
 
 /** Verbatim from `routes/admission.py`. */
 const QUOTA_EXHAUSTED_MESSAGE = "今日はここまで・ログインすると続けられるよ。";
@@ -53,7 +46,8 @@ export function envelopeRefused(error: ChatEnvelopeError): Response {
   return jsonResponse({ detail: error.detail }, 422);
 }
 
-/** The per-identity daily allowance is spent; `quota_resets_at` says until when. */
+/** The per-identity daily allowance is spent; `quota_resets_at` says until when.
+ * The body is the contract's envelope, so the type checker holds its shape. */
 export function quotaExhausted(resetsAt: string): Response {
   return jsonResponse({
     error: {
@@ -62,7 +56,7 @@ export function quotaExhausted(resetsAt: string): Response {
       action: "login",
       data: { quota_resets_at: resetsAt },
     },
-  }, 403);
+  } satisfies AnonLimitErrorEnvelope, 403);
 }
 
 /** The session already has a running turn (`runs_one_running_per_session`). */
