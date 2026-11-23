@@ -25,17 +25,18 @@ export function nativeLimiterFrom(env: Env): NativeRateLimiter | null {
 }
 
 /** The single fail-open OUTAGE alert event for the native damper (AC4):
- * emitted when a cacheable read bypasses a limiter outage so the operator
- * still hears about it. ONE event name lives here; every fail-open call
- * site routes through it (burst-guard's guardNativeRead included). */
+ * emitted when a request steps over a damper outage so the operator still
+ * hears about it. ONE event name lives here, and the Worker's one call site
+ * is `coarseBurstAllow`, which the coarse wall of every metered class runs. */
 export function alertNativeRateLimitOutage(key: string): void {
   console.warn(JSON.stringify(withRequestId({ event: "edge_native_rate_limit_alert", key })));
 }
 
-/** Run one coarse native burst check, FAILING OPEN on any unavailability: a
- * null binding, a thrown call, or a rejected promise is an ALERTED OUTAGE
- * (via alertNativeRateLimitOutage), not a denial. Resolves `true` to
- * proceed, `false` when the coarse window is already exceeded. */
+/** Run one coarse native burst check, FAILING OPEN on any unavailability,
+ * never denying for it. An absent binding (`null`) proceeds without an alert;
+ * a call that throws or rejects, a binding that is not a rate limiter
+ * included, is an ALERTED OUTAGE (via alertNativeRateLimitOutage). Resolves
+ * `true` to proceed, `false` when the coarse window is already exceeded. */
 export async function coarseBurstAllow(limiter: NativeRateLimiter | null, key: string): Promise<boolean> {
   if (limiter === null) return true;
   try {

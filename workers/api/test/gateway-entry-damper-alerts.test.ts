@@ -6,8 +6,7 @@
  * and alerted once with the caller's key and the request's ID: on a durable
  * route before its shard is asked (whatever the shard then says), and on the
  * public catalog read. An absent binding is stepped over with no alert on
- * either route, although the comment on `coarseBurstAllow` calls it an alerted
- * outage. How each class answers these outages is pinned in
+ * either route. How each class answers these outages is pinned in
  * `gateway-entry-limiter-outage.test.ts`.
  *
  * test-type: characterization
