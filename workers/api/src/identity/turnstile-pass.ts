@@ -1,8 +1,10 @@
 import { TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
 import { firstVerifiedCookie } from "./cookie-header.ts";
-import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
+import { hmacHex, SIGNATURE_PATTERN, signaturesMatch } from "./cookie-signature.ts";
 
 const PASS_COOKIE = "turnstile_pass";
+/** A whole pass value: its expiry in milliseconds, a dot and its signature, with nothing after it. */
+const PASS_PATTERN = new RegExp(`^(\\d+)\\.(${SIGNATURE_PATTERN.source})$`);
 
 interface Pass {
   readonly expiresAt: number;
@@ -28,7 +30,7 @@ export async function issueTurnstilePass(
 }
 
 function parsePass(value: string): Pass | null {
-  const match = /^(\d+)\.([0-9a-f]{64})$/.exec(value);
+  const match = PASS_PATTERN.exec(value);
   if (match === null) return null;
   const expiresAt = Number(match[1]);
   const signature = match[2];

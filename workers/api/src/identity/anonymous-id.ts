@@ -9,11 +9,13 @@
 
 import { readStoreOrString, type Env } from "../env.ts";
 import { firstVerifiedCookie } from "./cookie-header.ts";
-import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
+import { hmacHex, SIGNATURE_PATTERN, signaturesMatch } from "./cookie-signature.ts";
 
 const ANON_COOKIE = "aid";
 const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
-const ANON_ID_PATTERN = /^[0-9a-f]{32}$/;
+const ANON_ID_PATTERN = /[0-9a-f]{32}/;
+/** A whole `aid` value: an id, a dot and its signature, with nothing after it. */
+const ANON_TOKEN_PATTERN = new RegExp(`^(${ANON_ID_PATTERN.source})\\.(${SIGNATURE_PATTERN.source})$`);
 
 export type AnonymousEnv = Pick<Env, "ANON_ACCESS_ENABLED" | "ANON_ID_SECRET">;
 
@@ -36,9 +38,11 @@ export async function anonymousEnabled(env: AnonymousEnv): Promise<boolean> {
   return await anonymousSecret(env) !== undefined;
 }
 
+/** The id an `aid` value names, when the whole value has the token's shape and
+ * its signature is the one this Worker computes for the id. */
 async function verifyAnonymousToken(token: string, secret: string): Promise<string | null> {
-  const [id, signature] = token.split(".");
-  if (id === undefined || signature === undefined || !ANON_ID_PATTERN.test(id)) return null;
+  const [, id, signature] = ANON_TOKEN_PATTERN.exec(token) ?? [];
+  if (id === undefined || signature === undefined) return null;
   return signaturesMatch(signature, await hmacHex(secret, id)) ? id : null;
 }
 
