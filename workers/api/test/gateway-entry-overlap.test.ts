@@ -4,8 +4,8 @@
  * which handler answers today and under which identity rule:
  *
  * - the private `/img/docs` namespace against the public Anitabi arm of `/img/`:
- *   the namespace, bare prefix included, never reaches the origin, but a case
- *   variant of it is not the namespace and does; neither arm consults identity;
+ *   the namespace, bare prefix included, never reaches the origin, and neither
+ *   does a case variant of it, which answers 404; neither arm consults identity;
  * - the conversation index against the transcript and stream templates, whose
  *   session id may itself read `messages` or `stream`; the index and the probe
  *   never admit an anonymous visitor, while the turn, transcript and stream do;
@@ -59,8 +59,12 @@ const CLAIMS: readonly Claim[] = [
     vars: {}, status: 400, body: IMAGE_PATH_INVALID, log: [] },
   { who: "the origin arm, for a sibling of the namespace", method: "GET", path: "/img/docsx/a.png?plan=h160", headers: {}, vars: {},
     status: 200, body: "jpeg-bytes", log: [`${ORIGIN}/docsx/a.png?plan=h160`] },
-  { who: "the origin arm, for a case variant of the namespace", method: "GET", path: "/img/Docs/archive/a.png?plan=h160",
-    headers: {}, vars: {}, status: 200, body: "jpeg-bytes", log: [`${ORIGIN}/Docs/archive/a.png?plan=h160`] },
+  { who: "nothing, for a case variant of the namespace", method: "GET", path: "/img/Docs/archive/a.png?plan=h160",
+    headers: {}, vars: {}, status: 404, body: NOT_FOUND, log: [] },
+  { who: "the origin arm, for a case variant of the namespace's sibling", method: "GET", path: "/img/Docsx/a.png?plan=h160",
+    headers: {}, vars: {}, status: 200, body: "jpeg-bytes", log: [`${ORIGIN}/Docsx/a.png?plan=h160`] },
+  { who: "the origin arm, for a case variant outside the first segment", method: "GET", path: "/img/x/Docs/a.png?plan=h160",
+    headers: {}, vars: {}, status: 200, body: "jpeg-bytes", log: [`${ORIGIN}/x/Docs/a.png?plan=h160`] },
   { who: "the origin arm, whatever bearer is presented", method: "GET", path: "/img/a.jpg?plan=h160", headers: INVALID, vars: {},
     status: 200, body: "jpeg-bytes", log: [`${ORIGIN}/a.jpg?plan=h160`] },
   { who: "the stream handler, for a session named messages", method: "GET", path: "/v1/conversations/messages/stream",

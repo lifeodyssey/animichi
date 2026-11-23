@@ -44,7 +44,7 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["GET", "/img/docs/archive/a.png/", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/img/docs/archive/extra/a.png", 404, IMAGE_NOT_FOUND, ["docs archive/extra/a.png"]],
   ["GET", "/IMG/docs/archive/a.png", 404, NOT_FOUND, []],
-  ["GET", "/img/DOCS/archive/a.png", 400, IMAGE_PLAN_REQUIRED, []],
+  ["GET", "/img/DOCS/archive/a.png", 404, NOT_FOUND, []],
   ["GET", "/img/docs%2Farchive%2Fa.png", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/img/docs/archive/%61.png", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/%69mg/docs/archive/a.png", 404, NOT_FOUND, []],
