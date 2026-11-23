@@ -8,7 +8,7 @@
 // ANON_ACCESS_ENABLED and ANON_ID_SECRET the edge keeps its existing 401.
 
 import { readStoreOrString, type Env } from "../env.ts";
-import { readCookie } from "./cookie-header.ts";
+import { firstVerifiedCookie } from "./cookie-header.ts";
 import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
 
 const ANON_COOKIE = "aid";
@@ -54,9 +54,9 @@ async function mintAnonymousIdentity(secret: string): Promise<AnonymousIdentity>
   };
 }
 
-async function verifiedCookie(request: Request, secret: string): Promise<string | null> {
-  const cookie = readCookie(request, ANON_COOKIE);
-  return cookie === null ? null : verifyAnonymousToken(cookie, secret);
+/** The id of the first `aid` the request carries that verifies, or null. */
+function verifiedCookie(request: Request, secret: string): Promise<string | null> {
+  return firstVerifiedCookie(request, ANON_COOKIE, (token) => verifyAnonymousToken(token, secret));
 }
 
 /**
