@@ -156,7 +156,6 @@ export type { AnonymousEnv } from "./anonymous-id.ts";
 export {
   ANON_ID_PREFIX,
   anonymousEnabled,
-  constantTimeEqual,
   resolveAnonymous,
   resolveAnonymousReadOnly,
   type AnonymousIdentity,

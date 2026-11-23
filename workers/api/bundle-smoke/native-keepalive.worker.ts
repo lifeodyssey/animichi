@@ -1,6 +1,6 @@
 import { getAgentByName } from "agents";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
-import { SessionAgent } from "../src/agent/host/session-agent.ts";
+import { NativeOnlyHost } from "./native-only-host.ts";
 import { keepaliveState, composition, observeCleanup, clampDueAlarm, releaseProvider, drainCleanup, observeDrive, alarmSnapshot } from "./native-keepalive-state.ts";
 
 /** A stalled wait fails by name; a healthy wait is settled by its own event, never by this bound. */
@@ -16,17 +16,19 @@ function bounded<T>(event: Promise<T>, diagnosticMs: number, description: string
 }
 
 /** Real SDK scheduling and drive, with a public faux-provider response barrier. */
-export class KeepaliveProbe extends SessionAgent {
+export class KeepaliveProbe extends NativeOnlyHost {
   static override options = { keepAliveIntervalMs: 1_000 };
   readonly #state = keepaliveState();
   override async onStart() {
     observeCleanup(this.ctx, this.#state.cleanup);
     clampDueAlarm(this.ctx, this.#state);
     Date.now = () => this.#state.clock.now;
+    await super.onStart();
+  }
+  protected override async initializeSession() {
     const session = await this.#state.resources.repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
-    this.bindSession(this.#state.resources.repo, session.metadata, (opened) => composition(this.#state, opened));
-    await super.onStart();
+    this.bindProbeSession(this.#state.resources.repo, session.metadata, (opened) => composition(this.#state, opened));
   }
   async startDrive() {
     const deadline = await this.schedule(new Date(this.#state.clock.now + 10_000), "deadline", { operationId: "held" });

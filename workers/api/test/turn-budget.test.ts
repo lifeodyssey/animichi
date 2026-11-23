@@ -19,6 +19,11 @@ function budgetLane(current: { id: string; startedAt: number } | null, order: st
   };
 }
 
+/** The business database of a case whose budget is never spent, so any deadline write is a failure. */
+function untouchedAdmission(): AdmissionDatabase {
+  return { transaction: () => Promise.reject(new Error("No deadline write expected")) } as unknown as AdmissionDatabase;
+}
+
 /** A business database whose deadline write never observes a commit, as a refused lock or an outage would. */
 function deadlineAdmission(order: string[], write: "refused" | "rejected"): AdmissionDatabase {
   return { transaction: () => {
@@ -30,7 +35,7 @@ function deadlineAdmission(order: string[], write: "refused" | "rejected"): Admi
 void test("the turn budget opens from the lane's durable acceptance witness, not the request clock", async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: ACCEPTED_AT + 30_000 });
   const lane = budgetLane({ id: "op", startedAt: ACCEPTED_AT }, []);
-  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS);
+  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS, untouchedAdmission());
 
   await budget.open(lane, "op", BACKGROUND_CONTEXT);
 
@@ -75,7 +80,7 @@ void test("a deadline write that rejects still aborts the lane, and keeps its ow
 void test("the turn budget stays closed for an operation the lane does not own", async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: ACCEPTED_AT });
   const lane = budgetLane({ id: "another-operation", startedAt: ACCEPTED_AT }, []);
-  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS);
+  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS, untouchedAdmission());
 
   await budget.open(lane, "op", BACKGROUND_CONTEXT);
 
@@ -85,7 +90,7 @@ void test("the turn budget stays closed for an operation the lane does not own",
 void test("the turn budget stays closed while the lane has no current operation", async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: ACCEPTED_AT });
   const lane = budgetLane(null, []);
-  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS);
+  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS, untouchedAdmission());
 
   await budget.open(lane, "op", BACKGROUND_CONTEXT);
 
@@ -95,7 +100,7 @@ void test("the turn budget stays closed while the lane has no current operation"
 void test("a model request is clamped to the budget that remains, never extended past it", async (context) => {
   context.mock.timers.enable({ apis: ["Date"], now: ACCEPTED_AT });
   const lane = budgetLane({ id: "op", startedAt: ACCEPTED_AT }, []);
-  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS);
+  const budget = new TurnBudget("session-budget", TURN_BUDGET_MS, untouchedAdmission());
   await budget.open(lane, "op", BACKGROUND_CONTEXT);
   context.mock.timers.tick(30_000);
 

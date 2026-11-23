@@ -23,7 +23,7 @@ export interface ModelRequestBoundary {
 export class TurnBudget {
   #window?: TurnWindow;
 
-  constructor(private readonly sessionId: string, private readonly budgetMs: number, private readonly business?: AdmissionDatabase) {}
+  constructor(private readonly sessionId: string, private readonly budgetMs: number, private readonly business: AdmissionDatabase) {}
 
   /** Open from the durable acceptance witness; a budget already spent ends the turn here, before any request exists. */
   async open(lane: TurnLane, operationId: string, context: Context) {
@@ -52,7 +52,7 @@ export class TurnBudget {
     const operation = { sessionId: this.sessionId, operationId: window.operationId };
     let abort: Awaited<ReturnType<TurnLane["requestAbort"]>>;
     try {
-      if (this.business) await persistPermanentRejection(this.business, operation, "deadline_exceeded");
+      await persistPermanentRejection(this.business, operation, "deadline_exceeded");
     } finally { abort = await lane.requestAbort(window.operationId, context); }
     if (!abort.ok) throw abort.error;
   }

@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { z } from "zod";
 import { DEFAULT_IDENTITY_POLICY, type IdentityClassPolicy } from "../identity/auth.ts";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
 import { guardCall, type GuardShard } from "./guard-call.ts";
@@ -26,6 +27,11 @@ export interface RateLimitDecision {
   readonly next: WindowState;
   readonly retryAfterSeconds: number;
 }
+
+/** Any JavaScript number, NaN and ±Infinity included: the guards take every number a body or a stored
+ * value carries. zod's `z.number()` refuses both, yet a JSON overflow (`1e999`) arrives as Infinity and
+ * Durable Object storage, a structured clone, can hold NaN. */
+export const AnyNumber = z.custom<number>((value) => typeof value === "number");
 
 const DEFAULT_LIMIT = defaultLimit(DEFAULT_IDENTITY_POLICY.anonymous);
 const DEFAULT_WINDOW_SECONDS = defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.anonymous);
@@ -86,12 +92,13 @@ export function authenticatedRateLimitKey(userId: string): string {
   return `${AUTH_IDENTITY_PREFIX}${userId}`;
 }
 
+/** An identity's window as its shard stores it; keys beyond the two are dropped. */
+const StoredWindow = z.object({ startedAtMs: AnyNumber, count: AnyNumber });
+
 /** Narrow an untyped stored value back to a window, discarding anything else. */
 export function parseWindowState(value: unknown): WindowState | null {
-  if (typeof value !== "object" || value === null) return null;
-  const { startedAtMs, count } = value as Partial<WindowState>;
-  if (typeof startedAtMs !== "number" || typeof count !== "number") return null;
-  return { startedAtMs, count };
+  const parsed = StoredWindow.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function currentWindow(state: WindowState | null, nowMs: number, windowMs: number): WindowState {
@@ -140,11 +147,14 @@ export async function consumeRateLimit(
   return decision;
 }
 
-function parseDecision(value: unknown): RateLimitDecision | null {
-  if (typeof value !== "object" || value === null) return null;
-  const { allowed, retryAfterSeconds } = value as Partial<RateLimitDecision>;
-  if (typeof allowed !== "boolean" || typeof retryAfterSeconds !== "number") return null;
-  return { allowed, retryAfterSeconds, next: { startedAtMs: 0, count: 0 } };
+/** The verdict a shard answers; keys beyond the two are dropped. */
+const ShardVerdict = z.object({ allowed: z.boolean(), retryAfterSeconds: AnyNumber });
+/** What a shard's answer carries, and all the gateway reads of it: the shard keeps its window to itself. */
+export type ShardVerdict = z.infer<typeof ShardVerdict>;
+
+function parseVerdict(value: unknown): ShardVerdict | null {
+  const parsed = ShardVerdict.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /**
@@ -157,10 +167,10 @@ function parseDecision(value: unknown): RateLimitDecision | null {
  * classes fail CLOSED on this outage, while the anonymous coarse burst (its
  * outer walls are Turnstile + the daily budget latch) still fails open.
  */
-async function fetchDecision(shard: GuardShard, config: RateLimitConfig): Promise<RateLimitDecision | null> {
+async function fetchVerdict(shard: GuardShard, config: RateLimitConfig): Promise<ShardVerdict | null> {
   try {
     const response = await guardCall(shard, rateLimitRequest(config));
-    return response?.ok === true ? parseDecision(await response.json()) : null;
+    return response?.ok === true ? parseVerdict(await response.json()) : null;
   } catch {
     return null;
   }
@@ -178,8 +188,8 @@ export function checkRateLimit(
   guard: GuardNamespace,
   identity: string,
   config: RateLimitConfig,
-): Promise<RateLimitDecision | null> {
-  return fetchDecision(guard.get(guard.idFromName(`rate:${identity}`)), config);
+): Promise<ShardVerdict | null> {
+  return fetchVerdict(guard.get(guard.idFromName(`rate:${identity}`)), config);
 }
 /** The durable tier's verdict for one check. `outage` means the Durable
  * Object was unreachable; the CALLER applies the class's failure mode

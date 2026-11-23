@@ -8,6 +8,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { parse } from "smol-toml";
 
 export interface WranglerBundle { readonly code: string; readonly metafile: Metafile }
 
@@ -70,11 +71,12 @@ export async function bundleLikeWrangler(entry: string, outfile: string): Promis
   return { code, metafile: JSON.parse(await readFile(metafile, "utf8")) as Metafile };
 }
 
-/** Build and execute with the exact compatibility settings declared for production. */
+/** Build and execute with the exact compatibility settings declared for production: `../wrangler.toml`'s
+ * top-level keys, parsed as TOML, which the production ring inherits (`wrangler-bundle.test.ts` compares them
+ * with Wrangler's own reading of that ring). */
 export function deployedRuntime(): { compatibilityDate: string; compatibilityFlags: string[] } {
-  const root = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8").split(/^\[/m)[0] ?? "";
-  const date = /^compatibility_date\s*=\s*"([^"]+)"/m.exec(root)?.[1];
-  const flags = /^compatibility_flags\s*=\s*(.+)$/m.exec(root)?.[1];
-  assert.ok(date && flags, "Production declares its compatibility settings");
-  return { compatibilityDate: date, compatibilityFlags: [...flags.matchAll(/"([^"]+)"/g)].map((flag) => flag[1] ?? "") };
+  const { compatibility_date: date, compatibility_flags: flags } = parse(readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8"));
+  assert.ok(typeof date === "string" && Array.isArray(flags) && flags.every((flag): flag is string => typeof flag === "string"),
+    "Production declares its compatibility settings");
+  return { compatibilityDate: date, compatibilityFlags: flags };
 }

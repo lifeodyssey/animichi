@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { ANON_BUDGET_EXHAUSTED_CODE } from "@animichi/contract";
+import { z } from "zod";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
 import { guardCall } from "./guard-call.ts";
 
@@ -11,13 +13,13 @@ import { guardCall } from "./guard-call.ts";
  * whose ingress used to make it (`agent/admission/reserve-quota.ts` records
  * `anonymous_budget_exhausted`, and `gateway/native-admission-response.ts` maps
  * that refusal onto `budgetGuidanceResponse` below). This edge module owns the
- * breaker's *wire contract* and a same-day latch: once the tier has reported the
- * budget exhausted, the edge short-circuits subsequent anonymous `/v1/chat`
+ * breaker's *wire response*, whose code is the contract's
+ * `ANON_BUDGET_EXHAUSTED_CODE`, and a same-day latch: once the tier has reported
+ * the budget exhausted, the edge short-circuits subsequent anonymous `/v1/chat`
  * requests for the rest of the UTC day instead of paying for another admission
  * and model round-trip per rejected visitor. Logged-in traffic never reaches
  * this path.
  */
-export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
 
 const LATCH_KEY = "budget-latch";
 const GUIDANCE_MESSAGE =
@@ -32,10 +34,12 @@ export function utcDayKey(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 10);
 }
 
+/** The latch as the budget shard stores it; keys beyond `dayKey` are dropped. */
+const StoredLatch = z.object({ dayKey: z.string() });
+
 export function parseBudgetLatch(value: unknown): BudgetLatch | null {
-  if (typeof value !== "object" || value === null) return null;
-  const { dayKey } = value as Partial<BudgetLatch>;
-  return typeof dayKey === "string" ? { dayKey } : null;
+  const parsed = StoredLatch.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** A latch only suppresses traffic for the day it was set — it self-expires. */

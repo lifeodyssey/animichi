@@ -48,3 +48,25 @@ void test("a pass with a malformed signature fails closed", async () => {
   const malformed = replacePass(cookie, (value) => `${value.slice(0, value.indexOf(".") + 1)}ABC`);
   assert.equal(await verifyTurnstilePass(request(malformed), ID, SECRET, NOW + 1), false);
 });
+
+// The pass's format check admits only 64 lower-case hex characters, so none of
+// these signatures reaches the comparison; the `aid` cookie's, which has no
+// such check, is pinned at the gateway in `gateway-entry-aid-signature.test.ts`.
+const RESHAPED_SIGNATURES: readonly (readonly [shape: string, reshape: (signature: string) => string])[] = [
+  ["cut short by one character", (signature) => signature.slice(0, -1)],
+  ["emptied", () => ""],
+  ["lengthened by one character", (signature) => `${signature}0`],
+  ["upper-cased", (signature) => signature.toUpperCase()],
+  ["of the right length with one non-ASCII character", (signature) => `${signature.slice(0, -1)}é`],
+];
+
+for (const [shape, reshape] of RESHAPED_SIGNATURES) {
+  void test(`a pass whose signature is ${shape} fails closed without throwing`, async () => {
+    const cookie = await issueTurnstilePass(ID, SECRET, NOW);
+    const reshaped = replacePass(cookie, (value) => {
+      const signatureStart = value.indexOf(".") + 1;
+      return `${value.slice(0, signatureStart)}${reshape(value.slice(signatureStart))}`;
+    });
+    assert.equal(await verifyTurnstilePass(request(reshaped), ID, SECRET, NOW + 1), false);
+  });
+}

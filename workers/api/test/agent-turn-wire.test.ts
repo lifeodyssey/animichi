@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { URL, fileURLToPath } from "node:url";
 import { MESSAGE_MAX_CHARS, refusalFor, submissionOf } from "../src/gateway/agent-turn.ts";
 import { SESSION_ID_HEADER, UI_MESSAGE_STREAM_HEADER, turnResponse } from "../src/gateway/agent-turn-responses.ts";
 import { modelAdmissionResponse } from "../src/gateway/native-admission-response.ts";
@@ -101,15 +99,6 @@ void test("a spent allowance is a 403 with the contract's code and reset instant
       data: { quota_resets_at: "2026-09-03T00:00:00Z" },
     },
   });
-});
-
-void test("the quota code is the one packages/contract publishes, not a private spelling", () => {
-  const registry = readFileSync(
-    fileURLToPath(new URL("../../../packages/contract/src/error-registry.ts", import.meta.url)),
-    "utf8",
-  );
-  assert.match(registry, /ANON_QUOTA_EXHAUSTED_CODE = "anon_quota_exhausted"/);
-  assert.match(registry, /quota_resets_at:/);
 });
 
 void test("a session that already has a running turn is a 409, never a second run", async () => {

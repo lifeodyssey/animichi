@@ -1,75 +1,66 @@
-import { operationToolsContext } from "./operation-tool-settings.ts";
 import { submitSelection, reconcileSelectionIntent, type SelectionSubmission } from "../selection/native-selection.ts";
 import { createCatalogClient } from "@animichi/agent/tools";
 import { selectionResponse } from "../views/selection-response.ts";
 import { nativeWatchResponse, watchNativeOperation } from "../views/watch-response.ts";
 import { modelAdmissionResponse } from "../../gateway/native-admission-response.ts";
-import { SecretScrub } from "../egress/secret-scrub.ts";
 import { Agent } from "agents";
-import type { AgentHarnessOptions, AgentLane } from "@earendil-works/pi-agent-core";
+import type { AgentLane } from "@earendil-works/pi-agent-core";
 import { BACKGROUND_CONTEXT, withoutAbortSignal, type Context } from "@earendil-works/pi-agent-core/harness/context";
-import type { Session, SessionMetadata, SessionRepo } from "@earendil-works/pi-agent-core/harness/session";
+import type { Session } from "@earendil-works/pi-agent-core/harness/session";
 import { createPilgrimageHarness } from "@animichi/agent/harness";
-import type { PilgrimageToolContext } from "@animichi/agent/tools";
-import { NeonSessionRepo } from "@animichi/pi-session-neon";
-import type { Contract } from "@animichi/pi-session-neon/types";
-import type { PostgresClient } from "@prisma/orm-postgres/runtime";
-import { admitModelRequest } from "../admission/admit-model-request.ts";
-import type { AdmissionDatabase, AdmissionOptions, ModelAdmissionOutcome, ModelAdmissionRequest } from "../admission/types.ts";
+import type { AdmissionOptions, ModelAdmissionOutcome, ModelAdmissionRequest } from "../admission/types.ts";
 import { reconcileModelAdmission } from "../admission/reconcile-model-admission.ts";
 import { scanAdmissionIntents, scanSelectionIntents, scanUnsettledOperations } from "../recovery/scan.ts";
-import { prepareModelOperation } from "../recovery/prepare-model-operation.ts";
 import { settleModelOperation } from "../settlement/native-settlement.ts";
 import { TURN_DEADLINE_MS } from "./turn-deadline.ts";
 import { TurnBudget } from "./turn-budget.ts";
 import { WAKE_INTERVAL_MS } from "./wake-interval.ts";
-import { bootstrapNativeSession, type NativeSessionResources } from "./native-bootstrap.ts";
+import { bootstrapNativeSession } from "./native-bootstrap.ts";
 import { watchableReplay } from "./watchable-replay.ts";
-import { admitConfiguredModel, configuredReplayRequest } from "./configured-admission.ts";
-import { prepareAuthorizedDrive } from "./prepare-authorized-drive.ts";
-import { nativeByokModels } from "./native-models.ts";
+import { ConfiguredOperations } from "./configured-operations.ts";
+import type { SessionDomain } from "./session-domain.ts";
 import type { ByokCredentialParts } from "../byok/byok-credential.ts";
 import type { Env } from "../../env.ts";
 import { ownsConversation } from "../admission/session-owner.ts";
 import { conversationNotFound } from "../../gateway/agent-turn-responses.ts";
 
-type Composition = (session: Session) => Omit<AgentHarnessOptions<PilgrimageToolContext>, "session" | "tools">;
 type Harness = Awaited<ReturnType<typeof createPilgrimageHarness>>["harness"];
 
 /** Pi owns execution; the native Agent owns lifetime and exclusion across database awaits. */
 export class SessionAgent extends Agent<Env> {
   #tail: Promise<void> = Promise.resolve();
-  #source?: { repo: SessionRepo; metadata: SessionMetadata; compose: Composition };
+  #domain?: SessionDomain;
   #attached?: { session: Session; harness: Harness; lane: AgentLane };
   #faulted = false;
   #driving = false;
-  #business?: AdmissionDatabase;
-  #resources?: NativeSessionResources;
   #budget?: TurnBudget;
-  #credentials = new Map<string, Awaited<ReturnType<typeof nativeByokModels>>>();
 
+  /** Every start registers the recovery cadence; domain startup runs only while no domain is bound. When a startup
+   * fails after `onStart` returned, the Agents SDK resets its lifecycle and reruns `onStart` on this same instance,
+   * and that retry must keep the domain the first attempt bound rather than open a second one. */
   override async onStart() {
     await this.scheduleEvery(this.wakeIntervalMs() / 1000, "wakeSession");
-    if (!this.#source) await this.initializeSession();
+    if (!this.#domain) await this.initializeSession();
   }
 
-  /** Tests may supply a real native memory repository; deployed instances always initialize from Env. */
+  /** Domain startup, which a start runs while no domain is bound: it binds the NeonSessionRepo, its business
+   * database and the Env-configured model operations. A host that runs this class on other dependencies overrides
+   * it and binds its own domain. */
   protected async initializeSession() {
     const resources = await bootstrapNativeSession(this.env, this.name, BACKGROUND_CONTEXT);
-    this.bindSession(resources.repo, resources.metadata, resources.compose, resources.db);
-    this.#resources = resources;
+    this.bindSession({ repo: resources.repo, metadata: resources.metadata, compose: resources.compose, business: resources.db, operations: new ConfiguredOperations(resources) });
   }
 
-  /** Domain startup binds the NeonSessionRepo and its business database; Node/workerd tests bind a memory repo. */
-  protected bindSession(repo: SessionRepo, metadata: SessionMetadata, compose: Composition, business?: AdmissionDatabase) {
-    if (this.#source) throw new Error("The session repository is already bound");
-    this.#source = { repo, metadata, compose };
-    this.#business = business;
+  /** Bind, once, everything this incarnation runs against. */
+  protected bindSession(domain: SessionDomain) {
+    if (this.#domain) throw new Error("The session domain is already bound");
+    this.#domain = domain;
   }
 
-  /** The production binding keeps the database caller-owned and uses the SDK SessionRepo directly. */
-  protected bindNeonSession(db: PostgresClient<Contract>, metadata: SessionMetadata, compose: Composition) {
-    this.bindSession(new NeonSessionRepo(db), metadata, compose, db);
+  /** The domain startup bound; the Agent runs `onStart` before it serves anything that reaches it. */
+  #requireDomain() {
+    if (!this.#domain) throw new Error("Native session composition must be bound before attachment");
+    return this.#domain;
   }
 
   /** All future admission/selection/settlement writes enter here, before touching business state. */
@@ -105,8 +96,8 @@ export class SessionAgent extends Agent<Env> {
   async #replayWhileDriving(request: ModelAdmissionRequest, credential?: ByokCredentialParts): Promise<Response | undefined> {
     const attached = this.#attached;
     if (!this.#driving || this.#faulted || !attached) return undefined;
-    const configured = this.#resources ? await configuredReplayRequest(this.#resources, request, credential) : request;
-    const outcome = await watchableReplay(this.#requireBusiness(), configured);
+    const { business, operations } = this.#requireDomain();
+    const outcome = await watchableReplay(business, await operations.replayRequest(request, credential));
     if (!outcome || !this.#canReadAttached(attached.lane)) return undefined;
     if (outcome.kind !== "replayed") return modelAdmissionResponse(outcome, this.name);
     return this.#watchOperation(attached.lane, outcome.operationId, BACKGROUND_CONTEXT);
@@ -114,7 +105,7 @@ export class SessionAgent extends Agent<Env> {
 
   /** A resumed UI reads the same native watch without model input, credentials or another admission. */
   async watchChat(identityId: string, operationId: string): Promise<Response> {
-    if (!await ownsConversation(this.#requireBusiness(), this.name, identityId)) return conversationNotFound();
+    if (!await ownsConversation(this.#requireDomain().business, this.name, identityId)) return conversationNotFound();
     const attached = this.#attached;
     if (attached && this.#canReadAttached(attached.lane)) return this.#watchOperation(attached.lane, operationId, BACKGROUND_CONTEXT);
     return this.withSession((_session, lane, context) => this.#watchOperation(lane, operationId, context));
@@ -127,17 +118,14 @@ export class SessionAgent extends Agent<Env> {
   async #watchOperation(lane: AgentLane, operationId: string, context: Context) {
     const watch = await watchNativeOperation(lane, operationId, context);
     if (!watch) return conversationNotFound();
-    const scrub = this.#credentials.get(operationId)?.scrub ?? this.#resources?.server.scrub ?? new SecretScrub();
-    return nativeWatchResponse(watch, this.name, operationId, scrub);
+    return nativeWatchResponse(watch, this.name, operationId, this.#requireDomain().operations.scrub(operationId));
   }
 
   async #submit(request: ModelAdmissionRequest, options: AdmissionOptions, credential: ByokCredentialParts | undefined, session: Session, lane: AgentLane, context: Context) {
-    const db = this.#requireBusiness();
+    const { operations } = this.#requireDomain();
     if (await this.#reconcileSelections(lane, context)) return { kind: "blocked", operationId: null } as const;
     await this.#reconcileBeforeAdmission(session, lane, context);
-    const outcome = this.#resources
-      ? await admitConfiguredModel(this.#resources, this.#credentials, session, lane, context, request, options, credential)
-      : await admitModelRequest(db, lane, context, request, options);
+    const outcome = await operations.admit(session, lane, context, request, options, credential);
     if (outcome.operationId && outcome.kind !== "rejected") await this.scheduleOperationWake(outcome.operationId);
     return outcome;
   }
@@ -145,13 +133,8 @@ export class SessionAgent extends Agent<Env> {
   /** Re-read all discovery sources on each wake; SDK open snapshots are never a business index. */
   async wakeSession(): Promise<void> {
     await this.withSession(async (session, lane, context) => {
-      if (!this.#business) {
-        const current = (await lane.inspectExecution(context)).current;
-        if (current && !await lane.getResult(current.id, context)) await this.driveLane(lane, current.id, context);
-        return;
-      }
       const pendingSelection = await this.#reconcileSelections(lane, context);
-      const admissions = pendingSelection ? [] : await scanAdmissionIntents(this.#business, this.name);
+      const admissions = pendingSelection ? [] : await scanAdmissionIntents(this.#requireDomain().business, this.name);
       for (const admission of admissions) {
         if (admission.operationId !== null) await this.#advanceOperation(session, lane, admission.operationId, context);
       }
@@ -165,25 +148,20 @@ export class SessionAgent extends Agent<Env> {
       await this.#reconcileBeforeAdmission(session, lane, context);
       await this.#reconcileSelections(lane, context);
       await this.schedule(0, "wakeSession", { requestKey: request.clientMessageId }, { idempotent: true });
-      const outcome = await submitSelection(this.#requireBusiness(), lane, context, request, createCatalogClient((input) => this.env.CATALOG.fetch(input)));
+      const outcome = await submitSelection(this.#requireDomain().business, lane, context, request, createCatalogClient((input) => this.env.CATALOG.fetch(input)));
       return selectionResponse(outcome, this.name);
     });
   }
 
   async #reconcileSelections(lane: AgentLane, context: Context) {
-    const db = this.#requireBusiness();
+    const db = this.#requireDomain().business;
     const pending = await scanSelectionIntents(db, this.name);
     for (const admission of pending) await reconcileSelectionIntent(db, lane, context, admission, createCatalogClient((input) => this.env.CATALOG.fetch(input)));
     return (await scanSelectionIntents(db, this.name)).length > 0;
   }
 
-  #requireBusiness() {
-    if (!this.#business) throw new Error("The native business database is not bound");
-    return this.#business;
-  }
-
   async #reconcileBeforeAdmission(session: Session, lane: AgentLane, context: Context) {
-    const db = this.#requireBusiness();
+    const db = this.#requireDomain().business;
     const admissions = await scanAdmissionIntents(db, this.name);
     for (const admission of admissions) {
       if (admission.operationId === null) throw new Error("A model admission has no operation ID");
@@ -193,31 +171,25 @@ export class SessionAgent extends Agent<Env> {
   }
 
   async #advanceOperation(session: Session, lane: AgentLane, operationId: string, context: Context) {
-    const db = this.#requireBusiness();
-    const ready = this.#resources
-      ? await prepareAuthorizedDrive(this.#resources, this.#credentials.has(operationId), session, lane, operationId, context)
-      : await prepareModelOperation(db, session, lane, operationId, context);
-    if (!ready) return;
+    const { operations } = this.#requireDomain();
+    if (!await operations.prepareDrive(session, lane, operationId, context)) return;
     await this.scheduleOperationWake(operationId);
-    const driveContext = this.#resources ? await operationToolsContext(this.#resources, this.#credentials, session, operationId, context) : context;
+    const driveContext = await operations.driveContext(session, operationId, context);
     await this.driveLane(lane, operationId, driveContext);
     await this.#settleOperation(session, lane, operationId, context);
   }
 
   async #settleDiscovered(session: Session, lane: AgentLane, context: Context) {
-    const db = this.#requireBusiness();
+    const db = this.#requireDomain().business;
     for (const obligation of await scanUnsettledOperations(db, this.name)) {
       await this.#settleOperation(session, lane, obligation.operationId, context);
     }
   }
 
   async #settleOperation(session: Session, lane: AgentLane, operationId: string, context: Context) {
-    const result = await settleModelOperation(this.#requireBusiness(), session, lane, operationId, context, Date.now());
-    const credential = this.#credentials.get(operationId);
-    if (!result || !credential) return;
-    await credential.models.logout(credential.model.provider);
-    this.#credentials.delete(operationId);
-    this.#resources?.server.models.deleteProvider(credential.model.provider);
+    const { business, operations } = this.#requireDomain();
+    const result = await settleModelOperation(business, session, lane, operationId, context, Date.now());
+    if (result) await operations.release(operationId);
   }
 
   /** Persist before acknowledgment or drive; native callback/payload identity deduplicates retries. */
@@ -234,7 +206,7 @@ export class SessionAgent extends Agent<Env> {
   protected async driveLane(lane: AgentLane, operationId: string, context: Context) {
     this.#driving = true;
     try {
-      const budget = new TurnBudget(this.name, this.turnDeadlineMs(), this.#business);
+      const budget = new TurnBudget(this.name, this.turnDeadlineMs(), this.#requireDomain().business);
       this.#budget = budget;
       await budget.open(lane, operationId, context);
       return await this.#driveAndSchedule(lane, operationId, context);
@@ -259,11 +231,10 @@ export class SessionAgent extends Agent<Env> {
       this.#attached = undefined;
     }
     if (this.#attached) return this.#attached;
-    const source = this.#source;
-    if (!source) throw new Error("Native session composition must be bound before attachment");
-    const session = await source.repo.open(source.metadata, context);
+    const domain = this.#requireDomain();
+    const session = await domain.repo.open(domain.metadata, context);
     try {
-      const { harness } = await createPilgrimageHarness({ ...source.compose(session), session }, context);
+      const { harness } = await createPilgrimageHarness({ ...domain.compose(session), session }, context);
       const lane = await harness.lane("main", context);
       harness.events.on("fault", () => { this.#faulted = true; });
       harness.hooks.on("before_request", (event, requestContext) => this.#budget?.boundModelRequest(lane, event, requestContext));
