@@ -41,15 +41,19 @@ export function parseConfig(value: unknown, fallback: RateLimitConfig): RateLimi
   return parsed.success ? parsed.data : fallback;
 }
 
+/** One `/rate-limit` check of the shard's window under `config`. */
+async function rateLimitAnswer(store: GuardStore, nowMs: number, config: RateLimitConfig): Promise<Response> {
+  const decision = await consumeRateLimit(store, nowMs, config);
+  return jsonResponse({ allowed: decision.allowed, retryAfterSeconds: decision.retryAfterSeconds });
+}
+
 export async function handleRateLimit(
   request: Request,
   store: GuardStore,
   nowMs: number,
   fallback: RateLimitConfig,
 ): Promise<Response> {
-  const config = parseConfig(await request.json(), fallback);
-  const decision = await consumeRateLimit(store, nowMs, config);
-  return jsonResponse({ allowed: decision.allowed, retryAfterSeconds: decision.retryAfterSeconds });
+  return rateLimitAnswer(store, nowMs, parseConfig(await request.json(), fallback));
 }
 
 export async function handleBudget(
@@ -106,8 +110,7 @@ function parseReclaimWindow(value: unknown, fallback: number): number {
  * ANON=60s/AUTH=3600s scheduled the alarm for 120s, well inside an
  * authenticated identity's still-live hour-long window.
  */
-async function reclaimWindowSeconds(request: Request, fallback: RateLimitConfig): Promise<number> {
-  const applied = parseConfig(await request.clone().json(), fallback);
+function reclaimWindowSeconds(applied: RateLimitConfig, fallback: RateLimitConfig): number {
   return Math.max(applied.windowSeconds, fallback.windowSeconds);
 }
 
@@ -122,13 +125,14 @@ export class EdgeGuard {
     this.fallback = rateLimitConfigFrom(env);
   }
 
+  /** A `/rate-limit` body is read once, and the config it carries serves both
+   * the check and the reclaim alarm. A body that is not JSON rejects here,
+   * before anything is stored or armed. */
   async fetch(request: Request): Promise<Response> {
-    const isRateLimit = isRateLimitPath(new URL(request.url).pathname);
-    const windowSeconds = isRateLimit
-      ? await reclaimWindowSeconds(request, this.fallback)
-      : this.fallback.windowSeconds;
-    const response = await handleGuardRequest(request, this.store, Date.now(), this.fallback);
-    if (isRateLimit) await this.armReclaim(windowSeconds);
+    if (!isRateLimitPath(new URL(request.url).pathname)) return handleGuardRequest(request, this.store, Date.now(), this.fallback);
+    const applied = parseConfig(await request.json(), this.fallback);
+    const response = await rateLimitAnswer(this.store, Date.now(), applied);
+    await this.armReclaim(reclaimWindowSeconds(applied, this.fallback));
     return response;
   }
 

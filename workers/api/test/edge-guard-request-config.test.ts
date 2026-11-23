@@ -3,10 +3,9 @@
  * entered through `fetch`. This file pins how the object reads the limiter
  * config a `/rate-limit` request carries in its JSON body, and when it falls
  * back to the config it was deployed with (`ANON_RATE_LIMIT` and
- * `ANON_RATE_LIMIT_WINDOW_SECONDS`, two per 30 s here). It reads that body
- * twice today, once for the verdict and once through a clone for the reclaim
- * alarm, so each row states the verdicts of three checks and the alarm the
- * first one armed.
+ * `ANON_RATE_LIMIT_WINDOW_SECONDS`, two per 30 s here). Its one reading of
+ * that body feeds both the verdict and the reclaim alarm, so each row states
+ * the verdicts of three checks and the alarm the first one armed.
  *
  * Today a body whose `limit` and `windowSeconds` are both numbers is applied as
  * sent, extra keys and all; any other body falls back. A JSON number too large
@@ -63,6 +62,12 @@ const NO_LIMIT_FOR_TEN_MINUTES: Outcome = {
     '{"allowed":true,"retryAfterSeconds":600}'],
   alarmAt: NOW + 1_200_000,
 };
+const ONE_PER_TEN_SECONDS: Outcome = {
+  says: "is applied: one check per ten seconds, with the alarm on the wider deployed window",
+  answers: ['{"allowed":true,"retryAfterSeconds":10}', '{"allowed":false,"retryAfterSeconds":10}',
+    '{"allowed":false,"retryAfterSeconds":10}'],
+  alarmAt: NOW + 60_000,
+};
 const DEPLOYED_FALLBACK: Outcome = {
   says: "falls back to the deployed two checks per 30 s",
   answers: ['{"allowed":true,"retryAfterSeconds":30}', '{"allowed":true,"retryAfterSeconds":30}',
@@ -74,6 +79,7 @@ const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":1,"windowSeconds":600}', ONE_PER_TEN_MINUTES],
   ['{"limit":1,"windowSeconds":600,"source":"gateway"}', ONE_PER_TEN_MINUTES],
   ['{"limit":1e999,"windowSeconds":600}', NO_LIMIT_FOR_TEN_MINUTES],
+  ['{"limit":1,"windowSeconds":10}', ONE_PER_TEN_SECONDS],
   ['{"limit":"1","windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":null,"windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":1}', DEPLOYED_FALLBACK],
