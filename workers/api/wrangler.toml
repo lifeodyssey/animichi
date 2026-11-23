@@ -136,7 +136,7 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
-# Catalog read-path service (search/spots/nearby/route).
+# Catalog read-path service (resolve/points-by-bangumi-id/nearby/geocode/itinerary).
 # Reached by the native agent tier directly (src/agent/host/native-bootstrap.ts)
 # and by the browser's one allowlisted public read (`forwardPublicCatalog`); both
 # are in-datacenter hops with no public internet round-trip and no extra auth
