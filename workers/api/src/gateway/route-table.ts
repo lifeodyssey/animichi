@@ -11,8 +11,8 @@ import {
 import type { RequestClass } from "./request-record.ts";
 import { notFoundResponse } from "./responses.ts";
 import {
-  adoptResponse, healthzResponse, imageResponse, publicCatalogResponse, tilesResponse, turnstileVerifyResponse, usersResponse,
-  type GatewayDeps,
+  adoptResponse, healthzResponse, imageResponse, publicCatalogResponse, tilesResponse, turnstileVerifyResponse, usersOptionsResponse,
+  usersResponse, type GatewayDeps,
 } from "./route-services.ts";
 
 /**
@@ -27,12 +27,12 @@ import {
  * dispatches a HEAD to the GET routes, and `router.ts` answers it with the GET
  * answer's status and headers and no body. A namespace passes on its bare name,
  * and `accepts` passes on a path the template matched but the route refuses. So
- * order only matters where templates overlap: the users read before the users
- * writes, and the `/v1/*` fallback last.
+ * order only matters where templates overlap: the users read and the users
+ * OPTIONS before the users writes, and the `/v1/*` fallback last.
  */
 
 /** The methods an entry answers. A GET entry also answers HEAD, as its GET. */
-export type RouteMethod = "GET" | "POST" | "ALL";
+export type RouteMethod = "GET" | "POST" | "OPTIONS" | "ALL";
 
 /** One request an entry answers, with everything its service reads. */
 export interface RouteCall {
@@ -109,6 +109,7 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
   ...PUBLIC_CATALOG_ROUTES.map(publicCatalogRoute),
   { method: "ALL", template: SESSION_MIGRATE_PATH, requestClass: "retired", rate: UNMANAGED_READ, serve: notFound },
   { method: "GET", template: USERS_NAMESPACE, requestClass: "users", rate: UNMANAGED_READ, serve: usersResponse },
+  { method: "OPTIONS", template: USERS_NAMESPACE, requestClass: "users", rate: UNMANAGED_READ, serve: usersOptionsResponse },
   { method: "ALL", template: USERS_NAMESPACE, requestClass: "users", rate: DURABLE_USER_MUTATION, serve: usersResponse },
   { method: "ALL", template: SESSION_ADOPT_PATH, requestClass: "adopt", rate: DURABLE_ADOPT, serve: adoptResponse },
   { method: "ALL", template: TURNSTILE_VERIFY_PATH, requestClass: "v1", rate: UNMANAGED_READ, serve: turnstileVerifyResponse },

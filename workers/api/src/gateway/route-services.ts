@@ -11,6 +11,7 @@ import { guardPolicy } from "../protect/burst-guard.ts";
 import { forwardPublicCatalog, forwardUsers } from "./forward.ts";
 import { authenticationRejection, gatewayRejection, methodNotAllowed } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
+import { USERS_ALLOW } from "./users-allow.ts";
 import type { AgentTierGates } from "./agent-tier-route.ts";
 import type { RouteCall } from "./route-table.ts";
 
@@ -64,6 +65,13 @@ export async function usersResponse({ env, request, ctx, gates, route }: RouteCa
   const guarded = await guardPolicy(env, route.rate, authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env));
   if (guarded !== null) return guarded;
   return forwardUsers(env, request, auth);
+}
+
+/** An OPTIONS to the users prefix, answered here, before identity: the users
+ * service's oRPC router has no OPTIONS route, and the answer needs no caller,
+ * no limiter and no service, only the methods the prefix serves. */
+export function usersOptionsResponse(): Promise<Response> {
+  return Promise.resolve(new Response(null, { status: 204, headers: { Allow: USERS_ALLOW } }));
 }
 
 export async function adoptResponse({ env, request, ctx, gates, route }: RouteCall): Promise<Response> {
