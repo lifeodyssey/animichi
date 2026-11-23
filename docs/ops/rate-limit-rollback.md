@@ -93,6 +93,10 @@ follows `docs/ops/migrations.md` (revert chain, no automation).
    or Layer 2 (binding config).
 2. **Durable wrong (503s on chat/BYOK/users mutations)** → Layer 1 (Worker
    revision) first; Layer 3 only with owner sign-off.
+   A stuck 503 `rate_limit_unavailable` can also come from a missing
+   `EDGE_GUARD` binding rather than a limiter outage; operators tell the two
+   apart by the `edge_guard_binding_missing` record, which only a missing
+   binding writes.
 3. **Whole surface down / anonymous lockout** → Layer 0 `ANON_ACCESS_ENABLED`/
    showcase, then Layer 1.
 4. **Flood not being damped** → check the zone WAF damper (Layer WAF) before the
