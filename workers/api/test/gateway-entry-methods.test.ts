@@ -19,6 +19,10 @@
  *   It forwards every other method, a HEAD as a GET; GET and HEAD are charged
  *   nothing, and every other method is charged to the durable limiter.
  *
+ * A variant of the private `/img/docs` name (`/img/Docs/…`) is no route, so
+ * every method answers the shared 404, a HEAD with no body, and none reaches the
+ * image arm's method gate.
+ *
  * test-type: characterization
  */
 import test from "node:test";
@@ -33,6 +37,7 @@ type Neighbour = readonly [method: string, path: string, status: number, body: s
 const STYLE = "/tiles/styles/basemap.json";
 const DOCS = "/img/docs/archive/a.png";
 const IMAGE = "/img/a.jpg?plan=h160";
+const DOCS_VARIANT = "/img/Docs/archive/a.png";
 const POPULAR = "/catalog/public/popular";
 const OVERVIEW = "/catalog/public/anime-overview/3302";
 const USERS = "/v1/users/saved-routes";
@@ -64,6 +69,9 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PUT", IMAGE, 405, METHOD_NOT_ALLOWED, []],
   ["PATCH", IMAGE, 405, METHOD_NOT_ALLOWED, []],
   ["DELETE", IMAGE, 405, METHOD_NOT_ALLOWED, []],
+  ["HEAD", `${DOCS_VARIANT}?plan=h160`, 404, "", []],
+  ["OPTIONS", DOCS_VARIANT, 404, NOT_FOUND, []],
+  ["POST", `${DOCS_VARIANT}?plan=h160`, 404, NOT_FOUND, []],
   ["HEAD", POPULAR, 200, "", ["coarse public-read", `catalog GET ${POPULAR}`]],
   ["POST", POPULAR, 404, NOT_FOUND, []],
   ["PUT", POPULAR, 404, NOT_FOUND, []],

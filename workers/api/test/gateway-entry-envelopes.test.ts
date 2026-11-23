@@ -2,10 +2,10 @@
  * SUT: the API Worker's request gateway, entered as the Worker is entered. This
  * file pins the exact answer of every refusal, every 404 and every unexpected
  * failure today: the status, the `Content-Type`, the body byte for byte, and the
- * two headers that travel with some of them (`Retry-After` on a rate limit and
- * on an uncheckable credential, `Cache-Control: no-store` on an asset arm's
- * refusal). A framework's own 404 or 500 is plain text; the gateway's are the
- * shared JSON envelope.
+ * three headers that travel with some of them (`Retry-After` on a rate limit and
+ * on an uncheckable credential, `Cache-Control: no-store` and
+ * `Access-Control-Allow-Origin: *` on an asset arm's refusal). A framework's own
+ * 404 or 500 is plain text; the gateway's are the shared JSON envelope.
  *
  * test-type: characterization
  */
@@ -31,20 +31,24 @@ interface Envelope {
   readonly body: string;
   readonly retryAfter: string | null;
   readonly cacheControl: string | null;
+  readonly allowOrigin: string | null;
 }
 
 const SHARD_DENIES: LimiterPlan = { coarse: Number.POSITIVE_INFINITY, durable: 0 };
 const SHARD_DOWN: LimiterPlan = { coarse: Number.POSITIVE_INFINITY, durable: "down" };
 const UNREACHABLE = { fetch: () => Promise.reject(new TypeError("binding unreachable")) };
+const ASSET_REFUSAL: Partial<Envelope> = { cacheControl: "no-store", allowOrigin: "*" };
 
 function envelope(answer: string, method: string, path: string, status: number, body: string, more: Partial<Envelope> = {}): Envelope {
-  return { answer, method, path, headers: {}, vars: {}, plan: UNLIMITED, status, body, retryAfter: null, cacheControl: null, ...more };
+  return { answer, method, path, headers: {}, vars: {}, plan: UNLIMITED, status, body, retryAfter: null, cacheControl: null,
+    allowOrigin: null, ...more };
 }
 
 const ENVELOPES: readonly Envelope[] = [
   envelope("an unmatched path", "GET", "/unknown", 404, NOT_FOUND),
   envelope("an unmatched path asked with HEAD", "HEAD", "/unknown", 404, ""),
   envelope("an unknown /v1 route", "POST", "/v1/unknown", 404, NOT_FOUND, { headers: HUMAN }),
+  envelope("a variant of the private docs name", "GET", "/img/Docs/archive/a.png?plan=h160", 404, NOT_FOUND),
   envelope("adoption's method gate", "GET", "/v1/sessions/adopt", 405, METHOD_NOT_ALLOWED),
   envelope("an absent credential", "GET", "/v1/users/saved-routes", 401, UNAUTHORIZED),
   envelope("an uncheckable credential", "GET", "/v1/users/saved-routes", 503, VERIFICATION_UNAVAILABLE,
@@ -59,15 +63,14 @@ const ENVELOPES: readonly Envelope[] = [
     { headers: HUMAN }),
   envelope("an image path the proxy refuses", "GET", "/img/a..b", 400, IMAGE_PATH_INVALID),
   envelope("an image with no size plan", "GET", "/img/a.jpg", 400, IMAGE_PLAN_REQUIRED),
-  envelope("a tile outside the key grammar", "GET", "/tiles/unknown.txt", 404, TILE_NOT_FOUND, { cacheControl: "no-store" }),
-  envelope("a tile asked with POST", "POST", "/tiles/styles/basemap.json", 405, TILE_METHOD_NOT_ALLOWED, { cacheControl: "no-store" }),
+  envelope("a tile outside the key grammar", "GET", "/tiles/unknown.txt", 404, TILE_NOT_FOUND, ASSET_REFUSAL),
+  envelope("a tile asked with POST", "POST", "/tiles/styles/basemap.json", 405, TILE_METHOD_NOT_ALLOWED, ASSET_REFUSAL),
   envelope("a tile with its bucket unbound", "GET", "/tiles/styles/basemap.json", 503, TILE_STORAGE_UNAVAILABLE,
-    { vars: { MAP_TILES: undefined }, cacheControl: "no-store" }),
-  envelope("a docs asset the bucket lacks", "GET", "/img/docs/archive/b.png", 404, IMAGE_NOT_FOUND, { cacheControl: "no-store" }),
-  envelope("a docs asset asked with POST", "POST", "/img/docs/archive/a.png", 405, IMAGE_METHOD_NOT_ALLOWED,
-    { cacheControl: "no-store" }),
+    { vars: { MAP_TILES: undefined }, ...ASSET_REFUSAL }),
+  envelope("a docs asset the bucket lacks", "GET", "/img/docs/archive/b.png", 404, IMAGE_NOT_FOUND, ASSET_REFUSAL),
+  envelope("a docs asset asked with POST", "POST", "/img/docs/archive/a.png", 405, IMAGE_METHOD_NOT_ALLOWED, ASSET_REFUSAL),
   envelope("a docs asset with its bucket unbound", "GET", "/img/docs/archive/a.png", 503, IMAGE_STORAGE_UNAVAILABLE,
-    { vars: { DOCS_ASSETS: undefined }, cacheControl: "no-store" }),
+    { vars: { DOCS_ASSETS: undefined }, ...ASSET_REFUSAL }),
   envelope("an unreachable users binding", "GET", "/v1/users/saved-routes", 500, INTERNAL_ERROR,
     { headers: HUMAN, vars: { USERS: UNREACHABLE } }),
   envelope("an unreachable catalog binding", "GET", "/catalog/public/popular", 500, INTERNAL_ERROR, { vars: { CATALOG: UNREACHABLE } }),
@@ -94,5 +97,6 @@ for (const expected of ENVELOPES) {
     assert.equal(await response.text(), expected.body);
     assert.equal(response.headers.get("Retry-After"), expected.retryAfter);
     assert.equal(response.headers.get("Cache-Control"), expected.cacheControl);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), expected.allowOrigin);
   });
 }

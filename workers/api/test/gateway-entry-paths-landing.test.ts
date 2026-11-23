@@ -9,7 +9,13 @@
  * Matching today is on the raw, still-encoded pathname, case-sensitive and
  * exact, except inside the asset arms: the tile arm decodes its own key, so an
  * encoded letter reaches the same object, and the image arm hands the origin the
- * path still encoded. The `/v1` neighbours are in `gateway-entry-paths-v1.test.ts`.
+ * path still encoded. The first segment after `/img/` is also read decoded: one
+ * that is not `docs` as written, but reads `docs` once percent-decoded and
+ * lower-cased, is a variant of the private namespace's name. A variant is no
+ * route, so it answers the shared 404 before the image arm checks the path. A
+ * first segment that does not decode is no variant, so it keeps the image arm's
+ * 400, as a twice-encoded name does. The `/v1` neighbours are in
+ * `gateway-entry-paths-v1.test.ts`.
  *
  * test-type: characterization
  */
@@ -45,6 +51,13 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["GET", "/img/docs/archive/extra/a.png", 404, IMAGE_NOT_FOUND, ["docs archive/extra/a.png"]],
   ["GET", "/IMG/docs/archive/a.png", 404, NOT_FOUND, []],
   ["GET", "/img/DOCS/archive/a.png", 404, NOT_FOUND, []],
+  ["GET", "/img/DoCs/x?plan=h160", 404, NOT_FOUND, []],
+  ["GET", "/img/Docs?plan=h160", 404, NOT_FOUND, []],
+  ["GET", "/img/DOCS/", 404, NOT_FOUND, []],
+  ["GET", "/img/%64ocs/archive/a.png?plan=h160", 404, NOT_FOUND, []],
+  ["GET", "/img/%44ocs/x?plan=h160", 404, NOT_FOUND, []],
+  ["GET", "/img/%ZZocs/x?plan=h160", 400, IMAGE_PATH_INVALID, []],
+  ["GET", "/img/%2564ocs/x?plan=h160", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/img/docs%2Farchive%2Fa.png", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/img/docs/archive/%61.png", 400, IMAGE_PATH_INVALID, []],
   ["GET", "/%69mg/docs/archive/a.png", 404, NOT_FOUND, []],
