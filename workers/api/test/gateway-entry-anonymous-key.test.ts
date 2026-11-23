@@ -3,9 +3,10 @@
  * file pins how today's gateway gets the key it signs and verifies the visitor
  * cookies with (`ANON_ID_SECRET`, a plain string or a Secrets Store binding)
  * before any cookie is read: a store-bound key verifies the literal cookies
- * minted under it; a rotated key verifies neither; an empty key turns anonymous
- * access off; with anonymous access off the key is never read; and a store that
- * cannot answer fails the request without issuing an identity.
+ * minted under it; a rotated key verifies neither, so the refused visitor is
+ * issued a new identity under it and the refusal carries it; an empty key turns
+ * anonymous access off; with anonymous access off the key is never read; and a
+ * store that cannot answer fails the request without issuing an identity.
  *
  * test-type: characterization
  */
@@ -29,8 +30,6 @@ const KEYED: readonly Keyed[] = [
     "/v1/conversations/s-42/messages", ADMITTED, 200,
     JSON.stringify({ handler: "transcript", user: VISITOR, type: "anonymous", session: "s-42" }),
     ["auth absent", `tier transcript ${VISITOR} anonymous s-42`]],
-  ["a rotated key", { ANON_ID_SECRET: "rotated-test-hmac-key-000000000000" }, "GET", "/v1/conversations/s-42/messages", ADMITTED,
-    403, TURNSTILE_REQUIRED, ["auth absent", "turnstile -"]],
   ["an empty key", { ANON_ID_SECRET: "" }, "POST", "/v1/chat", SOLVED, 401, UNAUTHORIZED, ["auth absent"]],
   ["an empty store value", { ANON_ID_SECRET: store("") }, "POST", "/v1/chat", SOLVED, 401, UNAUTHORIZED, ["auth absent"]],
   ["an unanswering store, anonymous access off", { ANON_ACCESS_ENABLED: "false", ANON_ID_SECRET: UNANSWERING }, "POST",
@@ -50,3 +49,17 @@ for (const [key, vars, method, path, headers, status, body, log] of KEYED) {
     assert.deepEqual(response.headers.getSetCookie(), []);
   });
 }
+
+/** What the rotated key signs for a visitor minted when the uuid source answers fedcba98-7654-3210-fedc-ba9876543210. */
+const ROTATED_SET_COOKIE =
+  "aid=fedcba9876543210fedcba9876543210.c073630894342116e005fe2846e7eceef9952460631402f5532d1311abe5047c; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax";
+
+void test("with a rotated key, GET /v1/conversations/s-42/messages answers 403 carrying the identity issued under it", async (t) => {
+  t.mock.method(crypto, "randomUUID", () => "fedcba98-7654-3210-fedc-ba9876543210" as const);
+  const seam = entrySeam(t, UNLIMITED, { ANON_ID_SECRET: "rotated-test-hmac-key-000000000000" });
+  const response = await seam.send("GET", "/v1/conversations/s-42/messages", ADMITTED);
+  assert.equal(response.status, 403);
+  assert.equal(await response.text(), TURNSTILE_REQUIRED);
+  assert.deepEqual(seam.log, ["auth absent", "turnstile -"]);
+  assert.deepEqual(response.headers.getSetCookie(), [ROTATED_SET_COOKIE]);
+});

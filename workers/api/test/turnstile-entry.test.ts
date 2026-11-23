@@ -88,13 +88,13 @@ void test("the entry pass survives a different isolate and gate", async () => {
   assert.equal(cookies.includes(SOLVED), false);
 });
 
-void test("a rejected entry fails closed without minting a cookie", async () => {
+void test("a rejected entry fails closed, writing the new identity cookie but no pass", async () => {
   const captured = { calls: [] as NativeAgentCall[] };
   const response = await app(captured, recordingGate([], null)).request(
     "/v1/turnstile/verify", post(solvedHeaders), anonEnv(), stubCtx,
   );
   assert.equal(response.status, 403);
-  assert.equal(response.headers.get("Set-Cookie"), null);
+  assert.match(String(response.headers.get("Set-Cookie")), /^aid=[0-9a-f]{32}\.[0-9a-f]{64}; Path=\/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax$/);
 });
 
 void test("entry fails closed when its Turnstile secret is missing", async () => {

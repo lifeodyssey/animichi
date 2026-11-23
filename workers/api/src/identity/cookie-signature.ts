@@ -1,5 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 
+/** The shape of every signature `hmacHex` returns, and so the only shape a
+ * cookie's signature can match: 64 lower-case hex characters. Unanchored, so
+ * each cookie builds its whole-value pattern from it. */
+export const SIGNATURE_PATTERN = /[0-9a-f]{64}/;
+
 /** The lower-case hex HMAC-SHA-256 of `message` under `secret`: the signature
  * the `aid` cookie and the Turnstile pass carry. */
 export async function hmacHex(secret: string, message: string): Promise<string> {
