@@ -21,7 +21,7 @@ void test("GET /healthz is answered by the edge alone", async () => {
 // it, and no route reaches it any more than the live private procedures
 // (`/catalog/resolve` and the rest); the sibling case in
 // gateway-fallback.test.ts uses an undeclared `/catalog/public/*` path.
-void test("a real private catalog endpoint is unreachable and never touches the binding", async () => {
+void test("a private catalog path is unreachable and never touches the binding", async () => {
   const app = createWorkerApp({});
   let wasCatalogHit = false;
   const env = { CATALOG: { fetch: () => { wasCatalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;
