@@ -314,8 +314,9 @@ The remaining Python-era declarations in `wrangler.toml` — `CORS_ALLOWED_ORIGI
 `ZEN_GO_API_KEY`, `OPENAI_COMPAT_*` — have no deployed consumer. The Python tree they served is
 gone (#1607); retiring each declaration, with the preflight and infra checks that name it, is
 separate work. Do not treat them as live configuration. (The Python-era `DEFAULT_AGENT_MODEL` and
-`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables are
-a separate inventory, pinned by `.github/test/workflow-variables.test.rb`.)
+`FALLBACK_AGENT_MODEL` staging vars left with #1934; the same-named GitHub Actions variables were
+deleted on 2026-11-23, and `.github/test/workflow-variables.test.rb` pins the two repository
+variables that remain.)
 
 ## Cloudflare Workers Path
 
@@ -581,6 +582,10 @@ migration below is historical owner work and is not a step of selected-artifact 
 
 #### One-time migration (owner, once per stack)
 
+This section is a historical record: the GitHub copies of the four values it needs —
+`PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` —
+were deleted on 2026-11-23 (`docs/ops/secrets.md`).
+
 Agents do not run this — it needs the passphrase and an interactive Pulumi Cloud login. Run it once
 per stack, from the project directory, with the campaign paused (no `main` push mid-flight).
 
@@ -630,12 +635,12 @@ each `secure:` value is replaced by Pulumi Cloud ciphertext. Commit those four f
 reviewed change. `infra/database-access/Pulumi.prod.yaml` has no encrypted material today, so its
 `change-secrets-provider` is a no-op; run it anyway so all four stacks end on the same provider.
 
-Until every stack is imported, the rollback path is the old one: re-point `PULUMI_BACKEND_URL` at
-R2 and restore the export taken in step 1. After the cutover, rollback is Pulumi Cloud history.
-Deleting the GitHub secrets themselves is tracked as #1367, taken after one green staging deploy
-on the ESC path — the nightly that used to be the second witness was deleted with the Python agent
-(#1607). Deleting `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` is what closes this rollback window
-for good; `docs/ops/secrets.md` records which copies each name still has.
+Until every stack was imported, the rollback path was the old one: re-point `PULUMI_BACKEND_URL`
+at R2 and restore the export taken in step 1. After the cutover, rollback is Pulumi Cloud history.
+On 2026-11-23 the owner had the GitHub secrets deleted, all but five GitHub copies of four vendor
+runtime keys that no workflow reads. Deleting `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` closed
+this rollback window for good, and the owner accepted that; `docs/ops/secrets.md` records which
+copies remain and why.
 
 ## Staging access (Cloudflare Access, D3 #1369)
 
@@ -712,10 +717,11 @@ headers answering 302 or 403.
 **What this replaced.** A WAF custom rule blocking traffic without an allowlisted source IP, the
 `animichi_staging` cookie or the `x-staging-key` header, plus a hand-written OIDC exchange in the
 edge Worker. Both are deleted (#1369): `infra/src/staging.ts`'s ruleset,
-`workers/api/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, `e2e/global-setup.ts`, the
-`stagingGate*` / `stagingAllowedIps` stack config and the `STAGING_GATE_TOKEN` GitHub secret. A
-WAF rule can only see hostnames on the zone, and its credential was a static string that had to
-stay in sync across a stack config and a GitHub secret. `infra/src/staging.ts` keeps only
+`workers/api/src/staging-gate/**`, `scripts/setup-staging-gate.sh`, `e2e/global-setup.ts` and the
+`stagingGate*` / `stagingAllowedIps` stack config. The `STAGING_GATE_TOKEN` GitHub secret outlived
+them on the `staging` environment until its deletion on 2026-11-23. A WAF rule can only see
+hostnames on the zone, and its credential was a static string that had to stay in sync across a
+stack config and a GitHub secret. `infra/src/staging.ts` keeps only
 `staging-http-config-settings`, which turns the Browser Integrity Check and the security-level
 challenge off for the staging hostname so CI is not challenged ahead of Access.
 
