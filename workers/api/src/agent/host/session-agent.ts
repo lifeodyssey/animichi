@@ -50,17 +50,19 @@ export class SessionAgent extends Agent<Env> {
 
   override async onStart() {
     await this.scheduleEvery(this.wakeIntervalMs() / 1000, "wakeSession");
-    if (!this.#source) await this.initializeSession();
+    await this.initializeSession();
   }
 
-  /** Tests may supply a real native memory repository; deployed instances always initialize from Env. */
+  /** Domain startup, which every start runs: it binds the NeonSessionRepo, its business database and the
+   * Env-configured resources. A host that runs this class on other dependencies overrides it and binds its own. */
   protected async initializeSession() {
     const resources = await bootstrapNativeSession(this.env, this.name, BACKGROUND_CONTEXT);
     this.bindSession(resources.repo, resources.metadata, resources.compose, resources.db);
     this.#resources = resources;
   }
 
-  /** Domain startup binds the NeonSessionRepo and its business database; Node/workerd tests bind a memory repo. */
+  /** Bind, once, what every attachment opens: the repository, the session's metadata and the harness
+   * composition, with the business database admission, recovery and settlement write to. */
   protected bindSession(repo: SessionRepo, metadata: SessionMetadata, compose: Composition, business?: AdmissionDatabase) {
     if (this.#source) throw new Error("The session repository is already bound");
     this.#source = { repo, metadata, compose };
@@ -145,13 +147,8 @@ export class SessionAgent extends Agent<Env> {
   /** Re-read all discovery sources on each wake; SDK open snapshots are never a business index. */
   async wakeSession(): Promise<void> {
     await this.withSession(async (session, lane, context) => {
-      if (!this.#business) {
-        const current = (await lane.inspectExecution(context)).current;
-        if (current && !await lane.getResult(current.id, context)) await this.driveLane(lane, current.id, context);
-        return;
-      }
       const pendingSelection = await this.#reconcileSelections(lane, context);
-      const admissions = pendingSelection ? [] : await scanAdmissionIntents(this.#business, this.name);
+      const admissions = pendingSelection ? [] : await scanAdmissionIntents(this.#requireBusiness(), this.name);
       for (const admission of admissions) {
         if (admission.operationId !== null) await this.#advanceOperation(session, lane, admission.operationId, context);
       }

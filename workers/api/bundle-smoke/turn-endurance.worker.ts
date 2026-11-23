@@ -3,7 +3,7 @@ import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/pi-agent-co
 import { MemorySessionRepo, type Session } from "@earendil-works/pi-agent-core/harness/session";
 import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type AssistantMessage, type FauxProviderHandle, type ToolCall } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
-import { SessionAgent } from "../src/agent/host/session-agent.ts";
+import { NativeOnlyHost } from "./native-only-host.ts";
 
 /**
  * #1540's in-repo half: one disconnected client, one long multi-tool turn.
@@ -41,7 +41,7 @@ export interface EnduranceReport {
 }
 
 /** The production host with a scripted provider, a counted catalog and one client-owned AbortSignal. */
-export class EnduranceProbe extends SessionAgent {
+export class EnduranceProbe extends NativeOnlyHost {
   readonly #clock = { now: Math.ceil(Date.now() / 1000) * 1000 };
   readonly #repo = new MemorySessionRepo({ now: () => this.#clock.now });
   readonly #entered = Promise.withResolvers<undefined>();
@@ -63,11 +63,10 @@ export class EnduranceProbe extends SessionAgent {
     return super.keepAliveWhile(work);
   }
 
-  override async onStart() {
+  protected override async initializeSession() {
     const session = await this.#repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
     this.bindSession(this.#repo, session.metadata, this.#composition());
-    await super.onStart();
   }
 
   /** The scripted provider and the tool context are the only seams this host replaces. */

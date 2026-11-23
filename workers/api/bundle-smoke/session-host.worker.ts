@@ -2,12 +2,12 @@ import { getAgentByName } from "agents";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/pi-agent-core/harness/context";
 import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type FauxProviderHandle } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
-import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { TURN_DEADLINE_MS } from "../src/agent/host/turn-deadline.ts";
+import { NativeOnlyHost } from "./native-only-host.ts";
 import { HostFaultRepo, RefusingAdmission } from "./session-host-faults.ts";
 
 /** Test-only domain seam. Native repository, lane, scheduler and Agent execute all runtime behavior. */
-export class HostProbe extends SessionAgent {
+export class HostProbe extends NativeOnlyHost {
   readonly repo = new HostFaultRepo({ now: () => 0 });
   writers = 0;
   maxWriters = 0;
@@ -21,7 +21,7 @@ export class HostProbe extends SessionAgent {
   readonly #entered = new Promise<void>((resolve) => { this.#resolveEntered = resolve; });
   readonly #released = new Promise<void>((resolve) => { this.#resolveReleased = resolve; });
 
-  override async onStart() {
+  protected override async initializeSession() {
     const session = await this.repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
     const provider = fauxProvider();
@@ -32,7 +32,6 @@ export class HostProbe extends SessionAgent {
     this.bindSession(this.repo, session.metadata, (opened) => ({ models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 1000 },
       toolContext: { session: opened, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("Unexpected catalog request"))),
         assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }), this.#refusing.databases[this.name]);
-    await super.onStart();
   }
 
   async acknowledgeAcceptedOperation() {
