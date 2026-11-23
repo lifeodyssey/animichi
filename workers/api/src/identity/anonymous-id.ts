@@ -9,6 +9,7 @@
 
 import { readStoreOrString, type Env } from "../env.ts";
 import { readCookie } from "./cookie-header.ts";
+import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
 
 const ANON_COOKIE = "aid";
 const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
@@ -35,26 +36,10 @@ export async function anonymousEnabled(env: AnonymousEnv): Promise<boolean> {
   return await anonymousSecret(env) !== undefined;
 }
 
-async function hmacHex(secret: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export function constantTimeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let i = 0; i < left.length; i += 1) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
-  return difference === 0;
-}
-
 async function verifyAnonymousToken(token: string, secret: string): Promise<string | null> {
   const [id, signature] = token.split(".");
   if (id === undefined || signature === undefined || !ANON_ID_PATTERN.test(id)) return null;
-  return constantTimeEqual(signature, await hmacHex(secret, id)) ? id : null;
+  return signaturesMatch(signature, await hmacHex(secret, id)) ? id : null;
 }
 
 function anonymousCookie(token: string): string {

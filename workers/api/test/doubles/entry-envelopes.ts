@@ -19,6 +19,8 @@ export const RATE_LIMITED_17 =
   '{"error":{"code":"rate_limited","message":"リクエストが多いみたい。少し待ってね。","retry_after_seconds":17}}';
 export const RATE_LIMIT_UNAVAILABLE =
   '{"error":{"code":"rate_limit_unavailable","message":"Rate limiter temporarily unavailable. Please retry."}}';
+export const BUDGET_EXHAUSTED =
+  '{"error":{"code":"anon_budget_exhausted","message":"今日はここまで。ログインすると続きから一緒に旅の計画を立てられるよ。","action":"login"}}';
 export const UNEXPECTED_QUERY = '{"error":{"code":"unexpected_query","message":"This route does not accept that query parameter."}}';
 export const INTERNAL_ERROR = '{"error":{"code":"internal_error","message":"The gateway could not complete this request."}}';
 export const IMAGE_PATH_INVALID = '{"error":{"code":"image_path_invalid","message":"The image path is not one this proxy serves."}}';

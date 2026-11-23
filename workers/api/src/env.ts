@@ -36,7 +36,8 @@ export interface Env {
   AGENT_SVC_DATABASE_URL?: SecretsStoreSecret | string;
   /** Cloudflare-native `ratelimit` binding (issue #680): the COARSE
    * best-effort burst damper. Absent (unit tests, a config without the
-   * binding) is treated as an outage — coarseBurstAllow fails open + alerts. */
+   * binding), it is stepped over without an alert; coarseBurstAllow alerts
+   * only on a call that throws or rejects. */
   RATE_LIMITER?: RateLimit;
   [key: string]: unknown;
 }

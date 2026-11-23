@@ -4,7 +4,7 @@ import { BACKGROUND_CONTEXT, type Context } from "@earendil-works/pi-agent-core/
 import type { Session } from "@earendil-works/pi-agent-core/harness/session";
 import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, type FauxProviderHandle } from "@earendil-works/pi-ai";
 import { createCatalogClient } from "@animichi/agent/tools";
-import { SessionAgent } from "../src/agent/host/session-agent.ts";
+import { NativeOnlyHost } from "./native-only-host.ts";
 import { BoundaryLossRepo, OPERATION, type Boundary, type InterruptedCommit } from "./tool-replay-boundary-loss.ts";
 
 /**
@@ -41,7 +41,7 @@ export interface ReplayReport {
 }
 
 /** The production host, one scripted tool, one counted catalog and the real native repository. */
-export class ReplayProbe extends SessionAgent {
+export class ReplayProbe extends NativeOnlyHost {
   #repo?: BoundaryLossRepo;
   #provider?: FauxProviderHandle;
   #models?: ReturnType<typeof createModels>;
@@ -57,14 +57,13 @@ export class ReplayProbe extends SessionAgent {
   protected get boundary(): Boundary { return this.name as Boundary; }
   protected get tool() { return this.boundary === "never" ? NEVER : SAFE; }
 
-  override async onStart() {
+  protected override async initializeSession() {
     const repo = new BoundaryLossRepo(this.boundary);
     this.#repo = repo;
     const session = await repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
     this.#script();
-    this.bindSession(repo, session.metadata, (opened) => { this.#attaches += 1; return this.#composition(opened); });
-    await super.onStart();
+    this.bindProbeSession(repo, session.metadata, (opened) => { this.#attaches += 1; return this.#composition(opened); });
   }
 
   /** One script per session, not per attachment: recovery continues the same turn and its next round. */

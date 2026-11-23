@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   ANON_BUDGET_EXHAUSTED_CODE,
@@ -9,8 +7,6 @@ import {
   readQuotaResetsAt,
 } from "../src/error-registry.js";
 
-const WORKER_BREAKER = fileURLToPath(new URL("../../../workers/api/src/protect/cost-breaker.ts", import.meta.url));
-
 describe("anonymous-limit wire codes", () => {
   it("pins the literals every tier has to agree on", () => {
     expect(ANON_BUDGET_EXHAUSTED_CODE).toBe("anon_budget_exhausted");
@@ -19,11 +15,6 @@ describe("anonymous-limit wire codes", () => {
 
   it("keeps the two limits distinct so one banner cannot answer for the other", () => {
     expect(ANON_QUOTA_EXHAUSTED_CODE).not.toBe(ANON_BUDGET_EXHAUSTED_CODE);
-  });
-
-  it("stays in lockstep with the worker's breaker mirror", () => {
-    const worker = readFileSync(WORKER_BREAKER, "utf8");
-    expect(worker).toContain(`"${ANON_BUDGET_EXHAUSTED_CODE}"`);
   });
 });
 

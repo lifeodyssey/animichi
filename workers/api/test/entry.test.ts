@@ -15,12 +15,13 @@ void test("GET /healthz is answered by the edge alone", async () => {
 
 // The old name for this said "/catalog/* is NOT publicly routed", which was
 // never true — `/catalog/public/*` IS routed (see app.ts). The property that
-// matters, and the one asserted here, is narrower: a REAL private catalog
-// endpoint must not be reachable from the edge and must never touch the
-// CATALOG binding. `/catalog/search` is such an endpoint; the sibling case in
-// gateway-fallback.test.ts uses an invented `/catalog/public/*` path, which
-// exercises the explicit-deny branch instead of this one.
-void test("a real private catalog endpoint is unreachable and never touches the binding", async () => {
+// matters, and the one asserted here, is narrower: a private catalog path
+// must not be reachable from the edge and must never touch the CATALOG
+// binding. `/catalog/search` was a real private endpoint until #2075 retired
+// it, and no route reaches it any more than the live private procedures
+// (`/catalog/resolve` and the rest); the sibling case in
+// gateway-fallback.test.ts uses an undeclared `/catalog/public/*` path.
+void test("a private catalog path is unreachable and never touches the binding", async () => {
   const app = createWorkerApp({});
   let wasCatalogHit = false;
   const env = { CATALOG: { fetch: () => { wasCatalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;

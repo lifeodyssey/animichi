@@ -1,5 +1,5 @@
 /** Real-shaped catalog payloads, copied from `workers/catalog`'s own tests
- * (`test/search-row-shape.worker.test.ts`, `test/nearby-points.worker.test.ts`,
+ * (`test/points-by-bangumi.worker.test.ts`, `test/nearby-points.worker.test.ts`,
  * `test/geocode-place.worker.test.ts`) so the tool tests exercise the shapes the
  * catalog actually returns rather than a shape invented here. */
 import type { GeocodeCandidate, Itinerary, Point } from "@animichi/contract";
