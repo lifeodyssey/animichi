@@ -6,8 +6,10 @@ import {
   utcDayKey,
   writeBudgetLatch,
 } from "./cost-breaker.ts";
+import { z } from "zod";
 import { durableGuardStore, type GuardStore } from "./guard-store.ts";
 import {
+  AnyNumber,
   consumeRateLimit,
   parseWindowState,
   RATE_LIMIT_KEY,
@@ -31,11 +33,12 @@ function jsonResponse(payload: unknown): Response {
   });
 }
 
+/** The limiter config a `/rate-limit` body carries; keys beyond the two are dropped. */
+const RequestedConfig = z.object({ limit: AnyNumber, windowSeconds: AnyNumber });
+
 export function parseConfig(value: unknown, fallback: RateLimitConfig): RateLimitConfig {
-  if (typeof value !== "object" || value === null) return fallback;
-  const { limit, windowSeconds } = value as Partial<RateLimitConfig>;
-  if (typeof limit !== "number" || typeof windowSeconds !== "number") return fallback;
-  return { limit, windowSeconds };
+  const parsed = RequestedConfig.safeParse(value);
+  return parsed.success ? parsed.data : fallback;
 }
 
 export async function handleRateLimit(

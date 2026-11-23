@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { z } from "zod";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
 import { guardCall } from "./guard-call.ts";
 
@@ -32,10 +33,12 @@ export function utcDayKey(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 10);
 }
 
+/** The latch as the budget shard stores it; keys beyond `dayKey` are dropped. */
+const StoredLatch = z.object({ dayKey: z.string() });
+
 export function parseBudgetLatch(value: unknown): BudgetLatch | null {
-  if (typeof value !== "object" || value === null) return null;
-  const { dayKey } = value as Partial<BudgetLatch>;
-  return typeof dayKey === "string" ? { dayKey } : null;
+  const parsed = StoredLatch.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** A latch only suppresses traffic for the day it was set — it self-expires. */
