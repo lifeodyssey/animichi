@@ -23,14 +23,15 @@ import {
  * is the shared 404 envelope.
  *
  * Hono runs every entry whose template matches, in this order, and the first
- * that claims the request answers it. A GET entry passes on a HEAD (Hono
- * dispatches HEAD to GET routes; these never answered it), a namespace passes on
- * its bare name, and `accepts` passes on a path the template matched but the
- * route refuses. So order only matters where templates overlap: the users read
- * before the users writes, and the `/v1/*` fallback last.
+ * that claims the request answers it. A GET entry answers a HEAD too: Hono
+ * dispatches a HEAD to the GET routes, and `router.ts` answers it with the GET
+ * answer's status and headers and no body. A namespace passes on its bare name,
+ * and `accepts` passes on a path the template matched but the route refuses. So
+ * order only matters where templates overlap: the users read before the users
+ * writes, and the `/v1/*` fallback last.
  */
 
-/** The methods an entry answers. GET is GET alone: never HEAD. */
+/** The methods an entry answers. A GET entry also answers HEAD, as its GET. */
 export type RouteMethod = "GET" | "POST" | "ALL";
 
 /** One request an entry answers, with everything its service reads. */
@@ -113,10 +114,10 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
   { method: "ALL", template: TURNSTILE_VERIFY_PATH, requestClass: "v1", rate: UNMANAGED_READ, serve: turnstileVerifyResponse },
   ...AGENT_TIER_ROUTES,
   // #1605: a `/v1` path nothing above serves — a method mismatch on a tier
-  // route (`GET /v1/chat`), a HEAD of a GET route, or a path no document
-  // advertises — is the shared 404 without touching identity, the limiter,
-  // Turnstile or the budget latch: a route that cannot be served must not
-  // spend a caller's challenge or a bucket slot to say so. It is still a `/v1`
-  // path, so showcase mode denies it like any other.
+  // route (`GET /v1/chat`) or a path no document advertises — is the shared
+  // 404 without touching identity, the limiter, Turnstile or the budget latch:
+  // a route that cannot be served must not spend a caller's challenge or a
+  // bucket slot to say so. It is still a `/v1` path, so showcase mode denies it
+  // like any other.
   { method: "ALL", template: "/v1/*", requestClass: "v1", rate: UNMANAGED_READ, serve: notFound },
 ];

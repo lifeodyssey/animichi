@@ -7,6 +7,9 @@ import type { RatePolicy } from "../gateway/rate-policy.ts";
 import { type TurnstileGate, guardTurnstile } from "../protect/turnstile.ts";
 import { verifyTurnstilePass } from "./turnstile-pass.ts";
 
+/** The methods that only read: a HEAD is its GET without the body (RFC 9110 §9.3.2). */
+const READ_METHODS: readonly string[] = ["GET", "HEAD"];
+
 function withAnonymousCookie(response: Response, setCookie: string | null): Response {
   if (setCookie === null) return response;
   const headers = new Headers(response.headers);
@@ -52,11 +55,11 @@ async function servedAnonymously(
  * Mark this request as anonymously trusted and hand it to `serve`, or return
  * null when anonymous access is not enabled (leaving the caller on the 401
  * path). `rate` is the matched route's cell: it picks the limiter, and a cheap
- * GET skips the budget latch. The durable limiter FAILS CLOSED (`#680` AC4): an
- * anonymous chat turn is a high-cost write, so one that cannot be metered is
- * rejected (503) rather than run unmetered on a limiter outage. The daily budget
- * latch fails closed only on an explicit budget verdict, and Turnstile stays the
- * outer wall.
+ * read, a GET or its HEAD, skips the budget latch. The durable limiter FAILS
+ * CLOSED (`#680` AC4): an anonymous chat turn is a high-cost write, so one that
+ * cannot be metered is rejected (503) rather than run unmetered on a limiter
+ * outage. The daily budget latch fails closed only on an explicit budget
+ * verdict, and Turnstile stays the outer wall.
  *
  * Issue #447 arms the S1.9 Turnstile gate here, and the order is the point:
  *  - AFTER `resolveAnonymous`, so a challenge is only ever raised for a caller
@@ -79,7 +82,7 @@ export async function handleAnonymousV1(
   if (challenged !== null) return challenged;
   const limited = await limitedOrNull(env, rate, identity.userId);
   if (limited !== null) return limited;
-  const readOnly = request.method === "GET" && rate.cost === "low";
+  const readOnly = READ_METHODS.includes(request.method) && rate.cost === "low";
   const served = readOnly ? await serve(identity) : await servedAnonymously(env, identity, nowMs, serve);
   return withAnonymousCookie(served, identity.setCookie);
 }
