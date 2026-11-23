@@ -54,6 +54,21 @@ async function mintAnonymousIdentity(secret: string): Promise<AnonymousIdentity>
   };
 }
 
+/**
+ * `response` carrying the identity this request minted, as every anonymous
+ * answer does, whether it serves, verifies or refuses the visitor: a visitor
+ * refused on a first request keeps the identity the next request presents. A
+ * copy rather than an in-place write, since an answer from another object can
+ * arrive with immutable headers. A returning visitor (`setCookie` null) gets
+ * the answer as it is.
+ */
+export function withAnonymousCookie(response: Response, setCookie: string | null): Response {
+  if (setCookie === null) return response;
+  const headers = new Headers(response.headers);
+  headers.append("Set-Cookie", setCookie);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 /** The id of the first `aid` the request carries that verifies, or null. */
 function verifiedCookie(request: Request, secret: string): Promise<string | null> {
   return firstVerifiedCookie(request, ANON_COOKIE, (token) => verifyAnonymousToken(token, secret));
