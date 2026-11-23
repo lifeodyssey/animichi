@@ -149,10 +149,12 @@ export async function consumeRateLimit(
 
 /** The verdict a shard answers; keys beyond the two are dropped. */
 const ShardVerdict = z.object({ allowed: z.boolean(), retryAfterSeconds: AnyNumber });
+/** What a shard's answer carries, and all the gateway reads of it: the shard keeps its window to itself. */
+export type ShardVerdict = z.infer<typeof ShardVerdict>;
 
-function parseDecision(value: unknown): RateLimitDecision | null {
+function parseVerdict(value: unknown): ShardVerdict | null {
   const parsed = ShardVerdict.safeParse(value);
-  return parsed.success ? { ...parsed.data, next: { startedAtMs: 0, count: 0 } } : null;
+  return parsed.success ? parsed.data : null;
 }
 
 /**
@@ -165,10 +167,10 @@ function parseDecision(value: unknown): RateLimitDecision | null {
  * classes fail CLOSED on this outage, while the anonymous coarse burst (its
  * outer walls are Turnstile + the daily budget latch) still fails open.
  */
-async function fetchDecision(shard: GuardShard, config: RateLimitConfig): Promise<RateLimitDecision | null> {
+async function fetchVerdict(shard: GuardShard, config: RateLimitConfig): Promise<ShardVerdict | null> {
   try {
     const response = await guardCall(shard, rateLimitRequest(config));
-    return response?.ok === true ? parseDecision(await response.json()) : null;
+    return response?.ok === true ? parseVerdict(await response.json()) : null;
   } catch {
     return null;
   }
@@ -186,8 +188,8 @@ export function checkRateLimit(
   guard: GuardNamespace,
   identity: string,
   config: RateLimitConfig,
-): Promise<RateLimitDecision | null> {
-  return fetchDecision(guard.get(guard.idFromName(`rate:${identity}`)), config);
+): Promise<ShardVerdict | null> {
+  return fetchVerdict(guard.get(guard.idFromName(`rate:${identity}`)), config);
 }
 /** The durable tier's verdict for one check. `outage` means the Durable
  * Object was unreachable; the CALLER applies the class's failure mode
