@@ -10,14 +10,13 @@
 
 ### Cloudflare 双平面 token(#674 拆分,2026-08-05 归位)
 
-| 键 | 平面 | 权限要点 | 目标分布(S0-v2 关账态) |
+| 键 | 平面 | 权限要点 | GitHub 三级(2026-11-23) |
 |---|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | **wrangler=代码平面**:发 Worker、传 worker secrets、推容器镜像 | Account: Workers Scripts:Edit + Containers | **仅** staging env + production env |
-| `CLOUDFLARE_PULUMI_API_TOKEN` | **Pulumi=基建平面**:路由/域名/DNS/WAF/zone 设置/R2 | Zone(animichi.com): Routes/DNS/Zone Settings/WAF:Edit;Account: Workers Scripts:Edit(Custom Domain 挂载)+ R2:Edit | **仅** staging env + production env;另有 operator-local 副本(本地 `.env`,不属 GitHub 三级) |
+| `CLOUDFLARE_API_TOKEN` | **wrangler=代码平面**:发 Worker、传 worker secrets、推容器镜像 | Account: Workers Scripts:Edit + Containers | 已删除(repo 级与 staging / production 两个 env 的副本) |
+| `CLOUDFLARE_PULUMI_API_TOKEN` | **Pulumi=基建平面**:路由/域名/DNS/WAF/zone 设置/R2 | Zone(animichi.com): Routes/DNS/Zone Settings/WAF:Edit;Account: Workers Scripts:Edit(Custom Domain 挂载)+ R2:Edit | 已删除(repo 级与 staging / production 两个 env 的副本);另有 operator-local 副本(本地 `.env`,不属 GitHub 三级) |
 
-两平面各持一钥,泄一把不失全局。**过渡态注记**:2026-08-05 当下 repo 级仍有同名两键,
-S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket 以目标分布为准,不得新增 repo 级。
-轮换后同步范围 = 两个 environment + operator-local `.env` + 跑 R2 派生对刷新(见下)。
+两平面各持一钥,泄一把不失全局。CI 从 Pulumi ESC 取 Cloudflare 凭证,所在以
+`docs/ops/secrets.md` 为准。
 
 ### Pulumi state 后端(Pulumi Cloud,org `lifeodyssey`,#1077)
 
@@ -28,9 +27,9 @@ S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket �
   action 自己导出成 `PULUMI_ACCESS_TOKEN`。GitHub Settings 里没有 Pulumi PAT,也不再有
   backend URL / R2 state 钥 / passphrase 参与投递。apply 一律带 org 限定:
   `pulumi up --stack lifeodyssey/<stack>`。
-- 旧的自管 R2 后端(`PULUMI_BACKEND_URL` + 派生 S3 凭证 + passphrase)只剩两个用途:owner 的
+- 旧的自管 R2 后端(`PULUMI_BACKEND_URL` + 派生 S3 凭证 + passphrase)曾有两个用途:owner 的
   一次性迁移(见 `docs/ops/deployment.md`「One-time migration」),以及全部 stack 导入完成前的
-  回退路径。删 GitHub 里的这四个名字是 #1081。
+  回退路径。GitHub 里的这四个名字已于 2026-11-23 删除,回退窗口就此永久关闭,owner 已接受。
 
 ### 应用与门禁密钥(用途索引)
 
