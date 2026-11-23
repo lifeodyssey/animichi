@@ -21,7 +21,7 @@ import assert from "node:assert/strict";
 import { ADMITTED, entrySeam, HUMAN, INVALID, VISITOR } from "./doubles/entry-seam.ts";
 import { UNLIMITED } from "./doubles/entry-seam-limiters.ts";
 import {
-  IMAGE_PATH_INVALID, IMAGE_STORAGE_UNAVAILABLE, NOT_FOUND, TURNSTILE_REQUIRED, UNAUTHORIZED,
+  IMAGE_PATH_INVALID, IMAGE_STORAGE_UNAVAILABLE, NOT_FOUND, UNAUTHORIZED,
 } from "./doubles/entry-envelopes.ts";
 
 interface Claim {
@@ -94,8 +94,8 @@ const CLAIMS: readonly Claim[] = [
     status: 404, body: NOT_FOUND, log: [] },
   { who: "adoption, which needs a verified caller", method: "POST", path: "/v1/sessions/adopt", headers: ADMITTED, vars: {},
     status: 401, body: UNAUTHORIZED, log: ["auth absent"] },
-  { who: "verification, which re-challenges a visitor holding a pass", method: "POST", path: "/v1/turnstile/verify",
-    headers: ADMITTED, vars: {}, status: 403, body: TURNSTILE_REQUIRED, log: ["auth absent", "turnstile -"] },
+  { who: "verification, which admits a visitor holding a pass", method: "POST", path: "/v1/turnstile/verify",
+    headers: ADMITTED, vars: {}, status: 204, body: "", log: ["auth absent"] },
   { who: "nothing, for an undeclared public catalog path", method: "GET", path: "/catalog/public/secret", headers: {}, vars: {},
     status: 404, body: NOT_FOUND, log: [] },
   { who: "nothing, for a private catalog endpoint", method: "POST", path: "/catalog/search", headers: {}, vars: {}, status: 404,

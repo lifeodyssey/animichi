@@ -9,8 +9,11 @@
  * A visitor's identity is minted when it is first needed and written on the
  * answer to that request, whether the request is served, verified or refused: a
  * refused first turn carries the same `aid` line, byte for byte, as a served
- * one. The Anitabi image arm strips its origin's cookie; the users forward hands
- * its service's cookie through.
+ * one. Verification without a token accepts the visitor's own live pass and
+ * writes nothing, so a pass is never renewed without a challenge; with a token
+ * it asks the gate and writes a new pass, as it always has. The Anitabi image
+ * arm strips its origin's cookie; the users forward hands its service's cookie
+ * through.
  *
  * test-type: characterization
  */
@@ -23,9 +26,13 @@ const AID_SET_COOKIE =
   "aid=0123456789abcdef0123456789abcdef.80d26bb16b9d931cfd330fea2c8338f4941eebd9c3d3cafe0e52c04602744a23; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax";
 const PASS_SET_COOKIE =
   "turnstile_pass=1795435500000.8fb804c47fb711d17a18cdc21a5ac4f29f1f07e270e3d3aee2f0e2e10c92b4d2; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax";
+/** The same visitor's pass as minted one minute after `NOW`. */
+const NEXT_PASS_SET_COOKIE =
+  "turnstile_pass=1795435560000.ab27793da6723ff41466e797e9b27d6f157ec0decb628e7bc71c7748a195ae1b; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax";
 /** Another visitor's signed id, minted by today's code under the same key. */
 const OTHER_AID = "aid=fedcba9876543210fedcba9876543210.b42bbc3660a16f173d494c53129f65ede295a6b9b7d53d4ce944189da0431742";
 const TRANSCRIPT = "/v1/conversations/s-42/messages";
+const VERIFY = "/v1/turnstile/verify";
 
 void test("the literal aid still identifies its visitor", async (t) => {
   const seam = entrySeam(t);
@@ -54,6 +61,42 @@ void test("the literal pass expires five minutes after it was minted", async (t)
   const seam = entrySeam(t);
   t.mock.timers.setTime(NOW + 300_000);
   const response = await seam.send("GET", TRANSCRIPT, ADMITTED);
+  assert.equal(response.status, 403);
+  assert.deepEqual(seam.log, ["auth absent", "turnstile -"]);
+});
+
+/** A solved verification answers 204 with no body, so a held pass is answered the same; one minute on, a
+ * renewed pass would carry a later expiry, so writing none shows the pass was not renewed. */
+void test("without a token, the literal pass verifies its visitor as a solved challenge does, writing nothing", async (t) => {
+  const seam = entrySeam(t);
+  t.mock.timers.setTime(NOW + 60_000);
+  const response = await seam.send("POST", VERIFY, ADMITTED);
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), "");
+  assert.deepEqual(response.headers.getSetCookie(), []);
+  assert.deepEqual(seam.log, ["auth absent"]);
+});
+
+void test("with a token, a visitor holding the literal pass is still checked and gets a new pass", async (t) => {
+  const seam = entrySeam(t);
+  t.mock.timers.setTime(NOW + 60_000);
+  const response = await seam.send("POST", VERIFY, { ...ADMITTED, ...SOLVED });
+  assert.equal(response.status, 204);
+  assert.deepEqual(response.headers.getSetCookie(), [NEXT_PASS_SET_COOKIE]);
+  assert.deepEqual(seam.log, ["auth absent", "turnstile solved-token"]);
+});
+
+void test("the literal pass verifies no other visitor", async (t) => {
+  const seam = entrySeam(t);
+  const response = await seam.send("POST", VERIFY, { Cookie: `${OTHER_AID}; ${PASS}` });
+  assert.equal(response.status, 403);
+  assert.deepEqual(seam.log, ["auth absent", "turnstile -"]);
+});
+
+void test("the literal pass verifies nobody five minutes after it was minted", async (t) => {
+  const seam = entrySeam(t);
+  t.mock.timers.setTime(NOW + 300_000);
+  const response = await seam.send("POST", VERIFY, ADMITTED);
   assert.equal(response.status, 403);
   assert.deepEqual(seam.log, ["auth absent", "turnstile -"]);
 });
