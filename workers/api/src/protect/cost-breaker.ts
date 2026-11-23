@@ -3,7 +3,7 @@
 import { ANON_BUDGET_EXHAUSTED_CODE } from "@animichi/contract";
 import { z } from "zod";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
-import { guardCall } from "./guard-call.ts";
+import { guardCall, guardShard } from "./guard-call.ts";
 
 /**
  * Global anonymous daily-budget circuit breaker (X4, issue #274 / S1.8).
@@ -76,29 +76,27 @@ export function budgetGuidanceResponse(): Response {
   });
 }
 
-function budgetShard(guard: GuardNamespace): { fetch: (r: Request) => Promise<Response> } {
-  return guard.get(guard.idFromName("budget"));
-}
-
 /** One call to the budget shard, bounded (EG-21). A shard that fails, or does
  * not answer inside the deadline, reads as "not latched" — the same fail-open
  * this call already applied to a non-2xx, and the safe direction here because
  * the AUTHORITATIVE verdict is the agent tier's; the latch only saves a
- * round-trip. */
-async function callBudget(guard: GuardNamespace, method: string, dayKey: string): Promise<boolean> {
+ * round-trip. A guard namespace that is not bound has no shard to call
+ * (`guardShard` records it), so it reads the same way: the read is "not
+ * latched" and the write is skipped. */
+async function callBudget(guard: GuardNamespace | undefined, method: string, dayKey: string): Promise<boolean> {
   const url = `https://edge-guard/budget?dayKey=${encodeURIComponent(dayKey)}`;
-  const response = await guardCall(budgetShard(guard), new Request(url, { method }));
+  const response = await guardCall(guardShard(guard, "budget"), new Request(url, { method }));
   if (response === null || !response.ok) return false;
   const parsed: unknown = await response.json();
   return typeof parsed === "object" && parsed !== null && (parsed as { latched?: unknown }).latched === true;
 }
 
 /** True when the breaker already tripped today (edge-cached tier verdict). */
-export function budgetLatched(guard: GuardNamespace, dayKey: string): Promise<boolean> {
+export function budgetLatched(guard: GuardNamespace | undefined, dayKey: string): Promise<boolean> {
   return callBudget(guard, "GET", dayKey);
 }
 
 /** Record today's tier verdict so the edge can short-circuit from now on. */
-export async function latchBudget(guard: GuardNamespace, dayKey: string): Promise<void> {
+export async function latchBudget(guard: GuardNamespace | undefined, dayKey: string): Promise<void> {
   await callBudget(guard, "POST", dayKey);
 }

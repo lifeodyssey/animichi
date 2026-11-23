@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { DEFAULT_IDENTITY_POLICY, type IdentityClassPolicy } from "../identity/auth.ts";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
-import { guardCall, type GuardShard } from "./guard-call.ts";
+import { guardCall, guardShard, type GuardShard } from "./guard-call.ts";
 
 /**
  * Per-identity short-window abuse limiter (issue #274 / S1.8).
@@ -162,12 +162,14 @@ function parseVerdict(value: unknown): ShardVerdict | null {
  * a non-2xx status, a rejected fetch promise (DO overload, a dropped network
  * connection, a mid-deploy reset), a shard that does not answer inside
  * `guardCall`'s deadline (EG-21), or a 200 whose body isn't the JSON we
- * expect. All of them are real Durable Object outage shapes. A caller turns a
- * `null` into the class's POLICY failure mode: `#680` made high-cost/write
- * classes fail CLOSED on this outage, while the anonymous coarse burst (its
- * outer walls are Turnstile + the daily budget latch) still fails open.
+ * expect. All of them are real Durable Object outage shapes, and no shard at
+ * all, a guard namespace that is not bound (recorded by `guardShard`), is
+ * answered as one. A caller turns a `null` into the class's POLICY failure
+ * mode: `#680` made high-cost/write classes fail CLOSED on this outage, while
+ * the anonymous coarse burst (its outer walls are Turnstile + the daily budget
+ * latch) still fails open.
  */
-async function fetchVerdict(shard: GuardShard, config: RateLimitConfig): Promise<ShardVerdict | null> {
+async function fetchVerdict(shard: GuardShard | null, config: RateLimitConfig): Promise<ShardVerdict | null> {
   try {
     const response = await guardCall(shard, rateLimitRequest(config));
     return response?.ok === true ? parseVerdict(await response.json()) : null;
@@ -182,18 +184,19 @@ function rateLimitRequest(config: RateLimitConfig): Request {
 
 /**
  * Ask the identity's guard shard whether this request may proceed. Sharding by
- * identity keeps each limiter check a single-key transaction on one object.
+ * identity keeps each limiter check a single-key transaction on one object. A
+ * namespace that is not bound has no shard to ask, so it is no verdict.
  */
 export function checkRateLimit(
-  guard: GuardNamespace,
+  guard: GuardNamespace | undefined,
   identity: string,
   config: RateLimitConfig,
 ): Promise<ShardVerdict | null> {
-  return fetchVerdict(guard.get(guard.idFromName(`rate:${identity}`)), config);
+  return fetchVerdict(guardShard(guard, `rate:${identity}`), config);
 }
 /** The durable tier's verdict for one check. `outage` means the Durable
- * Object was unreachable; the CALLER applies the class's failure mode
- * (fail-closed for high-cost/write per `#680` AC4). */
+ * Object was unreachable or its binding is missing; the CALLER applies the
+ * class's failure mode (fail-closed for high-cost/write per `#680` AC4). */
 export type DurableVerdict =
   | { readonly kind: "allowed" }
   | { readonly kind: "limited"; readonly retryAfterSeconds: number }
@@ -203,7 +206,7 @@ export type DurableVerdict =
  * distinct verdict so fail-closed classes can reject on it (AC4). This is
  * still one single-key transaction on the identity's own shard. */
 export async function durableBurstCheck(
-  guard: GuardNamespace,
+  guard: GuardNamespace | undefined,
   identity: string,
   config: RateLimitConfig,
 ): Promise<DurableVerdict> {

@@ -1,5 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { withRequestId } from "../gateway/request-id.ts";
+import type { GuardNamespace } from "./guard-store.ts";
+
 /**
  * One bounded call to a guard Durable Object (EG-21, issue #1343; 08-26 §3).
  *
@@ -8,11 +11,36 @@
  * `/v1/chat` open indefinitely instead of answering the 503 the policy designs
  * for it, while `/v1`'s own downstream hop had been bounded since #1220 (the
  * container fetch that motivated that bound was deleted in #1605).
+ *
+ * Every guard call also picks its shard here (`guardShard`), so a guard
+ * namespace that is not bound, a configuration error, is recorded in one place
+ * and reaches each caller as the no-answer it already handles.
  */
 
 /** A guard shard narrowed to the single call the guards make. */
 export interface GuardShard {
   fetch(request: Request): Promise<Response>;
+}
+
+/** The one record of a missing guard binding: the binding's name and the
+ * request's ID, never a value, a secret, an identity or a path. */
+function logMissingGuardBinding(): void {
+  console.error(JSON.stringify(withRequestId({ event: "edge_guard_binding_missing", binding: "EDGE_GUARD" })));
+}
+
+/**
+ * The shard named `name` in the guard namespace, or null when the namespace is
+ * not bound. The missing binding is recorded here, and the null then reaches
+ * `guardCall` as no shard to ask: the same no-answer as a shard that fails, so
+ * the durable limiter fails closed on it and the budget latch fails open, reading
+ * "not latched" and skipping its write.
+ */
+export function guardShard(guard: GuardNamespace | undefined, name: string): GuardShard | null {
+  if (guard === undefined) {
+    logMissingGuardBinding();
+    return null;
+  }
+  return guard.get(guard.idFromName(name));
 }
 
 /**
@@ -24,11 +52,12 @@ export interface GuardShard {
 export const GUARD_CALL_TIMEOUT_MS = 5_000;
 
 /**
- * Ask a guard shard, or give up. Returns the shard's response, or null when the
- * call failed or ran out of time — "no answer in time" is the SAME no-verdict
- * every caller already maps onto its own policy (fail CLOSED for the durable
- * classes, #680 AC4; fail open for the budget latch, whose authority is the
- * ingress's own accounting anyway).
+ * Ask a guard shard, or give up. Returns the shard's response, or null when
+ * there is no shard to ask (`guardShard` found no binding), or the call failed
+ * or ran out of time — "no answer" is the SAME no-verdict every caller already
+ * maps onto its own policy (fail CLOSED for the durable classes, #680 AC4; fail
+ * open for the budget latch, whose authority is the ingress's own accounting
+ * anyway).
  *
  * The deadline both rides the request — so the shard's own work is cancelled
  * rather than left running — and is raced here, so this call is bounded even if
@@ -42,7 +71,8 @@ export const GUARD_CALL_TIMEOUT_MS = 5_000;
  * (which the container cold-start retry used and #1605 deleted with it) — and a
  * test drives it on `mock.timers` rather than on the wall clock.
  */
-export async function guardCall(shard: GuardShard, request: Request): Promise<Response | null> {
+export async function guardCall(shard: GuardShard | null, request: Request): Promise<Response | null> {
+  if (shard === null) return null;
   const deadline = new AbortController();
   const timer = setTimeout(() => { deadline.abort(); }, GUARD_CALL_TIMEOUT_MS);
   try {
