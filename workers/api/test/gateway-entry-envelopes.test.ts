@@ -11,7 +11,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { entrySeam, HUMAN, UNVERIFIABLE } from "./doubles/entry-seam.ts";
+import { ADMITTED, entrySeam, HUMAN, UNVERIFIABLE } from "./doubles/entry-seam.ts";
 import { LIMITED, UNLIMITED, type LimiterPlan } from "./doubles/entry-seam-limiters.ts";
 import {
   CLIENT_SESSION_ID, IMAGE_METHOD_NOT_ALLOWED, IMAGE_NOT_FOUND, IMAGE_PATH_INVALID, IMAGE_PLAN_REQUIRED,
@@ -71,7 +71,17 @@ const ENVELOPES: readonly Envelope[] = [
   envelope("an unreachable users binding", "GET", "/v1/users/saved-routes", 500, INTERNAL_ERROR,
     { headers: HUMAN, vars: { USERS: UNREACHABLE } }),
   envelope("an unreachable catalog binding", "GET", "/catalog/public/popular", 500, INTERNAL_ERROR, { vars: { CATALOG: UNREACHABLE } }),
-  envelope("a durable class with its guard binding unbound", "POST", "/v1/chat", 500, INTERNAL_ERROR,
+  envelope("a durable class with its guard binding unbound", "POST", "/v1/chat", 503, RATE_LIMIT_UNAVAILABLE,
+    { headers: HUMAN, vars: { EDGE_GUARD: undefined } }),
+  envelope("an admitted visitor's turn with its guard binding unbound", "POST", "/v1/chat", 503, RATE_LIMIT_UNAVAILABLE,
+    { headers: ADMITTED, vars: { EDGE_GUARD: undefined } }),
+  envelope("a BYOK probe with its guard binding unbound", "POST", "/v1/byok/probe", 503, RATE_LIMIT_UNAVAILABLE,
+    { headers: HUMAN, vars: { EDGE_GUARD: undefined } }),
+  envelope("a users write with its guard binding unbound", "POST", "/v1/users/saved-routes", 503, RATE_LIMIT_UNAVAILABLE,
+    { headers: HUMAN, vars: { EDGE_GUARD: undefined } }),
+  envelope("a users DELETE with its guard binding unbound", "DELETE", "/v1/users/saved-routes", 503, RATE_LIMIT_UNAVAILABLE,
+    { headers: HUMAN, vars: { EDGE_GUARD: undefined } }),
+  envelope("an adoption with its guard binding unbound", "POST", "/v1/sessions/adopt", 503, RATE_LIMIT_UNAVAILABLE,
     { headers: HUMAN, vars: { EDGE_GUARD: undefined } }),
 ];
 
