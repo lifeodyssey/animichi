@@ -2,9 +2,9 @@
  * SUT: the API Worker's request gateway, entered as the Worker is entered. This
  * file pins a HEAD against its GET in each state that changes the GET's answer:
  * the two public catalog reads with every limiter open, with every limiter
- * exhausted and in showcase mode; the readiness probe and the agent tier's
- * three reads with every limiter open, for a verified caller and, on the two
- * reads the tier admits a visitor to, for an admitted visitor.
+ * exhausted and in showcase mode; the readiness probe, the users read and the
+ * agent tier's three reads with every limiter open, for a verified caller and,
+ * on the two reads the tier admits a visitor to, for an admitted visitor.
  *
  * The HEAD answers with its GET's status and its GET's whole header set — every
  * header but the varying `X-Request-Id`, which it carries fresh — and no body.
@@ -31,6 +31,7 @@ type Mirrored = readonly [state: keyof typeof STATES, who: string, path: string,
 
 const POPULAR = "/catalog/public/popular";
 const OVERVIEW = "/catalog/public/anime-overview/3302";
+const USERS = "/v1/users/saved-routes";
 const MESSAGES = "/v1/conversations/s-42/messages";
 const STREAM = "/v1/conversations/s-42/stream";
 
@@ -42,6 +43,7 @@ const MIRRORED: readonly Mirrored[] = [
   ["every limiter open", "anyone", OVERVIEW, {}, 200],
   ["every limiter exhausted", "anyone", OVERVIEW, {}, 429],
   ["showcase mode on", "anyone", OVERVIEW, {}, 403],
+  ["every limiter open", "a verified caller", USERS, HUMAN, 200],
   ["every limiter open", "a verified caller", "/v1/conversations", HUMAN, 200],
   ["every limiter open", "a verified caller", MESSAGES, HUMAN, 200],
   ["every limiter open", "an admitted visitor", MESSAGES, ADMITTED, 200],

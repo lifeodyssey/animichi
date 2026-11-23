@@ -8,9 +8,10 @@
  *
  * Refusals before the limiter (a credential refusal, a 404 or 405, an unsolved
  * challenge, an undeclared catalog parameter) spend nothing; an OPTIONS to the
- * users prefix that carries a bearer spends a write slot. One caller's turn,
- * probe, users writes and adoption share a single window; a visitor's window is
- * its own; catalog readers share one damper slot per address.
+ * users prefix, answered before identity, and a HEAD to it spend nothing either,
+ * bearer or not. One caller's turn, probe, users writes and adoption share a
+ * single window; a visitor's window is its own; catalog readers share one damper
+ * slot per address.
  *
  * test-type: characterization
  */
@@ -45,9 +46,12 @@ const SEQUENCES: readonly Sequence[] = [
   { shows: "a preflight to the turn spends none of it", plan: ONE_WRITE,
     steps: [["OPTIONS", "/v1/chat", HUMAN, 404], ["POST", "/v1/chat", HUMAN, 200], ["POST", "/v1/chat", HUMAN, 429]],
     log: [...WRITE, "tier chat u1 human -", ...WRITE] },
-  { shows: "an OPTIONS to users that carries a bearer spends all of it", plan: ONE_WRITE,
-    steps: [["OPTIONS", USERS, HUMAN, 200], ["POST", USERS, HUMAN, 429]],
-    log: [...WRITE, `users OPTIONS ${USERS} as u1/human`, ...WRITE] },
+  { shows: "an OPTIONS to users that carries a bearer spends none of it", plan: ONE_WRITE,
+    steps: [["OPTIONS", USERS, HUMAN, 204], ["POST", USERS, HUMAN, 200], ["POST", USERS, HUMAN, 429]],
+    log: [...WRITE, `users POST ${USERS} as u1/human`, ...WRITE] },
+  { shows: "a HEAD to users that carries a bearer spends none of it", plan: ONE_WRITE,
+    steps: [["HEAD", USERS, HUMAN, 200], ["POST", USERS, HUMAN, 200], ["POST", USERS, HUMAN, 429]],
+    log: ["auth u1", `users GET ${USERS} as u1/human`, ...WRITE, `users POST ${USERS} as u1/human`, ...WRITE] },
   { shows: "an unknown route under the BYOK prefix spends none of it", plan: ONE_WRITE,
     steps: [["POST", "/v1/byok/other", HUMAN, 404], ["POST", "/v1/byok/probe", HUMAN, 200], ["POST", "/v1/byok/probe", HUMAN, 429]],
     log: [...WRITE, "tier probe u1 human -", ...WRITE] },

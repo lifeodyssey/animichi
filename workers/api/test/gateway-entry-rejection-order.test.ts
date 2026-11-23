@@ -7,13 +7,14 @@
  * one that spends the caller's budget.
  *
  * Today's order: route selection first (an unknown route, a method mismatch on a
- * tier route and a preflight to one are a 404 before anything is consulted),
- * then identity (a credential that is absent, rejected or uncheckable is refused
- * before any limiter), then for a visitor the Turnstile challenge, and only then
- * the limiter. The public catalog refuses an undeclared query parameter before
- * its damper. Unmanaged reads are served with every limiter exhausted. Showcase
- * precedence is pinned in `gateway-entry-showcase.test.ts`, and the follow-up
- * requests that show a spent budget in `gateway-entry-limiter-charge.test.ts`.
+ * tier route and a preflight to one are a 404, and an OPTIONS to the users
+ * prefix a 204, before anything is consulted), then identity (a credential that
+ * is absent, rejected or uncheckable is refused before any limiter), then for a
+ * visitor the Turnstile challenge, and only then the limiter. The public catalog
+ * refuses an undeclared query parameter before its damper. Unmanaged reads are
+ * served with every limiter exhausted. Showcase precedence is pinned in
+ * `gateway-entry-showcase.test.ts`, and the follow-up requests that show a spent
+ * budget in `gateway-entry-limiter-charge.test.ts`.
  *
  * test-type: characterization
  */
@@ -73,9 +74,11 @@ const CONTESTS: readonly Contest[] = [
   { who: "a preflight to the index", method: "OPTIONS", path: "/v1/conversations", headers: PREFLIGHT, vars: {}, status: 404,
     body: NOT_FOUND, log: [] },
   { who: "a preflight to users, which carries no credential", method: "OPTIONS", path: "/v1/users/saved-routes", headers: PREFLIGHT,
-    vars: {}, status: 401, body: UNAUTHORIZED, log: ["auth absent"] },
+    vars: {}, status: 204, body: "", log: [] },
+  { who: "a preflight to users that carries a bearer", method: "OPTIONS", path: "/v1/users/saved-routes",
+    headers: { ...PREFLIGHT, ...HUMAN }, vars: {}, status: 204, body: "", log: [] },
   { who: "an OPTIONS to users that carries a bearer", method: "OPTIONS", path: "/v1/users/saved-routes", headers: HUMAN, vars: {},
-    status: 429, body: RATE_LIMITED_60, log: ["auth u1", "coarse authed:u1"] },
+    status: 204, body: "", log: [] },
   { who: "a preflight to adoption", method: "OPTIONS", path: "/v1/sessions/adopt", headers: PREFLIGHT, vars: {}, status: 405,
     body: METHOD_NOT_ALLOWED, log: [] },
   { who: "a preflight to verification", method: "OPTIONS", path: "/v1/turnstile/verify", headers: PREFLIGHT, vars: {}, status: 405,

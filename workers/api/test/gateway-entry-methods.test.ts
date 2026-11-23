@@ -13,8 +13,9 @@
  *   body; a catalog HEAD reaches the catalog as a GET.
  * - The Anitabi image arm has no method gate at all, so every method is proxied
  *   as an upstream GET.
- * - The `/v1/users/` prefix forwards every method, and every method but GET is
- *   charged to the durable limiter.
+ * - The `/v1/users/` prefix answers OPTIONS itself with a 204, before identity.
+ *   It forwards every other method, a HEAD as a GET; GET and HEAD are charged
+ *   nothing, and every other method is charged to the durable limiter.
  *
  * test-type: characterization
  */
@@ -73,11 +74,11 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PATCH", OVERVIEW, 404, NOT_FOUND, []],
   ["DELETE", OVERVIEW, 404, NOT_FOUND, []],
   ["OPTIONS", OVERVIEW, 404, NOT_FOUND, []],
-  ["HEAD", USERS, 200, "", [...USER_CHARGE, `users HEAD ${USERS} as u1/human`]],
+  ["HEAD", USERS, 200, "", ["auth u1", `users GET ${USERS} as u1/human`]],
   ["PUT", USERS, 200, `users PUT ${USERS}`, [...USER_CHARGE, `users PUT ${USERS} as u1/human`]],
   ["PATCH", USERS, 200, `users PATCH ${USERS}`, [...USER_CHARGE, `users PATCH ${USERS} as u1/human`]],
   ["DELETE", USERS, 200, `users DELETE ${USERS}`, [...USER_CHARGE, `users DELETE ${USERS} as u1/human`]],
-  ["OPTIONS", USERS, 200, `users OPTIONS ${USERS}`, [...USER_CHARGE, `users OPTIONS ${USERS} as u1/human`]],
+  ["OPTIONS", USERS, 204, "", []],
   ["GET", "/v1/sessions/adopt", 405, METHOD_NOT_ALLOWED, []],
   ["HEAD", "/v1/sessions/adopt", 405, "", []],
   ["PUT", "/v1/sessions/adopt", 405, METHOD_NOT_ALLOWED, []],

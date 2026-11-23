@@ -34,7 +34,7 @@ const ROWS: readonly Outage[] = [
   ["the durable shard down", "POST", "/v1/chat", "a verified caller", 503, RATE_LIMIT_UNAVAILABLE, WRITE],
   ["the durable shard down", "POST", "/v1/byok/probe", "a verified caller", 503, RATE_LIMIT_UNAVAILABLE, WRITE],
   ["the durable shard down", "POST", USERS, "a verified caller", 503, RATE_LIMIT_UNAVAILABLE, WRITE],
-  ["the durable shard down", "HEAD", USERS, "a verified caller", 503, "", WRITE],
+  ["the durable shard down", "HEAD", USERS, "a verified caller", 200, "", ["auth u1", `users GET ${USERS} as u1/human`]],
   ["the durable shard down", "POST", "/v1/sessions/adopt", "a verified caller", 503, RATE_LIMIT_UNAVAILABLE, WRITE],
   ["the durable shard down", "POST", "/v1/chat", "an admitted visitor", 503, RATE_LIMIT_UNAVAILABLE,
     ["auth absent", `coarse ${VISITOR}`, `rate:${VISITOR} POST /rate-limit`]],
