@@ -84,18 +84,18 @@ void test("a rejected challenge answers the retryable turnstile envelope", async
   assert.equal(captured.calls.length, 0);
 });
 
-void test("a challenged turn does not mint an anonymous identity cookie", async () => {
+void test("a challenged turn still writes the anonymous identity cookie it minted", async () => {
   const captured = { calls: [] as NativeAgentCall[] };
   const res = await armedApp(captured, recordingGate([], SOLVED)).request(
     "/v1/chat", chat(), anonEnv(), stubCtx,
   );
-  assert.equal(res.headers.get("Set-Cookie"), null);
+  assert.match(String(res.headers.get("Set-Cookie")), /^aid=[0-9a-f]{32}\.[0-9a-f]{64}; Path=\/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax$/);
 });
 
-/** A known identity is needed here: an unsolved turn mints no cookie, so two
- * anonymous strangers never share a bucket in the first place. The budget only
- * observably leaks when a returning visitor's own cookie is charged for a
- * challenge they were forced to answer. */
+/** A known identity is needed here: two requests without a cookie are two
+ * strangers with two buckets, so the budget only observably leaks when a
+ * returning visitor's own cookie is charged for a challenge they were forced to
+ * answer. */
 void test("a challenged turn does not spend the identity's burst budget", async () => {
   const captured = { calls: [] as NativeAgentCall[] };
   const env = anonEnv({ ANON_RATE_LIMIT: "2" });

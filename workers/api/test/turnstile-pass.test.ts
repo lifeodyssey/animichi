@@ -50,8 +50,9 @@ void test("a pass with a malformed signature fails closed", async () => {
 });
 
 // The pass's format check admits only 64 lower-case hex characters, so none of
-// these signatures reaches the comparison; the `aid` cookie's, which has no
-// such check, is pinned at the gateway in `gateway-entry-aid-signature.test.ts`.
+// these signatures reaches the comparison; the `aid` cookie's value, which is
+// checked whole the same way, is pinned at the gateway in
+// `gateway-entry-aid-signature.test.ts`.
 const RESHAPED_SIGNATURES: readonly (readonly [shape: string, reshape: (signature: string) => string])[] = [
   ["cut short by one character", (signature) => signature.slice(0, -1)],
   ["emptied", () => ""],

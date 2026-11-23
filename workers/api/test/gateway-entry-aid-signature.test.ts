@@ -1,15 +1,19 @@
 /**
  * SUT: the API Worker's request gateway, entered as the Worker is entered. This
- * file pins how today's gateway compares the signature in a visitor's `aid`
- * cookie with the one it computes for the cookie's id. Only the id is
- * format-checked, so every signature below reaches that comparison: the right
- * one cut short by a character, emptied, lengthened by a character,
- * upper-cased, or of the right length with one non-ASCII character. None
- * verifies, and nothing throws: a visitor's read is served under a newly
- * minted identity, and adoption, which never mints, finds nothing to adopt.
+ * file pins how the gateway checks a visitor's `aid` cookie value. The whole
+ * value must be a 32-character lower-case hex id, a ".", and a 64-character
+ * lower-case hex signature, as the Turnstile pass's value is checked whole,
+ * before the signature is compared with the one the gateway computes for the
+ * id. None of the signatures below verifies: the right one cut short by a
+ * character, emptied, lengthened by a character, upper-cased, or of the right
+ * length with one non-ASCII character. Nothing throws: a visitor's read is
+ * served under a newly minted identity, and adoption, which never mints, finds
+ * nothing to adopt.
  *
- * The Turnstile pass is format-checked before its comparison, so these shapes
- * never reach it; its rows are in `turnstile-pass.test.ts`.
+ * The whole-value check changes one verdict on purpose: a valid id and
+ * signature followed by anything, a further segment or a bare ".", no longer
+ * verify. Every other value verifies or fails as it did before the check. The
+ * pass's rows are in `turnstile-pass.test.ts`.
  *
  * test-type: characterization
  */
@@ -53,6 +57,32 @@ for (const [shape, signature] of SIGNATURES) {
     assert.equal(response.status, 200);
     assert.equal(await response.text(), NOTHING_TO_ADOPT);
     assert.deepEqual(response.headers.getSetCookie(), []);
+    assert.deepEqual(seam.log, WRITE);
+  });
+}
+
+/** What may follow a valid id and signature: nothing at all, so each of these no longer verifies. */
+const TRAILING: readonly (readonly [after: string, value: string])[] = [
+  ["a further segment", `${ID}.${SIGNATURE}.ignored`],
+  ["a bare dot", `${ID}.${SIGNATURE}.`],
+];
+
+for (const [after, value] of TRAILING) {
+  void test(`a visitor whose aid has ${after} after a valid signature is read under a newly minted identity`, async (t) => {
+    t.mock.method(crypto, "randomUUID", () => "fedcba98-7654-3210-fedc-ba9876543210" as const);
+    const seam = entrySeam(t);
+    const response = await seam.send("GET", TRANSCRIPT, { Cookie: `aid=${value}`, ...SOLVED });
+    assert.equal(response.status, 200);
+    assert.deepEqual(seam.log, ["auth absent", "turnstile solved-token", `tier transcript ${MINTED} anonymous s-42`]);
+    assert.deepEqual(response.headers.getSetCookie(), [MINTED_SET_COOKIE]);
+  });
+}
+
+for (const [after, value] of TRAILING) {
+  void test(`adoption with ${after} after a valid aid signature finds nothing to adopt`, async (t) => {
+    const seam = entrySeam(t);
+    const response = await seam.send("POST", "/v1/sessions/adopt", { ...HUMAN, Cookie: `aid=${value}` });
+    assert.equal(await response.text(), NOTHING_TO_ADOPT);
     assert.deepEqual(seam.log, WRITE);
   });
 }

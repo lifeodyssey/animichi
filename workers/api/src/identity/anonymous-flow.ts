@@ -1,4 +1,5 @@
 import { type AnonymousIdentity, resolveAnonymous } from "./auth.ts";
+import { withAnonymousCookie } from "./anonymous-id.ts";
 import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "../protect/cost-breaker.ts";
 import { readStoreOrString, type Env } from "../env.ts";
 import { rateLimitConfigFrom } from "../protect/rate-limiter.ts";
@@ -9,13 +10,6 @@ import { verifyTurnstilePass } from "./turnstile-pass.ts";
 
 /** The methods that only read: a HEAD is its GET without the body (RFC 9110 §9.3.2). */
 const READ_METHODS: readonly string[] = ["GET", "HEAD"];
-
-function withAnonymousCookie(response: Response, setCookie: string | null): Response {
-  if (setCookie === null) return response;
-  const headers = new Headers(response.headers);
-  headers.append("Set-Cookie", setCookie);
-  return new Response(response.body, { status: response.status, headers });
-}
 
 /** Normalize the ingress's breaker rejection into the shared login guidance,
  * and latch it so the edge short-circuits for the rest of the day. */
@@ -43,12 +37,38 @@ async function limitedOrNull(env: Env, rate: RatePolicy, identity: string): Prom
  * an anonymous caller could be served by. */
 export type AnonymousV1Service = (identity: AnonymousIdentity) => Promise<Response>;
 
-async function servedAnonymously(
-  env: Env, identity: AnonymousIdentity, nowMs: number, serve: AnonymousV1Service,
-): Promise<Response> {
-  const dayKey = utcDayKey(nowMs);
-  if (await budgetLatched(env.EDGE_GUARD, dayKey)) return budgetGuidanceResponse();
-  return guardBudget(env, await serve(identity), dayKey);
+/** One anonymous `/v1` request on its way through the walls. */
+interface AnonymousCall {
+  readonly env: Env;
+  readonly request: Request;
+  readonly nowMs: number;
+  readonly gate: TurnstileGate;
+  readonly rate: RatePolicy;
+  readonly serve: AnonymousV1Service;
+}
+
+async function servedAnonymously(call: AnonymousCall, identity: AnonymousIdentity): Promise<Response> {
+  const dayKey = utcDayKey(call.nowMs);
+  if (await budgetLatched(call.env.EDGE_GUARD, dayKey)) return budgetGuidanceResponse();
+  return guardBudget(call.env, await call.serve(identity), dayKey);
+}
+
+/** The Turnstile refusal, or null when the visitor holds a live pass for this
+ * identity or solves the challenge. */
+async function challengedOrNull(call: AnonymousCall, identity: AnonymousIdentity): Promise<Response | null> {
+  const secret = await readStoreOrString(call.env.ANON_ID_SECRET) ?? "";
+  if (await verifyTurnstilePass(call.request, identity.userId, secret, call.nowMs)) return null;
+  return guardTurnstile(call.request, call.env, call.gate, identity.userId);
+}
+
+/** What the walls and the service answer this identity: a refusal, or what it is served. */
+async function wallsAnswer(call: AnonymousCall, identity: AnonymousIdentity): Promise<Response> {
+  const challenged = await challengedOrNull(call, identity);
+  if (challenged !== null) return challenged;
+  const limited = await limitedOrNull(call.env, call.rate, identity.userId);
+  if (limited !== null) return limited;
+  const readOnly = READ_METHODS.includes(call.request.method) && call.rate.cost === "low";
+  return readOnly ? call.serve(identity) : servedAnonymously(call, identity);
 }
 
 /**
@@ -69,6 +89,10 @@ async function servedAnonymously(
  *    wall. Cookie-only identity is free to reset, which resets the per-identity
  *    bucket with it; an unsolved turn must therefore cost neither a bucket slot
  *    (legitimate visitors would pay for their own challenges) nor a model call.
+ *
+ * Whatever answers, a wall's refusal or the service, carries the identity this
+ * request minted, so a new visitor refused on a first request is not issued
+ * another identity on the next.
  */
 export async function handleAnonymousV1(
   env: Env, request: Request, nowMs: number, gate: TurnstileGate, rate: RatePolicy,
@@ -76,13 +100,6 @@ export async function handleAnonymousV1(
 ): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
-  const secret = await readStoreOrString(env.ANON_ID_SECRET) ?? "";
-  const durablePass = await verifyTurnstilePass(request, identity.userId, secret, nowMs);
-  const challenged = durablePass ? null : await guardTurnstile(request, env, gate, identity.userId);
-  if (challenged !== null) return challenged;
-  const limited = await limitedOrNull(env, rate, identity.userId);
-  if (limited !== null) return limited;
-  const readOnly = READ_METHODS.includes(request.method) && rate.cost === "low";
-  const served = readOnly ? await serve(identity) : await servedAnonymously(env, identity, nowMs, serve);
-  return withAnonymousCookie(served, identity.setCookie);
+  const answer = await wallsAnswer({ env, request, nowMs, gate, rate, serve }, identity);
+  return withAnonymousCookie(answer, identity.setCookie);
 }

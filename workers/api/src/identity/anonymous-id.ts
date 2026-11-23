@@ -8,12 +8,14 @@
 // ANON_ACCESS_ENABLED and ANON_ID_SECRET the edge keeps its existing 401.
 
 import { readStoreOrString, type Env } from "../env.ts";
-import { readCookie } from "./cookie-header.ts";
-import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
+import { firstVerifiedCookie } from "./cookie-header.ts";
+import { hmacHex, SIGNATURE_PATTERN, signaturesMatch } from "./cookie-signature.ts";
 
 const ANON_COOKIE = "aid";
 const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
-const ANON_ID_PATTERN = /^[0-9a-f]{32}$/;
+const ANON_ID_PATTERN = /[0-9a-f]{32}/;
+/** A whole `aid` value: an id, a dot and its signature, with nothing after it. */
+const ANON_TOKEN_PATTERN = new RegExp(`^(${ANON_ID_PATTERN.source})\\.(${SIGNATURE_PATTERN.source})$`);
 
 export type AnonymousEnv = Pick<Env, "ANON_ACCESS_ENABLED" | "ANON_ID_SECRET">;
 
@@ -36,9 +38,11 @@ export async function anonymousEnabled(env: AnonymousEnv): Promise<boolean> {
   return await anonymousSecret(env) !== undefined;
 }
 
+/** The id an `aid` value names, when the whole value has the token's shape and
+ * its signature is the one this Worker computes for the id. */
 async function verifyAnonymousToken(token: string, secret: string): Promise<string | null> {
-  const [id, signature] = token.split(".");
-  if (id === undefined || signature === undefined || !ANON_ID_PATTERN.test(id)) return null;
+  const [, id, signature] = ANON_TOKEN_PATTERN.exec(token) ?? [];
+  if (id === undefined || signature === undefined) return null;
   return signaturesMatch(signature, await hmacHex(secret, id)) ? id : null;
 }
 
@@ -54,9 +58,24 @@ async function mintAnonymousIdentity(secret: string): Promise<AnonymousIdentity>
   };
 }
 
-async function verifiedCookie(request: Request, secret: string): Promise<string | null> {
-  const cookie = readCookie(request, ANON_COOKIE);
-  return cookie === null ? null : verifyAnonymousToken(cookie, secret);
+/**
+ * `response` carrying the identity this request minted, as every anonymous
+ * answer does, whether it serves, verifies or refuses the visitor: a visitor
+ * refused on a first request keeps the identity the next request presents. A
+ * copy rather than an in-place write, since an answer from another object can
+ * arrive with immutable headers. A returning visitor (`setCookie` null) gets
+ * the answer as it is.
+ */
+export function withAnonymousCookie(response: Response, setCookie: string | null): Response {
+  if (setCookie === null) return response;
+  const headers = new Headers(response.headers);
+  headers.append("Set-Cookie", setCookie);
+  return new Response(response.body, { status: response.status, headers });
+}
+
+/** The id of the first `aid` the request carries that verifies, or null. */
+function verifiedCookie(request: Request, secret: string): Promise<string | null> {
+  return firstVerifiedCookie(request, ANON_COOKIE, (token) => verifyAnonymousToken(token, secret));
 }
 
 /**
