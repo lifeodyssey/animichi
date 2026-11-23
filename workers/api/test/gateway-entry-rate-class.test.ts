@@ -4,7 +4,10 @@
  * every limiter open: `durable` asks the coarse damper and then the caller's
  * durable shard (and, for a visitor's turn, the budget latch); `native` asks the
  * coarse damper alone; `none` asks neither. How each class answers a limiter
- * outage is pinned in `gateway-entry-limiter-outage.test.ts`.
+ * outage is pinned in `gateway-entry-limiter-outage.test.ts`. A visitor's HEAD
+ * of a conversation read is metered as its GET is: no limiter is asked and the
+ * budget latch is not read. A HEAD to the users prefix is metered as its GET
+ * is, and an OPTIONS to it is answered before identity or any limiter.
  *
  * Routing and rate classification read one table: each entry of the route
  * table (`src/gateway/route-table.ts`) carries its rate class, so a request is
@@ -49,8 +52,8 @@ const CLASSIFIED: readonly Classified[] = [
   ["GET", "/catalog/public/popular", "a reader at 203.0.113.7", "native", 200,
     ["coarse ip:203.0.113.7", "catalog GET /catalog/public/popular"]],
   ["GET", USERS, "a verified caller", "none", 200, ["auth u1", `users GET ${USERS} as u1/human`]],
-  ["HEAD", USERS, "a verified caller", "durable", 200, [...WRITE, `users HEAD ${USERS} as u1/human`]],
-  ["OPTIONS", USERS, "a verified caller", "durable", 200, [...WRITE, `users OPTIONS ${USERS} as u1/human`]],
+  ["HEAD", USERS, "a verified caller", "none", 200, ["auth u1", `users GET ${USERS} as u1/human`]],
+  ["OPTIONS", USERS, "a verified caller", "none", 204, []],
   ["POST", USERS, "a verified caller", "durable", 200, [...WRITE, `users POST ${USERS} as u1/human`]],
   ["PUT", `${USERS}/r-1`, "a verified caller", "durable", 200, [...WRITE, `users PUT ${USERS}/r-1 as u1/human`]],
   ["PATCH", `${USERS}/r-1`, "a verified caller", "durable", 200, [...WRITE, `users PATCH ${USERS}/r-1 as u1/human`]],
@@ -67,6 +70,8 @@ const CLASSIFIED: readonly Classified[] = [
     ["auth absent", `coarse ${VISITOR}`, `rate:${VISITOR} POST /rate-limit`, "budget GET /budget", `tier chat ${VISITOR} anonymous -`]],
   ["GET", "/v1/conversations/s-42/messages", "an admitted visitor", "none", 200, ["auth absent", `tier transcript ${VISITOR} anonymous s-42`]],
   ["GET", "/v1/conversations/s-42/stream", "an admitted visitor", "none", 200, ["auth absent", `tier stream ${VISITOR} anonymous s-42`]],
+  ["HEAD", "/v1/conversations/s-42/messages", "an admitted visitor", "none", 200, ["auth absent", `tier transcript ${VISITOR} anonymous s-42`]],
+  ["HEAD", "/v1/conversations/s-42/stream", "an admitted visitor", "none", 200, ["auth absent", `tier stream ${VISITOR} anonymous s-42`]],
   ["POST", "/v1/unknown", "a verified caller", "none", 404, []],
   ["POST", "/v1/byok/anything-future", "a verified caller", "none", 404, []],
   ["POST", "/v1/byoke/probe", "a verified caller", "none", 404, []],

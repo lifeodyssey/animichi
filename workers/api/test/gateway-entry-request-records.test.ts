@@ -7,11 +7,11 @@
  * request by its class and never by its path, so the class is what production
  * logs call a request: a route that changes class changes every count of it.
  *
- * Every class is here: the landing assets, both public catalog reads, the users
- * prefix (a read and a write), adoption, the retired migration path, the `/v1`
- * surface (each agent-tier route, Turnstile verification and an unknown `/v1`
- * path), and a request no route serves (an unmatched path, a HEAD of the
- * readiness probe and the bare `/tiles` name).
+ * Every class is here: the landing assets (a HEAD of the readiness probe among
+ * them), both public catalog reads, the users prefix (a read and a write),
+ * adoption, the retired migration path, the `/v1` surface (each agent-tier
+ * route, Turnstile verification and an unknown `/v1` path), and a request no
+ * route serves (an unmatched path and the bare `/tiles` name).
  *
  * test-type: characterization
  */
@@ -49,6 +49,7 @@ const UNREACHABLE_USERS = { USERS: { fetch: () => Promise.reject(new TypeError("
 
 const REQUESTS: readonly RecordedRequest[] = [
   served("the readiness probe", "GET", "/healthz", "landing"),
+  served("a HEAD of the readiness probe", "HEAD", "/healthz", "landing"),
   served("a tile", "GET", "/tiles/styles/basemap.json", "landing"),
   served("an Anitabi image", "GET", "/img/a.jpg?plan=h160", "landing"),
   served("an anime overview read", "GET", "/catalog/public/anime-overview/3302", "public-catalog"),
@@ -65,7 +66,6 @@ const REQUESTS: readonly RecordedRequest[] = [
   served("a Turnstile verification", "POST", "/v1/turnstile/verify", "v1"),
   served("an unknown /v1 path", "POST", "/v1/unknown", "v1"),
   served("an unmatched path", "GET", "/unknown", "not-found"),
-  served("a HEAD of the readiness probe", "HEAD", "/healthz", "not-found"),
   served("the bare /tiles name", "GET", "/tiles", "not-found"),
   { who: "a users read whose binding is unreachable", method: "GET", path: "/v1/users/saved-routes", vars: UNREACHABLE_USERS,
     requestClass: "users", records: [[START, "users"], [COMPLETION, "users"], [ERROR, "users"]] },

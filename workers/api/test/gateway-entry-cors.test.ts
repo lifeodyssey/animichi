@@ -4,15 +4,17 @@
  * `X-Request-Id` — for a simple request and a preflight from the web app's own
  * origin, from another origin and with no origin, on each surface.
  *
- * Only the two private asset arms answer CORS: `*`, the fixed method list
+ * The two private asset arms answer CORS: `*`, the fixed method list
  * `GET, HEAD, OPTIONS`, `Range` as the one allowed request header whatever a
  * preflight asks for, `Vary: Origin` always, the exposed range headers only to a
  * caller that named an origin, and the arm's cache lifetime on a preflight. The
  * Anitabi arm adds `Access-Control-Allow-Origin: *` to an image it served and
- * proxies a preflight as an image; its refusals carry nothing. No other surface
- * answers any CORS header, and a preflight to one is answered as that route
- * answers OPTIONS. There is no origin allowlist, so the web app's origin and any
- * other origin get identical sets.
+ * answers a preflight exactly as the docs arm does, the two sharing one URL
+ * space and one cache lifetime; its refusals carry no CORS header. No other
+ * surface answers any CORS header. The users prefix answers OPTIONS itself, a
+ * 204 that names in `Allow` the methods the users contract declares; any other
+ * surface answers a preflight as that route answers OPTIONS. There is no origin
+ * allowlist, so the web app's origin and any other origin get identical sets.
  *
  * test-type: characterization
  */
@@ -57,6 +59,10 @@ const DOCS_PREFLIGHT: HeaderSet = [["access-control-allow-headers", "Range"], ["
 const IMAGE: HeaderSet = [["access-control-allow-origin", "*"], ["cache-control", "public, max-age=604800, s-maxage=2592000"],
   ["content-type", "image/jpeg"]];
 const JSON_ONLY: HeaderSet = [["content-type", "application/json"]];
+/** The methods `usersContract` (`packages/contract/src/users-contract.ts`) declares under `/v1/users/`
+ * — GET and POST on `saved-routes`, DELETE on `saved-routes/{id}` — in declaration order, with the
+ * HEAD a GET route also answers beside GET and the OPTIONS the gateway answers itself last. */
+const USERS_OPTIONS: HeaderSet = [["allow", "GET, HEAD, POST, DELETE, OPTIONS"]];
 
 type Answered = readonly [answer: string, method: string, path: string, headers: Readonly<Record<string, string>>,
   status: number, set: HeaderSet];
@@ -77,12 +83,15 @@ const ANSWERED: readonly Answered[] = [
   ["an Anitabi image, to the web app's origin", "GET", "/img/a.jpg?plan=h160", ALLOWED, 200, IMAGE],
   ["an Anitabi image, to another origin", "GET", "/img/a.jpg?plan=h160", DISALLOWED, 200, IMAGE],
   ["an Anitabi image, to no origin", "GET", "/img/a.jpg?plan=h160", {}, 200, IMAGE],
-  ["an Anitabi image preflight, proxied as the image", "OPTIONS", "/img/a.jpg?plan=h160", { ...ALLOWED, ...ASK_RANGE }, 200, IMAGE],
+  ["an Anitabi image preflight, answered as a docs asset's", "OPTIONS", "/img/a.jpg?plan=h160", { ...ALLOWED, ...ASK_RANGE }, 204,
+    DOCS_PREFLIGHT],
   ["an Anitabi refusal", "GET", "/img/a.jpg", ALLOWED, 400, JSON_ONLY],
   ["a preflight to the turn", "OPTIONS", "/v1/chat", { ...ALLOWED, ...ASK_MORE }, 404, JSON_ONLY],
   ["a preflight to the turn from another origin", "OPTIONS", "/v1/chat", { ...DISALLOWED, ...ASK_MORE }, 404, JSON_ONLY],
   ["a verified turn", "POST", "/v1/chat", { ...ALLOWED, ...HUMAN }, 200, JSON_ONLY],
-  ["a preflight to users", "OPTIONS", "/v1/users/saved-routes", { ...ALLOWED, ...ASK_MORE }, 401, JSON_ONLY],
+  ["a preflight to users", "OPTIONS", "/v1/users/saved-routes", { ...ALLOWED, ...ASK_MORE }, 204, USERS_OPTIONS],
+  ["a preflight to users that carries a bearer", "OPTIONS", "/v1/users/saved-routes", { ...ALLOWED, ...ASK_MORE, ...HUMAN }, 204,
+    USERS_OPTIONS],
   ["a verified users read", "GET", "/v1/users/saved-routes", { ...ALLOWED, ...HUMAN }, 200, [["content-type", "text/plain"]]],
   ["a public catalog read", "GET", "/catalog/public/popular", ALLOWED, 200, JSON_ONLY],
   ["a preflight to the public catalog", "OPTIONS", "/catalog/public/popular", { ...ALLOWED, ...ASK_GET }, 404, JSON_ONLY],
@@ -91,7 +100,7 @@ const ANSWERED: readonly Answered[] = [
 ];
 
 for (const [answer, method, path, headers, status, set] of ANSWERED) {
-  void test(`${answer} answers ${String(status)} with today's exact header set`, async (t) => {
+  void test(`${answer} answers ${String(status)} with exactly this header set, its request ID aside`, async (t) => {
     const seam = entrySeam(t);
     const response = await seam.send(method, path, headers);
     assert.equal(response.status, status);

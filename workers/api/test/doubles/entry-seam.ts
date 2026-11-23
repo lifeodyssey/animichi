@@ -8,9 +8,10 @@
  * `bareSeam` injects nothing. `entrySeam` injects only the four hermetic seams
  * `WorkerDeps` documents — the identity verdict, the Turnstile check, the agent
  * tier and the adoption store — and each of them writes what it was asked into
- * the case's ordered log, beside the bindings of `entry-seam-bindings.ts`. Route
- * selection, the showcase gate, cookies, the limiter, the forwards, the proxies,
- * the envelopes and the request ID run as they do in production.
+ * the case's ordered log, beside the bindings of `entry-seam-bindings.ts`. A
+ * case may hand `entrySeam` its own for any of the four. Route selection, the
+ * showcase gate, cookies, the limiter, the forwards, the proxies, the envelopes
+ * and the request ID run as they do in production.
  *
  * Every case runs on a frozen clock (`NOW`), because the Turnstile pass below
  * was minted at that instant and is valid for five minutes after it.
@@ -128,11 +129,14 @@ function prepared(t: TestContext): string[] {
   return log;
 }
 
-/** The app with its four hermetic seams injected, over the recording bindings. */
-export function entrySeam(t: TestContext, plan: LimiterPlan = UNLIMITED, vars: Readonly<Record<string, unknown>> = {}): EntrySeam {
+/** The app with its four hermetic seams injected, over the recording bindings; `seams` replaces any of them. */
+export function entrySeam(
+  t: TestContext, plan: LimiterPlan = UNLIMITED, vars: Readonly<Record<string, unknown>> = {}, seams: WorkerDeps = {},
+): EntrySeam {
   const log = prepared(t);
   const app = createWorkerApp({
     authenticate: verdicts(log), turnstileGate: turnstileCheck(log), agentTurns: namingTier(log), sessionAdoption: adoptionStore(log),
+    ...seams,
   });
   return seamOver(app, entryEnv(log, plan, vars), log);
 }

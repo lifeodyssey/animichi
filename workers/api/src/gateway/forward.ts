@@ -24,9 +24,17 @@ function applyRequestId(headers: Headers): void {
   if (requestId !== undefined) headers.set(REQUEST_ID_HEADER, requestId);
 }
 
-/** Forward an allowlisted anonymous GET to the private CATALOG binding. */
+/** The method a service is asked with. A HEAD is its GET without the body
+ * (RFC 9110 §9.3.2), and both services dispatch through oRPC, whose router has
+ * no HEAD route, so a HEAD forwarded as itself would be their 404. The service
+ * answers the GET, and the router drops that body for the HEAD (`router.ts`). */
+function forwardedMethod(request: Request): string {
+  return request.method === "HEAD" ? "GET" : request.method;
+}
+
+/** Forward an allowlisted anonymous read to the private CATALOG binding. */
 export function forwardPublicCatalog(env: Env, request: Request): Promise<Response> {
-  return env.CATALOG.fetch(new Request(request, { headers: publicCatalogHeaders(request) }));
+  return env.CATALOG.fetch(new Request(request, { method: forwardedMethod(request), headers: publicCatalogHeaders(request) }));
 }
 
 /** The worker-verified identity replaces the caller's own headers. */
@@ -69,5 +77,5 @@ export function forwardUsers(env: Env, request: Request, auth: { userId: string;
   stripUntrustedHeaders(headers);
   applyIdentity(headers, auth);
   applyRequestId(headers);
-  return env.USERS.fetch(new Request(request, { headers }));
+  return env.USERS.fetch(new Request(request, { method: forwardedMethod(request), headers }));
 }
