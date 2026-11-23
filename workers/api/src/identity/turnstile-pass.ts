@@ -1,17 +1,8 @@
 import { TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
 import { readCookie } from "./cookie-header.ts";
-import { signaturesMatch } from "./cookie-signature.ts";
+import { hmacHex, signaturesMatch } from "./cookie-signature.ts";
 
 const PASS_COOKIE = "turnstile_pass";
-
-async function hmacHex(secret: string, message: string): Promise<string> {
-  const bytes = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", bytes.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, bytes.encode(message));
-  return Array.from(new Uint8Array(signature)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function payload(identity: string, expiresAt: number): string {
   return `${identity}\n${String(expiresAt)}`;
