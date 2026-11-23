@@ -35,14 +35,17 @@ export class SessionAgent extends Agent<Env> {
   #driving = false;
   #budget?: TurnBudget;
 
+  /** Every start registers the recovery cadence; domain startup runs only while no domain is bound. When a startup
+   * fails after `onStart` returned, the Agents SDK resets its lifecycle and reruns `onStart` on this same instance,
+   * and that retry must keep the domain the first attempt bound rather than open a second one. */
   override async onStart() {
     await this.scheduleEvery(this.wakeIntervalMs() / 1000, "wakeSession");
-    await this.initializeSession();
+    if (!this.#domain) await this.initializeSession();
   }
 
-  /** Domain startup, which every start runs: it binds the NeonSessionRepo, its business database and the
-   * Env-configured model operations. A host that runs this class on other dependencies overrides it and binds
-   * its own domain. */
+  /** Domain startup, which a start runs while no domain is bound: it binds the NeonSessionRepo, its business
+   * database and the Env-configured model operations. A host that runs this class on other dependencies overrides
+   * it and binds its own domain. */
   protected async initializeSession() {
     const resources = await bootstrapNativeSession(this.env, this.name, BACKGROUND_CONTEXT);
     this.bindSession({ repo: resources.repo, metadata: resources.metadata, compose: resources.compose, business: resources.db, operations: new ConfiguredOperations(resources) });
