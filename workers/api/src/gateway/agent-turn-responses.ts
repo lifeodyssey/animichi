@@ -22,12 +22,10 @@ import type { ByokProbeVerdict } from "../agent/byok/byok-probe.ts";
 import type { ChatEnvelopeError } from "./chat-envelope.ts";
 
 /**
- * The per-identity quota rejection code, mirrored rather than imported: it
- * lives in `packages/contract/src/error-registry.ts` beside a zod payload
- * schema, and that module cannot be imported here without pulling zod into the
- * Worker bundle (`packages/contract/AGENTS.md`). Same trade the budget breaker
- * already makes in `protect/cost-breaker.ts`; `test/agent-turn-wire.test.ts`
- * reads the contract file so the two literals cannot drift silently.
+ * The per-identity quota rejection code, a local copy of the one
+ * `packages/contract/src/error-registry.ts` exports;
+ * `test/agent-turn-wire.test.ts` reads the contract file so the two literals
+ * cannot drift silently.
  */
 const ANON_QUOTA_EXHAUSTED_CODE = "anon_quota_exhausted";
 

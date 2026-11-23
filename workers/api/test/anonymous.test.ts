@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { nativeAgentReceiver, type NativeAgentCall } from "./doubles/native-agent-receiver.ts";
-import { ANON_BUDGET_EXHAUSTED_CODE } from "../src/protect/cost-breaker.ts";
+import { ANON_BUDGET_EXHAUSTED_CODE } from "@animichi/contract";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { stubCtx } from "./doubles/entry-env.ts";
 import { openStream } from "./doubles/open-stream.ts";

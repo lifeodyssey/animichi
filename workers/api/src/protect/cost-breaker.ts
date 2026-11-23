@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { ANON_BUDGET_EXHAUSTED_CODE } from "@animichi/contract";
 import { z } from "zod";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
 import { guardCall } from "./guard-call.ts";
@@ -12,13 +13,13 @@ import { guardCall } from "./guard-call.ts";
  * whose ingress used to make it (`agent/admission/reserve-quota.ts` records
  * `anonymous_budget_exhausted`, and `gateway/native-admission-response.ts` maps
  * that refusal onto `budgetGuidanceResponse` below). This edge module owns the
- * breaker's *wire contract* and a same-day latch: once the tier has reported the
- * budget exhausted, the edge short-circuits subsequent anonymous `/v1/chat`
+ * breaker's *wire response*, whose code is the contract's
+ * `ANON_BUDGET_EXHAUSTED_CODE`, and a same-day latch: once the tier has reported
+ * the budget exhausted, the edge short-circuits subsequent anonymous `/v1/chat`
  * requests for the rest of the UTC day instead of paying for another admission
  * and model round-trip per rejected visitor. Logged-in traffic never reaches
  * this path.
  */
-export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
 
 const LATCH_KEY = "budget-latch";
 const GUIDANCE_MESSAGE =
