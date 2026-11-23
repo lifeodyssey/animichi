@@ -2,12 +2,12 @@
  * SUT: the API Worker's request gateway, entered as the Worker is entered. This
  * file pins where the showcase gate sits today: it is the first gate after route
  * selection. In showcase mode a request of a functional class — anything under
- * `/v1`, known or not, the retired migration path, and a GET of the public
- * catalog — answers 403 before the method gate, identity, Turnstile, the query
- * check or any limiter is consulted, with every limiter exhausted to show none
- * was. The landing assets and paths of no class are never denied: `/healthz`
- * only as a GET, the `/tiles/` and `/img/` prefixes for any method, and every
- * unmatched path keeps its 404.
+ * `/v1`, known or not, the retired migration path, and a GET or a HEAD of the
+ * public catalog — answers 403 before the method gate, identity, Turnstile, the
+ * query check or any limiter is consulted, with every limiter exhausted to show
+ * none was. The landing assets and paths of no class are never denied:
+ * `/healthz` as a GET or a HEAD, the `/tiles/` and `/img/` prefixes for any
+ * method, and every unmatched path keeps its 404.
  *
  * Only the literal "false" opens the functional routes; any other value fails
  * closed.
@@ -40,7 +40,7 @@ const GATED: readonly Gated[] = [
   ["true", "GET", "/unknown", "a verified caller", 404, NOT_FOUND, []],
   ["true", "GET", "/", "a caller with no credential", 404, NOT_FOUND, []],
   ["true", "POST", "/catalog/public/popular", "a caller with no credential", 404, NOT_FOUND, []],
-  ["true", "HEAD", "/healthz", "a caller with no credential", 404, "", []],
+  ["true", "HEAD", "/healthz", "a caller with no credential", 200, "", []],
   ["true", "GET", "/healthz", "a caller with no credential", 200, '{"status":"ok"}', []],
   ["true", "GET", "/tiles/styles/basemap.json", "a caller with no credential", 200, '{"version":8}', ["tiles tiles/styles/basemap.json"]],
   ["true", "POST", "/tiles/styles/basemap.json", "a caller with no credential", 405, TILE_METHOD_NOT_ALLOWED, []],
@@ -56,7 +56,7 @@ const GATED: readonly Gated[] = [
   ["true", "GET", "/v1/users", "a verified caller", 403, SHOWCASE_DENIED, []],
   ["true", "HEAD", "/v1/conversations", "a verified caller", 403, "", []],
   ["true", "GET", "/v1/conversations/%ZZ/messages", "a verified caller", 403, SHOWCASE_DENIED, []],
-  ["true", "HEAD", "/catalog/public/popular", "a caller with no credential", 404, "", []],
+  ["true", "HEAD", "/catalog/public/popular", "a caller with no credential", 403, "", []],
   ["true", "GET", "/catalog/public/anime-overview/abc", "a caller with no credential", 404, NOT_FOUND, []],
 ];
 

@@ -35,7 +35,7 @@ const ANSWERS: readonly Answer[] = [
   ["an empty tile", "GET", "/tiles/14/135/893.mvt", {}, {}, UNLIMITED, 204],
   ["a verification with no body", "POST", "/v1/turnstile/verify", HUMAN, {}, UNLIMITED, 204],
   ["a 404", "GET", "/unknown", {}, {}, UNLIMITED, 404],
-  ["a HEAD 404", "HEAD", "/healthz", {}, {}, UNLIMITED, 404],
+  ["a HEAD of the readiness probe", "HEAD", "/healthz", {}, {}, UNLIMITED, 200],
   ["a 405", "GET", "/v1/sessions/adopt", HUMAN, {}, UNLIMITED, 405],
   ["an asset arm's refusal", "GET", "/tiles/", {}, {}, UNLIMITED, 404],
   ["a credential refusal", "GET", "/v1/users/saved-routes", {}, {}, UNLIMITED, 401],

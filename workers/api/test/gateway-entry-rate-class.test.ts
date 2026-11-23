@@ -4,7 +4,9 @@
  * every limiter open: `durable` asks the coarse damper and then the caller's
  * durable shard (and, for a visitor's turn, the budget latch); `native` asks the
  * coarse damper alone; `none` asks neither. How each class answers a limiter
- * outage is pinned in `gateway-entry-limiter-outage.test.ts`.
+ * outage is pinned in `gateway-entry-limiter-outage.test.ts`. A visitor's HEAD
+ * of a conversation read is metered as its GET is: no limiter is asked and the
+ * budget latch is not read.
  *
  * Routing and rate classification read one table: each entry of the route
  * table (`src/gateway/route-table.ts`) carries its rate class, so a request is
@@ -67,6 +69,8 @@ const CLASSIFIED: readonly Classified[] = [
     ["auth absent", `coarse ${VISITOR}`, `rate:${VISITOR} POST /rate-limit`, "budget GET /budget", `tier chat ${VISITOR} anonymous -`]],
   ["GET", "/v1/conversations/s-42/messages", "an admitted visitor", "none", 200, ["auth absent", `tier transcript ${VISITOR} anonymous s-42`]],
   ["GET", "/v1/conversations/s-42/stream", "an admitted visitor", "none", 200, ["auth absent", `tier stream ${VISITOR} anonymous s-42`]],
+  ["HEAD", "/v1/conversations/s-42/messages", "an admitted visitor", "none", 200, ["auth absent", `tier transcript ${VISITOR} anonymous s-42`]],
+  ["HEAD", "/v1/conversations/s-42/stream", "an admitted visitor", "none", 200, ["auth absent", `tier stream ${VISITOR} anonymous s-42`]],
   ["POST", "/v1/unknown", "a verified caller", "none", 404, []],
   ["POST", "/v1/byok/anything-future", "a verified caller", "none", 404, []],
   ["POST", "/v1/byoke/probe", "a verified caller", "none", 404, []],

@@ -6,11 +6,15 @@
  * or a limiter refusal. The served method itself is pinned in
  * `gateway-entry-routes.test.ts`.
  *
- * Three behaviours here are easy to lose in a framework swap. HEAD is not GET:
- * the GET-only routes answer it 404. The Anitabi image arm has no method gate at
- * all, so every method is proxied as an upstream GET. The `/v1/users/` prefix
- * forwards every method, and every method but GET is charged to the durable
- * limiter.
+ * Three behaviours here are easy to lose in a framework swap:
+ *
+ * - A HEAD of the readiness probe, of a public catalog read or of an agent-tier
+ *   read answers as its GET does, through the same gates and charges, with no
+ *   body; a catalog HEAD reaches the catalog as a GET.
+ * - The Anitabi image arm has no method gate at all, so every method is proxied
+ *   as an upstream GET.
+ * - The `/v1/users/` prefix forwards every method, and every method but GET is
+ *   charged to the durable limiter.
  *
  * test-type: characterization
  */
@@ -33,7 +37,7 @@ const ORIGIN_READ = ["origin https://image.anitabi.cn/a.jpg?plan=h160"];
 const USER_CHARGE = ["auth u1", "coarse authed:u1", "rate:authed:u1 POST /rate-limit"];
 
 const NEIGHBOURS: readonly Neighbour[] = [
-  ["HEAD", "/healthz", 404, "", []],
+  ["HEAD", "/healthz", 200, "", []],
   ["POST", "/healthz", 404, NOT_FOUND, []],
   ["PUT", "/healthz", 404, NOT_FOUND, []],
   ["PATCH", "/healthz", 404, NOT_FOUND, []],
@@ -57,13 +61,13 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PUT", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
   ["PATCH", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
   ["DELETE", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
-  ["HEAD", POPULAR, 404, "", []],
+  ["HEAD", POPULAR, 200, "", ["coarse public-read", `catalog GET ${POPULAR}`]],
   ["POST", POPULAR, 404, NOT_FOUND, []],
   ["PUT", POPULAR, 404, NOT_FOUND, []],
   ["PATCH", POPULAR, 404, NOT_FOUND, []],
   ["DELETE", POPULAR, 404, NOT_FOUND, []],
   ["OPTIONS", POPULAR, 404, NOT_FOUND, []],
-  ["HEAD", OVERVIEW, 404, "", []],
+  ["HEAD", OVERVIEW, 200, "", ["coarse public-read", `catalog GET ${OVERVIEW}`]],
   ["POST", OVERVIEW, 404, NOT_FOUND, []],
   ["PUT", OVERVIEW, 404, NOT_FOUND, []],
   ["PATCH", OVERVIEW, 404, NOT_FOUND, []],
@@ -98,19 +102,19 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PATCH", "/v1/byok/probe", 404, NOT_FOUND, []],
   ["DELETE", "/v1/byok/probe", 404, NOT_FOUND, []],
   ["OPTIONS", "/v1/byok/probe", 404, NOT_FOUND, []],
-  ["HEAD", "/v1/conversations", 404, "", []],
+  ["HEAD", "/v1/conversations", 200, "", ["auth u1", "tier list u1 human -"]],
   ["POST", "/v1/conversations", 404, NOT_FOUND, []],
   ["PUT", "/v1/conversations", 404, NOT_FOUND, []],
   ["PATCH", "/v1/conversations", 404, NOT_FOUND, []],
   ["DELETE", "/v1/conversations", 404, NOT_FOUND, []],
   ["OPTIONS", "/v1/conversations", 404, NOT_FOUND, []],
-  ["HEAD", "/v1/conversations/s-42/messages", 404, "", []],
+  ["HEAD", "/v1/conversations/s-42/messages", 200, "", ["auth u1", "tier transcript u1 human s-42"]],
   ["POST", "/v1/conversations/s-42/messages", 404, NOT_FOUND, []],
   ["PUT", "/v1/conversations/s-42/messages", 404, NOT_FOUND, []],
   ["PATCH", "/v1/conversations/s-42/messages", 404, NOT_FOUND, []],
   ["DELETE", "/v1/conversations/s-42/messages", 404, NOT_FOUND, []],
   ["OPTIONS", "/v1/conversations/s-42/messages", 404, NOT_FOUND, []],
-  ["HEAD", "/v1/conversations/s-42/stream", 404, "", []],
+  ["HEAD", "/v1/conversations/s-42/stream", 200, "", ["auth u1", "tier stream u1 human s-42"]],
   ["POST", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
   ["PUT", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
   ["PATCH", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
