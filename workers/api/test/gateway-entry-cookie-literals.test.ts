@@ -4,12 +4,13 @@
  * (`aid`) and the Turnstile pass, both minted by today's code under the fixed
  * test key (`entry-seam.ts`). A cookie minted today must still verify after the
  * swap, and the `Set-Cookie` lines the gateway writes must stay byte-identical —
- * value, attribute order and all — on exactly the answers that carry them today.
+ * value, attribute order and all — on exactly the answers listed below.
  *
- * A visitor's identity is minted when it is first needed, but written only on an
- * answer that serves them or verifies them: a refused request drops it. The
- * Anitabi image arm strips its origin's cookie; the users forward hands its
- * service's cookie through.
+ * A visitor's identity is minted when it is first needed and written on the
+ * answer to that request, whether the request is served, verified or refused: a
+ * refused first turn carries the same `aid` line, byte for byte, as a served
+ * one. The Anitabi image arm strips its origin's cookie; the users forward hands
+ * its service's cookie through.
  *
  * test-type: characterization
  */
@@ -68,8 +69,8 @@ const WRITTEN: readonly Written[] = [
   ["an admitted visitor's turn", "POST", "/v1/chat", ADMITTED, UNLIMITED, 200, []],
   ["a verified caller's turn", "POST", "/v1/chat", HUMAN, UNLIMITED, 200, []],
   ["a verified caller's verification", "POST", "/v1/turnstile/verify", HUMAN, UNLIMITED, 204, []],
-  ["a new visitor refused by Turnstile", "POST", "/v1/chat", {}, UNLIMITED, 403, []],
-  ["a new visitor refused by the limiter", "POST", "/v1/chat", SOLVED, LIMITED, 429, []],
+  ["a new visitor refused by Turnstile", "POST", "/v1/chat", {}, UNLIMITED, 403, [AID_SET_COOKIE]],
+  ["a new visitor refused by the limiter", "POST", "/v1/chat", SOLVED, LIMITED, 429, [AID_SET_COOKIE]],
   ["an image whose origin set a cookie", "GET", "/img/a.jpg?plan=h160", {}, UNLIMITED, 200, []],
   ["the readiness probe", "GET", "/healthz", {}, UNLIMITED, 200, []],
 ];
