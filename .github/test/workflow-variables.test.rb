@@ -24,15 +24,13 @@ class WorkflowVariablesTest < Minitest::Test
   INDEXED = /(?<![A-Za-z0-9_.])vars\s*\[\s*['"]([A-Za-z0-9_]+)['"]\s*\]/
   GUARD_LOOP = /for key in ([A-Z0-9_ ]+); do/
 
-  # `gh variable list --repo lifeodyssey/animichi`, 2026-09-16. GitHub's default
-  # token cannot list variables and no runner can ask GitHub, so the inventory is
-  # pinned here: whoever adds, renames or retires one updates this list in the same
-  # commit — the human discipline docs/ops/secrets.md states for the two credential
-  # tables. Staging-scoped names (VITE_NEON_AUTH_BASE_URL, VITE_SHOWCASE_MODE,
-  # VITE_TURNSTILE_SITE_KEY) are deliberately absent: a job not bound to that
-  # `environment:` reads them as empty, which is the failure this check exists for.
-  DEFINED = %w[CLOUDFLARE_ACCOUNT_ID DEFAULT_AGENT_MODEL DOORBELL_STAGING_URL
-               FALLBACK_AGENT_MODEL MIGRATOR_STAGING_URL OPENAI_COMPAT_BASE_URL].freeze
+  # `gh variable list --repo lifeodyssey/animichi`, 2026-11-23: the repository
+  # holds these two, and the `staging` and `production` environments hold none.
+  # GitHub's default token cannot list variables and no runner can ask GitHub, so
+  # the inventory is pinned here: whoever adds, renames or retires one updates this
+  # list in the same commit — the human discipline docs/ops/secrets.md states for
+  # the two credential tables.
+  DEFINED = %w[CLOUDFLARE_ACCOUNT_ID MIGRATOR_STAGING_URL].freeze
 
   def load_document(relative)
     RepositoryYaml.load_file(File.join(ROOT, relative))

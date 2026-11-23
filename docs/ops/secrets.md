@@ -4,15 +4,13 @@ What every credential the delivery lane and the runtime depend on is for, who co
 what breaks if it is rotated. Started 2026-07-29 after setting `ANON_ID_SECRET` blind — the value
 went in with no record anywhere of what it does.
 
-No workflow reads a GitHub secret any more. The three GitHub secret stores — repository,
-`staging`, `production` — still hold every one of their values: a read-only `gh secret list` on
-2026-09-23 returned 20 repository secrets, 13 on `staging` and 11 on `production`, the three counts
-#1367 enumerates in its own scope. Emptying them is an owner step inside #1367, which absorbed
-#1081 and closed it; #1081 closed `NOT_PLANNED` on 2026-09-21 with nothing deleted, so the work
-moved rather than finished — do not read a closed #1081 as evidence that a copy is gone. The one
-witness that step waits for is a green staging deploy on the ESC path; the nightly eval that used
-to be the second was deleted with the Python agent (#1607). Until #1367 lands this file describes
-two homes at once: the one every consumer reads from (below), and a GitHub copy nothing reads.
+No workflow reads a GitHub secret any more. On 2026-11-23 the owner had 39 of the 44 secrets in
+the three GitHub secret stores — repository, `staging`, `production` — deleted: a read-only
+`gh secret list` had returned 20 repository secrets, 13 on `staging` and 11 on `production` on
+2026-09-23, and returned 4, none and 1 on 2026-11-23. Those five GitHub copies of four names are
+the vendor runtime keys, kept until the owner confirms the production ESC environment holds them
+("What GitHub still holds", below). Every consumer reads from the homes this file describes; the
+five GitHub copies are read by nothing.
 
 Companion to [`deployment.md`](./deployment.md), which covers non-secret runtime config
 (`LOG_LEVEL` and the rest of the runtime vars that never touch a GitHub secret). **Values never
@@ -43,8 +41,7 @@ renames, re-scopes, or retires a credential updates this file **in the same comm
 `grep -c 'secrets\.' .github/workflows/*.yml` is 0, and `workflow-credentials.test.rb` keeps it
 there. The same-name override rule this section used to explain — an environment secret shadowing a
 same-named repository secret — still describes how GitHub would resolve a name, but nothing asks it
-to resolve one. The stores themselves are emptied as #1367's last owner step, after that card's
-green staging run on the ESC path.
+to resolve one.
 
 There are exactly two ESC environments, `lifeodyssey/animichi/staging` and
 `lifeodyssey/animichi/prod`, and a job opens only its own stage's one. Where the three kinds of
@@ -56,14 +53,41 @@ credential live now:
 | Edge runtime (the active names in chain 1 below) | Target: Pulumi ESC `pulumiConfig` as `fn::secret` → Cloudflare Secrets Store; platform cutover requires the gates below | Pulumi, never CI. `pulumi/esc-action` exports `environmentVariables` and `files` only, so a value under `pulumiConfig` cannot reach a publishing job at all |
 | Staging Access (`CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`) | Pulumi ESC, under `environmentVariables` of the staging environment only — but nobody sets the value: the environment imports two stack outputs through its `pulumi-stacks` provider | `pulumi/esc-action` in `cd.yml`'s `smoke` job; `esc env open` locally. Full section below, because these two were never GitHub secrets and so are outside the tables' scope |
 
+One owner step outside the repository is still open: pinning the Pulumi Cloud issuer policy from
+`sub: repo:lifeodyssey/animichi:*` to exactly the two environment subjects
+`repo:lifeodyssey/animichi:environment:staging` and `…:environment:production` — the environments
+`cd.yml`'s `stage` and `promote-production` jobs bind — with both GitHub environments' deployment
+branches restricted to `main` (`docs/adr/0006-platform-over-handwritten-ci.md`, "Identity and
+authorisation boundary"). The step is tracked as #1367, whose card takes the policy text as its
+acceptance evidence.
+
 `CLOUDFLARE_ACCOUNT_ID` left this file entirely: it is an account identifier, not a credential. The
 repository variable `vars.CLOUDFLARE_ACCOUNT_ID` was created 2026-09-08 and is what the workflows
-read; the GitHub *secret* of the same name is one of the copies awaiting deletion.
+read; the GitHub *secret* of the same name was deleted from all three stores on 2026-11-23.
 
 `ZEN_GO_API_KEY`'s one remaining declaration is the edge runtime's secret-marked `pulumiConfig`
 reference to its ESC value; the nightly eval that read it under `environmentVariables` was deleted
 with the Python agent (#1607). Provision the reference explicitly; adding the stack import alone
 does not create it.
+
+### What GitHub still holds (2026-11-23)
+
+The 2026-11-23 deletion took every copy the **GitHub copies** column of "Referenced by nothing"
+below marks `deleted 2026-11-23`, plus the GitHub copies of `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` (the workflows read them from ESC and from a repository variable),
+`DEEPSEEK_API_KEY` (the MiMo-only runtime requires no DeepSeek key) and `LOGFIRE_TOKEN`'s
+`staging` copy. A read-only `gh secret list` that day found five GitHub copies
+of four names in the repository, `staging` and `production` stores:
+
+| Secret | Store |
+|---|---|
+| `GOOGLE_MAPS_API_KEY` · `MIMO_API_KEY` · `ZEN_GO_API_KEY` | repository |
+| `LOGFIRE_TOKEN` | repository · `production` |
+
+They are the vendor runtime keys of chain 1 below, and their authority is the Pulumi ESC
+environments. The staging environment is proven to hold them: the staging deploy refuses an empty
+one, and it is green. The production environment has never been exercised, so these GitHub copies
+stay until the owner confirms it holds them.
 
 ## Three consumption chains
 
@@ -172,46 +196,47 @@ rotation evidence.
 Found by grepping every secret name across `.github/workflows/` and the edge Worker's declared
 vars and bindings, against
 every source tree in the repo, against a read-only `gh secret list` name snapshot taken 2026-08-01.
-#1367's final owner step deletes every GitHub secret at once, these rows included, so the action
-column is the record of *why* each is safe to delete rather than a per-row backlog.
+No GitHub copy of these names is left — the owner had the last ones deleted on 2026-11-23 — so the
+action column is the record of *why* each deletion was safe rather than a backlog.
 **They were never one kind of finding** — read it before treating them as one:
 
-The **In GitHub** column is the second, independent fact, and it is the one that dates: a read-only
-`gh secret list` against the repository and all four environments on **2026-09-23**. `gone` means
-the name was absent from every scope, so that row's deletion already happened and only the action's
-non-GitHub half (a provider-side revocation, a Worker still to retire) can remain. The `copilot`
-and `release-build` environments held no secrets at all, and the `dependabot` scope was empty.
+The **GitHub copies** column is the second, independent fact, and it is the one that dates.
+`gone by 2026-09-23` means a read-only `gh secret list` against the repository and all four
+environments that day found the name in no scope; the `copilot` and `release-build` environments
+held no secrets at all, and the `dependabot` scope was empty. `deleted 2026-11-23` names the stores
+that still held the name until the owner's deletion; the read-only `gh secret list` of 2026-11-23
+found none of these names in the repository, `staging` or `production` store. Either way, only the
+action's non-GitHub half (a provider-side revocation, a Worker still to retire) can remain.
 
-| Secret | Finding | Owner action | In GitHub 2026-09-23 |
+| Secret | Finding | Owner action | GitHub copies |
 |---|---|---|---|
-| `STAGING_GATE_TOKEN` | **Dead.** D3 (#1369) deleted the staging WAF gate this credential opened, along with `scripts/setup-staging-gate.sh` and the `stagingGate*` stack config; Cloudflare Access replaced it, and nothing in the repository reads this name any more | `gh secret delete STAGING_GATE_TOKEN` on the `staging` environment — no dependency left to check | `staging` |
-| `AGENT_DATABASE_URL` | The production maintenance Worker may still read this DSN, but no current workflow forwards it | Confirm whether the maintenance Worker remains deployed; wire it into CD if retained, otherwise retire the Worker and then delete the secret | gone |
-| `GCP_SA_KEY` | A GCP service-account private key, added 2025-12, referenced nowhere in code or workflows — the only row here with a real blast radius if it leaked (a live cloud credential, not an inert config name) | Check GCP IAM for any usage of this SA outside this repo; if none, revoke it in GCP first, then `gh secret delete GCP_SA_KEY`. Open an issue to track — do not batch with the rows below | gone |
-| `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked | gone |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first | gone |
-| `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/api/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first | gone |
-| `OPENAI_COMPAT_API_KEY` | Read only by the retired Python agent's settings (deleted in #1607) and listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605); **no workflow ever passed it** | No code reads it any more: remove its `workers/api/wrangler.toml` declaration, then `gh secret delete OPENAI_COMPAT_API_KEY` | gone |
-| `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets | gone (both names) |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or edge Worker var references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a server secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to the Worker's declared vars | gone |
-| `GEMINI_API_KEY` | Was Live (this table, above) until #656 (2026-08-04): photo-search recognition moved to the main agent's multimodal input instead of the standalone `GeminiVisionProvider`, and #1604 (2026-09-16) deleted that surface with the `photo_vision` module — so nothing in the edge Worker's declared vars and bindings, `wrangler.toml`, or any workflow reads this name anymore | `gh secret delete GEMINI_API_KEY` — no dependency to check first, the code path it fed no longer exists | gone |
-| `CORS_ALLOWED_ORIGIN` | Was Live (this table, above) until #1047 (2026-08-15): demoted to a checked-in **wrangler var** — `[env.*.vars].CORS_ALLOWED_ORIGIN` in `workers/api/wrangler.toml` (asserted by `workers/api/test/auth-config.test.ts`); no workflow forwards `${{ secrets.CORS_ALLOWED_ORIGIN }}` anymore, so any residual GitHub secret (repo-level or `production` environment) is a dead binding | `gh secret delete CORS_ALLOWED_ORIGIN` (repo) and `--env production` if present — the value now lives in the checked-in wrangler vars | `production` only — the repository copy is gone |
-| `NEON_AUTH_JWKS_URL` | Was Live (this table, above) until #1047: the edge's only identity source is now provisioned as a Cloudflare Secrets Store entry (name constant `NEON_AUTH_JWKS_VAR` in `infra/src/neon-auth.ts`, value written by the infra/database-access stack `index.ts`) with the checked-in wrangler var as the dev/placeholder path — no workflow references `${{ secrets.NEON_AUTH_JWKS_URL }}` anymore | `gh secret delete NEON_AUTH_JWKS_URL --env staging` and `--env production` if present — the value now lives in the Cloudflare Secrets Store / wrangler vars | `staging` · `production` |
-| `CLOUDFLARE_PULUMI_API_TOKEN` | Was Live (this table, above) until #1078: the Pulumi-plane Cloudflare token now reaches `pulumi up` from the `animichi/staging` / `animichi/prod` Pulumi ESC environments, injected by `pulumi/esc-action` under the ESC key `CLOUDFLARE_API_TOKEN` after the OIDC login. No workflow, action, or script reads `${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}` any more | Deleting all three copies is #1367's own owner step. The condition this row used to name is met: #1078 (closed 2026-09-05) moved the Pulumi-plane token onto ESC and a CD run has proved that path | repository · `staging` · `production` |
-| `NEON_API_KEY` | Was Live (this table, above) until #1078: the Neon provisioning key for `animichi-neon-secrets` now comes from the same two ESC environments under the same-named ESC key. Its one workflow reference is the `stage` job's staging rebuild (`infra/database-access/reset-staging-baseline.sh`, #1625), where `neonctl` spends it; that step reads it from the ESC step's own output (`steps.esc.outputs.NEON_API_KEY`), not from the export list, and `promote-production` never reads it. A `pulumi up` never reads the name, because both programs construct the Neon provider from the `neonApiKey` stack config (`infra/database-access/index.ts`). `cd-credentials.test.rb` keeps every ESC export list inside the Pulumi plane plus staging's Access pair and pins that exactly that one step holds this name | Same as the row above: deleting the repository copy is #1367's owner step, and the ESC path it waited on landed in #1078 | repository only |
-| `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | Were Live (this table, above) until #1077: Pulumi state and `secure:` encryption moved to Pulumi Cloud, CI logs in with `pulumi/auth-actions` (GitHub OIDC), and the pre-apply R2 state export retired with the backend. No workflow, action, or script reads any of the four | Do **not** delete yet — the owner still needs the passphrase and the R2 keys to run the one-time export/import in `docs/ops/deployment.md` ("One-time migration"), and they are the documented fallback until every stack is imported. Deleting the GitHub copies is #1367's owner step, after that cutover | all four, repository · `staging` · `production` |
-| `CATALOG_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the catalog Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/catalog/wrangler.toml`, so no workflow or GH secret reference remains. The staging GitHub copy has since been deleted | Nothing left on GitHub: the Secrets Store binding is the only home this DSN has | gone |
-| `USERS_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the users Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/users/wrangler.toml`, so no workflow or GH secret reference remains. The staging GitHub copy has since been deleted | Nothing left on GitHub: the Secrets Store binding is the only home this DSN has | gone |
-| `SUPABASE_DB_URL` | The Python runtime reads only `AGENT_SVC_DATABASE_URL`. #1370 removed this unused key from forwarding, required inputs and proposed Store resources/bindings. Existing online copies are outside this source change | Do **not** delete an online copy in this change; any later retirement needs its own live-state review | repository · `staging` |
-| `TURNSTILE_SECRET` · `ANON_ID_SECRET` | CD no longer uploads runtime secrets, and since #1676 neither is ESC config either. Active anonymous access reads both; provisioning and bindings follow `anonymousAccessEnabled`. `TURNSTILE_SECRET` is the adopted widget's provider-read secret, `ANON_ID_SECRET` is generated (`random.RandomPassword`), the staging stack owns the account's one widget and any other stack reads it through the `getTurnstileWidget` data source. The owner authorized the first-apply rotation of the staging identity seed | Preserve legacy Worker copies until the applicable live cutover gates pass; later identity resets require their own authorization. A declaration removal leaves the live copy in place (`retainOnDelete`), and re-enabling access must import that retained secret by id or delete it — re-declaring the name fails | `TURNSTILE_SECRET` repository · `staging`; `ANON_ID_SECRET` repository |
-| `NEON_DATABASE_URL` | Was Live (this table, above) until #1365 (C3): production migrations now go through the migrator Worker on GitHub OIDC exactly like staging, so the Atlas transitional step and its `${{ secrets.NEON_DATABASE_URL }}` are gone from `.github/workflows/cd.yml` — no workflow references the name any more (`workers/api/test/migration-boundary.test.ts` asserts zero occurrences). The catalog/users runtime DSNs already came from Cloudflare Secrets Store bindings, and the migrator reads its own `MIGRATOR_DATABASE_URL` store secret provisioned by `infra/database-access/index.ts` | Do **not** delete piecemeal — the repo, `staging`, and `production` copies go with every other GitHub secret in D1 (#1367), by which time nothing reads them (#1057 closed not-planned: the zero-secret endgame is #1367's) | repository · `staging` · `production` |
-| `SUPABASE_URL` · `SUPABASE_ANON_KEY` | Retired Supabase auth-plane credentials. No source, workflow, release manifest, or runtime reads either name after the Neon Auth hard cut | `gh secret delete SUPABASE_URL` then `gh secret delete SUPABASE_ANON_KEY`. (`SUPABASE_DB_URL` is a separate retired DSN input.) | both, repository |
-| `SUPABASE_SERVICE_ROLE_KEY` | Retired Supabase service-role credential. No source, workflow, release manifest, or runtime reads it | `gh secret delete SUPABASE_SERVICE_ROLE_KEY` | repository |
+| `STAGING_GATE_TOKEN` | **Dead.** D3 (#1369) deleted the staging WAF gate this credential opened, along with `scripts/setup-staging-gate.sh` and the `stagingGate*` stack config; Cloudflare Access replaced it, and nothing in the repository reads this name any more | `gh secret delete STAGING_GATE_TOKEN` on the `staging` environment — no dependency left to check | deleted 2026-11-23 (`staging`) |
+| `AGENT_DATABASE_URL` | The production maintenance Worker may still read this DSN, but no current workflow forwards it | Confirm whether the maintenance Worker remains deployed; wire it into CD if retained, otherwise retire the Worker and then delete the secret | gone by 2026-09-23 |
+| `GCP_SA_KEY` | A GCP service-account private key, added 2025-12, referenced nowhere in code or workflows — the only row here with a real blast radius if it leaked (a live cloud credential, not an inert config name) | Check GCP IAM for any usage of this SA outside this repo; if none, revoke it in GCP first, then `gh secret delete GCP_SA_KEY`. Open an issue to track — do not batch with the rows below | gone by 2026-09-23 |
+| `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked | gone by 2026-09-23 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first | gone by 2026-09-23 |
+| `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/api/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first | gone by 2026-09-23 |
+| `OPENAI_COMPAT_API_KEY` | Read only by the retired Python agent's settings (deleted in #1607) and listed in the edge Worker's container env-forwarding allowlist (deleted with the container in #1605); **no workflow ever passed it** | No code reads it any more: remove its `workers/api/wrangler.toml` declaration, then `gh secret delete OPENAI_COMPAT_API_KEY` | gone by 2026-09-23 |
+| `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets | gone by 2026-09-23 (both names) |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or edge Worker var references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a server secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to the Worker's declared vars | gone by 2026-09-23 |
+| `GEMINI_API_KEY` | Was Live (this table, above) until #656 (2026-08-04): photo-search recognition moved to the main agent's multimodal input instead of the standalone `GeminiVisionProvider`, and #1604 (2026-09-16) deleted that surface with the `photo_vision` module — so nothing in the edge Worker's declared vars and bindings, `wrangler.toml`, or any workflow reads this name anymore | `gh secret delete GEMINI_API_KEY` — no dependency to check first, the code path it fed no longer exists | gone by 2026-09-23 |
+| `CORS_ALLOWED_ORIGIN` | Was Live (this table, above) until #1047 (2026-08-15): demoted to a checked-in **wrangler var** — `[env.*.vars].CORS_ALLOWED_ORIGIN` in `workers/api/wrangler.toml` (asserted by `workers/api/test/auth-config.test.ts`); no workflow forwards `${{ secrets.CORS_ALLOWED_ORIGIN }}` anymore, so any residual GitHub secret (repo-level or `production` environment) is a dead binding | `gh secret delete CORS_ALLOWED_ORIGIN` (repo) and `--env production` if present — the value now lives in the checked-in wrangler vars | deleted 2026-11-23 (`production`); the repository copy was gone by 2026-09-23 |
+| `NEON_AUTH_JWKS_URL` | Was Live (this table, above) until #1047: the edge's only identity source is now provisioned as a Cloudflare Secrets Store entry (name constant `NEON_AUTH_JWKS_VAR` in `infra/src/neon-auth.ts`, value written by the infra/database-access stack `index.ts`) with the checked-in wrangler var as the dev/placeholder path — no workflow references `${{ secrets.NEON_AUTH_JWKS_URL }}` anymore | `gh secret delete NEON_AUTH_JWKS_URL --env staging` and `--env production` if present — the value now lives in the Cloudflare Secrets Store / wrangler vars | deleted 2026-11-23 (`staging` · `production`) |
+| `CLOUDFLARE_PULUMI_API_TOKEN` | Was Live (this table, above) until #1078: the Pulumi-plane Cloudflare token now reaches `pulumi up` from the `animichi/staging` / `animichi/prod` Pulumi ESC environments, injected by `pulumi/esc-action` under the ESC key `CLOUDFLARE_API_TOKEN` after the OIDC login. No workflow, action, or script reads `${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}` any more | All three copies were deleted on 2026-11-23, after the condition this row used to name was met: #1078 (closed 2026-09-05) moved the Pulumi-plane token onto ESC and a CD run has proved that path | deleted 2026-11-23 (repository · `staging` · `production`) |
+| `NEON_API_KEY` | Was Live (this table, above) until #1078: the Neon provisioning key for `animichi-neon-secrets` now comes from the same two ESC environments under the same-named ESC key. Its one workflow reference is the `stage` job's staging rebuild (`infra/database-access/reset-staging-baseline.sh`, #1625), where `neonctl` spends it; that step reads it from the ESC step's own output (`steps.esc.outputs.NEON_API_KEY`), not from the export list, and `promote-production` never reads it. A `pulumi up` never reads the name, because both programs construct the Neon provider from the `neonApiKey` stack config (`infra/database-access/index.ts`). `cd-credentials.test.rb` keeps every ESC export list inside the Pulumi plane plus staging's Access pair and pins that exactly that one step holds this name | Same as the row above: the repository copy was deleted on 2026-11-23, and the ESC path it waited on landed in #1078 | deleted 2026-11-23 (repository) |
+| `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` · `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | Were Live (this table, above) until #1077: Pulumi state and `secure:` encryption moved to Pulumi Cloud, CI logs in with `pulumi/auth-actions` (GitHub OIDC), and the pre-apply R2 state export retired with the backend. No workflow, action, or script reads any of the four | Deleted on 2026-11-23. They were the documented fallback of the one-time export/import in `docs/ops/deployment.md` ("One-time migration"), so deleting the old R2 state backend's credentials closed its fallback window for good; the owner accepted that | all four deleted 2026-11-23 (repository · `staging` · `production`) |
+| `CATALOG_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the catalog Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/catalog/wrangler.toml`, so no workflow or GH secret reference remains. The staging GitHub copy has since been deleted | Nothing left on GitHub: the Secrets Store binding is the only home this DSN has | gone by 2026-09-23 |
+| `USERS_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the users Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/users/wrangler.toml`, so no workflow or GH secret reference remains. The staging GitHub copy has since been deleted | Nothing left on GitHub: the Secrets Store binding is the only home this DSN has | gone by 2026-09-23 |
+| `SUPABASE_DB_URL` | The Python runtime reads only `AGENT_SVC_DATABASE_URL`. #1370 removed this unused key from forwarding, required inputs and proposed Store resources/bindings. Existing online copies are outside this source change | The GitHub copies were deleted on 2026-11-23; retiring any other online copy still needs its own live-state review | deleted 2026-11-23 (repository · `staging`) |
+| `TURNSTILE_SECRET` · `ANON_ID_SECRET` | CD no longer uploads runtime secrets, and since #1676 neither is ESC config either. Active anonymous access reads both; provisioning and bindings follow `anonymousAccessEnabled`. `TURNSTILE_SECRET` is the adopted widget's provider-read secret, `ANON_ID_SECRET` is generated (`random.RandomPassword`), the staging stack owns the account's one widget and any other stack reads it through the `getTurnstileWidget` data source. The owner authorized the first-apply rotation of the staging identity seed | Preserve legacy Worker copies until the applicable live cutover gates pass; later identity resets require their own authorization. A declaration removal leaves the live copy in place (`retainOnDelete`), and re-enabling access must import that retained secret by id or delete it — re-declaring the name fails | deleted 2026-11-23: `TURNSTILE_SECRET` (repository · `staging`), `ANON_ID_SECRET` (repository) |
+| `NEON_DATABASE_URL` | Was Live (this table, above) until #1365 (C3): production migrations now go through the migrator Worker on GitHub OIDC exactly like staging, so the Atlas transitional step and its `${{ secrets.NEON_DATABASE_URL }}` are gone from `.github/workflows/cd.yml` — no workflow references the name any more (`workers/api/test/migration-boundary.test.ts` asserts zero occurrences). The catalog/users runtime DSNs already came from Cloudflare Secrets Store bindings, and the migrator reads its own `MIGRATOR_DATABASE_URL` store secret provisioned by `infra/database-access/index.ts` | Not deleted piecemeal: the repo, `staging` and `production` copies went with the other GitHub secrets on 2026-11-23, when nothing read them (#1057 closed not-planned) | deleted 2026-11-23 (repository · `staging` · `production`) |
+| `SUPABASE_URL` · `SUPABASE_ANON_KEY` | Retired Supabase auth-plane credentials. No source, workflow, release manifest, or runtime reads either name after the Neon Auth hard cut | `gh secret delete SUPABASE_URL` then `gh secret delete SUPABASE_ANON_KEY`. (`SUPABASE_DB_URL` is a separate retired DSN input.) | both deleted 2026-11-23 (repository) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Retired Supabase service-role credential. No source, workflow, release manifest, or runtime reads it | `gh secret delete SUPABASE_SERVICE_ROLE_KEY` | deleted 2026-11-23 (repository) |
 
-Deleting is a per-row decision, not a batch one: `GCP_SA_KEY` needs an external check before
-deletion, the one remaining broken chain (`OPENAI_COMPAT_API_KEY`) needs a keep-or-retire
-decision (not a delete) — `ZETA_API_KEY`'s retirement was already decided in #684 (MiMo-only) —
-Mapbox needs a provider-side revocation check, and only `CLAUDE_CODE_OAUTH_TOKEN` is safe to
-delete immediately.
+Every GitHub copy in this table is gone, so what can still be open is a row's non-GitHub half: the
+external IAM check and GCP-side revocation for `GCP_SA_KEY`, the provider-side revocation of the
+Mapbox token, and a keep-or-retire decision (not a delete) on the one remaining broken chain,
+`OPENAI_COMPAT_API_KEY` — `ZETA_API_KEY`'s retirement was already decided in #684 (MiMo-only).
 
 ## Staging access: the Cloudflare Access service token (D3 #1369)
 

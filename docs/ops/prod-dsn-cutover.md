@@ -16,11 +16,11 @@
   binds `AGENT_SVC_DATABASE_URL` → `AGENT_SVC_DATABASE_URL_PROD` in `workers/api/wrangler.toml`,
   `DATABASE_URL` → `CATALOG_DATABASE_URL_PROD` in `workers/catalog/`, and `DATABASE_URL` →
   `USERS_DATABASE_URL_PROD` in `workers/users/`. `cd.yml` injects none of them: it contains no
-  `DATABASE_URL` reference and no `${{ secrets.* }}` reference at all. Of the four names this
-  section used to list, only `NEON_DATABASE_URL` is still a `production` environment secret
-  (read-only `gh secret list`, 2026-09-23); `CATALOG_DATABASE_URL`, `USERS_DATABASE_URL` and
-  `AGENT_DATABASE_URL` are absent from every scope. Deleting what is left is the inventory's
-  business in `docs/ops/secrets.md`, not this runbook's.
+  `DATABASE_URL` reference and no `${{ secrets.* }}` reference at all. None of the four names this
+  section used to list is a GitHub secret any more: `CATALOG_DATABASE_URL`, `USERS_DATABASE_URL`
+  and `AGENT_DATABASE_URL` were absent from every scope by 2026-09-23 (read-only
+  `gh secret list`), and `NEON_DATABASE_URL`, the last, was deleted from the repository, `staging`
+  and `production` stores on 2026-11-23 (`docs/ops/secrets.md`).
 - **Roles are Neon-branch-scoped** (amended 2026-09-23, #1915 — an earlier revision of this
   page said project-scoped: a Neon role exists on one branch, and Neon grants `neon_superuser`
   to every role its Console/CLI/API creates and to nothing SQL creates); GRANTs are
@@ -114,9 +114,9 @@ operator rather than committed. Steps:
    a Secrets Store binding is applied by `wrangler deploy` itself. The binding name matches
    staging's, so one key serves both environments. The jobs Worker
    is out of this cutover's scope: it stays on the `AGENT_DATABASE_URL` worker secret per the
-   SAFE-1 production pin (#937). Remove the prod GitHub
-   `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify (step 5 of the
-   cutover below).
+   SAFE-1 production pin (#937). The GitHub `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets this
+   step held back are gone from every store since the owner's 2026-11-23 deletion
+   (`docs/ops/secrets.md`).
 
 ## Cutover steps (owner window, HITL — mirror #832)
 
@@ -138,11 +138,12 @@ operator rather than committed. Steps:
    pure creation, nothing to preserve; soft-baseline decision for the future history squash
    stays per #845/#849.
 4. **Flip Workers to Secrets Store bindings for prod** (wrangler.toml bindings land in P4;
-   the prod deploy picks them up next deploy). Until then, old GitHub-secret DSNs keep working
-   unchanged — the two planes coexist; do not delete old secrets before this step is verified.
-5. **Remove GitHub `*_DATABASE_URL` secrets for prod** once no workflow references them
-   (post-P4 code state, `needs`/`env` maps cleaned). Zero `*_DATABASE_URL` GitHub secrets is the
-   P4 acceptance condition.
+   the prod deploy picks them up next deploy). The old GitHub-secret DSNs this step once kept
+   alongside them are gone: no workflow reads them, and the owner had the last copies deleted on
+   2026-11-23.
+5. **Remove GitHub `*_DATABASE_URL` secrets for prod** — done. Zero `*_DATABASE_URL` GitHub
+   secrets, the P4 acceptance condition, has held since the owner's 2026-11-23 deletion took
+   `NEON_DATABASE_URL`, the last of them (`docs/ops/secrets.md`).
 6. **Negative permission checks on prod** (record redacted on #855): catalog role cannot write a
    users-owned table; users role cannot write points; jobs cannot DDL; migrator-only DDL via a
    second connection as `jobs_svc` must fail.
@@ -153,9 +154,9 @@ operator rather than committed. Steps:
 
 - **Order is the reverse of cutover, and roles are never dropped** (additive only):
   1. Re-point Workers at the previous secrets plane: re-set the GitHub environment secrets
-     (`NEON_DATABASE_URL` etc. — values unchanged in GitHub until step 5) and redeploy; the
-     Secrets Store binding value stays but is superseded by the explicit secret in the env map
-     until P4's env-map removal is reverted.
+     (`NEON_DATABASE_URL` etc. — deleted from GitHub on 2026-11-23, so every value has to be
+     written again) and redeploy; the Secrets Store binding value stays but is superseded by the
+     explicit secret in the env map until P4's env-map removal is reverted.
   2. Secrets Store value rotation/repair: for `migrator`, Pulumi rotates the `neon.Role`
      password (Neon regenerates) and the store is re-written; for the three runtime roles,
      Pulumi rewrites their password secrets from fresh `RandomPassword`s and one `/migrate`

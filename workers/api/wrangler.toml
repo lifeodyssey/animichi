@@ -290,10 +290,10 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # CORS_ALLOWED_ORIGIN — backend CORS allowlist (public origin; issue #1047
 # demotes it from a GitHub secret to a wrangler var). The production frontend
 # origin is the canonical https://animichi.com origin (apps/web
-# runtime-config CANONICAL_ORIGIN). ASSUMPTION (reviewer: verify against the
-# current production CORS secret before the orchestrator deletes it): the
-# secret's value is this same origin; if production was provisioned with a
-# different value, update this var to match before deploy.
+# runtime-config CANONICAL_ORIGIN). ASSUMPTION: the retired production CORS
+# secret held this same origin. The check this note asked a reviewer for, against
+# that GitHub `production` secret before its deletion, can no longer be made: the
+# secret was deleted on 2026-11-23.
 CORS_ALLOWED_ORIGIN = "https://animichi.com"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
