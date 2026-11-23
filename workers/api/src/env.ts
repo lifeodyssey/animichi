@@ -7,7 +7,10 @@ import type { R2ObjectBucket } from "./proxy/private-r2-object.ts";
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };
   USERS: { fetch: (req: Request) => Promise<Response> };
-  EDGE_GUARD: GuardNamespace;
+  /** The guard namespace: the durable limiter's shards and the budget latch.
+   * Absent is a configuration error that each use answers as its outage and
+   * records (`protect/guard-call.ts`). */
+  EDGE_GUARD?: GuardNamespace;
   MAP_TILES?: R2ObjectBucket;
   /** The private docs-asset bucket (#1650); absent fails `/img/docs` closed. */
   DOCS_ASSETS?: R2ObjectBucket;
