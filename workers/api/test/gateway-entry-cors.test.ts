@@ -4,15 +4,16 @@
  * `X-Request-Id` — for a simple request and a preflight from the web app's own
  * origin, from another origin and with no origin, on each surface.
  *
- * Only the two private asset arms answer CORS: `*`, the fixed method list
+ * The two private asset arms answer CORS: `*`, the fixed method list
  * `GET, HEAD, OPTIONS`, `Range` as the one allowed request header whatever a
  * preflight asks for, `Vary: Origin` always, the exposed range headers only to a
  * caller that named an origin, and the arm's cache lifetime on a preflight. The
  * Anitabi arm adds `Access-Control-Allow-Origin: *` to an image it served and
- * proxies a preflight as an image; its refusals carry nothing. No other surface
- * answers any CORS header. The users prefix answers OPTIONS itself, a 204 that
- * names in `Allow` the methods the users contract declares; any other surface
- * answers a preflight as that route answers OPTIONS. There is no origin
+ * answers a preflight exactly as the docs arm does, the two sharing one URL
+ * space and one cache lifetime; its refusals carry no CORS header. No other
+ * surface answers any CORS header. The users prefix answers OPTIONS itself, a
+ * 204 that names in `Allow` the methods the users contract declares; any other
+ * surface answers a preflight as that route answers OPTIONS. There is no origin
  * allowlist, so the web app's origin and any other origin get identical sets.
  *
  * test-type: characterization
@@ -82,7 +83,8 @@ const ANSWERED: readonly Answered[] = [
   ["an Anitabi image, to the web app's origin", "GET", "/img/a.jpg?plan=h160", ALLOWED, 200, IMAGE],
   ["an Anitabi image, to another origin", "GET", "/img/a.jpg?plan=h160", DISALLOWED, 200, IMAGE],
   ["an Anitabi image, to no origin", "GET", "/img/a.jpg?plan=h160", {}, 200, IMAGE],
-  ["an Anitabi image preflight, proxied as the image", "OPTIONS", "/img/a.jpg?plan=h160", { ...ALLOWED, ...ASK_RANGE }, 200, IMAGE],
+  ["an Anitabi image preflight, answered as a docs asset's", "OPTIONS", "/img/a.jpg?plan=h160", { ...ALLOWED, ...ASK_RANGE }, 204,
+    DOCS_PREFLIGHT],
   ["an Anitabi refusal", "GET", "/img/a.jpg", ALLOWED, 400, JSON_ONLY],
   ["a preflight to the turn", "OPTIONS", "/v1/chat", { ...ALLOWED, ...ASK_MORE }, 404, JSON_ONLY],
   ["a preflight to the turn from another origin", "OPTIONS", "/v1/chat", { ...DISALLOWED, ...ASK_MORE }, 404, JSON_ONLY],

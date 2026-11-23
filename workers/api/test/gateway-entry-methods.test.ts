@@ -11,8 +11,10 @@
  * - A HEAD of the readiness probe, of a public catalog read or of an agent-tier
  *   read answers as its GET does, through the same gates and charges, with no
  *   body; a catalog HEAD reaches the catalog as a GET.
- * - The Anitabi image arm has no method gate at all, so every method is proxied
- *   as an upstream GET.
+ * - The Anitabi image arm proxies GET and HEAD as an upstream GET, answers
+ *   OPTIONS with the 204 preflight the private asset arms answer, and refuses
+ *   every other method 405 with `Allow: GET, HEAD, OPTIONS`, in the shared JSON
+ *   envelope, before the origin is asked.
  * - The `/v1/users/` prefix answers OPTIONS itself with a 204, before identity.
  *   It forwards every other method, a HEAD as a GET; GET and HEAD are charged
  *   nothing, and every other method is charged to the durable limiter.
@@ -57,11 +59,11 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["PATCH", DOCS, 405, IMAGE_METHOD_NOT_ALLOWED, []],
   ["DELETE", DOCS, 405, IMAGE_METHOD_NOT_ALLOWED, []],
   ["HEAD", IMAGE, 200, "", ORIGIN_READ],
-  ["OPTIONS", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
-  ["POST", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
-  ["PUT", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
-  ["PATCH", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
-  ["DELETE", IMAGE, 200, "jpeg-bytes", ORIGIN_READ],
+  ["OPTIONS", IMAGE, 204, "", []],
+  ["POST", IMAGE, 405, METHOD_NOT_ALLOWED, []],
+  ["PUT", IMAGE, 405, METHOD_NOT_ALLOWED, []],
+  ["PATCH", IMAGE, 405, METHOD_NOT_ALLOWED, []],
+  ["DELETE", IMAGE, 405, METHOD_NOT_ALLOWED, []],
   ["HEAD", POPULAR, 200, "", ["coarse public-read", `catalog GET ${POPULAR}`]],
   ["POST", POPULAR, 404, NOT_FOUND, []],
   ["PUT", POPULAR, 404, NOT_FOUND, []],
@@ -123,6 +125,7 @@ const NEIGHBOURS: readonly Neighbour[] = [
   ["OPTIONS", "/v1/conversations/s-42/stream", 404, NOT_FOUND, []],
   ["PROPFIND", USERS, 200, `users PROPFIND ${USERS}`, [...USER_CHARGE, `users PROPFIND ${USERS} as u1/human`]],
   ["PROPFIND", "/v1/chat", 404, NOT_FOUND, []],
+  ["PROPFIND", IMAGE, 405, METHOD_NOT_ALLOWED, []],
 ];
 
 for (const [method, path, status, body, log] of NEIGHBOURS) {
@@ -132,5 +135,19 @@ for (const [method, path, status, body, log] of NEIGHBOURS) {
     assert.equal(response.status, status);
     assert.equal(await response.text(), body);
     assert.deepEqual(seam.log, log);
+  });
+}
+
+/** The methods the Anitabi image arm refuses. */
+const IMAGE_REFUSALS = ["POST", "PUT", "PATCH", "DELETE", "PROPFIND"] as const;
+
+for (const method of IMAGE_REFUSALS) {
+  void test(`${method} ${IMAGE} is refused with Allow: GET, HEAD, OPTIONS in the JSON envelope`, async (t) => {
+    const seam = entrySeam(t);
+    const response = await seam.send(method, IMAGE, HUMAN);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("Allow"), "GET, HEAD, OPTIONS");
+    assert.equal(response.headers.get("Content-Type"), "application/json");
+    assert.equal(await response.text(), METHOD_NOT_ALLOWED);
   });
 }
