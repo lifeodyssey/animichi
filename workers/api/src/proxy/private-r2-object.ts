@@ -70,12 +70,16 @@ type R2AssetRead<Asset extends R2Asset = R2Asset> = Readonly<{
 
 const EXPOSED_HEADERS = "Accept-Ranges, Content-Length, Content-Range, ETag";
 
+/** The methods every asset arm answers: GET and HEAD read the asset, and
+ * OPTIONS is the preflight. A preflight advertises them; a 405 names them. */
+export const ASSET_ARM_METHODS = "GET, HEAD, OPTIONS";
+
 /** The CORS surface every private asset answer carries: the preflight allowance
  * `Range` needs (it is not a CORS-safelisted request header), the methods both
  * arms answer, and the origin the tile arm has always allowed. */
 const CORS_BASE: Readonly<Record<string, string>> = {
   "Access-Control-Allow-Headers": "Range",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Methods": ASSET_ARM_METHODS,
   "Access-Control-Allow-Origin": "*",
   Vary: "Origin",
 };
@@ -105,13 +109,19 @@ export const errorResponse = (status: number, code: string, request: Request): R
   return rejection;
 };
 
-/** The method gate every arm answers first: OPTIONS is the preflight, GET and
- * HEAD read the object, and anything else is the arm's own 405. */
-export const methodResponse = (request: Request, policy: PrivateR2ArmPolicy): Response | null => {
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: responseHeaders(request, policy.cacheControl) });
+/** The method gate every asset arm answers first: OPTIONS is the preflight,
+ * GET and HEAD read the asset, and anything else is the arm's own refusal. The
+ * Anitabi origin arm answers through it too (`image-proxy.ts`), so all three
+ * arms answer a preflight from this one line. */
+export const methodGate = (request: Request, cacheControl: string, refusal: () => Response): Response | null => {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: responseHeaders(request, cacheControl) });
   if (request.method === "GET" || request.method === "HEAD") return null;
-  return errorResponse(405, policy.methodCode, request);
+  return refusal();
 };
+
+/** A private arm's gate, whose refusal is the arm's own 405 with its CORS surface. */
+export const methodResponse = (request: Request, policy: PrivateR2ArmPolicy): Response | null =>
+  methodGate(request, policy.cacheControl, () => errorResponse(405, policy.methodCode, request));
 
 const setRangeHeaders = (headers: Headers, object: R2Object, decision: RangeDecision): void => {
   if (decision.kind !== "slice" || !object.range) return;

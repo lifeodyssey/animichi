@@ -100,7 +100,7 @@ const ANSWERED: readonly Answered[] = [
 ];
 
 for (const [answer, method, path, headers, status, set] of ANSWERED) {
-  void test(`${answer} answers ${String(status)} with today's exact header set`, async (t) => {
+  void test(`${answer} answers ${String(status)} with exactly this header set, its request ID aside`, async (t) => {
     const seam = entrySeam(t);
     const response = await seam.send(method, path, headers);
     assert.equal(response.status, status);

@@ -133,9 +133,13 @@ export function notFoundResponse(): Response {
 
 /** Method gate for the POST-only session-adoption route (SESSION-2 #960): a
  * 405 in the same envelope as the other edge rejections, answered before any
- * downstream binding is reached. */
-export function methodNotAllowed(): Response {
-  return gatewayRejection("method_not_allowed", 405, "Method not allowed.");
+ * downstream binding is reached. A gate that knows the methods its resource
+ * answers names them in `allow`, the `Allow` header a 405 carries (RFC 9110
+ * §15.5.6). */
+export function methodNotAllowed(allow?: string): Response {
+  const rejection = gatewayRejection("method_not_allowed", 405, "Method not allowed.");
+  if (allow !== undefined) rejection.headers.set("Allow", allow);
+  return rejection;
 }
 
 /** What an unexpected throw answers with (EG-06, issue #1343): the same

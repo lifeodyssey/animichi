@@ -5,11 +5,11 @@ import {
   type AnitabiImagePlan,
 } from "@animichi/contract/anitabi-display";
 import type { WorkerExecutionContext } from "../env.ts";
-import { gatewayRejection } from "../gateway/responses.ts";
+import { gatewayRejection, methodNotAllowed } from "../gateway/responses.ts";
 import { cacheWrite } from "./cache-write.ts";
 import { docsAssetResponse, resolveDocsAsset } from "./docs-assets.ts";
 import { IMAGE_CACHE_CONTROL } from "./image-cache-control.ts";
-import type { R2ObjectBucket } from "./private-r2-object.ts";
+import { ASSET_ARM_METHODS, methodGate, type R2ObjectBucket } from "./private-r2-object.ts";
 
 const IMAGE_PREFIX = "/img/";
 const ENCODED_SEPARATOR = /%2f|%5c/i;
@@ -99,7 +99,8 @@ function sourceResponse(
 
 /** Image proxy + cache. `/img/<path>` is served from one of two sources: an
  * approved documentation asset, read from its own private R2 bucket (#1650),
- * or `image.anitabi.cn` (unchanged behaviour, ported from entry.js). */
+ * or `image.anitabi.cn` (ported from entry.js), which answers GET, HEAD and
+ * OPTIONS only. */
 export async function handleImageProxy(
   request: Request, ctx: WorkerExecutionContext, docsAssets?: R2ObjectBucket,
 ): Promise<Response> {
@@ -107,8 +108,18 @@ export async function handleImageProxy(
   return imagePath === null ? refusedPath() : sourceResponse(request, imagePath, docsAssets, ctx);
 }
 
-/** The Anitabi origin arm, with its own cache in front of it. */
+/** What the origin arm answers a method it does not serve: the shared 405,
+ * naming the methods it does. */
+function refusedMethod(): Response {
+  return methodNotAllowed(ASSET_ARM_METHODS);
+}
+
+/** The Anitabi origin arm: its method gate, the asset arms' own, in front of
+ * its cache, and its cache in front of the origin. An OPTIONS is answered with
+ * the preflight the private asset arms answer, and never reaches the origin. */
 async function proxiedImageResponse(request: Request, imagePath: string, ctx: WorkerExecutionContext): Promise<Response> {
+  const gated = methodGate(request, IMAGE_CACHE_CONTROL, refusedMethod);
+  if (gated) return gated;
   const cacheKey = new Request(request.url, request);
   const cache: Cache = caches.default;
   const cached: Response | undefined = await cache.match(cacheKey);
