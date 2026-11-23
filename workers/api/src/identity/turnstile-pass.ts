@@ -1,6 +1,6 @@
 import { TURNSTILE_WINDOW_MS } from "@animichi/contract/constants";
-import { constantTimeEqual } from "./anonymous-id.ts";
 import { readCookie } from "./cookie-header.ts";
+import { signaturesMatch } from "./cookie-signature.ts";
 
 const PASS_COOKIE = "turnstile_pass";
 
@@ -49,5 +49,5 @@ export async function verifyTurnstilePass(
   const pass = parsePass(value);
   if (pass === null || pass.expiresAt <= nowMs) return false;
   const expected = await hmacHex(secret, payload(identity, pass.expiresAt));
-  return constantTimeEqual(pass.signature, expected);
+  return signaturesMatch(pass.signature, expected);
 }
