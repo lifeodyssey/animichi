@@ -9,6 +9,7 @@ import { nativeClient } from "../src/native-client.ts";
 import { SessionAgent } from "../src/agent/host/session-agent.ts";
 import { sessionAgentStub } from "../src/agent/host/session-agent-stub.ts";
 import { persistPermanentRejection } from "../src/agent/admission/permanent-rejection.ts";
+import { businessOperations } from "./business-operations.ts";
 import { gateNativeResultReads, loseNativeReply } from "./lost-reply.ts";
 import { recoveryScanInterval, RETRY_DELAY_MS } from "./wake-cadence.ts";
 import type { ModelAdmissionRequest } from "../src/agent/admission/types.ts";
@@ -121,7 +122,7 @@ export class BusinessHost extends SessionAgent {
     provider.setResponses(this.#providerScript());
     const models = createModels();
     models.setProvider(provider.provider);
-    this.bindNeonSession(db, nativeMetadata, (session) => {
+    this.bindSession({ repo: new NeonSessionRepo(db), metadata: nativeMetadata, business: db, operations: businessOperations(db), compose: (session) => {
       if (this.#failReattach) { this.#failReattach = false; this.reopenFailures += 1; throw new Error("Injected first reattach outage"); }
       const loss = this.env.TEST_LOST_REPLY;
       if (!this.#lost && (loss === "accept" || loss === "drive" || loss === "terminal")) loseNativeReply(session, loss, () => {
@@ -129,7 +130,7 @@ export class BusinessHost extends SessionAgent {
       });
       gateNativeResultReads(session, () => this.#evidenceBlocked, () => { this.#evidenceFailures += 1; this.#evidenceFailed.resolve(undefined); });
       return { models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: RETRY_DELAY_MS },
-        toolContext: this.#toolsFor(session) }; });
+        toolContext: this.#toolsFor(session) }; } });
     if (this.env.TEST_REJECT === "true") await this.withSession((_session, lane, _context, harness) => {
       harness.hooks.on("before_drive", async (_event, context) => {
         const current = (await lane.inspectExecution(context)).current;

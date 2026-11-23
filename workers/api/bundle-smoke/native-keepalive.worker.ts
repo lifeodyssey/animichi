@@ -28,7 +28,7 @@ export class KeepaliveProbe extends NativeOnlyHost {
   protected override async initializeSession() {
     const session = await this.#state.resources.repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
-    this.bindSession(this.#state.resources.repo, session.metadata, (opened) => composition(this.#state, opened));
+    this.bindProbeSession(this.#state.resources.repo, session.metadata, (opened) => composition(this.#state, opened));
   }
   async startDrive() {
     const deadline = await this.schedule(new Date(this.#state.clock.now + 10_000), "deadline", { operationId: "held" });

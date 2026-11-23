@@ -63,7 +63,7 @@ export class ReplayProbe extends NativeOnlyHost {
     const session = await repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
     this.#script();
-    this.bindSession(repo, session.metadata, (opened) => { this.#attaches += 1; return this.#composition(opened); });
+    this.bindProbeSession(repo, session.metadata, (opened) => { this.#attaches += 1; return this.#composition(opened); });
   }
 
   /** One script per session, not per attachment: recovery continues the same turn and its next round. */

@@ -29,7 +29,7 @@ export class HostProbe extends NativeOnlyHost {
     provider.setResponses(this.name === "/retry" ? [fauxAssistantMessage("", { stopReason: "error", errorMessage: "429 rate limit" }), fauxAssistantMessage("retried")] : [fauxAssistantMessage("first"), fauxAssistantMessage("second")]);
     const models = createModels();
     models.setProvider(provider.provider);
-    this.bindSession(this.repo, session.metadata, (opened) => ({ models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 1000 },
+    this.bindProbeSession(this.repo, session.metadata, (opened) => ({ models, model: provider.getModel(), retry: { enabled: true, maxRetries: 1, baseDelayMs: 1000 },
       toolContext: { session: opened, branch: "main", locale: "en", catalog: createCatalogClient(() => Promise.reject(new Error("Unexpected catalog request"))),
         assertAuthorized: () => Promise.resolve(), reserveToolUsage: () => Promise.resolve() } }), this.#refusing.databases[this.name]);
   }

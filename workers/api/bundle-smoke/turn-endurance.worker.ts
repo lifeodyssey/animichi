@@ -66,7 +66,7 @@ export class EnduranceProbe extends NativeOnlyHost {
   protected override async initializeSession() {
     const session = await this.#repo.create({ id: this.name }, BACKGROUND_CONTEXT);
     await session.close(BACKGROUND_CONTEXT);
-    this.bindSession(this.#repo, session.metadata, this.#composition());
+    this.bindProbeSession(this.#repo, session.metadata, this.#composition());
   }
 
   /** The scripted provider and the tool context are the only seams this host replaces. */
