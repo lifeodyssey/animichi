@@ -4,11 +4,11 @@
  * `wrangler deploy --no-bundle`.
  *
  * The release script itself builds it, into a scratch root, so the runtime loads the bytes CD
- * deploys rather than an approximation of them. It builds once per test file, so the boot and the
- * startup profile (`sealed-startup.ts`) observe the same bytes. Its modules are the ones the sealed
- * `wrangler.json` uploads: `index.js` as the entry, and `contract.json` and every file under
- * `migrations/` as Text modules under their own names, which the Worker reads back at
- * `/bundle/migrations`.
+ * deploys rather than an approximation of them. It builds once per test file, so the boot, the
+ * startup profile (`sealed-startup.ts`) and the preflight (`sealed-preflight.ts`) observe the same
+ * bytes. Its modules are the ones the sealed `wrangler.json` uploads: `index.js` as the entry, and
+ * `contract.json` and every file under `migrations/` as Text modules under their own names, which
+ * the Worker reads back at `/bundle/migrations`.
  */
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { Miniflare, type Request as WorkerRequest } from "miniflare";
+import { Miniflare, type MiniflareOptions, type Request as WorkerRequest } from "miniflare";
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url).href);
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -52,13 +52,17 @@ function refuseOutbound(request: WorkerRequest): never {
   throw new Error(`the sealed migrator made an outbound request: ${request.method} ${request.url}`);
 }
 
-async function boot(release: string): Promise<Miniflare> {
+/** What a test adds to the Worker's surroundings: bindings, and what answers its outbound requests
+ * in place of the refusal. */
+export type SealedOutside = Partial<Pick<MiniflareOptions, "bindings" | "outboundService">>;
+
+async function boot(release: string, outside: SealedOutside): Promise<Miniflare> {
   const runtime = JSON.parse(await readFile(join(release, "wrangler.json"), "utf8")) as SealedRuntime;
   const bundle = join(release, "bundle");
   const worker = new Miniflare({ modules: await sealedModules(bundle), modulesRoot: bundle, port: 0,
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags,
     durableObjects: { MIGRATOR_APPLY_LOCK: { className: "MigratorApplyLock", useSQLite: true } },
-    outboundService: refuseOutbound });
+    outboundService: refuseOutbound, ...outside });
   try {
     await worker.ready;
     return worker;
@@ -88,7 +92,7 @@ export async function discardSealedRelease(): Promise<void> {
 }
 
 /** Boots the shared release; `close` stops the runtime and leaves the release to `discardSealedRelease`. */
-export async function bootSealedMigrator() {
-  const worker = await boot(await sealedRelease());
+export async function bootSealedMigrator(outside: SealedOutside = {}) {
+  const worker = await boot(await sealedRelease(), outside);
   return { worker, close: () => worker.dispose() };
 }
