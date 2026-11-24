@@ -16,7 +16,8 @@
  * are both plans on it (#1630).
  */
 import type { Context, Hono } from "hono";
-import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma } from "../db/prisma";
+import type { CatalogPrisma } from "../db/prisma";
+import { prismaAccess } from "../db/prisma-first-use";
 import type { Env } from "../index";
 import { fullIngest, runCanaryCommand } from "./admin-commands";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
@@ -63,6 +64,7 @@ export type AcquirePrisma = (connStr: string) => Promise<AdminPrisma>;
 
 /** The production acquisition: one runtime per admin request, disposed after. */
 async function defaultAdminPrisma(connStr: string): Promise<AdminPrisma> {
+  const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
   const runtime = await acquireCatalogRuntime(connStr);
   return {
     query: catalogPrisma(runtime),
