@@ -1,5 +1,8 @@
 # SUT: pr-verification.yml plan selects dependent packages and routes workflow/action and release-tooling changes to real lanes.
+require "json"
 require "minitest/autorun"
+require "open3"
+require "tmpdir"
 require_relative "repository-yaml"
 
 class PrVerificationPlanTest < Minitest::Test
@@ -76,21 +79,64 @@ class PrVerificationPlanTest < Minitest::Test
     assert_equal "${{ steps.paths.outputs.workflows }}", @ci.dig("jobs", "plan", "outputs", "workflows")
   end
 
-  # The API Worker's sealed bundle, which the api suite boots, declares no `[alias]`; the
-  # migrator's is the one `build-worker.mjs` builds with one, and only the migrator's suite boots
-  # it (workers/migrator/test/sealed-bundle.workerd.test.ts). So a release-tooling change has to
-  # select the migrator, or a build that drops the alias merges green and fails only in staging.
-  RELEASE_ROUTE = <<~'SH'
-    if [ "$RELEASE_CHANGED" = true ]; then
-      packages="$(jq -c '. + ["migrator"] | unique' <<< "$packages")"
-    fi
-  SH
+  # The matrix is whatever the pnpm step writes, so these cases run the step's own script: its env
+  # resolved from the paths filters a change matched, `pnpm` answering with the projects the change
+  # touched and `git` with a merge base. `.github/**` lands in the root project, which the step
+  # subtracts, so for such a change only the step's force-adds can select a suite.
+  PATHS_OUTPUT = /\$\{\{ steps\.paths\.outputs\.(\w+) \}\}/
+  STUBS = {
+    "pnpm" => %(#!/bin/sh\nprintf '%s\\n' "$PNPM_PROJECTS"\n),
+    "git" => "#!/bin/sh\necho merge-base\n"
+  }.freeze
+  ROOT_PROJECT = "animichi-cloudflare-worker"
 
-  def test_release_tooling_changes_reach_the_migrator_suite
-    pnpm = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "pnpm" }
-    assert_equal "${{ steps.paths.outputs.release }}", pnpm.dig("env", "RELEASE_CHANGED")
-    assert_includes pnpm.fetch("run"), RELEASE_ROUTE,
-                    "pr-verification.yml: a release-tooling change must add the migrator, whose suite " \
-                    "boots the sealed bundle build-worker.mjs writes"
+  def pnpm_step
+    @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "pnpm" }
+  end
+
+  def step_env(matched)
+    pnpm_step.fetch("env").transform_values do |expression|
+      expression.gsub(PATHS_OUTPUT) { matched.include?(Regexp.last_match(1)).to_s }
+    end
+  end
+
+  def write_stubs(dir)
+    STUBS.each { |name, body| File.write(File.join(dir, name), body) }
+    File.chmod(0o755, *STUBS.keys.map { |name| File.join(dir, name) })
+  end
+
+  def run_env(dir, projects, matched)
+    step_env(matched).merge("PATH" => "#{dir}:#{ENV.fetch('PATH')}", "GITHUB_OUTPUT" => "#{dir}/output",
+                            "GITHUB_STEP_SUMMARY" => "#{dir}/summary",
+                            "PNPM_PROJECTS" => JSON.generate(projects.map { |name| { "name" => name } }))
+  end
+
+  def selected(projects, matched)
+    Dir.mktmpdir do |dir|
+      write_stubs(dir)
+      _, error, status = Open3.capture3(run_env(dir, projects, matched), "bash", "-c", pnpm_step.fetch("run"))
+      assert status.success?, "the plan's pnpm step failed: #{error}"
+      JSON.parse(File.read("#{dir}/output")[/^packages=(.*)$/, 1])
+    end
+  end
+
+  # A release path sits inside `workflows` too. The api suite boots the API Worker's sealed bundle,
+  # which declares no `[alias]`; only the migrator's suite boots the one `build-worker.mjs` builds
+  # with one (workers/migrator/test/sealed-bundle.workerd.test.ts), so without the migrator a build
+  # that drops the alias merges green and fails only in staging.
+  def test_a_release_tooling_change_selects_the_api_and_migrator_suites
+    assert_equal %w[api migrator], selected([ROOT_PROJECT], %w[workflows release])
+  end
+
+  def test_a_workflow_change_outside_the_release_tooling_selects_the_api_suite_alone
+    assert_equal %w[api], selected([ROOT_PROJECT], %w[workflows])
+  end
+
+  def test_a_migrator_that_pnpm_and_the_release_route_both_select_runs_once
+    assert_equal %w[api migrator], selected([ROOT_PROJECT, "migrator"], %w[workflows release])
+  end
+
+  def test_a_change_no_route_matches_selects_no_suite
+    assert_equal [], selected([ROOT_PROJECT], [])
   end
 end
