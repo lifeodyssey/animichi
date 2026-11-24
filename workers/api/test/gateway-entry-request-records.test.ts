@@ -11,7 +11,8 @@
  * them), both public catalog reads, the users prefix (a read and a write),
  * adoption, the retired migration path, the `/v1` surface (each agent-tier
  * route, Turnstile verification and an unknown `/v1` path), and a request no
- * route serves (an unmatched path and the bare `/tiles` name).
+ * route serves (an unmatched path, the bare `/tiles` name and a variant of the
+ * private `/img/docs` name).
  *
  * test-type: characterization
  */
@@ -67,6 +68,7 @@ const REQUESTS: readonly RecordedRequest[] = [
   served("an unknown /v1 path", "POST", "/v1/unknown", "v1"),
   served("an unmatched path", "GET", "/unknown", "not-found"),
   served("the bare /tiles name", "GET", "/tiles", "not-found"),
+  served("a variant of the private docs name", "GET", "/img/Docs/archive/a.png?plan=h160", "not-found"),
   { who: "a users read whose binding is unreachable", method: "GET", path: "/v1/users/saved-routes", vars: UNREACHABLE_USERS,
     requestClass: "users", records: [[START, "users"], [COMPLETION, "users"], [ERROR, "users"]] },
 ];

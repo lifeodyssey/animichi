@@ -11,7 +11,10 @@
  * before a binding is touched. The namespace is reserved rather than
  * best-effort, and it includes its own bare prefix: `/img/docs` and
  * `/img/docs/` are not assets, and no path inside the namespace is ever
- * forwarded to the image origin.
+ * forwarded to the image origin. Nor is a variant of its name, in another case
+ * (`/img/Docs/…`) or with a percent-encoded letter (`/img/%64ocs/…`): the
+ * gateway routes no variant (`isDocsNameVariant` in `image-proxy.ts`) and
+ * answers each with its own 404.
  *
  * The read itself — the `Range` gate, the edge cache, the 200/206 projection
  * and the storage refusals — is the shared private-R2 shell
@@ -28,7 +31,7 @@ import {
 /** The one `/img/` namespace this module owns: `/img/docs` and everything
  * under it. The bare prefix is inside the namespace, so it is refused rather
  * than resolved as an origin path. */
-const DOCS_NAMESPACE = "docs";
+export const DOCS_NAMESPACE = "docs";
 
 /** Approved documentation assets live under one prefix — the `docs/archive/**`
  * half of the P7 binary strip. A new source of assets is a deliberate addition

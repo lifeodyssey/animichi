@@ -23,8 +23,12 @@ interface SealedRuntime {
   readonly compatibility_flags: string[];
 }
 
+/** Every outbound request a booted worker attempted, each refused below. */
+const outboundRequests: string[] = [];
+
 /** Starting needs no network; an outbound request is the failure, named. */
 function refuseOutbound(request: WorkerRequest): never {
+  outboundRequests.push(`${request.method} ${request.url}`);
   throw new Error(`the sealed API Worker made an outbound request: ${request.method} ${request.url}`);
 }
 
@@ -48,6 +52,17 @@ void test("the sealed API Worker starts in workerd and answers an unknown path w
   const worker = await bootSealedApi();
   context.after(() => worker.dispose());
   const response = await worker.dispatchFetch("https://api.test/not-a-route");
+  assert.equal(response.status, 404);
+  assert.equal((await response.json() as { error: { code: string } }).error.code, "not_found");
+  assert.match(response.headers.get("X-Request-Id") ?? "", REQUEST_ID);
+});
+
+void test("the sealed API Worker answers a variant of the private docs name with its 404 and a request ID", { timeout: 120_000 }, async (context) => {
+  const worker = await bootSealedApi();
+  context.after(() => worker.dispose());
+  const attempted = outboundRequests.length;
+  const response = await worker.dispatchFetch("https://api.test/img/Docs/archive/a.png?plan=h160");
+  assert.deepEqual(outboundRequests.slice(attempted), []);
   assert.equal(response.status, 404);
   assert.equal((await response.json() as { error: { code: string } }).error.code, "not_found");
   assert.match(response.headers.get("X-Request-Id") ?? "", REQUEST_ID);
