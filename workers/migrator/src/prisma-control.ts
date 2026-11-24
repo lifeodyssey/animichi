@@ -1,10 +1,6 @@
-import { createPostgresControlClient, type ControlClient } from "@prisma/orm-postgres/control";
-import geographyExtensionDescriptor from "@animichi/prisma-geography/control";
-import { defineConfig } from "@prisma/orm-postgres/config";
-import { readContractSnapshotJson } from "@prisma/orm-postgres/migration-tools/contract-snapshot-store";
-import {
-  executeMigrateShowPlan, type CliInvocation, type MigrateShowMigration, type MigrateShowPlanSuccess,
-} from "@prisma/orm-toolchain/cli/control-api";
+import type { ControlClient } from "@prisma/orm-postgres/control";
+import type { CliInvocation, MigrateShowMigration, MigrateShowPlanSuccess } from "@prisma/orm-toolchain/cli/control-api";
+import { controlSurface, snapshotStore } from "./prisma-first-use";
 import { PRISMA_MIGRATIONS_DIR, validPrismaRef } from "./prisma-target";
 import { assertDirectDsn } from "./direct-dsn";
 import { redactedCause } from "./redacted-cause";
@@ -56,10 +52,17 @@ function previewOf(ref: string, shown: MigrateShowPlanSuccess): NativeResult<Pri
   return { ok: true, value: { targetHash: ref, markerHash, migrations: shown.migrations, usedLiveMarker: true } };
 }
 
+/** Prisma's control client, carrying the geography extension the sealed graph's migrations use. */
+async function geographyControlClient(): Promise<ControlClient> {
+  const { createPostgresControlClient, geographyExtensionDescriptor } = await controlSurface();
+  return createPostgresControlClient({ extensions: [geographyExtensionDescriptor] });
+}
+
 /** The official show API ends before its DDL/marker boundary. */
 export async function previewPrisma(dsn: string, ref: string, directory = PRISMA_MIGRATIONS_DIR): Promise<NativeResult<PrismaPreview>> {
   assertDirectDsn(dsn);
   if (!validPrismaRef(ref)) return { ok: false, error: "invalid_prisma_ref" };
+  const { defineConfig, executeMigrateShowPlan } = await controlSurface();
   const config = defineConfig({ contract: `${directory}/snapshots/${ref}/contract.json`, migrations: { dir: directory } });
   const result = await executeMigrateShowPlan({ config, cwd: INVOCATION.cwd, db: dsn, to: ref, invocation: INVOCATION });
   return result.ok ? previewOf(ref, result.value) : { ok: false, error: result.failure.code };
@@ -71,8 +74,8 @@ export async function previewPrisma(dsn: string, ref: string, directory = PRISMA
 export async function migratePrisma(dsn: string, ref: string, directory = PRISMA_MIGRATIONS_DIR): Promise<NativeResult<PrismaReceipt>> {
   assertDirectDsn(dsn);
   if (!validPrismaRef(ref)) return { ok: false, error: "invalid_prisma_ref" };
-  const contract = await readContractSnapshotJson(directory, ref);
-  const client = createPostgresControlClient({ extensions: [geographyExtensionDescriptor] });
+  const contract = await (await snapshotStore()).readContractSnapshotJson(directory, ref);
+  const client = await geographyControlClient();
   try {
     await client.connect(dsn);
     const result = await client.migrate({ contract, migrationsDir: directory, refHash: ref, invocation: INVOCATION });
