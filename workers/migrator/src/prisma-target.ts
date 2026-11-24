@@ -1,5 +1,5 @@
 import contract from "@animichi/pi-session-neon/contract";
-import { readContractSnapshotJsonTolerant } from "@prisma/orm-postgres/migration-tools/contract-snapshot-store";
+import { snapshotStore } from "./prisma-first-use";
 
 export const PRISMA_TARGET = contract.storage.storageHash;
 export const PRISMA_MIGRATIONS_DIR = "/bundle/migrations";
@@ -11,5 +11,6 @@ export function validPrismaRef(value: unknown): value is string {
 
 export async function hasPrismaSnapshot(ref: string, directory = PRISMA_MIGRATIONS_DIR): Promise<boolean> {
   if (!validPrismaRef(ref)) return false;
+  const { readContractSnapshotJsonTolerant } = await snapshotStore();
   return await readContractSnapshotJsonTolerant(directory, ref) !== undefined;
 }

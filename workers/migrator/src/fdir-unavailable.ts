@@ -7,7 +7,8 @@
  * (`@prisma/orm-postgres/control` imports `@prisma/orm-toolchain/cli/control-api`), so the crawler
  * is in the Worker's module graph although no request crawls. Its module top level calls
  * `createRequire(import.meta.url)`, and workerd leaves `import.meta.url` undefined, so with the real
- * module the bundle cannot start at all.
+ * module Prisma control cannot load in workerd. It loads on first use (`prisma-first-use.ts`), so the
+ * first preview or apply would fail, where the bundle used to fail to start.
  *
  * tinyglobby's pattern checks (`isDynamicPattern`, which `defineConfig` calls on every preview)
  * need no crawler and stay real. A Worker has no filesystem to crawl, so `new fdir(…)`, tinyglobby's
