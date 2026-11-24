@@ -32,6 +32,8 @@ const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const nodeRequire = createRequire(import.meta.url);
 /** Resolved, never taken from PATH, and run with this interpreter rather than a shebang. */
 const WRANGLER_BIN = join(dirname(nodeRequire.resolve("wrangler/package.json")), "bin", "wrangler.js");
+/** Without the switch, Wrangler's banner asks the npm registry for Wrangler's latest version on every run. */
+const WRANGLER_ENV = { ...process.env, WRANGLER_HIDE_BANNER: "true" };
 const PORT = 8797;
 const ORIGIN = `http://127.0.0.1:${String(PORT)}`;
 const BOOT_TIMEOUT_MS = 120_000;
@@ -42,7 +44,7 @@ let log = "";
 
 function bootPromotedWorker(): ChildProcess {
   const args = [WRANGLER_BIN, "dev", "--no-bundle", "--local", "--ip", "127.0.0.1", "--port", String(PORT)];
-  const child = spawn(process.execPath, args, { cwd: packageRoot, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, args, { cwd: packageRoot, env: WRANGLER_ENV, stdio: ["ignore", "pipe", "pipe"] });
   const collect = (chunk: Buffer): void => { log += String(chunk); };
   child.stdout.on("data", collect);
   child.stderr.on("data", collect);
