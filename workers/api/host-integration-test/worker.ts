@@ -5,11 +5,12 @@ import type { TestContext } from "node:test";
 import { Miniflare } from "miniflare";
 import { bundledEntries } from "../bundle-smoke/bundled-entries.ts";
 import { deployedRuntime } from "../bundle-smoke/wrangler-bundle.ts";
+import { placeholderRequestCf } from "../bundle-smoke/placeholder-request-cf.ts";
 import { dsn, SESSION, IDENTITY } from "./postgres.ts";
 
 export async function businessWorker(context: TestContext, bindings: Record<string, string> = {}, entry = new URL("./business-host.worker.ts", import.meta.url), catalog?: (request: Request) => Promise<Response>) {
   const directory = await mkdtemp(join(tmpdir(), "business-host-"));
-  const options = { ...await bundledEntries.modules(entry.pathname), ...deployedRuntime(),
+  const options = { ...await bundledEntries.modules(entry.pathname), ...deployedRuntime(), ...placeholderRequestCf,
     bindings: { AGENT_SVC_DATABASE_URL: dsn, ...bindings }, durableObjectsPersist: join(directory, "state"),
     durableObjects: { SESSION: { className: "BusinessHost", useSQLite: true } },
     ...(catalog === undefined ? {} : { serviceBindings: { CATALOG: catalog } }) };

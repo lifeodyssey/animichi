@@ -6,6 +6,7 @@ import type { TestContext } from "node:test";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "../bundle-smoke/wrangler-bundle.ts";
+import { placeholderRequestCf } from "../bundle-smoke/placeholder-request-cf.ts";
 import { TEST_ANON_SECRET } from "../test/doubles/signed-anonymous-cookie.ts";
 import { dsn } from "./postgres.ts";
 
@@ -107,7 +108,7 @@ export async function gatewayWorker(context: TestContext, accountId: string): Pr
   const provider = await neonAuthProvider(accountId, token);
   const egress: Request[] = [];
   const worker = new Miniflare({
-    modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }], ...deployedRuntime(),
+    modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }], ...deployedRuntime(), ...placeholderRequestCf,
     bindings: bindings(), durableObjectsPersist: join(directory, "state"),
     durableObjects: { EDGE_GUARD: { className: "EdgeGuard", useSQLite: true }, AGENT_SESSION: { className: "AgentSession", useSQLite: true } },
     outboundService: (request: Request) => externalBoundary(request, jwk, egress),

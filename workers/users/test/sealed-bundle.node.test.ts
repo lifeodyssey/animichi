@@ -60,11 +60,13 @@ function sealedRelease(): Promise<string> {
   return release;
 }
 
-/** Start the bundle in workerd; a runtime that failed to start is disposed before its error surfaces. */
+/** Start the bundle in workerd; a runtime that failed to start is disposed before its error surfaces.
+ * `cf: false` is Miniflare's documented off value: the runtime gets Miniflare's placeholder `Request.cf`
+ * instead of fetching Cloudflare's, which Miniflare does unless `NODE_ENV` is "test". */
 async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare> {
   const started = new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "index.js") }], modulesRoot: bundle, port: 0,
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound,
-    bindings: { DATABASE_URL: database.url } });
+    bindings: { DATABASE_URL: database.url }, cf: false });
   try {
     await started.ready;
     return started;
