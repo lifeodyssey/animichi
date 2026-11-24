@@ -30,7 +30,7 @@
 # lane covers the merges that never rebase.
 #
 # A merged commit cannot be amended, so this lane runs the whole matrix except
-# `commits`: the whole-repository lanes — `contracts`, `docs`, and the six security
+# `commits`: the whole-repository lanes — `contracts`, `docs`, and the security
 # jobs behind `Security` — the lanes `plan` routes by the merged diff — `affected`,
 # `e2e`, `db`, `foundation-install`, `delivery-toolchain` — and the two aggregates
 # that carry the required contexts.
@@ -325,7 +325,9 @@ jobs:
   #
   # It therefore needs neither the installed workspace nor a database: only
   # `.ruby-version`'s interpreter and `Gemfile.lock`'s gems, the pair `bundle
-  # exec` resolves on a developer's machine too (#1774).
+  # exec` resolves on a developer's machine too (#1774), plus the runner image's
+  # `bash` and `jq`, which `pr-verification-plan.test.rb` needs to run the plan's
+  # selection step.
   contracts:
     name: CI / repository contracts
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
