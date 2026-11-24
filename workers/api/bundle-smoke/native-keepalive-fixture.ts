@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { TestContext } from "node:test";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 import type { AlarmWrite } from "./native-keepalive-state.ts";
 
 export interface Observation {
@@ -36,7 +37,7 @@ export async function nativeWorker(context: TestContext) {
   const outfile = join(directory, "worker.mjs");
   await bundleLikeWrangler(new URL("./native-keepalive.worker.ts", import.meta.url).pathname, outfile);
   const worker = new Miniflare({ modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }],
-    ...deployedRuntime(), durableObjects: { SESSION: { className: "KeepaliveProbe", useSQLite: true } } });
+    ...deployedRuntime(), ...placeholderRequestCf, durableObjects: { SESSION: { className: "KeepaliveProbe", useSQLite: true } } });
   resources.worker = worker;
   return worker;
 }

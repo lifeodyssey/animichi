@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { URL, fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 
 const EXPECTED = {
   city: "宇治",
@@ -19,7 +20,7 @@ async function bundledConsumer(context: TestContext): Promise<Miniflare> {
   context.after(() => rm(directory, { recursive: true, force: true }));
   const scriptPath = join(directory, "worker.js");
   await bundleLikeWrangler(fileURLToPath(new URL("./agent-domain.worker.ts", import.meta.url)), scriptPath);
-  const worker = new Miniflare({ modules: true, scriptPath, modulesRoot: directory, compatibilityDate: "2026-07-01" });
+  const worker = new Miniflare({ modules: true, scriptPath, modulesRoot: directory, compatibilityDate: "2026-07-01", ...placeholderRequestCf });
   context.after(() => worker.dispose());
   return worker;
 }

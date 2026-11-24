@@ -13,6 +13,7 @@ import { URL, fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { process } from "../test-support/node-globals.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url));
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -42,7 +43,8 @@ async function bootSealedApi(): Promise<Miniflare> {
   const runtime = JSON.parse(await readFile(join(root, "api", "wrangler.json"), "utf8")) as SealedRuntime;
   const bundle = join(root, "api", "bundle");
   return new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "entry.js") }], modulesRoot: bundle, port: 0,
-    compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound });
+    compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound,
+    ...placeholderRequestCf });
 }
 
 /** The request ID the gateway mints at entry (`src/gateway/request-id.ts`): a lowercase UUID. */

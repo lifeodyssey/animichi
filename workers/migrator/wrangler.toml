@@ -42,8 +42,10 @@ preview_urls = false
 # Prisma rc.24's control client shares a module chunk with the CLI's config loader,
 # which pulls in tinyglobby's file crawler, fdir. fdir calls
 # createRequire(import.meta.url) at module top level, and workerd leaves
-# import.meta.url undefined, so the bundle could not start. The Worker never
-# crawls a filesystem; src/fdir-unavailable.ts stands in and throws if asked to.
+# import.meta.url undefined, so Prisma control could not load: the bundle could
+# not start, and with Prisma control loaded on first use (src/prisma-first-use.ts)
+# the first preview or apply would fail instead. The Worker never crawls a
+# filesystem; src/fdir-unavailable.ts stands in and throws if asked to.
 # Top level only: Wrangler applies [alias] to every environment's build.
 # Delete the alias when either of these holds:
 # - Prisma stops pulling the CLI config loader into the control-api chunk. The
