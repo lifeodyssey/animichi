@@ -85,6 +85,30 @@ const DEFAULT_WINDOW_FALLBACK: Outcome = {
     '{"allowed":false,"retryAfterSeconds":60}'],
   alarmAt: NOW + 120_000,
 };
+const DENIES_EVERY_CHECK: Outcome = {
+  says: "is applied: a limit of zero or less denies every check",
+  answers: ['{"allowed":false,"retryAfterSeconds":600}', '{"allowed":false,"retryAfterSeconds":600}',
+    '{"allowed":false,"retryAfterSeconds":600}'],
+  alarmAt: NOW + 1_200_000,
+};
+const NO_LIMIT_HINT_ONE: Outcome = {
+  says: "is applied: a window of zero or less is no limit, with a retry hint of 1 s",
+  answers: ['{"allowed":true,"retryAfterSeconds":1}', '{"allowed":true,"retryAfterSeconds":1}',
+    '{"allowed":true,"retryAfterSeconds":1}'],
+  alarmAt: NOW + 60_000,
+};
+const LIMIT_AT_ITS_CEILING: Outcome = {
+  says: "is applied: a fractional limit acts as its ceiling, two checks per ten minutes",
+  answers: ['{"allowed":true,"retryAfterSeconds":600}', '{"allowed":true,"retryAfterSeconds":600}',
+    '{"allowed":false,"retryAfterSeconds":600}'],
+  alarmAt: NOW + 1_200_000,
+};
+const ONE_PER_HALF_SECOND: Outcome = {
+  says: "is applied: one check per half-second window, with a retry hint of 1 s",
+  answers: ['{"allowed":true,"retryAfterSeconds":1}', '{"allowed":false,"retryAfterSeconds":1}',
+    '{"allowed":false,"retryAfterSeconds":1}'],
+  alarmAt: NOW + 60_000,
+};
 
 const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":1,"windowSeconds":600}', ONE_PER_TEN_MINUTES],
@@ -97,6 +121,12 @@ const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":1,"windowSeconds":4000000000001}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":1e306}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":10}', ONE_PER_TEN_SECONDS],
+  ['{"limit":0,"windowSeconds":600}', DENIES_EVERY_CHECK],
+  ['{"limit":-1,"windowSeconds":600}', DENIES_EVERY_CHECK],
+  ['{"limit":1,"windowSeconds":0}', NO_LIMIT_HINT_ONE],
+  ['{"limit":1,"windowSeconds":-60}', NO_LIMIT_HINT_ONE],
+  ['{"limit":1.5,"windowSeconds":600}', LIMIT_AT_ITS_CEILING],
+  ['{"limit":1,"windowSeconds":0.5}', ONE_PER_HALF_SECOND],
   ['{"limit":"1","windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":null,"windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":1}', DEPLOYED_FALLBACK],

@@ -14,6 +14,8 @@
  * through. The reclaim alarm reads a window the same way and sweeps one that is
  * no window, and a check that resets one arms the alarm as a check on no window
  * does.
+ * A recorded reclaim window that is not finite, or is longer than the longest
+ * window the guard accepts, is treated as absent: the alarm uses the deployed one.
  *
  * test-type: characterization
  */
@@ -144,5 +146,33 @@ for (const alarm of ALARMS) {
     await guard.alarm();
     assert.deepEqual([...data.keys()], alarm.kept);
     assert.equal(scheduled.at, alarm.rearmedAt);
+  });
+}
+
+/** An alarm firing on a window it recorded the reclaim basis for; the guard's deployed window is the default 60 s. */
+interface ReclaimReading extends AlarmReading {
+  readonly recorded: number;
+}
+
+const LIVE = { startedAtMs: NOW - 1_000, count: 1 };
+const BOTH_KEPT = ["window", "reclaim-window-seconds"];
+
+const RECLAIMS: readonly ReclaimReading[] = [
+  { shape: "a live window recorded with an Infinity basis is rearmed on the deployed window", stored: LIVE, recorded: Number.POSITIVE_INFINITY,
+    kept: BOTH_KEPT, rearmedAt: NOW + 120_000 },
+  { shape: "a live window recorded with a basis past the bound is rearmed on the deployed window", stored: LIVE, recorded: 4_000_000_000_001,
+    kept: BOTH_KEPT, rearmedAt: NOW + 120_000 },
+  { shape: "a stale window recorded with an Infinity basis is swept", stored: { startedAtMs: NOW - 61_000, count: 1 },
+    recorded: Number.POSITIVE_INFINITY, kept: [], rearmedAt: null },
+  { shape: "a live window recorded with a basis of exactly the bound is rearmed on it", stored: LIVE, recorded: 4_000_000_000_000,
+    kept: BOTH_KEPT, rearmedAt: NOW + 8_000_000_000_000_000 },
+];
+
+for (const reading of RECLAIMS) {
+  void test(`when the reclaim alarm fires, ${reading.shape}`, async (t) => {
+    const { guard, data, alarm } = guardOver(t, { window: reading.stored, "reclaim-window-seconds": reading.recorded });
+    await guard.alarm();
+    assert.deepEqual([...data.keys()], reading.kept);
+    assert.equal(alarm.at, reading.rearmedAt);
   });
 }
