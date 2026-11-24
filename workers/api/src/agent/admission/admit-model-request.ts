@@ -1,5 +1,6 @@
 import type { AgentLane } from "@earendil-works/pi-agent-core";
 import type { Context } from "@earendil-works/pi-agent-core/harness/context";
+import { KeyLiterals } from "../egress/key-literals.ts";
 import { persistRequestIntent } from "./request-intent.ts";
 import { reserveAdmissionQuota } from "./reserve-quota.ts";
 import { ensureAcceptedObligations } from "./accepted-obligations.ts";
@@ -19,10 +20,11 @@ export async function acceptReservedModel(db: AdmissionDatabase, lane: AgentLane
   return { kind: "accepted", operationId: admission.operationId };
 }
 
-/** Persist intent and reserve quota before the caller configures the actual native lane. */
-export async function prepareModelAdmission(db: AdmissionDatabase, request: ModelAdmissionRequest, options: AdmissionOptions): Promise<ModelAdmissionOutcome | AdmissionRecord> {
+/** Persist intent and reserve quota before the caller configures the actual native lane; `literals` are the request's own key. */
+export async function prepareModelAdmission(db: AdmissionDatabase, request: ModelAdmissionRequest, options: AdmissionOptions,
+  literals: KeyLiterals = KeyLiterals.NONE): Promise<ModelAdmissionOutcome | AdmissionRecord> {
   if (!Number.isSafeInteger(options.anonymousAllowance) || options.anonymousAllowance < 0) throw new Error("Invalid anonymous allowance");
-  const intent = await persistRequestIntent(db, request);
+  const intent = await persistRequestIntent(db, request, literals);
   if (!("admission" in intent)) return { kind: intent.kind, operationId: null };
   if (intent.kind === "existing") return replay(intent.admission);
   if (!await reserveAdmissionQuota(db, intent.admission, options)) {

@@ -18,9 +18,11 @@ export class NeonSessionRepo implements SessionRepo {
   private readonly db: SessionDatabase;
   private readonly pendingIds = new Set<string>();
   private readonly openStorages = new Map<string, NeonStorage>();
+  private readonly decorateStorage: (storage: Storage) => Storage;
 
-  constructor(db: SessionDatabase, _options: NeonSessionRepoOptions = {}) {
+  constructor(db: SessionDatabase, options: NeonSessionRepoOptions = {}) {
     this.db = db;
+    this.decorateStorage = options.decorateStorage ?? ((storage) => storage);
   }
 
   async create(options: SessionCreateOptions | undefined, _context: Context): Promise<StorageBackedSession> {
@@ -77,7 +79,7 @@ export class NeonSessionRepo implements SessionRepo {
   private openSession(metadata: SessionMetadata): StorageBackedSession {
     const storage = new NeonStorage(this.db, { sessionId: metadata.id });
     this.openStorages.set(metadata.id, storage);
-    return new StorageBackedSession(metadata, storage, { onClose: () => { this.openStorages.delete(metadata.id); } });
+    return new StorageBackedSession(metadata, this.decorateStorage(storage), { onClose: () => { this.openStorages.delete(metadata.id); } });
   }
 
   private reserveId(id: string): void {

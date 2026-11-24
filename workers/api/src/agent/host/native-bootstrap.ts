@@ -8,6 +8,8 @@ import type { Env } from "../../env.ts";
 import { nativeHostModels } from "./native-models.ts";
 import { requireToolAuthority } from "./native-authority.ts";
 import { NATIVE_AGENT_OPTIONS } from "@animichi/agent";
+import { KeyRedactingStorage } from "./key-redacting-storage.ts";
+import { OperationCredentials } from "./operation-credentials.ts";
 
 async function readSecret(value: { get(): Promise<string> } | string | undefined) {
   return typeof value === "string" ? value : await value?.get();
@@ -19,14 +21,16 @@ export function anonymousDailyBudget(value: string | undefined) {
   return budget;
 }
 
-/** One DO incarnation owns these direct native resources; no module-global socket or alternate store. */
+/** One DO incarnation owns these direct native resources; no module-global socket or alternate store. Every session it
+ * opens commits through a store that redacts the BYOK keys its credentials still hold. */
 export async function bootstrapNativeSession(env: Env, id: string, context: Context) {
   const url = await readSecret(env.AGENT_SVC_DATABASE_URL);
   if (!url) throw new Error("The native agent database is not configured");
   const db = await nativeClient(url);
   try {
     const server = await nativeHostModels(await readSecret(env.MIMO_API_KEY));
-    const repo = new NeonSessionRepo(db);
+    const credentials = new OperationCredentials();
+    const repo = new NeonSessionRepo(db, { decorateStorage: (storage) => new KeyRedactingStorage(storage, () => credentials.literals()) });
     const row = await db.orm.public.PiSession.where({ id }).first();
     const created = row ? undefined : await repo.create({ id }, context);
     const metadata = created?.metadata ?? row?.metadata as unknown as SessionMetadata;
@@ -37,7 +41,7 @@ export async function bootstrapNativeSession(env: Env, id: string, context: Cont
         catalog: createCatalogClient((request) => env.CATALOG.fetch(request)),
         assertAuthorized: (operationId: string, toolsContext: Context) => requireToolAuthority(db, id, operationId, budget, toolsContext),
         reserveToolUsage: (_invocationId: string, toolsContext: Context, operationId: string) => requireToolAuthority(db, id, operationId, budget, toolsContext) }) });
-    return { db, repo, metadata, compose, server, budget };
+    return { db, repo, metadata, compose, server, budget, credentials };
   } catch (error) { await db.close(); throw error; }
 }
 export type NativeSessionResources = Awaited<ReturnType<typeof bootstrapNativeSession>>;

@@ -1,3 +1,4 @@
+import { KeyLiterals } from "../egress/key-literals.ts";
 import { createOrLockOwnedConversation } from "./session-owner.ts";
 import type { AdmissionDatabase, AdmissionRecord, AdmissionTransaction, ModelAdmissionRequest } from "./types.ts";
 
@@ -21,11 +22,12 @@ async function findOrCreate(tx: AdmissionTransaction, request: ModelAdmissionReq
   }) };
 }
 
-/** Committed separately before quota or any SDK write; rediscoverable even after a crash. */
-export async function persistRequestIntent(db: AdmissionDatabase, request: ModelAdmissionRequest): Promise<RequestIntent> {
+/** Committed separately before quota or any SDK write; rediscoverable even after a crash. The digest reads the request
+ * as sent, so a replay still matches; only the stored first query is redacted with `literals`. */
+export async function persistRequestIntent(db: AdmissionDatabase, request: ModelAdmissionRequest, literals: KeyLiterals = KeyLiterals.NONE): Promise<RequestIntent> {
   const digest = await requestDigest(request);
   return db.transaction(async (tx) => {
-    if (!await createOrLockOwnedConversation(db, tx, request)) return { kind: "forbidden" };
+    if (!await createOrLockOwnedConversation(db, tx, request, literals)) return { kind: "forbidden" };
     return findOrCreate(tx, request, digest);
   });
 }

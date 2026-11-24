@@ -7,9 +7,7 @@ import type { AdmissionOptions, ModelAdmissionOutcome, ModelAdmissionRequest } f
 import type { ByokCredentialParts } from "../byok/byok-credential.ts";
 import type { NativeSessionResources } from "./native-bootstrap.ts";
 import { nativeByokModels } from "./native-models.ts";
-
-type CredentialModels = Awaited<ReturnType<typeof nativeByokModels>>;
-export type OperationCredentials = Map<string, CredentialModels>;
+import type { CredentialModels, OperationCredentials } from "./operation-credentials.ts";
 
 async function bindCredential(resources: NativeSessionResources, credentials: OperationCredentials, lane: AgentLane, context: Context, operationId: string, byok: CredentialModels) {
   if (await lane.getResult(operationId, context)) return;
@@ -18,7 +16,7 @@ async function bindCredential(resources: NativeSessionResources, credentials: Op
   const previous = credentials.get(operationId);
   if (previous) await previous.models.logout(previous.model.provider);
   resources.server.models.setProvider(provider);
-  credentials.set(operationId, byok);
+  credentials.bind(operationId, byok);
 }
 
 function canBind(prepared: Awaited<ReturnType<typeof prepareModelAdmission>>) {
@@ -30,13 +28,14 @@ async function requestModels(resources: NativeSessionResources, request: ModelAd
   return credential ? nativeByokModels(credential) : undefined;
 }
 
-/** The host calls this under Session exclusion; only the admission digest contains model identity. */
+/** The host calls this under Session exclusion; only the admission digest contains model identity. The first query is
+ * stored before the credential binds, so it is redacted with the request's own key. */
 export async function admitConfiguredModel(resources: NativeSessionResources, credentials: OperationCredentials, session: Session, lane: AgentLane, context: Context,
   request: ModelAdmissionRequest, options: AdmissionOptions, credential?: ByokCredentialParts): Promise<ModelAdmissionOutcome> {
   const byok = await requestModels(resources, request, credential);
   const model = byok?.model ?? resources.server.model;
   const configured = { ...request, modelIdentity: { provider: model.provider, modelId: model.id, baseUrl: model.baseUrl } };
-  const prepared = await prepareModelAdmission(resources.db, configured, { ...options, anonymousDailyBudget: resources.budget });
+  const prepared = await prepareModelAdmission(resources.db, configured, { ...options, anonymousDailyBudget: resources.budget }, byok?.literals);
   if (byok && prepared.operationId && canBind(prepared))
     await bindCredential(resources, credentials, lane, context, prepared.operationId, byok);
   if (!("id" in prepared)) return prepared;

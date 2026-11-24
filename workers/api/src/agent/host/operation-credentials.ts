@@ -18,12 +18,18 @@ export class OperationCredentials {
   /** Every key a stored write must not hold: the literal of each credential still bound. */
   literals() { return KeyLiterals.union([...this.#bound.values()].map((credential) => credential.literals)); }
 
-  /** Logs the operation's credential out, forgets it, and removes its provider from the session's models. */
+  /**
+   * Logs the operation's credential out, forgets it, and removes its provider from the session's models. The provider
+   * holds the key as well, so both go even when the logout throws; the logout's error still reaches the caller.
+   */
   async release(operationId: string, providers: Pick<MutableModels, "deleteProvider">) {
     const credential = this.#bound.get(operationId);
     if (!credential) return;
-    await credential.models.logout(credential.model.provider);
-    this.#bound.delete(operationId);
-    providers.deleteProvider(credential.model.provider);
+    try {
+      await credential.models.logout(credential.model.provider);
+    } finally {
+      this.#bound.delete(operationId);
+      providers.deleteProvider(credential.model.provider);
+    }
   }
 }
