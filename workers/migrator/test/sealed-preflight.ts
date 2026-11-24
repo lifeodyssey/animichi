@@ -20,8 +20,8 @@ import { requestMetadata } from "./sealed-migrations";
  * `api.0.0.1` is no URL; `localhost`, with no label to swap, reaches the ledger answer below. */
 const UNREACHABLE_DSN = "postgresql://fixture:fixture@localhost:1/neondb";
 
-/** Neon's answer to `SELECT to_regclass('public.atlas_schema_revisions')::text AS ledger` on a
- * database without the ledger: one text column, one row, NULL. */
+/** Neon's answer to the ledger query of the leftovers check (`src/atlas-leftovers.ts`) on a database
+ * with no ledger: one text column, one row, NULL. */
 const NO_ATLAS_LEDGER = { results: [{ fields: [{ name: "ledger", dataTypeID: 25 }], rows: [[null]] }] };
 
 function answersPreflight(jwk: JWK) {
