@@ -108,3 +108,40 @@ forbids a test to request a third-party upstream, and nothing in the run enforce
 `@cloudflare/vitest-pool-workers` pool passes a worker's outbound requests through to the network
 unless its configuration routes them elsewhere. Miniflare, which runs the pool, gives a worker no
 outbound override by default, and without one its requests go out.
+
+Miniflare also sends a request of its own. With its `cf` option unset, it reads a cached
+`Request.cf` object younger than 30 days or fetches one from
+`https://workers.cloudflare.com/cf.json`, unless `NODE_ENV` is `test`, and its default log prints
+nothing (Miniflare 4.20260730.0's source). Vitest sets `NODE_ENV` to `test` when it is unset;
+node's test runner does not. `workers/api`'s bundle smoke runs on node's test runner: in a sandbox
+that refused the fetch, all eleven of its starters attempted it and ten printed nothing, and in CI,
+where nothing refuses it, every run called Cloudflare (#2116, 2026-11-24). A machine that holds a
+cached copy younger than 30 days shows no attempt at all. A Miniflare starter turns the fetch off
+with `cf: false` on each instance (`workers/api/bundle-smoke/placeholder-request-cf.ts`), or with
+`CLOUDFLARE_CF_FETCH_ENABLED=false` where a harness takes no `cf` option. Miniflare honours only
+`false` there, in any letter case: `0` or an empty value leaves the fetch on.
+
+## Loading a module on first use (2026-11-24)
+
+#2117 put the migrator's Prisma control behind a memoized `import()`, and #2119 did the same for
+the catalog and users Workers. The facts below shaped those changes; each was checked against
+esbuild 0.28.2 or Vitest 4.1.12.
+
+- **esbuild drops a bare import of a package that declares `"sideEffects": false`,** with an
+  `ignored-bare-import` warning. Such an import cannot force a module to evaluate, and a mutant
+  that adds one is equivalent, as #2117 argued for one item of its failure list.
+- **esbuild's `__commonJS` wrapper runs a module again after it threw;** its `__esm` wrapper for an
+  ES module rethrows the first error. A memo that retried would re-run such a module on every
+  request and could not succeed with the same bytes, so the memo keeps the rejection for the
+  isolate's life (`workers/migrator/src/prisma-first-use.ts`; in the catalog's graph `pg` is such
+  a module, `workers/catalog/src/db/prisma-first-use.ts`).
+- **Behind `import()`, esbuild wraps the target's whole dependency graph in lazy initializers,**
+  which grew the migrator's upload by 449 KiB (#2117) and the catalog's and users' by about 10%
+  (#2119). A module the eager code shares with that graph then evaluates when an initializer first
+  calls it, which can be later than in the eager bundle: eager code that reaches it through a
+  side-effect-free re-export can run before it exists. Boot the release build after such a change.
+- **In Vitest, count module loads at the module the code under test imports.** One level down, a
+  failed evaluation is cached, so a retry never reaches a counter there; a `vi.mock` factory that
+  throws runs again on a later import of its own module.
+  `workers/migrator/test/prisma-first-use.test.ts` and
+  `workers/catalog/test/prisma-first-use.worker.test.ts` count there for that reason.

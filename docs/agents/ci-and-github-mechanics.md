@@ -42,6 +42,18 @@ It publishes no check-run. Read the comment body: `gh api repos/<o>/<r>/issues/<
 Report it as "CodeRabbit could not review because of its quota", never as "no bot findings"
 (2026-09-23).
 
+PR Lens leaves some pull requests undrawn and says so in its sticky comment: "The title starts with
+`test(api):`, so PR Lens left this pull request undrawn." Across PRs merged from 2026-11-20 to
+2026-11-24 it left `test(`, `ci(`, `docs(`, `build(` and `chore(` titles undrawn (#2116, #2118,
+#2102, #2092, #2081) and drew `feat(`, `fix(`, `refactor(` and `perf(` ones (#2086, #2114, #2113,
+#2117). That is a sample, not a published rule. On an undrawn PR the bot window brings no PR Lens
+review; report "PR Lens did not draw it", not "no PR Lens findings".
+
+`gh api repos/<o>/<r>/actions/jobs/<id>/logs` refuses a response that carries terminal escape
+sequences, and a job log with colour codes does: it prints "the response contains terminal escape
+sequences; pass --allow-escape-sequences to output it anyway" instead of the log (gh 2.105.0).
+Pass `--allow-escape-sequences`, then strip the colour codes before searching the log.
+
 ## Ruleset facts for a solo repository
 
 - A required approving review is structurally unsatisfiable here: the author cannot approve their
