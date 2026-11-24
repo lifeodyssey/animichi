@@ -52,28 +52,9 @@ becomes one `affected` matrix leg running that package's own `lint`, `typecheck`
 `test:integration`. There is no component manifest and no second router: a package's lane is its
 own `package.json`, which is also what `pre-push` runs.
 
-The rest of the routing is `dorny/paths-filter`, in the same `plan` job: each filter below selects a
-job, or adds a package pnpm would not select. The `paths` step of
-`.github/workflows/pr-verification.yml` holds the globs, and
-`.github/test/pr-verification-plan.test.rb` pins that table whole.
-
-- `web` (`apps/web/**`) and `e2e` (`e2e/**`, `packages/contract/**`, `packages/agent/**`,
-  `packages/pi-session-neon/**`, `packages/test-postgres/**`, `workers/api/**`): the browser job.
-- `migrations` (`packages/pi-session-neon/migrations/**`,
-  `packages/pi-session-neon/src/contract.prisma`, `infra/database-access/reset-staging-baseline*`):
-  the schema job.
-- `deps` (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml`, `.npmrc`): every package, because
-  pnpm answers a root-lockfile change with the root project alone, plus the browser, schema and
-  delivery toolchain jobs.
-- `workflows` (`.github/workflows/**`, `.github/actions/**`, `.github/scripts/**`, `.github/lib/**`,
-  `.github/test/**`): the `api` package, whose suite reads deployment workflow text. Otherwise
-  `.github/**` lands in the subtracted root project and selects no package.
-- `release` (`.github/scripts/release/**`, `.github/lib/release/**`): the `migrator` package, whose
-  suite boots the sealed bundle `build-worker.mjs` builds with an `[alias]`.
-- `foundation` (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml`, `.pulumi.version`,
-  `infra/database-access/**`, `.github/scripts/release/**`): the foundation install job.
-- `delivery` (`.github/lib/**`, `.github/scripts/**`, `.github/test/delivery/**`, `scripts/*`,
-  `scripts/delivery/**`, `scripts/local-gates/**`): the delivery toolchain job.
+The rest of the routing is `dorny/paths-filter`, in the same `plan` job: each filter selects a job,
+or adds a package pnpm would not select. The filters and what each selects are listed once, in the
+testing strategy's [Affected PR CI](../testing-strategy.md#affected-pr-ci).
 
 The security jobs behind `Security` are never path-gated. `PR Verification` and `Security` each
 aggregate their dependencies with `always()` and fail on any failed or cancelled one.
