@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { URL, fileURLToPath } from "node:url";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 
 const ENTRY = fileURLToPath(new URL("./pi-kernel.worker.ts", import.meta.url));
 const OUT_DIR = mkdtempSync(join(tmpdir(), "api-bundle-smoke-"));
@@ -45,6 +46,7 @@ function bootedArtifact(): Miniflare {
     modules: [{ type: "ESModule", path: BUNDLE }],
     modulesRoot: OUT_DIR,
     ...deployedRuntime(),
+    ...placeholderRequestCf,
   });
 }
 
