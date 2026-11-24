@@ -102,6 +102,11 @@ never walked. Technique:
    survived: the only caller's GET routes were all low cost and its POST routes all high cost, so
    "GET" and "low cost" picked out the same requests. Prove that from the code and write it down. A
    pin for it would freeze a coincidence of today's table, not a behaviour.
+10. A test that pins a workflow's text survives mutants that break what the workflow does. In #2118
+    (2026-11-24) moving the new `migrator` block below the `GITHUB_OUTPUT` echo kept the text pin
+    green while the step selected only `["api"]` for a release-only change.
+    `.github/test/pr-verification-plan.test.rb` now extracts the step's own script from the
+    workflow, runs it with stubs for `pnpm` and `git`, and asserts the packages it writes.
 
 ## Fake boundaries: tests green, real run fails
 
@@ -208,6 +213,35 @@ The switches live in the code and the gates that start each tool, not in one mac
 environment, so CI and every agent get them. Anything new that starts one of these tools takes the
 same switch. To prove a new switch, run the tool inside the sandbox twice: without the switch the
 attempt shows and is refused, and with it nothing is attempted.
+
+## Work moved to first use moves its failures (2026-11-24)
+
+#2117 moved the migrator's load of Prisma control from startup to the first call that needs it, and
+#2119 did the same for the catalog and users Workers.
+
+- **The test that caught a failure at startup can stop seeing it.** The release script
+  (`.github/scripts/release/build-worker.mjs`) re-resolves the migrator's `fdir` alias. Before
+  #2117 a release build without the alias failed to boot. After it, the boot and the startup
+  profile of that build both stayed green, and the failure would have shown at the first preview,
+  in staging. Independent review had approved the change before the coordinator found the gap
+  while writing the PR (the merge report on #2117 lists the rounds). The fix is a third row on the
+  same release build that drives the first use, a preflight. It tells "load completed, then the
+  database refused" (Prisma's `DRIVER.CONNECTION_FAILED`, from a port nothing listens on) apart
+  from "load failed" (`preflight_unavailable`). In #2119 the catalog and users rows send the first
+  database request to a loopback listener that accepts each connection and drops it, and count
+  connections: a completed load connects once, and a failed load answers the same 500 and never
+  connects (`workers/catalog/test/sealed-bundle.node.test.ts`). When work moves to first use, list
+  where each of its failures shows now, and drive the first use on the build that ships.
+- **`wrangler check startup` alone does not prove a start.** In #2117's review a mutant whose
+  global scope threw read as an empty, fast start in the profile, while the boot of the same build
+  failed. A profile's count stands only beside a boot of the same build, in the same file
+  (`workers/migrator/test/sealed-bundle.workerd.test.ts` and its sibling `sealed-startup.ts`).
+  Wrangler does report some throwing scopes as a failed profile, so this is "can", not "always".
+- **Another change can remove a test's premise.** #2118 relied on a migrator test turning red when
+  the alias is dropped. #2117, landing beside it, changed which row catches that: under the mutant
+  the boot row now stays green and the new preflight row goes red. The coordinator re-ran the
+  mutant on #2118's branch after merging the new `main`, before #2118 opened. When two in-flight
+  changes touch the same guarantee, re-run the guarantee's mutant after the first one merges.
 
 ## A scanner that read one lockfile document of two (2026-11-18)
 
@@ -333,6 +367,12 @@ documentation gates passed while `CI / repository contracts`, which pins documen
 verbatim, went red. A review seat later reported "all 42" contract suites green where the job runs
 84. Take the command list from the workflow file, and put the expected count in a brief (84
 `bundle exec ruby` lines plus `check-e2e-promotion.sh` on 2026-11-23), so that a short run shows.
+
+A commit added after approval re-runs every gate, `CI / repository contracts` included, however
+small the commit. On #2117 (2026-11-24) a test-only commit added after review named the retired
+migration ledger in a comment. The re-runs after it covered lint, typecheck, test and the
+documentation gates, and CI's contracts job failed on
+`test/repo-config/retired-migration-authority-refs.test.rb`, which reads comments too.
 
 ## Before closing, deleting or merging anything
 
