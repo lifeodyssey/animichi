@@ -84,9 +84,9 @@ app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
 );
 
-// Public catalog reads are anonymous and change only on republish — let the edge
-// cache them (5 min browser, 1 h edge). Runs before the /catalog/* oRPC handler,
-// tagging its response on the way back out.
+// Public catalog reads are anonymous and change only on republish: the header lets
+// a browser keep them 5 min and a shared cache 1 h, and none sits in front today.
+// Runs before the /catalog/* oRPC handler, tagging its response on the way back out.
 //
 // Only the parameters the route's own contract declares get through (`limit` on
 // the popularity ranking); the rest answer 400 here, before any handler or
