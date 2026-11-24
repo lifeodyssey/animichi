@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { catalogRequest } from "./catalog-request";
+import { FAILED_PROCEDURE } from "./failed-procedure-answer";
 import { loggedErrors } from "./logged-errors";
 
 // SUT: how the catalog Worker loads its Prisma access, `src/db/prisma.ts`, seen through the
@@ -19,9 +20,6 @@ vi.mock("../src/db/prisma", () => {
 /** A connection string the boundary accepts; nothing dials it, because the load fails first. */
 const DATABASE = { DATABASE_URL: "postgresql://fixture@db.test/catalog" };
 
-/** How Hono answers a request whose handler threw, which is how a failed acquire is answered today. */
-const FAILED = { status: 500, body: "Internal Server Error" };
-
 /** One request through the `/catalog/*` boundary, which acquires the request's connection. */
 async function nearby(): Promise<{ status: number; body: string }> {
   const response = await catalogRequest("/catalog/nearby", {
@@ -34,7 +32,7 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 it("answers concurrent first requests from one failed load", async () => {
   const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
-  expect(await Promise.all([nearby(), nearby()])).toEqual([FAILED, FAILED]);
+  expect(await Promise.all([nearby(), nearby()])).toEqual([FAILED_PROCEDURE, FAILED_PROCEDURE]);
   const [first, second] = loggedErrors(logged);
   expect(logged).toHaveBeenCalledTimes(2);
   expect(second).toBe(first);
@@ -43,8 +41,8 @@ it("answers concurrent first requests from one failed load", async () => {
 
 it("answers a later request from the first failure, and asks for the module once", async () => {
   const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
-  expect(await nearby()).toEqual(FAILED);
-  expect(await nearby()).toEqual(FAILED);
+  expect(await nearby()).toEqual(FAILED_PROCEDURE);
+  expect(await nearby()).toEqual(FAILED_PROCEDURE);
   const [first, later] = loggedErrors(logged);
   expect(logged).toHaveBeenCalledTimes(2);
   expect(later).toBe(first);
