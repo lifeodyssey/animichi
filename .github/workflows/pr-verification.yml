@@ -177,12 +177,19 @@ jobs:
               - 'scripts/*'
               - 'scripts/delivery/**'
               - 'scripts/local-gates/**'
+            # The release tooling, home of `build-worker.mjs`, which writes the
+            # sealed bundles CD publishes. Narrower than `workflows` on purpose:
+            # only these paths pay for the migrator lane the `pnpm` step adds.
+            release:
+              - '.github/scripts/release/**'
+              - '.github/lib/release/**'
       - id: pnpm
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
           DEPS_CHANGED: ${{ steps.paths.outputs.deps }}
           WORKFLOWS_CHANGED: ${{ steps.paths.outputs.workflows }}
+          RELEASE_CHANGED: ${{ steps.paths.outputs.release }}
         run: |
           set -euo pipefail
           # A root dependency change selects the root project and nothing else
@@ -205,6 +212,15 @@ jobs:
           # those guards never run.
           if [ "$WORKFLOWS_CHANGED" = true ]; then
             packages="$(jq -c '. + ["api"] | unique' <<< "$packages")"
+          fi
+          # The `api` suite added above boots the API Worker's sealed bundle,
+          # which declares no `[alias]`. The migrator's is the one bundle
+          # `build-worker.mjs` builds with one, and only the migrator's suite
+          # boots it (workers/migrator/test/sealed-bundle.workerd.test.ts).
+          # Add it, or a build that drops the alias merges green and fails
+          # only in staging.
+          if [ "$RELEASE_CHANGED" = true ]; then
+            packages="$(jq -c '. + ["migrator"] | unique' <<< "$packages")"
           fi
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
           echo "Affected packages: $packages" >> "$GITHUB_STEP_SUMMARY"
