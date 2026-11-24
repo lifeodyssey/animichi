@@ -7,7 +7,7 @@ import {
 import type { WorkerExecutionContext } from "../env.ts";
 import { gatewayRejection, methodNotAllowed } from "../gateway/responses.ts";
 import { cacheWrite } from "./cache-write.ts";
-import { docsAssetResponse, resolveDocsAsset } from "./docs-assets.ts";
+import { DOCS_NAMESPACE, docsAssetResponse, resolveDocsAsset } from "./docs-assets.ts";
 import { IMAGE_CACHE_CONTROL } from "./image-cache-control.ts";
 import { ASSET_ARM_METHODS, methodGate, type R2ObjectBucket } from "./private-r2-object.ts";
 
@@ -52,6 +52,26 @@ function imagePathOf(request: Request): string | null {
   const decoded = percentDecoded(imagePath);
   if (imagePath.length === 0 || decoded === null) return null;
   return namesTraversal(imagePath) || namesTraversal(decoded) || decoded.includes("%") ? null : imagePath;
+}
+
+/** The first segment of a routed `/img/` path as the request spells it: up to
+ * the first literal `/`, so an encoded `%2F` stays inside the segment. */
+function firstSegment(path: string): string {
+  return path.slice(IMAGE_PREFIX.length).split("/", 1)[0] ?? "";
+}
+
+/** Whether a routed `/img/` path names the private docs namespace other than as
+ * written: its first segment, percent-decoded once by the boundary's own
+ * decoder, is `docs` in any case, while the segment as written is not `docs`.
+ * The gateway routes no such path (`route-table.ts`). A first segment that does
+ * not decode is not a variant, so the boundary refuses it, and nothing here
+ * throws. Only the first segment is decoded: a later segment that does not
+ * decode leaves a variant a variant. */
+export function isDocsNameVariant(path: string): boolean {
+  const segment = firstSegment(path);
+  const decoded = percentDecoded(segment);
+  if (decoded === null) return false;
+  return decoded.toLowerCase() === DOCS_NAMESPACE && segment !== DOCS_NAMESPACE;
 }
 
 function refusedFullResolution(): Response {
