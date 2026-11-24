@@ -1,4 +1,4 @@
-# SUT: pr-verification.yml plan selects dependent packages and routes workflow/action changes to real lanes.
+# SUT: pr-verification.yml plan selects dependent packages and routes workflow/action and release-tooling changes to real lanes.
 require "minitest/autorun"
 require_relative "repository-yaml"
 
@@ -39,7 +39,8 @@ class PrVerificationPlanTest < Minitest::Test
     "foundation" => ["pnpm-lock.yaml", "package.json", "pnpm-workspace.yaml", ".pulumi.version",
                      "infra/database-access/**", ".github/scripts/release/**"],
     "delivery" => [".github/lib/**", ".github/scripts/**", ".github/test/delivery/**",
-                   "scripts/*", "scripts/delivery/**", "scripts/local-gates/**"]
+                   "scripts/*", "scripts/delivery/**", "scripts/local-gates/**"],
+    "release" => [".github/scripts/release/**", ".github/lib/release/**"]
   }.freeze
   REVIEWED_MATRIX_EXCLUSIONS = ["animichi-cloudflare-worker", "animichi-e2e"].freeze
 
@@ -73,5 +74,23 @@ class PrVerificationPlanTest < Minitest::Test
   def test_workflow_and_action_changes_reach_the_api_suite
     assert_includes @source, '["api"] | unique'
     assert_equal "${{ steps.paths.outputs.workflows }}", @ci.dig("jobs", "plan", "outputs", "workflows")
+  end
+
+  # The API Worker's sealed bundle, which the api suite boots, declares no `[alias]`; the
+  # migrator's is the one `build-worker.mjs` builds with one, and only the migrator's suite boots
+  # it (workers/migrator/test/sealed-bundle.workerd.test.ts). So a release-tooling change has to
+  # select the migrator, or a build that drops the alias merges green and fails only in staging.
+  RELEASE_ROUTE = <<~'SH'
+    if [ "$RELEASE_CHANGED" = true ]; then
+      packages="$(jq -c '. + ["migrator"] | unique' <<< "$packages")"
+    fi
+  SH
+
+  def test_release_tooling_changes_reach_the_migrator_suite
+    pnpm = @ci.dig("jobs", "plan", "steps").find { |step| step["id"] == "pnpm" }
+    assert_equal "${{ steps.paths.outputs.release }}", pnpm.dig("env", "RELEASE_CHANGED")
+    assert_includes pnpm.fetch("run"), RELEASE_ROUTE,
+                    "pr-verification.yml: a release-tooling change must add the migrator, whose suite " \
+                    "boots the sealed bundle build-worker.mjs writes"
   end
 end
