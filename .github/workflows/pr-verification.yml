@@ -345,6 +345,7 @@ jobs:
           set -euo pipefail
           bundle exec ruby .github/test/call-migrator-action.test.rb
           bundle exec ruby .github/test/cd-artifact.test.rb
+          bundle exec ruby .github/test/cd-catalog-first-request.test.rb
           bundle exec ruby .github/test/cd-credentials.test.rb
           bundle exec ruby .github/test/cd-post-deploy-evidence.test.rb
           bundle exec ruby .github/test/cd-delivery-jobs.test.rb

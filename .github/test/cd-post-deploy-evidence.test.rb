@@ -43,10 +43,12 @@ class CdPostDeployEvidenceTest < Minitest::Test
   end
 
   # The probe must observe the origin the smoke named. A transcript of some other
-  # host is not evidence about the release that was deployed.
+  # host is not evidence about the release that was deployed. The staging job
+  # spells that origin once, and the recorder reads it from there.
   def test_the_recorded_origin_is_the_one_the_smoke_probes
     record = step('stage', 'Record observed deployment identities')
-    assert_equal SMOKE_EDGE, record.dig('env', 'EVIDENCE_EDGE_URL')
+    assert_equal '${{ env.STAGING_EDGE_URL }}', record.dig('env', 'EVIDENCE_EDGE_URL')
+    assert_equal SMOKE_EDGE, @cd.dig('jobs', 'stage', 'env', 'STAGING_EDGE_URL')
     assert_includes step('stage', 'Smoke the release').fetch('run').to_s, SMOKE_EDGE
   end
 

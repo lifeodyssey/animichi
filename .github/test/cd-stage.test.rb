@@ -200,9 +200,9 @@ class CdStageTest < Minitest::Test
   end
 
   def test_only_read_only_observation_and_receipt_upload_follow_smoke
-    %w[stage promote-production].each do |job|
+    { "stage" => ["Measure catalog's first database request"], "promote-production" => [] }.each do |job, probes|
       after = steps(job).drop(position(job, "Smoke the release") + 1)
-      assert_equal ["Read the migrator's schema view for the receipt", "Record observed deployment identities"], after[0...-1].map { |item| item["name"] }
+      assert_equal [*probes, "Read the migrator's schema view for the receipt", "Record observed deployment identities"], after[0...-1].map { |item| item["name"] }
       assert_match %r{\Aactions/upload-artifact@}, after.last["uses"]
       refute_match(/wrangler deploy|publish-services|migrate-through-worker|command.*up/, after.to_s)
     end
