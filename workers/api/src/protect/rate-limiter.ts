@@ -28,10 +28,13 @@ export interface RateLimitDecision {
   readonly retryAfterSeconds: number;
 }
 
-/** Any JavaScript number, NaN and ±Infinity included: the guards take every number a body or a stored
- * value carries. zod's `z.number()` refuses both, yet a JSON overflow (`1e999`) arrives as Infinity and
- * Durable Object storage, a structured clone, can hold NaN. */
-export const AnyNumber = z.custom<number>((value) => typeof value === "number");
+/** The longest window, in seconds, that a guard accepts. Its reclaim alarm, two windows out, stays inside the range
+ * a `Date` can hold (±8.64e15 ms) for any time before year 10000, the last year `utcDayKey` can name. */
+export const MAX_WINDOW_SECONDS = 4_000_000_000_000;
+
+/** A window length as a guard reads one: a finite number of seconds, no longer than `MAX_WINDOW_SECONDS`. zod's
+ * `z.number()` refuses NaN and ±Infinity, which a JSON overflow (`1e999`) or a structured clone can carry. */
+export const WindowSeconds = z.number().max(MAX_WINDOW_SECONDS);
 
 const DEFAULT_LIMIT = defaultLimit(DEFAULT_IDENTITY_POLICY.anonymous);
 const DEFAULT_WINDOW_SECONDS = defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.anonymous);
@@ -57,12 +60,19 @@ function positiveInt(raw: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/** A window from config: a positive whole number of seconds, no longer than `MAX_WINDOW_SECONDS`. The cap has no
+ * such bound: it never reaches the retry hint or the alarm. */
+function windowSecondsFrom(raw: unknown, fallback: number): number {
+  const parsed = positiveInt(raw, fallback);
+  return parsed <= MAX_WINDOW_SECONDS ? parsed : fallback;
+}
+
 /** Read the limiter's window from config; never from a literal in the logic.
  * The default comes from the IdentityPolicy's anonymous class. */
 export function rateLimitConfigFrom(env: Record<string, unknown>): RateLimitConfig {
   return {
     limit: positiveInt(env.ANON_RATE_LIMIT, DEFAULT_LIMIT),
-    windowSeconds: positiveInt(env.ANON_RATE_LIMIT_WINDOW_SECONDS, DEFAULT_WINDOW_SECONDS),
+    windowSeconds: windowSecondsFrom(env.ANON_RATE_LIMIT_WINDOW_SECONDS, DEFAULT_WINDOW_SECONDS),
   };
 }
 
@@ -74,7 +84,7 @@ export function rateLimitConfigFrom(env: Record<string, unknown>): RateLimitConf
 export function authRateLimitConfigFrom(env: Record<string, unknown>): RateLimitConfig {
   return {
     limit: positiveInt(env.AUTH_RATE_LIMIT, defaultLimit(DEFAULT_IDENTITY_POLICY.authenticated)),
-    windowSeconds: positiveInt(env.AUTH_RATE_LIMIT_WINDOW_SECONDS, defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.authenticated)),
+    windowSeconds: windowSecondsFrom(env.AUTH_RATE_LIMIT_WINDOW_SECONDS, defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.authenticated)),
   };
 }
 
@@ -92,8 +102,9 @@ export function authenticatedRateLimitKey(userId: string): string {
   return `${AUTH_IDENTITY_PREFIX}${userId}`;
 }
 
-/** An identity's window as its shard stores it; keys beyond the two are dropped. */
-const StoredWindow = z.object({ startedAtMs: AnyNumber, count: AnyNumber });
+/** An identity's window as its shard stores it: a start or a count that is not a finite number makes it no window.
+ * Keys beyond the two are dropped, because a newer version may write extra fields during a rolling deploy. */
+const StoredWindow = z.object({ startedAtMs: z.number(), count: z.number() });
 
 /** Narrow an untyped stored value back to a window, discarding anything else. */
 export function parseWindowState(value: unknown): WindowState | null {
@@ -147,8 +158,9 @@ export async function consumeRateLimit(
   return decision;
 }
 
-/** The verdict a shard answers; keys beyond the two are dropped. */
-const ShardVerdict = z.object({ allowed: z.boolean(), retryAfterSeconds: AnyNumber });
+/** The verdict a shard answers: a retry hint that is not a finite number makes it no verdict.
+ * Keys beyond the two are dropped, because a newer version may write extra fields during a rolling deploy. */
+const ShardVerdict = z.object({ allowed: z.boolean(), retryAfterSeconds: z.number() });
 /** What a shard's answer carries, and all the gateway reads of it: the shard keeps its window to itself. */
 export type ShardVerdict = z.infer<typeof ShardVerdict>;
 

@@ -9,12 +9,12 @@ import {
 import { z } from "zod";
 import { durableGuardStore, type GuardStore } from "./guard-store.ts";
 import {
-  AnyNumber,
   consumeRateLimit,
   parseWindowState,
   RATE_LIMIT_KEY,
   rateLimitConfigFrom,
   type RateLimitConfig,
+  WindowSeconds,
   type WindowState,
 } from "./rate-limiter.ts";
 
@@ -33,8 +33,9 @@ function jsonResponse(payload: unknown): Response {
   });
 }
 
-/** The limiter config a `/rate-limit` body carries; keys beyond the two are dropped. */
-const RequestedConfig = z.object({ limit: AnyNumber, windowSeconds: AnyNumber });
+/** The limiter config a `/rate-limit` body carries: finite numbers, the window within `WindowSeconds`' bound.
+ * Keys beyond the two are dropped, because a newer version may write extra fields during a rolling deploy. */
+const RequestedConfig = z.object({ limit: z.number(), windowSeconds: WindowSeconds });
 
 export function parseConfig(value: unknown, fallback: RateLimitConfig): RateLimitConfig {
   const parsed = RequestedConfig.safeParse(value);
@@ -95,11 +96,16 @@ export function reclaimDelayMs(windowSeconds: number): number {
 
 export const RECLAIM_WINDOW_KEY = "reclaim-window-seconds";
 
+/** A recorded reclaim basis the alarm can use: a positive window within `WindowSeconds`' bound. */
+const RecordedReclaimWindow = WindowSeconds.positive();
+
 /** Recover the window basis the reclaim alarm was armed with; falls back to
- * the shard's own config if nothing was ever recorded (a shard that never
- * saw a /rate-limit request has no alarm to fire in the first place). */
+ * the shard's own config if nothing usable was recorded: nothing at all (a
+ * shard that never saw a /rate-limit request has no alarm to fire in the first
+ * place), or a value that is not a positive, finite window within the bound. */
 function parseReclaimWindow(value: unknown, fallback: number): number {
-  return typeof value === "number" && value > 0 ? value : fallback;
+  const parsed = RecordedReclaimWindow.safeParse(value);
+  return parsed.success ? parsed.data : fallback;
 }
 
 /**
