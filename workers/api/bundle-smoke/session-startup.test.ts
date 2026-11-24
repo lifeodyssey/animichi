@@ -11,6 +11,7 @@ import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 import type { StartupReport } from "./session-startup.worker.ts";
 
 async function startupWorker(context: TestContext) {
@@ -18,7 +19,7 @@ async function startupWorker(context: TestContext) {
   const outfile = join(directory, "worker.mjs");
   await bundleLikeWrangler(new URL("./session-startup.worker.ts", import.meta.url).pathname, outfile);
   const worker = new Miniflare({ modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }], ...deployedRuntime(),
-    durableObjects: { SESSION: { className: "StartupProbe", useSQLite: true } } });
+    ...placeholderRequestCf, durableObjects: { SESSION: { className: "StartupProbe", useSQLite: true } } });
   context.after(async () => { await worker.dispose(); await rm(directory, { recursive: true, force: true }); });
   return worker;
 }

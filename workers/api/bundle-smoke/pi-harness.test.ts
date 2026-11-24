@@ -9,6 +9,7 @@ import { createTestHarness } from "wrangler";
 import { parse } from "smol-toml";
 import type { Metafile } from "esbuild";
 import { runWrangler } from "./wrangler-bundle.ts";
+import { process } from "../test-support/node-globals.ts";
 
 interface SmokeConfig {
   name: string;
@@ -50,6 +51,10 @@ void test("the Wrangler artifact includes chord and excludes esbuild", (context)
   assert.deepEqual(Object.keys(metadata.inputs).filter((path) => path.includes("/esbuild/")), []);
   assert.doesNotMatch(code, /esbuild/i);
 });
+
+/** Wrangler's harness gives the Miniflare it starts no `cf` option, so Miniflare's documented switch keeps that
+ * workerd on its placeholder `Request.cf` instead of fetching Cloudflare's. node:test runs this file in its own process. */
+process.env.CLOUDFLARE_CF_FETCH_ENABLED = "false";
 
 function artifactServer() {
   return createTestHarness({ workers: [{ config: {

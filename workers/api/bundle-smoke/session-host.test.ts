@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 import { TURN_DEADLINE_MS } from "../src/agent/host/turn-deadline.ts";
 import { WAKE_INTERVAL_MS } from "../src/agent/host/wake-interval.ts";
 import { Miniflare } from "miniflare";
@@ -12,7 +13,7 @@ async function nativeWorker(context: TestContext) {
   const directory = await mkdtemp(join(tmpdir(), "session-host-"));
   const outfile = join(directory, "worker.mjs");
   await bundleLikeWrangler(new URL("./session-host.worker.ts", import.meta.url).pathname, outfile);
-  const worker = new Miniflare({ modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }], ...deployedRuntime(), durableObjects: { SESSION: { className: "HostProbe", useSQLite: true } } });
+  const worker = new Miniflare({ modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }], ...deployedRuntime(), ...placeholderRequestCf, durableObjects: { SESSION: { className: "HostProbe", useSQLite: true } } });
   context.after(async () => { await worker.dispose(); await rm(directory, { recursive: true, force: true }); });
   return worker;
 }
