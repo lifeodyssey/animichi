@@ -19,6 +19,10 @@
  * The serverless client itself is memoized because it is stateless: building it
  * deserializes and validates the contract, work that has nothing to do with a
  * request.
+ *
+ * The Worker imports this module on the first request that needs it
+ * (`./prisma-first-use`), never statically: evaluating the Prisma modules it
+ * imports builds ArkType's schemas.
  */
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
 import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
