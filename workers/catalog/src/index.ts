@@ -93,6 +93,11 @@ app.get("/healthz", (c) =>
 // database work, so the cache key stays the route's own bounded query surface
 // rather than whatever a caller invents. The allowlist is the ONE declaration
 // the edge gateway reads too (#1691).
+//
+// The `limit` value itself is not normalized (`?limit=8`, `?limit=08` and
+// `?limit=8.0` are three URLs and three database reads), which is safe only while
+// no shared cache keyed on the URL sits in front of this route; if one is ever
+// added, tighten `limit` first.
 const PUBLIC_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 app.use("/catalog/public/*", async (c, next) => {
   const url = new URL(c.req.url);
