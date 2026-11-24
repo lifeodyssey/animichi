@@ -7,17 +7,18 @@
  * that body feeds both the verdict and the reclaim alarm, so each row states
  * the verdicts of three checks and the alarm the first one armed.
  *
- * Today a body whose `limit` and `windowSeconds` are both numbers is applied as
+ * A body whose `limit` and `windowSeconds` are both finite numbers is applied as
  * sent, extra keys and all; any other body falls back. A JSON number too large
- * for a double arrives as Infinity, which is a number. A body that is not JSON
- * makes `fetch` reject before anything is stored, and a `/budget` request
- * never reads its body.
+ * for a double arrives as Infinity, which is not finite, so it falls back too. A
+ * body that is not JSON makes `fetch` reject before anything is stored, and a
+ * `/budget` request never reads its body.
  *
  * test-type: characterization
  */
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { EdgeGuard, parseConfig } from "../src/protect/edge-guard.ts";
+import type { RateLimitConfig } from "../src/protect/rate-limiter.ts";
 import { fakeStorage } from "./doubles/guard-doubles.ts";
 
 /** 2026-11-23T12:00:00Z. */
@@ -56,12 +57,6 @@ const ONE_PER_TEN_MINUTES: Outcome = {
     '{"allowed":false,"retryAfterSeconds":600}'],
   alarmAt: NOW + 1_200_000,
 };
-const NO_LIMIT_FOR_TEN_MINUTES: Outcome = {
-  says: "is applied: no limit in a ten-minute window",
-  answers: ['{"allowed":true,"retryAfterSeconds":600}', '{"allowed":true,"retryAfterSeconds":600}',
-    '{"allowed":true,"retryAfterSeconds":600}'],
-  alarmAt: NOW + 1_200_000,
-};
 const ONE_PER_TEN_SECONDS: Outcome = {
   says: "is applied: one check per ten seconds, with the alarm on the wider deployed window",
   answers: ['{"allowed":true,"retryAfterSeconds":10}', '{"allowed":false,"retryAfterSeconds":10}',
@@ -78,7 +73,10 @@ const DEPLOYED_FALLBACK: Outcome = {
 const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":1,"windowSeconds":600}', ONE_PER_TEN_MINUTES],
   ['{"limit":1,"windowSeconds":600,"source":"gateway"}', ONE_PER_TEN_MINUTES],
-  ['{"limit":1e999,"windowSeconds":600}', NO_LIMIT_FOR_TEN_MINUTES],
+  ['{"limit":1e999,"windowSeconds":600}', DEPLOYED_FALLBACK],
+  ['{"limit":-1e999,"windowSeconds":600}', DEPLOYED_FALLBACK],
+  ['{"limit":1,"windowSeconds":1e999}', DEPLOYED_FALLBACK],
+  ['{"limit":1,"windowSeconds":-1e999}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":10}', ONE_PER_TEN_SECONDS],
   ['{"limit":"1","windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":null,"windowSeconds":600}', DEPLOYED_FALLBACK],
@@ -113,7 +111,20 @@ void test("a /budget request is answered without reading its body", async (t) =>
 
 // JSON has no NaN (an overflow parses to Infinity, above), so no request body
 // can carry one: the exported parser is the only seam that reaches it.
-void test("the config parser takes NaN as a number", () => {
+void test("the config parser falls back on a NaN limit and window", () => {
   assert.deepEqual(parseConfig({ limit: Number.NaN, windowSeconds: Number.NaN }, { limit: 2, windowSeconds: 30 }),
-    { limit: Number.NaN, windowSeconds: Number.NaN });
+    { limit: 2, windowSeconds: 30 });
 });
+
+/** What the exported parser makes of one value against the deployed two per 30 s. */
+const PARSED: readonly (readonly [says: string, value: unknown, applied: RateLimitConfig])[] = [
+  ["falls back on a NaN limit alone", { limit: Number.NaN, windowSeconds: 600 }, { limit: 2, windowSeconds: 30 }],
+  ["falls back on a NaN window alone", { limit: 1, windowSeconds: Number.NaN }, { limit: 2, windowSeconds: 30 }],
+  ["applies a finite config and drops an extra key", { limit: 1, windowSeconds: 600, source: "gateway" }, { limit: 1, windowSeconds: 600 }],
+];
+
+for (const [says, value, applied] of PARSED) {
+  void test(`the config parser ${says}`, () => {
+    assert.deepEqual(parseConfig(value, { limit: 2, windowSeconds: 30 }), applied);
+  });
+}

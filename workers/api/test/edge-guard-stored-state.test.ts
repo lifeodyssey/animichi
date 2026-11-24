@@ -5,12 +5,12 @@
  * "budget-latch" and an identity's window under "window", when the stored
  * shape is not exactly the one it writes.
  *
- * Today a stored value is taken when each field has the right `typeof`: an
- * extra key is ignored and NaN passes as a number. Storage is structured
- * clone, not JSON, so a NaN field is a shape the object can meet. A NaN start
- * never expires and gives a retry hint of NaN, which the JSON answer carries
- * as null; the reclaim alarm still sweeps it. A NaN count denies inside its
- * window. Each row is today's answer, kept as it is.
+ * A stored value is taken when each field has the right type, and an extra key
+ * is ignored. Storage is structured clone, not JSON, so a NaN or an Infinity
+ * field is a shape the object can meet. A window whose start or count is not a
+ * finite number is no window: the check is judged as a new window, which is
+ * stored, and its retry hint is a finite number of seconds. Rows marked "Open
+ * question" depend on a decision still to be made.
  *
  * test-type: characterization
  */
@@ -57,18 +57,31 @@ interface WindowReading {
   readonly after: unknown;
 }
 
+/** What one check judged as a new window gets: allowed, and a window from now holding that check. */
+const JUDGED_AS_NEW = { answers: ['{"allowed":true,"retryAfterSeconds":60}'], after: { startedAtMs: NOW, count: 1 } };
+
 const WINDOWS: readonly WindowReading[] = [
   { says: "exactly as written counts one more check", stored: { startedAtMs: NOW - 1_000, count: 1 },
     answers: ['{"allowed":true,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: 2 } },
   { says: "with an extra key still counts: denied at its limit", stored: { startedAtMs: NOW - 1_000, count: 2, shard: "rate:authed:u1" },
     answers: ['{"allowed":false,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: 2, shard: "rate:authed:u1" } },
-  { says: "with a NaN start never expires and hints a null retry", stored: { startedAtMs: Number.NaN, count: 1 },
-    answers: ['{"allowed":true,"retryAfterSeconds":null}', '{"allowed":false,"retryAfterSeconds":null}'],
-    after: { startedAtMs: Number.NaN, count: 2 } },
-  { says: "with a NaN count denies inside its window", stored: { startedAtMs: NOW - 1_000, count: Number.NaN },
-    answers: ['{"allowed":false,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: Number.NaN } },
+  { says: "with a NaN start is judged as a new window, which then counts to its limit", stored: { startedAtMs: Number.NaN, count: 1 },
+    answers: ['{"allowed":true,"retryAfterSeconds":60}', '{"allowed":true,"retryAfterSeconds":60}', '{"allowed":false,"retryAfterSeconds":60}'],
+    after: { startedAtMs: NOW, count: 2 } },
+  { says: "with a NaN count is judged as a new window", stored: { startedAtMs: NOW - 1_000, count: Number.NaN }, ...JUDGED_AS_NEW },
   { says: "with a string start is discarded for a fresh window", stored: { startedAtMs: "2026-11-23T11:59:59Z", count: 1 },
     answers: ['{"allowed":true,"retryAfterSeconds":60}'], after: { startedAtMs: NOW, count: 1 } },
+  { says: "with an Infinity start is judged as a new window", stored: { startedAtMs: Number.POSITIVE_INFINITY, count: 1 }, ...JUDGED_AS_NEW },
+  { says: "with a -Infinity start is judged as a new window", stored: { startedAtMs: Number.NEGATIVE_INFINITY, count: 1 }, ...JUDGED_AS_NEW },
+  { says: "with an Infinity count is judged as a new window", stored: { startedAtMs: NOW - 1_000, count: Number.POSITIVE_INFINITY }, ...JUDGED_AS_NEW },
+  { says: "with a -Infinity count is judged as a new window", stored: { startedAtMs: NOW - 1_000, count: Number.NEGATIVE_INFINITY }, ...JUDGED_AS_NEW },
+  // Open question: whether a finite but unusual window resets too. These keep counting it as stored.
+  { says: "with a negative count is counted as stored", stored: { startedAtMs: NOW - 1_000, count: -1 },
+    answers: ['{"allowed":true,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: 0 } },
+  { says: "with a fractional count is counted as stored", stored: { startedAtMs: NOW - 1_000, count: 1.5 },
+    answers: ['{"allowed":true,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: 2.5 } },
+  { says: "with a start in the future is counted as stored", stored: { startedAtMs: NOW + 30_000, count: 2 },
+    answers: ['{"allowed":false,"retryAfterSeconds":90}'], after: { startedAtMs: NOW + 30_000, count: 2 } },
 ];
 
 /** The bodies of `count` consecutive two-per-minute checks, in order. */
@@ -100,6 +113,9 @@ const ALARMS: readonly AlarmReading[] = [
   { shape: "a live window with an extra key is kept and rearmed", stored: { startedAtMs: NOW - 1_000, count: 1, shard: "rate:authed:u1" },
     kept: ["window", "reclaim-window-seconds"], rearmedAt: NOW + 120_000 },
   { shape: "a window with a NaN start is swept", stored: { startedAtMs: Number.NaN, count: 1 }, kept: [], rearmedAt: null },
+  // Open question: whether the alarm reads a stored window the way a check does.
+  { shape: "a window with an Infinity start is swept", stored: { startedAtMs: Number.POSITIVE_INFINITY, count: 1 }, kept: [], rearmedAt: null },
+  { shape: "a live window with a NaN count is swept", stored: { startedAtMs: NOW - 1_000, count: Number.NaN }, kept: [], rearmedAt: null },
 ];
 
 for (const alarm of ALARMS) {
