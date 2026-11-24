@@ -17,6 +17,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Miniflare, type MiniflareOptions, type Request as WorkerRequest } from "miniflare";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url).href);
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -62,7 +63,7 @@ async function boot(release: string, outside: SealedOutside): Promise<Miniflare>
   const worker = new Miniflare({ modules: await sealedModules(bundle), modulesRoot: bundle, port: 0,
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags,
     durableObjects: { MIGRATOR_APPLY_LOCK: { className: "MigratorApplyLock", useSQLite: true } },
-    outboundService: refuseOutbound, ...outside });
+    outboundService: refuseOutbound, ...placeholderRequestCf, ...outside });
   try {
     await worker.ready;
     return worker;

@@ -8,6 +8,7 @@ import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { afterAll, describe, expect, it } from "vitest";
 import { startDroppingDatabase } from "./dropping-database";
 import { FAILED_PROCEDURE } from "./failed-procedure-answer";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 import { profileSealedStartup } from "./sealed-startup";
 
 // SUT: the sealed catalog bundle CD publishes — what `.github/scripts/release/build-worker.mjs
@@ -65,7 +66,7 @@ function sealedRelease(): Promise<string> {
 async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare> {
   const started = new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "index.js") }], modulesRoot: bundle, port: 0,
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound,
-    bindings: { DATABASE_URL: database.url } });
+    bindings: { DATABASE_URL: database.url }, ...placeholderRequestCf });
   try {
     await started.ready;
     return started;

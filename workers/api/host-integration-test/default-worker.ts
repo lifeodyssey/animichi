@@ -6,13 +6,14 @@ import type { TestContext } from "node:test";
 import { Miniflare } from "miniflare";
 import { bundledEntries } from "../bundle-smoke/bundled-entries.ts";
 import { deployedRuntime } from "../bundle-smoke/wrangler-bundle.ts";
+import { placeholderRequestCf } from "../bundle-smoke/placeholder-request-cf.ts";
 import { dsn, IDENTITY, SESSION } from "./postgres.ts";
 
 export async function defaultWorker(context: TestContext, bindings: Record<string, string> = {}, network: { model?: (request: Request) => Response | Promise<Response>; catalog?: (request: Request) => Response | Promise<Response> } = {}, entry = new URL("./default-host.worker.ts", import.meta.url)) {
   const directory = await mkdtemp(join(tmpdir(), "default-native-host-"));
   const requests: Request[] = [];
   const catalogRequests: Request[] = [];
-  const options = { ...await bundledEntries.modules(entry.pathname), ...deployedRuntime(), bindings: { AGENT_SVC_DATABASE_URL: dsn, MIMO_API_KEY: "server-private-key", ANON_DAILY_MESSAGE_QUOTA: "2",
+  const options = { ...await bundledEntries.modules(entry.pathname), ...deployedRuntime(), ...placeholderRequestCf, bindings: { AGENT_SVC_DATABASE_URL: dsn, MIMO_API_KEY: "server-private-key", ANON_DAILY_MESSAGE_QUOTA: "2",
       TEST_IDENTITY: IDENTITY, TEST_USER_TYPE: "anonymous", ...bindings }, durableObjectsPersist: join(directory, "state"),
     durableObjects: { AGENT_SESSION: { className: "AgentSession", useSQLite: true } },
     serviceBindings: { CATALOG: (request: Request) => { catalogRequests.push(request.clone()); return network.catalog?.(request) ?? Promise.resolve(Response.json(selectedItinerary)); } },

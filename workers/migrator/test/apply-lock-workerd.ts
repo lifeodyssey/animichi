@@ -12,6 +12,7 @@ import { builtinModules } from "node:module";
 import { build, type Plugin } from "esbuild";
 import { Miniflare, Log, LogLevel } from "miniflare";
 import type { ApplyRunReport } from "./apply-lock-entry";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 
 const ENTRY = fileURLToPath(new URL("./apply-lock-entry.ts", import.meta.url).href);
 const RECORDED_APPLY = fileURLToPath(new URL("./recorded-apply.ts", import.meta.url).href);
@@ -42,7 +43,7 @@ export async function applyLockRuntime() {
     modules: [{ type: "ESModule", path: "/bundle/apply-lock-worker.js", contents: await bundle }],
     modulesRoot: "/bundle", compatibilityDate: "2026-07-01", compatibilityFlags: ["nodejs_compat"],
     durableObjects: { MIGRATOR_APPLY_LOCK: "MigratorApplyLock" },
-    log: new Log(LogLevel.ERROR), cf: false,
+    log: new Log(LogLevel.ERROR), ...placeholderRequestCf,
   });
   const applies = async (...specs: readonly string[]): Promise<ApplyRunReport> => {
     const query = specs.map((spec) => `apply=${encodeURIComponent(spec)}`).join("&");
