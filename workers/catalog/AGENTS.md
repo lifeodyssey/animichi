@@ -24,8 +24,10 @@ Root guide: `../../AGENTS.md`.
   CD uploads, once, then starts it in workerd and asserts `/healthz` 200, profiles its startup
   with `wrangler check startup` for Prisma or ArkType schema work (`test/sealed-startup.ts`),
   and sends its first database request to a loopback listener, which proves Prisma's first load
-  reached the connect. No CD step requests a catalog database route, so that request is the
-  only check of the first load on the deployed bytes.
+  reached the connect. That request is the only check of the first load before a deploy. After
+  one, staging's CD requests `GET /catalog/public/popular` right after its smoke, cold and then
+  warm (`.github/scripts/catalog-first-request.sh`); production's CD requests no catalog
+  database route.
 
 ## Stack (per the ADR)
 
