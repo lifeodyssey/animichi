@@ -518,7 +518,9 @@ Local code and database tests do not replace the pending live bootstrap observat
    `gh workflow run cd.yml --ref main -f artifact_id=<existing-id>`. The workflow verifies provenance
    and the complete snapshot before opening environment credentials.
 3. Staging publishes the complete selected snapshot, smokes the edge and web workers.dev surfaces,
-   and uploads an immutable receipt. Failure stops promotion.
+   times catalog's first database request right after the smoke (one cold and one warm request,
+   `.github/scripts/catalog-first-request.sh`), and uploads an immutable receipt. Failure stops
+   promotion.
 4. Inspect that release's receipt before approving the actual `production` environment job, and first
    check for an open failure alert on the revision it names: `is:issue is:open in:title "Failure
    alert:"` lists them, and an alert on the receipt's `source_sha` means that revision's own CI
@@ -700,7 +702,9 @@ none of this: it has a real login, and `infra/topology-prod.test.ts` pins that n
 policy or token is built there.
 
 Every automated caller sends the pair when both variables are set, and refuses when exactly one
-is: the CD smoke probe (`.github/scripts/staging-smoke-check.sh`), the Playwright suite
+is: the CD smoke probe (`.github/scripts/staging-smoke-check.sh`), the CD probe of catalog's first
+database request (`.github/scripts/catalog-first-request.sh`, which runs only in CD and so also
+refuses when neither is set), the Playwright suite
 (`e2e/playwright.config.ts`, `use.extraHTTPHeaders`), the staging lanes
 (`workers/api/api-test/lane-origin.ts`). The retired HTTP Eval launcher no longer uses this door;
 the native Eval task runs in process. The names and the refusal live once, in
