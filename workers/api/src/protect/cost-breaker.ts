@@ -34,7 +34,8 @@ export function utcDayKey(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 10);
 }
 
-/** The latch as the budget shard stores it; keys beyond `dayKey` are dropped. */
+/** The latch as the budget shard stores it. Keys beyond `dayKey` are dropped, because a newer version may write
+ * extra fields during a rolling deploy. */
 const StoredLatch = z.object({ dayKey: z.string() });
 
 export function parseBudgetLatch(value: unknown): BudgetLatch | null {
@@ -76,19 +77,30 @@ export function budgetGuidanceResponse(): Response {
   });
 }
 
+/** The budget shard's answer. Keys beyond `latched` are dropped, because a newer version may write extra fields
+ * during a rolling deploy. */
+const LatchReply = z.object({ latched: z.boolean() });
+
+/** Only an answer whose `latched` is the literal `true` is latched. One that is not JSON, or not that shape, is
+ * not: the latch fails open on it, as on a shard that fails. */
+async function latchedIn(response: Response): Promise<boolean> {
+  const parsed = LatchReply.safeParse(await response.json<unknown>().catch(() => null));
+  return parsed.success && parsed.data.latched;
+}
+
 /** One call to the budget shard, bounded (EG-21). A shard that fails, or does
  * not answer inside the deadline, reads as "not latched" — the same fail-open
  * this call already applied to a non-2xx, and the safe direction here because
  * the AUTHORITATIVE verdict is the agent tier's; the latch only saves a
- * round-trip. A guard namespace that is not bound has no shard to call
- * (`guardShard` records it), so it reads the same way: the read is "not
- * latched" and the write is skipped. */
+ * round-trip. An answer that is not JSON, or not the latch's shape, reads the
+ * same way, and the write resolves on it. A guard namespace that is not bound
+ * has no shard to call (`guardShard` records it), so it reads the same way: the
+ * read is "not latched" and the write is skipped. */
 async function callBudget(guard: GuardNamespace | undefined, method: string, dayKey: string): Promise<boolean> {
   const url = `https://edge-guard/budget?dayKey=${encodeURIComponent(dayKey)}`;
   const response = await guardCall(guardShard(guard, "budget"), new Request(url, { method }));
   if (response === null || !response.ok) return false;
-  const parsed: unknown = await response.json();
-  return typeof parsed === "object" && parsed !== null && (parsed as { latched?: unknown }).latched === true;
+  return latchedIn(response);
 }
 
 /** True when the breaker already tripped today (edge-cached tier verdict). */
