@@ -9,7 +9,8 @@ const WORKER_ROOT = fileURLToPath(new URL("../../", import.meta.url).href);
 
 export async function buildPrismaWorker(directory: string): Promise<void> {
   await promisify(execFile)("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--env=", "--containers-rollout=none", "--outdir", directory], {
-    cwd: WORKER_ROOT, env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: join(directory, "build.log") },
+    cwd: WORKER_ROOT,
+    env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_HIDE_BANNER: "true", WRANGLER_LOG_PATH: join(directory, "build.log") },
   });
   await prepareMigrations(directory);
 }
