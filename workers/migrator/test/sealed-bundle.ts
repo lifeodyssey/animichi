@@ -4,9 +4,11 @@
  * `wrangler deploy --no-bundle`.
  *
  * The release script itself builds it, into a scratch root, so the runtime loads the bytes CD
- * deploys rather than an approximation of them. Its modules are the ones the sealed `wrangler.json`
- * uploads: `index.js` as the entry, and `contract.json` and every file under `migrations/` as Text
- * modules under their own names, which the Worker reads back at `/bundle/migrations`.
+ * deploys rather than an approximation of them. It builds once per test file, so the boot and the
+ * startup profile (`sealed-startup.ts`) observe the same bytes. Its modules are the ones the sealed
+ * `wrangler.json` uploads: `index.js` as the entry, and `contract.json` and every file under
+ * `migrations/` as Text modules under their own names, which the Worker reads back at
+ * `/bundle/migrations`.
  */
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
@@ -66,15 +68,27 @@ async function boot(release: string): Promise<Miniflare> {
   }
 }
 
-/** Build and boot; the scratch root goes with the runtime, and with a build or boot that failed. */
+let scratch: string | undefined;
+let release: Promise<string> | undefined;
+
+async function buildInScratch(): Promise<string> {
+  scratch = await mkdtemp(join(tmpdir(), "migrator-sealed-"));
+  return buildSealed(scratch);
+}
+
+/** The release directory (`wrangler.json` and `bundle/`), built on first use and shared by the file. */
+export function sealedRelease(): Promise<string> {
+  release ??= buildInScratch();
+  return release;
+}
+
+/** Removes the scratch root behind `sealedRelease`, after a build that failed as well. */
+export async function discardSealedRelease(): Promise<void> {
+  if (scratch !== undefined) await rm(scratch, { recursive: true, force: true });
+}
+
+/** Boots the shared release; `close` stops the runtime and leaves the release to `discardSealedRelease`. */
 export async function bootSealedMigrator() {
-  const root = await mkdtemp(join(tmpdir(), "migrator-sealed-"));
-  const discard = () => rm(root, { recursive: true, force: true });
-  try {
-    const worker = await boot(await buildSealed(root));
-    return { worker, close: async () => { await worker.dispose(); await discard(); } };
-  } catch (error) {
-    await discard();
-    throw error;
-  }
+  const worker = await boot(await sealedRelease());
+  return { worker, close: () => worker.dispose() };
 }
