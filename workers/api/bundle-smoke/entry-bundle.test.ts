@@ -9,6 +9,7 @@ import { URL, fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { Miniflare } from "miniflare";
 import { bundleLikeWrangler, deployedRuntime } from "./wrangler-bundle.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "api-entry-bundle-"));
 after(() => { rmSync(directory, { recursive: true, force: true }); });
@@ -17,7 +18,7 @@ const bundle = await bundleLikeWrangler(fileURLToPath(new URL("../src/entry.ts",
 
 void test("the official production entry executes in workerd", async (context) => {
   const worker = new Miniflare({ modulesRoot: directory, modules: [{ type: "ESModule", path: outfile }],
-    ...deployedRuntime() });
+    ...deployedRuntime(), ...placeholderRequestCf });
   context.after(() => worker.dispose());
   const response = await worker.dispatchFetch("https://native.test/not-a-route");
   assert.equal(response.status, 404);
