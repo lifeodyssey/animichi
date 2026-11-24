@@ -36,10 +36,13 @@ Root guide: `../../AGENTS.md`.
   `connect()` opens the socket before it returns, so the boundary opens it in an oRPC middleware
   (`src/request-connection.ts`) that runs after the route matched and the input validated: an
   unknown path and invalid input are answered without one, and an unreachable database answers
-  oRPC's 500 with its JSON error body (`test/unreachable-database.node.test.ts`). The second
-  path Drizzle held
-  (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
-  `@neondatabase/serverless` in this package, whose only importer was that client.
+  oRPC's 500 with its JSON error body (`test/unreachable-database.node.test.ts`). A check written
+  inside a handler runs after the connection opened: the itinerary's empty `point_ids`, which
+  needs no query, and its 500-point cap (`ROUTE_TOO_MANY_POINTS`) both answer 500 while the
+  database is down. The agent's selection paths guard both before they call; `plan_route` guards
+  the empty list. The second path Drizzle held (`src/db/{client,schema,expressions}.ts` over
+  neon-http) is deleted; so is `@neondatabase/serverless` in this package, whose only importer was
+  that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
   `test/no-hyperdrive.worker.test.ts` is the tripwire.
 - **Prisma loads on the first request that needs it, not at startup** (`src/db/prisma-first-use.ts`).
