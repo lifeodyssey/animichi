@@ -229,6 +229,8 @@ export default defineConfig({
             VITE_TURNSTILE_SITE_KEY: turnstileTestSiteKey,
             VITE_SHOWCASE_MODE: "false",
             VITE_NEON_AUTH_BASE_URL: appNeonAuthBaseUrl,
+            // Without it, Wrangler's banner asks the npm registry for Wrangler's latest version.
+            WRANGLER_HIDE_BANNER: "true",
           },
         },
       }

@@ -345,6 +345,7 @@ jobs:
           set -euo pipefail
           bundle exec ruby .github/test/call-migrator-action.test.rb
           bundle exec ruby .github/test/cd-artifact.test.rb
+          bundle exec ruby .github/test/cd-catalog-first-request.test.rb
           bundle exec ruby .github/test/cd-credentials.test.rb
           bundle exec ruby .github/test/cd-post-deploy-evidence.test.rb
           bundle exec ruby .github/test/cd-delivery-jobs.test.rb
@@ -428,6 +429,8 @@ jobs:
           bundle exec ruby test/repo-config/retired-migration-authority-refs.test.rb
           bundle exec ruby test/repo-config/retired-python-agent-refs.test.rb
           bundle exec ruby test/repo-config/wrangler-path-claims.test.rb
+          bundle exec ruby test/repo-config/wrangler-update-check-mutation.test.rb
+          bundle exec ruby test/repo-config/wrangler-update-check.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev-mutation.test.rb
           bundle exec ruby test/repo-config/wrangler-workers-dev.test.rb
       # The promotion guard reads the committed tree rather than a workflow, so it

@@ -22,8 +22,9 @@ import { profileSealedStartup } from "./sealed-startup";
 // (`src/db/prisma-first-use.ts`). The boot proves the global scope evaluates to its end. The
 // profile proves that evaluation builds no Prisma or ArkType schema, but alone it proves no start:
 // a global scope that throws can read as an empty, fast start, so its count stands only beside this
-// file's boot of the same build. Neither loads Prisma, and no CD step requests a catalog database
-// route. The third case does: its database is a loopback listener that takes each connection and
+// file's boot of the same build. Neither loads Prisma, and nothing else requests a catalog database
+// route before a deploy (staging's CD does after one, `.github/scripts/catalog-first-request.sh`).
+// The third case does: its database is a loopback listener that takes each connection and
 // drops it. A connection arrives only once Prisma has loaded and built its client; a load that
 // fails answers the same oRPC 500 and never connects, so the count, not the answer, tells them
 // apart.

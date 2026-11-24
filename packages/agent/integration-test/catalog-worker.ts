@@ -16,7 +16,7 @@ export async function catalogWorker(context: TestContext, connectionString: stri
   const wrangler = join(dirname(createRequire(import.meta.url).resolve("wrangler/package.json")), "bin/wrangler.js");
   const worker = spawn(process.execPath, [wrangler, "dev", "--local", "--port", "0", "--inspector-port", "0", "--latest=false",
     "--show-interactive-dev-session=false", "--config", config], { stdio: ["ignore", "pipe", "pipe"], signal: context.signal,
-    env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: join(directory, "build.log") } });
+    env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_HIDE_BANNER: "true", WRANGLER_LOG_PATH: join(directory, "build.log") } });
   const exited = once(worker, "exit"); void exited.catch(() => undefined);
   let errors = ""; worker.stderr.on("data", (data: Buffer) => { errors += data.toString(); });
   context.after(async () => {

@@ -57,6 +57,10 @@ jobs:
     outputs:
       receipt_id: ${{ steps.receipt.outputs.artifact-id }}
       receipt_digest: ${{ steps.receipt.outputs.artifact-digest }}
+    # The staging edge origin, which the smoke step names as its first argument. The steps after
+    # the smoke that reach the same origin read it from here.
+    env:
+      STAGING_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -194,6 +198,13 @@ jobs:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev https://animichi-web-staging.zhenjiazhou0127.workers.dev
+      # Catalog loads Prisma on its first database request, not at startup (#2119), so the new
+      # version's first request pays for that load. Nothing above reaches catalog: the smoke reads
+      # the API Worker's own `/healthz` and the web shell, whose server render fetches nothing. This
+      # is catalog's first request, then: one cold and one warm, never retried, both timed in this
+      # step's log. Staging only, since production's showcase mode answers this public route 403.
+      - name: Measure catalog's first database request
+        run: bash .github/scripts/catalog-first-request.sh "$STAGING_EDGE_URL"
       # The receipt records the migrator's answer after the smoke. That read is a
       # step of its own, so the token reaches it and not the recorder (#1695).
       - name: Read the migrator's schema view for the receipt
@@ -210,7 +221,7 @@ jobs:
           # The edge origin the smoke step above probes: #1695 records the
           # answer a verification seat cannot ask for, because every staging
           # origin is behind Cloudflare Access.
-          EVIDENCE_EDGE_URL: https://animichi-staging.zhenjiazhou0127.workers.dev
+          EVIDENCE_EDGE_URL: ${{ env.STAGING_EDGE_URL }}
         run: |
           node .github/scripts/release/record-receipt.mjs staging
           node .github/scripts/release/record-evidence.mjs staging

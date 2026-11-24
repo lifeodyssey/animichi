@@ -28,7 +28,7 @@ if (unit === 'migrator') {
 }
 writeFileSync(`${scratch}/wrangler.json`, JSON.stringify(build));
 try {
-  wranglerBuild(['deploy', '--config', `${scratch}/wrangler.json`, '--dry-run', '--env', 'production', '--outdir', `${output}/bundle`]);
+  await wranglerBuild(['deploy', '--config', `${scratch}/wrangler.json`, '--dry-run', '--env', 'production', '--outdir', `${output}/bundle`]);
   if (!existsSync(`${output}/bundle/${ENTRIES[unit]}`)) throw new Error('release entrypoint is absent');
   if (unit === 'migrator') execFileSync('node', ['workers/migrator/scripts/prepare-migrations.ts', `${output}/bundle`], { stdio: 'inherit' });
 } finally {
