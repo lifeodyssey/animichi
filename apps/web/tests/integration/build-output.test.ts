@@ -20,6 +20,9 @@ interface WranglerConfig {
 
 const DEFAULT_TARGET = "top-level";
 
+/** Without the switch, Wrangler's banner asks the npm registry for Wrangler's latest version on every run. */
+const wranglerEnv = { ...process.env, WRANGLER_HIDE_BANNER: "true" };
+
 function readWranglerConfig(): WranglerConfig {
   return parse(readFileSync(wranglerConfigPath, "utf8")) as WranglerConfig;
 }
@@ -37,6 +40,7 @@ function bundleWorkerToTempDir(target: string): string {
   const outdir = mkdtempSync(join(tmpdir(), "animichi-web-bundle-"));
   execFileSync("pnpm", ["exec", "wrangler", "deploy", "--dry-run", "--outdir", outdir, ...envArgs(target)], {
     cwd: packageRoot,
+    env: wranglerEnv,
     stdio: "pipe",
     timeout: 120_000,
   });
@@ -47,7 +51,7 @@ function promotePrebuiltWorkerToTempDir(): string {
   const outdir = mkdtempSync(join(tmpdir(), "animichi-web-promote-"));
   const entry = fileURLToPath(serverEntry);
   const args = ["exec", "wrangler", "deploy", entry, "--no-bundle", "--dry-run", "--outdir", outdir, "--env", "staging"];
-  execFileSync("pnpm", args, { cwd: packageRoot, stdio: "pipe", timeout: 120_000 });
+  execFileSync("pnpm", args, { cwd: packageRoot, env: wranglerEnv, stdio: "pipe", timeout: 120_000 });
   return outdir;
 }
 

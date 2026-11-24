@@ -1,4 +1,5 @@
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
@@ -16,8 +17,7 @@ const DRY_RUN_FINISHED = '--dry-run: exiting now.';
 const WRANGLER_ENV = { WRANGLER_SEND_METRICS: 'false', WRANGLER_HIDE_BANNER: 'true' };
 
 // The repository's Wrangler, run by this Node rather than through `pnpm exec`: no PATH lookup,
-// and the process the bound kills is Wrangler's own launcher, not corepack's pnpm launcher and
-// the pnpm process behind it.
+// and no corepack or pnpm process between this runner and the group the bound kills.
 const WRANGLER = join(dirname(createRequire(import.meta.url).resolve('wrangler/package.json')), 'bin', 'wrangler.js');
 
 // Two different stalls arrive wearing one error: a build still running when the bound elapsed,
@@ -30,21 +30,42 @@ export function timeoutDiagnostic(stdout, timeoutMs) {
   return `Wrangler did not finish its dry-run build within ${bound} seconds`;
 }
 
-// The bound kills with SIGKILL. spawnSync waits for its child to exit, and Wrangler's launcher
-// traps SIGTERM to forward it to its CLI process, so under SIGTERM a CLI that does not exit holds
-// the build past the bound: a child that trapped SIGTERM held a 500 ms spawnSync for 33 s, and
-// returned at 505 ms under SIGKILL, with a grandchild holding the pipes too (2026-11-22). What
-// the launcher started is then left running with only this runner's pipes, never the caller's:
-// both streams are captured, and written back once the run ends. A build that fails on its own
-// keeps its own output and exit; only the bound's kill becomes the diagnostic.
-export function wranglerBuild(args, timeoutMs = WRANGLER_BUILD_TIMEOUT_MS) {
-  const run = spawnSync(process.execPath, [WRANGLER, ...args], {
-    env: { ...process.env, ...WRANGLER_ENV }, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, killSignal: 'SIGKILL',
+function capture(stream) {
+  const chunks = [];
+  stream.setEncoding('utf8').on('data', (chunk) => chunks.push(chunk));
+  return () => chunks.join('');
+}
+
+// Wrangler's launcher leads a process group of its own (`detached`), and what it starts joins
+// it: the CLI it spawns and the esbuild processes the CLI spawns. The bound kills the group;
+// killing the launcher alone left the CLI and esbuild running as orphans. SIGKILL, because the
+// launcher traps SIGTERM to forward it to its CLI, and a CLI that does not exit would hold the
+// build past the bound (2026-11-22). This runner's ends of the pipes close with it, so the run
+// ends with the launcher even if a process outside the group still held them.
+function stopGroup(child) {
+  process.kill(-child.pid, 'SIGKILL');
+  child.stdout.destroy();
+  child.stderr.destroy();
+}
+
+// One run of the launcher. It ends once the group has closed the output pipes, or at the bound.
+async function boundedRun(args, timeoutMs) {
+  const child = spawn(process.execPath, [WRANGLER, ...args], {
+    env: { ...process.env, ...WRANGLER_ENV }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
-  process.stdout.write(run.stdout ?? '');
-  process.stderr.write(run.stderr ?? '');
-  if (run.error?.code === 'ETIMEDOUT') throw new Error(timeoutDiagnostic(run.stdout ?? '', timeoutMs), { cause: run.error });
-  if (run.error) throw run.error;
+  const [stdout, stderr] = [capture(child.stdout), capture(child.stderr)];
+  let timedOut = false;
+  const bound = setTimeout(() => { timedOut = true; stopGroup(child); }, timeoutMs);
+  const [status, signal] = await once(child, 'close').finally(() => clearTimeout(bound));
+  return { stdout: stdout(), stderr: stderr(), status, signal, timedOut };
+}
+
+// Both streams are captured and written back once the run ends. A build that fails on its own
+// keeps its own output and exit; only the bound's kill becomes the diagnostic.
+export async function wranglerBuild(args, timeoutMs = WRANGLER_BUILD_TIMEOUT_MS) {
+  const run = await boundedRun(args, timeoutMs);
+  process.stdout.write(run.stdout);
+  process.stderr.write(run.stderr);
+  if (run.timedOut) throw new Error(timeoutDiagnostic(run.stdout, timeoutMs));
   if (run.status !== 0) throw new Error(`wrangler ${args[0]} exited with ${run.status ?? run.signal}`);
 }
