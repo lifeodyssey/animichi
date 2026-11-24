@@ -4,6 +4,7 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { isPublicCatalogPath, PUBLIC_CATALOG_ROUTES, type PublicCatalogRoute } from "@animichi/contract/public-catalog";
 import type { Env, WorkerExecutionContext } from "../env.ts";
 import { SESSION_ADOPT_PATH } from "../identity/session-adopt.ts";
+import { isDocsNameVariant } from "../proxy/image-proxy.ts";
 import { agentTierResponse, sessionTierResponse } from "./agent-tier-route.ts";
 import {
   DURABLE_ADOPT, DURABLE_BYOK, DURABLE_HIGH_COST, DURABLE_USER_MUTATION, NATIVE_PUBLIC_READ, UNMANAGED_READ, type RatePolicy,
@@ -102,10 +103,18 @@ function notFound(): Promise<Response> {
   return Promise.resolve(notFoundResponse());
 }
 
+/** The image entry passes on a variant of the private docs namespace's name
+ * (`/img/Docs/…`, `/img/%64ocs/…`), so the router answers it with its own 404,
+ * for every method and ahead of the image boundary, as it answers a case
+ * variant of any routed prefix (`/IMG/…`). */
+function servesImagePath(path: string): boolean {
+  return !isDocsNameVariant(path);
+}
+
 export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
   { method: "GET", template: "/healthz", requestClass: "landing", rate: UNMANAGED_READ, serve: healthzResponse },
   { method: "ALL", template: "/tiles/*", requestClass: "landing", rate: UNMANAGED_READ, serve: tilesResponse },
-  { method: "ALL", template: "/img/*", requestClass: "landing", rate: UNMANAGED_READ, serve: imageResponse },
+  { method: "ALL", template: "/img/*", requestClass: "landing", rate: UNMANAGED_READ, accepts: servesImagePath, serve: imageResponse },
   ...PUBLIC_CATALOG_ROUTES.map(publicCatalogRoute),
   { method: "ALL", template: SESSION_MIGRATE_PATH, requestClass: "retired", rate: UNMANAGED_READ, serve: notFound },
   { method: "GET", template: USERS_NAMESPACE, requestClass: "users", rate: UNMANAGED_READ, serve: usersResponse },
