@@ -18,8 +18,10 @@
     "@animichi/contract": "workspace:*",
     "@animichi/pi-session-neon": "workspace:*",
     "@animichi/prisma-geography": "workspace:*",
+    "@orpc/json-schema": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
     "@prisma/orm-postgres": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
