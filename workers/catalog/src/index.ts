@@ -13,7 +13,7 @@ import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from 
 import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes, type AdminConnection } from "./import/admin-routes";
 import { connectionString } from "./db/connections";
-import { acquireCatalogRuntime, catalogPrisma } from "./db/prisma";
+import { prismaAccess } from "./db/prisma-first-use";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
 import { egressSigningKeyFromEnv } from "./ingest/anitabi-egress";
 
@@ -113,6 +113,7 @@ app.get("/catalog/img/:pointId", async (c) => {
   // The image path acquires and disposes its own runtime, like `/catalog/*`
   // below: the bytes are already in memory when `serveImage` resolves, so the
   // response survives the scope that gave the connection back.
+  const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
   await using runtime = await acquireCatalogRuntime(connStr);
   return await serveImage(
     { query: catalogPrisma(runtime), bucket, fetchImpl: fetch, signal: c.req.raw.signal }, c.req.param("pointId"), plan,
@@ -126,6 +127,7 @@ app.use("/catalog/*", async (c, next) => {
   }
   // Each catalog request acquires its own Prisma runtime and gives it back when
   // this scope exits — never a connection cached across requests (spec §4.2).
+  const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
   await using runtime = await acquireCatalogRuntime(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     context: {
@@ -149,6 +151,7 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
     if (!connStr) throw new Error("catalog database not configured");
     // One runtime for this invocation, given back when the entrypoint returns
     // — the same per-request shape the `/catalog/*` boundary uses (spec §4.2).
+    const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
     await using runtime = await acquireCatalogRuntime(connStr);
     return await catalogIngestBangumi(catalogPrisma(runtime), await egressSigningKeyFromEnv(this.env)).ingest(bangumiId);
   }

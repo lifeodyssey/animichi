@@ -13,7 +13,8 @@
  * limit would cut the pass off mid-write.
  */
 import { connectionString } from "../db/connections";
-import { acquireCatalogRuntime, catalogPrisma, type CatalogPrisma } from "../db/prisma";
+import type { CatalogPrisma } from "../db/prisma";
+import { prismaAccess } from "../db/prisma-first-use";
 import { catalogIngestBangumi } from "../ingest/ingest-bangumi";
 import type { IngestResult } from "../ingest/ingest-bangumi";
 import { egressSigningKeyFromEnv } from "../ingest/anitabi-egress";
@@ -157,6 +158,7 @@ export interface CronPrisma {
 
 /** The production seam: one runtime, disposed when the pass ends. */
 async function defaultCronPrisma(connStr: string): Promise<CronPrisma> {
+  const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
   const runtime = await acquireCatalogRuntime(connStr);
   return {
     query: catalogPrisma(runtime),

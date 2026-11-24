@@ -12,8 +12,11 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   `pnpm run typecheck` (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
 - `pnpm run test:node` — the plain-Node lane (`vitest.node.config.ts`): `test/sealed-bundle.node.test.ts`
   builds the sealed release bundle with `.github/scripts/release/build-worker.mjs users`, the bytes
-  CD uploads, starts it in workerd and asserts `/healthz` 200. The worker pool evaluates unbundled
-  modules, so a failure that exists only in the bundle shows up in this lane alone.
+  CD uploads, once, then starts it in workerd and asserts `/healthz` 200, profiles its startup with
+  `wrangler check startup` for Prisma or ArkType schema work (`test/sealed-startup.ts`), and sends
+  its first database request to a loopback listener, which proves Prisma's first load reached the
+  connect. The worker pool evaluates unbundled modules, so a failure that exists only in the bundle
+  shows up in this lane alone, and no CD step requests a users database route.
 - `pnpm run test:integration` — the Docker Postgres arm (`vitest.integration.config.ts`), kept out of
   `test` per #1473; pre-push, the CI affected matrix and `make check-full` all run it for this package.
 
@@ -46,6 +49,13 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   opens a connection (`acquireUsersRuntime`) and disposes it with `await using` on scope exit; there
   is no connection cached across requests (spec §4.2). Since Prisma rc.14 that `connect()` opens the
   socket before it returns, so an unreachable database fails at the boundary, before routing.
+- **Prisma loads on the first request that needs it, not at startup** (`src/db/prisma-first-use.ts`):
+  Cloudflare refuses a Worker whose global scope takes longer than a second to evaluate, and the
+  Prisma modules `src/db/prisma.ts` imports, building ArkType's schemas, were more than half of this
+  Worker's startup. Production code reaches `src/db/prisma.ts` only through that module or with
+  `import type`; a static value import brings the work back. One load serves an isolate, a load that
+  fails stays failed, and the boundary answers it as it answers a failed acquire
+  (`test/prisma-first-use.worker.test.ts`).
 - **Arrays**: the builder binds `text[]` as one parameter — the old `sql.param(arr)::text[]` rule is
   gone with the Drizzle lane.
 - **timestamptz** arrives as the codec's ISO 8601 UTC string with every fractional digit the server
