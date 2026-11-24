@@ -26,7 +26,7 @@ import { ColumnRef, DefaultValueExpr, InsertOnConflict, RawExpr, param } from "@
 import type { AnyExpression, InsertAst, UpdateAst } from "@prisma/orm-postgres/relational-core";
 import { planFromAst } from "@prisma/orm-postgres/relational-core/plan";
 import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
-import { catalogClient } from "./prisma";
+import { planContract } from "./plan-contract";
 
 /** Which columns a conflict update overwrites with the row that was proposed. */
 export interface ConflictUpdate {
@@ -39,7 +39,7 @@ export interface ConflictUpdate {
 /** Add the conflict clause to a builder-built INSERT plan, keeping its projection. */
 export function upsert<Row>(insert: SqlOrmPlan<Row>, conflict: ConflictUpdate): SqlOrmPlan<Row> {
   const clause = InsertOnConflict.on(refs(conflict.target)).doUpdateSet(assignments(conflict.update));
-  return planFromAst<Row>(insertAstOf(insert).withOnConflict(clause), catalogClient().contract);
+  return planFromAst<Row>(insertAstOf(insert).withOnConflict(clause), planContract());
 }
 
 /** Assign `now()` — the transaction timestamp — to the named columns of a write plan. */
@@ -60,9 +60,9 @@ export function atServerClock<Row>(
   const columns = Object.keys(offsets);
   assertNamed(columns);
   const ast = plan.ast;
-  if (ast.kind === "update") return planFromAst<Row>(withStampsSet(ast, offsets), catalogClient().contract);
+  if (ast.kind === "update") return planFromAst<Row>(withStampsSet(ast, offsets), planContract());
   if (ast.kind === "insert") {
-    return planFromAst<Row>(withStampsRows(insertAstOf(plan), offsets), catalogClient().contract);
+    return planFromAst<Row>(withStampsRows(insertAstOf(plan), offsets), planContract());
   }
   throw new Error(`expected an INSERT or UPDATE plan, received ${ast.kind}`);
 }
@@ -84,7 +84,7 @@ const GENERATED_COLUMNS = { points: ["latitude", "longitude"] } as const;
 export function generatedByTheDatabase<Row>(insert: SqlOrmPlan<Row>, table: keyof typeof GENERATED_COLUMNS): SqlOrmPlan<Row> {
   const defaults = Object.fromEntries(GENERATED_COLUMNS[table].map((name) => [name, new DefaultValueExpr()]));
   const ast = insertAstOf(insert);
-  return planFromAst<Row>(ast.withRows(ast.rows.map((row) => ({ ...row, ...defaults }))), catalogClient().contract);
+  return planFromAst<Row>(ast.withRows(ast.rows.map((row) => ({ ...row, ...defaults }))), planContract());
 }
 
 /** Every assignment copies the proposed row's own column — never a bound value. */

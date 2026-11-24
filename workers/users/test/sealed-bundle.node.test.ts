@@ -1,17 +1,31 @@
 import { execFile } from "node:child_process";
+import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { afterAll, describe, expect, it } from "vitest";
+import { profileSealedStartup } from "./sealed-startup";
 
 // SUT: the sealed users bundle CD publishes — what `.github/scripts/release/build-worker.mjs
-// users` writes — started in workerd. `build-worker.test.sh` proves it bundles; the worker pool
-// evaluates unbundled modules, so a failure that exists only in the bundle (an import-time Node
-// API a dependency upgrade brings, as Prisma rc.24 brought `fdir` to the migrator) is visible
-// here alone.
+// users` writes — built once and observed three ways: started in workerd, profiled by `wrangler
+// check startup`, and sent its first database request. `build-worker.test.sh` proves it bundles;
+// the worker pool evaluates unbundled modules, so a failure that exists only in the bundle (an
+// import-time Node API a dependency upgrade brings, as Prisma rc.24 brought `fdir` to the migrator)
+// is visible here alone.
+//
+// Cloudflare refuses a Worker whose startup, the evaluation of its global scope, takes longer than
+// a second, so the users Worker's Prisma access loads on the first request that needs it
+// (`src/db/prisma-first-use.ts`). The boot proves the global scope evaluates to its end. The
+// profile proves that evaluation builds no Prisma or ArkType schema, but alone it proves no start:
+// a global scope that throws can read as an empty, fast start, so its count stands only beside this
+// file's boot of the same build. Neither loads Prisma, and no CD step requests a users database
+// route. The third case does: its database is a loopback listener that takes each connection and
+// drops it. A connection arrives only once Prisma has loaded and built its client; a load that
+// fails answers the same 500 and never connects, so the count, not the status, tells them apart.
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url).href);
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -27,17 +41,40 @@ function refuseOutbound(request: WorkerRequest): never {
   throw new Error(`the sealed users Worker made an outbound request: ${request.method} ${request.url}`);
 }
 
+/** A database on loopback that counts the connections it takes and drops each one unanswered. */
+async function droppingDatabase(): Promise<{ readonly url: string; connections(): number; close(): Promise<void> }> {
+  let taken = 0;
+  const server = createServer((socket) => { taken += 1; socket.destroy(); });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  const close = async () => { server.close(); await once(server, "close"); };
+  return { url: `postgresql://sealed@127.0.0.1:${String(port)}/users`, connections: () => taken, close };
+}
+
 const root = await mkdtemp(join(tmpdir(), "users-sealed-"));
+const database = await droppingDatabase();
+let release: Promise<string> | undefined;
 let worker: Miniflare | undefined;
 afterAll(async () => {
   await worker?.dispose();
+  await database.close();
   await rm(root, { recursive: true, force: true });
 });
+
+/** The release directory (`wrangler.json` and `bundle/`), built on first use and shared by the file. */
+function sealedRelease(): Promise<string> {
+  release ??= promisify(execFile)(process.execPath, [BUILD_WORKER, "users", "", root], {
+    cwd: REPOSITORY, maxBuffer: 16 * 1024 * 1024,
+  }).then(() => join(root, "users"));
+  return release;
+}
 
 /** Start the bundle in workerd; a runtime that failed to start is disposed before its error surfaces. */
 async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare> {
   const started = new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "index.js") }], modulesRoot: bundle, port: 0,
-    compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound });
+    compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound,
+    bindings: { DATABASE_URL: database.url } });
   try {
     await started.ready;
     return started;
@@ -47,23 +84,42 @@ async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare>
   }
 }
 
+/** The release started in workerd, once; every case after the first gets the same runtime. */
 async function bootSealedUsers(): Promise<Miniflare> {
-  await promisify(execFile)(process.execPath, [BUILD_WORKER, "users", "", root], {
-    cwd: REPOSITORY, maxBuffer: 16 * 1024 * 1024,
-  });
-  const runtime = JSON.parse(await readFile(join(root, "users", "wrangler.json"), "utf8")) as SealedRuntime;
-  worker = await start(join(root, "users", "bundle"), runtime);
+  const built = await sealedRelease();
+  const runtime = JSON.parse(await readFile(join(built, "wrangler.json"), "utf8")) as SealedRuntime;
+  worker ??= await start(join(built, "bundle"), runtime);
   return worker;
+}
+
+/** The users Worker's first database request: a saved-route list, as the edge forwards it. */
+function firstDatabaseRequest(users: Miniflare) {
+  return users.dispatchFetch("https://users.test/v1/users/saved-routes", {
+    headers: { "x-user-id": "sealed-user", "x-user-type": "human" },
+  });
 }
 
 // The release build is a Wrangler dry-run of the whole Worker, then a workerd start, in one test.
 // The release script stops a Wrangler run at 60 s with its own diagnostic
 // (`WRANGLER_BUILD_TIMEOUT_MS`), so this suite's 90 s leaves that diagnostic 30 s to surface ahead
-// of the test's own timeout.
+// of the test's own timeout. The profile's own Wrangler run is stopped at the same 60 s
+// (`sealed-startup.ts`).
 describe("the sealed users bundle in workerd", { timeout: 90_000 }, () => {
   it("starts and answers /healthz", async () => {
     const response = await (await bootSealedUsers()).dispatchFetch("https://users.test/healthz");
     expect({ status: response.status, body: await response.json() })
       .toMatchObject({ status: 200, body: { status: "ok", service: "users" } });
+  });
+
+  it("starts without building Prisma's or ArkType's schemas", async () => {
+    const startup = await profileSealedStartup(await sealedRelease());
+    expect(startup.schemaSourcesInBundle).toBeGreaterThan(0);
+    expect(startup.schemaSamplesAtStartup).toBe(0);
+  });
+
+  it("loads Prisma on its first database request, as far as the connect", async () => {
+    const response = await firstDatabaseRequest(await bootSealedUsers());
+    expect({ status: response.status, body: await response.text(), connections: database.connections() })
+      .toEqual({ status: 500, body: "Internal Server Error", connections: 1 });
   });
 });

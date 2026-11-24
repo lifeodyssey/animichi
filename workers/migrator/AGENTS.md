@@ -149,25 +149,44 @@ Local tests prove neither deployment nor production approval; see the canonical
 preflight: an older executor cannot inspect a graph it does not carry.
 `node workers/migrator/scripts/prepare-migrations.ts <bundle-directory>` copies
 the public package's complete `migrations/` and `contract.json` byte for byte.
-The sealed no-bundle Wrangler config loads `contract.json`, `migrations/**/*.json`
-and `migrations/**/*.d.ts` as Text modules with preserved file names. Native
-filesystem APIs then read the graph at `/bundle/migrations`.
+The sealed no-bundle Wrangler config loads `contract.json` and every file under
+`migrations/` as Text modules with preserved file names. Native filesystem APIs
+then read the graph at `/bundle/migrations`.
 
 Native requests select only a 64-character hash in a packaged snapshot. They
 cannot supply SQL, a graph, a path or a DSN.
 
-The bundle starts in workerd only because `wrangler.toml` aliases `fdir` to
+Prisma control loads on the first call that needs it, not at startup
+(`src/prisma-first-use.ts`). Cloudflare refuses a Worker whose global scope takes
+longer than a second to evaluate, and building Prisma's and ArkType's schemas was
+more than half of this Worker's startup. The dynamic imports name two local slices,
+`src/prisma-snapshot-store.ts` and `src/prisma-control-surface.ts`, which re-export
+only the functions the Worker calls: a dynamic import keeps the whole namespace it
+names, so importing Prisma's modules that way added 278 KiB of code the Worker never
+calls to the upload. A static import of a slice brings the work back into startup.
+One load serves an isolate, and a load that fails stays failed
+(`test/prisma-first-use.test.ts`); each route answers it as it answers that call
+throwing (`test/prisma.worker.snapshot-load.test.ts`,
+`test/prisma.worker.control-load.test.ts`).
+
+Prisma control loads in workerd only because `wrangler.toml` aliases `fdir` to
 `src/fdir-unavailable.ts`. Prisma rc.24 has no entry for its control client
 apart from `@prisma/orm-toolchain/cli/control-api`, whose one chunk also loads
 the CLI's config loader, and through tinyglobby that reaches `fdir`, whose
 module top level calls `createRequire(import.meta.url)`. workerd leaves
-`import.meta.url` undefined, so the sealed bundle failed at start. The rest of
-that CLI-side graph is still in the bundle and starts. `build-worker.mjs`
+`import.meta.url` undefined, so the sealed bundle failed at start; with Prisma
+control loaded on first use, the first preview or apply would fail instead. The
+rest of that CLI-side graph is still in the bundle and loads. `build-worker.mjs`
 makes the alias path absolute for its scratch config, and the esbuild-built
 fixtures read the same table (`test/wrangler-alias.ts`).
 `test/sealed-bundle.workerd.test.ts` builds the sealed bundle with the release
-script and boots it, and `test/deployment-contract.test.ts` pins `fdir` out of
-the graph.
+script, boots it, profiles its startup with `wrangler check startup` for Prisma
+or ArkType work, and sends it a preflight that proves Prisma control loads: it
+tells a completed load followed by a database failure (`DRIVER.CONNECTION_FAILED`)
+apart from a load failure (`preflight_unavailable`).
+`test/deployment-contract.test.ts` pins `fdir` out of the graph, and
+`test/integration/prisma.workerd.integration.ts` runs Prisma control's first load
+in workerd.
 
 Prisma alone owns every object in the data plane and the `prisma_contract`
 marker schema. The direct migrator role needs database `CREATE` to initialize

@@ -37,6 +37,11 @@ PRs with none, the owner chose to card or close them, in the option that said "ä
 The lanes recognised the stale premises themselves and refused to redo the work; that was luck,
 not process.
 
+A card that starts with a measurement phase is amended with that phase's findings before code
+starts (2026-11-24). The decisions go on the card itself, not only into a comment: the order of
+the work, the shape of the gate, the target value and the acceptance wording. The next dispatch
+reads the body (step 1 above).
+
 ## Issues split finely; PRs follow the e2e story (owner, 2026-09-15 to 2026-09-24)
 
 Issues may be split finely with `/to-tickets`, and that is welcome. PRs follow the e2e story:

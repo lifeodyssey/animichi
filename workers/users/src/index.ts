@@ -4,7 +4,8 @@ import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, USERS_ERROR_DEFS } 
 import {
   AUTHORIZATION_HEADER, REQUEST_ID_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER, acceptedRequestId,
 } from "@animichi/contract/internal-binding";
-import { acquireUsersRuntime, usersPrisma, type UsersPrisma } from "./db/prisma";
+import type { UsersPrisma } from "./db/prisma";
+import { prismaAccess } from "./db/prisma-first-use";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -118,6 +119,7 @@ async function guardUsersV1(
   // await is load-bearing: `await using` disposes on scope exit, so returning
   // the handler's promise unawaited would hand back the connection while the
   // request is still using it.
+  const { acquireUsersRuntime, usersPrisma } = await prismaAccess();
   await using runtime = await acquireUsersRuntime(connStr);
   return await handleMatched(c, next, service.apiHandler, { prisma: usersPrisma(runtime), ...admission });
 }

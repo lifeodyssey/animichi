@@ -354,11 +354,33 @@ not define a second coverage policy.
 `.github/workflows/pr-verification.yml` is the single pull-request and merge-queue workflow. The
 affected set is pnpm's: `pnpm ls -r --depth -1 --json --filter "...[<merge-base>]"` selects every
 workspace project whose files changed plus every dependent, and each selected package runs its own
-`lint` / `typecheck` / `test` / `test:integration`. The paths outside the package graph
-(`apps/web`, the migration chain, `e2e`, the root dependency files) are routed by
-`dorny/paths-filter` into dedicated jobs, and a root dependency change means every package.
+`lint` / `typecheck` / `test` / `test:integration`.
+
+The rest of the routing is `dorny/paths-filter`, in the same `plan` job: each filter below selects a
+job, or adds a package pnpm would not select. The `paths` step of the workflow holds the globs, and
+`.github/test/pr-verification-plan.test.rb` pins that table whole; other documents link here rather
+than repeat it.
+
+- `web` (`apps/web/**`) and `e2e` (`e2e/**`, `packages/contract/**`, `packages/agent/**`,
+  `packages/pi-session-neon/**`, `packages/test-postgres/**`, `workers/api/**`): the browser job.
+- `migrations` (`packages/pi-session-neon/migrations/**`,
+  `packages/pi-session-neon/src/contract.prisma`, `infra/database-access/reset-staging-baseline*`):
+  the schema job.
+- `deps` (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml`, `.npmrc`): every package, because
+  pnpm answers a root-lockfile change with the root project alone, plus the browser, schema and
+  delivery toolchain jobs.
+- `workflows` (`.github/workflows/**`, `.github/actions/**`, `.github/scripts/**`, `.github/lib/**`,
+  `.github/test/**`): the `api` package, whose suite reads deployment workflow text. Otherwise
+  `.github/**` lands in the subtracted root project and selects no package.
+- `release` (`.github/scripts/release/**`, `.github/lib/release/**`): the `migrator` package, whose
+  suite boots the sealed bundle `build-worker.mjs` builds with an `[alias]`.
+- `foundation` (`pnpm-lock.yaml`, `package.json`, `pnpm-workspace.yaml`, `.pulumi.version`,
+  `infra/database-access/**`, `.github/scripts/release/**`): the foundation install job.
+- `delivery` (`.github/lib/**`, `.github/scripts/**`, `.github/test/delivery/**`, `scripts/*`,
+  `scripts/delivery/**`, `scripts/local-gates/**`): the delivery toolchain job.
+
 `PR Verification` blocks merge unless every lane succeeds; the direct `Security` context separately
-fail-closes the six security jobs, which no path filter gates and a draft pull request skips.
+fail-closes the security jobs behind it, which no path filter gates and a draft pull request skips.
 
 **No pull request runs a model-backed eval.** The `CI / agent eval (L0 smoke)` lane — 80 capped
 trajectories against MiMo through `https://opencode.ai/zen/go/v1` — was deleted with the

@@ -21,7 +21,11 @@ Root guide: `../../AGENTS.md`.
   and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
   The lane that does run in CI is `test/sealed-bundle.node.test.ts` in `test:node`: it builds
   the sealed release bundle with `.github/scripts/release/build-worker.mjs catalog`, the bytes
-  CD uploads, starts it in workerd and asserts `/healthz` 200.
+  CD uploads, once, then starts it in workerd and asserts `/healthz` 200, profiles its startup
+  with `wrangler check startup` for Prisma or ArkType schema work (`test/sealed-startup.ts`),
+  and sends its first database request to a loopback listener, which proves Prisma's first load
+  reached the connect. No CD step requests a catalog database route, so that request is the
+  only check of the first load on the deployed bytes.
 
 ## Stack (per the ADR)
 
@@ -39,6 +43,16 @@ Root guide: `../../AGENTS.md`.
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
   `test/no-hyperdrive.worker.test.ts` is the tripwire.
+- **Prisma loads on the first request that needs it, not at startup** (`src/db/prisma-first-use.ts`).
+  Cloudflare refuses a Worker whose global scope takes longer than a second to evaluate, and
+  `src/db/prisma.ts` with the Prisma modules it imports (ArkType's schemas, the contract's
+  validation) was more than half of this Worker's startup. Production code reaches
+  `src/db/prisma.ts` only through that module or with `import type`; a static value import
+  brings the work back. The plan repairs in `src/db/plans.ts` read the contract from
+  `src/db/plan-contract.ts`, which `src/db/prisma.ts` fills as it evaluates. A broken contract
+  now fails the first database request instead of the start. One load serves an isolate, and a
+  load that fails stays failed (`test/prisma-first-use.worker.test.ts`); every door answers it as
+  it answers a failed acquire (`test/prisma-load-failure.worker.test.ts`).
 - **The gateway's request ID.** The `/catalog/*` boundary puts `X-Request-Id` into the request's
   context through `acceptedRequestId` (`@animichi/contract/internal-binding`), which keeps only the
   gateway's lowercase-UUID format; catalog has no public host, so the header can only have come

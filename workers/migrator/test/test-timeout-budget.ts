@@ -93,6 +93,11 @@ export const WORKERD_SLOW_APPLY_BUDGET_MS = 90_000;
  * 160 to 240 (other lanes running): 6.9 s, 6.1 s and 4.6 s. The release script stops a Wrangler
  * run at 60 s with its own diagnostic (`WRANGLER_BUILD_TIMEOUT_MS`, `.github/lib/release/`), so a
  * build that hangs fails there; 90 s leaves that diagnostic 30 s to surface ahead of this budget.
+ * The suite's second test profiles the same build's startup with `wrangler check startup`: 12.9 s
+ * measured on 2026-11-24 at a load average near 50. `sealed-startup.ts` stops that run at the same
+ * 60 s, so a profile that hangs also fails 30 s ahead of this budget. The third boots the same build
+ * again and sends it one preflight: 0.3 s measured on 2026-11-24 at a load average near 7, and 1.6 s
+ * run alone, the build included.
  */
 export const SEALED_BUNDLE_BUDGET_MS = 90_000;
 

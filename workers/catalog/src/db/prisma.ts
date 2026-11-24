@@ -19,6 +19,10 @@
  * The serverless client itself is memoized because it is stateless: building it
  * deserializes and validates the contract, work that has nothing to do with a
  * request.
+ *
+ * The Worker imports this module on the first request that needs it
+ * (`./prisma-first-use`), never statically: evaluating it and the Prisma modules
+ * it imports builds ArkType's schemas and validates the contract.
  */
 import { geographyRuntimeDescriptor } from "@animichi/prisma-geography/runtime";
 import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
@@ -27,9 +31,10 @@ import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
 import type { PostgresServerlessClient } from "@prisma/orm-postgres/serverless";
 import postgresServerless from "@prisma/orm-postgres/serverless";
 import { contractFromJson } from "@prisma/orm-postgres/static";
+import { recordPlanContract } from "./plan-contract";
 
 /** The shared contract as a typed value; a client built on it validates it once. */
-export const catalogContract = contractFromJson<Contract>(contractJson);
+export const catalogContract = recordPlanContract(contractFromJson<Contract>(contractJson));
 
 /** The serverless client shape for the shared contract. */
 type CatalogClient = PostgresServerlessClient<Contract>;

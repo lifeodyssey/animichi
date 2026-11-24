@@ -52,11 +52,12 @@ becomes one `affected` matrix leg running that package's own `lint`, `typecheck`
 `test:integration`. There is no component manifest and no second router: a package's lane is its
 own `package.json`, which is also what `pre-push` runs.
 
-Three paths sit outside the package graph and are routed by `dorny/paths-filter` instead:
-`apps/web/**` and `e2e/**` (the browser job), `packages/pi-session-neon/migrations/**` (the schema job), and the root dependency files, whose change
-means "every package" because pnpm answers a root-lockfile change with the root project alone.
-The six security jobs are never path-gated. `PR Verification` and `Security` each aggregate their
-dependencies with `always()` and fail on any failed or cancelled one.
+The rest of the routing is `dorny/paths-filter`, in the same `plan` job: each filter selects a job,
+or adds a package pnpm would not select. The filters and what each selects are listed once, in the
+testing strategy's [Affected PR CI](../testing-strategy.md#affected-pr-ci).
+
+The security jobs behind `Security` are never path-gated. `PR Verification` and `Security` each
+aggregate their dependencies with `always()` and fail on any failed or cancelled one.
 
 ### Build once, select an immutable artifact
 
