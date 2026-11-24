@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { unstable_readConfig } from 'wrangler';
-import { appliedSchema, deploymentIdentity, containerIdentity, awaitContainerImage, containerWaitBudgetMs } from '../../lib/release/observations.mjs';
+import { appliedSchema, deploymentIdentity, containerIdentity, awaitContainerImage, containerWaitBudgetMs, workerLabel } from '../../lib/release/observations.mjs';
 
 // #1683: every staging CD failed because `containers info` was read once, before
 // the application's asynchronous rollout reported the selected image. The knobs
@@ -65,9 +65,9 @@ function observeWorker(unit, environment, manifest, applications) {
   const config = unstable_readConfig({ config: `release/${unit}/wrangler.json`, env: environment });
   const deployments = wrangler('deployments', 'list', '--name', config.name, '--json');
   const deployment = deployments.sort((a, b) => b.created_on.localeCompare(a.created_on))[0];
-  assert.ok(deployment?.versions?.length === 1, 'missing complete Worker deployment');
+  assert.ok(deployment?.versions?.length === 1, `missing complete Worker deployment ${workerLabel(unit, config.name)}`);
   const version = wrangler('versions', 'view', deployment.versions[0].version_id, '--name', config.name, '--json');
-  const identity = deploymentIdentity(deployment, version, manifest.source_sha);
+  const identity = deploymentIdentity(deployment, version, manifest.source_sha, unit, config.name);
   const containers = observeContainers(config, version, applications, manifest.images[unit]);
   return { unit, script_name: config.name, ...identity, containers };
 }

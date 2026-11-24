@@ -46,7 +46,7 @@ function deployedEdge(sourceSha, declared) {
   // `deploymentIdentity` is the receipt's own assertion (release serves all
   // traffic, and the live tag is the selected source), reused so both
   // documents are produced by one reading of what "deployed" means.
-  return { script_name: config.name, ...deploymentIdentity(deployments[0], version, sourceSha), tag: version.annotations['workers/tag'], declared_containers: declared };
+  return { script_name: config.name, ...deploymentIdentity(deployments[0], version, sourceSha, 'api', config.name), tag: version.annotations['workers/tag'], declared_containers: declared };
 }
 
 /** The container read cd.yml took immediately before the smoke. Absent is
