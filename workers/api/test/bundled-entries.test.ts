@@ -9,6 +9,7 @@ import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { Miniflare } from "miniflare";
 import { BundledEntries } from "../bundle-smoke/bundled-entries.ts";
+import { placeholderRequestCf } from "../bundle-smoke/placeholder-request-cf.ts";
 
 /** A build double that records every entry it is asked for and bundles a worker naming it. */
 function countingBuild() {
@@ -21,7 +22,7 @@ function countingBuild() {
 }
 
 async function laneWorker(context: TestContext, entries: BundledEntries, entry: string, lane: string) {
-  const worker = new Miniflare({ ...await entries.modules(entry), bindings: { LANE: lane } });
+  const worker = new Miniflare({ ...await entries.modules(entry), ...placeholderRequestCf, bindings: { LANE: lane } });
   context.after(() => worker.dispose());
   return (await worker.dispatchFetch("https://lane.test/")).json();
 }

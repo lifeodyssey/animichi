@@ -17,6 +17,7 @@ import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { readPointer, POINTER_KEY } from "../src/publish/pointer";
 import { fakeTableRows } from "./fakes/fake-catalog-prisma";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 import { textToArrayBuffer } from "../src/publish/bytes";
 
 let mf: Miniflare | undefined;
@@ -32,6 +33,7 @@ async function openStore(): Promise<ObjectStore> {
     modules: true,
     script: "export default { async fetch() { return new Response('ok'); } }",
     r2Buckets: ["SNAPSHOT_BUCKET"],
+    ...placeholderRequestCf,
   });
   const bucket = await mf.getR2Bucket("SNAPSHOT_BUCKET");
   return r2ObjectStore(bucket as unknown as R2Bucket);

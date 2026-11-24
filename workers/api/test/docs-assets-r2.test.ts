@@ -18,6 +18,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { Miniflare } from "miniflare";
+import { placeholderRequestCf } from "../bundle-smoke/placeholder-request-cf.ts";
 import { collectingCtx } from "./doubles/entry-env.ts";
 import { storingCache, withCacheDouble } from "./doubles/cache-api-double.ts";
 import { edgeAppRequest } from "./doubles/edge-app-request.ts";
@@ -30,6 +31,7 @@ const mf = new Miniflare({
   modules: true,
   script: "export default { async fetch() { return new Response('ok'); } }",
   r2Buckets: ["DOCS_ASSETS"],
+  ...placeholderRequestCf,
 });
 const bucket = await mf.getR2Bucket("DOCS_ASSETS");
 after(() => mf.dispose());

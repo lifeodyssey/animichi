@@ -11,6 +11,7 @@ import { URL, fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { process } from "../test-support/node-globals.ts";
+import { placeholderRequestCf } from "./placeholder-request-cf.ts";
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url));
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -58,14 +59,14 @@ function refusingInto(outbound: string[]) {
 }
 
 /** Starts the shared release in workerd with `bindings`. Nothing it fetches leaves the process, and
- * Miniflare does not fetch Cloudflare's `Request.cf` object (`cf: false`). */
+ * Miniflare does not fetch Cloudflare's `Request.cf` object (`placeholderRequestCf`). */
 export async function bootSealedRelease(bindings: Record<string, string>): Promise<BootedRelease> {
   const directory = await sealedRelease();
   const runtime = JSON.parse(await readFile(join(directory, "wrangler.json"), "utf8")) as SealedRuntime;
   const bundle = join(directory, "bundle");
   const outbound: string[] = [];
   const worker = new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "entry.js") }], modulesRoot: bundle,
-    port: 0, cf: false, compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags,
+    port: 0, ...placeholderRequestCf, compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags,
     bindings, outboundService: refusingInto(outbound) });
   return { worker, outbound };
 }
