@@ -23,7 +23,7 @@ export function anonymousDailyBudget(value: string | undefined) {
 export async function bootstrapNativeSession(env: Env, id: string, context: Context) {
   const url = await readSecret(env.AGENT_SVC_DATABASE_URL);
   if (!url) throw new Error("The native agent database is not configured");
-  const db = nativeClient(url);
+  const db = await nativeClient(url);
   try {
     const server = await nativeHostModels(await readSecret(env.MIMO_API_KEY));
     const repo = new NeonSessionRepo(db);

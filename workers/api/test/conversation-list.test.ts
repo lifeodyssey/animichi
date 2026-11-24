@@ -12,7 +12,7 @@ import { listConversations } from "../src/agent/views/conversation-list.ts";
 // against real PostgreSQL, where the semantics actually live. A dropped
 // `user_id` predicate is red in both lanes.
 
-const client = nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
+const client = await nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
 after(async () => { await client.close(); });
 
 /** A row the native tier admitted but has not settled yet: #1608 writes the
