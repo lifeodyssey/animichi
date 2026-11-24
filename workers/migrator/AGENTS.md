@@ -149,9 +149,9 @@ Local tests prove neither deployment nor production approval; see the canonical
 preflight: an older executor cannot inspect a graph it does not carry.
 `node workers/migrator/scripts/prepare-migrations.ts <bundle-directory>` copies
 the public package's complete `migrations/` and `contract.json` byte for byte.
-The sealed no-bundle Wrangler config loads `contract.json`, `migrations/**/*.json`
-and `migrations/**/*.d.ts` as Text modules with preserved file names. Native
-filesystem APIs then read the graph at `/bundle/migrations`.
+The sealed no-bundle Wrangler config loads `contract.json` and every file under
+`migrations/` as Text modules with preserved file names. Native filesystem APIs
+then read the graph at `/bundle/migrations`.
 
 Native requests select only a 64-character hash in a packaged snapshot. They
 cannot supply SQL, a graph, a path or a DSN.
@@ -180,10 +180,13 @@ rest of that CLI-side graph is still in the bundle and loads. `build-worker.mjs`
 makes the alias path absolute for its scratch config, and the esbuild-built
 fixtures read the same table (`test/wrangler-alias.ts`).
 `test/sealed-bundle.workerd.test.ts` builds the sealed bundle with the release
-script, boots it, and profiles its startup with `wrangler check startup` for
-Prisma or ArkType work. `test/deployment-contract.test.ts` pins `fdir` out of
-the graph, and `test/integration/prisma.workerd.integration.ts` runs Prisma
-control's first load in workerd.
+script, boots it, profiles its startup with `wrangler check startup` for Prisma
+or ArkType work, and sends it a preflight that proves Prisma control loads: it
+tells a completed load followed by a database failure (`DRIVER.CONNECTION_FAILED`)
+apart from a load failure (`preflight_unavailable`).
+`test/deployment-contract.test.ts` pins `fdir` out of the graph, and
+`test/integration/prisma.workerd.integration.ts` runs Prisma control's first load
+in workerd.
 
 Prisma alone owns every object in the data plane and the `prisma_contract`
 marker schema. The direct migrator role needs database `CREATE` to initialize
