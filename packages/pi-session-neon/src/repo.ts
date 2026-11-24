@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import { StorageBackedSession, type ForkOptions, type SessionCreateOptions, type SessionMetadata,
-  type SessionRepo } from "@earendil-works/pi-agent-core/harness/session";
+  type SessionRepo, type Storage } from "@earendil-works/pi-agent-core/harness/session";
 
 import type { SessionDatabase } from "./database.ts";
 import { persistFork, readForkSnapshot } from "./fork.ts";
@@ -8,13 +8,18 @@ import { persistFork, readForkSnapshot } from "./fork.ts";
 import { NEON_STORAGE_VERSION, readMetadata, requireStorageVersion } from "./session-metadata.ts";
 import { NeonStorage } from "./storage.ts";
 
+export interface NeonSessionRepoOptions {
+  /** Wraps the Storage every opened session commits through; a fork still snapshots the database directly. */
+  readonly decorateStorage?: (storage: Storage) => Storage;
+}
+
 /** Owns open handles; the SDK owns Session behavior and PostgreSQL owns persistence. */
 export class NeonSessionRepo implements SessionRepo {
   private readonly db: SessionDatabase;
   private readonly pendingIds = new Set<string>();
   private readonly openStorages = new Map<string, NeonStorage>();
 
-  constructor(db: SessionDatabase) {
+  constructor(db: SessionDatabase, _options: NeonSessionRepoOptions = {}) {
     this.db = db;
   }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core/harness/context";
 import { StorageBackedSession } from "@earendil-works/pi-agent-core/harness/session";
+import { InstrumentedStorage } from "@earendil-works/pi-agent-core/harness/session/testing";
 import { NeonSessionRepo } from "@animichi/pi-session-neon";
 import { database, METADATA, SESSION_ID } from "./postgres.ts";
 
@@ -18,6 +19,21 @@ void test("create, open and fork return the public SDK Session class", async () 
   assert(reopened instanceof StorageBackedSession);
   assert.deepEqual(reopened.metadata, created.metadata);
   await Promise.all([reopened.close(BACKGROUND_CONTEXT), forked.close(BACKGROUND_CONTEXT)]);
+});
+
+void test("every session the repo opens commits through its storage decorator, and a fork still snapshots the stored rows", async () => {
+  const decorated: InstrumentedStorage[] = [];
+  const repo = new NeonSessionRepo(database, { decorateStorage: (storage) => {
+    const recorded = new InstrumentedStorage(storage);
+    decorated.push(recorded);
+    return recorded;
+  } });
+  const created = await repo.create({}, BACKGROUND_CONTEXT);
+  await created.setName("decorated", BACKGROUND_CONTEXT);
+  const forked = await repo.fork(created.metadata, { scope: "tree" }, BACKGROUND_CONTEXT);
+  assert(forked instanceof StorageBackedSession);
+  assert.deepEqual(decorated.map((storage) => storage.getCommitAttempts().length), [1, 0]);
+  await Promise.all([created.close(BACKGROUND_CONTEXT), forked.close(BACKGROUND_CONTEXT)]);
 });
 
 void test("failed open releases ownership for a later session with that id", async () => {

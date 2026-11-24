@@ -1,3 +1,4 @@
+import { KeyLiterals } from "../egress/key-literals.ts";
 import type { AdmissionDatabase, AdmissionTransaction, ModelAdmissionRequest } from "./types.ts";
 
 /** Read authorization never claims a missing conversation or locks its writer. */
@@ -10,6 +11,7 @@ export async function ownsConversation(db: AdmissionDatabase, sessionId: string,
 /** Only a new request intent may create its conversation owner row. */
 export async function createOrLockOwnedConversation(
   db: AdmissionDatabase, tx: AdmissionTransaction, request: Pick<ModelAdmissionRequest, "sessionId" | "identityId" | "text">,
+  _literals: KeyLiterals = KeyLiterals.NONE,
 ) {
   const plan = db.raw.sql`INSERT INTO sessions (id, user_id, first_query) VALUES (${request.sessionId}, ${request.identityId}, ${request.text})
     ON CONFLICT (id) DO UPDATE SET user_id = sessions.user_id
