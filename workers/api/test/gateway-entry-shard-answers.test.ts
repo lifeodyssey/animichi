@@ -82,6 +82,7 @@ const READINGS: readonly ShardReading[] = [
   outage("null"),
   outage('{"allowed":false,"retryAfterSeconds":1e999}'),
   outage('{"allowed":true,"retryAfterSeconds":1e999}'),
+  outage('{"allowed":false,"retryAfterSeconds":null}'),
   { when: 'its shard answers {"allowed":true}', rate: '{"allowed":true}', budget: NOT_LATCHED, caller: "an admitted visitor",
     status: 503, body: RATE_LIMIT_UNAVAILABLE, log: VISITOR_METERED, calls: VISITOR_RATE },
   { when: "the day is latched", rate: ALLOWED, budget: LATCHED, caller: "an admitted visitor", status: 403,
