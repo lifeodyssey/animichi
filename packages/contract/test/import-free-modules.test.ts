@@ -5,9 +5,8 @@
  * The edge Worker is bundled: a single value import from a module that imports
  * zod drags all 79 of zod's files into every isolate it starts, which is what
  * `AGENT_PATHS` and `DEFAULT_IDENTITY_POLICY` did before they were extracted
- * into their own modules. `workers/api/bundle-smoke/entry-bundle.test.ts`
- * measures the built artifact; this gate fails one package earlier, on the
- * line that would cause it, and says which module lost the property.
+ * into their own modules. This gate fails in this package, on the line that
+ * would cause it, and names the module that lost the property.
  *
  * The scan covers all four shapes a module can be loaded by, not just the
  * `… from "…"` one: a side-effect `import "zod";` carries no `from` clause at

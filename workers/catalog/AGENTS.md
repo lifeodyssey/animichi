@@ -13,19 +13,15 @@ Root guide: `../../AGENTS.md`.
   (Docker; deliberately not chained into `test`, see Test pools) · `pnpm run typecheck`
   (TypeScript 7) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
   ESLint is gone.
-- `pnpm run test:smoke` — boots the real deploy bundle in workerd and asserts
-  `/healthz` 200. The worker pool evaluates unbundled modules, so bundle-only
-  startup failures (the StringChunk TDZ, 2026-08-05) are invisible to it — this
-  check exists for exactly that class of bug. No CI job runs it: the bundled-boot job
-  (`catalog-startup-smoke`, later `startup-smoke`) was removed in `eb6fccd60` (2026-08-25),
-  and neither the affected matrix nor pre-push runs `test:smoke`, so it runs only by hand.
-  The lane that does run in CI is `test/sealed-bundle.node.test.ts` in `test:node`: it builds
-  the sealed release bundle with `.github/scripts/release/build-worker.mjs catalog`, the bytes
-  CD uploads, once, then starts it in workerd and asserts `/healthz` 200, profiles its startup
-  with `wrangler check startup` for Prisma or ArkType schema work (`test/sealed-startup.ts`),
-  and sends its first database request to a loopback listener, which proves Prisma's first load
-  reached the connect. No CD step requests a catalog database route, so that request is the
-  only check of the first load on the deployed bytes.
+- `test/sealed-bundle.node.test.ts` in `test:node` is the bundled-boot check. The worker pool
+  evaluates unbundled modules, so a startup failure that exists only in the bundle (the StringChunk
+  TDZ, 2026-08-05) is visible there alone. It builds the sealed release bundle with
+  `.github/scripts/release/build-worker.mjs catalog`, the bytes CD uploads, once, then starts it
+  in workerd and asserts `/healthz` 200, profiles its startup with `wrangler check startup` for
+  Prisma or ArkType schema work (`test/sealed-startup.ts`), and sends its first database request
+  to a loopback listener, which proves Prisma's first load reached the connect. No CD step
+  requests a catalog database route, so that request is the only check of the first load on the
+  deployed bytes.
 
 ## Stack (per the ADR)
 
@@ -37,10 +33,16 @@ Root guide: `../../AGENTS.md`.
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
   Hono `/catalog/*` boundary (or a cron pass) opens ONE connection per request and disposes it
   with `await using` — never a connection cached across requests. Since Prisma rc.14 that
-  `connect()` opens the socket before it returns, so an unreachable database fails at the
-  boundary. The second path Drizzle held
-  (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
-  `@neondatabase/serverless` in this package, whose only importer was that client.
+  `connect()` opens the socket before it returns, so the boundary opens it in an oRPC middleware
+  (`src/request-connection.ts`) that runs after the route matched and the input validated: an
+  unknown path and invalid input are answered without one, and an unreachable database answers
+  oRPC's 500 with its JSON error body (`test/unreachable-database.node.test.ts`). A check written
+  inside a handler runs after the connection opened: the itinerary's empty `point_ids`, which
+  needs no query, and its 500-point cap (`ROUTE_TOO_MANY_POINTS`) both answer 500 while the
+  database is down. The agent's selection paths guard both before they call; `plan_route` guards
+  the empty list. The second path Drizzle held (`src/db/{client,schema,expressions}.ts` over
+  neon-http) is deleted; so is `@neondatabase/serverless` in this package, whose only importer was
+  that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
   `test/no-hyperdrive.worker.test.ts` is the tripwire.
 - **Prisma loads on the first request that needs it, not at startup** (`src/db/prisma-first-use.ts`).

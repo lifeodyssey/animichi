@@ -14,7 +14,10 @@ import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/ge
 import type { CatalogPrisma } from "./db/prisma";
 import { routeTooManyPoints, workNotFound } from "./adapters/inbound/errors";
 
-/** Per-request dependencies injected by the Hono boundary in `index.ts`. */
+/**
+ * Per-request dependencies: what the Hono boundary in `index.ts` hands in, and the request's Prisma
+ * access, which `request-connection.ts` opens once the input has passed validation.
+ */
 export interface CatalogContext {
   /** This request's Prisma data-plane seam (builder + runtime); see `db/prisma.ts`. */
   prisma: CatalogPrisma;
@@ -34,8 +37,15 @@ export interface CatalogContext {
  * gives up (the edge's per-attempt timeout, a closed client) aborts the
  * upstream request in flight. Workers fire that signal on a disconnect only
  * under `enable_request_signal` (`wrangler.toml`).
+ *
+ * Input validation runs before every middleware, including one a router-level
+ * `.use()` adds later, as oRPC's "Middlewares Order" configuration documents:
+ * the boundary's connection (`request-connection.ts`) opens only for input that
+ * passed.
  */
-const os = implement(catalogContract).$context<CatalogContext>();
+const os = implement(catalogContract)
+  .$config({ initialInputValidationIndex: Number.NEGATIVE_INFINITY })
+  .$context<CatalogContext>();
 
 const resolve = os.resolve.handler(async ({ input, context, signal }) =>
   resolveBangumi(titleAlias(context.prisma), bangumiTitleSearch({ fetchImpl: context.fetchImpl, signal }), input, {

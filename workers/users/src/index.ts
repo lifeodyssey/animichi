@@ -1,11 +1,12 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import type { FetchHandleResult } from "@orpc/server/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
 import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, USERS_ERROR_DEFS } from "@animichi/contract";
 import {
   AUTHORIZATION_HEADER, REQUEST_ID_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER, acceptedRequestId,
 } from "@animichi/contract/internal-binding";
 import type { UsersPrisma } from "./db/prisma";
-import { prismaAccess } from "./db/prisma-first-use";
+import { connectedUsersRouter, type UsersRequestContext } from "./request-connection";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -86,19 +87,19 @@ function admit(c: Context<{ Bindings: Env }>): Admission | Response {
   return idempotencyKey === undefined ? admitted : { ...admitted, idempotencyKey };
 }
 
-async function handleMatched(
-  c: Context<{ Bindings: Env }>,
-  next: Next,
-  apiHandler: OpenAPIHandler<UsersContext>,
-  context: UsersContext,
+/** The matched procedure's response; a path no procedure serves falls through to Hono's 404. */
+async function respond(
+  c: Context<{ Bindings: Env }>, next: Next, handled: FetchHandleResult,
 ): Promise<Response | undefined> {
-  const { matched, response } = await apiHandler.handle(c.req.raw, { context });
-  if (matched) return c.newResponse(response.body, response);
+  if (handled.matched) return c.newResponse(handled.response.body, handled.response);
   await next();
 }
 
 interface UsersV1Service {
-  apiHandler: OpenAPIHandler<UsersContext>;
+  /** Opens each request's connection once the input has passed validation (`./request-connection`). */
+  apiHandler: OpenAPIHandler<UsersRequestContext>;
+  /** Serves the Prisma a test injects through `deps.makePrisma`, which needs no connection. */
+  injectedHandler: OpenAPIHandler<UsersContext>;
   deps: UsersAppDeps;
 }
 
@@ -111,25 +112,19 @@ async function guardUsersV1(
   const admission = admit(c);
   if (isResponse(admission)) return admission;
   const injected = service.deps.makePrisma?.(connStr);
-  if (injected !== undefined) {
-    return handleMatched(c, next, service.apiHandler, { prisma: injected, ...admission });
-  }
-  // Each request acquires its own Prisma runtime and gives it back when this
-  // scope exits — never a connection cached across requests (spec §4.2). The
-  // await is load-bearing: `await using` disposes on scope exit, so returning
-  // the handler's promise unawaited would hand back the connection while the
-  // request is still using it.
-  const { acquireUsersRuntime, usersPrisma } = await prismaAccess();
-  await using runtime = await acquireUsersRuntime(connStr);
-  return await handleMatched(c, next, service.apiHandler, { prisma: usersPrisma(runtime), ...admission });
+  const handled = injected === undefined
+    ? await service.apiHandler.handle(c.req.raw, { context: { databaseUrl: connStr, ...admission } })
+    : await service.injectedHandler.handle(c.req.raw, { context: { prisma: injected, ...admission } });
+  return respond(c, next, handled);
 }
 
 /** Create an independently injectable Users Hono application. */
 export function createUsersApp(deps: UsersAppDeps = {}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
-  const apiHandler = new OpenAPIHandler(usersRouter);
+  const apiHandler = new OpenAPIHandler(connectedUsersRouter);
+  const injectedHandler = new OpenAPIHandler(usersRouter);
   const usersV1Guard: MiddlewareHandler<{ Bindings: Env }, "/v1/users/*"> = async (c, next) =>
-    guardUsersV1({ apiHandler, deps }, c, next);
+    guardUsersV1({ apiHandler, injectedHandler, deps }, c, next);
   app.get("/healthz", healthz);
   app.use("/v1/users/*", usersV1Guard);
   return app;

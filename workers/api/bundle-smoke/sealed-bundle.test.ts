@@ -1,7 +1,8 @@
 /**
  * SUT: the sealed API Worker bundle CD publishes — what `.github/scripts/release/build-worker.mjs api`
- * writes — started in workerd. `entry-bundle.test.ts` starts a Wrangler build of `src/entry.ts` alone;
- * this is the release build of the whole configured Worker, the bytes CD uploads.
+ * writes — started in workerd. `entry-bundle.test.ts` reads the module graph of a Wrangler build of
+ * `src/entry.ts` alone and starts nothing; this is the release build of the whole configured Worker,
+ * the bytes CD uploads.
  */
 import test, { after } from "node:test";
 import assert from "node:assert/strict";

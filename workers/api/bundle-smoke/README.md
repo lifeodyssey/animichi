@@ -81,9 +81,9 @@ accidental schema imports into an otherwise schema-free gateway. The deployed na
 now deliberately execute their public oRPC/Zod validators, so that implementation constraint
 was replaced rather than hidden with suppression, skip or an allowlist.
 
-`entry-bundle.test.ts` builds with the official Wrangler CLI, executes the production artifact
-in workerd, rejects bundler/eval/conformance implementation leakage, and records raw/gzip
-size. `native-tool-boundaries.test.ts` runs the shared production harness/tools in workerd and
+`entry-bundle.test.ts` builds with the official Wrangler CLI and rejects bundler/eval/conformance
+implementation leakage; `sealed-bundle.test.ts` executes the release build, the bytes CD uploads,
+in workerd. `native-tool-boundaries.test.ts` runs the shared production harness/tools in workerd and
 proves malformed invocation input and invalid successful catalog responses are rejected.
 The database-backed default host lane separately proves real permission and billing effects.
 No local deployment is part of these tests.
