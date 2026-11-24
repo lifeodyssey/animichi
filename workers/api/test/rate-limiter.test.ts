@@ -8,6 +8,7 @@ import {
   consumeRateLimit,
   parseWindowState,
   rateLimitConfigFrom,
+  type RateLimitConfig,
   stepWindow,
 } from "../src/protect/rate-limiter.ts";
 
@@ -136,6 +137,34 @@ void test("authenticated limiter config falls back to the authenticated class de
   // class, which deliberately differs from the anonymous class's 20/60.
   assert.deepEqual(authRateLimitConfigFrom({}), { limit: 60, windowSeconds: 60 });
 });
+
+// ── the window bound: the reclaim alarm, two windows out, stays inside the Date range ──
+
+/** 10^306 seconds, written out in the 307 digits an env var would hold: finite, and far past the bound. */
+const OVERLONG_WINDOW = "1".padEnd(307, "0");
+
+type ConfigReader = (env: Record<string, unknown>) => RateLimitConfig;
+
+const WINDOW_BOUND: readonly (readonly [says: string, read: ConfigReader, env: Record<string, string>, config: RateLimitConfig])[] = [
+  ["the anonymous config reads the longest window, 4e12 s, as written", rateLimitConfigFrom,
+    { ANON_RATE_LIMIT_WINDOW_SECONDS: "4000000000000" }, { limit: 20, windowSeconds: 4_000_000_000_000 }],
+  ["the anonymous config takes the default for a window one second longer", rateLimitConfigFrom,
+    { ANON_RATE_LIMIT_WINDOW_SECONDS: "4000000000001" }, { limit: 20, windowSeconds: 60 }],
+  ["the anonymous config takes the default for a 307-digit window", rateLimitConfigFrom,
+    { ANON_RATE_LIMIT_WINDOW_SECONDS: OVERLONG_WINDOW }, { limit: 20, windowSeconds: 60 }],
+  ["the authenticated config reads the longest window, 4e12 s, as written", authRateLimitConfigFrom,
+    { AUTH_RATE_LIMIT_WINDOW_SECONDS: "4000000000000" }, { limit: 60, windowSeconds: 4_000_000_000_000 }],
+  ["the authenticated config takes the default for a window one second longer", authRateLimitConfigFrom,
+    { AUTH_RATE_LIMIT_WINDOW_SECONDS: "4000000000001" }, { limit: 60, windowSeconds: 60 }],
+  ["the authenticated config takes the default for a 307-digit window", authRateLimitConfigFrom,
+    { AUTH_RATE_LIMIT_WINDOW_SECONDS: OVERLONG_WINDOW }, { limit: 60, windowSeconds: 60 }],
+];
+
+for (const [says, read, env, config] of WINDOW_BOUND) {
+  void test(says, () => {
+    assert.deepEqual(read(env), config);
+  });
+}
 
 void test("the authenticated key is derived from the user id alone", () => {
   assert.equal(authenticatedRateLimitKey("user-a"), "authed:user-a");
