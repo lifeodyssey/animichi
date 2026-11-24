@@ -42,7 +42,7 @@ export function selection(clientMessageId: string, state = "pending") {
  * function has already closed must not be closed a second time. */
 export async function closedClient() {
   assert.ok(dsn);
-  const client = nativeClient(dsn);
+  const client = await nativeClient(dsn);
   await client.close();
   return client;
 }

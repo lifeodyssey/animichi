@@ -26,9 +26,14 @@ retired run engine and envelope paths have no forwarding modules.
   executes them in workerd. Entry tests reject esbuild, Node-only eval/conformance leakage,
   and exercise the native tools' request and response validation. `sealed-bundle.test.ts` starts
   the release build of the whole Worker (`.github/scripts/release/build-worker.mjs api`), the
-  bytes CD uploads, and asserts an unknown path answers its 404. The old zero-Zod rule was
-  replaced under the user's explicit 2026-09-10 native hard-cut authorization: validators used
-  by the production SDK/oRPC contract are part of the runtime, not a forbidden library brand.
+  bytes CD uploads, and asserts an unknown path answers its 404. `sealed-prisma-load.test.ts`
+  builds that release once and observes it twice: booted, its anonymous transcript reads drive
+  the first database use until the client tries a loopback listener the test owns (CD's staging
+  smoke requests only `/healthz`, which builds no client), and `wrangler check startup` profiles
+  its startup for ArkType or geography-pack samples, the work Prisma's first load does. The old
+  zero-Zod rule was replaced under the user's explicit 2026-09-10 native hard-cut authorization:
+  validators used by the production SDK/oRPC contract are part of the runtime, not a forbidden
+  library brand.
 - `pnpm run test:native-host` runs actual default/resource-fault SessionAgent calls with local
   workerd, native Pi, the production tools and disposable PostgreSQL. It includes automatic
   scheduling, cold reattachment, lost replies, authority and settlement. Coordinate the local
@@ -117,6 +122,16 @@ retired run engine and envelope paths have no forwarding modules.
 - The agent tier reads `AGENT_SVC_DATABASE_URL` through the one client construction site,
   `src/native-client.ts` (contract JSON plus the geography runtime descriptor), and native
   `NeonSessionRepo`, with the database lifetime owned by the DO incarnation.
+  `nativeClient()` is async: Prisma's runtime and the contract's validation load on its first
+  call, through the slice `src/prisma-runtime-surface.ts`, not at startup, because Cloudflare
+  refuses a Worker whose global scope takes longer than a second to evaluate, and building
+  Prisma's and ArkType's schemas was 43% of this Worker's startup, measured locally. A static
+  import of the slice brings that work back. One load serves an isolate, and a load that fails
+  stays failed (`test/native-client-first-load.test.ts`); each caller answers it as it answers an
+  unconfigured database (`test/native-client-load-failure.test.ts`). The slice also re-exports
+  `zod/v4`, a bundler workaround: without it, esbuild drops zod's initializer call from bundles
+  that load the MCP schemas eagerly, and those bundles fail to start with `ZodLazy is not a
+  constructor`. When to delete it is written beside it.
   Secret Store/string bindings are resolved in default startup, never from `process.env`.
 - New Agent execution uses the published Cloudflare `Agent` class and its own schedules.
   Do not add custom alarm state machines or a replacement Session implementation.

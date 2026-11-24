@@ -45,7 +45,7 @@ export async function laneDsn(): Promise<string> {
 
 /** A Prisma client of the caller's own, on the lane database. */
 export async function laneClient(): Promise<PostgresClient<Contract>> {
-  const client = nativeClient(await laneDsn());
+  const client = await nativeClient(await laneDsn());
   closes.push(() => client.close());
   return client;
 }

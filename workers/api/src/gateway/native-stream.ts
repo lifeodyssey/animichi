@@ -14,7 +14,7 @@ export async function nativeStreamResponse(env: Env, request: Request, identityI
   const binding = env.AGENT_SVC_DATABASE_URL;
   const url = typeof binding === "string" ? binding : await binding?.get();
   if (!url) throw new Error("The native agent database is not configured");
-  const db = nativeClient(url);
+  const db = await nativeClient(url);
   let operationId: string;
   try {
     if (!await ownsConversation(db, sessionId, identityId)) return conversationNotFound();

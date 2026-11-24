@@ -4,7 +4,7 @@ import { nativeClient } from "../src/native-client.ts";
 import { createOrLockOwnedConversation, setDefaultConversationTitle } from "../src/agent/admission/session-owner.ts";
 import type { AdmissionTransaction } from "../src/agent/admission/types.ts";
 
-const database = nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
+const database = await nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
 const request = { sessionId: "session", identityId: "owner", text: "New query" };
 
 after(async () => database.close());
