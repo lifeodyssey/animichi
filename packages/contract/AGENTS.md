@@ -85,9 +85,9 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
   `test/import-free-modules.test.ts` — the gate over all three. `workers/api` reads these
   documents at RUNTIME, so they are declared apart from the zod modules that give them meaning
   (`agent-contract.ts`, `identity-contract.ts`), which do NOT re-export them: a value import from
-  a zod module pulls all 79 of zod's files into the Worker bundle (#1285, measured by
-  `workers/api/bundle-smoke/entry-bundle.test.ts`). Nothing is generated and nothing is mirrored
-  — each is the one declaration, and the emitters, the edge and the drift tests all read it there.
+  a zod module pulls all 79 of zod's files into the Worker bundle (#1285). Nothing is generated and
+  nothing is mirrored — each is the one declaration, and the emitters, the edge and the drift tests
+  all read it there.
 - `src/agent-tool-parameters.ts` — the agent's catalog tool parameters, the two web tools' and the
   `respond` answer tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
   `src/agent-tool-schemas.ts` — their generated JSON Schema · `scripts/emit-tool-schemas.ts` — the

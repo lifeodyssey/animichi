@@ -6,7 +6,8 @@ import { defineConfig } from "vitest/config";
  * `vitest.config.ts` runs what needs the workerd pool and `vitest.integration.config.ts` what
  * needs the Docker Postgres container; this one runs what needs neither — today the release
  * build of this Worker and a workerd start of what it wrote, which take a child process and a
- * Miniflare the worker pool cannot host. `test` chains it after `test:worker`.
+ * Miniflare the worker pool cannot host, and the whole app against a loopback listener, which
+ * takes the real `pg` the worker pool stubs. `test` chains it after `test:worker`.
  */
 export default defineConfig({
   test: {
