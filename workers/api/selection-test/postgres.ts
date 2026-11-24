@@ -16,7 +16,7 @@ before(async () => {
   const cluster = await startTestPostgresCluster({ budget: AGENT_DB_SETUP_BUDGET });
   const contract = resources.contract = await startContractDatabase(cluster, "native_selection");
   pool = resources.pool = new pg.Pool({ connectionString: contract.dsn });
-  database = resources.database = nativeClient(contract.dsn);
+  database = resources.database = await nativeClient(contract.dsn);
 });
 
 beforeEach(async () => {

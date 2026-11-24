@@ -112,7 +112,7 @@ export class BusinessHost extends SessionAgent {
   protected override async initializeSession() {
     const url = this.env.AGENT_SVC_DATABASE_URL;
     if (typeof url !== "string") throw new Error("Disposable database is missing");
-    const db = this.configureDatabase(nativeClient(url));
+    const db = this.configureDatabase(await nativeClient(url));
     const metadata = await db.orm.public.PiSession.where({ id: this.name }).first();
     const created = metadata ? undefined : await new NeonSessionRepo(db).create({ id: this.name }, BACKGROUND_CONTEXT);
     const nativeMetadata = created?.metadata ?? metadata?.metadata as unknown as SessionMetadata;

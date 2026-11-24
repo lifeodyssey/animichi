@@ -9,7 +9,7 @@ export const selectedItinerary = { ordered_points: [selectedPoint], point_count:
 
 /** A catalog offer committed by the public SDK is the precondition for a later product selection. */
 export async function seedSelectionOffer() {
-  const db = nativeClient(dsn);
+  const db = await nativeClient(dsn);
   const repo = new NeonSessionRepo(db);
   const session = await repo.create({ id: SESSION }, context);
   const branch = await session.createBranch("main", null, context);
