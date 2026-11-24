@@ -1,8 +1,11 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
+import { SmartCoercionPlugin } from "@orpc/json-schema";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { REQUEST_ID_HEADER, acceptedRequestId } from "@animichi/contract/internal-binding";
+import { GetProcedureCoercion } from "./get-procedure-coercion";
 import { connectedCatalogRouter } from "./request-connection";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
@@ -100,7 +103,12 @@ app.use("/catalog/public/*", async (c, next) => {
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });
 
-const apiHandler = new OpenAPIHandler(connectedCatalogRouter);
+// A GET procedure's query arrives as text, so `?limit=8` would reach the contract's `z.number()`
+// as a string. The official coercion types it from the procedure's input schema, for GET
+// procedures only: a POST body keeps the types it was sent with (`./get-procedure-coercion`).
+const apiHandler = new OpenAPIHandler(connectedCatalogRouter, {
+  plugins: [new GetProcedureCoercion(new SmartCoercionPlugin({ schemaConverters: [new ZodToJsonSchemaConverter()] }))],
+});
 
 app.get("/catalog/img/:pointId", async (c) => {
   const plan = parseAnitabiImagePlan(c.req.query("plan"));
