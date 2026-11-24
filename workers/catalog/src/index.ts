@@ -1,8 +1,11 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
+import { SmartCoercionPlugin } from "@orpc/json-schema";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { REQUEST_ID_HEADER, acceptedRequestId } from "@animichi/contract/internal-binding";
+import { GetProcedureCoercion } from "./get-procedure-coercion";
 import { connectedCatalogRouter } from "./request-connection";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
@@ -81,15 +84,20 @@ app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
 );
 
-// Public catalog reads are anonymous and change only on republish — let the edge
-// cache them (5 min browser, 1 h edge). Runs before the /catalog/* oRPC handler,
-// tagging its response on the way back out.
+// Public catalog reads are anonymous and change only on republish: the header lets
+// a browser keep them 5 min and a shared cache 1 h, and none sits in front today.
+// Runs before the /catalog/* oRPC handler, tagging its response on the way back out.
 //
 // Only the parameters the route's own contract declares get through (`limit` on
 // the popularity ranking); the rest answer 400 here, before any handler or
 // database work, so the cache key stays the route's own bounded query surface
 // rather than whatever a caller invents. The allowlist is the ONE declaration
 // the edge gateway reads too (#1691).
+//
+// The `limit` value itself is not normalized (`?limit=8`, `?limit=08` and
+// `?limit=8.0` are three URLs and three database reads), which is safe only while
+// no shared cache keyed on the URL sits in front of this route; if one is ever
+// added, tighten `limit` first.
 const PUBLIC_CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
 app.use("/catalog/public/*", async (c, next) => {
   const url = new URL(c.req.url);
@@ -100,7 +108,12 @@ app.use("/catalog/public/*", async (c, next) => {
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });
 
-const apiHandler = new OpenAPIHandler(connectedCatalogRouter);
+// A GET procedure's query arrives as text, so `?limit=8` would reach the contract's `z.number()`
+// as a string. The official coercion types it from the procedure's input schema, for GET
+// procedures only: a POST body keeps the types it was sent with (`./get-procedure-coercion`).
+const apiHandler = new OpenAPIHandler(connectedCatalogRouter, {
+  plugins: [new GetProcedureCoercion(new SmartCoercionPlugin({ schemaConverters: [new ZodToJsonSchemaConverter()] }))],
+});
 
 app.get("/catalog/img/:pointId", async (c) => {
   const plan = parseAnitabiImagePlan(c.req.query("plan"));

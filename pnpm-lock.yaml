@@ -191,6 +191,9 @@ catalogs:
     '@orpc/contract':
       specifier: ^1.16.2
       version: 1.16.4
+    '@orpc/json-schema':
+      specifier: ^1.16.2
+      version: 1.16.4
     '@orpc/openapi':
       specifier: ^1.16.2
       version: 1.16.4
@@ -893,12 +896,18 @@ importers:
       '@animichi/prisma-geography':
         specifier: workspace:*
         version: link:../../packages/prisma-geography
+      '@orpc/json-schema':
+        specifier: 'catalog:'
+        version: 1.16.4(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
       '@orpc/openapi':
         specifier: 'catalog:'
         version: 1.16.4(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
       '@orpc/server':
         specifier: 'catalog:'
         version: 1.16.4(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1)
+      '@orpc/zod':
+        specifier: 'catalog:'
+        version: 1.16.4(@opentelemetry/api@1.9.1)(@orpc/contract@1.16.4(@opentelemetry/api@1.9.1))(@orpc/server@1.16.4(@opentelemetry/api@1.9.1)(crossws@0.3.5)(ws@8.21.1))(crossws@0.3.5)(ws@8.21.1)(zod@4.6.7)
       '@prisma/orm-postgres':
         specifier: 'catalog:'
         version: 8.0.0-rc.24(@prisma/cli-engine@0.10.0(@prisma/management-api-sdk@1.80.0)(magicast@0.5.4))(magicast@0.5.4)(temporal-polyfill@1.0.8)(typanion@3.14.0)(typescript@7.0.2)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.15)(yaml@2.9.1))

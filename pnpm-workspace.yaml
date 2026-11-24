@@ -69,6 +69,7 @@ catalog:
   "@neondatabase/serverless": "^1.2.0"
   "@orpc/client": "^1.16.2"
   "@orpc/contract": "^1.16.2"
+  "@orpc/json-schema": "^1.16.2"
   "@orpc/openapi": "^1.16.2"
   "@orpc/openapi-client": "^1.16.2"
   "@orpc/server": "^1.16.2"

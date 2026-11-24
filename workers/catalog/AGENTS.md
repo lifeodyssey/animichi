@@ -79,6 +79,7 @@ Root guide: `../../AGENTS.md`.
   (`@animichi/contract/public-catalog` — the same allowlist the edge gateway reads, #1691); an
   undeclared parameter answers its 400 before any handler or database work, so the cache key stays
   the route's bounded query surface.
+- Query values are coerced to the contract's types for GET procedures only (oRPC's `SmartCoercionPlugin` behind `src/get-procedure-coercion.ts`); a POST body is validated as it was sent, so a number sent as the string `"8"` still answers 400 (`test/query-coercion.worker.test.ts`).
 - Error registry = **two mirrors, one registry** (contract zod → catalog no-zod mirror). Never throw a bare `ORPCError` / `Error` for an actionable failure — register a code.
   Full checklist + categories: `packages/contract/README.md`.
 
