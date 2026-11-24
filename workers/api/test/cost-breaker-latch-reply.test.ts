@@ -1,17 +1,18 @@
 /**
- * SUT: the budget latch read, `budgetLatched` (`src/protect/cost-breaker.ts`),
- * and how it reads the budget shard's reply. The shard answers
- * `{"latched":true}` or `{"latched":false}` (`handleBudget` in
- * `src/protect/edge-guard.ts`). The read parses that reply: only an object whose
- * `latched` is the literal `true` reads as latched, an extra key included, and
- * any other JSON reads as not latched. Each case's shard answers a literal body
- * with 200.
+ * SUT: the budget latch's two calls to the guard, `budgetLatched` and
+ * `latchBudget` (`src/protect/cost-breaker.ts`), and how they read the budget
+ * shard's reply. The shard answers `{"latched":true}` or `{"latched":false}`
+ * (`handleBudget` in `src/protect/edge-guard.ts`). The read parses that reply:
+ * only an object whose `latched` is the literal `true` reads as latched, an extra
+ * key included. Any other reply reads as not latched, one that is not JSON
+ * included, and the latch write resolves on it. Each case's shard answers a
+ * literal body with 200.
  *
  * test-type: unit
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { budgetLatched } from "../src/protect/cost-breaker.ts";
+import { budgetLatched, latchBudget } from "../src/protect/cost-breaker.ts";
 import type { GuardNamespace } from "../src/protect/guard-store.ts";
 
 const DAY = "2026-11-24";
@@ -41,3 +42,16 @@ for (const body of UNLATCHED_REPLIES) {
     assert.equal(await budgetLatched(answering(body), DAY), false);
   });
 }
+
+/** Replies that are not JSON, one of them cut off partway through a latch. */
+const NON_JSON_REPLIES = ["not json", '{"latched":true'];
+
+for (const body of NON_JSON_REPLIES) {
+  void test(`a budget shard reply that is not JSON, ${body}, reads as not latched`, async () => {
+    assert.equal(await budgetLatched(answering(body), DAY), false);
+  });
+}
+
+void test("the latch write resolves on a budget shard reply that is not JSON", async () => {
+  await assert.doesNotReject(latchBudget(answering("not json"), DAY));
+});

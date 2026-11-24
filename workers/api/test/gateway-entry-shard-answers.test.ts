@@ -6,12 +6,14 @@
  * every call they get is written to the case's own list beside the seam's log.
  *
  * A rate verdict whose `allowed` is a boolean and whose `retryAfterSeconds` is
- * a number is taken, extra keys and all. Any other verdict is no verdict, which
- * the durable class turns into its outage answer: 503 `rate_limit_unavailable`,
- * before the budget latch is read or the agent tier is asked. A latch answer is
- * latched only when `latched` is `true`; a latched day answers a visitor's turn
- * with the budget guidance, byte for byte, and a verified caller's turn never
- * reads the latch.
+ * a finite number is taken, extra keys and all. A hint too large for a double
+ * arrives as Infinity, which is not finite. Any other verdict is no verdict,
+ * which the durable class turns into its outage answer: 503
+ * `rate_limit_unavailable`, before the budget latch is read or the agent tier is
+ * asked. A latch answer is latched only when `latched` is `true`, and one that is
+ * not JSON reads as not latched; a latched day answers a visitor's turn with the
+ * budget guidance, byte for byte, and a verified caller's turn never reads the
+ * latch.
  *
  * test-type: characterization
  */
@@ -78,6 +80,8 @@ const READINGS: readonly ShardReading[] = [
   outage('{"retryAfterSeconds":17}'),
   outage("[true,0]"),
   outage("null"),
+  outage('{"allowed":false,"retryAfterSeconds":1e999}'),
+  outage('{"allowed":true,"retryAfterSeconds":1e999}'),
   { when: 'its shard answers {"allowed":true}', rate: '{"allowed":true}', budget: NOT_LATCHED, caller: "an admitted visitor",
     status: 503, body: RATE_LIMIT_UNAVAILABLE, log: VISITOR_METERED, calls: VISITOR_RATE },
   { when: "the day is latched", rate: ALLOWED, budget: LATCHED, caller: "an admitted visitor", status: 403,
@@ -85,6 +89,8 @@ const READINGS: readonly ShardReading[] = [
   { when: "the day is latched with an extra key", rate: ALLOWED, budget: '{"latched":true,"dayKey":"2026-11-23"}',
     caller: "an admitted visitor", status: 403, body: BUDGET_EXHAUSTED, log: VISITOR_METERED, calls: VISITOR_BOTH },
   { when: 'the latch answers {"latched":"true"}', rate: ALLOWED, budget: '{"latched":"true"}', caller: "an admitted visitor",
+    status: 200, body: VISITOR_SERVED, log: [...VISITOR_METERED, `tier chat ${VISITOR} anonymous -`], calls: VISITOR_BOTH },
+  { when: "the latch answers a body that is not JSON", rate: ALLOWED, budget: "not json", caller: "an admitted visitor",
     status: 200, body: VISITOR_SERVED, log: [...VISITOR_METERED, `tier chat ${VISITOR} anonymous -`], calls: VISITOR_BOTH },
   { when: "the day is latched", rate: ALLOWED, budget: LATCHED, caller: "a verified caller", status: 200, body: CALLER_SERVED,
     log: [...CALLER_METERED, "tier chat u1 human -"], calls: CALLER_RATE },

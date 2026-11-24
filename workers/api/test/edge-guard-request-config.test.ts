@@ -8,10 +8,14 @@
  * the verdicts of three checks and the alarm the first one armed.
  *
  * A body whose `limit` and `windowSeconds` are both finite numbers is applied as
- * sent, extra keys and all; any other body falls back. A JSON number too large
- * for a double arrives as Infinity, which is not finite, so it falls back too. A
- * body that is not JSON makes `fetch` reject before anything is stored, and a
- * `/budget` request never reads its body.
+ * sent, extra keys and all, as long as the window is no longer than 4e12 s, the
+ * longest whose reclaim alarm still falls inside the range a `Date` can hold;
+ * any other body falls back. A JSON number too large for a double arrives as
+ * Infinity, which is not finite, so it falls back too. The deployed window is
+ * held to the same bound: a longer one gives way to the default 60 s window, for
+ * a body that falls back and for the alarm of one that does not. A body that is
+ * not JSON makes `fetch` reject before anything is stored, and a `/budget`
+ * request never reads its body.
  *
  * test-type: characterization
  */
@@ -25,10 +29,10 @@ import { fakeStorage } from "./doubles/guard-doubles.ts";
 const NOW = 1795435200000;
 const DEPLOYED = { ANON_RATE_LIMIT: "2", ANON_RATE_LIMIT_WINDOW_SECONDS: "30" };
 
-function guardOver(t: TestContext) {
+function guardOver(t: TestContext, deployed: Readonly<Record<string, string>> = DEPLOYED) {
   t.mock.timers.enable({ apis: ["Date"], now: NOW });
   const storage = fakeStorage();
-  const guard = new EdgeGuard({ storage: storage.state } as unknown as DurableObjectState, DEPLOYED);
+  const guard = new EdgeGuard({ storage: storage.state } as unknown as DurableObjectState, deployed);
   return { guard, data: storage.data, alarm: storage.alarm };
 }
 
@@ -69,6 +73,18 @@ const DEPLOYED_FALLBACK: Outcome = {
     '{"allowed":false,"retryAfterSeconds":30}'],
   alarmAt: NOW + 60_000,
 };
+const LONGEST_WINDOW: Outcome = {
+  says: "is applied: the longest window, with a finite retry hint and its alarm inside the Date range",
+  answers: ['{"allowed":true,"retryAfterSeconds":4000000000000}', '{"allowed":false,"retryAfterSeconds":4000000000000}',
+    '{"allowed":false,"retryAfterSeconds":4000000000000}'],
+  alarmAt: NOW + 8_000_000_000_000_000,
+};
+const DEFAULT_WINDOW_FALLBACK: Outcome = {
+  says: "falls back to the deployed two checks, per the default 60 s window",
+  answers: ['{"allowed":true,"retryAfterSeconds":60}', '{"allowed":true,"retryAfterSeconds":60}',
+    '{"allowed":false,"retryAfterSeconds":60}'],
+  alarmAt: NOW + 120_000,
+};
 
 const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":1,"windowSeconds":600}', ONE_PER_TEN_MINUTES],
@@ -77,6 +93,9 @@ const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
   ['{"limit":-1e999,"windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":1e999}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":-1e999}', DEPLOYED_FALLBACK],
+  ['{"limit":1,"windowSeconds":4000000000000}', LONGEST_WINDOW],
+  ['{"limit":1,"windowSeconds":4000000000001}', DEPLOYED_FALLBACK],
+  ['{"limit":1,"windowSeconds":1e306}', DEPLOYED_FALLBACK],
   ['{"limit":1,"windowSeconds":10}', ONE_PER_TEN_SECONDS],
   ['{"limit":"1","windowSeconds":600}', DEPLOYED_FALLBACK],
   ['{"limit":null,"windowSeconds":600}', DEPLOYED_FALLBACK],
@@ -91,6 +110,22 @@ const BODIES: readonly (readonly [body: string, outcome: Outcome])[] = [
 for (const [body, outcome] of BODIES) {
   void test(`a /rate-limit body of ${body} ${outcome.says}`, async (t) => {
     const { guard, alarm } = guardOver(t);
+    assert.deepEqual(await threeAnswers(guard, body), outcome.answers);
+    assert.equal(alarm.at, outcome.alarmAt);
+  });
+}
+
+/** A deployment whose window is too long for the reclaim alarm: 10^306 seconds, written out in 307 digits. */
+const OVERLONG_DEPLOYMENT = { ANON_RATE_LIMIT: "2", ANON_RATE_LIMIT_WINDOW_SECONDS: "1".padEnd(307, "0") };
+
+const UNDER_OVERLONG_DEPLOYMENT: readonly (readonly [body: string, outcome: Outcome])[] = [
+  ["{}", DEFAULT_WINDOW_FALLBACK],
+  ['{"limit":1,"windowSeconds":600}', ONE_PER_TEN_MINUTES],
+];
+
+for (const [body, outcome] of UNDER_OVERLONG_DEPLOYMENT) {
+  void test(`with a deployed window too long for the alarm, a /rate-limit body of ${body} ${outcome.says}`, async (t) => {
+    const { guard, alarm } = guardOver(t, OVERLONG_DEPLOYMENT);
     assert.deepEqual(await threeAnswers(guard, body), outcome.answers);
     assert.equal(alarm.at, outcome.alarmAt);
   });

@@ -9,8 +9,11 @@
  * is ignored. Storage is structured clone, not JSON, so a NaN or an Infinity
  * field is a shape the object can meet. A window whose start or count is not a
  * finite number is no window: the check is judged as a new window, which is
- * stored, and its retry hint is a finite number of seconds. Rows marked "Open
- * question" depend on a decision still to be made.
+ * stored, and its retry hint is a finite number of seconds. A finite window is
+ * counted as stored, however unusual, because resetting it could let a burst
+ * through. The reclaim alarm reads a window the same way and sweeps one that is
+ * no window, and a check that resets one arms the alarm as a check on no window
+ * does.
  *
  * test-type: characterization
  */
@@ -25,12 +28,17 @@ const DAY = "2026-11-23";
 /** The limiter config each window row's request carries: two per minute. */
 const TWO_PER_MINUTE = '{"limit":2,"windowSeconds":60}';
 
-function guardOver(t: TestContext, stored: Readonly<Record<string, unknown>>) {
-  t.mock.timers.enable({ apis: ["Date"], now: NOW });
+/** A guard object over in-memory storage that already holds `stored`. */
+function guardHolding(stored: Readonly<Record<string, unknown>>) {
   const storage = fakeStorage();
   for (const [key, value] of Object.entries(stored)) storage.data.set(key, value);
   const guard = new EdgeGuard({ storage: storage.state } as unknown as DurableObjectState, {});
   return { guard, data: storage.data, alarm: storage.alarm };
+}
+
+function guardOver(t: TestContext, stored: Readonly<Record<string, unknown>>) {
+  t.mock.timers.enable({ apis: ["Date"], now: NOW });
+  return guardHolding(stored);
 }
 
 type LatchReading = readonly [shape: string, stored: unknown, answer: string];
@@ -75,7 +83,6 @@ const WINDOWS: readonly WindowReading[] = [
   { says: "with a -Infinity start is judged as a new window", stored: { startedAtMs: Number.NEGATIVE_INFINITY, count: 1 }, ...JUDGED_AS_NEW },
   { says: "with an Infinity count is judged as a new window", stored: { startedAtMs: NOW - 1_000, count: Number.POSITIVE_INFINITY }, ...JUDGED_AS_NEW },
   { says: "with a -Infinity count is judged as a new window", stored: { startedAtMs: NOW - 1_000, count: Number.NEGATIVE_INFINITY }, ...JUDGED_AS_NEW },
-  // Open question: whether a finite but unusual window resets too. These keep counting it as stored.
   { says: "with a negative count is counted as stored", stored: { startedAtMs: NOW - 1_000, count: -1 },
     answers: ['{"allowed":true,"retryAfterSeconds":59}'], after: { startedAtMs: NOW - 1_000, count: 0 } },
   { says: "with a fractional count is counted as stored", stored: { startedAtMs: NOW - 1_000, count: 1.5 },
@@ -102,6 +109,20 @@ for (const window of WINDOWS) {
   });
 }
 
+/** When one two-per-minute check over `stored` arms the reclaim alarm, and the window it records for the alarm. */
+async function reclaimArmedBy(stored: Readonly<Record<string, unknown>>) {
+  const { guard, data, alarm } = guardHolding(stored);
+  await answersTo(guard, 1);
+  return { at: alarm.at, window: data.get("reclaim-window-seconds") };
+}
+
+void test("a check that resets a window with a NaN start arms the reclaim alarm exactly as a check on no window does", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: NOW });
+  const fresh = await reclaimArmedBy({});
+  assert.deepEqual(fresh, { at: NOW + 120_000, window: 60 });
+  assert.deepEqual(await reclaimArmedBy({ window: { startedAtMs: Number.NaN, count: 1 } }), fresh);
+});
+
 interface AlarmReading {
   readonly shape: string;
   readonly stored: unknown;
@@ -113,7 +134,6 @@ const ALARMS: readonly AlarmReading[] = [
   { shape: "a live window with an extra key is kept and rearmed", stored: { startedAtMs: NOW - 1_000, count: 1, shard: "rate:authed:u1" },
     kept: ["window", "reclaim-window-seconds"], rearmedAt: NOW + 120_000 },
   { shape: "a window with a NaN start is swept", stored: { startedAtMs: Number.NaN, count: 1 }, kept: [], rearmedAt: null },
-  // Open question: whether the alarm reads a stored window the way a check does.
   { shape: "a window with an Infinity start is swept", stored: { startedAtMs: Number.POSITIVE_INFINITY, count: 1 }, kept: [], rearmedAt: null },
   { shape: "a live window with a NaN count is swept", stored: { startedAtMs: NOW - 1_000, count: Number.NaN }, kept: [], rearmedAt: null },
 ];
