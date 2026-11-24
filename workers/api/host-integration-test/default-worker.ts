@@ -8,11 +8,11 @@ import { bundledEntries } from "../bundle-smoke/bundled-entries.ts";
 import { deployedRuntime } from "../bundle-smoke/wrangler-bundle.ts";
 import { dsn, IDENTITY, SESSION } from "./postgres.ts";
 
-export async function defaultWorker(context: TestContext, bindings: Record<string, string> = {}, network: { model?: (request: Request) => Response | Promise<Response>; catalog?: (request: Request) => Response | Promise<Response> } = {}) {
+export async function defaultWorker(context: TestContext, bindings: Record<string, string> = {}, network: { model?: (request: Request) => Response | Promise<Response>; catalog?: (request: Request) => Response | Promise<Response> } = {}, entry = new URL("./default-host.worker.ts", import.meta.url)) {
   const directory = await mkdtemp(join(tmpdir(), "default-native-host-"));
   const requests: Request[] = [];
   const catalogRequests: Request[] = [];
-  const options = { ...await bundledEntries.modules(new URL("./default-host.worker.ts", import.meta.url).pathname), ...deployedRuntime(), bindings: { AGENT_SVC_DATABASE_URL: dsn, MIMO_API_KEY: "server-private-key", ANON_DAILY_MESSAGE_QUOTA: "2",
+  const options = { ...await bundledEntries.modules(entry.pathname), ...deployedRuntime(), bindings: { AGENT_SVC_DATABASE_URL: dsn, MIMO_API_KEY: "server-private-key", ANON_DAILY_MESSAGE_QUOTA: "2",
       TEST_IDENTITY: IDENTITY, TEST_USER_TYPE: "anonymous", ...bindings }, durableObjectsPersist: join(directory, "state"),
     durableObjects: { AGENT_SESSION: { className: "AgentSession", useSQLite: true } },
     serviceBindings: { CATALOG: (request: Request) => { catalogRequests.push(request.clone()); return network.catalog?.(request) ?? Promise.resolve(Response.json(selectedItinerary)); } },
@@ -20,7 +20,8 @@ export async function defaultWorker(context: TestContext, bindings: Record<strin
   let worker = new Miniflare(options);
   context.after(async () => { await worker.dispose(); await rm(directory, { recursive: true, force: true }); });
   await worker.ready;
-  return { worker, requests, catalogRequests, restart: async () => { await worker.dispose(); worker = new Miniflare(options); await worker.ready; return worker; } };
+  return { worker, requests, catalogRequests, restart: async (changed: Record<string, string> = {}) => {
+    await worker.dispose(); worker = new Miniflare({ ...options, bindings: { ...options.bindings, ...changed } }); await worker.ready; return worker; } };
 }
 
 function respondCompletion() {
