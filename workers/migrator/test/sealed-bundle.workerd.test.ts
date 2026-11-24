@@ -13,11 +13,10 @@ import { SEALED_BUNDLE_BUDGET_MS } from "./test-timeout-budget";
 // Cloudflare refuses a Worker whose startup, the evaluation of its global scope, takes longer than a
 // second, so Prisma control loads on the first call that needs it (`src/prisma-first-use.ts`). The
 // boot proves the global scope evaluates to its end, the Durable Object class included. The profile
-// proves that evaluation runs no Prisma control or ArkType, and counts only beside the boot: Wrangler
-// reports a global scope that threw only while the upload carries a binding it cannot reproduce
-// locally, as this one's Durable Object binding is today; without one, the throw reads as an empty,
-// fast start. Neither starts Prisma control itself. Its first call does, in
-// `test/integration/prisma.workerd.integration.ts` and in every CD preflight.
+// proves that evaluation runs no Prisma control or ArkType, but it is no evidence of a successful
+// start: a global scope that throws can read as an empty, fast start. Its count stands only beside
+// this file's boot of the same release. Neither starts Prisma control itself. Its first call does,
+// in `test/integration/prisma.workerd.integration.ts` and in every CD preflight.
 
 let sealed: Awaited<ReturnType<typeof bootSealedMigrator>> | undefined;
 afterAll(async () => { await sealed?.close(); await discardSealedRelease(); });

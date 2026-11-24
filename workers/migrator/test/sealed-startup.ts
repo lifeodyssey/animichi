@@ -3,10 +3,10 @@
  * `sealedRelease()` built, with the no-bundle config CD publishes to staging, and each sample of the
  * profile attributed to its source through the bundle's own source map.
  *
- * Wrangler profiles the evaluation of the upload's global scope, and reports a global scope that
- * threw only when the upload also carries a binding it cannot reproduce locally; otherwise the throw
- * reads as an empty, fast start. A count from this profile therefore stands only beside a boot of
- * the same release, which `sealed-bundle.workerd.test.ts` runs to its end.
+ * Wrangler profiles the evaluation of the upload's global scope, but the profile is no evidence of
+ * a successful start: a global scope that throws can read as an empty, fast start. A count from
+ * this profile therefore stands only beside a boot of the same release, which
+ * `sealed-bundle.workerd.test.ts` runs to its end.
  */
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
