@@ -47,7 +47,8 @@ PR Lens leaves some pull requests undrawn and says so in its sticky comment: "Th
 2026-11-24 it left `test(`, `ci(`, `docs(`, `build(` and `chore(` titles undrawn (#2116, #2118,
 #2102, #2092, #2081) and drew `feat(`, `fix(`, `refactor(` and `perf(` ones (#2086, #2114, #2113,
 #2117). That is a sample, not a published rule. On an undrawn PR the bot window brings no PR Lens
-review; report "PR Lens did not draw it", not "no PR Lens findings".
+review; report "PR Lens did not draw it", not "no PR Lens findings". The same note says a comment
+`@pr-lens draw` draws the PR on demand.
 
 `gh api repos/<o>/<r>/actions/jobs/<id>/logs` refuses a response that carries terminal escape
 sequences, and a job log with colour codes does: it prints "the response contains terminal escape

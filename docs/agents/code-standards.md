@@ -111,13 +111,15 @@ outbound override by default, and without one its requests go out.
 
 Miniflare also sends a request of its own. With its `cf` option unset, it reads a cached
 `Request.cf` object younger than 30 days or fetches one from
-`https://workers.cloudflare.com/cf.json`, unless `NODE_ENV` is `test`, and its default log prints
-nothing (Miniflare 4.20260730.0's source). Vitest sets `NODE_ENV` to `test` when it is unset;
-node's test runner does not. `workers/api`'s bundle smoke runs on node's test runner: in a sandbox
-that refused the fetch, all eleven of its starters attempted it and ten printed nothing, and in CI,
-where nothing refuses it, every run called Cloudflare (#2116, 2026-11-24). A machine that holds a
-cached copy younger than 30 days shows no attempt at all. A Miniflare starter turns the fetch off
-with `cf: false` on each instance (`workers/api/bundle-smoke/placeholder-request-cf.ts`), or with
+`https://workers.cloudflare.com/cf.json`, unless `NODE_ENV` is `test`. A failed fetch logs a
+warning, but Miniflare's default log prints nothing at any level, so only a starter that passes a
+log of its own, as Wrangler's test harness does, shows it (Miniflare 4.20260730.0's source). Vitest
+sets `NODE_ENV` to `test` when it is unset; node's test runner does not. `workers/api`'s bundle
+smoke runs on node's test runner: in a sandbox that refused the fetch, all eleven of its starters
+attempted it and only the Wrangler harness printed the warning, and in CI, where nothing refuses
+it, every run called Cloudflare (#2116, 2026-11-24). A machine that holds a cached copy younger
+than 30 days shows no attempt at all. A Miniflare starter turns the fetch off with `cf: false` on
+each instance (`workers/api/bundle-smoke/placeholder-request-cf.ts`), or with
 `CLOUDFLARE_CF_FETCH_ENABLED=false` where a harness takes no `cf` option. Miniflare honours only
 `false` there, in any letter case: `0` or an empty value leaves the fetch on.
 

@@ -223,15 +223,15 @@ attempt shows and is refused, and with it nothing is attempted.
   (`.github/scripts/release/build-worker.mjs`) re-resolves the migrator's `fdir` alias. Before
   #2117 a release build without the alias failed to boot. After it, the boot and the startup
   profile of that build both stayed green, and the failure would have shown at the first preview,
-  in staging. Two review rounds had approved before the coordinator found the gap, before the PR
-  opened. The fix is a third row on the same release build that drives the first use, a
-  preflight. It tells "load completed, then the database refused" (Prisma's
-  `DRIVER.CONNECTION_FAILED`, from a port nothing listens on) apart from "load failed"
-  (`preflight_unavailable`). In #2119 the catalog and users rows send the first database request
-  to a loopback listener that accepts each connection and drops it, and count connections: a
-  completed load connects once, and a failed load answers the same 500 and never connects
-  (`workers/catalog/test/sealed-bundle.node.test.ts`). When work moves to first use, list where
-  each of its failures shows now, and drive the first use on the build that ships.
+  in staging. Independent review had approved the change before the coordinator found the gap
+  while writing the PR (the merge report on #2117 lists the rounds). The fix is a third row on the
+  same release build that drives the first use, a preflight. It tells "load completed, then the
+  database refused" (Prisma's `DRIVER.CONNECTION_FAILED`, from a port nothing listens on) apart
+  from "load failed" (`preflight_unavailable`). In #2119 the catalog and users rows send the first
+  database request to a loopback listener that accepts each connection and drops it, and count
+  connections: a completed load connects once, and a failed load answers the same 500 and never
+  connects (`workers/catalog/test/sealed-bundle.node.test.ts`). When work moves to first use, list
+  where each of its failures shows now, and drive the first use on the build that ships.
 - **`wrangler check startup` alone does not prove a start.** In #2117's review a mutant whose
   global scope threw read as an empty, fast start in the profile, while the boot of the same build
   failed. A profile's count stands only beside a boot of the same build, in the same file
