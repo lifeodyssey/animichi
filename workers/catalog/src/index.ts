@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { unexpectedPublicCatalogQueryParam } from "@animichi/contract/public-catalog";
 import { REQUEST_ID_HEADER, acceptedRequestId } from "@animichi/contract/internal-binding";
-import { catalogRouter } from "./router";
+import { connectedCatalogRouter } from "./request-connection";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
 import { serveImage } from "./media/img";
@@ -100,7 +100,7 @@ app.use("/catalog/public/*", async (c, next) => {
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });
 
-const apiHandler = new OpenAPIHandler(catalogRouter);
+const apiHandler = new OpenAPIHandler(connectedCatalogRouter);
 
 app.get("/catalog/img/:pointId", async (c) => {
   const plan = parseAnitabiImagePlan(c.req.query("plan"));
@@ -125,13 +125,12 @@ app.use("/catalog/*", async (c, next) => {
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
   }
-  // Each catalog request acquires its own Prisma runtime and gives it back when
-  // this scope exits — never a connection cached across requests (spec §4.2).
-  const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess();
-  await using runtime = await acquireCatalogRuntime(connStr);
+  // The request's connection opens inside oRPC once the route matched and the
+  // input validated (`./request-connection`), so a request that needs no query
+  // never opens one.
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     context: {
-      prisma: catalogPrisma(runtime),
+      databaseUrl: connStr,
       fetchImpl: fetch,
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
       // Catalog has no public host, so this header came over the API Worker's binding.

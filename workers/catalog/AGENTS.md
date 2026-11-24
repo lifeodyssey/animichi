@@ -37,8 +37,11 @@ Root guide: `../../AGENTS.md`.
   contract-bound client from `@animichi/pi-session-neon` + `@animichi/prisma-geography`, and the
   Hono `/catalog/*` boundary (or a cron pass) opens ONE connection per request and disposes it
   with `await using` — never a connection cached across requests. Since Prisma rc.14 that
-  `connect()` opens the socket before it returns, so an unreachable database fails at the
-  boundary. The second path Drizzle held
+  `connect()` opens the socket before it returns, so the boundary opens it in an oRPC middleware
+  (`src/request-connection.ts`) that runs after the route matched and the input validated: an
+  unknown path and invalid input are answered without one, and an unreachable database answers
+  oRPC's 500 with its JSON error body (`test/unreachable-database.node.test.ts`). The second
+  path Drizzle held
   (`src/db/{client,schema,expressions}.ts` over neon-http) is deleted; so is
   `@neondatabase/serverless` in this package, whose only importer was that client.
   **No Hyperdrive**: no binding, no preference branch, no comment —
