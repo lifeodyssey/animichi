@@ -24,11 +24,12 @@ each route in the gateway's route table (`workers/api/src/gateway/route-table.ts
 names its rate cell from `workers/api/src/gateway/rate-policy.ts`. A cell
 carries the operation's cost and its limiter kind; the failure mode follows
 from the limiter kind, as the guard's own policy. The identity key is not a
-cell property: the route's service derives it, from the worker-verified
-identity for a signed-in caller or a visitor
-(`workers/api/src/protect/rate-limiter.ts` `authenticatedRateLimitKey`) and
-from the platform's connecting IP for a public read
-(`workers/api/src/gateway/read-key.ts`). Nor is the retry contract: the typed
+cell property: the route's service derives it, for a signed-in caller from
+its verified user id (`workers/api/src/protect/rate-limiter.ts`
+`authenticatedRateLimitKey`), for a visitor from its anonymous identity
+(`workers/api/src/identity/anonymous-id.ts` `resolveAnonymous`), and for a
+public read from the platform's connecting IP (`workers/api/src/gateway/read-key.ts`
+`publicReadKey`). Nor is the retry contract: the typed
 429 with `Retry-After` and the documented fields is built by
 `workers/api/src/gateway/responses.ts` `rateLimitedResponse`. Routing never
 hand-picks a guard: every route passes its cell to the enforcement seam
