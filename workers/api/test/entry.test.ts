@@ -33,6 +33,25 @@ void test("a private catalog path is unreachable and never touches the binding",
   assert.equal(wasCatalogHit, false); // security: the binding stays private
 });
 
+// The web's route page asks for its itinerary with the contract's `planItinerary`
+// (`apps/web/src/features/route-detail/hooks.ts`): a POST of `{ point_ids }` to
+// `/catalog/itinerary` on the edge origin. That procedure is private, a live one
+// unlike `/catalog/search` above, and no gateway route serves it, so the request
+// is the shared 404 and the CATALOG binding never sees it. Showcase mode is off,
+// so a route that forwarded it would reach the binding and be seen here.
+void test("the itinerary the web posts is unreachable and never touches the binding", async () => {
+  const app = createWorkerApp({});
+  const cap: { req?: Request } = {};
+  const body = JSON.stringify({ point_ids: ["point-a", "point-b"] });
+  const init = { method: "POST", headers: { "content-type": "application/json" }, body };
+  const res = await app.request("/catalog/itinerary", init, envWithCatalog(cap), stubCtx);
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    error: { code: "not_found", message: "No route matches this request." },
+  });
+  assert.equal(cap.req, undefined); // security: the binding stays private
+});
+
 void test("exact public anime overview GET forwards anonymously, no auth called", async () => {
   let wasAuthCalled = false;
   const authenticate = () => { wasAuthCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
