@@ -21,10 +21,17 @@ operator-triggered action with a recorded outcome.
 
 Every tier's limiter selection and failure mode is decided by ONE route policy:
 each route in the gateway's route table (`workers/api/src/gateway/route-table.ts`)
-names its rate cell from `workers/api/src/gateway/rate-policy.ts`, which
-classifies the operation by identity key, cost, quota, retry contract, and
-limiter-failure mode. Routing never hand-picks a guard: every route passes its
-cell to the enforcement seam
+names its rate cell from `workers/api/src/gateway/rate-policy.ts`. A cell
+carries the operation's cost and its limiter kind; the failure mode follows
+from the limiter kind, as the guard's own policy. The identity key is not a
+cell property: the route's service derives it, from the worker-verified
+identity for a signed-in caller or a visitor
+(`workers/api/src/protect/rate-limiter.ts` `authenticatedRateLimitKey`) and
+from the platform's connecting IP for a public read
+(`workers/api/src/gateway/read-key.ts`). Nor is the retry contract: the typed
+429 with `Retry-After` and the documented fields is built by
+`workers/api/src/gateway/responses.ts` `rateLimitedResponse`. Routing never
+hand-picks a guard: every route passes its cell to the enforcement seam
 (`workers/api/src/protect/burst-guard.ts` `guardPolicy`), which routes a
 durable cell to the fail-closed `EDGE_GUARD` shard and a cacheable-read cell
 to the native damper. **Policy changes are the dominant rollback cause** and
@@ -66,9 +73,11 @@ redeploy when the environment permits a config-only update.
 
 The durable tier FAILS CLOSED on a limiter outage (AC4): an unmeterable
 high-cost turn must not run. A deliberate operator-bypass is a security
-decision, not a restart step — it requires a reviewed change to the failure
-mode in `rate-policy.ts` plus the documented trade-off, and must be gated on
-an owner decision (parent #1004). It is **never** a config flip done casually.
+decision, not a restart step — it requires a reviewed change to how the
+durable guard treats an outage (the limiter kind of the route's cell, or
+`guardDurable` in `burst-guard.ts`) plus the documented trade-off, and must be
+gated on an owner decision (parent #1004). It is **never** a config flip done
+casually.
 
 ## Layer 4 — code/base rollback for the durable DO
 
