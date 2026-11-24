@@ -1,13 +1,13 @@
 import { execFile } from "node:child_process";
-import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { afterAll, describe, expect, it } from "vitest";
+import { startDroppingDatabase } from "./dropping-database";
+import { FAILED_PROCEDURE } from "./failed-procedure-answer";
 import { profileSealedStartup } from "./sealed-startup";
 
 // SUT: the sealed catalog bundle CD publishes — what `.github/scripts/release/build-worker.mjs
@@ -25,7 +25,8 @@ import { profileSealedStartup } from "./sealed-startup";
 // file's boot of the same build. Neither loads Prisma, and no CD step requests a catalog database
 // route. The third case does: its database is a loopback listener that takes each connection and
 // drops it. A connection arrives only once Prisma has loaded and built its client; a load that
-// fails answers the same 500 and never connects, so the count, not the status, tells them apart.
+// fails answers the same oRPC 500 and never connects, so the count, not the answer, tells them
+// apart.
 
 const REPOSITORY = fileURLToPath(new URL("../../../", import.meta.url).href);
 const BUILD_WORKER = join(REPOSITORY, ".github/scripts/release/build-worker.mjs");
@@ -41,19 +42,8 @@ function refuseOutbound(request: WorkerRequest): never {
   throw new Error(`the sealed catalog made an outbound request: ${request.method} ${request.url}`);
 }
 
-/** A database on loopback that counts the connections it takes and drops each one unanswered. */
-async function droppingDatabase(): Promise<{ readonly url: string; connections(): number; close(): Promise<void> }> {
-  let taken = 0;
-  const server = createServer((socket) => { taken += 1; socket.destroy(); });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const { port } = server.address() as AddressInfo;
-  const close = async () => { server.close(); await once(server, "close"); };
-  return { url: `postgresql://sealed@127.0.0.1:${String(port)}/catalog`, connections: () => taken, close };
-}
-
 const root = await mkdtemp(join(tmpdir(), "catalog-sealed-"));
-const database = await droppingDatabase();
+const database = await startDroppingDatabase();
 let release: Promise<string> | undefined;
 let worker: Miniflare | undefined;
 afterAll(async () => {
@@ -120,6 +110,6 @@ describe("the sealed catalog bundle in workerd", { timeout: 90_000 }, () => {
   it("loads Prisma on its first database request, as far as the connect", async () => {
     const response = await firstDatabaseRequest(await bootSealedCatalog());
     expect({ status: response.status, body: await response.text(), connections: database.connections() })
-      .toEqual({ status: 500, body: "Internal Server Error", connections: 1 });
+      .toEqual({ ...FAILED_PROCEDURE, connections: 1 });
   });
 });

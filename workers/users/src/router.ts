@@ -13,10 +13,16 @@ import { NeonIdempotencyStore } from "./adapters/neon-idempotency-store";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
 import type { UsersPrisma } from "./db/prisma";
 
-/** Per-request dependencies established by authentication middleware. */
+/** Per-request dependencies: the admission `index.ts` establishes, and the request's Prisma access,
+ * which `request-connection.ts` opens once the input has passed validation. */
 export interface UsersContext { prisma: UsersPrisma; userId: string; idempotencyKey?: string; requestId?: string }
 
-const os = implement(usersContract).$context<UsersContext>();
+/** Input validation runs before every middleware, including one a router-level `.use()` adds later,
+ * as oRPC's "Middlewares Order" configuration documents: the boundary's connection
+ * (`request-connection.ts`) opens only for input that passed. */
+const os = implement(usersContract)
+  .$config({ initialInputValidationIndex: Number.NEGATIVE_INFINITY })
+  .$context<UsersContext>();
 
 /** Stateless Neon adapters bound to the per-request Prisma access. */
 const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.prisma);

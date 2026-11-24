@@ -16,7 +16,9 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   `wrangler check startup` for Prisma or ArkType schema work (`test/sealed-startup.ts`), and sends
   its first database request to a loopback listener, which proves Prisma's first load reached the
   connect. The worker pool evaluates unbundled modules, so a failure that exists only in the bundle
-  shows up in this lane alone, and no CD step requests a users database route.
+  shows up in this lane alone, and no CD step requests a users database route. The lane also drives
+  the whole app in Node against such a listener (`test/unreachable-database.node.test.ts`), where
+  the worker pool's `pg` stub could not open a socket.
 - `pnpm run test:integration` — the Docker Postgres arm (`vitest.integration.config.ts`), kept out of
   `test` per #1473; pre-push, the CI affected matrix and `make check-full` all run it for this package.
 
@@ -48,7 +50,10 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   builder, so no adapter re-derives a shape from `unknown`. Per request: the `/v1/users/*` boundary
   opens a connection (`acquireUsersRuntime`) and disposes it with `await using` on scope exit; there
   is no connection cached across requests (spec §4.2). Since Prisma rc.14 that `connect()` opens the
-  socket before it returns, so an unreachable database fails at the boundary, before routing.
+  socket before it returns, so it runs in an oRPC middleware (`src/request-connection.ts`) after the
+  admission, the route match and input validation: an unknown path and invalid input are answered
+  without a connection, and an unreachable database answers oRPC's 500 with its JSON error body
+  (`test/unreachable-database.node.test.ts`).
 - **Prisma loads on the first request that needs it, not at startup** (`src/db/prisma-first-use.ts`):
   Cloudflare refuses a Worker whose global scope takes longer than a second to evaluate, and the
   Prisma modules `src/db/prisma.ts` imports, building ArkType's schemas, were more than half of this
