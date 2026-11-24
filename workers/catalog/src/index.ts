@@ -126,8 +126,9 @@ app.use("/catalog/*", async (c, next) => {
     return c.json({ error: "catalog database not configured" }, 503);
   }
   // The request's connection opens inside oRPC once the route matched and the
-  // input validated (`./request-connection`), so a request that needs no query
-  // never opens one.
+  // input validated (`./request-connection`). A request that routing or input
+  // validation answers (an unknown path, invalid input) never opens one; a
+  // check inside a handler runs after it opens (`workers/catalog/AGENTS.md`).
   const { matched, response } = await apiHandler.handle(c.req.raw, {
     context: {
       databaseUrl: connStr,
