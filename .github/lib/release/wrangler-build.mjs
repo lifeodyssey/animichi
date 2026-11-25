@@ -16,6 +16,10 @@ const DRY_RUN_FINISHED = '--dry-run: exiting now.';
 // Wrangler's latest version on every run.
 const WRANGLER_ENV = { WRANGLER_SEND_METRICS: 'false', WRANGLER_HIDE_BANNER: 'true' };
 
+// A terminal's Ctrl-C and a caller ending this runner: they reach this runner alone, because
+// Wrangler's group is not the terminal's foreground group.
+const FORWARDED_SIGNALS = ['SIGINT', 'SIGTERM'];
+
 // The repository's Wrangler, run by this Node rather than through `pnpm exec`: no PATH lookup,
 // and no corepack or pnpm process between this runner and the group the bound kills.
 const WRANGLER = join(dirname(createRequire(import.meta.url).resolve('wrangler/package.json')), 'bin', 'wrangler.js');
@@ -63,15 +67,30 @@ function signalGroup(child, signal) {
   }
 }
 
+// While the launcher runs, a forwarded signal goes on to its whole group; then the handlers come
+// off and the signal is raised again, so this runner ends by it as it did without a handler.
+// Returns the function that takes the handlers off.
+function forwardSignals(child) {
+  const forward = (signal) => {
+    signalGroup(child, signal);
+    stopForwarding();
+    process.kill(process.pid, signal);
+  };
+  const stopForwarding = () => { for (const signal of FORWARDED_SIGNALS) process.off(signal, forward); };
+  for (const signal of FORWARDED_SIGNALS) process.on(signal, forward);
+  return stopForwarding;
+}
+
 // One run of the launcher. It ends once the group has closed the output pipes, or at the bound.
 async function boundedRun(args, timeoutMs) {
   const child = spawn(process.execPath, [WRANGLER, ...args], {
     env: { ...process.env, ...WRANGLER_ENV }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
+  const stopForwarding = forwardSignals(child);
   const [stdout, stderr] = [capture(child.stdout), capture(child.stderr)];
   let timedOut = false;
   const bound = setTimeout(() => { timedOut = true; stopGroup(child); }, timeoutMs);
-  const [status, signal] = await once(child, 'close').finally(() => clearTimeout(bound));
+  const [status, signal] = await once(child, 'close').finally(() => { clearTimeout(bound); stopForwarding(); });
   return { stdout: stdout(), stderr: stderr(), status, signal, timedOut };
 }
 
