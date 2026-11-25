@@ -15,24 +15,42 @@
  *
  * The `await` on `next()` is load-bearing: `await using` disposes on scope exit, so returning the
  * handler's promise unawaited would close the connection while the handler is still using it.
+ *
+ * The connect and each statement are timed through the request's timer (`./server-timing`), which
+ * times them on the one route that answers `Server-Timing` and does nothing on every other.
  */
 import { catalogContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
+import type { SqlOrmPlan } from "@prisma/orm-postgres/relational-core/types";
+import type { CatalogPrisma } from "./db/prisma";
 import { prismaAccess } from "./db/prisma-first-use";
 import { catalogRouter, type CatalogContext } from "./router";
+import type { SegmentTimer } from "./server-timing";
 
-/** What the boundary hands oRPC: the request's dependencies and the URL its connection opens on. */
+/** What the boundary hands oRPC: the request's dependencies, its connection's URL and its timer. */
 interface CatalogRequestContext extends Omit<CatalogContext, "prisma"> {
   databaseUrl: string;
+  timing: SegmentTimer;
 }
 
 const boundary = implement(catalogContract).$context<CatalogRequestContext>();
 
 const requestConnection = boundary.middleware(async ({ context, next }) => {
   const { acquireCatalogRuntime, catalogPrisma } = await prismaAccess().catch(logged);
-  await using db = await acquireCatalogRuntime(context.databaseUrl).catch(logged);
-  return await next({ context: { prisma: catalogPrisma(db) } });
+  const { databaseUrl, timing } = context;
+  await using db = await timing.measure("db-connect", () => acquireCatalogRuntime(databaseUrl)).catch(logged);
+  return await next({ context: { prisma: timedStatements(catalogPrisma(db), timing) } });
 });
+
+/**
+ * The request's Prisma access with each statement its executor runs timed as `db-query`. Hono keys a
+ * running timer by its name, so two statements in flight at once would share one; the popular read
+ * runs one. A statement inside `transaction()` runs on the transaction's own executor, untimed.
+ */
+function timedStatements(prisma: CatalogPrisma, timing: SegmentTimer): CatalogPrisma {
+  const query = <Row>(plan: SqlOrmPlan<Row>) => timing.measure("db-query", () => prisma.executor.query(plan));
+  return { ...prisma, executor: { query } };
+}
 
 /** Log a failure to load Prisma or to connect, then rethrow it for oRPC to answer. */
 function logged(error: unknown): never {

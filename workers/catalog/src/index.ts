@@ -1,5 +1,5 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { SmartCoercionPlugin } from "@orpc/json-schema";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
@@ -19,6 +19,7 @@ import { connectionString } from "./db/connections";
 import { prismaAccess } from "./db/prisma-first-use";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
 import { egressSigningKeyFromEnv } from "./ingest/anitabi-egress";
+import { segmentTimer, serverTiming } from "./server-timing";
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -108,6 +109,10 @@ app.use("/catalog/public/*", async (c, next) => {
   if (c.res.ok) c.res.headers.set("Cache-Control", PUBLIC_CACHE_CONTROL);
 });
 
+// Staging's popular read answers `Server-Timing` (`./server-timing`). Mounted after the public guard,
+// so its total is the read's own: the secret reads, the connect, the query and the answer.
+app.use("/catalog/public/popular", serverTiming);
+
 // A GET procedure's query arrives as text, so `?limit=8` would reach the contract's `z.number()`
 // as a string. The official coercion types it from the procedure's input schema, for GET
 // procedures only: a POST body keeps the types it was sent with (`./get-procedure-coercion`).
@@ -133,7 +138,7 @@ app.get("/catalog/img/:pointId", async (c) => {
   );
 });
 
-app.use("/catalog/*", async (c, next) => {
+app.use("/catalog/*", async (c: Context<{ Bindings: Env }, "/catalog/*">, next) => {
   const connStr = await connectionString(c.env);
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
@@ -149,6 +154,7 @@ app.use("/catalog/*", async (c, next) => {
       egressSigningKey: await egressSigningKeyFromEnv(c.env),
       // Catalog has no public host, so this header came over the API Worker's binding.
       requestId: acceptedRequestId(c.req.header(REQUEST_ID_HEADER)),
+      timing: segmentTimer(c),
     },
   });
   if (matched) {
