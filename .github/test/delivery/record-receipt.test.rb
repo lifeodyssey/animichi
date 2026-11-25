@@ -1,5 +1,6 @@
 # SUT: record-receipt.mjs writes the receipt CD verifies: every `wrangler containers info` read
-# is bounded and retried, and a new snapshot records the edge without a container application.
+# is bounded and retried, a new snapshot records the edge without a container application, and
+# a refused Worker is named by its unit and its script.
 # frozen_string_literal: true
 require 'minitest/autorun'
 require 'json'
@@ -77,6 +78,29 @@ class ReleaseReceiptRecordTest < Minitest::Test
     assert_empty workers.find { |worker| worker['unit'] == 'api' }.fetch('containers')
     assert_equal ['migration-staging'],
                  workers.find { |worker| worker['unit'] == 'migrator' }.fetch('containers').map { |item| item['name'] }
+  end
+
+  # #2126: the receipt refused a live Worker without saying which of the five it was. Every
+  # Worker here reads the same stale version, so the first one observed, the migrator, is the
+  # one refused, and the refusal names it by the unit the release uses and its script.
+  def test_a_worker_serving_another_source_is_refused_by_unit_and_script
+    payload('version', { 'id' => VERSION, 'annotations' => { 'workers/tag' => "sha-#{'e' * 40}" },
+                         'resources' => { 'bindings' => [binding] } })
+    _output, error, status = record
+    refute status.success?
+    refute File.exist?(File.join(@dir, 'receipt.json'))
+    assert_includes error, 'live Worker is not the selected source (unit migrator, script migrator-staging)'
+  end
+
+  # A newest deployment split across two versions stops the receipt at its completeness check,
+  # before the identity checks, and that refusal names the Worker the same way.
+  def test_a_split_deployment_is_refused_by_unit_and_script
+    split = [{ 'version_id' => VERSION, 'percentage' => 50 }, { 'version_id' => '44444444-4444-4444-8444-444444444444', 'percentage' => 50 }]
+    payload('deployments', [{ 'id' => DEPLOYMENT, 'created_on' => '2026-09-16T00:00:00Z', 'versions' => split }])
+    _output, error, status = record
+    refute status.success?
+    refute File.exist?(File.join(@dir, 'receipt.json'))
+    assert_includes error, 'missing complete Worker deployment (unit migrator, script migrator-staging)'
   end
 
   def test_a_read_that_outlives_the_cap_is_retried_and_never_recorded_as_converged
