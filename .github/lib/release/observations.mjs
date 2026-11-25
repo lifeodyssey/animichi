@@ -2,11 +2,19 @@ import assert from 'node:assert/strict';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 
-export function deploymentIdentity(deployment, version, source) {
-  assert.match(deployment.id, UUID, 'missing actual deployment ID');
-  assert.match(version.id, UUID, 'missing actual version ID');
-  assert.deepEqual(deployment.versions, [{ version_id: version.id, percentage: 100 }], 'release must serve all traffic');
-  assert.equal(version.annotations?.['workers/tag'], `sha-${source}`, 'live Worker is not the selected source');
+// The receipt runs the same checks for five Workers, so a refusal names the
+// one it read: the unit the release calls it and the script name the platform
+// knows it by (#2126).
+export function workerLabel(unit, scriptName) {
+  return `(unit ${unit}, script ${scriptName})`;
+}
+
+export function deploymentIdentity(deployment, version, source, unit, scriptName) {
+  const worker = workerLabel(unit, scriptName);
+  assert.match(deployment.id, UUID, `missing actual deployment ID ${worker}`);
+  assert.match(version.id, UUID, `missing actual version ID ${worker}`);
+  assert.deepEqual(deployment.versions, [{ version_id: version.id, percentage: 100 }], `release must serve all traffic ${worker}`);
+  assert.equal(version.annotations?.['workers/tag'], `sha-${source}`, `live Worker is not the selected source ${worker}`);
   return { deployment_id: deployment.id, version_id: version.id };
 }
 

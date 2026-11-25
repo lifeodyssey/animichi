@@ -3,6 +3,7 @@ import { builtinModules } from "node:module";
 import { build } from "esbuild";
 import { Miniflare, Log, LogLevel, Response as WorkerResponse, type Request as WorkerRequest } from "miniflare";
 import { issuedToken } from "./migrate.worker.helpers";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 import { metadata } from "./preflight-fixtures";
 import { WORKER_ALIAS } from "./wrangler-alias";
 
@@ -26,7 +27,7 @@ export async function selectedWorker(transport: (request: WorkerRequest) => Prom
     bindings: { MIGRATOR_DATABASE_URL: "postgresql://fixture:fixture@ep-fixture.neon.tech/neondb", MIGRATOR_OIDC_POLICY: environment },
     outboundService: (request: WorkerRequest) => new URL(request.url).hostname === "token.actions.githubusercontent.com"
       ? Promise.resolve(WorkerResponse.json({ keys: [jwk] })) : transport(request),
-    log: new Log(LogLevel.ERROR), cf: false,
+    log: new Log(LogLevel.ERROR), ...placeholderRequestCf,
   });
   return { runtime, request: (path = "/migrate", body: unknown = metadata) => runtime.dispatchFetch(`https://migrator.test${path}`, {
     method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body),

@@ -1,6 +1,7 @@
 # SUT: .github/scripts/release/record-evidence.mjs's refusals (#1695 requirement 2)
 # — the credentials this lane must never hold, the origin a service token must
-# never reach, and the origin spelling held to the contract module it mirrors.
+# never reach, and the origin spelling held to the contract module it mirrors —
+# and a live edge serving another source, refused by its unit and script (#2126).
 require 'minitest/autorun'
 require_relative 'fixtures/release/deploy-evidence/harness'
 
@@ -48,6 +49,20 @@ class PostDeployEvidenceRefusalsTest < Minitest::Test
     assert_empty out
     assert_includes err, 'must never carry a signed-in staging identity'
     refute File.exist?(File.join(@dir, 'evidence.json'))
+  end
+
+  # The live read-back holds the edge to the receipt's own assertion, so an edge
+  # still serving another source is refused by name and nothing is published.
+  def test_an_edge_serving_another_source_is_refused_by_unit_and_script
+    evidence_dir
+    version = JSON.parse(File.read(File.join(@dir, 'version.json')))
+    version['annotations']['workers/tag'] = "sha-#{'c' * 40}"
+    File.write(File.join(@dir, 'version.json'), version.to_json)
+    start_origin
+    _out, err, status = record
+    refute status.success?
+    assert_includes err, 'live Worker is not the selected source (unit api, script animichi-staging)'
+    refute File.exist?(File.join(@dir, 'evidence.json')), 'a refused run must publish nothing'
   end
 
   # The loopback list is spelled twice — once in TypeScript, once in the shell

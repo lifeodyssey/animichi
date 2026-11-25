@@ -8,6 +8,7 @@ import { Miniflare, type Request as WorkerRequest } from "miniflare";
 import { afterAll, describe, expect, it } from "vitest";
 import { startDroppingDatabase } from "./dropping-database";
 import { FAILED_PROCEDURE } from "./failed-procedure-answer";
+import { placeholderRequestCf } from "./placeholder-request-cf";
 import { profileSealedStartup } from "./sealed-startup";
 
 // SUT: the sealed catalog bundle CD publishes — what `.github/scripts/release/build-worker.mjs
@@ -22,8 +23,9 @@ import { profileSealedStartup } from "./sealed-startup";
 // (`src/db/prisma-first-use.ts`). The boot proves the global scope evaluates to its end. The
 // profile proves that evaluation builds no Prisma or ArkType schema, but alone it proves no start:
 // a global scope that throws can read as an empty, fast start, so its count stands only beside this
-// file's boot of the same build. Neither loads Prisma, and no CD step requests a catalog database
-// route. The third case does: its database is a loopback listener that takes each connection and
+// file's boot of the same build. Neither loads Prisma, and nothing else requests a catalog database
+// route before a deploy (staging's CD does after one, `.github/scripts/catalog-first-request.sh`).
+// The third case does: its database is a loopback listener that takes each connection and
 // drops it. A connection arrives only once Prisma has loaded and built its client; a load that
 // fails answers the same oRPC 500 and never connects, so the count, not the answer, tells them
 // apart.
@@ -64,7 +66,7 @@ function sealedRelease(): Promise<string> {
 async function start(bundle: string, runtime: SealedRuntime): Promise<Miniflare> {
   const started = new Miniflare({ modules: [{ type: "ESModule", path: join(bundle, "index.js") }], modulesRoot: bundle, port: 0,
     compatibilityDate: runtime.compatibility_date, compatibilityFlags: runtime.compatibility_flags, outboundService: refuseOutbound,
-    bindings: { DATABASE_URL: database.url } });
+    bindings: { DATABASE_URL: database.url }, ...placeholderRequestCf });
   try {
     await started.ready;
     return started;

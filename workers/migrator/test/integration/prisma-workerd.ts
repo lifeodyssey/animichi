@@ -4,6 +4,7 @@ import { nativeModules } from "./prisma-bundle";
 import { postgresHttp } from "./prisma-postgres";
 import { GITHUB_OIDC_JWKS_URL } from "../../src/policy";
 import { SERVICE_ROLE_PASSWORDS } from "../service-role-passwords";
+import { placeholderRequestCf } from "../placeholder-request-cf";
 
 /**
  * How long the next Postgres round trip takes to answer (#1868). A migration is slow for one
@@ -47,7 +48,7 @@ export async function startPrismaWorker(directory: string, dsn: string, jwk: JWK
     return new WorkerResponse(await response.text(), { status: response.status, headers: [...response.headers.entries()] });
   };
   const worker = new Miniflare({ modules: await nativeModules(directory), modulesRoot: directory,
-    compatibilityDate: "2026-06-01", compatibilityFlags: ["nodejs_compat"], port: 0, inspectorPort: 0,
+    compatibilityDate: "2026-06-01", compatibilityFlags: ["nodejs_compat"], port: 0, inspectorPort: 0, ...placeholderRequestCf,
     bindings: {
       ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: dsn,
       CATALOG_SVC_PASSWORD: SERVICE_ROLE_PASSWORDS.catalogSvc,

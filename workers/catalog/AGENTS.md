@@ -19,9 +19,11 @@ Root guide: `../../AGENTS.md`.
   `.github/scripts/release/build-worker.mjs catalog`, the bytes CD uploads, once, then starts it
   in workerd and asserts `/healthz` 200, profiles its startup with `wrangler check startup` for
   Prisma or ArkType schema work (`test/sealed-startup.ts`), and sends its first database request
-  to a loopback listener, which proves Prisma's first load reached the connect. No CD step
-  requests a catalog database route, so that request is the only check of the first load on the
-  deployed bytes.
+  to a loopback listener, which proves Prisma's first load reached the connect. That request is
+  the only check of the first load before a deploy. After one, staging's CD requests
+  `GET /catalog/public/popular` right after its smoke, cold and then warm
+  (`.github/scripts/catalog-first-request.sh`); production's CD requests no catalog database
+  route.
 
 ## Stack (per the ADR)
 
@@ -77,6 +79,7 @@ Root guide: `../../AGENTS.md`.
   (`@animichi/contract/public-catalog` — the same allowlist the edge gateway reads, #1691); an
   undeclared parameter answers its 400 before any handler or database work, so the cache key stays
   the route's bounded query surface.
+- Query values are coerced to the contract's types for GET procedures only (oRPC's `SmartCoercionPlugin` behind `src/get-procedure-coercion.ts`); a POST body is validated as it was sent, so a number sent as the string `"8"` still answers 400 (`test/query-coercion.worker.test.ts`).
 - Error registry = **two mirrors, one registry** (contract zod → catalog no-zod mirror). Never throw a bare `ORPCError` / `Error` for an actionable failure — register a code.
   Full checklist + categories: `packages/contract/README.md`.
 
