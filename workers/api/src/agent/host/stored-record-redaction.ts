@@ -72,6 +72,17 @@ const VALUE_RULES = new Map<string, Redaction>([
   ["pi.entry.label", content],
 ]);
 
+/** pi's values stored as committed, each with the reason. */
+const STORED_AS_COMMITTED = new Map<string, string>([
+  ["pi.branch.tip", "an entry id, no message content"],
+  ["pi.lane.config", "the lane's model and tool selection, no message content"],
+  ["pi.lane.state", "operation and entry ids, no message content"],
+  ["pi.op.meta", "identity pi compares with the operation's state on restore"],
+]);
+
+/** Every value namespace with reviewed handling: a redaction rule, or a reason to store it as committed. */
+export const REVIEWED_VALUE_NAMESPACES: ReadonlySet<string> = new Set([...VALUE_RULES.keys(), ...STORED_AS_COMMITTED.keys()]);
+
 /** The value set at `namespace`, with its content redacted. */
 export function redactValue(namespace: string, value: unknown, literals: KeyLiterals): unknown {
   return VALUE_RULES.get(namespace)?.(value, literals) ?? value;

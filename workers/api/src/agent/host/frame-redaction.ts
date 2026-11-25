@@ -2,7 +2,7 @@ import type { ListWrite } from "@earendil-works/pi-agent-core/harness/session";
 import type { KeyLiterals } from "../egress/key-literals.ts";
 import { redactBlock, redactMessage } from "./stored-record-redaction.ts";
 
-const FRAMES = "pi.pending.assistant_frame";
+export const FRAMES = "pi.pending.assistant_frame";
 type Frame = Record<string, unknown>;
 
 function isFrame(value: unknown): value is Frame {
