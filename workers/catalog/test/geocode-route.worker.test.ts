@@ -77,4 +77,12 @@ describe("POST /catalog/geocode answers the agent's request from the gazetteer's
       bound: [[SHARED_NAME]],
     });
   });
+
+  it("reads by the query's normalized alias: full-width upper-case ＦＵＣＨＵ binds fuchu", async () => {
+    expect(await geocode({ query: "ＦＵＣＨＵ", limit: 5 })).toEqual({
+      status: 200,
+      body: candidates(BEST_RANKED_IDS.slice(0, 5)),
+      bound: [["fuchu"]],
+    });
+  });
 });
