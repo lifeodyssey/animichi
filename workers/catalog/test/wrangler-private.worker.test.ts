@@ -66,10 +66,10 @@ const contentLines = (toml: string): string[] =>
 const environments = (toml: string): Section[] =>
   sections(toml).filter((s) => s.name === "top-level" || /^env\.[A-Za-z0-9_-]+$/.test(s.name));
 
-/** The `ENVIRONMENT` staging's own vars table declares, or undefined when it declares none. */
-const stagingEnvironment = (toml: string): string | undefined =>
+/** The `ENVIRONMENT` an environment's own vars table declares, or undefined when it declares none. */
+const declaredEnvironment = (toml: string, environment: string): string | undefined =>
   sections(toml)
-    .find((s) => s.name === "[env.staging.vars]")
+    .find((s) => s.name === `[env.${environment}.vars]`)
     ?.lines.map((line) => /^ENVIRONMENT = "([^"]*)"$/.exec(line)?.[1])
     .find((value) => value !== undefined);
 
@@ -141,13 +141,20 @@ describe("catalog has no public host", () => {
 
 // The Server-Timing gate (`src/server-timing.ts`) and the cron guards read
 // ENVIRONMENT through `runtimeEnvironment`, which fails closed: a value it does
-// not read as staging turns both off on staging without an error, and the CD
-// probe would log the header as `none` and pass. Wrangler does not inherit
-// `vars` into a named environment (its config-schema.json), so staging's value
-// is the one its own table declares, or none.
-describe("catalog's staging environment", () => {
-  it("declares an ENVIRONMENT that runtimeEnvironment reads as staging", () => {
-    const declared = stagingEnvironment(toml);
-    expect(runtimeEnvironment(declared), `[env.staging.vars] declares ENVIRONMENT ${String(declared)}`).toBe("staging");
-  });
+// not read as the environment's own name turns that environment's guarded work
+// off without an error. On staging that is the gate and the import, and the CD
+// probe would log the header as `none` and pass; on production it is the
+// ingest crons and the pending drain. CD deploys each as a named environment
+// (`wrangler deploy --env <name>`, `.github/scripts/release/publish-services.sh`),
+// and wrangler does not inherit `vars` into one (its config-schema.json), so
+// each value is the one the environment's own table declares, or none.
+describe("catalog's deployed environments", () => {
+  it.each(["staging", "production"] as const)(
+    "env.%s declares an ENVIRONMENT that runtimeEnvironment reads as its own name",
+    (environment) => {
+      const declared = declaredEnvironment(toml, environment);
+      expect(runtimeEnvironment(declared), `[env.${environment}.vars] declares ENVIRONMENT ${String(declared)}`)
+        .toBe(environment);
+    },
+  );
 });
