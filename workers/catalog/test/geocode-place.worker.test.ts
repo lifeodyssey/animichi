@@ -5,7 +5,6 @@ import {
   type ExternalGeocoderPort,
   type GazetteerPort,
 } from "../src/application/geocode-place";
-import { normalizeAlias } from "../src/domain/alias";
 import type { GeocodeHit } from "../src/domain/geocode/collapse";
 import type { GeocodeCandidate } from "../src/types";
 
@@ -79,9 +78,9 @@ describe("geocodePlace — gazetteer tiers", () => {
     const gazetteer = fakeGazetteer([hit({})]);
     const external = fakeExternal([]);
 
-    await geocodePlace({ gazetteer, external }, { query: "西宫", limit: 5 });
+    await geocodePlace({ gazetteer, external }, { query: "ＦＵＣＨＵ", limit: 5 });
 
-    expect(gazetteer.calls[0]).toBe(`exact:${normalizeAlias("西宫")}`);
+    expect(gazetteer.calls[0]).toBe("exact:fuchu");
   });
 
   it("runs fuzzy only after an exact miss, and never the external port", async () => {
