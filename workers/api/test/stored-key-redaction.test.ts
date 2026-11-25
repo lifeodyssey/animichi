@@ -44,6 +44,13 @@ void test("a key that JSON escapes is stored as [redacted] in tool-call argument
   assert.ok(storedRecords(store).includes("Use [redacted]"));
 });
 
+void test("a key used as a property name in tool-call arguments is stored as [redacted]", async () => {
+  const { store, session } = await guardedStore([KEY]);
+  await promptThrough(session, "Hello", [fauxAssistantMessage(fauxToolCall("lookup", { [KEY]: "x" }), { stopReason: "toolUse" })], [lookup]);
+  assert.deepEqual(leaked(store, KEY), []);
+  assert.ok(storedRecords(store).includes('"[redacted]":"x"'));
+});
+
 void test("a tool result carrying the key is stored as [redacted]", async () => {
   const { store, session } = await guardedStore([KEY]);
   await promptThrough(session, "Hello", [fauxAssistantMessage(fauxToolCall("lookup", {}), { stopReason: "toolUse" })], [lookup]);

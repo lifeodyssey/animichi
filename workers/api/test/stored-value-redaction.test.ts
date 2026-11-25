@@ -10,10 +10,11 @@ import { guardedStore, type GuardedStore } from "./doubles/guarded-store.ts";
  * KeyRedactingStorage on the values and entries pi stores beside an answer, written here by hand in pi's own types:
  * staged tool output, tool arguments and memos, the session's name, entry labels, the preparation of a compaction or
  * a branch summary, and a compaction entry. A bound key is stored as [redacted] in each, and ids and discriminators
- * are kept as committed.
+ * are kept as committed. Where two property names become the same once redacted, only the later one is kept.
  */
 
 const KEY = "caller-echo-key-7f3a";
+const OTHER_KEY = "other-echo-key-2b9c";
 const SETTINGS = { enabled: true, reserveTokens: 1, keepRecentTokens: 1 };
 const user = (text: string): AgentMessage => ({ role: "user", content: text, timestamp: 1 });
 const files = (read: string[], written: string[]) => ({ read, written, edited: [] });
@@ -37,6 +38,13 @@ void test("staged tool output, tool arguments, tool memos, the session name and 
     { content: [{ type: "text", text: "Found [redacted]" }], details: { found: "[redacted]" } },
     { text: "Use [redacted]" }, { seen: ["[redacted]"] }, "Trip with [redacted]", "Saved [redacted]",
   ]);
+});
+
+void test("when two property names of tool arguments become the same once redacted, only the later one is stored", async () => {
+  const { store, committed } = await guardedStore([KEY, OTHER_KEY]);
+  const args = { [`${KEY} id`]: "first", [`${OTHER_KEY} id`]: "second" };
+  await committed.commit([setValue(operationToolArgs("operation", "step", 0), args)], BACKGROUND_CONTEXT);
+  assert.deepEqual(receivedValues(store), [{ "[redacted] id": "second" }]);
 });
 
 void test("a compaction's and a branch summary's preparation are stored with [redacted] for the key in every message, summary and file", async () => {
