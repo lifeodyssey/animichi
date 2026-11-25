@@ -33,7 +33,7 @@ const nodeRequire = createRequire(import.meta.url);
 /** Resolved, never taken from PATH, and run with this interpreter rather than a shebang. */
 const WRANGLER_BIN = join(dirname(nodeRequire.resolve("wrangler/package.json")), "bin", "wrangler.js");
 /** Without the switch, Wrangler's banner asks the npm registry for Wrangler's latest version on every run. */
-const WRANGLER_ENV = { ...process.env, WRANGLER_HIDE_BANNER: "true" };
+const WRANGLER_ENV = { ...process.env, CLOUDFLARE_CF_FETCH_ENABLED: "false", WRANGLER_HIDE_BANNER: "true" };
 const PORT = 8797;
 const ORIGIN = `http://127.0.0.1:${String(PORT)}`;
 const BOOT_TIMEOUT_MS = 120_000;
