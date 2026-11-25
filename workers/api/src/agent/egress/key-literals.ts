@@ -45,11 +45,11 @@ export class KeyLiterals {
     return this.#forms.reduce((carried, form) => carried.split(form).join(REDACTED), value);
   }
 
-  /** `value` with every string inside it redacted. */
+  /** `value` with every string inside it redacted, property names included. */
   value(value: unknown): unknown {
     if (typeof value === "string") return this.text(value);
     if (Array.isArray(value)) return value.map((item: unknown) => this.value(item));
-    return isRecord(value) ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.value(item)])) : value;
+    return isRecord(value) ? Object.fromEntries(Object.entries(value).map(([key, item]) => [this.text(key), this.value(item)])) : value;
   }
 
   /** How many trailing characters of `text` could begin a key. */
