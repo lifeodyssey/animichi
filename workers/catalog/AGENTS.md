@@ -62,6 +62,11 @@ Root guide: `../../AGENTS.md`.
   gateway's lowercase-UUID format; catalog has no public host, so the header can only have come
   over the API Worker's binding. The request lines (`resolve`, `nearby`, `plan-itinerary`) write it
   as `request_id=`, and `-` when none came, which is every SessionAgent catalog call today.
+- **`Server-Timing` on staging's popular read** (`src/server-timing.ts`). Hono's `timing` middleware
+  on `GET /catalog/public/popular` answers the database connect (`db-connect`), the query
+  (`db-query`) and catalog's `total`, as metric names and milliseconds only, for the probe staging's
+  CD sends after a deploy. Only staging writes the header (`ENVIRONMENT`, parsed as the cron guards
+  parse it): timings in a public answer are an exposure of their own.
 - PostGIS via the geography pack's typed operations — do not vectorize structured geo (SD-29).
   Distances are reported AND ordered by the spheroid (`ST_Distance`), one metric, never `<->`
   (§4.11).
