@@ -43,9 +43,24 @@ function capture(stream) {
 // build past the bound (2026-11-22). This runner's ends of the pipes close with it, so the run
 // ends with the launcher even if a process outside the group still held them.
 function stopGroup(child) {
-  process.kill(-child.pid, 'SIGKILL');
+  signalGroup(child, 'SIGKILL');
   child.stdout.destroy();
   child.stderr.destroy();
+}
+
+function exited(child) {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+// A group that has gone with its launcher leaves a signal nothing to reach, as when the bound
+// fires just as the build ends. ESRCH while the launcher still runs means it leads no group, so it
+// is raised: swallowed, a launcher that lost `detached` would run on and the build would hang.
+function signalGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH' || !exited(child)) throw error;
+  }
 }
 
 // One run of the launcher. It ends once the group has closed the output pipes, or at the bound.
