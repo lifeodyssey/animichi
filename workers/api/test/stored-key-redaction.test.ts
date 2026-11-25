@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AgentHarnessTool } from "@earendil-works/pi-agent-core";
-import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, type JsonObject } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { guardedStore, promptThrough, storedForms, storedRecords, type GuardedStore } from "./doubles/guarded-store.ts";
 
@@ -44,12 +44,20 @@ void test("a key that JSON escapes is stored as [redacted] in tool-call argument
   assert.ok(storedRecords(store).includes("Use [redacted]"));
 });
 
-void test("a key used as a property name in tool-call arguments is stored as [redacted]", async () => {
-  const { store, session } = await guardedStore([KEY]);
-  await promptThrough(session, "Hello", [fauxAssistantMessage(fauxToolCall("lookup", { [KEY]: "x" }), { stopReason: "toolUse" })], [lookup]);
-  assert.deepEqual(leaked(store, KEY), []);
-  assert.ok(storedRecords(store).includes('"[redacted]":"x"'));
-});
+/** Where the key names a property of the tool-call arguments, and how the renamed property reads once stored. */
+const KEY_NAMED_ROWS: readonly (readonly [string, JsonObject, string])[] = [
+  ["a property name", { [KEY]: "x" }, '"[redacted]":"x"'],
+  ["a nested property name", { outer: { [KEY]: "x" } }, '"outer":{"[redacted]":"x"}'],
+];
+
+for (const [where, args, renamed] of KEY_NAMED_ROWS) {
+  void test(`a key used as ${where} in tool-call arguments is stored as [redacted]`, async () => {
+    const { store, session } = await guardedStore([KEY]);
+    await promptThrough(session, "Hello", [fauxAssistantMessage(fauxToolCall("lookup", args), { stopReason: "toolUse" })], [lookup]);
+    assert.deepEqual(leaked(store, KEY), []);
+    assert.ok(storedRecords(store).includes(renamed));
+  });
+}
 
 void test("a tool result carrying the key is stored as [redacted]", async () => {
   const { store, session } = await guardedStore([KEY]);
