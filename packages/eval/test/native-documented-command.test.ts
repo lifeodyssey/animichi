@@ -10,7 +10,7 @@ const run = promisify(execFile);
 const REPOSITORY_ROOT = new URL('../../../', import.meta.url);
 const NATIVE_DOC = new URL('../NATIVE.md', import.meta.url);
 const RETIRED_ARGUMENTS = ['--dataset', 'agent_eval_v3'];
-const AMBIENT_CONTROLS = ['CATALOG_API_URL', 'EVAL_COMMIT', 'EVAL_DATASET', 'EVAL_DRY_RUN', 'EVAL_MODEL',
+const AMBIENT_CONTROLS = ['CATALOG_API_URL', 'EVAL_BASELINE', 'EVAL_COMMIT', 'EVAL_DATASET', 'EVAL_DRY_RUN', 'EVAL_MODEL',
   'EVAL_PROVIDER', 'EVAL_REPORT_PATH', 'EVAL_SMOKE', 'LOGFIRE_TOKEN', 'MIMO_API_KEY', 'OPENCODE_API_KEY'];
 
 void test('NATIVE.md quotes every documented invocation verbatim', async () => {
