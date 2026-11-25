@@ -10,6 +10,7 @@ class WorkflowExecutionTest < Minitest::Test
   CANCELLATION = {
     "pr-verification.yml" => [true, "${{ github.event_name == 'pull_request' }}"],
     "cd.yml" => [nil, false],
+    "production-topology.yml" => [nil, false],
     "release-build.yml" => [nil, false],
     "verify-deploy-evidence.yml" => [nil, false]
   }.freeze
