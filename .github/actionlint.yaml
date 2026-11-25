@@ -11,3 +11,8 @@ paths:
     ignore:
       - '^specifying action "\$/\.github/actions/hydrate\-release" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'
       - '^specifying action "\$/\.github/actions/call\-migrator" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'
+  # Owner-approved through the pull request that adds this workflow: the same upstream syntax gap,
+  # limited to the release hydration action.
+  .github/workflows/production-topology.yml:
+    ignore:
+      - '^specifying action "\$/\.github/actions/hydrate\-release" in invalid format because ref is missing\. available formats are "\{owner\}/\{repo\}@\{ref\}" or "\{owner\}/\{repo\}/\{path\}@\{ref\}"$'
