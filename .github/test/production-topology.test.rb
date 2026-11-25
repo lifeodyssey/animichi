@@ -83,10 +83,11 @@ class ProductionTopologyTest < Minitest::Test
 
   def test_the_jobs_are_selection_the_approved_apply_and_the_alert
     assert_equal %w[select apply-topology alert-failure], @workflow.fetch("jobs").keys
-    %w[select apply-topology].each do |id|
-      assert_includes job(id).fetch("if"), "github.repository == 'lifeodyssey/animichi'"
-      assert_includes job(id).fetch("if"), "github.ref == 'refs/heads/main'"
-    end
+    assert_equal "${{ github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' }}",
+                 job("select").fetch("if")
+    assert_equal "${{ !failure() && !cancelled() && github.repository == 'lifeodyssey/animichi' && " \
+                 "github.ref == 'refs/heads/main' && needs.select.result == 'success' }}",
+                 job("apply-topology").fetch("if")
     assert_equal ["select"], job("apply-topology").fetch("needs")
     assert_includes job("apply-topology").fetch("if"), "needs.select.result == 'success'"
   end
