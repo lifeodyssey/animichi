@@ -28,9 +28,15 @@ export const MOBILE_CHAT_BREAKPOINT_PX = 640;
 
 export const MOBILE_CHAT_QUERY = `(max-width: ${String(MOBILE_CHAT_BREAKPOINT_PX)}px)`;
 
-/** Pre-hydration marks keep the initial viewport decision stable. */
+/** Pre-hydration marks keep the initial viewport decision stable. The scripting
+ *  attribute is the once-per-document guard: TanStack's head pipeline re-appends
+ *  the head scripts on client transitions, so the browser re-executes this
+ *  script, and without the guard a later run would reclassify a desktop visitor
+ *  who narrowed the window into the mobile hand-off (#1938). The classification
+ *  is therefore frozen at the first paint's viewport, exactly as CSS and
+ *  navigation rely on it. */
 export const SPLASH_SCRIPTING_MARK_SCRIPT =
-  `document.documentElement.setAttribute("${SPLASH_SCRIPTING_ATTRIBUTE}","");if(window.matchMedia&&window.matchMedia(${JSON.stringify(MOBILE_CHAT_QUERY)}).matches)document.documentElement.setAttribute("${SPLASH_MOBILE_HANDOFF_ATTRIBUTE}","");`;
+  `if(!document.documentElement.hasAttribute("${SPLASH_SCRIPTING_ATTRIBUTE}")){document.documentElement.setAttribute("${SPLASH_SCRIPTING_ATTRIBUTE}","");if(window.matchMedia&&window.matchMedia(${JSON.stringify(MOBILE_CHAT_QUERY)}).matches)document.documentElement.setAttribute("${SPLASH_MOBILE_HANDOFF_ATTRIBUTE}","");}`;
 
 /** Called by the route the splash is covering for; releasing it is its job. */
 export function useSplashRelease(): void {

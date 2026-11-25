@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   SPLASH_RELEASE_ATTRIBUTE,
   SPLASH_MOBILE_HANDOFF_ATTRIBUTE,
@@ -83,5 +83,31 @@ describe("splash hold cascade", () => {
    */
   it("keeps the scripting bail-out beyond the slowest measured chat paint", () => {
     expect(delayAfter(HOLD_RULE)).toBeGreaterThanOrEqual(20_000);
+  });
+});
+
+/** The pre-paint classification is the document's FIRST viewport, and only that. */
+describe("splash viewport classification", () => {
+  function runMarkScript(): void {
+    window.eval(SPLASH_SCRIPTING_MARK_SCRIPT);
+  }
+
+  beforeEach(() => {
+    document.documentElement.removeAttribute(SPLASH_SCRIPTING_ATTRIBUTE);
+    document.documentElement.removeAttribute(SPLASH_MOBILE_HANDOFF_ATTRIBUTE);
+  });
+
+  it("stamps the mobile hand-off when the first paint is mobile", () => {
+    window.innerWidth = 600;
+    runMarkScript();
+    expect(document.documentElement.hasAttribute(SPLASH_MOBILE_HANDOFF_ATTRIBUTE)).toBe(true);
+  });
+
+  it("cannot reclassify a desktop first paint after the viewport narrows", () => {
+    window.innerWidth = 1200;
+    runMarkScript();
+    window.innerWidth = 600;
+    runMarkScript();
+    expect(document.documentElement.hasAttribute(SPLASH_MOBILE_HANDOFF_ATTRIBUTE)).toBe(false);
   });
 });
