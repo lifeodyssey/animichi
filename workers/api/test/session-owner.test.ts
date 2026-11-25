@@ -3,6 +3,7 @@ import { after, test } from "node:test";
 import { nativeClient } from "../src/native-client.ts";
 import { createOrLockOwnedConversation, setDefaultConversationTitle } from "../src/agent/admission/session-owner.ts";
 import type { AdmissionTransaction } from "../src/agent/admission/types.ts";
+import { KeyLiterals } from "../src/agent/egress/key-literals.ts";
 
 const database = await nativeClient("postgres://unit:unit@127.0.0.1:1/unit");
 const request = { sessionId: "session", identityId: "owner", text: "New query" };
@@ -21,6 +22,21 @@ void test("the session upsert conflict path cannot assign a user title", async (
   assert.match(sql, /INSERT INTO sessions \(id,\s+user_id,\s+first_query\)/);
   assert.match(sql, /ON CONFLICT \(id\) DO UPDATE SET user_id = sessions\.user_id/);
   assert.doesNotMatch(sql, /DO UPDATE SET[^]*title/);
+});
+
+// The default title below is cut from this stored first query, so redacting the
+// query before it is written keeps the request's own BYOK key out of both.
+void test("the stored first query has the request's own key redacted", async () => {
+  let queryPlan: unknown;
+  const transaction = { query: (plan: unknown) => {
+    queryPlan = plan;
+    return Promise.resolve([{ owner: request.identityId }]);
+  } } as unknown as AdmissionTransaction;
+
+  await createOrLockOwnedConversation(database, transaction, { ...request, text: "My key is caller-echo-key-7f3a" }, new KeyLiterals(["caller-echo-key-7f3a"]));
+  const sql = JSON.stringify(queryPlan);
+  assert.ok(sql.includes('"value":"My key is [redacted]"'), sql);
+  assert.doesNotMatch(sql, /caller-echo-key-7f3a/);
 });
 
 // The read side this card moved (`GET /v1/conversations`) lists `title` and

@@ -1,6 +1,6 @@
 import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import { StorageBackedSession, type ForkOptions, type SessionCreateOptions, type SessionMetadata,
-  type SessionRepo } from "@earendil-works/pi-agent-core/harness/session";
+  type SessionRepo, type Storage } from "@earendil-works/pi-agent-core/harness/session";
 
 import type { SessionDatabase } from "./database.ts";
 import { persistFork, readForkSnapshot } from "./fork.ts";
@@ -8,14 +8,21 @@ import { persistFork, readForkSnapshot } from "./fork.ts";
 import { NEON_STORAGE_VERSION, readMetadata, requireStorageVersion } from "./session-metadata.ts";
 import { NeonStorage } from "./storage.ts";
 
+export interface NeonSessionRepoOptions {
+  /** Wraps the Storage every opened session commits through; a fork still snapshots the database directly. */
+  readonly decorateStorage?: (storage: Storage) => Storage;
+}
+
 /** Owns open handles; the SDK owns Session behavior and PostgreSQL owns persistence. */
 export class NeonSessionRepo implements SessionRepo {
   private readonly db: SessionDatabase;
   private readonly pendingIds = new Set<string>();
   private readonly openStorages = new Map<string, NeonStorage>();
+  private readonly decorateStorage: (storage: Storage) => Storage;
 
-  constructor(db: SessionDatabase) {
+  constructor(db: SessionDatabase, options: NeonSessionRepoOptions = {}) {
     this.db = db;
+    this.decorateStorage = options.decorateStorage ?? ((storage) => storage);
   }
 
   async create(options: SessionCreateOptions | undefined, _context: Context): Promise<StorageBackedSession> {
@@ -72,7 +79,7 @@ export class NeonSessionRepo implements SessionRepo {
   private openSession(metadata: SessionMetadata): StorageBackedSession {
     const storage = new NeonStorage(this.db, { sessionId: metadata.id });
     this.openStorages.set(metadata.id, storage);
-    return new StorageBackedSession(metadata, storage, { onClose: () => { this.openStorages.delete(metadata.id); } });
+    return new StorageBackedSession(metadata, this.decorateStorage(storage), { onClose: () => { this.openStorages.delete(metadata.id); } });
   }
 
   private reserveId(id: string): void {

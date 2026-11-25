@@ -1,2 +1,2 @@
 export { NeonStorage, type NeonStorageOptions } from "./storage.ts";
-export { NeonSessionRepo } from "./repo.ts";
+export { NeonSessionRepo, type NeonSessionRepoOptions } from "./repo.ts";
