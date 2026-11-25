@@ -519,6 +519,7 @@ Local code and database tests do not replace the pending live bootstrap observat
    and the complete snapshot before opening environment credentials.
 3. Staging publishes the complete selected snapshot, smokes the edge and web workers.dev surfaces,
    times catalog's first database request right after the smoke (one cold and one warm request,
+   each logged with the `Server-Timing` catalog answers it with,
    `.github/scripts/catalog-first-request.sh`), and uploads an immutable receipt. Failure stops
    promotion.
 4. Inspect that release's receipt before approving the actual `production` environment job, and first

@@ -11,6 +11,11 @@
 # would hide the very failure this exists to record. Both timings are in the log before either
 # answer is judged, so a failed request still leaves its number behind.
 #
+# Staging's catalog answers this route with a `Server-Timing` header that splits its own share of
+# the time: the database connect, the query and catalog's total, in milliseconds
+# (`workers/catalog/src/server-timing.ts`). Each answer's value goes to the log on a line of its own
+# beside its timing, `none` when it carried none, and decides nothing.
+#
 # No `limit` query: catalog reads a query value as a string and the contract's `limit` is a number,
 # so `?limit=1` answers 400. The route's own default answers 200.
 set -euo pipefail
@@ -57,11 +62,19 @@ read_access_service_token() {
   ACCESS_HEADERS=(-H "CF-Access-Client-Id: $id" -H "CF-Access-Client-Secret: $secret")
 }
 
-# One request, its body written to $1; prints "<status> <first byte> <total>". No redirect is
-# followed: the login page Access redirects to is an answer, and a wrong one.
+# One request, its body written to $1 and its response headers to $2; prints "<status> <first byte>
+# <total>". No redirect is followed: the login page Access redirects to is an answer, and a wrong one.
 timed_request() {
-  curl -sS --max-time 15 -o "$1" -w '%{http_code} %{time_starttransfer} %{time_total}' \
+  curl -sS --max-time 15 -o "$1" -D "$2" -w '%{http_code} %{time_starttransfer} %{time_total}' \
     "${ACCESS_HEADERS[@]}" "$ORIGIN$ROUTE"
+}
+
+# The Server-Timing in the headers curl wrote: every field line of it, in any letter case, joined as
+# HTTP joins a repeated field; `none` when it carried none, or when curl wrote no headers at all.
+server_timing() { # server_timing <header file>
+  [ -f "$1" ] || { echo none; return; }
+  awk 'tolower($0) ~ /^server-timing:/ { sub(/^[^:]*:[ \t]*/, ""); sub(/\r$/, ""); value = value (value == "" ? "" : ", ") $0 }
+       END { print (value == "" ? "none" : value) }' "$1"
 }
 
 # What is wrong with one answer; nothing when it is a 200 carrying a bangumi array.
@@ -71,12 +84,13 @@ answer_problem() { # answer_problem <curl exit> <status> <body file>
   jq -e '.bangumi | type == "array"' "$3" >/dev/null 2>&1 || echo "the body has no bangumi array"
 }
 
-# One timed request: its timing goes to the log before its answer is judged.
+# One timed request: its timing and its Server-Timing go to the log before its answer is judged.
 measure() { # measure <cold|warm>
-  local body="$WORK/$1" out rc status first total problem
-  out="$(timed_request "$body")" && rc=0 || rc=$?
+  local body="$WORK/$1" headers="$WORK/$1.headers" out rc status first total problem
+  out="$(timed_request "$body" "$headers")" && rc=0 || rc=$?
   read -r status first total <<<"$out"
   echo "$1 request: HTTP $status in $total s (first byte $first s, curl exit $rc)"
+  echo "$1 request Server-Timing: $(server_timing "$headers")"
   TOTALS+=("$total")
   problem="$(answer_problem "$rc" "$status" "$body")"
   if [ -n "$problem" ]; then FAILURES+=("the $1 request failed: $problem"); fi
