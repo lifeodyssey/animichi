@@ -88,12 +88,12 @@ describe("geocodePlace — gazetteer tiers", () => {
     const gazetteer = fakeGazetteer([], [fuzzyHit]);
     const external = fakeExternal([]);
 
-    const result = await geocodePlace({ gazetteer, external }, { query: "西宮北口", limit: 5 });
+    const result = await geocodePlace({ gazetteer, external }, { query: "ＮＩＳＨＩＮＯＭＩＹＡ", limit: 5 });
 
     expect(result.outcome).toBe("resolved");
     expect(result.sourceClass).toBe("gazetteer-fuzzy");
     expect(result.candidates[0]).toMatchObject({ id: "mlit:nishinomiya-kitaguchi" });
-    expect(gazetteer.calls).toEqual(["exact:西宮北口", "fuzzy:西宮北口"]);
+    expect(gazetteer.calls).toEqual(["exact:nishinomiya", "fuzzy:nishinomiya"]);
     expect(external.geocode).not.toHaveBeenCalled();
   });
 });
