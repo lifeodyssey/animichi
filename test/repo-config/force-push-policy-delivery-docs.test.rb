@@ -122,8 +122,8 @@ class ForcePushPolicyDeliveryDocsTest < Minitest::Test
   def test_index_lines_match_the_retirement
     assert_includes File.read(AGENTS), "one story = one PR, branch updates by merge",
                     "AGENTS.md's delivery-flow line still sells stacked PRs"
-    assert_match(/Registered ADRs 0001–0009/, File.read(DOCS_POLICY),
-                 "DOCS_POLICY does not register ADR 0009")
+    assert_match(/Registered ADRs 0001–0010/, File.read(DOCS_POLICY),
+                 "DOCS_POLICY does not register ADR 0009 and the ADRs after it")
   end
 
   private

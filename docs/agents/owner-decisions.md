@@ -135,6 +135,12 @@ Production work is collected under one tracking card and done last ("production�
 production release issue and the card under discussion closed ("你可以在production release的issue里留一下说我需要手动干嘛，然后把这个关了");
 that was the handling of that one card, not a rule that every card is closed this way. The production approval itself is in `docs/agents/delivery-flow.md`.
 
+## A production job that runs only the domain changes (2026-11-25)
+
+The owner chose to add a production job that runs only the domain changes: a production path that
+applies the prod topology alone. The design accepted with its pull request is
+`docs/adr/0010-production-topology-without-promotion.md`.
+
 ## osv: the unfixed picomatch advisory (2026-11-18)
 
 [`GHSA-fc5q-39xc-vjpf`](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) (picomatch ReDoS through

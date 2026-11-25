@@ -56,7 +56,8 @@ credential live now:
 One owner step outside the repository is still open: pinning the Pulumi Cloud issuer policy from
 `sub: repo:lifeodyssey/animichi:*` to exactly the two environment subjects
 `repo:lifeodyssey/animichi:environment:staging` and `…:environment:production` — the environments
-`cd.yml`'s `stage` and `promote-production` jobs bind — with both GitHub environments' deployment
+`cd.yml`'s `stage` and `promote-production` jobs bind; `production-topology.yml`'s `apply-topology`
+job binds `production` too, so it adds no subject — with both GitHub environments' deployment
 branches restricted to `main` (`docs/adr/0006-platform-over-handwritten-ci.md`, "Identity and
 authorisation boundary"). The step is tracked as #1367, whose card takes the policy text as its
 acceptance evidence.

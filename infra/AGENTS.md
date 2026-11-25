@@ -23,8 +23,9 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `pulumi preview --stack lifeodyssey/staging` — preview against `Pulumi.staging.yaml`.
 - `pulumi preview --stack lifeodyssey/prod` — preview against `Pulumi.prod.yaml`.
 - `pulumi up --stack lifeodyssey/staging` — apply the staging stack; normal delivery runs this through CI.
-- Production apply is CI-only: the deploy workflow runs Pulumi `up` with stack `prod` after the
-  GitHub `production` environment approval.
+- Production apply is CI-only, after the GitHub `production` environment approval: `cd.yml`'s full
+  promotion runs Pulumi `up` with stack `prod` for both programs, and the owner-dispatched
+  `production-topology.yml` runs it for this program alone (ADR 0010).
 
 ## Conventions
 
@@ -80,15 +81,21 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   contract's; `topology-neon-auth.test.ts` pins the env-var names.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
-- `../.github/workflows/cd.yml` — the whole delivery path: one build, one artifact, five ordered
+- `../.github/workflows/cd.yml` — the delivery path: one build, one artifact, five ordered
   staging stages, production approval. Both Pulumi programs are applied from the sealed
   `release/foundation/` tree it carries, never from a fresh checkout.
+- `../.github/workflows/production-topology.yml` — the owner-dispatched topology-only production run
+  (`docs/adr/0010-production-topology-without-promotion.md`): this program alone, from the same
+  sealed tree, previewed into the job summary and applied only with `apply: true`; run 0 is preview
+  only, and a preview that shows a deletion stops the work.
 - `../docs/ops/deployment.md` — environment and approval runbook.
 
 ## Pitfalls
 
-- Never run a production apply outside CD; its single `production` environment approval is the
-  mandatory human gate after the complete affected cohort reaches staging.
+- Never run a production apply outside CI. There are two paths, `cd.yml`'s full promotion and the
+  topology-only `production-topology.yml`; each needs the snapshot's staging receipt, and each
+  `production` environment approval is the mandatory human gate. Only the owner dispatches the
+  topology run.
 - `webRoutesEnabled` defaults false. **Flipping it publishes the site**, and does so atomically on
   purpose: the Custom Domain and the narrowed `/v1/*`, `/catalog/public/*`, `/img/*`, `/tiles/*`,
   `/healthz` edge routes appear

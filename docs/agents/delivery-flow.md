@@ -207,6 +207,17 @@ the current `concurrency` blocks in `cd.yml` and `gh run list --workflow cd.yml`
 the production gate, say so loudly with the run URL: the owner asked for the highlight after
 approving unprompted on 2026-06-30 (`docs/ops/deployment.md` describes the gate).
 
+## The production topology prompt (ADR 0010)
+
+There is a second production prompt, "Production topology / apply", from `production-topology.yml`.
+Only the owner dispatches that workflow; agents never dispatch a production workflow. It holds its
+own group and refuses while a `CD / production` job is running (`in_progress`, `queued` or
+`requested`). A promotion waiting at its prompt or pending behind the group does not stop it, so the
+pending production approval is still left alone, as the section above says. Nothing stops a full
+promotion during a topology run, so a `CD / production` is not approved while one is in progress.
+This is the design `docs/adr/0010-production-topology-without-promotion.md` records, accepted with
+its pull request.
+
 ## Workflow incidents are issues, not PRs (owner, 2026-09-16)
 
 "这种和工作流本身有关的，不需要提 pr，只需要提 issue，记录问题本身和解决方案". An Orca or coordinator

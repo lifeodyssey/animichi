@@ -10,7 +10,9 @@ paths:
 # GitHub Actions authoring rules
 
 The entry workflows are `pr-verification.yml` (`pull_request` + `merge_group` + `push: main`),
-`release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`) and
+`release-build.yml` (push to `main`), `cd.yml` (artifact-ID dispatch from `main`),
+`production-topology.yml` (the owner's artifact-ID dispatch from `main` that previews and applies the
+prod topology alone, ADR 0010) and
 `verify-deploy-evidence.yml` (dispatch whose judging job only reads the deploy evidence, #1695). Share
 genuinely identical step sequences with native composites backed by official actions. `.github/actions/setup-workspace/action.yml`
 owns Node/pnpm/cache/frozen install for six PR jobs; checkout and lane-specific tools stay in callers.
@@ -49,7 +51,9 @@ revision rather than mutable checkout state.
   closure, that a selected snapshot names no image identity and the migration ledger before
   mutations. One `stage` job holds
   the staging lock through foundation, migration, services, web, smoke and receipt. Production has
-  its own approval and lock and promotes the same verified digest. Pending selections may be
+  its own approval and lock and promotes the same verified digest. `production-topology.yml` applies
+  only the topology program under its own `production-topology` group and refuses while `cd.yml`'s
+  production job is running; `cd.yml` does not check back (ADR 0010). Pending selections may be
   superseded; each main push dispatches `cd.yml` for its own snapshot, while production keeps its
   approval. No local or tag-triggered deploy path. The owner sees no need for a separate rollback
   mechanism ("我一直觉得我们没有必要 roll back", 2026-09-05): going back is the manual dispatch of

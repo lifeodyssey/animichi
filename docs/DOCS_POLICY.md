@@ -36,7 +36,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | Path | Holds | Write policy |
 |---|---|---|
 | `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
-| `docs/adr/` | Registered ADRs 0001–0009 (canonical) | Amend via a new ADR |
+| `docs/adr/` | Registered ADRs 0001–0010 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
 | `docs/archive/` | `specs/` · `plans/` · `ops/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
@@ -106,7 +106,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md`, `docs/ops/post-deploy-evidence.md` | deployment.md = CD runbook; post-deploy-evidence.md = how a criterion whose evidence is a deployed observation is recorded and judged (#1695) |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords (`migrator` via Pulumi `neon.Role`; the three runtime roles by the migrator's SQL step since #1915); supersedes the ESC-first plan of #674 |
-| CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md`, amended by `docs/adr/0007-selected-release-artifacts.md` | Native platform capabilities and OIDC audiences; explicit immutable artifact selection and whole-environment locks |
+| CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md`, amended by `docs/adr/0007-selected-release-artifacts.md` and `docs/adr/0010-production-topology-without-promotion.md` | Native platform capabilities and OIDC audiences; explicit immutable artifact selection and whole-environment locks; the owner-dispatched topology-only production run |
 | Platform-over-hand-written, repo-wide | `docs/adr/0008-platform-over-handwritten.md` | Extends ADR 0006 decision 1 past the delivery lane; A/B/C buckets, the B adjudication log is #1593, evidence in `docs/iterations/production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md` |
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-file routing (`--staged` pre-commit / merge-base pre-push); `commitlint.config.js` as the one commit-msg/PR-title validator; the pre-push gate `scripts/local-gates/pre-push-affected.sh` (a routing table per workspace package + the path buckets + a fail-closed whitelist); PR CI routes by pnpm's `--filter "...[<ref>]"`, which pre-push cannot use (pnpm/pnpm#12626); `make check-full` is the manual everything-run; browser e2e/live-Neon/evals/deploys stay in CI |
 | Review gate (merge quality enforcement) | `docs/ops/review-gate.md` | native thread resolution + required checks + the two-way comment hook; the LLM status machinery retired 2026-08-31 |
