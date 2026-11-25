@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { runtimeEnvironment } from "../src/operational-config";
 // `?raw` inlines the file at transform time, so by the time this runs inside
 // workerd the config is just a string constant — no filesystem is touched.
 //
@@ -40,18 +41,19 @@ interface Section {
 }
 
 // A sub-table ([env.staging.vars], [[env.staging.r2_buckets]]) ends the
-// environment's own key list; keys after it belong to the sub-table.
-const nameOf = (line: string, current: string): string | null => {
+// environment's own key list; keys after it belong to the sub-table, which is
+// named by its header line, so `environments` never takes it for one.
+const nameOf = (line: string): string | null => {
   const header = /^\[(env\.[A-Za-z0-9_-]+)\]$/.exec(line);
   if (header?.[1]) return header[1];
-  return line.startsWith("[") ? `${current}:subtable` : null;
+  return line.startsWith("[") ? line : null;
 };
 
 const sections = (toml: string): Section[] => {
   let current: Section = { name: "top-level", lines: [] };
   const out: Section[] = [current];
   for (const line of contentLines(toml)) {
-    const opened = nameOf(line, current.name);
+    const opened = nameOf(line);
     if (opened === null) current.lines.push(line);
     else out.push((current = { name: opened, lines: [] }));
   }
@@ -63,6 +65,13 @@ const contentLines = (toml: string): string[] =>
 
 const environments = (toml: string): Section[] =>
   sections(toml).filter((s) => s.name === "top-level" || /^env\.[A-Za-z0-9_-]+$/.test(s.name));
+
+/** The `ENVIRONMENT` an environment's own vars table declares, or undefined when it declares none. */
+const declaredEnvironment = (toml: string, environment: string): string | undefined =>
+  sections(toml)
+    .find((s) => s.name === `[env.${environment}.vars]`)
+    ?.lines.map((line) => /^ENVIRONMENT = "([^"]*)"$/.exec(line)?.[1])
+    .find((value) => value !== undefined);
 
 // Both keys are `inheritable` in wrangler (4.112 cli.js:35080 / :35088), so the
 // top-level value alone would suffice. Asserting per environment anyway is the
@@ -128,4 +137,24 @@ describe("catalog has no public host", () => {
     // to PRIVACY fails here rather than being silently skipped by it.each.
     expect(environments(toml).map((s) => s.name)).toEqual(Object.keys(PRIVACY));
   });
+});
+
+// The Server-Timing gate (`src/server-timing.ts`) and the cron guards read
+// ENVIRONMENT through `runtimeEnvironment`, which fails closed: a value it does
+// not read as the environment's own name turns that environment's guarded work
+// off without an error. On staging that is the gate and the import, and the CD
+// probe would log the header as `none` and pass; on production it is the
+// ingest crons and the pending drain. CD deploys each as a named environment
+// (`wrangler deploy --env <name>`, `.github/scripts/release/publish-services.sh`),
+// and wrangler does not inherit `vars` into one (its config-schema.json), so
+// each value is the one the environment's own table declares, or none.
+describe("catalog's deployed environments", () => {
+  it.each(["staging", "production"] as const)(
+    "env.%s declares an ENVIRONMENT that runtimeEnvironment reads as its own name",
+    (environment) => {
+      const declared = declaredEnvironment(toml, environment);
+      expect(runtimeEnvironment(declared), `[env.${environment}.vars] declares ENVIRONMENT ${String(declared)}`)
+        .toBe(environment);
+    },
+  );
 });
