@@ -16,13 +16,13 @@ const KEY = "caller-echo-key-7f3a";
 /** Text holding no bound key, which a shape-based scrub would still rewrite; the store keeps it exactly. */
 const UNBOUND_TEXT = "Use sk-notakey00000000 with Bearer notatoken0000";
 
-const noteParameters = Type.Object({ text: Type.String() });
+const noteParameters = Type.Object({ body: Type.String() });
 const note: AgentHarnessTool<object, typeof noteParameters> = { name: "note", label: "Note", description: "Notes a text.",
   parameters: noteParameters, execute: () => Promise.resolve({ content: [{ type: "text", text: "Noted." }], details: null, terminate: true }) };
 
 /** One answer that thinks, writes and calls the note tool, every block holding `text`. */
 function answering(text: string) {
-  return fauxAssistantMessage([fauxThinking(text), fauxText(text), fauxToolCall("note", { text })], { stopReason: "toolUse" });
+  return fauxAssistantMessage([fauxThinking(text), fauxText(text), fauxToolCall("note", { body: text })], { stopReason: "toolUse" });
 }
 
 const isRecordWrite = (write: Write) => !isFrameAppend(write);
