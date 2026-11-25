@@ -48,11 +48,14 @@ function provisionApiRateLimit(zoneId: string): void {
   // brute-force damper on the API surface — `/v1/*` — keyed by IP + colo,
   // challenging bursts past 60 requests per 10s for 10s. Turnstile and
   // per-route quotas do fine-grained control; this only shaves floods.
-  // Scoped to the zone WITHOUT a host match: on this zone only the apex
-  // serves `/v1/*` (www is a placeholder that 301-redirects in
-  // `http_request_dynamic_redirect`, which runs before `http_ratelimit`), so
-  // a bare path match is equivalent to the apex match and needs no `webDomain`
-  // dependency.
+  // Scoped to the zone WITHOUT a host match, so it covers every hostname on
+  // the zone that serves `/v1/*`: the apex, and also the staging hostname,
+  // which lives in the same zone with its own `/v1/*` edge route
+  // (`Pulumi.staging.yaml`, `web-routes.ts`). www is a placeholder that
+  // 301-redirects in `http_request_dynamic_redirect`, which runs before
+  // `http_ratelimit`. The workers.dev origins CD's staging smoke and probes
+  // use are outside the zone, so the rule never sees them, and a bare path
+  // match needs no `webDomain` dependency.
   new cloudflare.Ruleset("animichi-api-rate-limit", {
     zoneId,
     name: "zone /v1 rate limit",
