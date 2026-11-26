@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
-import test, { type TestContext } from "node:test";
-import type { Miniflare } from "miniflare";
+import test from "node:test";
 import { pool } from "./postgres.ts";
 import { chatBody, chatHeaders, defaultWorker } from "./default-worker.ts";
-import type { DriveReport } from "./configured-operations.worker.ts";
+import { byokTurn, CHAT, completionStream, driveReport, MEMBER, OBSERVED_HOST, respondChunk, settlementCommit, textChunk } from "./byok-turn.ts";
 
 /**
  * ConfiguredOperations, the deployed host's model operations, as the default SessionAgent runs them: a settled
@@ -13,41 +11,12 @@ import type { DriveReport } from "./configured-operations.worker.ts";
  * local provider double.
  */
 
-const OBSERVED_HOST = new URL("./configured-operations.worker.ts", import.meta.url);
-const MEMBER = { TEST_IDENTITY: "member-native", TEST_USER_TYPE: "user" };
 /** An obviously fake caller key, shaped like no provider's key, so only the operation's own scrub can redact it. */
 const CALLER_KEY = "caller-echo-key";
-const CHAT = "https://host.test/v1/chat";
-
-/** A member's chat turn that brings its own OpenAI-compatible key. */
-function byokTurn(key: string) {
-  return { method: "POST", body: chatBody, headers: { ...chatHeaders, "x-byok-provider": "openai-compatible",
-    "x-byok-base-url": "https://api.openai.com/v1", "x-byok-model": "gpt-4.1", "x-byok-key": key } };
-}
-
-/** Resolves true once a settlement commits; the listener is armed before the turn is sent. */
-async function settlementCommit(context: TestContext) {
-  const observer = await pool.connect();
-  context.after(async () => { try { await observer.query("UNLISTEN *"); } finally { observer.release(); } });
-  await observer.query("UNLISTEN *; LISTEN host_test_settled");
-  const signal = AbortSignal.any([context.signal, AbortSignal.timeout(30_000)]);
-  return { settled: once(observer, "notification", { signal }).then(() => true, () => false) };
-}
-
-const RESPOND = { index: 0, id: "answer", type: "function", function: { name: "respond", arguments: JSON.stringify({ kind: "greeting", message: "Done" }) } };
 
 /** A provider answer that streams the caller's key back as text, the way model output arrives, then calls respond. */
 function echoedKey(key: string) {
-  const text = { choices: [{ index: 0, delta: { content: `Your key is ${key}` }, finish_reason: null }] };
-  const respond = { choices: [{ index: 0, delta: { tool_calls: [RESPOND] }, finish_reason: "tool_calls" }], usage: { prompt_tokens: 30, completion_tokens: 20, total_tokens: 50 } };
-  const events = [text, respond].map((chunk) => `data: ${JSON.stringify({ id: "echo", object: "chat.completion.chunk", created: 0, model: "gpt-4.1", ...chunk })}\n\n`);
-  return new Response(`${events.join("")}data: [DONE]\n\n`, { headers: { "content-type": "text/event-stream" } });
-}
-
-/** The observed host's drives and its last drive's provider, read once the work it has queued has finished. */
-async function driveReport(worker: Miniflare) {
-  const response = await worker.dispatchFetch("https://host.test/drive-report", { headers: chatHeaders });
-  return await response.json() as DriveReport;
+  return completionStream([textChunk(`Your key is ${key}`), respondChunk()]);
 }
 
 void test("settling a BYOK operation logs its key out and removes its provider from the session's models", { timeout: 60_000 }, async (context) => {

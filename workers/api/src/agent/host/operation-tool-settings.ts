@@ -4,7 +4,7 @@ import { value, type Session } from "@earendil-works/pi-agent-core/harness/sessi
 import type { PilgrimageToolContext } from "@animichi/agent/tools";
 import { z } from "zod";
 import type { NativeSessionResources } from "./native-bootstrap.ts";
-import type { OperationCredentials } from "./configured-admission.ts";
+import type { OperationCredentials } from "./operation-credentials.ts";
 import type { ModelAdmissionRequest } from "../admission/types.ts";
 
 type OperationTools = Pick<PilgrimageToolContext, "locale" | "origin" | "translation">;

@@ -1,4 +1,5 @@
 import { SecretScrub } from "../egress/secret-scrub.ts";
+import { KeyLiterals } from "../egress/key-literals.ts";
 import { createModels, InMemoryCredentialStore, type Model } from "@earendil-works/pi-ai";
 import { xiaomiProvider } from "@earendil-works/pi-ai/providers/xiaomi";
 import { createOperationModels } from "@animichi/agent/models";
@@ -23,7 +24,8 @@ export async function nativeByokModels(credential: ByokCredentialParts, fetch: t
   const model: Model<ByokApi> = { id: credential.modelId, name: credential.modelId, provider: credential.provider,
     api: dialect.api, baseUrl: credential.baseUrl, reasoning: false, input: ["text", "image"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: dialect.contextWindow, maxTokens: dialect.maxTokens };
-  return { model, scrub: new SecretScrub([credential.secret]), models: await createOperationModels(model, credential.secret, fetch) };
+  return { model, scrub: new SecretScrub([credential.secret]), literals: new KeyLiterals([credential.secret]),
+    models: await createOperationModels(model, credential.secret, fetch) };
 }
 
 export type NativeModelResources = Awaited<ReturnType<typeof nativeHostModels>>;
