@@ -8,11 +8,16 @@ config:
   # because separating DNS from route narrowing is precisely the failure mode —
   # the apex would answer a browser with the edge Worker's JSON 404.
   #
-  # Activation order (each key is committed here and applied by CI):
+  # Activation order: three steps, each one pull request that commits its keys
+  # here, applied by the owner-dispatched production topology workflow
+  # (.github/workflows/production-topology.yml, ADR 0010):
   #
+  #   # step 1
   #   pulumi config set cloudflareZoneId 44fdcc54545c1152a8e730137b671be4 --stack prod
+  #   # step 2: wwwDomain rides with webDomain; it is read only once step 3 flips the flag
   #   pulumi config set webDomain animichi.com                            --stack prod
   #   pulumi config set wwwDomain www.animichi.com                        --stack prod
+  #   # step 3, the launch
   #   pulumi config set webRoutesEnabled true                             --stack prod
   #
   #   # Optional, one entry per legacy domain (each needs its own CF zone, #545):
@@ -26,17 +31,20 @@ config:
   #
   # Not all keys activate at the flag flip. `cloudflareZoneId` ALONE (step 1)
   # turns on the zone hardening in src/hardening.ts — DNSSEC signing, the
-  # /v1/* rate-limit ruleset, and the HSTS zone setting. `webDomain` (step 2)
+  # /v1/* rate-limit ruleset, and the HSTS zone setting; all three are
+  # zone-wide, so they reach the staging hostname too. `webDomain` (step 2)
   # additionally pins the four CAA records to the apex. Only
-  # `webRoutesEnabled` (step 4) publishes the apex + narrows the routes.
+  # `webRoutesEnabled` (step 3) publishes the apex + narrows the routes.
   #
   # After the launch, verify the apex with scripts/verify-prod-seo.sh — the
   # runbook is docs/ops/prod-seo-validation.md (runbook + HITL checklist,
   # #914).
   #
   # Prod applies run through CI behind the GitHub `production` environment
-  # approval — only the foundation promotion phase runs Pulumi (see
-  # ../docs/ops/deployment.md and .github/workflows/cd.yml). Production has no
+  # approval, in one of two places: the full promotion's foundation phase
+  # (.github/workflows/cd.yml), or the owner-dispatched topology-only run
+  # (.github/workflows/production-topology.yml), whose first run is preview
+  # only (see ../docs/ops/deployment.md and ADR 0010). Production has no
   # Cloudflare Access application and mints no service token — it has a real
   # login. `src/staging-access.ts` builds nothing off the staging stack, and
   # `topology-prod.test.ts` pins that.

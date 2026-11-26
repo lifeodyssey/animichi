@@ -5,6 +5,11 @@ Status: accepted for #1564. This amends the delivery-selection and queue decisio
 separate OIDC audiences, CI-only deployment, and Secrets Store runtime bindings remains unchanged.
 Activation requires the platform evidence listed in the [deployment runbook](../ops/deployment.md).
 
+The production path is amended by [ADR 0010](0010-production-topology-without-promotion.md): an
+owner-dispatched workflow applies the prod topology program alone, from an existing artifact ID and
+that snapshot's staging receipt. The full promotion stays the only path that deploys production
+Workers, migrates and publishes.
+
 ## Decision
 
 A push to main builds a complete release snapshot and publishes its immutable GitHub artifact ID;

@@ -42,16 +42,21 @@ Read-only verification performed for #914 (2026-08-09):
 
 **Owner HITL confirmation** (before activating): open Cloudflare dashboard →
 your account → the `animichi.com` zone (id `44fd…`) and confirm (a) the zone
-is in the account, (b) the plan permits the apex Custom Domain + the
-4-issuer CAA set, (c) Universal SSL covers the apex.
+is in the account and active, (b) the plan permits the apex Custom Domain +
+the 4-issuer CAA set + the one rate-limit rule, (c) Universal SSL covers the
+apex. The other checks before the first run ("Prevent self-review", the
+production history, the prompt to approve) are in `docs/ops/deployment.md`
+→ "Production topology without a full promotion".
 
 ## Activation steps (HITL — do NOT run in a PR you expect to auto-merge)
 
 Order matters: hardening activates as soon as `cloudflareZoneId` is set (step
-1), CAA on `webDomain` (step 2), and only `webRoutesEnabled` (step 4)
-publishes the apex. The four committed keys are applied by CI's `deploy-prod`
-job (`run_pulumi: true` is catalog-only; GitHub `production` environment
-approval is the gate).
+1), CAA on `webDomain` (step 2, with `wwwDomain`, which is read only once step
+3 flips the flag), and only `webRoutesEnabled` (step 3) publishes the apex.
+Each step is one pull request that commits its keys. The owner applies it with
+the topology-only production run, `.github/workflows/production-topology.yml`,
+behind the GitHub `production` environment approval; its first run is preview
+only (ADR 0010).
 
 From `infra/`:
 
@@ -59,29 +64,32 @@ From `infra/`:
 # 1. Zone hardening turns on here: DNSSEC + /v1 rate limit + HSTS.
 pulumi config set cloudflareZoneId 44fdcc54545c1152a8e730137b671be4 --stack prod
 
-# 2. CAA records pin the apex (4 issuers, hardening.ts).
+# 2. CAA records pin the apex (4 issuers, hardening.ts). wwwDomain names the
+#    www placeholder + 301-to-apex ruleset (prod only), which step 3 builds.
 pulumi config set webDomain animichi.com --stack prod
-
-# 3. www placeholder + 301-to-apex ruleset (prod only).
 pulumi config set wwwDomain www.animichi.com --stack prod
 
-# 4. THE LAUNCH — apex Custom Domain + narrowed edge routes together.
+# 3. THE LAUNCH — apex Custom Domain + narrowed edge routes together.
 pulumi config set webRoutesEnabled true --stack prod
 
 # Optional, one entry per legacy domain (each needs its own CF zone, #545):
 pulumi config set legacyRedirectZones '["<legacy zone id>"]' --stack prod
 ```
 
-Commit `infra/Pulumi.prod.yaml`, merge, and let `deploy-prod` run behind the
-`production` environment approval. See `docs/ops/deployment.md` for the apply
-path.
+Commit `infra/Pulumi.prod.yaml` and merge. The owner then dispatches
+`Production topology` with the snapshot that merge built and the staging
+receipt its CD run published, and reads the preview before any run with
+`apply: true`. See `docs/ops/deployment.md` for the apply path.
 
 ### Rollback
 
-The flag is one config line: set `webRoutesEnabled false`, merge, re-apply via
-`deploy-prod`. This removes the Custom Domain and the narrowed routes
-(`deleteBeforeReplace` semantics). Pulumi export/rollback backup: see
-`docs/ops/deployment.md` → "Pulumi rollback".
+The flag is one config line: set `webRoutesEnabled false`, merge, and the owner
+runs the topology workflow again, or dispatches it with an older snapshot that
+still has an unexpired staging receipt. This removes the Custom Domain and the
+narrowed routes (`deleteBeforeReplace` semantics). There is no export backup:
+Pulumi Cloud's update history is the rollback record (`infra/AGENTS.md`). Both
+paths need a snapshot with a staging receipt, so a red staging leaves no
+rollback path (ADR 0010).
 
 ## Post-activation verification
 

@@ -8,7 +8,7 @@ and rotation impact, see [`secrets.md`](./secrets.md).
 
 ## Delivery architecture
 
-There are three workflow responsibilities:
+There are four workflow responsibilities:
 
 - `pr-verification.yml` verifies pull requests and merge groups, and — on a `push` to `main` — the
   merged commit itself (#1715). A normal squash merge already produces the tree its pull-request run
@@ -25,6 +25,10 @@ There are three workflow responsibilities:
 - The main-only `cd.yml` controller deploys the selected existing artifact ID to staging, then
   promotes that same release after the actual production job's environment approval. A manual
   dispatch still selects any other eligible artifact, such as an older release or a re-deploy.
+- The main-only `production-topology.yml`, which only the owner dispatches, applies one existing
+  snapshot's topology program to the prod stack and nothing else, after its own production approval
+  ([Production topology without a full promotion](#production-topology-without-a-full-promotion),
+  [ADR 0010](../adr/0010-production-topology-without-promotion.md)).
 
 There is no tag-triggered or local deploy path. The protected branch still requires `PR Verification`
 and `Security`, resolved review threads and the repository's review discipline.
@@ -96,7 +100,10 @@ smoke and receipt. One `promote-production` job holds `cd-production` and owns `
 production`. Its approval does not hold staging's lock. Both set `cancel-in-progress: false`; GitHub
 retains its native single pending selection, so a pending selection may be replaced — including by
 the next push's own snapshot. Active chains finish coherently. There is no workflow-wide lock,
-commit-order queue or `queue: max` exception.
+commit-order queue or `queue: max` exception. The topology-only production run holds its own
+`production-topology` group instead of `cd-production`; it refuses while `cd.yml`'s production job
+is running (`in_progress`, `queued` or `requested`), and a full promotion does not check for it in
+return (ADR 0010).
 
 Before any Pulumi apply, both jobs read actual migration compatibility from the migrator's
 authenticated `/preflight`.
@@ -535,6 +542,81 @@ uses the same selected artifact; if its artifact or receipt expired, select an a
 release explicitly. A new main push deploys its own correction to staging and still needs its own
 production approval.
 
+### Production topology without a full promotion
+
+`.github/workflows/production-topology.yml` applies a snapshot's `release/foundation/infra` program
+to the prod stack and nothing else: no Worker, migration, database access, service publication,
+production receipt, or production's current baseline and ledger. It is how the domain opens before
+the production upgrade: the owner chose a topology-only production path on 2026-11-25, and its
+design, accepted with its pull request, is [ADR 0010](../adr/0010-production-topology-without-promotion.md).
+**Only the owner dispatches it**; agents never dispatch a production workflow.
+
+Before run 0 the owner confirms:
+
+- **"Prevent self-review" is off** on the `production` environment. With it on, the person who starts
+  a deployment cannot approve it ([deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)),
+  so the owner could not approve the run the owner dispatched, and nobody else dispatches it.
+- **`show_diff` stays `false` until** every sensitive value in the prod stack's config and in the
+  `lifeodyssey/animichi/prod` ESC environment is confirmed marked secret. The default preview names
+  each resource's operation and, for an update, the changed properties, but prints no values, so a
+  deletion still shows; neither Pulumi step prints stack outputs. `show_diff: true` prints the full
+  property diff, values included, into a log any signed-in GitHub account can read.
+- The zone is active, and the plan allows the apex Custom Domain, the four-issuer CAA set and the one
+  rate-limit rule `infra/src/hardening.ts` declares.
+- The history: 251 production deployments since 2026-08-24, none successful, and no production job
+  since 2026-09-23. Nobody knows what the prod stack's last apply left.
+- The prompt to approve is **"Production topology / apply"**. A waiting `CD / production` is the
+  full promotion, not this run. **Don't approve a `CD / production` while a topology run is in
+  progress.**
+
+One run:
+
+1. The configuration step merges as its own pull request. Its release build's summary names the
+   snapshot's artifact ID, and the CD run it dispatches publishes `staging-receipt-<run>-<attempt>`
+   in that run's artifacts.
+2. The owner dispatches `Production topology` on `main` with that `artifact_id`, that receipt's
+   artifact ID as `staging_receipt_id`, and `apply` and `show_diff` left `false`. The `select` job
+   refuses while a `CD / production` job is running, then verifies the snapshot and the receipt
+   (`verify-staged-receipt.rb`) before any prompt appears.
+3. After the approval, `apply-topology` repeats that verification bound to the digests `select` saw,
+   logs into Pulumi, previews the program on `lifeodyssey/prod` into the job summary and stops.
+4. The owner reads the preview. A run dispatched with `apply: true` previews the same way, checks for
+   a promotion once more right before `pulumi up`, and applies.
+
+**Run 0 is preview only.** The first dispatch leaves `apply` and `show_diff` false, and the owner reads
+that preview before any run with `apply: true`. **If the preview shows any deletion, stop** and decide
+it separately; the default preview shows deletions without printing values. The preview diffs against
+the stack's recorded state and does not refresh from Cloudflare, and no saved plan binds the apply to
+it: Pulumi documents update plans as experimental. The log is public, which is why `show_diff` waits
+for the precondition above.
+
+The staged configuration is three steps, each one pull request to `infra/Pulumi.prod.yaml` and one run:
+`cloudflareZoneId` (DNSSEC, the `/v1/*` rate limit and HSTS, all zone-wide), then `webDomain` with
+`wwwDomain` (the apex CAA records; `wwwDomain` is read only once the flag flips), then
+`webRoutesEnabled`, the launch. Before the launch the owner checks, with Cloudflare access, that
+production's `animichi-web` and `animichi` Worker scripts exist and what they serve: the launch binds
+the apex to them and this workflow never deploys them. No promotion has succeeded, but a failed one
+may have published them, because publication comes before its smoke.
+
+A `CD / production` job waiting at its approval prompt or pending behind the `cd-production` group
+does not stop a topology run: neither can run until the owner approves it, and a pending job, once
+the group frees, stops at the prompt first. There is usually one of each, the promotion parked at the
+prompt holding the group and the latest merge's promotion queued behind it. If a `CD / production`
+job is running or queued at dispatch (`in_progress`, `queued` or `requested`), `select` must fail and
+name it; if `select` passes then, the check is not reading the runs, and the owner rejects the
+topology run's prompt. The reverse is not enforced: `cd.yml` is unchanged and does not check for a
+topology run, so don't approve a `CD / production` while one is in progress. Three more things stand
+against that overlap: the two prompts have different names; Pulumi Cloud lets only one update hold a
+stack at a time, so the later topology update fails rather than interleaving; and today a promotion
+stops at its first step, because the production migrator URL is absent.
+
+Rollback is a revert of the key, which needs a new snapshot, its staging receipt and another approved
+run, or a dispatch of an older snapshot that still has an unexpired staging receipt. Both paths need a
+snapshot with a staging receipt, and both artifacts expire after 14 days. **Accepted risk: a red
+staging leaves no rollback path.** Browsers keep the HSTS header for its `max-age` (180 days in
+`infra/src/hardening.ts`). For DNSSEC, the usual order is to remove the registrar's DS record before
+signing stops; this repository has not verified that step.
+
 ### Activation evidence required for #1564
 
 The repository candidate is not platform readiness. Before enabling the new builder/controller:
@@ -564,6 +646,7 @@ It does not read repository/environment GitHub secrets. The selected controller 
 | --- | --- | --- | --- |
 | Staging chain | `staging` | `lifeodyssey/animichi/staging` | `lifeodyssey/staging` in both projects |
 | Production chain | `production` | `lifeodyssey/animichi/prod` | `lifeodyssey/prod` in both projects |
+| Production topology run | `production` | `lifeodyssey/animichi/prod` | `lifeodyssey/prod` in `seichijunrei-infra` only |
 
 `pulumi/auth-actions` retains the existing personal token type and `scope: user:lifeodyssey`.
 That account model does not prove per-role authorization. #1565 requires provider-side boundaries

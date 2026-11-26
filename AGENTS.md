@@ -62,7 +62,9 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   `main` builds a complete immutable release snapshot and dispatches CD for that snapshot's own
   artifact ID; a manual dispatch can still select another existing `artifact_id`. CD deploys it to
   staging, then promotes the same digests after the actual production job's GitHub environment
-  approval. Main commits may be skipped; there is no tag deployment path.
+  approval. Main commits may be skipped; there is no tag deployment path. The one other production
+  path is `production-topology.yml`, which applies the prod topology alone after its own approval;
+  only the owner dispatches it, and agents never dispatch a production workflow (ADR 0010).
   Platform activation prerequisites and operator steps → `docs/ops/deployment.md`.
 
 ## Testing rules (owner, verbatim)

@@ -1,0 +1,226 @@
+# Production topology without a full promotion (ADR 0010; the owner chose a topology-only
+# production path on 2026-11-25).
+#
+# Only the owner dispatches this workflow. Agents never dispatch a production workflow, this one
+# included, and the owner approves every run at the `production` environment prompt. This run's
+# prompt is "Production topology / apply"; a waiting "CD / production" is the full promotion.
+#
+# A run applies the selected snapshot's `release/foundation/infra` program to the prod stack and
+# nothing else: no Worker, migration, database access, service publication or production receipt is
+# touched, nor the migration baseline and ledger the promotion's migrator checks. The snapshot must
+# already carry the staging receipt its own CD run published (`staging_receipt_id`, the
+# `staging-receipt-<run>-<attempt>` artifact of that run).
+#
+# Run 0 is preview only. Dispatch with `apply` left false first: the preview lands in the job
+# summary and nothing is applied. No production job has succeeded since 2026-08-24, and a failed
+# one may have applied the stack before it failed, so nobody knows what the prod stack holds. The
+# owner reads that preview before any run with `apply: true`, and a preview that shows any deletion
+# stops the work until it is decided separately. This log is public: by default the preview names
+# each resource's operation and, for an update, the changed properties, but prints no values, and
+# no stack output prints at all. `show_diff` prints the full diff, values included (ADR 0010).
+#
+# Its concurrency group is its own, not `cd-production`. A full promotion is kept out by a refusal
+# instead: `refuse-during-promotion.rb` fails the run while cd.yml's production job is running
+# (`in_progress`, `queued` or `requested`), once in `select` and again immediately before
+# `pulumi up`. A promotion waiting at its prompt or pending behind its group cannot run without the
+# owner's approval, so it does not stop this run. The reverse is not enforced here: cd.yml is
+# unchanged, so the owner does not approve a "CD / production" while this run is in progress
+# (ADR 0010).
+name: Production topology
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: Complete release snapshot artifact ID
+        required: true
+        type: string
+      staging_receipt_id:
+        description: Artifact ID of the staging receipt the snapshot's CD run published
+        required: true
+        type: string
+      apply:
+        description: Apply after the preview; false previews only, and run 0 is preview only
+        required: false
+        type: boolean
+        default: false
+      show_diff:
+        description: Print the full property diff, values included, into this public log; set only after confirming every sensitive value in the prod stack's config and ESC environment is marked secret
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+env:
+  GH_TOKEN: ${{ github.token }}
+jobs:
+  select:
+    name: Production topology / select
+    if: ${{ github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: production-topology-select-${{ github.run_id }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read} # read CD runs and jobs; inspect and download cross-run artifacts
+    outputs:
+      artifact_digest: ${{ steps.selection.outputs.artifact_digest }}
+      receipt_digest: ${{ steps.receipt.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+      - name: Refuse while a full promotion is running
+        run: ruby .github/scripts/release/refuse-during-promotion.rb
+      - name: Resolve the selected artifact
+        id: selection
+        env:
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+        run: ruby .github/scripts/release/resolve.rb
+      - name: Verify the selected snapshot
+        uses: $/.github/actions/hydrate-release
+        with:
+          artifact-id: ${{ steps.selection.outputs.artifact_id }}
+          run-id: ${{ steps.selection.outputs.run_id }}
+      - name: Resolve the staging receipt
+        id: receipt
+        env:
+          RECEIPT_ID: ${{ inputs.staging_receipt_id }}
+        run: ruby .github/scripts/release/verify-staged-receipt.rb metadata
+      - name: Download the staging receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ inputs.staging_receipt_id }}
+          run-id: ${{ steps.receipt.outputs.run_id }}
+          repository: lifeodyssey/animichi
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: staging-receipt
+      - name: Verify the staging receipt
+        run: ruby .github/scripts/release/verify-staged-receipt.rb content
+  apply-topology:
+    name: Production topology / apply
+    needs: [select]
+    if: ${{ !failure() && !cancelled() && github.repository == 'lifeodyssey/animichi' && github.ref == 'refs/heads/main' && needs.select.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    concurrency:
+      group: production-topology
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, id-token: write} # CD-run and artifact reads; environment-scoped Pulumi OIDC
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+      - name: Resolve the selected artifact
+        id: selection
+        env:
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          EXPECTED_DIGEST: ${{ needs.select.outputs.artifact_digest }}
+        run: ruby .github/scripts/release/resolve.rb
+      - name: Verify the selected snapshot
+        uses: $/.github/actions/hydrate-release
+        with:
+          artifact-id: ${{ steps.selection.outputs.artifact_id }}
+          run-id: ${{ steps.selection.outputs.run_id }}
+      - name: Resolve the staging receipt
+        id: receipt
+        env:
+          RECEIPT_ID: ${{ inputs.staging_receipt_id }}
+          EXPECTED_DIGEST: ${{ needs.select.outputs.receipt_digest }}
+        run: ruby .github/scripts/release/verify-staged-receipt.rb metadata
+      - name: Download the staging receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ inputs.staging_receipt_id }}
+          run-id: ${{ steps.receipt.outputs.run_id }}
+          repository: lifeodyssey/animichi
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: staging-receipt
+      - name: Verify the staging receipt
+        run: ruby .github/scripts/release/verify-staged-receipt.rb content
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify selected deploy configurations
+        run: node .github/scripts/release/verify-config.mjs
+      - uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Log into Pulumi Cloud
+        uses: pulumi/auth-actions@273044cc19e63ea565285da8edd4e059126a0bdb # v2.1.2
+        with:
+          organization: lifeodyssey
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:lifeodyssey
+      - name: Open the environment configuration
+        uses: pulumi/esc-action@eec71a90d9989af7ff14bd700b83fc72fae36119 # v4.0.0
+        with:
+          environment: lifeodyssey/animichi/prod
+          export-environment-variables: CLOUDFLARE_API_TOKEN
+      - name: Require environment credentials
+        run: |
+          for key in CLOUDFLARE_API_TOKEN; do
+            [ -n "${!key:-}" ] || { echo "::error::$key is missing"; exit 1; }
+          done
+      # The topology program alone: the database-access program and its generated provider SDK
+      # are the full promotion's, so neither is installed here.
+      - name: Install sealed foundation dependencies
+        run: pnpm install --dir release/foundation --frozen-lockfile --ignore-scripts
+      # The preview against the stack's recorded state, into the job summary: each resource's
+      # operation and the names of changed properties, with values only when `show_diff` asks, and
+      # no stack outputs. With `apply` false this is the run's whole output. No `--plan` binds the
+      # apply to it: Pulumi documents update plans as experimental and opt-in (ADR 0010).
+      - name: Preview topology
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
+        with:
+          command: preview
+          stack-name: lifeodyssey/prod
+          work-dir: release/foundation/infra
+          diff: ${{ inputs.show_diff }}
+          suppress-outputs: true
+          comment-on-summary: true
+      - name: Refuse while a full promotion is running
+        if: ${{ inputs.apply }}
+        run: ruby .github/scripts/release/refuse-during-promotion.rb
+      - name: Apply topology
+        if: ${{ inputs.apply }}
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
+        with:
+          command: up
+          stack-name: lifeodyssey/prod
+          work-dir: release/foundation/infra
+          suppress-outputs: true
+
+  # A dispatched run that fails is visible only on its run page unless it says so (#678 AC1): one
+  # deduplicated alert issue per failing-job set, through the run's own token.
+  alert-failure:
+    name: Ops / failure alert
+    needs: [select, apply-topology]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: ops-alert-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions: {contents: read, actions: read, issues: write} # read this run's jobs; publish the alert issue
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+      - name: Publish the failure alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_SELF_JOB: Ops / failure alert
+        run: ruby .github/scripts/alert/failure-alert.rb

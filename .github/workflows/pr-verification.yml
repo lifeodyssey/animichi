@@ -371,6 +371,7 @@ jobs:
           bundle exec ruby .github/test/pr-verification-toolchain-lane.test.rb
           bundle exec ruby .github/test/pr-verification-workspace.test.rb
           bundle exec ruby .github/test/pr-verification-zizmor.test.rb
+          bundle exec ruby .github/test/production-topology.test.rb
           bundle exec ruby .github/test/release-build.test.rb
           bundle exec ruby .github/test/release-dispatch.test.rb
           bundle exec ruby .github/test/release-units.test.rb
